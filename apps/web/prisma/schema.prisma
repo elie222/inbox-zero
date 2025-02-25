@@ -175,19 +175,23 @@ model Label {
 }
 
 model Rule {
-  id             String          @id @default(cuid())
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  name           String
-  actions        Action[]
-  enabled        Boolean         @default(true)
-  automate       Boolean         @default(false) // if disabled, user must approve to execute
-  runOnThreads   Boolean         @default(false) // if disabled, only runs on individual emails
-  userId         String
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  executedRules  ExecutedRule[]
-  trackReplies   Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
-  threadTrackers ThreadTracker[]
+  id            String         @id @default(cuid())
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  name          String
+  actions       Action[]
+  enabled       Boolean        @default(true)
+  automate      Boolean        @default(false) // if disabled, user must approve to execute
+  runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  executedRules ExecutedRule[]
+
+  // reply tracking fields
+  trackReplies             Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
+  draftReplies             Boolean?
+  draftRepliesInstructions String?
+  threadTrackers           ThreadTracker[]
 
   // conditions: ai, group, static, category
   type                RuleType? // deprecated

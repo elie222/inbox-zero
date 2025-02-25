@@ -28,7 +28,7 @@ import { toastError } from "@/components/Toast";
 import {
   rulesExamplesBody,
   type RulesExamplesBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/rule.validation";
 import { examplePrompts } from "@/app/(app)/automation/examples";
 
 type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;

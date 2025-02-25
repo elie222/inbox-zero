@@ -1,4 +1,4 @@
-import type { CreateRuleBody } from "@/utils/actions/validation";
+import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ActionType, RuleType } from "@prisma/client";
 import {
   ForwardIcon,

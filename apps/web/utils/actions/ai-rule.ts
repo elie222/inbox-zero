@@ -19,13 +19,15 @@ import { type ActionError, isActionError } from "@/utils/error";
 import {
   reportAiMistakeBody,
   type ReportAiMistakeBody,
-  saveRulesPromptBody,
-  type SaveRulesPromptBody,
   runRulesBody,
   type RunRulesBody,
   testAiCustomContentBody,
   type TestAiCustomContentBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/ai-rule.validation";
+import {
+  saveRulesPromptBody,
+  type SaveRulesPromptBody,
+} from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
@@ -268,7 +270,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     await executeAct({
       gmail,
-      email: message,
+      message,
       executedRule,
       userEmail: session.user.email,
       isReplyTrackingRule: executedRule.rule?.trackReplies || false,

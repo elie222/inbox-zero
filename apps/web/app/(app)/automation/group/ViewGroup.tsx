@@ -36,7 +36,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/group.validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
 

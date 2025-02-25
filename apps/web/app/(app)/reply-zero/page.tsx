@@ -19,6 +19,14 @@ import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
 import { Button } from "@/components/ui/button";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { env } from "@/env";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
 
 export const maxDuration = Math.min(env.MAX_DURATION, 600);
 
@@ -82,14 +90,20 @@ export default async function ReplyTrackerPage({
             </TabsList>
 
             <div className="flex items-center gap-2">
-              <Button variant="ghost" size="icon" asChild>
-                <Link
-                  href={`/automation/rule/${trackRepliesRule?.id}`}
-                  target="_blank"
-                >
-                  <SettingsIcon className="size-4" />
-                </Link>
-              </Button>
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button variant="ghost" size="icon">
+                    <SettingsIcon className="size-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Settings</DialogTitle>
+                  </DialogHeader>
+
+                  <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
+                </DialogContent>
+              </Dialog>
               <TimeRangeFilter />
             </div>
           </div>

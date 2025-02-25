@@ -5,7 +5,7 @@ import { getSenders } from "@inboxzero/tinybird";
 import {
   type CreateCategoryBody,
   createCategoryBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/categorize.validation";
 import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";

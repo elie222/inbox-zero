@@ -206,8 +206,8 @@ function ReplyPanel({
 }) {
   const replyRef = useRef<HTMLDivElement>(null);
 
-  const [isGeneratingNudge, setIsGeneratingNudge] = useState(false);
-  const [nudge, setNudge] = useState<string | null>(null);
+  const [isGeneratingReply, setIsGeneratingReply] = useState(false);
+  const [reply, setReply] = useState<string | null>(null);
   // scroll to the reply panel when it first opens
   useEffect(() => {
     if (defaultShowReply && replyRef.current) {
@@ -219,8 +219,8 @@ function ReplyPanel({
   }, [defaultShowReply]);
 
   useEffect(() => {
-    async function loadNudge() {
-      setIsGeneratingNudge(true);
+    async function generateReply() {
+      setIsGeneratingReply(true);
 
       const isSent = message.labelIds?.includes("SENT");
 
@@ -240,45 +240,46 @@ function ReplyPanel({
       });
       if (isActionError(result)) {
         console.error(result);
-        setNudge("");
+        setReply("");
       } else {
-        setNudge(result.text);
+        setReply(result.text);
       }
-      setIsGeneratingNudge(false);
+      setIsGeneratingReply(false);
     }
 
-    if (generateNudge) loadNudge();
-  }, [generateNudge, message]);
+    // Only generate a nudge if there's no draft message and generateNudge is true
+    if (generateNudge && !draftMessage) generateReply();
+  }, [generateNudge, message, draftMessage]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {
       if (draftMessage) return prepareDraftReplyEmail(draftMessage);
 
       // use nudge if available
-      if (nudge) {
+      if (reply) {
         // Convert nudge text into HTML paragraphs
-        const nudgeHtml = nudge
-          ? nudge
+        const replyHtml = reply
+          ? reply
               .split("\n")
               .filter((line) => line.trim())
               .map((line) => `<p>${line}</p>`)
               .join("")
           : "";
 
-        return prepareReplyingToEmail(message, nudgeHtml);
+        return prepareReplyingToEmail(message, replyHtml);
       }
 
       return prepareReplyingToEmail(message);
     }
     return prepareForwardingEmail(message);
-  }, [showReply, message, draftMessage, nudge]);
+  }, [showReply, message, draftMessage, reply]);
 
   return (
     <>
       <Separator className="my-4" />
 
       <div ref={replyRef}>
-        {isGeneratingNudge ? (
+        {isGeneratingReply ? (
           <div className="flex items-center justify-center">
             <Loading />
             <MessageText>Generating reply...</MessageText>
@@ -287,7 +288,7 @@ function ReplyPanel({
               variant="outline"
               size="sm"
               onClick={() => {
-                setIsGeneratingNudge(false);
+                setIsGeneratingReply(false);
               }}
             >
               Skip
@@ -349,6 +350,8 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
 
 function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
   const splitHtml = extractEmailReply(draft.textHtml || "");
+
+  console.log("🚀 ~ splitHtml:", splitHtml);
 
   return {
     to: draft.headers.to,

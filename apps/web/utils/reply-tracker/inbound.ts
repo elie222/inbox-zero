@@ -14,6 +14,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
+import { generateDraft } from "@/utils/reply-tracker/generate-reply";
 
 export async function markNeedsReply(
   userId: string,
@@ -22,6 +23,7 @@ export async function markNeedsReply(
   messageId: string,
   sentAt: Date,
   gmail: gmail_v1.Gmail,
+  message: ParsedMessage,
 ) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     userId,
@@ -73,9 +75,22 @@ export async function markNeedsReply(
     awaitingReplyLabelId,
   );
   const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
+  const draftPromise = generateDraft({
+    userId,
+    userEmail: email,
+    gmail,
+    message,
+  });
 
   const [dbResult, removeLabelResult, newLabelResult] =
     await Promise.allSettled([dbPromise, removeLabelPromise, newLabelPromise]);
+
+  // Avoid hitting Gmail rate limit by doing too much at once
+  try {
+    await draftPromise;
+  } catch (error) {
+    logger.error("Failed to create draft", { error });
+  }
 
   if (dbResult.status === "rejected") {
     logger.error("Failed to mark needs reply", {
@@ -98,7 +113,7 @@ export async function markNeedsReply(
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
-  user: Pick<User, "id" | "about"> & UserEmailWithAI,
+  user: Pick<User, "about"> & UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
@@ -129,6 +144,7 @@ export async function handleInboundReply(
       message.id,
       internalDateToDate(message.internalDate),
       gmail,
+      message,
     );
   }
 }

@@ -8,6 +8,7 @@ const logger = createScopedLogger("generate-reply");
 export async function aiGenerateReply({
   messages,
   user,
+  instructions,
 }: {
   messages: {
     from: string;
@@ -17,6 +18,7 @@ export async function aiGenerateReply({
     date: Date;
   }[];
   user: UserEmailWithAI;
+  instructions: string | null;
 }) {
   const system = `You are an expert assistant that drafts email replies.
 Write a polite and professional email that follows up on the previous conversation.
@@ -24,9 +26,23 @@ Keep it concise and friendly. Don't be pushy.
 Use context from the previous emails to make it relevant.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
-Keep it short.`;
+Keep it short.
 
-  const prompt = `Here is the context of the email thread (from oldest to newest):
+IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
+Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
+Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.`;
+
+  const userInstructions = instructions
+    ? `Additional user instructions:
+
+<instructions>
+${instructions}
+</instructions>
+`
+    : "";
+
+  const prompt = `${userInstructions}
+Here is the context of the email thread (from oldest to newest):
 ${messages
   .map(
     (msg) => `<email>
@@ -38,7 +54,7 @@ ${stringifyEmail(msg, 3000)}
      
 Please write a reply to the email.
 Today's date is: ${new Date().toISOString().split("T")[0]}.
-IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.to}.`;
+IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.to}.`.trim();
 
   logger.trace("Input", { system, prompt });
 

@@ -20,6 +20,9 @@ async function main() {
     where: {
       provider: "google",
     },
+    orderBy: {
+      updatedAt: "desc",
+    },
   });
 
   console.log(`Found ${accounts.length} Google accounts to process`);

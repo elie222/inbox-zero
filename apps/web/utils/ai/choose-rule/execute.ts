@@ -1,12 +1,12 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { runActionFunction } from "@/utils/ai/actions";
-import type { EmailForAction } from "@/utils/ai/types";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { ActionType, ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { markNeedsReply } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
+import type { ParsedMessage } from "@/utils/types";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -15,12 +15,12 @@ export async function executeAct({
   gmail,
   executedRule,
   userEmail,
-  email,
+  message,
   isReplyTrackingRule,
 }: {
   gmail: gmail_v1.Gmail;
   executedRule: ExecutedRuleWithActionItems;
-  email: EmailForAction;
+  message: ParsedMessage;
   userEmail: string;
   isReplyTrackingRule: boolean;
 }) {
@@ -48,7 +48,7 @@ export async function executeAct({
       // we handle the reply tracking labelling below instead
       if (isReplyTrackingRule && action.type === ActionType.LABEL) continue;
 
-      await runActionFunction(gmail, email, action, userEmail, executedRule);
+      await runActionFunction(gmail, message, action, userEmail, executedRule);
     } catch (error) {
       await prisma.executedRule.update({
         where: { id: executedRule.id },
@@ -65,8 +65,9 @@ export async function executeAct({
       userEmail,
       executedRule.threadId,
       executedRule.messageId,
-      internalDateToDate(email.internalDate),
+      internalDateToDate(message.internalDate),
       gmail,
+      message,
     ).catch((error) => {
       logger.error("Failed to create reply tracker", { error });
     });

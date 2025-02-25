@@ -6,7 +6,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/group.validation";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 

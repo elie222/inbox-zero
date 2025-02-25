@@ -14,11 +14,7 @@ export type ProcessHistoryOptions = {
   hasAiAutomationAccess: boolean;
   user: Pick<
     User,
-    | "id"
-    | "about"
-    | "coldEmailPrompt"
-    | "coldEmailBlocker"
-    | "autoCategorizeSenders"
+    "about" | "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
   > &
     UserEmailWithAI;
 };

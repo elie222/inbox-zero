@@ -21,6 +21,27 @@ export function extractEmailReply(html: string): {
     );
 
     if (quoteContainer) {
+      // Special case for Gmail's <br> separator format
+      if (
+        html.includes('<div dir="ltr">') &&
+        html.includes("<br>") &&
+        html.indexOf("<br>") < html.indexOf("gmail_quote")
+      ) {
+        // Get the content before the <br> that precedes the gmail_quote
+        const replyPart = html.substring(0, html.indexOf("<br>"));
+
+        // Parse just the reply part to extract the first div[dir="ltr"]
+        const replyDoc = parser.parseFromString(replyPart, "text/html");
+        const replyDiv = replyDoc.querySelector('div[dir="ltr"]');
+
+        if (replyDiv) {
+          return {
+            draftHtml: replyDiv.outerHTML,
+            originalHtml: quoteContainer.outerHTML,
+          };
+        }
+      }
+
       // Try to get nested reply first (case 1)
       let firstDiv = doc.querySelector('div[dir="ltr"] > div[dir="ltr"]');
 

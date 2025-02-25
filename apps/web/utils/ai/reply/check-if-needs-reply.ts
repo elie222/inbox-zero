@@ -17,7 +17,7 @@ export async function aiCheckIfNeedsReply({
   user,
   messages,
 }: {
-  user: Pick<User, "id" | "about"> & UserEmailWithAI;
+  user: Pick<User, "about"> & UserEmailWithAI;
   messages: EmailForLLM[];
 }) {
   const lastMessage = messages.at(-1);

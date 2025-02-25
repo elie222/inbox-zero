@@ -13,7 +13,7 @@ import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDispla
 import {
   testAiCustomContentBody,
   type TestAiCustomContentBody,
-} from "@/utils/actions/validation";
+} from "@/utils/actions/ai-rule.validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 export const TestCustomEmailForm = () => {

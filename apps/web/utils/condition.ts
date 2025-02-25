@@ -5,7 +5,10 @@ import {
   type Category,
   type Rule,
 } from "@prisma/client";
-import type { CreateRuleBody, ZodCondition } from "@/utils/actions/validation";
+import type {
+  CreateRuleBody,
+  ZodCondition,
+} from "@/utils/actions/rule.validation";
 
 export type RuleConditions = Partial<
   Pick<
