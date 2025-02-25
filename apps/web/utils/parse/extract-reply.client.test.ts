@@ -91,4 +91,24 @@ describe("extractEmailReply", () => {
     expect(result.draftHtml).toBe("");
     expect(result.originalHtml).toBe("");
   });
+
+  it("correctly extracts draft content from Gmail draft with <br> separator", () => {
+    const html = `<div dir="ltr">hey, that sounds awesome!!!</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Tue, 25 Feb 2025 at 14:44, Alice Smith &lt;<a href="mailto:example@gmail.com">example@gmail.com</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr"><div>hey, checking in</div><div><br></div><span class="gmail_signature_prefix">-- </span><br><div dir="ltr" class="gmail_signature"><div dir="ltr">Alice Smith,<div>CEO, The Boring Fund</div></div></div></div>\r\n</blockquote></div>\r\n`;
+
+    const result = extractEmailReply(html);
+    expect(result.draftHtml).toBe(
+      '<div dir="ltr">hey, that sounds awesome!!!</div>',
+    );
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
+
+  it("handles more complex draft with formatting and <br> separator", () => {
+    const html = `<div dir="ltr">This is my <b>formatted</b> reply with <i>styling</i>.</div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Mon, Mar 1, 2025 at 10:00, John Doe &lt;<a href="mailto:john@example.com">john@example.com</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr">Original message content</div></blockquote></div>`;
+
+    const result = extractEmailReply(html);
+    expect(result.draftHtml).toBe(
+      '<div dir="ltr">This is my <b>formatted</b> reply with <i>styling</i>.</div>',
+    );
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
 });
