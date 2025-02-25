@@ -33,6 +33,12 @@ async function getUser(userId: string) {
           pendingInvites: true,
         },
       },
+      accounts: {
+        select: {
+          id: true,
+          email: true,
+        },
+      },
     },
   });
 

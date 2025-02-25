@@ -49,6 +49,7 @@ import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 
 type NavItem = {
   name: string;
@@ -255,7 +256,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
-        {/* <NavUser user={data.user} /> */}
+        <AccountSwitcher className="w-full" />
       </SidebarFooter>
     </Sidebar>
   );
