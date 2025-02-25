@@ -230,7 +230,7 @@ const businessTeamTier: Tier = {
     monthly: 0,
     annually: discount(64, 56),
   },
-  description: "AI-powered email management for small teams",
+  description: "AI-powered email management for teams",
   features: [
     { text: "5 email accounts included" },
     aiAssistantFeature,
@@ -265,7 +265,7 @@ const businessEnterpriseTier: Tier = {
     monthly: 0,
     annually: discount(pricing.COPILOT_MONTHLY, 400),
   },
-  description: "Self-hosted, customized email management",
+  description: "Self-hosted, bring your own LLM",
   features: [
     {
       text: "25 email accounts included",
