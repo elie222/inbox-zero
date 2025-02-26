@@ -38,38 +38,61 @@ IMPORTANT: You must strictly follow the exclusions mentioned in each rule.
 - Rules about requiring replies should be prioritized when the email clearly needs a response.
 - If you're unsure, select the last rule (not enough information).
 - It's better to select "not enough information" than to make an incorrect choice.
-  
-These are the rules you can select from:
-${rulesWithUnknownRule
-  .map((rule, i) => `${i + 1}. ${rule.instructions}`)
-  .join("\n")}
 
-${
-  user.about
-    ? `Some additional information the user has provided:\n\n${user.about}`
-    : ""
-}
-
-REMINDER: Pay careful attention to any exclusions mentioned in the rules. If an email matches an exclusion, that rule MUST NOT be selected.`;
-
-  const prompt = `An email was received for processing. Select a rule to apply to it.
+REMINDER: Pay careful attention to any exclusions mentioned in the rules. If an email matches an exclusion, that rule MUST NOT be selected.
 
 <outputFormat>
 Respond with a JSON object with the following fields:
 "reason" - the reason you chose that rule. Keep it concise.
 "rule" - the number of the rule you want to apply
-</outputFormat>
+</outputFormat>`;
+
+  const rulesPrompt = `These are the rules you can select from:
+${rulesWithUnknownRule
+  .map((rule, i) => `${i + 1}. ${rule.instructions}`)
+  .join("\n")}
+
+${user.about ? `Additional information about the user:\n\n${user.about}` : ""}`.trim();
+
+  const prompt = `Select a rule to apply to this email:
 
 <email>
 ${stringifyEmail(email, 500)}
 </email>`;
 
-  logger.trace("AI choose rule prompt", { system, prompt });
+  logger.trace("Input", {
+    system,
+    rulesPrompt,
+    prompt,
+  });
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
-    prompt,
-    system,
+    messages: [
+      {
+        role: "system",
+        content: system,
+        // won't be used with anthropic as it's under 1024 tokens:
+        // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
+        // providerOptions: {
+        //   bedrock: { cachePoint: { type: "ephemeral" } },
+        //   anthropic: { cacheControl: { type: "ephemeral" } },
+        // },
+      },
+      {
+        role: "user",
+        content: rulesPrompt,
+        // This will cache if the user has a very long prompt. Although usually won't do anything
+        providerOptions: {
+          bedrock: { cachePoint: { type: "ephemeral" } },
+          anthropic: { cacheControl: { type: "ephemeral" } },
+        },
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
     schema: z.object({
       reason: z.string(),
       rule: z.number(),
@@ -78,7 +101,9 @@ ${stringifyEmail(email, 500)}
     usageLabel: "Choose rule",
   });
 
-  logger.trace("AI choose rule response", aiResponse.object);
+  logger.trace("Response", aiResponse.object);
+  // logger.trace("Usage", aiResponse.usage);
+  // logger.trace("Provider Metadata", aiResponse.experimental_providerMetadata);
 
   return aiResponse.object;
 }
