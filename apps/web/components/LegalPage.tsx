@@ -15,7 +15,7 @@ export function LegalPage(props: {
         </time>
         <h1 className="text-3xl font-bold">{title}</h1>
       </div>
-      <div className="[&>*:last-child]:mb-0 [&>*]:mb-3">{content}</div>
+      <div className="*:mb-3 [&>*:last-child]:mb-0">{content}</div>
     </article>
   );
 }

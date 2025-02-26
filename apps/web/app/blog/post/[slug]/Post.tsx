@@ -23,7 +23,7 @@ const builder = imageUrlBuilder(client);
 export function Post({ post }: { post: PostType }) {
   return (
     <BlogLayout>
-      <article className="mx-auto grid w-full max-w-screen-xl gap-5 px-0 pt-16 md:grid-cols-4 md:pt-24 lg:gap-4 lg:px-20">
+      <article className="mx-auto grid w-full max-w-(--breakpoint-xl) gap-5 px-0 pt-16 md:grid-cols-4 md:pt-24 lg:gap-4 lg:px-20">
         <main className="md:col-span-3">
           <Card>
             <CardContent className="p-10">

@@ -12,7 +12,7 @@ export function TabsToolbar({
   return (
     <div
       className={cn(
-        "content-container flex shrink-0 flex-col justify-between gap-x-4 space-y-2 border-b border-border bg-background py-2 shadow-sm md:flex-row md:gap-x-6 md:space-y-0",
+        "content-container border-border bg-background flex shrink-0 flex-col justify-between space-y-2 gap-x-4 border-b py-2 shadow-xs md:flex-row md:space-y-0 md:gap-x-6",
         className,
       )}
       {...props}

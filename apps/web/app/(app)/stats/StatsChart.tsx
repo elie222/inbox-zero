@@ -25,7 +25,7 @@ export function StatsChart(props: {
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+      loadingComponent={<Skeleton className="h-64 w-full rounded-sm" />}
     >
       {data && (
         <div className="mx-auto max-w-2xl">

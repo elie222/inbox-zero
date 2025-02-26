@@ -15,7 +15,7 @@ export function TryInboxZero() {
           alt="Inbox Zero"
           width={320}
           height={240}
-          className="w-full rounded-t-lg shadow"
+          className="w-full rounded-t-lg shadow-sm"
         />
         <p className="p-4 text-gray-700">
           Let AI handle your emails, unsubscribe from newsletters, and block

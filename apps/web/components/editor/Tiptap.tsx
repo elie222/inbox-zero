@@ -50,7 +50,7 @@ export const Tiptap = forwardRef<
     editorProps: {
       attributes: {
         class: cn(
-          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-none min-h-[120px] px-3 py-2",
+          "prose prose-sm sm:prose-base dark:prose-invert max-w-none focus:outline-hidden min-h-[120px] px-3 py-2",
           className,
         ),
       },
@@ -70,12 +70,12 @@ export const Tiptap = forwardRef<
   }));
 
   return (
-    <div className="relative w-full rounded-md border border-input bg-background pb-6">
+    <div className="border-input bg-background relative w-full rounded-md border pb-6">
       <EditorContent editor={editor} />
       {!!onMoreClick && (
         <div className="absolute bottom-2 left-0 flex">
           <button
-            className="rounded-tr-md px-4 py-1 text-muted-foreground transition-transform hover:translate-x-1"
+            className="text-muted-foreground rounded-tr-md px-4 py-1 transition-transform hover:translate-x-1"
             type="button"
             onClick={onMoreClick}
           >

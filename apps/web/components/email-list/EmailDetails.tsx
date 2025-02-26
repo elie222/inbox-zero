@@ -14,13 +14,13 @@ export function EmailDetails({ message }: { message: ThreadMessage }) {
   ];
 
   return (
-    <div className="mb-4 rounded-md bg-muted p-3 text-sm">
+    <div className="bg-muted mb-4 rounded-md p-3 text-sm">
       <div className="grid gap-1">
         {details.map(
           ({ label, value }) =>
             value && (
-              <div key={label} className="grid grid-cols-[auto,1fr] gap-2">
-                <span className="font-medium text-foreground">{label}:</span>
+              <div key={label} className="grid grid-cols-[auto_1fr] gap-2">
+                <span className="text-foreground font-medium">{label}:</span>
                 <span className="text-muted-foreground">{value}</span>
               </div>
             ),

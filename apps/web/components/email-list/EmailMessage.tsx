@@ -68,7 +68,7 @@ export function EmailMessage({
     // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
     <li
       className={cn(
-        "bg-background p-4 shadow sm:rounded-lg",
+        "bg-background p-4 shadow-sm sm:rounded-lg",
         !expanded && "cursor-pointer",
       )}
       onClick={onExpand}
@@ -159,7 +159,7 @@ function TopBar({
         )}
       </div>
       <div className="flex items-center space-x-2">
-        <p className="mt-1 whitespace-nowrap text-sm text-muted-foreground sm:ml-3 sm:mt-0">
+        <p className="text-muted-foreground mt-1 text-sm whitespace-nowrap sm:mt-0 sm:ml-3">
           <time dateTime={message.headers.date}>
             {formatShortDate(new Date(message.headers.date))}
           </time>

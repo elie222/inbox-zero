@@ -605,7 +605,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         ) : field.textArea ? (
                           <div className="mt-2">
                             <TextareaAutosize
-                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              className="border-border bg-background block w-full flex-1 rounded-md border whitespace-pre-wrap shadow-xs focus:border-black focus:ring-black sm:text-sm"
                               minRows={3}
                               rows={3}
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
@@ -616,7 +616,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         ) : (
                           <div className="mt-2">
                             <input
-                              className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                              className="border-border bg-background block w-full flex-1 rounded-md border shadow-xs focus:border-black focus:ring-black sm:text-sm"
                               type="text"
                               placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
                               {...register(`actions.${i}.${field.name}.value`)}
@@ -625,14 +625,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         )}
 
                         {hasVariables(value) && (
-                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
+                          <div className="bg-muted/50 text-foreground mt-2 rounded-md p-2 font-mono text-sm whitespace-pre-wrap">
                             {(value || "")
                               .split(/(\{\{.*?\}\})/g)
                               .map((part, i) =>
                                 part.startsWith("{{") ? (
                                   <span
                                     key={i}
-                                    className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
+                                    className="rounded-sm bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
                                   >
                                     <sub className="font-sans">AI</sub>
                                     {part}
@@ -804,7 +804,7 @@ function ReplyTrackerActionSection() {
           </SectionDescription>
         </div>
 
-        <ul className="list-inside list-disc space-y-2 text-sm text-muted-foreground">
+        <ul className="text-muted-foreground list-inside list-disc space-y-2 text-sm">
           <li>
             Emails will be labeled as "{NEEDS_REPLY_LABEL_NAME}" and "
             {AWAITING_REPLY_LABEL_NAME}" when appropriate
@@ -812,8 +812,8 @@ function ReplyTrackerActionSection() {
           <li>AI will draft replies when confident it can help</li>
         </ul>
 
-        <div className="rounded-md bg-muted/50 p-4">
-          <p className="text-sm text-muted-foreground">
+        <div className="bg-muted/50 rounded-md p-4">
+          <p className="text-muted-foreground text-sm">
             These actions are automatically configured for reply tracking and
             cannot be modified.
           </p>

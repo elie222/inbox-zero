@@ -69,7 +69,7 @@ export function CombinedStatsChart(props: { title: string }) {
     <LoadingContent
       loading={isLoading}
       error={error}
-      loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+      loadingComponent={<Skeleton className="h-64 w-full rounded-sm" />}
     >
       {hasAllData && (
         <div className="mx-auto">

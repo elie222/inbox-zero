@@ -46,7 +46,7 @@ export function EmailAnalytics(props: {
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded-sm" />}
       >
         {data && (
           <BarList
@@ -67,7 +67,7 @@ export function EmailAnalytics(props: {
       <LoadingContent
         loading={isLoading}
         error={error}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded-sm" />}
       >
         {data && (
           <BarList
@@ -88,7 +88,7 @@ export function EmailAnalytics(props: {
       <LoadingContent
         loading={isLoadingRecipients}
         error={errorRecipients}
-        loadingComponent={<Skeleton className="h-64 w-full rounded" />}
+        loadingComponent={<Skeleton className="h-64 w-full rounded-sm" />}
       >
         {dataRecipients && (
           <BarList

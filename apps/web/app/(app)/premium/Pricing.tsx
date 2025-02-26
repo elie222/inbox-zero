@@ -61,7 +61,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
     <div className="mb-12">
       <div className="mx-auto max-w-2xl text-center lg:max-w-4xl">
         <h2 className="font-cal text-base leading-7 text-blue-600">Pricing</h2>
-        <p className="mt-2 font-cal text-4xl text-gray-900 sm:text-5xl">
+        <p className="font-cal mt-2 text-4xl text-gray-900 sm:text-5xl">
           Try for free, affordable paid plans
         </p>
       </div>
@@ -85,7 +85,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
         {header}
 
         {isPremium && (
-          <div className="mb-8 mt-8 text-center">
+          <div className="mt-8 mb-8 text-center">
             <Button asChild>
               <Link
                 href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
@@ -132,7 +132,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
           <RadioGroup
             value={frequency}
             onChange={setFrequency}
-            className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs font-semibold leading-5 ring-1 ring-inset ring-gray-200"
+            className="grid grid-cols-2 gap-x-1 rounded-full p-1 text-center text-xs leading-5 font-semibold ring-1 ring-gray-200 ring-inset"
           >
             <Label className="sr-only">Payment frequency</Label>
             {frequencies.map((option) => (
@@ -220,7 +220,7 @@ export function Pricing(props: { header?: React.ReactNode }) {
                     <span className="text-4xl font-bold tracking-tight text-gray-900">
                       ${tier.price[frequency.value]}
                     </span>
-                    <span className="text-sm font-semibold leading-6 text-gray-600">
+                    <span className="text-sm leading-6 font-semibold text-gray-600">
                       {frequency.priceSuffix}
                     </span>
 
@@ -287,9 +287,9 @@ export function Pricing(props: { header?: React.ReactNode }) {
                   aria-describedby={tier.name}
                   className={clsx(
                     tier.mostPopular
-                      ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
-                      : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
-                    "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
+                      ? "bg-blue-600 text-white shadow-xs hover:bg-blue-500"
+                      : "text-blue-600 ring-1 ring-blue-200 ring-inset hover:ring-blue-300",
+                    "mt-8 block rounded-md px-3 py-2 text-center text-sm leading-6 font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
                   )}
                 >
                   {getCTAText()}
@@ -414,7 +414,7 @@ function OneColItem({
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (
-    <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
+    <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs leading-5 font-semibold text-blue-600">
       {children}
     </span>
   );

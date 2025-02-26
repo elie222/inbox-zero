@@ -15,7 +15,7 @@ const Command = React.forwardRef<
   <CommandPrimitive
     ref={ref}
     className={cn(
-      "flex h-full w-full flex-col overflow-hidden rounded-md bg-background text-slate-950 dark:text-slate-50",
+      "bg-background flex h-full w-full flex-col overflow-hidden rounded-md text-slate-950 dark:text-slate-50",
       className,
     )}
     {...props}
@@ -36,7 +36,7 @@ const CommandDialog = ({
     <Dialog {...props}>
       <DialogContent className="overflow-hidden p-0 shadow-lg">
         <Command
-          className="[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground dark:[&_[cmdk-group-heading]]:text-slate-400 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-group]]:px-2 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
+          className="[&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium dark:[&_[cmdk-group-heading]]:text-slate-400 [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5"
           {...commandProps}
         >
           {children}
@@ -55,7 +55,7 @@ const CommandInput = React.forwardRef<
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        "flex h-11 w-full rounded-md border-transparent bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground focus:border-transparent focus-visible:ring-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:placeholder:text-slate-400",
+        "placeholder:text-muted-foreground flex h-11 w-full rounded-md border-transparent bg-transparent py-3 text-sm outline-hidden focus:border-transparent focus-visible:ring-transparent disabled:cursor-not-allowed disabled:opacity-50 dark:placeholder:text-slate-400",
         className,
       )}
       {...props}
@@ -71,7 +71,7 @@ const CommandList = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <CommandPrimitive.List
     ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
+    className={cn("max-h-[300px] overflow-x-hidden overflow-y-auto", className)}
     {...props}
   />
 ));
@@ -98,7 +98,7 @@ const CommandGroup = React.forwardRef<
   <CommandPrimitive.Group
     ref={ref}
     className={cn(
-      "overflow-hidden p-1 text-slate-950 dark:text-slate-50 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground dark:[&_[cmdk-group-heading]]:text-slate-400",
+      "[&_[cmdk-group-heading]]:text-muted-foreground overflow-hidden p-1 text-slate-950 dark:text-slate-50 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium dark:[&_[cmdk-group-heading]]:text-slate-400",
       className,
     )}
     {...props}
@@ -126,7 +126,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-slate-100 aria-selected:text-primary data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 dark:aria-selected:bg-slate-800 dark:aria-selected:text-slate-50",
+      "aria-selected:text-primary relative flex cursor-default items-center rounded-xs px-2 py-1.5 text-sm outline-hidden select-none aria-selected:bg-slate-100 data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 dark:aria-selected:bg-slate-800 dark:aria-selected:text-slate-50",
       className,
     )}
     {...props}
@@ -142,7 +142,7 @@ const CommandShortcut = ({
   return (
     <span
       className={cn(
-        "ml-auto rounded bg-slate-200 px-1 py-0.5 text-xs tracking-widest text-slate-800 dark:bg-slate-800 dark:text-slate-400",
+        "ml-auto rounded-sm bg-slate-200 px-1 py-0.5 text-xs tracking-widest text-slate-800 dark:bg-slate-800 dark:text-slate-400",
         className,
       )}
       {...props}

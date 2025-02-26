@@ -6,7 +6,7 @@ export function TopSection(props: {
   descriptionComponent?: React.ReactNode;
 }) {
   return (
-    <div className="content-container border-b border-border bg-background py-4 shadow-sm sm:py-6">
+    <div className="content-container border-border bg-background border-b py-4 shadow-xs sm:py-6">
       <PageHeading>{props.title}</PageHeading>
       <div className="mt-2">
         {props.descriptionComponent ? (
@@ -28,7 +28,7 @@ export function TopSectionWithRightSection(props: {
   rightComponent: React.ReactNode;
 }) {
   return (
-    <div className="content-container flex items-center justify-between border-b border-border bg-background py-6 shadow-sm">
+    <div className="content-container border-border bg-background flex items-center justify-between border-b py-6 shadow-xs">
       <div>
         <PageHeading>{props.title}</PageHeading>
         <div className="mt-2">

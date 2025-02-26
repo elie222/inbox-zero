@@ -143,7 +143,7 @@ function Step1({ back, next }: StepProps) {
         alt="Analyzing prompt file"
         width={500}
         height={300}
-        className="rounded-lg shadow"
+        className="rounded-lg shadow-sm"
       />
     </Step>
   );
@@ -158,7 +158,7 @@ function Step2({ back, next }: StepProps) {
         alt="Editing a rule"
         width={500}
         height={300}
-        className="rounded-lg shadow"
+        className="rounded-lg shadow-sm"
       />
     </Step>
   );
@@ -179,7 +179,7 @@ function Step3({ back, next }: StepProps) {
         alt="Test Rules"
         width={500}
         height={300}
-        className="rounded-lg shadow"
+        className="rounded-lg shadow-sm"
       />
     </Step>
   );
@@ -198,7 +198,7 @@ function Step4({ back, next }: StepProps) {
         alt="Fix rule"
         width={500}
         height={300}
-        className="rounded-lg shadow"
+        className="rounded-lg shadow-sm"
       />
     </Step>
   );

@@ -239,18 +239,18 @@ function SimpleListRow({
   );
 
   return (
-    <div className="bg-background p-4 shadow sm:rounded-lg">
+    <div className="bg-background p-4 shadow-sm sm:rounded-lg">
       <div className="sm:flex sm:items-center sm:gap-4">
         <div className="w-full">
           <div className="flex">
             <span className="font-bold">
               {extractNameFromEmail(message.headers.from)}
             </span>
-            <span className="ml-2 mr-4">{message.headers.subject}</span>
+            <span className="mr-4 ml-2">{message.headers.subject}</span>
             {expanded && <span className="ml-auto">{actionButtons}</span>}
           </div>
 
-          <div className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
+          <div className="text-muted-foreground mt-2 text-sm whitespace-pre-wrap">
             {expanded && !!message.textHtml ? (
               <HtmlEmail html={message.textHtml} />
             ) : (

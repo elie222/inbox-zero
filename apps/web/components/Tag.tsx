@@ -3,7 +3,7 @@ import { type VariantProps, cva } from "class-variance-authority";
 import { forwardRef } from "react";
 
 const tagVariants = cva(
-  "truncate rounded border-2 border-white px-2 py-0.5 text-center text-sm font-semibold shadow",
+  "truncate rounded-sm border-2 border-white px-2 py-0.5 text-center text-sm font-semibold shadow-sm",
   {
     variants: {
       variant: {

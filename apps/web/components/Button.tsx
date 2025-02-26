@@ -46,7 +46,7 @@ const buttonVariants = cva(
       {
         color: ["primary", "red", "white", "blue"],
         class:
-          "border px-4 shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-offset-2",
+          "border px-4 shadow-xs hover:shadow-sm focus:outline-hidden focus:ring-2 focus:ring-offset-2",
       },
     ],
     defaultVariants: {

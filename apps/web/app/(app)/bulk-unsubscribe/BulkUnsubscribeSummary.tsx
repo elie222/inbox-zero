@@ -21,7 +21,7 @@ export function BulkUnsubscribeSummary() {
     <LoadingContent
       loading={!data && isLoading}
       error={error}
-      loadingComponent={<Skeleton className="h-24 rounded" />}
+      loadingComponent={<Skeleton className="h-24 rounded-sm" />}
     >
       <StatsCards
         stats={[

@@ -598,7 +598,7 @@ function CategoryMismatch({
         smart category.
       </SectionDescription>
 
-      <div className="mb-1 mt-4">
+      <div className="mt-4 mb-1">
         <Label name="category" label="Change category" />
       </div>
 
@@ -934,7 +934,7 @@ function Instructions({
   return (
     <div>
       <p className="text-sm">{label}</p>
-      <div className="mt-2 rounded border border-border bg-muted p-2 text-sm">
+      <div className="border-border bg-muted mt-2 rounded-sm border p-2 text-sm">
         {instructions}
       </div>
     </div>

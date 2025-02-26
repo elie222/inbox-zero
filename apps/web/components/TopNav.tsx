@@ -55,10 +55,10 @@ const userNavigation = [
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
-    <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background shadow-sm sm:gap-x-6">
+    <div className="content-container border-border bg-background flex h-16 shrink-0 items-center gap-x-4 border-b shadow-xs sm:gap-x-6">
       {trigger}
       {/* Separator */}
-      <div className="h-6 w-px bg-border" aria-hidden="true" />
+      <div className="bg-border h-6 w-px" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="ml-auto flex items-center gap-x-4 lg:gap-x-6">
@@ -81,22 +81,22 @@ function ProfileDropdown() {
             <Image
               width={32}
               height={32}
-              className="rounded-full bg-muted"
+              className="bg-muted rounded-full"
               src={session.user.image}
               alt="Profile"
             />
           ) : (
-            <div className="h-8 w-8 rounded-full bg-primary" />
+            <div className="bg-primary h-8 w-8 rounded-full" />
           )}
           <span className="hidden lg:flex lg:items-center">
             <span
-              className="ml-4 text-sm font-semibold leading-6 text-foreground"
+              className="text-foreground ml-4 text-sm leading-6 font-semibold"
               aria-hidden="true"
             >
               {session.user.name || "Account"}
             </span>
             <ChevronDownIcon
-              className="ml-2 h-5 w-5 text-muted-foreground"
+              className="text-muted-foreground ml-2 h-5 w-5"
               aria-hidden="true"
             />
           </span>
@@ -110,9 +110,9 @@ function ProfileDropdown() {
           leaveFrom="transform opacity-100 scale-100"
           leaveTo="transform opacity-0 scale-95"
         >
-          <MenuItems className="absolute right-0 z-20 mt-2.5 w-52 origin-top-right rounded-md bg-popover py-2 shadow-lg ring-1 ring-border focus:outline-none">
+          <MenuItems className="bg-popover ring-border absolute right-0 z-20 mt-2.5 w-52 origin-top-right rounded-md py-2 shadow-lg ring-1 focus:outline-hidden">
             <MenuItem>
-              <div className="truncate border-b border-border px-3 pb-2 text-sm text-muted-foreground">
+              <div className="border-border text-muted-foreground truncate border-b px-3 pb-2 text-sm">
                 {session.user.email}
               </div>
             </MenuItem>
@@ -123,7 +123,7 @@ function ProfileDropdown() {
                   <Link
                     href={item.href}
                     className={cn(
-                      "flex items-center px-3 py-1 text-sm leading-6 text-foreground",
+                      "text-foreground flex items-center px-3 py-1 text-sm leading-6",
                       focus && "bg-accent",
                     )}
                     onClick={item.onClick}

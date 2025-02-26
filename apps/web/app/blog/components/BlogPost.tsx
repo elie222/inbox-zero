@@ -23,7 +23,7 @@ export function BlogPost(props: {
         </div> */}
         <Card>
           <CardContent className="pt-6">
-            <Prose className="prose-a:font-semibold prose-a:text-blue-500 prose-a:no-underline hover:prose-a:underline">
+            <Prose className="prose-a:font-semibold prose-a:text-blue-500 prose-a:no-underline prose-a:hover:underline">
               {content}
             </Prose>
           </CardContent>

@@ -34,11 +34,11 @@ export async function ReadMore() {
               height={200}
               className="w-full object-cover"
             />
-            <div className="flex flex-grow flex-col bg-white p-4 transition-colors duration-300 ease-in-out hover:bg-gray-50">
+            <div className="flex grow flex-col bg-white p-4 transition-colors duration-300 ease-in-out hover:bg-gray-50">
               <h3 className="mb-2 text-xl font-semibold transition-colors duration-300 ease-in-out hover:text-blue-600">
                 {post.title}
               </h3>
-              <p className="mb-2 flex-grow text-gray-600">{post.description}</p>
+              <p className="mb-2 grow text-gray-600">{post.description}</p>
               <p className="text-sm text-gray-500">{post.date}</p>
             </div>
           </div>

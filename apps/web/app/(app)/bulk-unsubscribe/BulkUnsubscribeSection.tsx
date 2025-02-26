@@ -282,7 +282,7 @@ export function BulkUnsubscribeSection({
 
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
-            <Skeleton className="h-screen rounded" />
+            <Skeleton className="h-screen rounded-sm" />
           </div>
         ) : (
           <LoadingContent
@@ -290,7 +290,7 @@ export function BulkUnsubscribeSection({
             error={error}
             loadingComponent={
               <div className="p-4">
-                <Skeleton className="h-screen rounded" />
+                <Skeleton className="h-screen rounded-sm" />
               </div>
             }
           >

@@ -95,20 +95,20 @@ export default function HeroVideoDialog({
           if (e.key === "Enter" || e.key === " ") handleOpenVideo();
         }}
       >
-        <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
+        <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-gray-900/10 ring-inset lg:-m-4 lg:rounded-2xl lg:p-4">
           <Image
             src={thumbnailSrc}
             alt={thumbnailAlt}
             width={2432}
             height={1442}
-            className="rounded-md shadow ring-1 ring-gray-900/10 transition-all duration-200 ease-out group-hover:brightness-[0.9]"
+            className="rounded-md shadow-sm ring-1 ring-gray-900/10 transition-all duration-200 ease-out group-hover:brightness-[0.9]"
           />
         </div>
         <div className="absolute inset-0 flex scale-[0.9] items-center justify-center rounded-2xl transition-all duration-200 ease-out group-hover:scale-100">
           <div className="flex size-28 items-center justify-center rounded-full bg-blue-500/10 backdrop-blur-md">
             <div
               className={
-                "relative flex size-20 scale-100 items-center justify-center rounded-full bg-gradient-to-b from-blue-500/30 to-blue-500 shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2]"
+                "relative flex size-20 scale-100 items-center justify-center rounded-full bg-linear-to-b from-blue-500/30 to-blue-500 shadow-md transition-all duration-200 ease-out group-hover:scale-[1.2]"
               }
             >
               <Play
@@ -139,7 +139,7 @@ export default function HeroVideoDialog({
               <motion.button className="absolute -top-16 right-0 rounded-full bg-neutral-900/50 p-2 text-xl text-white ring-1 backdrop-blur-md dark:bg-neutral-100/50 dark:text-black">
                 <XIcon className="size-5" />
               </motion.button>
-              <div className="relative isolate z-[1] size-full overflow-hidden rounded-2xl border-2 border-white bg-white">
+              <div className="relative isolate z-1 size-full overflow-hidden rounded-2xl border-2 border-white bg-white">
                 <iframe
                   src={videoSrc}
                   className="size-full rounded-lg"

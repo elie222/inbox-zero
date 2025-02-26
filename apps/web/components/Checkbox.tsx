@@ -11,7 +11,7 @@ export const Checkbox = forwardRef(
     return (
       <input
         type="checkbox"
-        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-black focus:ring-black"
+        className="h-4 w-4 cursor-pointer rounded-sm border-gray-300 text-black focus:ring-black"
         ref={ref}
         checked={props.checked}
         onChange={props.onChange}

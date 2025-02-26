@@ -109,7 +109,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
       <LoadingContent
         loading={!data && isLoading}
         error={error}
-        loadingComponent={<Skeleton className="h-24 rounded" />}
+        loadingComponent={<Skeleton className="h-24 rounded-sm" />}
       >
         <StatsCards
           stats={[
@@ -125,7 +125,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
       <Card className="mt-2 sm:mt-4">
         <CardHeader className="flex-col space-y-0 px-2 pt-2 sm:px-6 sm:pt-4 md:flex md:flex-row md:items-center md:justify-between md:space-y-0">
           <CardTitle className="text-left">New Senders</CardTitle>
-          <div className="ml-0 mt-3 flex justify-end space-x-2 md:ml-4 md:mt-0">
+          <div className="mt-3 ml-0 flex justify-end space-x-2 md:mt-0 md:ml-4">
             <div className="hidden md:block">
               <ShortcutTooltip />
             </div>
@@ -179,7 +179,7 @@ export function NewSenders({ refreshInterval }: { refreshInterval: number }) {
           <LoadingContent
             loading={!data && isLoading}
             error={error}
-            loadingComponent={<Skeleton className="m-4 h-screen rounded" />}
+            loadingComponent={<Skeleton className="m-4 h-screen rounded-sm" />}
           >
             {newSenders && (
               <NewSendersTable
@@ -302,7 +302,7 @@ function NewSenderRow({
   return (
     <TableRow
       key={item.name}
-      className={cn(selected && "bg-blue-50 dark:bg-muted/50")}
+      className={cn(selected && "dark:bg-muted/50 bg-blue-50")}
       aria-selected={selected || undefined}
       data-selected={selected || undefined}
       onMouseEnter={onSelectRow}

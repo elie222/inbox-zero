@@ -14,9 +14,9 @@ export default function NewSendersPage() {
 
   return (
     <div>
-      <div className="sticky top-0 z-10 flex border-b bg-background px-2 py-2 shadow sm:justify-between sm:px-4">
+      <div className="bg-background sticky top-0 z-10 flex border-b px-2 py-2 shadow-sm sm:justify-between sm:px-4">
         <div />
-        <div className="space-y-1 sm:flex sm:space-x-1 sm:space-y-0">
+        <div className="space-y-1 sm:flex sm:space-y-0 sm:space-x-1">
           <LoadStatsButton />
         </div>
       </div>
