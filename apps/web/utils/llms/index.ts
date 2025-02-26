@@ -74,13 +74,9 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
       provider: Provider.ANTHROPIC,
       model,
       llmModel: createAmazonBedrock({
-        bedrockOptions: {
-          region: env.BEDROCK_REGION,
-          credentials: {
-            accessKeyId: env.BEDROCK_ACCESS_KEY,
-            secretAccessKey: env.BEDROCK_SECRET_KEY,
-          },
-        },
+        region: env.BEDROCK_REGION,
+        accessKeyId: env.BEDROCK_ACCESS_KEY,
+        secretAccessKey: env.BEDROCK_SECRET_KEY,
       })(model),
     };
   }
