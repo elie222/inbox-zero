@@ -25,14 +25,6 @@ export function useHeroVariantEnabled() {
 
 export type LandingPageAIAssistantVariant = "control" | "magic";
 
-export function useLandingPageAIAssistantVariant() {
-  return (
-    (useFeatureFlagVariantKey(
-      "landing-page-ai-assistant",
-    ) as LandingPageAIAssistantVariant) || "control"
-  );
-}
-
 // export type PricingVariant = "control" | "business-only" | "basic-business";
 
 // export function usePricingVariant() {

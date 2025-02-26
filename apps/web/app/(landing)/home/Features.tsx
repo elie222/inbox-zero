@@ -1,9 +1,3 @@
-"use client";
-
-import {
-  useLandingPageAIAssistantVariant,
-  type LandingPageAIAssistantVariant,
-} from "@/hooks/useFeatureFlags";
 import clsx from "clsx";
 import {
   BarChart2Icon,
@@ -121,80 +115,32 @@ export function FeaturesWithImage({
 }
 
 export function FeaturesAiAssistant({ imageSide }: { imageSide?: Side }) {
-  const variant = useLandingPageAIAssistantVariant();
-
-  const variants: Record<
-    LandingPageAIAssistantVariant,
-    {
-      title: string;
-      subtitle: string;
-      description: React.ReactNode;
-      featuresAutomations: {
-        name: string;
-        description: string;
-        icon: LucideIcon;
-      }[];
-    }
-  > = {
-    control: {
-      title: "Automate your inbox",
-      subtitle: "Your AI assistant for email",
-      description:
-        "Transform your inbox from chaos to clarity. Let AI handle the predictable, while you focus on what matters.",
-      featuresAutomations: [
-        {
-          name: "Automate your replies",
-          description:
-            "Set custom rules and let AI draft perfect responses to common emails - from meeting requests to customer inquiries.",
-          icon: Sparkles,
-        },
-        {
-          name: "Intelligent organization",
-          description:
-            "Automatically sort, label, and prioritize emails based on your preferences and workflow.",
-          icon: Orbit,
-        },
-        {
-          name: "Natural instructions",
-          description:
-            "No coding needed - just tell your assistant what you want in plain English, like you would a team member.",
-          icon: LineChart,
-        },
-      ],
-    },
-    magic: {
-      title: "Your Personal Assistant",
-      subtitle: "Your AI Email Assistant That Works Like Magic",
-      description: (
-        <>
-          All the benefits of a personal assistant, at a fraction of the cost.
-          <br />
-          <br />
-          Tell your AI assistant how to manage your email in plain English -
-          just like you would ChatGPT. Want newsletters archived and labeled?
-          Investor emails flagged as important? Automatic reply drafts for
-          common requests? Just ask.
-          <br />
-          <br />
-          Once configured, your assistant works 24/7 to keep your inbox
-          organized exactly how you want it. No more drowning in email. No
-          expensive human assistant required.
-        </>
-      ),
-      featuresAutomations: [],
-    },
-  };
-
-  const selectedVariant =
-    typeof variant === "string" ? variants[variant] : variants.control;
+  const title = "Your Personal Assistant";
+  const subtitle = "Your AI Email Assistant That Works Like Magic";
+  const description = (
+    <>
+      All the benefits of a personal assistant, at a fraction of the cost.
+      <br />
+      <br />
+      Tell your AI assistant how to manage your email in plain English - just
+      like you would ChatGPT. Want newsletters archived and labeled? Investor
+      emails flagged as important? Automatic reply drafts for common requests?
+      Just ask.
+      <br />
+      <br />
+      Once configured, your assistant works 24/7 to keep your inbox organized
+      exactly how you want it. No more drowning in email. No expensive human
+      assistant required.
+    </>
+  );
 
   return (
     <FeaturesWithImage
       imageSide={imageSide}
-      title={selectedVariant.title}
-      subtitle={selectedVariant.subtitle}
-      description={selectedVariant.description}
-      features={selectedVariant.featuresAutomations}
+      title={title}
+      subtitle={subtitle}
+      description={description}
+      features={[]}
       image="/images/home/ai-email-assistant.png"
     />
   );
