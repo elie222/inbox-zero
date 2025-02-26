@@ -41,30 +41,26 @@ IMPORTANT: You must strictly follow the exclusions mentioned in each rule.
 
 REMINDER: Pay careful attention to any exclusions mentioned in the rules. If an email matches an exclusion, that rule MUST NOT be selected.
 
-<outputFormat>
-Respond with a JSON object with the following fields:
-"reason" - the reason you chose that rule. Keep it concise.
-"rule" - the number of the rule you want to apply
-</outputFormat>`;
-
-  const rulesPrompt = `These are the rules you can select from:
+These are the rules you can select from:
 ${rulesWithUnknownRule
   .map((rule, i) => `${i + 1}. ${rule.instructions}`)
   .join("\n")}
 
-${user.about ? `Additional information about the user:\n\n${user.about}` : ""}`.trim();
+${user.about ? `Additional information about the user:\n\n${user.about}` : ""}
 
-  const prompt = `Select a rule to apply to this email:
+<outputFormat>
+Respond with a JSON object with the following fields:
+"reason" - the reason you chose that rule. Keep it concise.
+"rule" - the number of the rule you want to apply
+</outputFormat>
 
-<email>
+Select a rule to apply to the email:`;
+
+  const prompt = `<email>
 ${stringifyEmail(email, 500)}
 </email>`;
 
-  logger.trace("Input", {
-    system,
-    rulesPrompt,
-    prompt,
-  });
+  logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
     userAi: user,
@@ -72,17 +68,8 @@ ${stringifyEmail(email, 500)}
       {
         role: "system",
         content: system,
-        // won't be used with anthropic as it's under 1024 tokens:
+        // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
         // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
-        // providerOptions: {
-        //   bedrock: { cachePoint: { type: "ephemeral" } },
-        //   anthropic: { cacheControl: { type: "ephemeral" } },
-        // },
-      },
-      {
-        role: "user",
-        content: rulesPrompt,
-        // This will cache if the user has a very long prompt. Although usually won't do anything
         providerOptions: {
           bedrock: { cachePoint: { type: "ephemeral" } },
           anthropic: { cacheControl: { type: "ephemeral" } },
