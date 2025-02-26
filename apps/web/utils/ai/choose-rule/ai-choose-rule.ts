@@ -70,10 +70,11 @@ ${stringifyEmail(email, 500)}
         content: system,
         // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
         // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
-        providerOptions: {
-          bedrock: { cachePoint: { type: "ephemeral" } },
-          anthropic: { cacheControl: { type: "ephemeral" } },
-        },
+        // NOTE: Needs permission from AWS to use this. Otherwise gives error: "You do not have access to explicit prompt caching"
+        // providerOptions: {
+        //   bedrock: { cachePoint: { type: "ephemeral" } },
+        //   anthropic: { cacheControl: { type: "ephemeral" } },
+        // },
       },
       {
         role: "user",

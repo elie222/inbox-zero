@@ -89,7 +89,10 @@ export function withActionInstrumentation<
             }
 
             if (isAICallError(error)) {
-              logger.error("AI call error", { action: name, error });
+              logger.error("AI call error", {
+                action: name,
+                error: (error.data as any)?.message,
+              });
               return {
                 error:
                   (error.data as any)?.error?.message ??
