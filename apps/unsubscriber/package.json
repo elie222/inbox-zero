@@ -18,7 +18,7 @@
     "typescript": "5.7.2"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "2.0.5",
+    "@ai-sdk/amazon-bedrock": "1.1.6",
     "@ai-sdk/anthropic": "1.1.10",
     "@ai-sdk/google": "1.1.17",
     "@ai-sdk/openai": "1.1.14",
