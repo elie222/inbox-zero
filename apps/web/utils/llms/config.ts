@@ -19,6 +19,8 @@ export const Model = {
   CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
   GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
+  GEMINI_2_0_FLASH_LITE: "gemini-2.0-flash-lite",
+  GEMINI_2_0_FLASH: "gemini-2.0-flash",
   GROQ_LLAMA_3_3_70B: "llama-3.3-70b-versatile",
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
 };
@@ -46,6 +48,14 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
       },
     ],
     [Provider.GOOGLE]: [
+      {
+        label: "Gemini 2.0 Flash",
+        value: Model.GEMINI_2_0_FLASH,
+      },
+      {
+        label: "Gemini 2.0 Flash Lite",
+        value: Model.GEMINI_2_0_FLASH_LITE,
+      },
       {
         label: "Gemini 1.5 Pro",
         value: Model.GEMINI_1_5_PRO,

@@ -99,15 +99,22 @@ const costs: Record<
     input: 0.8 / 1_000_000,
     output: 4 / 1_000_000,
   },
-  // https://ai.google.dev/pricing#1_5pro
+  // https://ai.google.dev/pricing
   "gemini-1.5-pro-latest": {
     input: 1.25 / 1_000_000,
     output: 5 / 1_000_000,
   },
-  // https://ai.google.dev/pricing#1_5flash
   "gemini-1.5-flash-latest": {
     input: 0.075 / 1_000_000,
     output: 0.3 / 1_000_000,
+  },
+  "gemini-2.0-flash-lite": {
+    input: 0.075 / 1_000_000,
+    output: 0.3 / 1_000_000,
+  },
+  "gemini-2.0-flash": {
+    input: 0.1 / 1_000_000,
+    output: 0.4 / 1_000_000,
   },
   // https://groq.com/pricing
   "llama-3.3-70b-versatile": {

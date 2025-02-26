@@ -29,7 +29,7 @@ async function saveAISettings(options: SaveSettingsBody) {
         // use bedrock if no api key set
         return Model.CLAUDE_3_7_SONNET_BEDROCK;
       case Provider.GOOGLE:
-        return options.aiModel || Model.GEMINI_1_5_PRO;
+        return options.aiModel || Model.GEMINI_2_0_FLASH;
       case Provider.GROQ:
         return options.aiModel || Model.GROQ_LLAMA_3_3_70B;
       case Provider.OLLAMA:
