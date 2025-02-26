@@ -373,21 +373,21 @@ async function subscriptionUpdated({
   });
 
   const email = getEmailFromPremium(updatedPremium);
+
   if (email) {
-    await posthogCaptureEvent(
-      email,
+    const event =
       payload.data.attributes.status === "on_trial"
         ? "Premium subscription trial started"
-        : "Premium subscription payment success",
-      {
-        ...payload.data.attributes,
-        $set: {
-          premium: true,
-          premiumTier: "subscription",
-          premiumStatus: payload.data.attributes.status,
-        },
+        : `Premium subscription ${payload.data.attributes.status}`;
+
+    await posthogCaptureEvent(email, event, {
+      ...payload.data.attributes,
+      $set: {
+        premium: true,
+        premiumTier: "subscription",
+        premiumStatus: payload.data.attributes.status,
       },
-    );
+    });
   }
 
   return NextResponse.json({ ok: true });
