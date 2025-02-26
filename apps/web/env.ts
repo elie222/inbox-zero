@@ -119,10 +119,10 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
-      .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
+      .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
     NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL: z
       .string()
-      .default("us.anthropic.claude-3-5-haiku-20241022-v1:0"),
+      .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/automation"),
   },
