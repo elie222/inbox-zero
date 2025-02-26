@@ -24,10 +24,10 @@ async function saveAISettings(options: SaveSettingsBody) {
       case Provider.ANTHROPIC:
         if (options.aiApiKey) {
           // use anthropic if api key set
-          return Model.CLAUDE_3_5_SONNET_ANTHROPIC;
+          return Model.CLAUDE_3_7_SONNET_ANTHROPIC;
         }
         // use bedrock if no api key set
-        return Model.CLAUDE_3_5_SONNET_BEDROCK;
+        return Model.CLAUDE_3_7_SONNET_BEDROCK;
       case Provider.GOOGLE:
         return options.aiModel || Model.GEMINI_1_5_PRO;
       case Provider.GROQ:

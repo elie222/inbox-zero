@@ -70,6 +70,10 @@ const costs: Record<
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },
+  "claude-3-7-sonnet-20250219": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
   // https://aws.amazon.com/bedrock/pricing/
   "anthropic.claude-3-5-sonnet-20240620-v1:0": {
     input: 3 / 1_000_000,
@@ -80,6 +84,10 @@ const costs: Record<
     output: 15 / 1_000_000,
   },
   "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
+  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": {
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },

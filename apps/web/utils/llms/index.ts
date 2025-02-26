@@ -56,7 +56,7 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
 
   if (provider === Provider.ANTHROPIC) {
     if (aiApiKey) {
-      const model = aiModel || Model.CLAUDE_3_5_SONNET_ANTHROPIC;
+      const model = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
       return {
         provider: Provider.ANTHROPIC,
         model,
@@ -68,7 +68,7 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
     if (!env.BEDROCK_SECRET_KEY)
       throw new Error("BEDROCK_SECRET_KEY is not set");
 
-    const model = aiModel || Model.CLAUDE_3_5_SONNET_BEDROCK;
+    const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
 
     return {
       provider: Provider.ANTHROPIC,
@@ -162,12 +162,21 @@ export async function chatCompletion({
 
 type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
-  prompt: string;
-  system?: string;
   schema: z.Schema<T>;
   userEmail: string;
   usageLabel: string;
-};
+} & (
+  | {
+      system?: string;
+      prompt: string;
+      messages?: never;
+    }
+  | {
+      system?: never;
+      prompt?: never;
+      messages: CoreMessage[];
+    }
+);
 
 export async function chatCompletionObject<T>(
   options: ChatCompletionObjectArgs<T>,
@@ -177,8 +186,9 @@ export async function chatCompletionObject<T>(
 
 async function chatCompletionObjectInternal<T>({
   userAi,
-  prompt,
   system,
+  prompt,
+  messages,
   schema,
   userEmail,
   usageLabel,
@@ -188,8 +198,9 @@ async function chatCompletionObjectInternal<T>({
 
     const result = await generateObject({
       model: llmModel,
-      prompt,
       system,
+      prompt,
+      messages,
       schema,
       experimental_telemetry: { isEnabled: true },
     });

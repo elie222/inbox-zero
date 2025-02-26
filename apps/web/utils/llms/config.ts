@@ -13,10 +13,10 @@ export const Provider = {
 export const Model = {
   GPT_4O: "gpt-4o",
   GPT_4O_MINI: "gpt-4o-mini",
-  CLAUDE_3_5_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+  CLAUDE_3_7_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
   // BEDROCK_ANTHROPIC_BACKUP_MODEL:
   //   env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
-  CLAUDE_3_5_SONNET_ANTHROPIC: "claude-3-5-sonnet-20241022",
+  CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
   GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
   GROQ_LLAMA_3_3_70B: "llama-3.3-70b-versatile",
@@ -41,8 +41,8 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
     ],
     [Provider.ANTHROPIC]: [
       {
-        label: "Claude 3.5 Sonnet",
-        value: "claude-3-5-sonnet", // used in ui only. can be either anthropic or bedrock
+        label: "Claude 3.7 Sonnet",
+        value: "claude-3-7-sonnet", // used in ui only. can be either anthropic or bedrock
       },
     ],
     [Provider.GOOGLE]: [
