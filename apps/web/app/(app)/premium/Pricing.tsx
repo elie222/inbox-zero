@@ -27,10 +27,13 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 function attachUserInfo(
   url: string,
   user: { id: string; email: string; name?: string | null },
+  quantity?: number,
 ) {
   if (!user) return url;
 
-  return `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
+  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
+  if (quantity) res += `&quantity=${quantity}`;
+  return res;
 }
 
 function useAffiliateCode() {
@@ -170,11 +173,15 @@ export function Pricing(props: { header?: React.ReactNode }) {
               if (tier.ctaLink) return tier.ctaLink;
 
               return buildLemonUrl(
-                attachUserInfo(tier.href[frequency.value], {
-                  id: user.id,
-                  email: user.email!,
-                  name: user.name,
-                }),
+                attachUserInfo(
+                  tier.href[frequency.value],
+                  {
+                    id: user.id,
+                    email: user.email!,
+                    name: user.name,
+                  },
+                  tier.quantity,
+                ),
                 affiliateCode,
               );
             }

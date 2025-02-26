@@ -13,6 +13,7 @@ type Tier = {
   price: { monthly: number; annually: number };
   priceAdditional: { monthly: number; annually: number };
   discount: { monthly: number; annually: number };
+  quantity?: number;
   description: string;
   features: Feature[];
   cta: string;
@@ -217,13 +218,14 @@ const businessTeamTier: Tier = {
     annually: PremiumTier.BUSINESS_ANNUALLY,
   },
   href: {
-    monthly: `${env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK}?quantity=5`,
-    annually: `${env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK}?quantity=5`,
+    monthly: env.NEXT_PUBLIC_BUSINESS_MONTHLY_PAYMENT_LINK,
+    annually: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_PAYMENT_LINK,
   },
   price: {
     monthly: 64,
     annually: 56,
   },
+  quantity: 5,
   priceAdditional: {
     monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
     annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
