@@ -162,9 +162,11 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
           </div>
         )}
 
-        {(question.type === "multiple_choice" || showOtherInput) && (
+        {(question.type === "multiple_choice" ||
+          showOtherInput ||
+          question.skippable) && (
           <Button className="mt-4 w-full" type="submit" loading={isSubmitting}>
-            Next
+            {question.skippable ? "Skip" : "Next"}
           </Button>
         )}
 
