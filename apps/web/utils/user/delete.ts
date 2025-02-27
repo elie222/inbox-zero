@@ -27,25 +27,44 @@ export async function deleteUser({
 
   logger.info("Deleting user resources");
 
+  const resourcesPromise = Promise.allSettled([
+    deleteUserLabels({ email }),
+    deleteInboxZeroLabels({ email }),
+    deleteUserStats({ email }),
+    deleteTinybirdEmails({ email }),
+    deleteTinybirdAiCalls({ userId }),
+    deletePosthogUser({ email }),
+    deleteLoopsContact(email),
+    deleteResendContact({ email }),
+    account
+      ? unwatchEmails({
+          userId: userId,
+          access_token: account.access_token ?? null,
+          refresh_token: null,
+        })
+      : Promise.resolve(),
+  ]);
+
+  try {
+    // First delete ExecutedRules and their associated ExecutedActions in batches
+    // If we try do this in one go for a user with a lot of executed rules, this will fail
+    logger.info("Deleting ExecutedRules in batches");
+    await deleteExecutedRulesInBatches(userId);
+    logger.info("Deleting user");
+    await prisma.user.delete({ where: { email } });
+  } catch (error) {
+    logger.error("Error during database user deletion process", {
+      error,
+      userId,
+      email,
+    });
+    captureException(error, { extra: { userId, email } }, email);
+    throw error;
+  }
+
   try {
     // Then proceed with the regular deletion process
-    const results = await Promise.allSettled([
-      deleteUserLabels({ email }),
-      deleteInboxZeroLabels({ email }),
-      deleteUserStats({ email }),
-      deleteTinybirdEmails({ email }),
-      deleteTinybirdAiCalls({ userId }),
-      deletePosthogUser({ email }),
-      deleteLoopsContact(email),
-      deleteResendContact({ email }),
-      account
-        ? unwatchEmails({
-            userId: userId,
-            access_token: account.access_token ?? null,
-            refresh_token: null,
-          })
-        : Promise.resolve(),
-    ]);
+    const results = await resourcesPromise;
 
     logger.info("User resources deleted");
 
@@ -75,23 +94,6 @@ export async function deleteUser({
       email,
     });
     captureException(error, { extra: { userId, email } }, email);
-  }
-
-  try {
-    // First delete ExecutedRules and their associated ExecutedActions in batches
-    // If we try do this in one go for a user with a lot of executed rules, this will fail
-    logger.info("Deleting ExecutedRules in batches");
-    await deleteExecutedRulesInBatches(userId);
-    logger.info("Deleting user");
-    await prisma.user.delete({ where: { email } });
-  } catch (error) {
-    logger.error("Error during database user deletion process", {
-      error,
-      userId,
-      email,
-    });
-    captureException(error, { extra: { userId, email } }, email);
-    throw error;
   }
 }
 
