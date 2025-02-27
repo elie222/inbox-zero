@@ -4,8 +4,9 @@ import { TopSection } from "@/components/TopSection";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
+import { env } from "@/env";
 
-export const maxDuration = 120;
+export const maxDuration = Math.min(env.MAX_DURATION, 600);
 
 export default async function AdminPage() {
   const session = await auth();
