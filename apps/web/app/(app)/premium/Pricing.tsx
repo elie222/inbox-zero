@@ -26,33 +26,12 @@ import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PremiumTier } from "@prisma/client";
-import { usePricingVariant } from "@/hooks/useFeatureFlags";
+import { usePricingVariant, useSkipUpgrade } from "@/hooks/useFeatureFlags";
 
-function attachUserInfo(
-  url: string,
-  user: { id: string; email: string; name?: string | null },
-  quantity?: number,
-) {
-  if (!user) return url;
-
-  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
-  if (quantity) res += `&quantity=${quantity}`;
-  return res;
-}
-
-function useAffiliateCode() {
-  const searchParams = useSearchParams();
-  const affiliateCode = searchParams.get("aff");
-  return affiliateCode;
-}
-
-function buildLemonUrl(url: string, affiliateCode: string | null) {
-  if (!affiliateCode) return url;
-  const newUrl = `${url}?aff_ref=${affiliateCode}`;
-  return newUrl;
-}
-
-export function Pricing(props: { header?: React.ReactNode }) {
+export function Pricing(props: {
+  header?: React.ReactNode;
+  showSkipUpgrade?: boolean;
+}) {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
@@ -60,6 +39,8 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
+
+  const skipVariant = useSkipUpgrade();
 
   const header = props.header || (
     <div className="mb-12">
@@ -300,9 +281,44 @@ export function Pricing(props: { header?: React.ReactNode }) {
             );
           })}
         </Layout>
+
+        {props.showSkipUpgrade && skipVariant === "skip-button" && (
+          <div className="my-4 flex justify-center">
+            <Button size="lg" asChild>
+              <Link href="/automation">
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Explore the app for free
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </LoadingContent>
   );
+}
+
+function attachUserInfo(
+  url: string,
+  user: { id: string; email: string; name?: string | null },
+  quantity?: number,
+) {
+  if (!user) return url;
+
+  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
+  if (quantity) res += `&quantity=${quantity}`;
+  return res;
+}
+
+function useAffiliateCode() {
+  const searchParams = useSearchParams();
+  const affiliateCode = searchParams.get("aff");
+  return affiliateCode;
+}
+
+function buildLemonUrl(url: string, affiliateCode: string | null) {
+  if (!affiliateCode) return url;
+  const newUrl = `${url}?aff_ref=${affiliateCode}`;
+  return newUrl;
 }
 
 function getLayoutComponents(
