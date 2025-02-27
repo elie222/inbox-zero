@@ -86,7 +86,6 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory     PromptHistory[]
   labels            Label[]
   rules             Rule[]
   executedRules     ExecutedRule[]
@@ -151,15 +150,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-model PromptHistory {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  prompt    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Label {
