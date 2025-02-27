@@ -423,8 +423,8 @@ model Payment {
   premium   Premium? @relation(fields: [premiumId], references: [id], onDelete: SetNull)
 
   // Payment processor information
-  processorType           String // LEMON_SQUEEZY, STRIPE
-  processorId             String? @unique // External payment ID from Stripe/Lemon Squeezy
+  processorType           ProcessorType @default(LEMON_SQUEEZY)
+  processorId             String?       @unique // External payment ID from Stripe/Lemon Squeezy
   processorSubscriptionId String? // External subscription ID
   processorCustomerId     String? // External customer ID
 
@@ -538,4 +538,8 @@ enum ThreadTrackerType {
   AWAITING // We're waiting for their reply
   NEEDS_REPLY // We need to reply to this
   NEEDS_ACTION // We need to do something else
+}
+
+enum ProcessorType {
+  LEMON_SQUEEZY
 }
