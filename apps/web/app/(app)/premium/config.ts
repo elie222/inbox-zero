@@ -76,36 +76,30 @@ function discount(monthly: number, annually: number) {
 
 const aiAssistantFeature = {
   text: "AI personal assistant",
-  tooltip: "AI assistant that drafts replies and organizes your inbox.",
+  tooltip: "AI assistant that drafts replies and organizes your inbox",
 };
 
 const replyZeroFeature = {
   text: "Reply Zero",
-  tooltip:
-    "Never miss a reply or follow up again. Every conversation missing a reply is labeled.",
+  tooltip: "Never miss a reply or follow up again",
 };
 
 const coldEmailBlockerFeature = {
   text: "Cold email blocker",
-  tooltip: "Automatically block cold emails.",
+  tooltip: "Automatically block cold emails",
 };
 
 const smartCategoriesFeature = {
   text: "Smart categories",
-  tooltip:
-    "Categorizes your emails into meaningful groups to take bulk actions on or apply rules to. e.g., archive thousands of newsletters in one click.",
+  tooltip: "Automatically group emails for easier management and bulk actions",
 };
 
 const bulkUnsubscribeFeature = {
   text: "Bulk unsubscribe",
-  tooltip:
-    "Bulk unsubscribe from emails in one-click based on who emails you most, and which ones you don't read.",
+  tooltip: "Bulk unsubscribe from emails in one-click",
 };
 
-const analyticsFeature = {
-  text: "Email analytics",
-  tooltip: "Understand your email habits and patterns.",
-};
+const analyticsFeature = { text: "Email analytics" };
 
 export const basicTier: Tier = {
   name: "Unsubscriber",
