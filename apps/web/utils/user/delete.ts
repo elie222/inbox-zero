@@ -24,7 +24,6 @@ export async function deleteUser({
     where: { userId, provider: "google" },
     select: { access_token: true },
   });
-  if (!account) return;
 
   logger.info("Deleting user resources");
 
@@ -39,11 +38,13 @@ export async function deleteUser({
       deletePosthogUser({ email }),
       deleteLoopsContact(email),
       deleteResendContact({ email }),
-      unwatchEmails({
-        userId: userId,
-        access_token: account.access_token ?? null,
-        refresh_token: null,
-      }),
+      account
+        ? unwatchEmails({
+            userId: userId,
+            access_token: account.access_token ?? null,
+            refresh_token: null,
+          })
+        : Promise.resolve(),
     ]);
 
     logger.info("User resources deleted");
