@@ -39,8 +39,8 @@ export const survey = {
       type: "single_choice",
       question: "What are you looking to achieve with Inbox Zero?",
       choices: [
-        "Clean up my existing inbox",
-        "Manage it better going forward",
+        "Clean up my existing emails",
+        "Manage my inbox better going forward",
         "Both",
       ],
     },
