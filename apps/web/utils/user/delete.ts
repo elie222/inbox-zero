@@ -25,6 +25,8 @@ export async function deleteUser({
   });
   if (!account) return;
 
+  logger.info("Deleting user");
+
   const results = await Promise.allSettled([
     deleteUserLabels({ email }),
     deleteInboxZeroLabels({ email }),
@@ -39,7 +41,10 @@ export async function deleteUser({
       access_token: account.access_token ?? null,
       refresh_token: null,
     }),
+    prisma.user.delete({ where: { email } }),
   ]);
+
+  logger.info("User deleted");
 
   // Log any failures
   const failures = results.filter((r) => r.status === "rejected");
@@ -49,12 +54,15 @@ export async function deleteUser({
       userId,
       failures: failures.map((f) => (f as PromiseRejectedResult).reason),
     });
+
+    const originalError = (failures[0] as PromiseRejectedResult)?.reason;
+    const customError = new Error("User deletion error");
+    customError.cause = originalError;
+
     captureException(
-      (failures[0] as PromiseRejectedResult)?.reason,
-      { extra: { failures } },
+      customError,
+      { extra: { failures, userId, email } },
       email,
     );
   }
-
-  await prisma.user.delete({ where: { email } });
 }
