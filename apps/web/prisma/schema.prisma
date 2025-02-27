@@ -415,8 +415,8 @@ model EmailToken {
 
 model Payment {
   id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime // from processor
+  updatedAt DateTime // from processor
 
   // Relation to Premium
   premiumId String?
