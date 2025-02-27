@@ -15,7 +15,6 @@ import {
   CrownIcon,
   FileIcon,
   InboxIcon,
-  ListCheckIcon,
   type LucideIcon,
   MailsIcon,
   MessageCircleReplyIcon,
