@@ -41,11 +41,14 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.web
-    env_file:
-      - ./.env
+    # env_file:
+    #   - ./.env
+    env_file: 
+      - ./apps/web/.env
     depends_on:
       - db
-      - redis
+      # - redis
+      - serverless-redis-http
     ports:
       - ${WEB_PORT:-3000}:3000
     networks:
