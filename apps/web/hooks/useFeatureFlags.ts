@@ -27,3 +27,12 @@ export function usePricingVariant() {
     "control"
   );
 }
+
+export type SkipUpgradeVariant = "control" | "skip-button";
+
+export function useSkipUpgrade() {
+  return (
+    (useFeatureFlagVariantKey("skip-upgrade") as SkipUpgradeVariant) ||
+    "control"
+  );
+}
