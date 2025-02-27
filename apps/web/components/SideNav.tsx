@@ -119,14 +119,14 @@ export const useNavigation = () => {
 };
 
 const bottomLinks: NavItem[] = [
+  // {
+  //   name: "Onboarding",
+  //   href: "/onboarding",
+  //   icon: ListCheckIcon,
+  //   hideInMail: true,
+  // },
   {
-    name: "Onboarding",
-    href: "/onboarding",
-    icon: ListCheckIcon,
-    hideInMail: true,
-  },
-  {
-    name: "User Guide",
+    name: "Help Center",
     href: "https://docs.getinboxzero.com",
     target: "_blank",
     icon: BookIcon,
