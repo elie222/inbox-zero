@@ -9,6 +9,7 @@ import { deletePosthogUser } from "@/utils/posthog";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
+import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("user/delete");
 
@@ -25,44 +26,115 @@ export async function deleteUser({
   });
   if (!account) return;
 
-  logger.info("Deleting user");
+  logger.info("Deleting user resources");
 
-  const results = await Promise.allSettled([
-    deleteUserLabels({ email }),
-    deleteInboxZeroLabels({ email }),
-    deleteUserStats({ email }),
-    deleteTinybirdEmails({ email }),
-    deleteTinybirdAiCalls({ userId }),
-    deletePosthogUser({ email }),
-    deleteLoopsContact(email),
-    deleteResendContact({ email }),
-    unwatchEmails({
-      userId: userId,
-      access_token: account.access_token ?? null,
-      refresh_token: null,
-    }),
-    prisma.user.delete({ where: { email } }),
-  ]);
+  try {
+    // Then proceed with the regular deletion process
+    const results = await Promise.allSettled([
+      deleteUserLabels({ email }),
+      deleteInboxZeroLabels({ email }),
+      deleteUserStats({ email }),
+      deleteTinybirdEmails({ email }),
+      deleteTinybirdAiCalls({ userId }),
+      deletePosthogUser({ email }),
+      deleteLoopsContact(email),
+      deleteResendContact({ email }),
+      unwatchEmails({
+        userId: userId,
+        access_token: account.access_token ?? null,
+        refresh_token: null,
+      }),
+    ]);
 
-  logger.info("User deleted");
+    logger.info("User resources deleted");
 
-  // Log any failures
-  const failures = results.filter((r) => r.status === "rejected");
-  if (failures.length > 0) {
-    logger.error("Some deletion operations failed", {
-      email,
+    // Log any failures
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      logger.error("Some deletion operations failed", {
+        email,
+        userId,
+        failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+      });
+
+      const originalError = (failures[0] as PromiseRejectedResult)?.reason;
+      const customError = new Error("User deletion error");
+      customError.cause = originalError;
+
+      captureException(
+        customError,
+        { extra: { failures, userId, email } },
+        email,
+      );
+    }
+  } catch (error) {
+    logger.error("Error during user resources deletion process", {
+      error,
       userId,
-      failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+      email,
+    });
+    captureException(error, { extra: { userId, email } }, email);
+  }
+
+  try {
+    // First delete ExecutedRules and their associated ExecutedActions in batches
+    // If we try do this in one go for a user with a lot of executed rules, this will fail
+    logger.info("Deleting ExecutedRules in batches");
+    await deleteExecutedRulesInBatches(userId);
+    logger.info("Deleting user");
+    await prisma.user.delete({ where: { email } });
+  } catch (error) {
+    logger.error("Error during database user deletion process", {
+      error,
+      userId,
+      email,
+    });
+    captureException(error, { extra: { userId, email } }, email);
+    throw error;
+  }
+}
+
+/**
+ * Delete ExecutedRules and their associated ExecutedActions in batches
+ */
+async function deleteExecutedRulesInBatches(userId: string, batchSize = 100) {
+  let deletedTotal = 0;
+
+  while (true) {
+    // 1. Get a batch of ExecutedRule IDs
+    const executedRules = await prisma.executedRule.findMany({
+      where: { userId },
+      select: { id: true },
+      take: batchSize,
     });
 
-    const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-    const customError = new Error("User deletion error");
-    customError.cause = originalError;
+    if (executedRules.length === 0) {
+      logger.info(
+        `Completed deletion of ExecutedRules, total: ${deletedTotal}`,
+      );
+      break;
+    }
 
-    captureException(
-      customError,
-      { extra: { failures, userId, email } },
-      email,
+    const ruleIds = executedRules.map((rule) => rule.id);
+
+    // 2. Delete ExecutedActions for these rules
+    await prisma.executedAction.deleteMany({
+      where: { executedRuleId: { in: ruleIds } },
+    });
+
+    // 3. Delete the ExecutedRules
+    const { count } = await prisma.executedRule.deleteMany({
+      where: { id: { in: ruleIds } },
+    });
+
+    deletedTotal += count;
+    logger.info(
+      `Deleted batch of ${count} ExecutedRules, total: ${deletedTotal}`,
     );
+
+    // Small delay to prevent database overload (optional)
+    await sleep(100);
   }
+
+  return deletedTotal;
 }
