@@ -1,0 +1,23 @@
+{
+  "name": "@inbox-zero/mcp-server",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "inbox-zero-ai": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\""
+  },
+  "files": [
+    "build"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.6.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "22.10.2",
+    "typescript": "5.7.2"
+  }
+}
