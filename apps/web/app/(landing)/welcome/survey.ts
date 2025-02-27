@@ -2,6 +2,7 @@
 export const survey = {
   questions: [
     {
+      key: "features",
       type: "multiple_choice",
       question: "Which features are you most interested in?",
       choices: [
@@ -14,6 +15,7 @@ export const survey = {
       ],
     },
     // {
+    //   key: "role",
     //   type: "single_choice",
     //   question: "Which role best describes you?",
     //   choices: [
@@ -32,6 +34,7 @@ export const survey = {
     //   ],
     // },
     // {
+    //   key: "company_size",
     //   type: "single_choice",
     //   question: "What is the size of your company?",
     //   choices: [
@@ -43,6 +46,7 @@ export const survey = {
     //   ],
     // },
     {
+      key: "source",
       type: "single_choice",
       question: "How did you hear about Inbox Zero?",
       choices: [
@@ -61,6 +65,7 @@ export const survey = {
       ],
     },
     {
+      key: "improvements",
       type: "open",
       question:
         "Last question! If you had a magic wand, what would you want to improve about your email experience?",
