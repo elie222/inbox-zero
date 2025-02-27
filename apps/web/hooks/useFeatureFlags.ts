@@ -19,10 +19,11 @@ export function useHeroVariantEnabled() {
   return useFeatureFlagEnabled(HERO_FLAG_NAME);
 }
 
-// export type PricingVariant = "control" | "business-only" | "basic-business";
+export type PricingVariant = "control" | "basic-business" | "business-basic";
 
-// export function usePricingVariant() {
-//   return (
-//     (useFeatureFlagVariantKey("pricing-options") as PricingVariant) || "control"
-//   );
-// }
+export function usePricingVariant() {
+  return (
+    (useFeatureFlagVariantKey("pricing-options-2") as PricingVariant) ||
+    "control"
+  );
+}

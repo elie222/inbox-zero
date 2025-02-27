@@ -15,14 +15,18 @@ import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
 import {
+  basicTier,
+  businessTier,
+  enterpriseTier,
   frequencies,
   pricingAdditonalEmail,
-  allTiers,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { PremiumTier } from "@prisma/client";
+import { usePricingVariant } from "@/hooks/useFeatureFlags";
 
 function attachUserInfo(
   url: string,
@@ -71,10 +75,11 @@ export function Pricing(props: { header?: React.ReactNode }) {
     </div>
   );
 
-  // const { Layout, Item, tiers } = getLayoutComponents("", premiumTier);
-  const Layout = ThreeColLayout;
-  const Item = ThreeColItem;
-  const tiers = allTiers;
+  const pricingVariant = usePricingVariant();
+  const { Layout, Item, tiers } = getLayoutComponents(
+    pricingVariant,
+    premiumTier,
+  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -152,16 +157,13 @@ export function Pricing(props: { header?: React.ReactNode }) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 33%!</Badge>
+            <Badge>Save up to 50%!</Badge>
           </div>
         </div>
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan =
-              tier.tiers[frequency.value] === premiumTier &&
-              // TODO: handle for higher tiers too
-              tier.seatsIncluded === 1;
+            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
 
             const user = session.data?.user;
 
@@ -303,29 +305,37 @@ export function Pricing(props: { header?: React.ReactNode }) {
   );
 }
 
-// function getLayoutComponents(
-//   pricingVariant: string,
-//   premiumTier: PremiumTier | null,
-// ) {
-//   const isBasicTier =
-//     premiumTier === PremiumTier.BASIC_MONTHLY ||
-//     premiumTier === PremiumTier.BASIC_ANNUALLY;
+function getLayoutComponents(
+  pricingVariant: string,
+  premiumTier: PremiumTier | null,
+) {
+  const isBasicTier =
+    premiumTier === PremiumTier.BASIC_MONTHLY ||
+    premiumTier === PremiumTier.BASIC_ANNUALLY;
 
-//   if (pricingVariant === "business-only" && !isBasicTier)
-//     return {
-//       Layout: OneColLayout,
-//       Item: OneColItem,
-//       tiers: [businessSingleTier],
-//     };
-//   if (pricingVariant === "basic-business" || isBasicTier)
-//     return {
-//       Layout: TwoColLayout,
-//       Item: TwoColItem,
-//       tiers: [allTiers[0], allTiers[1]],
-//     };
-//   // control
-//   return { Layout: ThreeColLayout, Item: ThreeColItem, tiers: allTiers };
-// }
+  if (pricingVariant === "basic-business" || isBasicTier) {
+    return {
+      Layout: TwoColLayout,
+      Item: TwoColItem,
+      tiers: [basicTier, businessTier],
+    };
+  }
+
+  if (pricingVariant === "business-basic" || isBasicTier) {
+    return {
+      Layout: TwoColLayout,
+      Item: TwoColItem,
+      tiers: [businessTier, basicTier],
+    };
+  }
+
+  // control
+  return {
+    Layout: ThreeColLayout,
+    Item: ThreeColItem,
+    tiers: [basicTier, businessTier, enterpriseTier],
+  };
+}
 
 function ThreeColLayout({
   children,
