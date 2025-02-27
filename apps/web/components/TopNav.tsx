@@ -16,11 +16,9 @@ import {
   InboxIcon,
   LogOutIcon,
   RibbonIcon,
-  Users2Icon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
-import { env } from "@/env";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
