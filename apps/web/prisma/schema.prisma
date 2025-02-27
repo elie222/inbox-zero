@@ -429,9 +429,11 @@ model Payment {
   processorCustomerId     String? // External customer ID
 
   // Core payment information
-  amount   Int // Total amount in cents
-  currency String // 3-letter currency code: USD, EUR, etc.
-  status   String // paid, failed, refunded, etc.
+  amount       Int // Total amount in cents
+  currency     String // 3-letter currency code: USD, EUR, etc.
+  status       String // paid, failed, refunded, etc.
+  tax          Int
+  taxInclusive Boolean
 
   // Refund information
   refunded       Boolean   @default(false)
