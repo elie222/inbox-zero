@@ -9,6 +9,10 @@ import {
   groupEmailsQuerySchema,
   groupEmailsResponseSchema,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
+import {
+  replyTrackerQuerySchema,
+  replyTrackerResponseSchema,
+} from "@/app/api/v1/reply-tracker/validation";
 
 extendZodWithOpenApi(z);
 
@@ -41,6 +45,26 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: groupEmailsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/reply-tracker",
+  description: "Get emails that need a reply",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: replyTrackerQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: replyTrackerResponseSchema,
         },
       },
     },

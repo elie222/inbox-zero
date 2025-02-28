@@ -4,6 +4,8 @@ import { hashApiKey } from "@/utils/api-key";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { SafeError } from "@/utils/error";
 
+const API_KEY_HEADER = "API-Key";
+
 /**
  * Validates an API key from the request headers and returns the associated user
  * @param request The Next.js request object
@@ -11,7 +13,7 @@ import { SafeError } from "@/utils/error";
  * @throws SafeError if the API key is invalid or missing
  */
 export async function validateApiKey(request: NextRequest) {
-  const apiKey = request.headers.get("API-Key");
+  const apiKey = request.headers.get(API_KEY_HEADER);
 
   if (!apiKey) throw new SafeError("Missing API key", 401);
 
@@ -82,5 +84,5 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
 
   if (!gmail) throw new SafeError("Error refreshing Gmail access token", 401);
 
-  return { gmail, userId: user.id };
+  return { gmail, accessToken: account.access_token, userId: user.id };
 }
