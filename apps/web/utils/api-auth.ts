@@ -2,21 +2,15 @@ import type { NextRequest } from "next/server";
 import prisma from "@/utils/prisma";
 import { hashApiKey } from "@/utils/api-key";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { SafeError } from "@/utils/error";
-
-type ApiKeySuccess = { user: { id: string; accounts: Array<any> } };
-type GmailClientSuccess = { gmail: gmail_v1.Gmail; userId: string };
 
 /**
  * Validates an API key from the request headers and returns the associated user
  * @param request The Next.js request object
- * @returns The user object
+ * @returns The user object or null if the API key is invalid or missing
  * @throws SafeError if the API key is invalid or missing
  */
-export async function validateApiKey(
-  request: NextRequest,
-): Promise<ApiKeySuccess> {
+export async function validateApiKey(request: NextRequest) {
   const apiKey = request.headers.get("API-Key");
 
   if (!apiKey) throw new SafeError("Missing API key", 401);
@@ -67,9 +61,7 @@ export async function getUserFromApiKey(secretKey: string) {
  * @returns The Gmail client and user ID
  * @throws SafeError if authentication fails
  */
-export async function validateApiKeyAndGetGmailClient(
-  request: NextRequest,
-): Promise<GmailClientSuccess> {
+export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   const { user } = await validateApiKey(request);
 
   const account = user.accounts[0];
