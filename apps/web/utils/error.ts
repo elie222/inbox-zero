@@ -59,10 +59,10 @@ export function isActionError(error: any): error is ActionError {
 // This class is used to throw error messages that are safe to expose to the client.
 export class SafeError extends Error {
   constructor(
-    public safeMessage: string,
-    message?: string,
+    public safeMessage?: string,
+    public statusCode?: number,
   ) {
-    super(message || safeMessage);
+    super(safeMessage);
     this.name = "SafeError";
   }
 }
