@@ -3,13 +3,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 
 // Configuration
-const INBOX_ZERO_API_BASE =
-  process.env.INBOX_ZERO_API_BASE || "http://localhost:3000/api/v1";
-const API_KEY = process.env.INBOX_ZERO_API_KEY || "";
+const API_BASE = process.env.API_BASE || "http://localhost:3000/api/v1";
+const API_KEY = process.env.API_KEY || "";
 
 if (!API_KEY) {
   console.warn(
-    "Warning: INBOX_ZERO_API_KEY environment variable is not set. API requests may fail.",
+    "Warning: API_KEY environment variable is not set. API requests may fail.",
   );
 }
 
@@ -76,7 +75,7 @@ server.tool(
       .describe("Time range to look back"),
   },
   async ({ olderThan }) => {
-    const url = `${INBOX_ZERO_API_BASE}/reply-tracker?type=needs-reply&timeRange=${olderThan}`;
+    const url = `${API_BASE}/reply-tracker?type=needs-reply&timeRange=${olderThan}`;
     const data = await makeIZRequest<ReplyTrackerResponse>(url);
 
     if (!data) {
@@ -99,7 +98,7 @@ server.tool(
       .describe("Time range to look back"),
   },
   async ({ olderThan }) => {
-    const url = `${INBOX_ZERO_API_BASE}/reply-tracker?type=needs-follow-up&timeRange=${olderThan}`;
+    const url = `${API_BASE}/reply-tracker?type=needs-follow-up&timeRange=${olderThan}`;
     const data = await makeIZRequest<ReplyTrackerResponse>(url);
 
     if (!data) {
