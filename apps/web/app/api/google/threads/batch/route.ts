@@ -2,40 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
-import { getThreadsBatch } from "@/utils/gmail/thread";
-import { parseMessages } from "@/utils/mail";
-import { isDefined } from "@/utils/types";
+import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
 
 const requestSchema = z.object({
   threadIds: z.array(z.string()),
   includeDrafts: z.boolean().default(false),
 });
 
-export type ThreadsBatchResponse = Awaited<ReturnType<typeof getThreads>>;
-
-async function getThreads(
-  threadIds: string[],
-  accessToken: string,
-  includeDrafts: boolean,
-) {
-  const threads = await getThreadsBatch(threadIds, accessToken);
-
-  const threadsWithMessages = threads.map((thread) => {
-    const id = thread.id;
-    if (!id) return;
-
-    const messages = parseMessages(thread, {
-      withoutIgnoredSenders: true,
-      withoutDrafts: !includeDrafts,
-    });
-
-    return { id, messages };
-  });
-
-  return {
-    threads: threadsWithMessages.filter(isDefined),
-  };
-}
+export type ThreadsBatchResponse = Awaited<
+  ReturnType<typeof getThreadsBatchAndParse>
+>;
 
 export const GET = withError(async (request: NextRequest) => {
   const session = await auth();
@@ -59,7 +35,11 @@ export const GET = withError(async (request: NextRequest) => {
       { status: 401 },
     );
 
-  const response = await getThreads(threadIds, accessToken, includeDrafts);
+  const response = await getThreadsBatchAndParse(
+    threadIds,
+    accessToken,
+    includeDrafts,
+  );
 
   return NextResponse.json(response);
 });
