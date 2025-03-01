@@ -55,7 +55,7 @@ registry.registerPath({
 registry.registerPath({
   method: "get",
   path: "/reply-tracker",
-  description: "Get emails that need a reply",
+  description: "Get emails that need a reply or follow up",
   security: [{ ApiKeyAuth: [] }],
   request: {
     query: replyTrackerQuerySchema,
