@@ -89,7 +89,10 @@ function ModelSectionForm(props: {
     const aiModel = watch("aiModel");
 
     // if model not part of provider then switch to default model for provider
-    if (!modelOptions[aiProvider].find((o) => o.value === aiModel)) {
+    if (
+      modelOptions[aiProvider].length &&
+      !modelOptions[aiProvider].find((o) => o.value === aiModel)
+    ) {
       setValue("aiModel", getDefaultModel(aiProvider));
     }
   }, [aiProvider, setValue, watch]);
@@ -133,12 +136,22 @@ function ModelSectionForm(props: {
         error={errors.aiProvider}
       />
 
-      <Select
-        label="Model"
-        options={modelSelectOptions}
-        {...register("aiModel")}
-        error={errors.aiModel}
-      />
+      {modelSelectOptions.length ? (
+        <Select
+          label="Model"
+          options={modelSelectOptions}
+          {...register("aiModel")}
+          error={errors.aiModel}
+        />
+      ) : (
+        <Input
+          type="text"
+          name="aiModel"
+          label="Model"
+          registerProps={register("aiModel")}
+          error={errors.aiModel}
+        />
+      )}
 
       <Input
         type="password"
