@@ -4,7 +4,6 @@ import { TopSection } from "@/components/TopSection";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
-import { env } from "@/env";
 
 // https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
 // export const maxDuration = Math.min(env.MAX_DURATION, 600);
