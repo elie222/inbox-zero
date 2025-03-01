@@ -351,8 +351,6 @@ const prepareForwardingEmail = (message: ParsedMessage): ReplyingToEmail => ({
 function prepareDraftReplyEmail(draft: ParsedMessage): ReplyingToEmail {
   const splitHtml = extractEmailReply(draft.textHtml || "");
 
-  console.log("🚀 ~ splitHtml:", splitHtml);
-
   return {
     to: draft.headers.to,
     subject: draft.headers.subject,

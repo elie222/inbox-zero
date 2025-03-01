@@ -257,6 +257,7 @@ describe("api-auth", () => {
 
       const result = await validateApiKeyAndGetGmailClient(request);
       expect(result).toEqual({
+        accessToken: "access-token",
         gmail: mockGmailClient,
         userId: "user-id",
       });

@@ -9,6 +9,11 @@ import {
   groupEmailsQuerySchema,
   groupEmailsResponseSchema,
 } from "@/app/api/v1/group/[groupId]/emails/validation";
+import {
+  replyTrackerQuerySchema,
+  replyTrackerResponseSchema,
+} from "@/app/api/v1/reply-tracker/validation";
+import { API_KEY_HEADER } from "@/utils/api-auth";
 
 extendZodWithOpenApi(z);
 
@@ -17,7 +22,7 @@ const registry = new OpenAPIRegistry();
 registry.registerComponent("securitySchemes", "ApiKeyAuth", {
   type: "apiKey",
   in: "header",
-  name: "API-Key",
+  name: API_KEY_HEADER,
 });
 
 registry.registerPath({
@@ -41,6 +46,26 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: groupEmailsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/reply-tracker",
+  description: "Get emails that need a reply or follow up",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: replyTrackerQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: replyTrackerResponseSchema,
         },
       },
     },
