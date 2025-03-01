@@ -25,9 +25,7 @@ async function makeIZRequest<T>(url: string): Promise<T | null> {
     "Content-Type": "application/json",
   };
 
-  console.log(
-    `Making request to ${url} with API key: ${API_KEY.substring(0, 3)}...`,
-  );
+  console.log(`Making request to ${url}`);
 
   try {
     const response = await fetch(url, { headers });

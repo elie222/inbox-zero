@@ -9,6 +9,7 @@ import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
 import { ThreadTrackerType } from "@prisma/client";
 import { getPaginatedThreadTrackers } from "@/app/(app)/reply-zero/fetch-trackers";
 import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
+import { isDefined } from "@/utils/types";
 
 const logger = createScopedLogger("api/v1/reply-tracker");
 
@@ -49,13 +50,19 @@ export const GET = withError(async (request: NextRequest) => {
     );
 
     const response: ReplyTrackerResponse = {
-      emails: threads.threads.map((thread) => ({
-        threadId: thread.id,
-        subject: thread.messages[thread.messages.length - 1]?.headers.subject,
-        from: thread.messages[thread.messages.length - 1]?.headers.from,
-        date: thread.messages[thread.messages.length - 1]?.headers.date,
-        snippet: thread.messages[thread.messages.length - 1]?.snippet,
-      })),
+      emails: threads.threads
+        .map((thread) => {
+          const lastMessage = thread.messages[thread.messages.length - 1];
+          if (!lastMessage) return null;
+          return {
+            threadId: thread.id,
+            subject: lastMessage.headers.subject,
+            from: lastMessage.headers.from,
+            date: lastMessage.headers.date,
+            snippet: lastMessage.snippet,
+          };
+        })
+        .filter(isDefined),
       count,
     };
 
