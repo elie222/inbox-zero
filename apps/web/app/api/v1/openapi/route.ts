@@ -13,6 +13,7 @@ import {
   replyTrackerQuerySchema,
   replyTrackerResponseSchema,
 } from "@/app/api/v1/reply-tracker/validation";
+import { API_KEY_HEADER } from "@/utils/api-auth";
 
 extendZodWithOpenApi(z);
 
@@ -21,7 +22,7 @@ const registry = new OpenAPIRegistry();
 registry.registerComponent("securitySchemes", "ApiKeyAuth", {
   type: "apiKey",
   in: "header",
-  name: "API-Key",
+  name: API_KEY_HEADER,
 });
 
 registry.registerPath({

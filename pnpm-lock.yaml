@@ -73,7 +73,7 @@ importers:
         specifier: 4.1.46
         version: 4.1.46(react@18.3.1)(zod@3.24.2)
       dotenv:
-        specifier: ^16.4.7
+        specifier: 16.4.7
         version: 16.4.7
       fastify:
         specifier: ^5.2.0
@@ -519,7 +519,7 @@ importers:
         specifier: ^7.0.3
         version: 7.0.3
       dotenv:
-        specifier: ^16.4.7
+        specifier: 16.4.7
         version: 16.4.7
       jiti:
         specifier: ^2.4.2

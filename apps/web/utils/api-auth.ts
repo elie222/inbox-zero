@@ -4,7 +4,7 @@ import { hashApiKey } from "@/utils/api-key";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { SafeError } from "@/utils/error";
 
-const API_KEY_HEADER = "API-Key";
+export const API_KEY_HEADER = "API-Key";
 
 /**
  * Validates an API key from the request headers and returns the associated user

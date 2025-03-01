@@ -7,9 +7,10 @@ const API_BASE = process.env.API_BASE || "http://localhost:3000/api/v1";
 const API_KEY = process.env.API_KEY || "";
 
 if (!API_KEY) {
-  console.warn(
-    "Warning: API_KEY environment variable is not set. API requests may fail.",
+  console.error(
+    "Error: API_KEY environment variable is not set. API requests will fail.",
   );
+  process.exit(1);
 }
 
 // Create server instance
@@ -24,11 +25,23 @@ async function makeIZRequest<T>(url: string): Promise<T | null> {
     "Content-Type": "application/json",
   };
 
+  console.log(
+    `Making request to ${url} with API key: ${API_KEY.substring(0, 3)}...`,
+  );
+
   try {
     const response = await fetch(url, { headers });
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      console.error(
+        `HTTP error! status: ${response.status}, response: ${errorText}`,
+      );
+      throw new Error(
+        `HTTP error! status: ${response.status}, response: ${errorText}`,
+      );
     }
+
     return (await response.json()) as T;
   } catch (error) {
     console.error("Error making Inbox Zero API request:", error);
