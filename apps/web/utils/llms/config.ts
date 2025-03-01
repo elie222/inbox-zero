@@ -7,6 +7,7 @@ export const Provider = {
   ANTHROPIC: "anthropic",
   GOOGLE: "google",
   GROQ: "groq",
+  OPENROUTER: "openrouter",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
@@ -30,6 +31,7 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
+  { label: "OpenRouter", value: Provider.OPENROUTER },
   ...(supportsOllama && Provider.OLLAMA
     ? [{ label: "Ollama", value: Provider.OLLAMA }]
     : []),
@@ -71,6 +73,7 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
         value: Model.GROQ_LLAMA_3_3_70B,
       },
     ],
+    [Provider.OPENROUTER]: [],
     ...(Provider.OLLAMA && Model.OLLAMA
       ? {
           [Provider.OLLAMA]: [{ label: "Ollama", value: Model.OLLAMA }],
