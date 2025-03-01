@@ -6,7 +6,9 @@ import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
 import { env } from "@/env";
 
-export const maxDuration = Math.min(env.MAX_DURATION, 600);
+// https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
+// export const maxDuration = Math.min(env.MAX_DURATION, 600);
+export const maxDuration = 300;
 
 export default async function AdminPage() {
   const session = await auth();
