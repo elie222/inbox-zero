@@ -8,6 +8,7 @@ export const saveSettingsBody = z
       Provider.OPEN_AI,
       Provider.GOOGLE,
       Provider.GROQ,
+      Provider.OPENROUTER,
       ...(Provider.OLLAMA ? [Provider.OLLAMA] : []),
     ]),
     aiModel: z.string(),

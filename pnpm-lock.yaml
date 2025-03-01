@@ -175,6 +175,9 @@ importers:
       '@next/third-parties':
         specifier: ^14.2.15
         version: 14.2.15(next@14.2.15(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)
+      '@openrouter/ai-sdk-provider':
+        specifier: 0.4.2
+        version: 0.4.2(zod@3.24.2)
       '@portabletext/react':
         specifier: ^3.2.0
         version: 3.2.0(react@18.3.1)
@@ -3088,6 +3091,12 @@ packages:
 
   '@one-ini/wasm@0.1.1':
     resolution: {integrity: sha512-XuySG1E38YScSJoMlqovLru4KTUNSjgVTIjyh7qMX6aNN5HY5Ct5LhRJdxO79JtTzKfzV/bnWpz+zquYrISsvw==}
+
+  '@openrouter/ai-sdk-provider@0.4.2':
+    resolution: {integrity: sha512-BSGkZlvyirMCOH6Eso3M6GZ/lwVcx3lCUV6fTjq+vBOOeqgkNbmK6Z/tJjiq+xnC+C9o7PgW0yoVCjygEwYWKw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.0.0
 
   '@opentelemetry/api-logs@0.52.1':
     resolution: {integrity: sha512-qnSqB2DQ9TPP96dl8cDubDvrUyWc0/sK81xHTK8eSUspzDM3bsewX903qclQFvVhgStjRWdC5bLb3kQqMkfV5A==}
@@ -15135,6 +15144,12 @@ snapshots:
       '@octokit/openapi-types': 22.2.0
 
   '@one-ini/wasm@0.1.1': {}
+
+  '@openrouter/ai-sdk-provider@0.4.2(zod@3.24.2)':
+    dependencies:
+      '@ai-sdk/provider': 1.0.9
+      '@ai-sdk/provider-utils': 2.1.10(zod@3.24.2)
+      zod: 3.24.2
 
   '@opentelemetry/api-logs@0.52.1':
     dependencies:

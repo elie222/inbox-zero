@@ -19,6 +19,7 @@ export const env = createEnv({
     BEDROCK_REGION: z.string().default("us-west-2"),
     GOOGLE_API_KEY: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
+    OPENROUTER_API_KEY: z.string().optional(),
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
