@@ -28,7 +28,9 @@ import {
 } from "@/components/ui/dialog";
 import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
 
-export const maxDuration = Math.min(env.MAX_DURATION, 600);
+// https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
+// export const maxDuration = Math.min(env.MAX_DURATION, 600);
+export const maxDuration = 300;
 
 export default async function ReplyTrackerPage({
   searchParams,
