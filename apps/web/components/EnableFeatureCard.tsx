@@ -57,7 +57,7 @@ export function EnableFeatureCard({
         />
 
         <TypographyH3 className="mt-2">{title}</TypographyH3>
-        <SectionDescription className="mt-2 max-w-prose">
+        <SectionDescription className="mx-auto mt-2 max-w-prose">
           {description}
         </SectionDescription>
         {extraDescription}
