@@ -8,44 +8,47 @@ import { ColdEmailRejected } from "@/app/(app)/cold-email-blocker/ColdEmailRejec
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { ColdEmailTest } from "@/app/(app)/cold-email-blocker/ColdEmailTest";
 import { TabsToolbar } from "@/components/TabsToolbar";
+import { GmailProvider } from "@/providers/GmailProvider";
 
 export default function ColdEmailBlockerPage() {
   return (
-    <Suspense>
-      <PermissionsCheck />
-      <div className="content-container">
-        <PremiumAlertWithData className="mt-2" />
-      </div>
+    <GmailProvider>
+      <Suspense>
+        <PermissionsCheck />
+        <div className="content-container">
+          <PremiumAlertWithData className="mt-2" />
+        </div>
 
-      <Tabs defaultValue="cold-emails">
-        <TabsToolbar>
-          <TabsList>
-            <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
-            <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
-            <TabsTrigger value="test">Test</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
-        </TabsToolbar>
+        <Tabs defaultValue="cold-emails">
+          <TabsToolbar>
+            <TabsList>
+              <TabsTrigger value="cold-emails">Cold Emails</TabsTrigger>
+              <TabsTrigger value="rejected">Marked Not Cold</TabsTrigger>
+              <TabsTrigger value="test">Test</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </TabsToolbar>
 
-        <TabsContent value="cold-emails" className="content-container mb-10">
-          <Card>
-            <ColdEmailList />
-          </Card>
-        </TabsContent>
-        <TabsContent value="rejected" className="content-container mb-10">
-          <Card>
-            <ColdEmailRejected />
-          </Card>
-        </TabsContent>
+          <TabsContent value="cold-emails" className="content-container mb-10">
+            <Card>
+              <ColdEmailList />
+            </Card>
+          </TabsContent>
+          <TabsContent value="rejected" className="content-container mb-10">
+            <Card>
+              <ColdEmailRejected />
+            </Card>
+          </TabsContent>
 
-        <TabsContent value="test" className="content-container mb-10">
-          <ColdEmailTest />
-        </TabsContent>
+          <TabsContent value="test" className="content-container mb-10">
+            <ColdEmailTest />
+          </TabsContent>
 
-        <TabsContent value="settings" className="content-container mb-10">
-          <ColdEmailSettings />
-        </TabsContent>
-      </Tabs>
-    </Suspense>
+          <TabsContent value="settings" className="content-container mb-10">
+            <ColdEmailSettings />
+          </TabsContent>
+        </Tabs>
+      </Suspense>
+    </GmailProvider>
   );
 }

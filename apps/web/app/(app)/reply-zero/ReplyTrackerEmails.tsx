@@ -311,6 +311,8 @@ function Row({
             threadId={message.threadId}
             messageId={message.id}
             hideViewEmailButton
+            labelIds={message.labelIds}
+            filterReplyTrackerLabels
           />
 
           {/* biome-ignore lint/a11y/useKeyWithClickEvents: buttons inside handle keyboard events */}

@@ -277,6 +277,7 @@ function ProcessRulesRow({
             userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}
+            labelIds={message.labelIds}
           />
           <div className="ml-4 flex items-center gap-1">
             {result ? (
