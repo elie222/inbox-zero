@@ -45,7 +45,9 @@ export function LabelOptionsStep() {
           autosizeTextarea
           rows={3}
           name="labelInstructions"
-          placeholder="E.g., Label work emails as 'Work' and don't archive them. Label emails that need a reply as 'Reply Needed'."
+          placeholder={`E.g.,
+I work as a freelance designer. Don't archive emails from my clients. Label them: 'Freelance'.
+Skip emails that need a reply and label them: 'Reply Needed'.`}
           registerProps={register("labelInstructions")}
           error={errors.labelInstructions}
         />
