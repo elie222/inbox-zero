@@ -1,14 +1,14 @@
+"use client";
+
 import Image from "next/image";
 import { SectionDescription } from "@/components/Typography";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import { useStep } from "@/app/(app)/clean/useStep";
 
-interface IntroStepProps {
-  unreadCount: number | null;
-  onNext: () => void;
-}
+export function IntroStep({ unreadCount }: { unreadCount: number }) {
+  const { onNext } = useStep();
 
-export function IntroStep({ unreadCount, onNext }: IntroStepProps) {
   return (
     <div className="text-center">
       <Image

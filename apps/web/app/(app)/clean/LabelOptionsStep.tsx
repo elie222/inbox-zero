@@ -1,10 +1,12 @@
+"use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { TypographyH3 } from "@/components/Typography";
-import { SectionDescription } from "@/components/Typography";
 import { Input } from "@/components/Input";
+import { useStep } from "@/app/(app)/clean/useStep";
 
 // Define the schema for the label input
 const labelInputSchema = z.object({
@@ -13,11 +15,8 @@ const labelInputSchema = z.object({
 
 type LabelInputs = z.infer<typeof labelInputSchema>;
 
-interface LabelOptionsStepProps {
-  onSubmit: (labelInstructions: string) => void;
-}
-
-export function LabelOptionsStep({ onSubmit }: LabelOptionsStepProps) {
+export function LabelOptionsStep() {
+  const { onNext } = useStep();
   const {
     register,
     handleSubmit,
@@ -27,7 +26,8 @@ export function LabelOptionsStep({ onSubmit }: LabelOptionsStepProps) {
   });
 
   const onLabelSubmit: SubmitHandler<LabelInputs> = (data) => {
-    onSubmit(data.labelInstructions || "");
+    // onSubmit(data.labelInstructions || "");
+    onNext();
   };
 
   return (

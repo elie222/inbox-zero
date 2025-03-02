@@ -1,17 +1,32 @@
+"use client";
+
+import { useMemo } from "react";
 import Image from "next/image";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
+import { useStep } from "@/app/(app)/clean/useStep";
 
-interface ConfirmationStepProps {
-  estimatedTime: string;
-  onStart: () => void;
-}
+export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
+  const { onNext } = useStep();
 
-export function ConfirmationStep({
-  estimatedTime,
-  onStart,
-}: ConfirmationStepProps) {
+  const estimatedTime = useMemo(() => {
+    if (!unreadCount) return "calculating...";
+
+    const secondsPerEmail = 1;
+    const totalSeconds = unreadCount * secondsPerEmail;
+
+    if (totalSeconds < 60) {
+      return `${totalSeconds} seconds`;
+    } else if (totalSeconds < 3600) {
+      return `${Math.ceil(totalSeconds / 60)} minutes`;
+    } else {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.ceil((totalSeconds % 3600) / 60);
+      return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
+    }
+  }, [unreadCount]);
+
   return (
     <div className="text-center">
       <Image
@@ -29,13 +44,15 @@ export function ConfirmationStep({
         <li>We'll start with 20 emails as a test run</li>
         <li>Full process takes approximately {estimatedTime}</li>
         <li>
-          All emails will be labeled as <Badge color="green">Cleaned</Badge>
+          All cleaned emails will be labeled as{" "}
+          <Badge color="green">Cleaned</Badge> so you can find them later or
+          restore them
         </li>
         <li>No emails are deleted - everything can be found in search</li>
       </ul>
 
       <div className="mt-6">
-        <Button onClick={onStart}>Start Cleaning</Button>
+        <Button onClick={onNext}>Start Cleaning</Button>
       </div>
     </div>
   );

@@ -1,16 +1,25 @@
+"use client";
+
+import { useCallback } from "react";
+import { useQueryState } from "nuqs";
 import { ArchiveIcon, MailIcon } from "lucide-react";
 import { TypographyH3 } from "@/components/Typography";
-import { SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import { useStep } from "@/app/(app)/clean/useStep";
 import type { EmailAction } from "@/app/(app)/clean/types";
 
-interface ActionSelectionStepProps {
-  onActionSelect: (action: EmailAction) => void;
-}
+export function ActionSelectionStep() {
+  const { onNext } = useStep();
+  const [_, setAction] = useQueryState("action", { defaultValue: "archive" });
 
-export function ActionSelectionStep({
-  onActionSelect,
-}: ActionSelectionStepProps) {
+  const onSetAction = useCallback(
+    (action: EmailAction) => {
+      setAction(action);
+      onNext();
+    },
+    [setAction, onNext],
+  );
+
   return (
     <div className="text-center">
       <TypographyH3 className="mx-auto max-w-lg">
@@ -20,14 +29,14 @@ export function ActionSelectionStep({
       <div className="mt-6 flex flex-col gap-3">
         <Button
           variant="outline"
-          onClick={() => onActionSelect("archive")}
+          onClick={() => onSetAction("archive")}
           Icon={ArchiveIcon}
         >
           Archive (Recommended)
         </Button>
         <Button
           variant="outline"
-          onClick={() => onActionSelect("mark-read")}
+          onClick={() => onSetAction("mark-read")}
           Icon={MailIcon}
         >
           Mark as Read

@@ -60,7 +60,7 @@ async function getUnreadEmailCount(gmail: gmail_v1.Gmail) {
   return unreadCount;
 }
 
-async function getInboxCount(gmail: gmail_v1.Gmail) {
+export async function getInboxCount(gmail: gmail_v1.Gmail) {
   const label = await getLabelById({ gmail, id: GmailLabel.INBOX });
   const inboxCount = label?.messagesTotal || 0;
   return inboxCount;
