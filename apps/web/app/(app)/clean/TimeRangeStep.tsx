@@ -2,6 +2,8 @@ import { Button } from "@/components/ui/button";
 import { TypographyH3 } from "@/components/Typography";
 import { SectionDescription } from "@/components/Typography";
 import { timeRangeOptions } from "@/app/(app)/clean/types";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/utils";
 
 interface TimeRangeStepProps {
   timeRange: string;
@@ -14,23 +16,28 @@ export function TimeRangeStep({
 }: TimeRangeStepProps) {
   return (
     <div className="text-center">
-      <TypographyH3 className="mb-4">
-        How old should emails be before we process them?
-      </TypographyH3>
+      <TypographyH3>Which emails would you like to process?</TypographyH3>
 
-      <SectionDescription className="mx-auto mb-6 max-w-prose">
-        We recommend only processing emails that are at least a week old.
-      </SectionDescription>
-
-      <div className="mx-auto flex max-w-md flex-col gap-3">
+      <div className="mx-auto mt-6 flex max-w-lg flex-col gap-3">
         {timeRangeOptions.map((option) => (
           <Button
             key={option.value}
-            variant={timeRange === option.value ? "default" : "outline"}
-            className="w-full justify-start"
+            variant="outline"
             onClick={() => onTimeRangeSelect(option.value)}
+            className={cn(
+              "relative w-full",
+              option.recommended &&
+                "ring-1 ring-inset ring-black ring-border dark:ring-white",
+            )}
           >
-            {option.label}
+            <span className="absolute inset-0 flex items-center justify-center">
+              {option.label}
+            </span>
+            {option.recommended && (
+              <span className="relative ml-auto">
+                <Badge className="ml-2">Recommended</Badge>
+              </span>
+            )}
           </Button>
         ))}
       </div>

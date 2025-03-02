@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { TypographyH3 } from "@/components/Typography";
-import { SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/Badge";
 
 interface ConfirmationStepProps {
   estimatedTime: string;
@@ -25,16 +25,14 @@ export function ConfirmationStep({
 
       <TypographyH3 className="mt-2">Ready to clean up your inbox</TypographyH3>
 
-      <SectionDescription className="mx-auto mt-4 max-w-prose">
-        We'll run through 20 emails first as a test run. The full process can
-        take approximately {estimatedTime} to clean up your inbox.
-      </SectionDescription>
-
-      <SectionDescription className="mx-auto mt-4 max-w-prose">
-        All emails will be labeled as "Cleaned" so it's easy to revert if
-        needed. We don't delete any emails, and any archived emails can easily
-        be found in search.
-      </SectionDescription>
+      <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
+        <li>We'll start with 20 emails as a test run</li>
+        <li>Full process takes approximately {estimatedTime}</li>
+        <li>
+          All emails will be labeled as <Badge color="green">Cleaned</Badge>
+        </li>
+        <li>No emails are deleted - everything can be found in search</li>
+      </ul>
 
       <div className="mt-6">
         <Button onClick={onStart}>Start Cleaning</Button>

@@ -106,9 +106,6 @@ export default function Clean() {
       case CleanStep.ARCHIVE_OR_READ:
         return <ActionSelectionStep onActionSelect={handleActionSelect} />;
 
-      case CleanStep.LABEL_OPTIONS:
-        return <LabelOptionsStep onSubmit={handleLabelSubmit} />;
-
       case CleanStep.TIME_RANGE:
         return (
           <TimeRangeStep
@@ -116,6 +113,9 @@ export default function Clean() {
             onTimeRangeSelect={handleTimeRangeSelect}
           />
         );
+
+      case CleanStep.LABEL_OPTIONS:
+        return <LabelOptionsStep onSubmit={handleLabelSubmit} />;
 
       case CleanStep.FINAL_CONFIRMATION:
         return (

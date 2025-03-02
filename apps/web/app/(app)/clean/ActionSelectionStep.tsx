@@ -1,3 +1,4 @@
+import { ArchiveIcon, MailIcon } from "lucide-react";
 import { TypographyH3 } from "@/components/Typography";
 import { SectionDescription } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
@@ -12,28 +13,22 @@ export function ActionSelectionStep({
 }: ActionSelectionStepProps) {
   return (
     <div className="text-center">
-      <TypographyH3 className="mb-4">
-        How would you like to handle your emails?
+      <TypographyH3 className="mx-auto max-w-lg">
+        Would you like cleaned emails to be archived or marked as read?
       </TypographyH3>
 
-      <SectionDescription className="mx-auto mb-6 max-w-prose">
-        Choose how you'd like to process the emails in your inbox.
-      </SectionDescription>
-
-      <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+      <div className="mt-6 flex flex-col gap-3">
         <Button
-          variant="default"
-          size="lg"
+          variant="outline"
           onClick={() => onActionSelect("archive")}
-          className="flex-1 sm:max-w-40"
+          Icon={ArchiveIcon}
         >
           Archive (Recommended)
         </Button>
         <Button
           variant="outline"
-          size="lg"
           onClick={() => onActionSelect("mark-read")}
-          className="flex-1 sm:max-w-40"
+          Icon={MailIcon}
         >
           Mark as Read
         </Button>

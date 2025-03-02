@@ -32,16 +32,14 @@ export function LabelOptionsStep({ onSubmit }: LabelOptionsStepProps) {
 
   return (
     <div className="text-center">
-      <TypographyH3 className="mb-4">
-        Any emails you want labeled a certain way?
-      </TypographyH3>
+      <TypographyH3>Any emails you want labeled a certain way?</TypographyH3>
 
-      <SectionDescription className="mx-auto mb-6 max-w-prose">
+      {/* <SectionDescription className="mt-4">
         For example, you might want to label work emails as "Work" and not
         archive them, or label emails that need a reply as "Reply Needed".
-      </SectionDescription>
+      </SectionDescription> */}
 
-      <form onSubmit={handleSubmit(onLabelSubmit)} className="mx-auto max-w-md">
+      <form onSubmit={handleSubmit(onLabelSubmit)} className="mt-6">
         <Input
           type="text"
           autosizeTextarea

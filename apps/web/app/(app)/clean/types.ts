@@ -2,8 +2,8 @@
 export enum CleanStep {
   INTRO = 0,
   ARCHIVE_OR_READ = 1,
-  LABEL_OPTIONS = 2,
-  TIME_RANGE = 3,
+  TIME_RANGE = 2,
+  LABEL_OPTIONS = 3,
   FINAL_CONFIRMATION = 4,
   PROCESSING = 5,
 }
@@ -11,7 +11,7 @@ export enum CleanStep {
 // Define the time range options
 export const timeRangeOptions = [
   { value: "1", label: "Older than 1 day" },
-  { value: "7", label: "Older than 1 week" },
+  { value: "7", label: "Older than 1 week", recommended: true },
   { value: "14", label: "Older than 2 weeks" },
   { value: "30", label: "Older than 1 month" },
 ];
