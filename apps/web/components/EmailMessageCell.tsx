@@ -9,6 +9,14 @@ import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
+import { Badge } from "@/components/ui/badge";
+import { useGmail } from "@/providers/GmailProvider";
+import { useMemo } from "react";
+import { isDefined } from "@/utils/types";
+import {
+  NEEDS_REPLY_LABEL_NAME,
+  AWAITING_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export function EmailMessageCell({
   sender,
@@ -18,6 +26,8 @@ export function EmailMessageCell({
   threadId,
   messageId,
   hideViewEmailButton,
+  labelIds,
+  filterReplyTrackerLabels,
 }: {
   sender: string;
   userEmail: string;
@@ -26,7 +36,35 @@ export function EmailMessageCell({
   threadId: string;
   messageId: string;
   hideViewEmailButton?: boolean;
+  labelIds?: string[];
+  filterReplyTrackerLabels?: boolean;
 }) {
+  const { labels } = useGmail();
+
+  const labelsToDisplay = useMemo(() => {
+    let userLabels = labelIds
+      ?.map((id) => {
+        const label = labels[id];
+        if (!label) return null;
+        return { id, name: label.name };
+      })
+      .filter(isDefined);
+
+    if (filterReplyTrackerLabels) {
+      userLabels = userLabels?.filter(
+        (label) =>
+          label.name !== NEEDS_REPLY_LABEL_NAME &&
+          label.name !== AWAITING_REPLY_LABEL_NAME,
+      );
+    }
+
+    if (labelIds && !labelIds.includes("INBOX")) {
+      userLabels?.unshift({ id: "ARCHIVE", name: "Archived" });
+    }
+
+    return userLabels;
+  }, [labelIds, labels, filterReplyTrackerLabels]);
+
   return (
     <div className="min-w-0 break-words">
       <MessageText className="flex items-center">
@@ -45,6 +83,15 @@ export function EmailMessageCell({
             size="xs"
             className="ml-1.5"
           />
+        )}
+        {labelsToDisplay && labelsToDisplay.length > 0 && (
+          <div className="ml-2 flex flex-wrap items-center gap-1">
+            {labelsToDisplay.map((label) => (
+              <Badge variant="secondary" key={label.id}>
+                {label.name}
+              </Badge>
+            ))}
+          </div>
         )}
       </MessageText>
       <MessageText className="mt-1 font-bold">{subject}</MessageText>
@@ -68,6 +115,8 @@ export function EmailMessageCellWithData({
 }) {
   const { data, isLoading, error } = useThread({ id: threadId });
 
+  const firstMessage = data?.thread.messages?.[0];
+
   return (
     <EmailMessageCell
       sender={sender}
@@ -77,13 +126,12 @@ export function EmailMessageCellWithData({
           ? "Error loading email"
           : isLoading
             ? "Loading email..."
-            : data?.thread.messages?.[0]?.headers.subject || ""
+            : firstMessage?.headers.subject || ""
       }
-      snippet={
-        error ? "" : isLoading ? "" : data?.thread.messages?.[0]?.snippet || ""
-      }
+      snippet={error ? "" : isLoading ? "" : firstMessage?.snippet || ""}
       threadId={threadId}
       messageId={messageId}
+      labelIds={firstMessage?.labelIds}
     />
   );
 }

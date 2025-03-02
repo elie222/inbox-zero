@@ -25,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
+import { GmailProvider } from "@/providers/GmailProvider";
 
 // https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
 // export const maxDuration = Math.min(env.MAX_DURATION, 600);
@@ -56,26 +57,27 @@ export default async function ReplyTrackerPage({
   const timeRange = searchParams.timeRange || "all";
 
   return (
-    <Tabs defaultValue="needsReply" className="flex h-full flex-col">
-      <TabsToolbar>
-        <div className="w-full overflow-x-auto">
-          <div className="flex items-center justify-between gap-2">
-            <TabsList>
-              <TabsTrigger
-                value="needsReply"
-                className="flex items-center gap-2"
-              >
-                <MailIcon className="h-4 w-4" />
-                To Reply
-              </TabsTrigger>
-              <TabsTrigger
-                value="awaitingReply"
-                className="flex items-center gap-2"
-              >
-                <ClockIcon className="h-4 w-4" />
-                Waiting
-              </TabsTrigger>
-              {/* <TabsTrigger
+    <GmailProvider>
+      <Tabs defaultValue="needsReply" className="flex h-full flex-col">
+        <TabsToolbar>
+          <div className="w-full overflow-x-auto">
+            <div className="flex items-center justify-between gap-2">
+              <TabsList>
+                <TabsTrigger
+                  value="needsReply"
+                  className="flex items-center gap-2"
+                >
+                  <MailIcon className="h-4 w-4" />
+                  To Reply
+                </TabsTrigger>
+                <TabsTrigger
+                  value="awaitingReply"
+                  className="flex items-center gap-2"
+                >
+                  <ClockIcon className="h-4 w-4" />
+                  Waiting
+                </TabsTrigger>
+                {/* <TabsTrigger
                 value="needsAction"
                 className="flex items-center gap-2"
               >
@@ -83,65 +85,69 @@ export default async function ReplyTrackerPage({
                 Needs Action
               </TabsTrigger> */}
 
-              <TabsTrigger value="resolved" className="flex items-center gap-2">
-                <CheckCircleIcon className="size-4" />
-                Done
-              </TabsTrigger>
-            </TabsList>
+                <TabsTrigger
+                  value="resolved"
+                  className="flex items-center gap-2"
+                >
+                  <CheckCircleIcon className="size-4" />
+                  Done
+                </TabsTrigger>
+              </TabsList>
 
-            <div className="flex items-center gap-2">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button variant="ghost" size="icon">
-                    <SettingsIcon className="size-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Settings</DialogTitle>
-                  </DialogHeader>
+              <div className="flex items-center gap-2">
+                <Dialog>
+                  <DialogTrigger asChild>
+                    <Button variant="ghost" size="icon">
+                      <SettingsIcon className="size-4" />
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Settings</DialogTitle>
+                    </DialogHeader>
 
-                  <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
-                </DialogContent>
-              </Dialog>
-              <TimeRangeFilter />
+                    <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
+                  </DialogContent>
+                </Dialog>
+                <TimeRangeFilter />
+              </div>
             </div>
           </div>
-        </div>
-      </TabsToolbar>
+        </TabsToolbar>
 
-      <TabsContent value="needsReply" className="mt-0 flex-1">
-        <NeedsReply
-          userId={userId}
-          userEmail={userEmail}
-          page={page}
-          timeRange={timeRange}
-          isAnalyzing={isAnalyzing}
-        />
-      </TabsContent>
+        <TabsContent value="needsReply" className="mt-0 flex-1">
+          <NeedsReply
+            userId={userId}
+            userEmail={userEmail}
+            page={page}
+            timeRange={timeRange}
+            isAnalyzing={isAnalyzing}
+          />
+        </TabsContent>
 
-      <TabsContent value="awaitingReply" className="mt-0 flex-1">
-        <AwaitingReply
-          userId={userId}
-          userEmail={userEmail}
-          page={page}
-          timeRange={timeRange}
-          isAnalyzing={isAnalyzing}
-        />
-      </TabsContent>
+        <TabsContent value="awaitingReply" className="mt-0 flex-1">
+          <AwaitingReply
+            userId={userId}
+            userEmail={userEmail}
+            page={page}
+            timeRange={timeRange}
+            isAnalyzing={isAnalyzing}
+          />
+        </TabsContent>
 
-      {/* <TabsContent value="needsAction" className="mt-0 flex-1">
+        {/* <TabsContent value="needsAction" className="mt-0 flex-1">
         <NeedsAction userId={userId} userEmail={userEmail} page={page} />
       </TabsContent> */}
 
-      <TabsContent value="resolved" className="mt-0 flex-1">
-        <Resolved
-          userId={userId}
-          userEmail={userEmail}
-          page={page}
-          timeRange={timeRange}
-        />
-      </TabsContent>
-    </Tabs>
+        <TabsContent value="resolved" className="mt-0 flex-1">
+          <Resolved
+            userId={userId}
+            userEmail={userEmail}
+            page={page}
+            timeRange={timeRange}
+          />
+        </TabsContent>
+      </Tabs>
+    </GmailProvider>
   );
 }
