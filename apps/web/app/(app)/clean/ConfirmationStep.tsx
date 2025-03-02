@@ -15,10 +15,10 @@ export function ConfirmationStep({
   return (
     <div className="text-center">
       <Image
-        src="/images/illustrations/communication.svg"
+        src="https://illustrations.popsy.co/amber/business-success-chart.svg"
         alt="clean up"
-        width={150}
-        height={150}
+        width={200}
+        height={200}
         className="mx-auto dark:brightness-90 dark:invert"
         unoptimized
       />

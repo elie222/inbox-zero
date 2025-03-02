@@ -12,7 +12,7 @@ export function IntroStep({ unreadCount, onNext }: IntroStepProps) {
   return (
     <div className="text-center">
       <Image
-        src="/images/illustrations/communication.svg"
+        src="https://illustrations.popsy.co/amber/home-office.svg"
         alt="clean up"
         width={200}
         height={200}
