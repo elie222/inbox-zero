@@ -39,19 +39,19 @@ export function EmailMessageCell({
   labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
 }) {
-  const { labels } = useGmail();
+  const { userLabels } = useGmail();
 
   const labelsToDisplay = useMemo(() => {
-    let userLabels = labelIds
+    let labels = labelIds
       ?.map((id) => {
-        const label = labels[id];
+        const label = userLabels[id];
         if (!label) return null;
         return { id, name: label.name };
       })
       .filter(isDefined);
 
     if (filterReplyTrackerLabels) {
-      userLabels = userLabels?.filter(
+      labels = labels?.filter(
         (label) =>
           label.name !== NEEDS_REPLY_LABEL_NAME &&
           label.name !== AWAITING_REPLY_LABEL_NAME,
@@ -59,11 +59,11 @@ export function EmailMessageCell({
     }
 
     if (labelIds && !labelIds.includes("INBOX")) {
-      userLabels?.unshift({ id: "ARCHIVE", name: "Archived" });
+      labels?.unshift({ id: "ARCHIVE", name: "Archived" });
     }
 
-    return userLabels;
-  }, [labelIds, labels, filterReplyTrackerLabels]);
+    return labels;
+  }, [labelIds, userLabels, filterReplyTrackerLabels]);
 
   return (
     <div className="min-w-0 break-words">
