@@ -156,6 +156,7 @@ function TestRulesContentRow({
             userEmail={userEmail}
             threadId={message.threadId}
             messageId={message.id}
+            labelIds={message.labelIds}
           />
           <div className="ml-4">
             <Button
