@@ -70,7 +70,7 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
       />
       <Toggle
         name="auto-draft"
-        label="Draft replies"
+        label="Auto draft replies in Gmail"
         enabled={draftReplies}
         onChange={(checked) => setValue("draftReplies", checked)}
       />
