@@ -1,7 +1,7 @@
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
 import Link from "next/link";
 import { Shield, Tag, Archive, Check, Zap } from "lucide-react";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma from "@/utils/prisma";
 
 export default async function SetupPage() {
   const session = await auth();
@@ -17,7 +17,7 @@ export default async function SetupPage() {
         take: 2,
       },
       newsletters: {
-        where: { status: "UNSUBSCRIBED" },
+        where: { status: { not: null } },
         take: 1,
       },
     },
