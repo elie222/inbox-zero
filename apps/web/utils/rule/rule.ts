@@ -1,7 +1,7 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import type { Prisma, Rule } from "@prisma/client";
+import { ActionType, type Prisma, type Rule } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/automation/examples";
@@ -190,12 +190,21 @@ export async function deleteRule({
   ]);
 }
 
+// TODO: in cases that we don't automate we should really let the user know in the UI so that they can turn it on themselves
 function shouldAutomate(
   rule: CreateOrUpdateRuleSchemaWithCategories,
   actions: RiskAction[],
 ) {
   // Don't automate if it's an example rule that should have been edited by the user
   if (hasExampleParams(rule)) return false;
+
+  // Don't automate sending or replying to emails
+  if (
+    rule.actions.find(
+      (a) => a.type === ActionType.REPLY || a.type === ActionType.SEND_EMAIL,
+    )
+  )
+    return false;
 
   const riskLevels = actions.map(
     (action) => getActionRiskLevel(action, false, {}).level,
