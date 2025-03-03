@@ -232,7 +232,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       {state === "expanded" ? (
         <SidebarHeader>
-          <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+          <Link href="/setup">
             <div className="flex h-12 items-center p-4 text-white">
               <Logo className="h-4" />
             </div>
