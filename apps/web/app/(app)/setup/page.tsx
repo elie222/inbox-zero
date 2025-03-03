@@ -12,10 +12,7 @@ export default async function SetupPage() {
     where: { id: userId },
     select: {
       coldEmailBlocker: true,
-      rules: {
-        select: { trackReplies: true },
-        take: 2,
-      },
+      rules: { select: { trackReplies: true } },
       newsletters: {
         where: { status: { not: null } },
         take: 1,
