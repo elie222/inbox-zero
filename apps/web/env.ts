@@ -125,7 +125,7 @@ export const env = createEnv({
       .string()
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
-    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/automation"),
+    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
