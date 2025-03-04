@@ -8,14 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, Inbox, Pause, Play } from "lucide-react";
 import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
-import { useEmailSimulator } from "./use-email-simulator";
+import { useEmailSSE } from "./use-email-sse";
 
 export function EmailFirehose() {
   const [isPaused, setIsPaused] = useState(false);
   const [view, setView] = useState<"firehose" | "stats">("firehose");
 
   const { emails, stats, processingRate, setProcessingRate, togglePause } =
-    useEmailSimulator(isPaused);
+    useEmailSSE(isPaused);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -79,11 +79,7 @@ export function EmailFirehose() {
         </div>
       </div>
 
-      <Tabs
-        defaultValue="firehose"
-        className="w-full"
-        // onValueChange={(v) => setView(v as "firehose" | "stats")}
-      >
+      <Tabs defaultValue="firehose" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="firehose">Firehose</TabsTrigger>
           <TabsTrigger value="stats">Statistics</TabsTrigger>
@@ -113,7 +109,7 @@ export function EmailFirehose() {
               </div>
             ) : (
               <div className="flex h-full items-center justify-center py-20 text-muted-foreground">
-                No emails processed yet. Adjust the speed and resume to start.
+                No emails processed yet. Resume to start streaming emails.
               </div>
             )}
           </div>
@@ -133,16 +129,12 @@ export function EmailFirehose() {
             <div className="mr-1 h-3 w-3 rounded-full bg-green-500" />
             <span>Archived</span>
           </div>
-          {/* <div className="flex items-center">
-              <div className="w-3 h-3 rounded-full bg-red-500 mr-1" />
-              <span>Deleted</span>
-            </div> */}
           <div className="flex items-center">
             <div className="mr-1 h-3 w-3 rounded-full bg-yellow-500" />
             <span>Labeled</span>
           </div>
         </div>
-        <div>Processed: {emails.length} emails</div>
+        <div>Streamed: {emails.length} emails</div>
       </div>
     </div>
   );
