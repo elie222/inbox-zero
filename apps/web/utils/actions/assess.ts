@@ -146,6 +146,7 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
 
     // go through the messages, and check the headers for the email client
     const clients = messages
+      .filter((message) => message.labelIds?.includes(GmailLabel.SENT))
       .map((message) => {
         return (
           message.headers["message-id"] &&
