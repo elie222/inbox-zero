@@ -27,3 +27,23 @@ export type JobStatus =
   | "COMPLETED"
   | "CANCELLED"
   | "ERROR";
+
+export interface Email {
+  id: string;
+  subject: string;
+  from: string;
+  timestamp: string;
+  size: number;
+  action: "archive" | "delete" | "label" | null;
+  label?: string;
+}
+
+export interface EmailStats {
+  total: number;
+  inbox: number;
+  archived: number;
+  deleted: number;
+  labeled: number;
+  labels: Record<string, number>;
+  rate: number;
+}

@@ -1,16 +1,7 @@
 "use client";
 
-import { EmailTrainerAgent } from "./EmailTrainerAgent";
-import type { EmailAction } from "./types";
+import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 
 export function ProcessingStep() {
-  return <p>TODO</p>;
-  // return (
-  //   <EmailTrainerAgent
-  //     action={action}
-  //     timeRangeInDays={timeRangeInDays}
-  //     labelInstructions={labelInstructions}
-  //     onReset={onReset}
-  //   />
-  // );
+  return <EmailFirehose />;
 }
