@@ -9,6 +9,7 @@ import {
   ArrowLeftIcon,
   BarChartBigIcon,
   BookIcon,
+  BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   CogIcon,
@@ -70,6 +71,11 @@ const navigationItems: NavItem[] = [
     name: "Reply Zero",
     href: "/reply-zero",
     icon: MessageCircleReplyIcon,
+  },
+  {
+    name: "Cleaner",
+    href: "/cleaner",
+    icon: BrushIcon,
   },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
     ? []
