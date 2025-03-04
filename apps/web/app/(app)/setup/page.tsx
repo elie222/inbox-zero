@@ -137,7 +137,6 @@ function SetupContent({
             description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
             timeEstimate="10 minutes"
             completed={isAiAssistantConfigured}
-            actionButton="Configure"
           />
 
           {/* <StepItem
