@@ -211,7 +211,7 @@ const nextConfig = {
               // If you use web workers or service workers
               "worker-src 'self' blob:",
               // For API calls, SWR, external services
-              "connect-src 'self' https:",
+              "connect-src 'self' https: wss:",
               // iframes
               "frame-src 'self' https:",
               // Prevent embedding in iframes
