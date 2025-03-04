@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { TypographyH3 } from "@/components/Typography";
+import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { Input } from "@/components/Input";
 import { useStep } from "@/app/(app)/clean/useStep";
 
@@ -32,12 +32,15 @@ export function LabelOptionsStep() {
 
   return (
     <div className="text-center">
-      <TypographyH3>Any emails you want labeled a certain way?</TypographyH3>
+      <TypographyH3>Any emails you want handled a certain way?</TypographyH3>
 
-      {/* <SectionDescription className="mt-4">
-        For example, you might want to label work emails as "Work" and not
-        archive them, or label emails that need a reply as "Reply Needed".
-      </SectionDescription> */}
+      <SectionDescription className="mt-4 max-w-prose text-left">
+        <strong>Example:</strong>
+        <br />I work as a freelance designer. Label clients emails as
+        "Freelance".
+        <br />
+        Don't archive emails needing a reply.
+      </SectionDescription>
 
       <form onSubmit={handleSubmit(onLabelSubmit)} className="mt-6">
         <Input
@@ -45,9 +48,6 @@ export function LabelOptionsStep() {
           autosizeTextarea
           rows={3}
           name="labelInstructions"
-          placeholder={`E.g.,
-I work as a freelance designer. Don't archive emails from my clients. Label them: 'Freelance'.
-Skip emails that need a reply and label them: 'Reply Needed'.`}
           registerProps={register("labelInstructions")}
           error={errors.labelInstructions}
         />
