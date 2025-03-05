@@ -1,0 +1,114 @@
+import { Client, type HeadersInit } from "@upstash/qstash";
+import { env } from "@/env";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import { SafeError } from "@/utils/error";
+import { sleep } from "@/utils/sleep";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("upstash");
+
+function getQstashClient() {
+  if (!env.QSTASH_TOKEN) return null;
+  return new Client({ token: env.QSTASH_TOKEN });
+}
+
+export async function publishToQstash(
+  url: string,
+  body: any,
+  flowControl?: {
+    key: string;
+    ratePerSecond?: number;
+    parallelism?: number;
+  },
+) {
+  const client = getQstashClient();
+
+  if (client) {
+    return client.publishJSON({ url, body, flowControl });
+  }
+
+  return fallbackPublishToQstash(url, body);
+}
+
+export async function bulkPublishToQstash({
+  items,
+}: {
+  items: {
+    url: string;
+    body: any;
+    flowControl?: {
+      key: string;
+      ratePerSecond?: number;
+      parallelism?: number;
+    };
+  }[];
+}) {
+  const client = getQstashClient();
+  if (client) {
+    return client.batchJSON(items);
+  }
+
+  for (const item of items) {
+    await fallbackPublishToQstash(item.url, item.body);
+  }
+}
+
+export async function publishToQstashQueue({
+  queueName,
+  parallelism,
+  url,
+  body,
+  headers,
+}: {
+  queueName: string;
+  parallelism: number;
+  url: string;
+  body: any;
+  headers?: HeadersInit;
+}) {
+  const client = getQstashClient();
+
+  if (client) {
+    const queue = client.queue({ queueName });
+    queue.upsert({ parallelism });
+    return await queue.enqueueJSON({ url, body, headers });
+  }
+
+  return fallbackPublishToQstash(url, body);
+}
+
+async function fallbackPublishToQstash(url: string, body: any) {
+  // Fallback to fetch if Qstash client is not found
+  logger.warn("Qstash client not found");
+
+  if (!env.INTERNAL_API_KEY)
+    throw new SafeError("Internal API key must be set");
+
+  // Don't await. Run in background
+  fetch(`${url}/simple`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+    },
+    body: JSON.stringify(body),
+  });
+  // Wait for 100ms to ensure the request is sent
+  await sleep(100);
+}
+
+export async function listQueues() {
+  const client = getQstashClient();
+  if (client) {
+    return await client.queue().list();
+  }
+  return [];
+}
+
+export async function deleteQueue(queueName: string) {
+  const client = getQstashClient();
+  if (client) {
+    logger.info("Deleting queue", { queueName });
+    await client.queue({ queueName }).delete();
+  }
+}

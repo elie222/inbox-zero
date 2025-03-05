@@ -20,7 +20,7 @@ import { isActionError } from "@/utils/error";
 import {
   deleteEmptyCategorizeSendersQueues,
   publishToAiCategorizeSendersQueue,
-} from "@/utils/upstash";
+} from "@/utils/upstash/categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 
