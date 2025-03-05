@@ -61,8 +61,8 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
         <li>We'll start with 20 emails as a test run</li>
         <li>Full process takes approximately {estimatedTime}</li>
         <li>
-          All cleaned emails will be labeled as{" "}
-          <Badge color="green">Cleaned</Badge> so you can find them later or
+          All archived emails will be labeled as{" "}
+          <Badge color="green">Archived</Badge> so you can find them later or
           restore them
         </li>
         <li>No emails are deleted - everything can be found in search</li>

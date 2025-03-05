@@ -74,7 +74,7 @@ const navigationItems: NavItem[] = [
   },
   {
     name: "Cleaner",
-    href: "/cleaner",
+    href: "/clean",
     icon: BrushIcon,
   },
   ...(NEXT_PUBLIC_DISABLE_TINYBIRD
