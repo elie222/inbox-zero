@@ -192,6 +192,15 @@ export function EmailList({
     const openedRowIndex = threads.findIndex(
       (thread) => thread.id === openThreadId,
     );
+
+    if (openedRowIndex === -1 || threads.length === 0) {
+      return openThreadId;
+    }
+
+    if (threads.length === 1) {
+      return threads[0].id;
+    }
+
     const rowIndex =
       openedRowIndex < threads.length - 1
         ? openedRowIndex + 1
