@@ -57,7 +57,6 @@ export function EmailPanel({
             onPlanAiAction={() => onPlanAiAction(row)}
             onArchive={() => {
               onArchive(row);
-              close();
             }}
             refetch={refetch}
           />
