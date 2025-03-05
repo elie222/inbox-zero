@@ -40,7 +40,9 @@ async function performGmailAction({
   await labelThread({
     gmail,
     threadId,
-    addLabelIds: [archiveLabelId, labelId].filter(isDefined),
+    addLabelIds: [archive ? archiveLabelId : undefined, labelId].filter(
+      isDefined,
+    ),
     removeLabelIds: archive ? [GmailLabel.INBOX] : undefined,
   });
 }

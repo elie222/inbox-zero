@@ -39,6 +39,8 @@ export const cleanInboxAction = withActionInstrumentation(
 
     let nextPageToken: string | undefined | null;
 
+    let totalEmailsProcessed = 0;
+
     do {
       // fetch all emails from the user's inbox
       const { threads, nextPageToken: pageToken } =
@@ -46,7 +48,7 @@ export const cleanInboxAction = withActionInstrumentation(
           gmail,
           q: `older_than:${data.daysOld}d`,
           labelIds: [GmailLabel.INBOX],
-          maxResults: 100,
+          maxResults: Math.min(data.maxEmails || 100, 100),
         });
 
       logger.info("Fetched threads", {
@@ -89,6 +91,16 @@ export const cleanInboxAction = withActionInstrumentation(
         .filter(isDefined);
 
       await bulkPublishToQstash({ items });
-    } while (nextPageToken);
+
+      totalEmailsProcessed += items.length;
+    } while (
+      nextPageToken &&
+      !isMaxEmailsReached(totalEmailsProcessed, data.maxEmails)
+    );
   },
 );
+
+function isMaxEmailsReached(totalEmailsProcessed: number, maxEmails?: number) {
+  if (!maxEmails) return false;
+  return totalEmailsProcessed >= maxEmails;
+}

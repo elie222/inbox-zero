@@ -31,13 +31,14 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   }, [unreadCount]);
 
   const handleStartCleaning = async () => {
-    const result = await cleanInboxAction({ daysOld: 7, prompt: "" }); // TODO: params
+    const result = await cleanInboxAction({
+      daysOld: 7,
+      prompt: "",
+      maxEmails: 20,
+    }); // TODO: params
 
     if (isActionError(result)) {
-      toastError({
-        title: "Error",
-        description: result.error,
-      });
+      toastError({ description: result.error });
       return;
     }
 
@@ -69,7 +70,9 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
       </ul>
 
       <div className="mt-6">
-        <Button onClick={handleStartCleaning}>Start Cleaning</Button>
+        <Button size="lg" onClick={handleStartCleaning}>
+          Start Cleaning
+        </Button>
       </div>
     </div>
   );
