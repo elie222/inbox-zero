@@ -6,6 +6,7 @@ import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { useStep } from "@/app/(app)/clean/useStep";
+import { cleanInboxAction } from "@/utils/actions/clean";
 
 export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const { onNext } = useStep();
@@ -26,6 +27,11 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
       return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
     }
   }, [unreadCount]);
+
+  const handleStartCleaning = async () => {
+    await cleanInboxAction({ daysOld: 7, prompt: "" }); // TODO: params
+    onNext();
+  };
 
   return (
     <div className="text-center">
@@ -52,7 +58,7 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
       </ul>
 
       <div className="mt-6">
-        <Button onClick={onNext}>Start Cleaning</Button>
+        <Button onClick={handleStartCleaning}>Start Cleaning</Button>
       </div>
     </div>
   );

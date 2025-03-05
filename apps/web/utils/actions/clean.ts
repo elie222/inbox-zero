@@ -1,3 +1,5 @@
+"use server";
+
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import {
