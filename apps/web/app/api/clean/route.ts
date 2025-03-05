@@ -11,9 +11,12 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("api/clean");
 
-const cleanThreadBody = z.object({ userId: z.string(), threadId: z.string() });
+const cleanThreadBody = z.object({
+  userId: z.string(),
+  threadId: z.string(),
+  archiveLabelId: z.string(),
+});
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
-export type CleanThreadResponse = Awaited<ReturnType<typeof cleanThread>>;
 
 async function cleanThread(body: CleanThreadBody) {
   // 1. get thread with messages
@@ -68,6 +71,7 @@ async function cleanThread(body: CleanThreadBody) {
     threadId: body.threadId,
     archive: true,
     // labelId: "",
+    archiveLabelId: body.archiveLabelId,
   };
 
   logger.info("Publishing to Qstash", {

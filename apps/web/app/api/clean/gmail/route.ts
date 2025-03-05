@@ -5,18 +5,26 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { GmailLabel, labelThread } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import { isDefined } from "@/utils/types";
 
-export const cleanGmailSchema = z.object({
+const cleanGmailSchema = z.object({
   userId: z.string(),
   threadId: z.string(),
   archive: z.boolean(),
   labelId: z.string().optional(),
+  archiveLabelId: z.string().optional(),
 });
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
-async function performGmailAction(body: CleanGmailBody) {
+async function performGmailAction({
+  userId,
+  threadId,
+  archive,
+  labelId,
+  archiveLabelId,
+}: CleanGmailBody) {
   const account = await prisma.account.findUnique({
-    where: { userId: body.userId },
+    where: { userId },
     select: { access_token: true, refresh_token: true },
   });
 
@@ -31,9 +39,9 @@ async function performGmailAction(body: CleanGmailBody) {
 
   await labelThread({
     gmail,
-    threadId: body.threadId,
-    addLabelIds: body.labelId ? [body.labelId] : undefined,
-    removeLabelIds: body.archive ? [GmailLabel.INBOX] : undefined,
+    threadId,
+    addLabelIds: [archiveLabelId, labelId].filter(isDefined),
+    removeLabelIds: archive ? [GmailLabel.INBOX] : undefined,
   });
 }
 

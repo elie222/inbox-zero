@@ -10,7 +10,7 @@ import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import { getGmailClient } from "@/utils/gmail/client";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
-import { GmailLabel } from "@/utils/gmail/label";
+import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
@@ -28,6 +28,14 @@ export const cleanInboxAction = withActionInstrumentation(
     if (!success) return { error: error.message };
 
     const gmail = getGmailClient(session);
+
+    const archiveLabel = await getOrCreateInboxZeroLabel({
+      key: "archived",
+      gmail,
+    });
+
+    const archiveLabelId = archiveLabel?.id;
+    if (!archiveLabelId) return { error: "Failed to create archived label" };
 
     let nextPageToken: string | undefined | null;
 
@@ -64,7 +72,11 @@ export const cleanInboxAction = withActionInstrumentation(
           if (!thread.id) return;
           return {
             url,
-            body: { userId, threadId: thread.id } satisfies CleanThreadBody,
+            body: {
+              userId,
+              threadId: thread.id,
+              archiveLabelId,
+            } satisfies CleanThreadBody,
             // give every user their own queue for ai processing. if we get too many parallel users we may need more
             // api keys or a global queue
             // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
