@@ -13,7 +13,7 @@ function getQstashClient() {
 }
 
 export async function publishToQstash(
-  url: string,
+  path: string,
   body: any,
   flowControl?: {
     key: string;
@@ -22,6 +22,7 @@ export async function publishToQstash(
   },
 ) {
   const client = getQstashClient();
+  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${path}`;
 
   if (client) {
     return client.publishJSON({ url, body, flowControl });

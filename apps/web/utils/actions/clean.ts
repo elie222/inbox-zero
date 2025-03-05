@@ -31,7 +31,7 @@ export const cleanInboxAction = withActionInstrumentation(
 
     let nextPageToken: string | undefined | null;
 
-    while (true) {
+    do {
       // fetch all emails from the user's inbox
       const { threads, nextPageToken: pageToken } =
         await getThreadsWithNextPageToken({
@@ -41,11 +41,17 @@ export const cleanInboxAction = withActionInstrumentation(
           maxResults: 100,
         });
 
+      logger.info("Fetched threads", {
+        userId,
+        threadCount: threads.length,
+        nextPageToken,
+      });
+
       nextPageToken = pageToken;
 
-      if (!pageToken || threads.length === 0) break;
+      if (threads.length === 0) break;
 
-      const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/email`;
+      const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
       logger.info("Pushing to Qstash", {
         userId,
@@ -53,24 +59,24 @@ export const cleanInboxAction = withActionInstrumentation(
         nextPageToken,
       });
 
-      await bulkPublishToQstash({
-        items: threads
-          .map((thread) => {
-            if (!thread.id) return;
-            return {
-              url,
-              body: { userId, threadId: thread.id } satisfies CleanThreadBody,
-              // give every user their own queue for ai processing. if we get too many parallel users we may need more
-              // api keys or a global queue
-              // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
-              flowControl: {
-                key: `ai-clean-${userId}`,
-                parallelism: 1,
-              },
-            };
-          })
-          .filter(isDefined),
-      });
-    }
+      const items = threads
+        .map((thread) => {
+          if (!thread.id) return;
+          return {
+            url,
+            body: { userId, threadId: thread.id } satisfies CleanThreadBody,
+            // give every user their own queue for ai processing. if we get too many parallel users we may need more
+            // api keys or a global queue
+            // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
+            flowControl: {
+              key: `ai-clean-${userId}`,
+              parallelism: 1,
+            },
+          };
+        })
+        .filter(isDefined);
+
+      await bulkPublishToQstash({ items });
+    } while (nextPageToken);
   },
 );

@@ -2,10 +2,14 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
-import { env } from "@/env";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClient } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
+import { SafeError } from "@/utils/error";
+import prisma from "@/utils/prisma";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/clean");
 
 const cleanThreadBody = z.object({ userId: z.string(), threadId: z.string() });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
@@ -16,9 +20,27 @@ async function cleanThread(body: CleanThreadBody) {
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
 
-  const gmail = getGmailClient({} as any); // TODO:
+  const account = await prisma.account.findUnique({
+    where: { userId: body.userId },
+    select: { access_token: true, refresh_token: true },
+  });
+
+  if (!account) throw new SafeError("User not found", 404);
+  if (!account.access_token || !account.refresh_token)
+    throw new SafeError("No Gmail account found", 404);
+
+  const gmail = getGmailClient({
+    accessToken: account.access_token,
+    refreshToken: account.refresh_token,
+  });
 
   const messages = await getThreadMessages(body.threadId, gmail);
+
+  logger.info("Fetched messages", {
+    userId: body.userId,
+    threadId: body.threadId,
+    messageCount: messages.length,
+  });
 
   if (!messages.length) return;
   // don't archive convos - TODO: handle with ai
@@ -48,14 +70,21 @@ async function cleanThread(body: CleanThreadBody) {
     // labelId: "",
   };
 
-  await publishToQstash(
-    `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean/gmail`,
-    cleanGmailBody,
-    {
-      key: `gmail-action-${body.userId}`,
-      ratePerSecond: maxRatePerSecond,
-    },
-  );
+  logger.info("Publishing to Qstash", {
+    userId: body.userId,
+    threadId: body.threadId,
+    maxRatePerSecond,
+  });
+
+  await publishToQstash("/api/clean/gmail", cleanGmailBody, {
+    key: `gmail-action-${body.userId}`,
+    ratePerSecond: maxRatePerSecond,
+  });
+
+  logger.info("Published to Qstash", {
+    userId: body.userId,
+    threadId: body.threadId,
+  });
 }
 
 // TODO: security
@@ -63,7 +92,7 @@ export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = cleanThreadBody.parse(json);
 
-  const result = await cleanThread(body);
+  await cleanThread(body);
 
-  return NextResponse.json(result);
+  return NextResponse.json({ success: true });
 });

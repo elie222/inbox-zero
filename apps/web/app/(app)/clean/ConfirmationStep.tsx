@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { useStep } from "@/app/(app)/clean/useStep";
 import { cleanInboxAction } from "@/utils/actions/clean";
+import { isActionError } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 
 export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const { onNext } = useStep();
@@ -29,7 +31,16 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   }, [unreadCount]);
 
   const handleStartCleaning = async () => {
-    await cleanInboxAction({ daysOld: 7, prompt: "" }); // TODO: params
+    const result = await cleanInboxAction({ daysOld: 7, prompt: "" }); // TODO: params
+
+    if (isActionError(result)) {
+      toastError({
+        title: "Error",
+        description: result.error,
+      });
+      return;
+    }
+
     onNext();
   };
 
