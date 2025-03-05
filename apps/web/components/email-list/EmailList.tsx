@@ -188,6 +188,18 @@ export function EmailList({
     [openThreadId, threads],
   );
 
+  const prevOrNextRowId = useMemo(() => {
+    const openedRowIndex = threads.findIndex(
+      (thread) => thread.id === openThreadId,
+    );
+    const rowIndex =
+      openedRowIndex < threads.length - 1
+        ? openedRowIndex + 1
+        : openedRowIndex - 1;
+
+    return threads[rowIndex].id;
+  }, [openThreadId, threads]);
+
   // if checkbox for a row has been checked
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -216,6 +228,8 @@ export function EmailList({
 
   const onArchive = useCallback(
     (thread: Thread) => {
+      setOpenThreadId(prevOrNextRowId);
+
       const threadIds = [thread.id];
       toast.promise(
         async () => {
@@ -238,7 +252,7 @@ export function EmailList({
         },
       );
     },
-    [refetch],
+    [refetch, prevOrNextRowId],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
