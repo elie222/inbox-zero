@@ -19,6 +19,7 @@ export const env = createEnv({
     BEDROCK_REGION: z.string().default("us-west-2"),
     GOOGLE_API_KEY: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
+    OPENROUTER_API_KEY: z.string().optional(),
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
@@ -124,7 +125,7 @@ export const env = createEnv({
       .string()
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
-    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/automation"),
+    NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {

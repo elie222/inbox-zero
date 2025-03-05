@@ -20,6 +20,9 @@ async function saveAISettings(options: SaveSettingsBody) {
   function getModel() {
     switch (aiProvider) {
       case Provider.OPEN_AI:
+        if (!options.aiApiKey)
+          throw new SafeError("OpenAI API key is required");
+
         return options.aiModel;
       case Provider.ANTHROPIC:
         if (options.aiApiKey) {
@@ -32,6 +35,10 @@ async function saveAISettings(options: SaveSettingsBody) {
         return options.aiModel || Model.GEMINI_2_0_FLASH;
       case Provider.GROQ:
         return options.aiModel || Model.GROQ_LLAMA_3_3_70B;
+      case Provider.OPENROUTER:
+        if (!options.aiApiKey)
+          throw new SafeError("OpenRouter API key is required");
+        return options.aiModel;
       case Provider.OLLAMA:
         return Model.OLLAMA;
       default:

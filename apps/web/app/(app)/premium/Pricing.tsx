@@ -15,40 +15,23 @@ import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
 import {
+  basicTier,
+  businessTier,
+  enterpriseTier,
   frequencies,
   pricingAdditonalEmail,
-  allTiers,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { PremiumTier } from "@prisma/client";
+import { usePricingVariant, useSkipUpgrade } from "@/hooks/useFeatureFlags";
 
-function attachUserInfo(
-  url: string,
-  user: { id: string; email: string; name?: string | null },
-  quantity?: number,
-) {
-  if (!user) return url;
-
-  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
-  if (quantity) res += `&quantity=${quantity}`;
-  return res;
-}
-
-function useAffiliateCode() {
-  const searchParams = useSearchParams();
-  const affiliateCode = searchParams.get("aff");
-  return affiliateCode;
-}
-
-function buildLemonUrl(url: string, affiliateCode: string | null) {
-  if (!affiliateCode) return url;
-  const newUrl = `${url}?aff_ref=${affiliateCode}`;
-  return newUrl;
-}
-
-export function Pricing(props: { header?: React.ReactNode }) {
+export function Pricing(props: {
+  header?: React.ReactNode;
+  showSkipUpgrade?: boolean;
+}) {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
@@ -56,6 +39,8 @@ export function Pricing(props: { header?: React.ReactNode }) {
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.premium);
+
+  const skipVariant = useSkipUpgrade();
 
   const header = props.header || (
     <div className="mb-12">
@@ -71,10 +56,11 @@ export function Pricing(props: { header?: React.ReactNode }) {
     </div>
   );
 
-  // const { Layout, Item, tiers } = getLayoutComponents("", premiumTier);
-  const Layout = ThreeColLayout;
-  const Item = ThreeColItem;
-  const tiers = allTiers;
+  const pricingVariant = usePricingVariant();
+  const { Layout, Item, tiers } = getLayoutComponents(
+    pricingVariant,
+    premiumTier,
+  );
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -152,16 +138,13 @@ export function Pricing(props: { header?: React.ReactNode }) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 33%!</Badge>
+            <Badge>Save up to 50%!</Badge>
           </div>
         </div>
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan =
-              tier.tiers[frequency.value] === premiumTier &&
-              // TODO: handle for higher tiers too
-              tier.seatsIncluded === 1;
+            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
 
             const user = session.data?.user;
 
@@ -298,34 +281,77 @@ export function Pricing(props: { header?: React.ReactNode }) {
             );
           })}
         </Layout>
+
+        {props.showSkipUpgrade && skipVariant === "skip-button" && (
+          <div className="my-4 flex justify-center">
+            <Button size="lg" asChild>
+              <Link href="/automation">
+                <SparklesIcon className="mr-2 h-4 w-4" />
+                Explore the app for free
+              </Link>
+            </Button>
+          </div>
+        )}
       </div>
     </LoadingContent>
   );
 }
 
-// function getLayoutComponents(
-//   pricingVariant: string,
-//   premiumTier: PremiumTier | null,
-// ) {
-//   const isBasicTier =
-//     premiumTier === PremiumTier.BASIC_MONTHLY ||
-//     premiumTier === PremiumTier.BASIC_ANNUALLY;
+function attachUserInfo(
+  url: string,
+  user: { id: string; email: string; name?: string | null },
+  quantity?: number,
+) {
+  if (!user) return url;
 
-//   if (pricingVariant === "business-only" && !isBasicTier)
-//     return {
-//       Layout: OneColLayout,
-//       Item: OneColItem,
-//       tiers: [businessSingleTier],
-//     };
-//   if (pricingVariant === "basic-business" || isBasicTier)
-//     return {
-//       Layout: TwoColLayout,
-//       Item: TwoColItem,
-//       tiers: [allTiers[0], allTiers[1]],
-//     };
-//   // control
-//   return { Layout: ThreeColLayout, Item: ThreeColItem, tiers: allTiers };
-// }
+  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
+  if (quantity) res += `&quantity=${quantity}`;
+  return res;
+}
+
+function useAffiliateCode() {
+  const searchParams = useSearchParams();
+  const affiliateCode = searchParams.get("aff");
+  return affiliateCode;
+}
+
+function buildLemonUrl(url: string, affiliateCode: string | null) {
+  if (!affiliateCode) return url;
+  const newUrl = `${url}?aff_ref=${affiliateCode}`;
+  return newUrl;
+}
+
+function getLayoutComponents(
+  pricingVariant: string,
+  premiumTier: PremiumTier | null,
+) {
+  const isBasicTier =
+    premiumTier === PremiumTier.BASIC_MONTHLY ||
+    premiumTier === PremiumTier.BASIC_ANNUALLY;
+
+  if (pricingVariant === "basic-business" || isBasicTier) {
+    return {
+      Layout: TwoColLayout,
+      Item: TwoColItem,
+      tiers: [basicTier, businessTier],
+    };
+  }
+
+  if (pricingVariant === "business-basic" || isBasicTier) {
+    return {
+      Layout: TwoColLayout,
+      Item: TwoColItem,
+      tiers: [businessTier, basicTier],
+    };
+  }
+
+  // control
+  return {
+    Layout: ThreeColLayout,
+    Item: ThreeColItem,
+    tiers: [basicTier, businessTier, enterpriseTier],
+  };
+}
 
 function ThreeColLayout({
   children,

@@ -15,7 +15,6 @@ import {
   CrownIcon,
   FileIcon,
   InboxIcon,
-  ListCheckIcon,
   type LucideIcon,
   MailsIcon,
   MessageCircleReplyIcon,
@@ -119,14 +118,14 @@ export const useNavigation = () => {
 };
 
 const bottomLinks: NavItem[] = [
+  // {
+  //   name: "Onboarding",
+  //   href: "/onboarding",
+  //   icon: ListCheckIcon,
+  //   hideInMail: true,
+  // },
   {
-    name: "Onboarding",
-    href: "/onboarding",
-    icon: ListCheckIcon,
-    hideInMail: true,
-  },
-  {
-    name: "User Guide",
+    name: "Help Center",
     href: "https://docs.getinboxzero.com",
     target: "_blank",
     icon: BookIcon,
@@ -233,7 +232,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       {state === "expanded" ? (
         <SidebarHeader>
-          <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+          <Link href="/setup">
             <div className="flex h-12 items-center p-4 text-white">
               <Logo className="h-4" />
             </div>

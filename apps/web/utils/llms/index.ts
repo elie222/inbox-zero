@@ -13,6 +13,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -34,6 +35,7 @@ function getDefaultProvider(): string {
   if (env.BEDROCK_ACCESS_KEY) return Provider.ANTHROPIC;
   if (env.ANTHROPIC_API_KEY) return Provider.ANTHROPIC;
   if (env.OPENAI_API_KEY) return Provider.OPEN_AI;
+  if (env.OPENROUTER_API_KEY) return Provider.OPENROUTER;
   if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
   if (env.GROQ_API_KEY) return Provider.GROQ;
   if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
@@ -104,6 +106,24 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
       provider: Provider.GROQ,
       model,
       llmModel: createGroq({ apiKey: aiApiKey })(model),
+    };
+  }
+
+  if (provider === Provider.OPENROUTER) {
+    if (!aiApiKey && !env.OPENROUTER_API_KEY)
+      throw new Error("OpenRouter API key is not set");
+    if (!aiModel) throw new Error("OpenRouter model is not set");
+
+    const openrouter = createOpenRouter({
+      apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+    });
+
+    const chatModel = openrouter.chat(aiModel);
+
+    return {
+      provider: Provider.OPENROUTER,
+      model: aiModel,
+      llmModel: chatModel,
     };
   }
 

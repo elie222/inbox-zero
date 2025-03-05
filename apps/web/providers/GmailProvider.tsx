@@ -16,25 +16,23 @@ export type GmailLabel = {
 export type GmailLabels = Record<string, GmailLabel>;
 
 interface Context {
-  labels: GmailLabels;
-  labelsArray: GmailLabel[];
+  userLabels: GmailLabels;
   labelsIsLoading: boolean;
 }
 
 const GmailContext = createContext<Context>({
-  labels: {},
-  labelsArray: [],
+  userLabels: {},
   labelsIsLoading: false,
 });
 
 export const useGmail = () => useContext<Context>(GmailContext);
 
 export function GmailProvider(props: { children: React.ReactNode }) {
-  const { userLabels, isLoading } = useLabels();
+  const { userLabels: gmailUserLabels, isLoading } = useLabels();
 
-  const labels = useMemo(() => {
+  const userLabels = useMemo(() => {
     return (
-      userLabels?.reduce((acc, label) => {
+      gmailUserLabels?.reduce((acc, label) => {
         if (label.id && label.name) {
           acc[label.id] = {
             id: label.id,
@@ -46,15 +44,11 @@ export function GmailProvider(props: { children: React.ReactNode }) {
         return acc;
       }, {} as GmailLabels) || {}
     );
-  }, [userLabels]);
-
-  const labelsArray = useMemo(() => {
-    return Object.values(labels || {});
-  }, [labels]);
+  }, [gmailUserLabels]);
 
   const value = useMemo(
-    () => ({ labels, labelsArray, labelsIsLoading: isLoading }),
-    [labels, labelsArray, isLoading],
+    () => ({ userLabels, labelsIsLoading: isLoading }),
+    [userLabels, isLoading],
   );
 
   return (

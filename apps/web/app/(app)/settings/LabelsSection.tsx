@@ -63,13 +63,13 @@ export const LabelsSection = () => {
 };
 
 function LabelsSectionForm(props: { dbLabels: Label[] }) {
-  const { labels, labelsIsLoading } = useGmail();
+  const { userLabels, labelsIsLoading } = useGmail();
 
   return (
     <LoadingContent loading={labelsIsLoading}>
-      {labels && (
+      {userLabels && (
         <LabelsSectionFormInner
-          gmailLabels={labels}
+          gmailLabels={userLabels}
           dbLabels={props.dbLabels}
         />
       )}

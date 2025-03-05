@@ -12,6 +12,7 @@ export default function WelcomeUpgradePage() {
       <WelcomeUpgradeNav />
       <Suspense fallback={<Loading />}>
         <Pricing
+          showSkipUpgrade
           header={
             <div className="mb-8 flex flex-col items-start">
               <div className="mx-auto text-center">

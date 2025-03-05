@@ -94,16 +94,6 @@ export const POST = withError(async (request: Request) => {
     return await subscriptionPlanChanged({ payload, userId });
   }
 
-  // cancelled or expired
-  if (payload.data.attributes.ends_at) {
-    return await subscriptionCancelled({
-      payload,
-      premiumId,
-      endsAt: payload.data.attributes.ends_at,
-      variantId: payload.data.attributes.variant_id,
-    });
-  }
-
   // payment failed
   if (payload.meta.event_name === "subscription_payment_failed") {
     return await subscriptionCancelled({
@@ -117,6 +107,16 @@ export const POST = withError(async (request: Request) => {
   // payment success
   if (payload.meta.event_name === "subscription_payment_success") {
     return await subscriptionPaymentSuccess({ payload, premiumId });
+  }
+
+  // cancelled or expired
+  if (payload.data.attributes.ends_at) {
+    return await subscriptionCancelled({
+      payload,
+      premiumId,
+      endsAt: payload.data.attributes.ends_at,
+      variantId: payload.data.attributes.variant_id,
+    });
   }
 
   return NextResponse.json({ ok: true });
@@ -414,7 +414,9 @@ async function subscriptionCancelled({
     premiumId,
     variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
-    expired: payload.data.attributes.status === "expired",
+    expired:
+      payload.data.attributes.status === "expired" ||
+      new Date(endsAt) < new Date(),
   });
 
   if (!updatedPremium) return NextResponse.json({ ok: true });

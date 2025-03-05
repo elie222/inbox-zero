@@ -13,11 +13,6 @@ import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
 
 const logger = createScopedLogger("ai-cold-email");
 
-const aiResponseSchema = z.object({
-  coldEmail: z.boolean().nullish(),
-  reason: z.string().nullish(),
-});
-
 type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
 export async function isColdEmail({
@@ -144,7 +139,10 @@ ${stringifyEmail(email, 500)}
     userAi: user,
     system,
     prompt,
-    schema: aiResponseSchema,
+    schema: z.object({
+      coldEmail: z.boolean(),
+      reason: z.string(),
+    }),
     userEmail: user.email || "",
     usageLabel: "Cold email check",
   });

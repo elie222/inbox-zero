@@ -86,7 +86,6 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  promptHistory     PromptHistory[]
   labels            Label[]
   rules             Rule[]
   executedRules     ExecutedRule[]
@@ -138,6 +137,9 @@ model Premium {
   aiMonth            Int? // 1-12
   aiCredits          Int?
 
+  // Payment history
+  payments Payment[]
+
   @@index([pendingInvites])
 }
 
@@ -148,15 +150,6 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
-}
-
-model PromptHistory {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  prompt    String
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Label {
@@ -410,6 +403,37 @@ model EmailToken {
   // action    EmailTokenAction @default(UNSUBSCRIBE)
 }
 
+model Payment {
+  id        String   @id @default(cuid())
+  createdAt DateTime // from processor
+  updatedAt DateTime // from processor
+
+  // Relation to Premium
+  premiumId String?
+  premium   Premium? @relation(fields: [premiumId], references: [id], onDelete: SetNull)
+
+  // Payment processor information
+  processorType           ProcessorType @default(LEMON_SQUEEZY)
+  processorId             String?       @unique // External payment ID from Stripe/Lemon Squeezy
+  processorSubscriptionId String? // External subscription ID
+  processorCustomerId     String? // External customer ID
+
+  // Core payment information
+  amount       Int // Total amount in cents
+  currency     String // 3-letter currency code: USD, EUR, etc.
+  status       String // paid, failed, refunded, etc.
+  tax          Int
+  taxInclusive Boolean
+
+  // Refund information
+  refunded       Boolean   @default(false)
+  refundedAt     DateTime?
+  refundedAmount Int? // in cents
+
+  // Metadata
+  billingReason String? // initial, renewal, update, etc.
+}
+
 enum ActionType {
   ARCHIVE
   LABEL
@@ -506,4 +530,8 @@ enum ThreadTrackerType {
   AWAITING // We're waiting for their reply
   NEEDS_REPLY // We need to reply to this
   NEEDS_ACTION // We need to do something else
+}
+
+enum ProcessorType {
+  LEMON_SQUEEZY
 }

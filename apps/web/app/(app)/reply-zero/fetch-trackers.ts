@@ -51,7 +51,9 @@ export async function getPaginatedThreadTrackers({
         `,
   ]);
 
-  const totalPages = Math.ceil(Number(total?.[0]?.count) / PAGE_SIZE);
+  const count = Number(total?.[0]?.count);
 
-  return { trackers, totalPages };
+  const totalPages = Math.ceil(count / PAGE_SIZE);
+
+  return { trackers, totalPages, count };
 }

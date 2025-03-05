@@ -16,24 +16,22 @@ import {
   InboxIcon,
   LogOutIcon,
   RibbonIcon,
-  Users2Icon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
-import { env } from "@/env";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const userNavigation = [
-  ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
-    ? []
-    : [
-        {
-          name: "New Senders",
-          href: "/new-senders",
-          icon: Users2Icon,
-        },
-      ]),
+  // ...(env.NEXT_PUBLIC_DISABLE_TINYBIRD
+  //   ? []
+  //   : [
+  //       {
+  //         name: "New Senders",
+  //         href: "/new-senders",
+  //         icon: Users2Icon,
+  //       },
+  //     ]),
   { name: "Usage", href: "/usage", icon: BarChartIcon },
   {
     name: "Mail (Beta)",
