@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 import { RedisSubscriber } from "@/utils/redis/subscriber";
+import { getStats } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("email-stream");
 
@@ -35,9 +36,23 @@ export async function GET(request: NextRequest) {
 
   // Create a streaming response
   const redisStream = new ReadableStream({
-    start(controller) {
+    async start(controller) {
       let inactivityTimer: NodeJS.Timeout;
-      let isControllerClosed = false; // Add flag to track controller state
+      let isControllerClosed = false;
+
+      // Send initial stats
+      try {
+        const initialStats = await getStats(session.user.id);
+        if (initialStats) {
+          controller.enqueue(
+            encoder.encode(
+              `event: stats\ndata: ${JSON.stringify(initialStats)}\n\n`,
+            ),
+          );
+        }
+      } catch (error) {
+        logger.error("Error sending initial stats", { error });
+      }
 
       const resetInactivityTimer = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -60,7 +75,9 @@ export async function GET(request: NextRequest) {
         // Only enqueue if controller is not closed
         if (!isControllerClosed) {
           try {
-            controller.enqueue(encoder.encode(`data: ${message}\n\n`));
+            controller.enqueue(
+              encoder.encode(`event: thread\ndata: ${message}\n\n`),
+            );
             resetInactivityTimer(); // Reset timer on message
           } catch (error) {
             logger.error("Error enqueueing message", { error });

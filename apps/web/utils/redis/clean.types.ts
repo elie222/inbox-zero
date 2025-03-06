@@ -11,3 +11,12 @@ export type CleanThread = {
   archive?: boolean;
   label?: string;
 };
+
+export type CleanStats = {
+  total: number;
+  processing: number;
+  applying: number;
+  completed: number;
+  archived: number;
+  labels: Record<string, number>;
+};

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, Inbox, Tag, Trash } from "lucide-react";
-import type { EmailStats as EmailStatsType } from "./types";
+import { Archive, Inbox, Tag } from "lucide-react";
 import { cn } from "@/utils";
+import type { CleanStats } from "@/utils/redis/clean.types";
 
 function Progress({
   value,
@@ -25,16 +25,21 @@ function Progress({
   );
 }
 
-interface EmailStatsProps {
-  stats: EmailStatsType;
-}
+export function EmailStats({ stats }: { stats: CleanStats }) {
+  // Calculate inbox count (total - archived)
+  const inboxCount = stats.total - stats.archived;
 
-export function EmailStats({ stats }: EmailStatsProps) {
+  // Calculate total labeled count (sum of all label counts)
+  const labeledCount = Object.values(stats.labels).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
+
   const chartData = [
     {
       label: "Inbox",
-      value: stats.inbox,
-      percentage: stats.total > 0 ? (stats.inbox / stats.total) * 100 : 0,
+      value: inboxCount,
+      percentage: stats.total > 0 ? (inboxCount / stats.total) * 100 : 0,
       icon: Inbox,
       color: "bg-blue-500",
     },
@@ -46,16 +51,9 @@ export function EmailStats({ stats }: EmailStatsProps) {
       color: "bg-green-500",
     },
     {
-      label: "Deleted",
-      value: stats.deleted,
-      percentage: stats.total > 0 ? (stats.deleted / stats.total) * 100 : 0,
-      icon: Trash,
-      color: "bg-red-500",
-    },
-    {
       label: "Labeled",
-      value: stats.labeled,
-      percentage: stats.total > 0 ? (stats.labeled / stats.total) * 100 : 0,
+      value: labeledCount,
+      percentage: stats.total > 0 ? (labeledCount / stats.total) * 100 : 0,
       icon: Tag,
       color: "bg-yellow-500",
     },
@@ -130,12 +128,12 @@ export function EmailStats({ stats }: EmailStatsProps) {
                     </div>
                     <div className="flex items-center gap-2">
                       <Progress
-                        value={(count / stats.labeled) * 100}
+                        value={(count / labeledCount) * 100}
                         className="h-2"
                         indicatorClassName="bg-yellow-500"
                       />
                       <span className="w-10 text-xs text-muted-foreground">
-                        {((count / stats.labeled) * 100).toFixed(1)}%
+                        {((count / labeledCount) * 100).toFixed(1)}%
                       </span>
                     </div>
                   </div>
@@ -149,18 +147,6 @@ export function EmailStats({ stats }: EmailStatsProps) {
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">Processing Rate</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-2xl font-bold">{stats.rate.toFixed(1)}</div>
-          <p className="text-xs text-muted-foreground">
-            Emails per second (average)
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }

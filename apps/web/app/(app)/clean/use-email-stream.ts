@@ -1,18 +1,17 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { Email, EmailStats } from "./types";
-import type { CleanThread } from "@/utils/redis/clean.types";
+import type { CleanThread, CleanStats } from "@/utils/redis/clean.types";
 
 export function useEmailStream(initialPaused = false) {
   const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>({});
   const [emailOrder, setEmailOrder] = useState<string[]>([]);
-  const [stats, setStats] = useState<EmailStats>({
+  const [stats, setStats] = useState<CleanStats>({
     total: 0,
-    inbox: 0,
+    processing: 0,
+    applying: 0,
+    completed: 0,
     archived: 0,
-    deleted: 0,
-    labeled: 0,
     labels: {},
   });
   const [isPaused, setIsPaused] = useState(initialPaused);
@@ -46,73 +45,52 @@ export function useEmailStream(initialPaused = false) {
         console.log("SSE connection opened");
       };
 
-      // Process incoming email data
-      eventSource.onmessage = (event) => {
-        console.log("SSE message received:", event.data);
+      // Handle stats events
+      eventSource.addEventListener("stats", (event) => {
+        console.log("SSE stats received:", event.data);
+        try {
+          const statsData: CleanStats = JSON.parse(event.data);
+          setStats(statsData);
+        } catch (error) {
+          console.error("Error processing stats:", error);
+        }
+      });
+
+      // Handle thread events
+      eventSource.addEventListener("thread", (event) => {
+        console.log("SSE thread received:", event.data);
         try {
           const d: CleanThread = JSON.parse(event.data);
           const data = { ...d, date: new Date(d.date) };
-          console.log("🚀 ~ connectToSSE ~ data:", data);
 
-          setEmailsMap((prev) => ({
-            ...prev,
-            [data.threadId]: {
-              ...prev[data.threadId],
-              ...data,
-            },
-          }));
+          setEmailsMap((prev) => {
+            // If we're at the limit and this is a new email, remove the oldest one
+            if (Object.keys(prev).length >= maxEmails && !prev[data.threadId]) {
+              const newMap = { ...prev };
+              delete newMap[emailOrder[emailOrder.length - 1]];
+              return {
+                ...newMap,
+                [data.threadId]: data,
+              };
+            }
+            return {
+              ...prev,
+              [data.threadId]: data,
+            };
+          });
 
           // Update order - add to beginning if new, otherwise maintain existing position
           setEmailOrder((prev) => {
             if (!prev.includes(data.threadId)) {
-              return [data.threadId, ...prev];
+              const newOrder = [data.threadId, ...prev];
+              return newOrder.slice(0, maxEmails);
             }
             return prev;
           });
-
-          // if (data.type === "stats") {
-          //   // Handle stats update
-          //   console.log("Received stats update:", data);
-          //   setStats(data);
-          // } else {
-          //   // Handle incoming email
-          //   console.log("Received email:", data);
-          //   setEmails((prev) => {
-          //     const newEmails = [data, ...prev]; // Add new email at the beginning
-
-          //     // Update stats manually
-          //     setStats((prev) => {
-          //       const newStats = { ...prev };
-          //       newStats.total += 1;
-
-          //       if (data.action === "archive") {
-          //         newStats.archived += 1;
-          //       } else if (data.action === "delete") {
-          //         newStats.deleted += 1;
-          //       } else if (data.action === "label") {
-          //         newStats.labeled += 1;
-          //         if (data.label) {
-          //           newStats.labels[data.label] =
-          //             (newStats.labels[data.label] || 0) + 1;
-          //         }
-          //       } else {
-          //         newStats.inbox += 1;
-          //       }
-
-          //       return newStats;
-          //     });
-
-          //     // Keep only the most recent maxEmails
-          //     if (newEmails.length > maxEmails) {
-          //       return newEmails.slice(0, maxEmails);
-          //     }
-          //     return newEmails;
-          //   });
-          // }
         } catch (error) {
-          console.error("Error processing SSE message:", error);
+          console.error("Error processing thread:", error);
         }
-      };
+      });
 
       eventSource.onerror = (error) => {
         console.error("SSE connection error:", error);
@@ -130,7 +108,7 @@ export function useEmailStream(initialPaused = false) {
     } catch (error) {
       console.error("Error establishing SSE connection:", error);
     }
-  }, [isPaused]);
+  }, [isPaused, emailOrder]);
 
   // Connect or disconnect based on pause state
   useEffect(() => {
