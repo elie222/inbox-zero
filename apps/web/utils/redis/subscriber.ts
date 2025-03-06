@@ -10,12 +10,12 @@ class RedisSubscriber {
 
   public static getInstance(): Redis {
     if (!RedisSubscriber.instance) {
-      if (!env.UPSTASH_REDIS_URL) {
-        throw new Error("UPSTASH_REDIS_URL is not set");
+      if (!env.REDIS_URL) {
+        throw new Error("REDIS_URL is not set");
       }
 
       logger.info("Initializing Redis subscriber connection");
-      RedisSubscriber.instance = new Redis(env.UPSTASH_REDIS_URL);
+      RedisSubscriber.instance = new Redis(env.REDIS_URL);
 
       // Handle connection events
       RedisSubscriber.instance.on("error", (error) => {

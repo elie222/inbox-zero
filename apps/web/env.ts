@@ -22,6 +22,7 @@ export const env = createEnv({
     OPENROUTER_API_KEY: z.string().optional(),
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
+    REDIS_URL: z.string().optional(), // used for subscriptions
     OLLAMA_BASE_URL: z.string().optional(),
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
