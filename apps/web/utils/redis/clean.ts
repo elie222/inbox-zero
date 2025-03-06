@@ -140,22 +140,13 @@ async function updateStats(userId: string, thread: CleanThread) {
     }
 
     // Handle archive changes
-    if (oldThread.archive !== thread.archive) {
-      if (thread.archive) stats.archived++;
-      else stats.archived--;
+    if (thread.archive && !oldThread.archive) {
+      stats.archived++;
     }
 
     // Handle label changes
-    if (oldThread.label !== thread.label) {
-      if (oldThread.label) {
-        stats.labels[oldThread.label]--;
-        if (stats.labels[oldThread.label] === 0) {
-          delete stats.labels[oldThread.label];
-        }
-      }
-      if (thread.label) {
-        stats.labels[thread.label] = (stats.labels[thread.label] || 0) + 1;
-      }
+    if (thread.label && !oldThread.label) {
+      stats.labels[thread.label] = (stats.labels[thread.label] || 0) + 1;
     }
   }
 
