@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -66,12 +67,13 @@ async function performGmailAction({
   ]);
 }
 
-// TODO: security
-export const POST = withError(async (request: NextRequest) => {
-  const json = await request.json();
-  const body = cleanGmailSchema.parse(json);
+export const POST = withError(
+  verifySignatureAppRouter(async (request: NextRequest) => {
+    const json = await request.json();
+    const body = cleanGmailSchema.parse(json);
 
-  await performGmailAction(body);
+    await performGmailAction(body);
 
-  return NextResponse.json({ success: true });
-});
+    return NextResponse.json({ success: true });
+  }),
+);

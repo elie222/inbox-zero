@@ -1,3 +1,4 @@
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { waitUntil } from "@vercel/functions"; // can use after() from next/server instead, but import not working for some reason
@@ -176,13 +177,13 @@ function getPublish({
   };
 }
 
-// TODO: security
-export const POST = withError(async (request: Request) => {
-  const json = await request.json();
-  const body = cleanThreadBody.parse(json);
-  console.log("🚀 ~ POST ~ body:", body);
+export const POST = withError(
+  verifySignatureAppRouter(async (request: Request) => {
+    const json = await request.json();
+    const body = cleanThreadBody.parse(json);
 
-  await cleanThread(body);
+    await cleanThread(body);
 
-  return NextResponse.json({ success: true });
-});
+    return NextResponse.json({ success: true });
+  }),
+);
