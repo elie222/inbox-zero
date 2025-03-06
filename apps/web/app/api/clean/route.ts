@@ -55,6 +55,7 @@ async function cleanThread(body: CleanThreadBody) {
   // check if has unsub link
   // check if newsletter
   // check if receipt
+  // check if calendar invite
   // check if promotion/social/update
   // handle with ai
 
