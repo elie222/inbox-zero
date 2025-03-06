@@ -1,4 +1,3 @@
-import Redis from "ioredis";
 import type { NextRequest } from "next/server";
 // import {
 //   ACTIONS,
@@ -6,13 +5,11 @@ import type { NextRequest } from "next/server";
 //   SENDERS,
 //   SUBJECTS,
 // } from "@/app/(app)/clean/email-constants";
-import { env } from "@/env";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
+import { RedisSubscriber } from "@/utils/redis/subscriber";
 
 const logger = createScopedLogger("email-stream");
-
-const redisSubscriber = new Redis(env.UPSTASH_REDIS_URL!);
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -20,6 +17,8 @@ export async function GET(request: NextRequest) {
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
 
   const key = `emails:${session.user.id}`;
+
+  const redisSubscriber = RedisSubscriber.getInstance();
 
   redisSubscriber.subscribe(key, (err) => {
     if (err) logger.error("Error subscribing to emails", { error: err });
@@ -97,9 +96,8 @@ export async function GET(request: NextRequest) {
       // Handle cleanup when the stream closes
       request.signal.addEventListener("abort", () => {
         logger.info("Cleaning up Redis subscription");
-        redisSubscriber.unsubscribe(key).then(() => {
-          redisSubscriber.disconnect();
-        });
+        redisSubscriber.unsubscribe(key);
+        // Note: We don't disconnect here since other streams might be using the connection
       });
     },
   });
