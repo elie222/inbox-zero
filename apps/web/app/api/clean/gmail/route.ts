@@ -6,6 +6,9 @@ import { GmailLabel, labelThread } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/clean/gmail");
 
 const cleanGmailSchema = z.object({
   userId: z.string(),
@@ -44,6 +47,12 @@ async function performGmailAction({
     labelId,
   ].filter(isDefined);
   const removeLabelIds = archive ? [GmailLabel.INBOX] : undefined;
+
+  logger.info("Labeling thread", {
+    threadId,
+    addLabelIds,
+    removeLabelIds,
+  });
 
   await labelThread({
     gmail,

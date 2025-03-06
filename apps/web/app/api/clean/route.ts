@@ -26,12 +26,17 @@ const cleanThreadBody = z.object({
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
-async function cleanThread(body: CleanThreadBody) {
+async function cleanThread({
+  userId,
+  threadId,
+  archiveLabelId,
+  processedLabelId,
+}: CleanThreadBody) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
 
-  const user = await getAiUserWithTokens({ id: body.userId });
+  const user = await getAiUserWithTokens({ id: userId });
 
   if (!user) throw new SafeError("User not found", 404);
 
@@ -44,32 +49,24 @@ async function cleanThread(body: CleanThreadBody) {
     refreshToken: user.tokens.refresh_token,
   });
 
-  const messages = await getThreadMessages(body.threadId, gmail);
+  const messages = await getThreadMessages(threadId, gmail);
 
   logger.info("Fetched messages", {
-    userId: body.userId,
-    threadId: body.threadId,
+    userId,
+    threadId,
     messageCount: messages.length,
   });
 
   if (!messages.length) return;
 
   const publish = getPublish({
-    userId: body.userId,
-    threadId: body.threadId,
-    archiveLabelId: body.archiveLabelId,
-    processedLabelId: body.processedLabelId,
+    userId,
+    threadId,
+    archiveLabelId,
+    processedLabelId,
   });
 
   if (messages.length === 1) {
-    // fixed logic
-    // check if calendar invite
-    // check if has unsub link
-    // check if newsletter
-    // check if receipt
-    // check if promotion/social/update
-    // handle with ai
-
     const message = messages[0];
 
     // calendar invite
@@ -169,6 +166,7 @@ function getPublish({
 export const POST = withError(async (request: Request) => {
   const json = await request.json();
   const body = cleanThreadBody.parse(json);
+  console.log("🚀 ~ POST ~ body:", body);
 
   await cleanThread(body);
 
