@@ -5,8 +5,9 @@ export type Thread = {
   userId: string;
   status: "pending" | "processing" | "completed" | "failed";
   createdAt: string;
-  subject: string;
   from: string;
+  subject: string;
+  snippet: string;
   date: Date;
 };
 
@@ -15,17 +16,19 @@ const EXPIRATION = 60 * 60 * 6; // 6 hours
 const threadKey = (userId: string, threadId: string) =>
   `thread:${userId}:${threadId}`;
 
-export async function createThread(
+export async function saveThread(
   userId: string,
   {
     threadId,
-    subject,
     from,
+    subject,
+    snippet,
     date,
   }: {
     threadId: string;
-    subject: string;
     from: string;
+    subject: string;
+    snippet: string;
     date: Date;
   },
 ): Promise<Thread> {
@@ -34,8 +37,9 @@ export async function createThread(
     userId,
     status: "pending",
     createdAt: new Date().toISOString(),
-    subject,
     from,
+    subject,
+    snippet,
     date,
   };
 

@@ -289,6 +289,9 @@ importers:
       '@vercel/analytics':
         specifier: ^1.4.1
         version: 1.4.1(next@14.2.15(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(svelte@4.2.12)(vue@3.4.19(typescript@5.7.2))
+      '@vercel/functions':
+        specifier: 2.0.0
+        version: 2.0.0(@aws-sdk/credential-provider-web-identity@3.750.0)
       ai:
         specifier: 4.1.46
         version: 4.1.46(react@18.3.1)(zod@3.24.2)
@@ -5790,6 +5793,15 @@ packages:
       vue:
         optional: true
       vue-router:
+        optional: true
+
+  '@vercel/functions@2.0.0':
+    resolution: {integrity: sha512-BSwIihLHoV18gerKZJyGuqd3rtaYM6rJvET1kOwKktshucyaHXTJel7Cxegs+sdX0NZqsX4LO2MFnMU2jG01Cw==}
+    engines: {node: '>= 18'}
+    peerDependencies:
+      '@aws-sdk/credential-provider-web-identity': '*'
+    peerDependenciesMeta:
+      '@aws-sdk/credential-provider-web-identity':
         optional: true
 
   '@vercel/stega@0.1.2':
@@ -18442,6 +18454,10 @@ snapshots:
       react: 18.3.1
       svelte: 4.2.12
       vue: 3.4.19(typescript@5.7.2)
+
+  '@vercel/functions@2.0.0(@aws-sdk/credential-provider-web-identity@3.750.0)':
+    optionalDependencies:
+      '@aws-sdk/credential-provider-web-identity': 3.750.0
 
   '@vercel/stega@0.1.2': {}
 

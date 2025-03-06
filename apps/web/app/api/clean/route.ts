@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions"; // can use after() from next/server instead, but import not working for some reason
 import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
@@ -15,6 +16,8 @@ import { isCalendarEventInPast } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
+import { saveThread } from "@/utils/redis/clean";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("api/clean");
 
@@ -57,7 +60,18 @@ async function cleanThread({
     messageCount: messages.length,
   });
 
-  if (!messages.length) return;
+  const lastMessage = messages[messages.length - 1];
+  if (!lastMessage) return;
+
+  waitUntil(
+    saveThread(userId, {
+      threadId,
+      subject: lastMessage.headers.subject,
+      from: lastMessage.headers.from,
+      snippet: lastMessage.snippet,
+      date: internalDateToDate(lastMessage.internalDate),
+    }),
+  );
 
   const publish = getPublish({
     userId,
