@@ -13,6 +13,7 @@ const cleanGmailSchema = z.object({
   archive: z.boolean(),
   labelId: z.string().optional(),
   archiveLabelId: z.string().optional(),
+  processedLabelId: z.string().optional(),
 });
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
@@ -22,6 +23,7 @@ async function performGmailAction({
   archive,
   labelId,
   archiveLabelId,
+  processedLabelId,
 }: CleanGmailBody) {
   const account = await prisma.account.findUnique({
     where: { userId },
@@ -37,9 +39,10 @@ async function performGmailAction({
     refreshToken: account.refresh_token,
   });
 
-  const addLabelIds = [archive ? archiveLabelId : undefined, labelId].filter(
-    isDefined,
-  );
+  const addLabelIds = [
+    archive ? archiveLabelId : processedLabelId,
+    labelId,
+  ].filter(isDefined);
   const removeLabelIds = archive ? [GmailLabel.INBOX] : undefined;
 
   await labelThread({

@@ -17,6 +17,7 @@ const cleanThreadBody = z.object({
   userId: z.string(),
   threadId: z.string(),
   archiveLabelId: z.string(),
+  processedLabelId: z.string(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
@@ -78,6 +79,7 @@ async function cleanThread(body: CleanThreadBody) {
     archive: aiResult.archive,
     // label: aiResult.label,
     archiveLabelId: body.archiveLabelId,
+    processedLabelId: body.processedLabelId,
   };
 
   logger.info("Publishing to Qstash", {

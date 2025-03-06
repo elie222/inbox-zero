@@ -37,6 +37,14 @@ export const cleanInboxAction = withActionInstrumentation(
     const archiveLabelId = archiveLabel?.id;
     if (!archiveLabelId) return { error: "Failed to create archived label" };
 
+    const processedLabel = await getOrCreateInboxZeroLabel({
+      key: "processed",
+      gmail,
+    });
+
+    const processedLabelId = processedLabel?.id;
+    if (!processedLabelId) return { error: "Failed to create processed label" };
+
     let nextPageToken: string | undefined | null;
 
     let totalEmailsProcessed = 0;
@@ -78,6 +86,7 @@ export const cleanInboxAction = withActionInstrumentation(
               userId,
               threadId: thread.id,
               archiveLabelId,
+              processedLabelId,
             } satisfies CleanThreadBody,
             // give every user their own queue for ai processing. if we get too many parallel users we may need more
             // api keys or a global queue
