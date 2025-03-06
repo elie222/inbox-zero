@@ -8,13 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
-import { useEmailSSE } from "./use-email-sse";
+import { useEmailStream } from "./use-email-stream";
 
 export function EmailFirehose() {
   const [isPaused, setIsPaused] = useState(false);
   const [view, setView] = useState<"firehose" | "stats">("firehose");
 
-  const { emails, stats, togglePause } = useEmailSSE(isPaused);
+  const { emails, stats, togglePause } = useEmailStream(isPaused);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);

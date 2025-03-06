@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Email, EmailStats } from "./types";
 
-export function useEmailSSE(initialPaused = false) {
+export function useEmailStream(initialPaused = false) {
   const [emails, setEmails] = useState<Email[]>([]);
   const [stats, setStats] = useState<EmailStats>({
     total: 0,
