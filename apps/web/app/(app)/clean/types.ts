@@ -45,5 +45,4 @@ export interface EmailStats {
   deleted: number;
   labeled: number;
   labels: Record<string, number>;
-  rate: number;
 }

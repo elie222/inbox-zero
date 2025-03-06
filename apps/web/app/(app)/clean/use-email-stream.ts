@@ -12,7 +12,6 @@ export function useEmailStream(initialPaused = false) {
     deleted: 0,
     labeled: 0,
     labels: {},
-    rate: 0,
   });
   const [isPaused, setIsPaused] = useState(initialPaused);
   const eventSourceRef = useRef<EventSource | null>(null);

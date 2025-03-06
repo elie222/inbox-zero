@@ -6,34 +6,7 @@ import {
   SUBJECTS,
 } from "@/app/(app)/clean/email-constants";
 
-// This function is adapted from the client-side version
-function generateRandomEmail() {
-  const id = Math.random().toString(36).substring(2, 10);
-  const subject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)];
-  const from = SENDERS[Math.floor(Math.random() * SENDERS.length)];
-  const size = Math.floor(Math.random() * 100) + 1;
-  const timestamp = new Date().toLocaleTimeString();
-  const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-  const label =
-    action === "label"
-      ? COMMON_LABELS[Math.floor(Math.random() * COMMON_LABELS.length)]
-      : undefined;
-
-  return {
-    id,
-    subject,
-    from,
-    timestamp,
-    size,
-    action,
-    label,
-  };
-}
-
 export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-
-  const rate = Number.parseInt(searchParams.get("rate") || "5", 10);
   // Set headers for SSE
   const headers = new Headers({
     "Content-Type": "text/event-stream",
@@ -52,7 +25,7 @@ export async function GET(request: NextRequest) {
       // Function to send emails at the specified rate
       const sendEmails = () => {
         // Generate batch of emails based on rate
-        for (let i = 0; i < rate; i++) {
+        for (let i = 0; i < 5; i++) {
           const email = generateRandomEmail();
           const data = `data: ${JSON.stringify(email)}\n\n`;
           controller.enqueue(encoder.encode(data));
@@ -68,7 +41,6 @@ export async function GET(request: NextRequest) {
         deleted: 0,
         labeled: 0,
         labels: {},
-        rate: rate,
       };
       controller.enqueue(
         encoder.encode(`data: ${JSON.stringify(initialStats)}\n\n`),
@@ -93,4 +65,28 @@ export async function GET(request: NextRequest) {
   });
 
   return new Response(stream, { headers });
+}
+
+// This function is adapted from the client-side version
+function generateRandomEmail() {
+  const id = Math.random().toString(36).substring(2, 10);
+  const subject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)];
+  const from = SENDERS[Math.floor(Math.random() * SENDERS.length)];
+  const size = Math.floor(Math.random() * 100) + 1;
+  const timestamp = new Date().toLocaleTimeString();
+  const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  const label =
+    action === "label"
+      ? COMMON_LABELS[Math.floor(Math.random() * COMMON_LABELS.length)]
+      : undefined;
+
+  return {
+    id,
+    subject,
+    from,
+    timestamp,
+    size,
+    action,
+    label,
+  };
 }
