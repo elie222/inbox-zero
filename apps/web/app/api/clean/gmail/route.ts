@@ -57,7 +57,7 @@ async function performGmailAction({
   });
 
   await Promise.all([
-    updateThread(userId, threadId, { status: "applying" }),
+    updateThread(userId, threadId, { status: "completed" }),
     labelThread({
       gmail,
       threadId,
