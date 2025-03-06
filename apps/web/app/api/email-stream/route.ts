@@ -1,15 +1,12 @@
 import type { NextRequest } from "next/server";
-// import {
-//   ACTIONS,
-//   COMMON_LABELS,
-//   SENDERS,
-//   SUBJECTS,
-// } from "@/app/(app)/clean/email-constants";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 import { RedisSubscriber } from "@/utils/redis/subscriber";
 
 const logger = createScopedLogger("email-stream");
+
+// 5 minutes in milliseconds
+const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -32,67 +29,39 @@ export async function GET(request: NextRequest) {
     "X-Accel-Buffering": "no", // For anyone using Nginx
   });
 
-  logger.info("Creating SSE stream");
-
-  // const stream = new ReadableStream({
-  //   start(controller) {
-  //     logger.info("SSE stream started");
-  //     const encoder = new TextEncoder();
-
-  //     // Function to send emails at the specified rate
-  //     const sendEmails = () => {
-  //       // Generate batch of emails based on rate
-  //       for (let i = 0; i < 5; i++) {
-  //         const email = generateRandomEmail();
-  //         const data = `data: ${JSON.stringify(email)}\n\n`;
-  //         controller.enqueue(encoder.encode(data));
-  //       }
-  //     };
-
-  //     // Send initial stats
-  //     const initialStats = {
-  //       type: "stats",
-  //       total: 0,
-  //       inbox: 0,
-  //       archived: 0,
-  //       deleted: 0,
-  //       labeled: 0,
-  //       labels: {},
-  //     };
-  //     controller.enqueue(
-  //       encoder.encode(`data: ${JSON.stringify(initialStats)}\n\n`),
-  //     );
-
-  //     // Heartbeat to keep connection alive
-  //     const heartbeat = setInterval(() => {
-  //       controller.enqueue(encoder.encode(":heartbeat\n\n"));
-  //     }, 15000);
-
-  //     // Send emails every second
-  //     const interval = setInterval(sendEmails, 1000);
-
-  //     // Clean up on client disconnect
-  //     request.signal.addEventListener("abort", () => {
-  //       logger.info("Client disconnected from SSE");
-  //       clearInterval(interval);
-  //       clearInterval(heartbeat);
-  //       controller.close();
-  //     });
-  //   },
-  // });
+  logger.info("Creating SSE stream", { userId: session.user.id });
 
   const encoder = new TextEncoder();
 
   // Create a streaming response
   const redisStream = new ReadableStream({
     start(controller) {
+      let inactivityTimer: NodeJS.Timeout;
+
+      const resetInactivityTimer = () => {
+        if (inactivityTimer) clearTimeout(inactivityTimer);
+        inactivityTimer = setTimeout(() => {
+          logger.info("Stream closed due to inactivity", {
+            userId: session.user.id,
+          });
+          controller.close();
+          redisSubscriber.punsubscribe(pattern);
+        }, INACTIVITY_TIMEOUT);
+      };
+
+      // Start initial inactivity timer
+      resetInactivityTimer();
+
       redisSubscriber.on("pmessage", (_pattern, _channel, message) => {
         controller.enqueue(encoder.encode(`data: ${message}\n\n`));
+        resetInactivityTimer(); // Reset timer on message
       });
 
       request.signal.addEventListener("abort", () => {
-        logger.info("Cleaning up Redis subscription");
-        // Note: We don't disconnect here since other streams might be using the connection
+        logger.info("Cleaning up Redis subscription", {
+          userId: session.user.id,
+        });
+        clearTimeout(inactivityTimer);
         redisSubscriber.punsubscribe(pattern);
       });
     },
@@ -100,27 +69,3 @@ export async function GET(request: NextRequest) {
 
   return new Response(redisStream, { headers });
 }
-
-// // This function is adapted from the client-side version
-// function generateRandomEmail() {
-//   const id = Math.random().toString(36).substring(2, 10);
-//   const subject = SUBJECTS[Math.floor(Math.random() * SUBJECTS.length)];
-//   const from = SENDERS[Math.floor(Math.random() * SENDERS.length)];
-//   const size = Math.floor(Math.random() * 100) + 1;
-//   const timestamp = new Date().toLocaleTimeString();
-//   const action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
-//   const label =
-//     action === "label"
-//       ? COMMON_LABELS[Math.floor(Math.random() * COMMON_LABELS.length)]
-//       : undefined;
-
-//   return {
-//     id,
-//     subject,
-//     from,
-//     timestamp,
-//     size,
-//     action,
-//     label,
-//   };
-// }

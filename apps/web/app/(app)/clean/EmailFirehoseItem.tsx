@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 export function EmailItem({ email }: { email: CleanThread }) {
   const [isNew, setIsNew] = useState(true);
@@ -23,8 +24,11 @@ export function EmailItem({ email }: { email: CleanThread }) {
       className={cn(
         "flex items-center rounded-md border p-2 text-sm transition-all duration-300",
         isNew ? "bg-primary/5" : "bg-card",
+        email.status === "processing" &&
+          "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20",
+        email.status === "completed" &&
+          "border-green-500/30 bg-green-50/50 dark:bg-green-950/20",
         email.action === "archive" && "border-green-500/30",
-        email.action === "delete" && "border-red-500/30",
         email.action === "label" && "border-yellow-500/30",
       )}
     >
@@ -33,13 +37,21 @@ export function EmailItem({ email }: { email: CleanThread }) {
           <div
             className={cn(
               "mr-2 h-2 w-2 rounded-full",
+              email.status === "processing" && "bg-blue-500",
+              email.status === "completed" && "bg-green-500",
               email.action === "archive" && "bg-green-500",
-              email.action === "delete" && "bg-red-500",
               email.action === "label" && "bg-yellow-500",
-              !email.action && "bg-blue-500",
+              !email.action && !email.status && "bg-blue-500",
             )}
           />
-          <div className="truncate font-medium">{email.subject}</div>
+          <div className="truncate font-medium">
+            {email.status === "processing" && (
+              <span className="mr-2 inline-flex items-center">
+                <LoadingMiniSpinner />
+              </span>
+            )}
+            {email.subject}
+          </div>
         </div>
         <div className="truncate text-xs text-muted-foreground">
           From: {email.from} • {formatShortDate(email.date)}

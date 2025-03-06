@@ -1,5 +1,5 @@
-import { z } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getGmailClient } from "@/utils/gmail/client";
 import { GmailLabel, labelThread } from "@/utils/gmail/label";
@@ -7,6 +7,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
+import { updateThreadStatus } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("api/clean/gmail");
 
@@ -54,12 +55,15 @@ async function performGmailAction({
     removeLabelIds,
   });
 
-  await labelThread({
-    gmail,
-    threadId,
-    addLabelIds,
-    removeLabelIds,
-  });
+  await Promise.all([
+    updateThreadStatus(userId, threadId, "completed"),
+    labelThread({
+      gmail,
+      threadId,
+      addLabelIds,
+      removeLabelIds,
+    }),
+  ]);
 }
 
 // TODO: security

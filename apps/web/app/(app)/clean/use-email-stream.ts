@@ -50,7 +50,6 @@ export function useEmailStream(initialPaused = false) {
         console.log("SSE message received:", event.data);
         try {
           const data: CleanThread = JSON.parse(event.data);
-          console.log("🚀 ~ connectToSSE ~ data:", data);
 
           setEmails((prev) => [
             { ...data, date: new Date(data.date) },
@@ -134,12 +133,8 @@ export function useEmailStream(initialPaused = false) {
     };
   }, [connectToSSE, isPaused]);
 
-  // Toggle pause state
   const togglePause = useCallback(() => {
-    setIsPaused((prev) => {
-      console.log("Toggling pause state from", prev, "to", !prev);
-      return !prev;
-    });
+    setIsPaused((prev) => !prev);
   }, []);
 
   return {

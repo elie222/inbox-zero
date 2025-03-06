@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { parseAsString, useQueryState } from "nuqs";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Inbox, Pause, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +13,7 @@ import { useEmailStream } from "./use-email-stream";
 
 export function EmailFirehose() {
   const [isPaused, setIsPaused] = useState(false);
-  const [view, setView] = useState<"firehose" | "stats">("firehose");
+  const [tab] = useQueryState("tab", parseAsString.withDefault("firehose"));
 
   const { emails, stats, togglePause } = useEmailStream(isPaused);
 
@@ -35,13 +36,13 @@ export function EmailFirehose() {
   useEffect(() => {
     if (
       !isPaused &&
-      view === "firehose" &&
+      tab === "firehose" &&
       parentRef.current &&
       emails.length > 0
     ) {
       virtualizer.scrollToIndex(0, { align: "start" });
     }
-  }, [isPaused, view, emails.length, virtualizer]);
+  }, [isPaused, tab, emails.length, virtualizer]);
 
   return (
     <div className="flex flex-col space-y-4">
@@ -129,7 +130,7 @@ export function EmailFirehose() {
             <span>Labeled</span>
           </div>
         </div>
-        <div>Streamed: {emails.length} emails</div>
+        <div>Processed: {emails.length} emails</div>
       </div>
     </div>
   );

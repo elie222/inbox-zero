@@ -1,7 +1,7 @@
 export type CleanThread = {
   threadId: string;
   userId: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: "pending" | "processing" | "completed";
   createdAt: string;
   from: string;
   subject: string;
