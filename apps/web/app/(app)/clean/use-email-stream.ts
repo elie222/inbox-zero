@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Email, EmailStats } from "./types";
 import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function useEmailStream(initialPaused = false) {
-  const [emails, setEmails] = useState<CleanThread[]>([]);
+  const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>({});
+  const [emailOrder, setEmailOrder] = useState<string[]>([]);
   const [stats, setStats] = useState<EmailStats>({
     total: 0,
     inbox: 0,
@@ -49,12 +50,25 @@ export function useEmailStream(initialPaused = false) {
       eventSource.onmessage = (event) => {
         console.log("SSE message received:", event.data);
         try {
-          const data: CleanThread = JSON.parse(event.data);
+          const d: CleanThread = JSON.parse(event.data);
+          const data = { ...d, date: new Date(d.date) };
+          console.log("🚀 ~ connectToSSE ~ data:", data);
 
-          setEmails((prev) => [
-            { ...data, date: new Date(data.date) },
+          setEmailsMap((prev) => ({
             ...prev,
-          ]);
+            [data.threadId]: {
+              ...prev[data.threadId],
+              ...data,
+            },
+          }));
+
+          // Update order - add to beginning if new, otherwise maintain existing position
+          setEmailOrder((prev) => {
+            if (!prev.includes(data.threadId)) {
+              return [data.threadId, ...prev];
+            }
+            return prev;
+          });
 
           // if (data.type === "stats") {
           //   // Handle stats update
@@ -136,6 +150,10 @@ export function useEmailStream(initialPaused = false) {
   const togglePause = useCallback(() => {
     setIsPaused((prev) => !prev);
   }, []);
+
+  const emails = useMemo(() => {
+    return emailOrder.map((id) => emailsMap[id]).filter(Boolean);
+  }, [emailsMap, emailOrder]);
 
   return {
     emails,

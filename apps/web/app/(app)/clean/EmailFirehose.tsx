@@ -105,7 +105,7 @@ export function EmailFirehose() {
               </div>
             ) : (
               <div className="flex h-full items-center justify-center py-20 text-muted-foreground">
-                No emails processed yet. Resume to start streaming emails.
+                No emails processed yet.
               </div>
             )}
           </div>
