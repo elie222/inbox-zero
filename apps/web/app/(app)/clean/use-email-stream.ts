@@ -49,46 +49,47 @@ export function useEmailStream(initialPaused = false) {
         console.log("SSE message received:", event.data);
         try {
           const data = JSON.parse(event.data);
+          console.log("🚀 ~ connectToSSE ~ data:", data);
 
-          if (data.type === "stats") {
-            // Handle stats update
-            console.log("Received stats update:", data);
-            setStats(data);
-          } else {
-            // Handle incoming email
-            console.log("Received email:", data);
-            setEmails((prev) => {
-              const newEmails = [data, ...prev]; // Add new email at the beginning
+          // if (data.type === "stats") {
+          //   // Handle stats update
+          //   console.log("Received stats update:", data);
+          //   setStats(data);
+          // } else {
+          //   // Handle incoming email
+          //   console.log("Received email:", data);
+          //   setEmails((prev) => {
+          //     const newEmails = [data, ...prev]; // Add new email at the beginning
 
-              // Update stats manually
-              setStats((prev) => {
-                const newStats = { ...prev };
-                newStats.total += 1;
+          //     // Update stats manually
+          //     setStats((prev) => {
+          //       const newStats = { ...prev };
+          //       newStats.total += 1;
 
-                if (data.action === "archive") {
-                  newStats.archived += 1;
-                } else if (data.action === "delete") {
-                  newStats.deleted += 1;
-                } else if (data.action === "label") {
-                  newStats.labeled += 1;
-                  if (data.label) {
-                    newStats.labels[data.label] =
-                      (newStats.labels[data.label] || 0) + 1;
-                  }
-                } else {
-                  newStats.inbox += 1;
-                }
+          //       if (data.action === "archive") {
+          //         newStats.archived += 1;
+          //       } else if (data.action === "delete") {
+          //         newStats.deleted += 1;
+          //       } else if (data.action === "label") {
+          //         newStats.labeled += 1;
+          //         if (data.label) {
+          //           newStats.labels[data.label] =
+          //             (newStats.labels[data.label] || 0) + 1;
+          //         }
+          //       } else {
+          //         newStats.inbox += 1;
+          //       }
 
-                return newStats;
-              });
+          //       return newStats;
+          //     });
 
-              // Keep only the most recent maxEmails
-              if (newEmails.length > maxEmails) {
-                return newEmails.slice(0, maxEmails);
-              }
-              return newEmails;
-            });
-          }
+          //     // Keep only the most recent maxEmails
+          //     if (newEmails.length > maxEmails) {
+          //       return newEmails.slice(0, maxEmails);
+          //     }
+          //     return newEmails;
+          //   });
+          // }
         } catch (error) {
           console.error("Error processing SSE message:", error);
         }
