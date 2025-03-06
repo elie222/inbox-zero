@@ -75,10 +75,23 @@ export function analyzeCalendarEvent(email: ParsedMessage): CalendarEventInfo {
 
   if (result.isCalendarEvent) {
     // Extract event title
-    if (subject.includes("invitation:") || subject.includes("invite:")) {
-      result.eventTitle =
-        subject.split("invitation:").pop()?.trim() ||
-        subject.split("invite:").pop()?.trim();
+    if (
+      subject.includes("Updated invitation:") ||
+      subject.includes("invitation:") ||
+      subject.includes("invite:")
+    ) {
+      let title = subject
+        .replace("Updated invitation:", "")
+        .replace("invitation:", "")
+        .replace("invite:", "")
+        .trim();
+
+      // If there's schedule information after "@", take only the event name
+      if (title.includes("@")) {
+        title = title.split("@")[0].trim();
+      }
+
+      result.eventTitle = title;
     } else {
       result.eventTitle = subject;
     }
