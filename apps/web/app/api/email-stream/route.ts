@@ -16,12 +16,11 @@ export async function GET(request: NextRequest) {
 
   if (!session?.user) return new Response("Unauthorized", { status: 401 });
 
-  const key = `emails:${session.user.id}`;
-
+  const pattern = `thread:${session.user.id}:*`;
   const redisSubscriber = RedisSubscriber.getInstance();
 
-  redisSubscriber.subscribe(key, (err) => {
-    if (err) logger.error("Error subscribing to emails", { error: err });
+  redisSubscriber.psubscribe(pattern, (err) => {
+    if (err) logger.error("Error subscribing to threads", { error: err });
   });
 
   // Set headers for SSE
@@ -87,17 +86,14 @@ export async function GET(request: NextRequest) {
   // Create a streaming response
   const redisStream = new ReadableStream({
     start(controller) {
-      redisSubscriber.on("message", (channel, message) => {
-        if (channel === key) {
-          controller.enqueue(encoder.encode(`data: ${message}\n\n`));
-        }
+      redisSubscriber.on("pmessage", (_pattern, _channel, message) => {
+        controller.enqueue(encoder.encode(`data: ${message}\n\n`));
       });
 
-      // Handle cleanup when the stream closes
       request.signal.addEventListener("abort", () => {
         logger.info("Cleaning up Redis subscription");
-        redisSubscriber.unsubscribe(key);
         // Note: We don't disconnect here since other streams might be using the connection
+        redisSubscriber.punsubscribe(pattern);
       });
     },
   });

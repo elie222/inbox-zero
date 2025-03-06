@@ -1,15 +1,6 @@
 import { redis } from "@/utils/redis";
-
-export type Thread = {
-  threadId: string;
-  userId: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  createdAt: string;
-  from: string;
-  subject: string;
-  snippet: string;
-  date: Date;
-};
+import type { CleanThread } from "@/utils/redis/clean.types";
+import { isDefined } from "@/utils/types";
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
@@ -31,8 +22,8 @@ export async function saveThread(
     snippet: string;
     date: Date;
   },
-): Promise<Thread> {
-  const thread: Thread = {
+): Promise<CleanThread> {
+  const thread: CleanThread = {
     threadId,
     userId,
     status: "pending",
@@ -50,7 +41,7 @@ export async function saveThread(
 export async function updateThreadStatus(
   userId: string,
   threadId: string,
-  status: Thread["status"],
+  status: CleanThread["status"],
 ) {
   const thread = await getThread(userId, threadId);
   if (!thread) return;
@@ -59,7 +50,7 @@ export async function updateThreadStatus(
   await publishThread(userId, updatedThread);
 }
 
-export async function publishThread(userId: string, thread: Thread) {
+export async function publishThread(userId: string, thread: CleanThread) {
   const key = threadKey(userId, thread.threadId);
   // Store the data with expiration
   await redis.set(key, thread, { ex: EXPIRATION });
@@ -69,7 +60,7 @@ export async function publishThread(userId: string, thread: Thread) {
 
 export async function getThread(userId: string, threadId: string) {
   const key = threadKey(userId, threadId);
-  return redis.get<Thread>(key);
+  return redis.get<CleanThread>(key);
 }
 
 export async function getThreads(userId: string, limit = 1000) {
@@ -94,7 +85,7 @@ export async function getThreads(userId: string, limit = 1000) {
   if (keysToFetch.length === 0) return [];
 
   const threads = await Promise.all(
-    keysToFetch.map((key) => redis.get<Thread>(key)),
+    keysToFetch.map((key) => redis.get<CleanThread>(key)),
   );
-  return threads.filter((t): t is Thread => t !== null);
+  return threads.filter(isDefined);
 }

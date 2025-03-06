@@ -3,14 +3,11 @@
 import { useState, useEffect } from "react";
 import { Archive, Tag, Trash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import type { Email } from "./types";
 import { cn } from "@/utils";
+import type { CleanThread } from "@/utils/redis/clean.types";
+import { formatShortDate } from "@/utils/date";
 
-interface EmailItemProps {
-  email: Email;
-}
-
-export function EmailItem({ email }: EmailItemProps) {
+export function EmailItem({ email }: { email: CleanThread }) {
   const [isNew, setIsNew] = useState(true);
 
   useEffect(() => {
@@ -45,7 +42,7 @@ export function EmailItem({ email }: EmailItemProps) {
           <div className="truncate font-medium">{email.subject}</div>
         </div>
         <div className="truncate text-xs text-muted-foreground">
-          From: {email.from} • {email.timestamp}
+          From: {email.from} • {formatShortDate(email.date)}
         </div>
       </div>
       <div className="ml-2 flex items-center space-x-2">

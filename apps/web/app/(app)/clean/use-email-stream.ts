@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import type { Email, EmailStats } from "./types";
+import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function useEmailStream(initialPaused = false) {
-  const [emails, setEmails] = useState<Email[]>([]);
+  const [emails, setEmails] = useState<CleanThread[]>([]);
   const [stats, setStats] = useState<EmailStats>({
     total: 0,
     inbox: 0,
@@ -48,8 +49,13 @@ export function useEmailStream(initialPaused = false) {
       eventSource.onmessage = (event) => {
         console.log("SSE message received:", event.data);
         try {
-          const data = JSON.parse(event.data);
+          const data: CleanThread = JSON.parse(event.data);
           console.log("🚀 ~ connectToSSE ~ data:", data);
+
+          setEmails((prev) => [
+            { ...data, date: new Date(data.date) },
+            ...prev,
+          ]);
 
           // if (data.type === "stats") {
           //   // Handle stats update

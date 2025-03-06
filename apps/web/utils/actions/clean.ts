@@ -29,18 +29,19 @@ export const cleanInboxAction = withActionInstrumentation(
 
     const gmail = getGmailClient(session);
 
-    const archiveLabel = await getOrCreateInboxZeroLabel({
-      key: "archived",
-      gmail,
-    });
+    const [archiveLabel, processedLabel] = await Promise.all([
+      getOrCreateInboxZeroLabel({
+        key: "archived",
+        gmail,
+      }),
+      getOrCreateInboxZeroLabel({
+        key: "processed",
+        gmail,
+      }),
+    ]);
 
     const archiveLabelId = archiveLabel?.id;
     if (!archiveLabelId) return { error: "Failed to create archived label" };
-
-    const processedLabel = await getOrCreateInboxZeroLabel({
-      key: "processed",
-      gmail,
-    });
 
     const processedLabelId = processedLabel?.id;
     if (!processedLabelId) return { error: "Failed to create processed label" };

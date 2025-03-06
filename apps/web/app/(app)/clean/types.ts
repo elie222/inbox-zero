@@ -33,7 +33,6 @@ export interface Email {
   subject: string;
   from: string;
   timestamp: string;
-  size: number;
   action: "archive" | "delete" | "label" | null;
   label?: string;
 }
