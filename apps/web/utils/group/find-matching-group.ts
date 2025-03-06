@@ -26,10 +26,12 @@ export function findMatchingGroupItem<
   const { from, subject } = headers;
 
   const matchingItem = groupItems.find((item) => {
+    // from
     if (item.type === GroupItemType.FROM && from) {
       return item.value.includes(from) || from.includes(item.value);
     }
 
+    // subject
     if (item.type === GroupItemType.SUBJECT && subject) {
       const subjectWithoutNumbers = generalizeSubject(subject);
       const valueWithoutNumbers = generalizeSubject(item.value);
@@ -39,11 +41,6 @@ export function findMatchingGroupItem<
         subjectWithoutNumbers.includes(valueWithoutNumbers)
       );
     }
-
-    // TODO
-    // if (item.type === GroupItemType.BODY && body) {
-    //   return item.value.includes(body)
-    // }
 
     return false;
   });

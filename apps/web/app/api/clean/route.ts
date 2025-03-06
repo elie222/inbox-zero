@@ -13,6 +13,8 @@ import { getAiUserWithTokens } from "@/utils/user/get";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { isCalendarEventInPast } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
+import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
+import { isReceipt } from "@/utils/ai/group/find-receipts";
 
 const logger = createScopedLogger("api/clean");
 
@@ -87,6 +89,16 @@ async function cleanThread(body: CleanThreadBody) {
     }
 
     // receipt
+    if (isReceipt(message)) {
+      await publish({ archive: false });
+      return;
+    }
+
+    // newsletter
+    if (isNewsletterSender(message.headers.from)) {
+      await publish({ archive: true });
+      return;
+    }
 
     // promotion/social/update
     if (
