@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Inbox, Pause, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Clock, Inbox, Pause, Play } from "lucide-react";
 import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailSSE } from "./use-email-sse";
@@ -14,8 +14,7 @@ export function EmailFirehose() {
   const [isPaused, setIsPaused] = useState(false);
   const [view, setView] = useState<"firehose" | "stats">("firehose");
 
-  const { emails, stats, processingRate, setProcessingRate, togglePause } =
-    useEmailSSE(isPaused);
+  const { emails, stats, togglePause } = useEmailSSE(isPaused);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -48,10 +47,6 @@ export function EmailFirehose() {
     <div className="flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="px-2 py-1 text-xs">
-            <Clock className="mr-1 h-3 w-3" />
-            {processingRate} emails/sec
-          </Badge>
           <Badge variant="outline" className="px-2 py-1 text-xs">
             <Inbox className="mr-1 h-3 w-3" />
             {stats.total.toLocaleString()} processed

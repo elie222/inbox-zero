@@ -14,7 +14,6 @@ export function useEmailSSE(initialPaused = false) {
     labels: {},
     rate: 0,
   });
-  const [processingRate, setProcessingRate] = useState(5);
   const [isPaused, setIsPaused] = useState(initialPaused);
   const eventSourceRef = useRef<EventSource | null>(null);
   const maxEmails = 1000; // Maximum emails to keep in the buffer
@@ -36,10 +35,8 @@ export function useEmailSSE(initialPaused = false) {
       }
 
       console.log("Connecting to SSE...");
-      const url = `/api/email-stream?rate=${processingRate}`;
-      console.log("SSE URL:", url);
 
-      const eventSource = new EventSource(url);
+      const eventSource = new EventSource("/api/email-stream");
       eventSourceRef.current = eventSource;
 
       console.log("SSE connection created");
@@ -114,7 +111,7 @@ export function useEmailSSE(initialPaused = false) {
     } catch (error) {
       console.error("Error establishing SSE connection:", error);
     }
-  }, [isPaused, processingRate]);
+  }, [isPaused]);
 
   // Connect or disconnect based on pause state
   useEffect(() => {
@@ -142,8 +139,6 @@ export function useEmailSSE(initialPaused = false) {
   return {
     emails,
     stats,
-    processingRate,
-    setProcessingRate,
     isPaused,
     togglePause,
   };
