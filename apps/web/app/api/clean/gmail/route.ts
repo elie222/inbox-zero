@@ -8,7 +8,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { updateThreadStatus } from "@/utils/redis/clean";
+import { updateThread } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("api/clean/gmail");
 
@@ -57,7 +57,7 @@ async function performGmailAction({
   });
 
   await Promise.all([
-    updateThreadStatus(userId, threadId, "completed"),
+    updateThread(userId, threadId, { status: "applying" }),
     labelThread({
       gmail,
       threadId,

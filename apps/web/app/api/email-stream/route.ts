@@ -37,6 +37,7 @@ export async function GET(request: NextRequest) {
   const redisStream = new ReadableStream({
     start(controller) {
       let inactivityTimer: NodeJS.Timeout;
+      let isControllerClosed = false; // Add flag to track controller state
 
       const resetInactivityTimer = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
@@ -44,7 +45,10 @@ export async function GET(request: NextRequest) {
           logger.info("Stream closed due to inactivity", {
             userId: session.user.id,
           });
-          controller.close();
+          if (!isControllerClosed) {
+            isControllerClosed = true;
+            controller.close();
+          }
           redisSubscriber.punsubscribe(pattern);
         }, INACTIVITY_TIMEOUT);
       };
@@ -53,8 +57,18 @@ export async function GET(request: NextRequest) {
       resetInactivityTimer();
 
       redisSubscriber.on("pmessage", (_pattern, _channel, message) => {
-        controller.enqueue(encoder.encode(`data: ${message}\n\n`));
-        resetInactivityTimer(); // Reset timer on message
+        // Only enqueue if controller is not closed
+        if (!isControllerClosed) {
+          try {
+            controller.enqueue(encoder.encode(`data: ${message}\n\n`));
+            resetInactivityTimer(); // Reset timer on message
+          } catch (error) {
+            logger.error("Error enqueueing message", { error });
+            // If we hit an error, mark controller as closed and clean up
+            isControllerClosed = true;
+            redisSubscriber.punsubscribe(pattern);
+          }
+        }
       });
 
       request.signal.addEventListener("abort", () => {
@@ -62,6 +76,10 @@ export async function GET(request: NextRequest) {
           userId: session.user.id,
         });
         clearTimeout(inactivityTimer);
+        if (!isControllerClosed) {
+          isControllerClosed = true;
+          controller.close();
+        }
         redisSubscriber.punsubscribe(pattern);
       });
     },

@@ -17,7 +17,7 @@ import { isCalendarEventInPast } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
-import { saveThread } from "@/utils/redis/clean";
+import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("api/clean");
@@ -168,10 +168,17 @@ function getPublish({
       maxRatePerSecond,
     });
 
-    await publishToQstash("/api/clean/gmail", cleanGmailBody, {
-      key: `gmail-action-${userId}`,
-      ratePerSecond: maxRatePerSecond,
-    });
+    await Promise.all([
+      publishToQstash("/api/clean/gmail", cleanGmailBody, {
+        key: `gmail-action-${userId}`,
+        ratePerSecond: maxRatePerSecond,
+      }),
+      updateThread(userId, threadId, {
+        archive,
+        // label: "",
+        status: "applying",
+      }),
+    ]);
 
     logger.info("Published to Qstash", { userId, threadId });
   };

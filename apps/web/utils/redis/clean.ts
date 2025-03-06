@@ -15,38 +15,44 @@ export async function saveThread(
     subject,
     snippet,
     date,
+    archive,
+    label,
   }: {
     threadId: string;
     from: string;
     subject: string;
     snippet: string;
     date: Date;
+    archive?: boolean;
+    label?: string;
   },
 ): Promise<CleanThread> {
   const thread: CleanThread = {
     threadId,
     userId,
-    status: "pending",
+    status: "processing",
     createdAt: new Date().toISOString(),
     from,
     subject,
     snippet,
     date,
+    archive,
+    label,
   };
 
   await publishThread(userId, thread);
   return thread;
 }
 
-export async function updateThreadStatus(
+export async function updateThread(
   userId: string,
   threadId: string,
-  status: CleanThread["status"],
+  update: Partial<CleanThread>,
 ) {
   const thread = await getThread(userId, threadId);
   if (!thread) return;
 
-  const updatedThread = { ...thread, status };
+  const updatedThread = { ...thread, ...update };
   await publishThread(userId, updatedThread);
 }
 
