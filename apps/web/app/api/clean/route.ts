@@ -10,6 +10,9 @@ import { createScopedLogger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getAiUserWithTokens } from "@/utils/user/get";
+import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
+import { isCalendarEventInPast } from "@/utils/parse/calender-event";
+import { GmailLabel } from "@/utils/gmail/label";
 
 const logger = createScopedLogger("api/clean");
 
@@ -48,56 +51,106 @@ async function cleanThread(body: CleanThreadBody) {
   });
 
   if (!messages.length) return;
-  // don't archive convos - TODO: handle with ai
-  if (messages.length > 1) return;
 
-  // fixed logic
-  // check if has unsub link
-  // check if newsletter
-  // check if receipt
-  // check if calendar invite
-  // check if promotion/social/update
-  // handle with ai
+  const publish = getPublish({
+    userId: body.userId,
+    threadId: body.threadId,
+    archiveLabelId: body.archiveLabelId,
+    processedLabelId: body.processedLabelId,
+  });
+
+  if (messages.length === 1) {
+    // fixed logic
+    // check if calendar invite
+    // check if has unsub link
+    // check if newsletter
+    // check if receipt
+    // check if promotion/social/update
+    // handle with ai
+
+    const message = messages[0];
+
+    // calendar invite
+    const isPastCalendarEvent = isCalendarEventInPast(message);
+    if (isPastCalendarEvent) {
+      await publish({ archive: true });
+      return;
+    }
+
+    // unsubscribe link
+    const unsubscribeLink =
+      findUnsubscribeLink(message.textHtml) ||
+      message.headers["list-unsubscribe"];
+    if (unsubscribeLink) {
+      await publish({ archive: true });
+      return;
+    }
+
+    // receipt
+
+    // promotion/social/update
+    if (
+      message.labelIds?.includes(GmailLabel.SOCIAL) ||
+      message.labelIds?.includes(GmailLabel.PROMOTIONS) ||
+      message.labelIds?.includes(GmailLabel.UPDATES) ||
+      message.labelIds?.includes(GmailLabel.FORUMS)
+    ) {
+      await publish({ archive: true });
+      return;
+    }
+  }
 
   const aiResult = await aiClean({
     user,
     messages: messages.map((m) => getEmailForLLM(m)),
   });
 
-  // max rate:
-  // https://developers.google.com/gmail/api/reference/quota
-  // 15,000 quota units per user per minute
-  // modify thread = 10 units
-  // => 1,500 modify threads per minute
-  // => 25 modify threads per second
-  // => assume user has other actions too => max 12 per second
-  const actionCount = 2; // 1. remove "inbox" label. 2. label "clean". increase if we're doing multiple labellings
-  const maxRatePerSecond = Math.ceil(12 / actionCount);
+  await publish({ archive: aiResult.archive });
+}
 
-  const cleanGmailBody: CleanGmailBody = {
-    userId: body.userId,
-    threadId: body.threadId,
-    archive: aiResult.archive,
-    // label: aiResult.label,
-    archiveLabelId: body.archiveLabelId,
-    processedLabelId: body.processedLabelId,
+function getPublish({
+  userId,
+  threadId,
+  archiveLabelId,
+  processedLabelId,
+}: {
+  userId: string;
+  threadId: string;
+  archiveLabelId: string;
+  processedLabelId: string;
+}) {
+  return async ({ archive }: { archive: boolean }) => {
+    // max rate:
+    // https://developers.google.com/gmail/api/reference/quota
+    // 15,000 quota units per user per minute
+    // modify thread = 10 units
+    // => 25 modify threads per second
+    // => assume user has other actions too => max 12 per second
+    const actionCount = 2; // 1. remove "inbox" label. 2. label "clean". increase if we're doing multiple labellings
+    const maxRatePerSecond = Math.ceil(12 / actionCount);
+
+    const cleanGmailBody: CleanGmailBody = {
+      userId,
+      threadId,
+      archive,
+      // label: aiResult.label,
+      archiveLabelId,
+      processedLabelId,
+    };
+
+    logger.info("Publishing to Qstash", {
+      userId,
+      threadId,
+      maxRatePerSecond,
+    });
+
+    await publishToQstash("/api/clean/gmail", cleanGmailBody, {
+      key: `gmail-action-${userId}`,
+      ratePerSecond: maxRatePerSecond,
+    });
+
+    logger.info("Published to Qstash", { userId, threadId });
   };
-
-  logger.info("Publishing to Qstash", {
-    userId: body.userId,
-    threadId: body.threadId,
-    maxRatePerSecond,
-  });
-
-  await publishToQstash("/api/clean/gmail", cleanGmailBody, {
-    key: `gmail-action-${body.userId}`,
-    ratePerSecond: maxRatePerSecond,
-  });
-
-  logger.info("Published to Qstash", {
-    userId: body.userId,
-    threadId: body.threadId,
-  });
 }
 
 // TODO: security

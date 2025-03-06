@@ -25,6 +25,11 @@ export const GmailLabel = {
   SPAM: "SPAM",
   TRASH: "TRASH",
   DRAFT: "DRAFT",
+  PERSONAL: "CATEGORY_PERSONAL",
+  SOCIAL: "CATEGORY_SOCIAL",
+  PROMOTIONS: "CATEGORY_PROMOTIONS",
+  FORUMS: "CATEGORY_FORUMS",
+  UPDATES: "CATEGORY_UPDATES",
 };
 
 export async function labelThread(options: {
