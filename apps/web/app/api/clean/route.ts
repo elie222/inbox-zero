@@ -6,8 +6,10 @@ import { getThreadMessages } from "@/utils/gmail/thread";
 import { getGmailClient } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
 import { SafeError } from "@/utils/error";
-import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { aiClean } from "@/utils/ai/clean/ai-clean";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { getAiUserWithTokens } from "@/utils/user/get";
 
 const logger = createScopedLogger("api/clean");
 
@@ -23,18 +25,17 @@ async function cleanThread(body: CleanThreadBody) {
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
 
-  const account = await prisma.account.findUnique({
-    where: { userId: body.userId },
-    select: { access_token: true, refresh_token: true },
-  });
+  const user = await getAiUserWithTokens({ id: body.userId });
 
-  if (!account) throw new SafeError("User not found", 404);
-  if (!account.access_token || !account.refresh_token)
+  if (!user) throw new SafeError("User not found", 404);
+
+  if (!user.tokens) throw new SafeError("No Gmail account found", 404);
+  if (!user.tokens.access_token || !user.tokens.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
   const gmail = getGmailClient({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
+    accessToken: user.tokens.access_token,
+    refreshToken: user.tokens.refresh_token,
   });
 
   const messages = await getThreadMessages(body.threadId, gmail);
@@ -56,6 +57,11 @@ async function cleanThread(body: CleanThreadBody) {
   // check if promotion/social/update
   // handle with ai
 
+  const aiResult = await aiClean({
+    user,
+    messages: messages.map((m) => getEmailForLLM(m)),
+  });
+
   // max rate:
   // https://developers.google.com/gmail/api/reference/quota
   // 15,000 quota units per user per minute
@@ -69,8 +75,8 @@ async function cleanThread(body: CleanThreadBody) {
   const cleanGmailBody: CleanGmailBody = {
     userId: body.userId,
     threadId: body.threadId,
-    archive: true,
-    // labelId: "",
+    archive: aiResult.archive,
+    // label: aiResult.label,
     archiveLabelId: body.archiveLabelId,
   };
 

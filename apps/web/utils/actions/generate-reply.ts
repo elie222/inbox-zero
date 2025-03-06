@@ -11,7 +11,7 @@ import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
 import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getReplyTrackingRule } from "@/utils/reply-tracker";
-import { getAiUserByEmail } from "@/utils/user/get";
+import { getAiUser } from "@/utils/user/get";
 
 export const generateReplyAction = withActionInstrumentation(
   "generateReply",
@@ -19,7 +19,7 @@ export const generateReplyAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.email) return { error: "Not authenticated" };
 
-    const user = await getAiUserByEmail({ email: session.user.email });
+    const user = await getAiUser({ id: session.user.id });
 
     if (!user) return { error: "User not found" };
 

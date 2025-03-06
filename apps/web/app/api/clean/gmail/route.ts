@@ -37,13 +37,16 @@ async function performGmailAction({
     refreshToken: account.refresh_token,
   });
 
+  const addLabelIds = [archive ? archiveLabelId : undefined, labelId].filter(
+    isDefined,
+  );
+  const removeLabelIds = archive ? [GmailLabel.INBOX] : undefined;
+
   await labelThread({
     gmail,
     threadId,
-    addLabelIds: [archive ? archiveLabelId : undefined, labelId].filter(
-      isDefined,
-    ),
-    removeLabelIds: archive ? [GmailLabel.INBOX] : undefined,
+    addLabelIds,
+    removeLabelIds,
   });
 }
 

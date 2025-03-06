@@ -35,6 +35,8 @@ export async function labelThread(options: {
 }) {
   const { gmail, threadId, addLabelIds, removeLabelIds } = options;
 
+  if (!addLabelIds?.length && !removeLabelIds?.length) return;
+
   return gmail.users.threads.modify({
     userId: "me",
     id: threadId,
