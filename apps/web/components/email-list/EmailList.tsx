@@ -270,7 +270,7 @@ export function EmailList({
     }, 100);
   }
 
-  function setPrevOrNextRow() {
+  function advanceToAdjacentThread() {
     const openedRowIndex = threads.findIndex(
       (thread) => thread.id === openThreadId,
     );
@@ -508,7 +508,7 @@ export function EmailList({
                 row={openedRow}
                 onPlanAiAction={onPlanAiAction}
                 onArchive={onArchive}
-                openEmailOnArchive={setPrevOrNextRow}
+                advanceToAdjacentThread={advanceToAdjacentThread}
                 close={closePanel}
                 executePlan={executePlan}
                 rejectPlan={rejectPlan}
