@@ -44,37 +44,10 @@ export function EmailFirehose() {
     }
   }, [isPaused, tab, emails.length, virtualizer]);
 
+  console.log("🚀 ~ EmailFirehose ~ stats:", stats);
+
   return (
     <div className="flex flex-col space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <Badge variant="outline" className="px-2 py-1 text-xs">
-            <Inbox className="mr-1 h-3 w-3" />
-            {stats.total.toLocaleString()} processed
-          </Badge>
-        </div>
-        <div className="flex items-center">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePauseToggle}
-            className="h-8"
-          >
-            {isPaused ? (
-              <>
-                <Play className="mr-1 h-3.5 w-3.5" />
-                Resume
-              </>
-            ) : (
-              <>
-                <Pause className="mr-1 h-3.5 w-3.5" />
-                Pause
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
-
       <Tabs defaultValue="firehose" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="firehose">Firehose</TabsTrigger>
@@ -118,20 +91,49 @@ export function EmailFirehose() {
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <div className="flex items-center space-x-4">
           <div className="flex items-center">
-            <div className="mr-1 h-3 w-3 rounded-full bg-blue-500" />
+            <div className="mr-1 size-3 rounded-full bg-blue-500" />
             <span>Inbox</span>
           </div>
           <div className="flex items-center">
-            <div className="mr-1 h-3 w-3 rounded-full bg-green-500" />
+            <div className="mr-1 size-3 rounded-full bg-green-500" />
             <span>Archived</span>
           </div>
           <div className="flex items-center">
-            <div className="mr-1 h-3 w-3 rounded-full bg-yellow-500" />
+            <div className="mr-1 size-3 rounded-full bg-yellow-500" />
             <span>Labeled</span>
           </div>
         </div>
-        <div>Processed: {emails.length} emails</div>
+        <div>Processed: {stats.total} emails</div>
       </div>
+
+      {/* <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <Badge variant="outline" className="px-2 py-1 text-xs">
+            <Inbox className="mr-1 size-3" />
+            {stats.total.toLocaleString()} processed
+          </Badge>
+        </div>
+        <div className="flex items-center">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePauseToggle}
+            className="h-8"
+          >
+            {isPaused ? (
+              <>
+                <Play className="mr-1 h-3.5 w-3.5" />
+                Resume
+              </>
+            ) : (
+              <>
+                <Pause className="mr-1 h-3.5 w-3.5" />
+                Pause
+              </>
+            )}
+          </Button>
+        </div>
+      </div> */}
     </div>
   );
 }

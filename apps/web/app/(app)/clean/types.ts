@@ -18,30 +18,3 @@ export const timeRangeOptions = [
 
 // Email action types
 export type EmailAction = "archive" | "mark-read";
-
-// Job status types
-export type JobStatus =
-  | "INITIALIZING"
-  | "STARTING"
-  | "RUNNING"
-  | "COMPLETED"
-  | "CANCELLED"
-  | "ERROR";
-
-export interface Email {
-  id: string;
-  subject: string;
-  from: string;
-  timestamp: string;
-  action: "archive" | "delete" | "label" | null;
-  label?: string;
-}
-
-export interface EmailStats {
-  total: number;
-  inbox: number;
-  archived: number;
-  deleted: number;
-  labeled: number;
-  labels: Record<string, number>;
-}

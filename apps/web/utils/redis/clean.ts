@@ -10,15 +10,7 @@ const statsKey = (userId: string) => `clean-stats:${userId}`;
 
 export async function saveThread(
   userId: string,
-  {
-    threadId,
-    from,
-    subject,
-    snippet,
-    date,
-    archive,
-    label,
-  }: {
+  thread: {
     threadId: string;
     from: string;
     subject: string;
@@ -28,21 +20,17 @@ export async function saveThread(
     label?: string;
   },
 ): Promise<CleanThread> {
-  const thread: CleanThread = {
-    threadId,
+  const cleanThread: CleanThread = {
+    ...thread,
     userId,
     status: "processing",
     createdAt: new Date().toISOString(),
-    from,
-    subject,
-    snippet,
-    date,
-    archive,
-    label,
   };
 
-  await publishThread(userId, thread);
-  return thread;
+  console.log("🚀 ~ saveThread ~ cleanThread:", cleanThread);
+
+  await publishThread(userId, cleanThread);
+  return cleanThread;
 }
 
 export async function updateThread(
@@ -59,6 +47,9 @@ export async function updateThread(
 
 export async function publishThread(userId: string, thread: CleanThread) {
   const key = threadKey(userId, thread.threadId);
+
+  console.log("🚀 ~ publishThread ~ key:", key);
+
   // Update stats first before saving new state
   await updateStats(userId, thread);
   // Store the data with expiration
@@ -119,8 +110,9 @@ async function updateStats(userId: string, thread: CleanThread) {
     stats.total++;
     // Add new status count
     if (thread.status === "processing") stats.processing++;
-    if (thread.status === "applying") stats.applying++;
-    if (thread.status === "completed") stats.completed++;
+    else if (thread.status === "applying") stats.applying++;
+    else if (thread.status === "completed") stats.completed++;
+
     if (thread.archive) stats.archived++;
     if (thread.label) {
       stats.labels[thread.label] = (stats.labels[thread.label] || 0) + 1;
@@ -130,13 +122,13 @@ async function updateStats(userId: string, thread: CleanThread) {
     if (oldThread.status !== thread.status) {
       // Decrement old status
       if (oldThread.status === "processing") stats.processing--;
-      if (oldThread.status === "applying") stats.applying--;
-      if (oldThread.status === "completed") stats.completed--;
+      else if (oldThread.status === "applying") stats.applying--;
+      else if (oldThread.status === "completed") stats.completed--;
 
       // Increment new status
       if (thread.status === "processing") stats.processing++;
-      if (thread.status === "applying") stats.applying++;
-      if (thread.status === "completed") stats.completed++;
+      else if (thread.status === "applying") stats.applying++;
+      else if (thread.status === "completed") stats.completed++;
     }
 
     // Handle archive changes
@@ -171,4 +163,34 @@ export async function resetStats(userId: string) {
   };
   await redis.set(key, initialStats, { ex: EXPIRATION });
   return initialStats;
+}
+
+export async function deleteAllUserData(userId: string) {
+  // Delete all thread keys for this user
+  const threadPattern = `thread:${userId}:*`;
+  let cursor = 0;
+  let deletedThreads = 0;
+
+  do {
+    const [nextCursor, batch] = await redis.scan(cursor, {
+      match: threadPattern,
+      count: 100,
+    });
+    cursor = Number(nextCursor);
+
+    if (batch.length > 0) {
+      // Spread the array of keys
+      await redis.unlink(...batch);
+      deletedThreads += batch.length;
+    }
+  } while (cursor !== 0);
+
+  // Delete stats
+  const statsKey = `clean-stats:${userId}`;
+  await redis.unlink(statsKey);
+
+  return {
+    deletedThreads,
+    deletedStats: true,
+  };
 }
