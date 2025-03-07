@@ -11,12 +11,13 @@ import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailStream } from "./use-email-stream";
 import { Loading } from "@/components/Loading";
+import { CleanThread } from "@/utils/redis/clean.types";
 
-export function EmailFirehose() {
+export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
   const [isPaused, setIsPaused] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("firehose"));
 
-  const { emails, stats, togglePause } = useEmailStream(isPaused);
+  const { emails, stats, togglePause } = useEmailStream(isPaused, threads);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -28,10 +29,10 @@ export function EmailFirehose() {
     overscan: 10, // Number of items to render outside of the visible area
   });
 
-  const handlePauseToggle = () => {
-    setIsPaused(!isPaused);
-    togglePause();
-  };
+  // const handlePauseToggle = () => {
+  //   setIsPaused(!isPaused);
+  //   togglePause();
+  // };
 
   // Auto-scroll based on display order
   useEffect(() => {

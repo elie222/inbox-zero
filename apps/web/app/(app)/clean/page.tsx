@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/utils";
 import { CleanStep } from "./types";
@@ -41,7 +42,11 @@ export default async function CleanPage({
         return <ConfirmationStep unreadCount={inboxCount} />;
 
       case CleanStep.PROCESSING:
-        return <ProcessingStep />;
+        return (
+          <Suspense>
+            <ProcessingStep userId={session.user.id} />
+          </Suspense>
+        );
 
       // first / default step
       default:

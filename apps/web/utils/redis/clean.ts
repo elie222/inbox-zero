@@ -27,8 +27,6 @@ export async function saveThread(
     createdAt: new Date().toISOString(),
   };
 
-  console.log("🚀 ~ saveThread ~ cleanThread:", cleanThread);
-
   await publishThread(userId, cleanThread);
   return cleanThread;
 }

@@ -2,18 +2,28 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CleanThread, CleanStats } from "@/utils/redis/clean.types";
+import keyBy from "lodash/keyBy";
+import countBy from "lodash/countBy";
 
-export function useEmailStream(initialPaused = false) {
-  const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>({});
-  const [emailOrder, setEmailOrder] = useState<string[]>([]);
-  const [stats, setStats] = useState<CleanStats>({
-    total: 0,
-    processing: 0,
-    applying: 0,
-    completed: 0,
-    archived: 0,
-    labels: {},
-  });
+export function useEmailStream(
+  initialPaused = false,
+  initialThreads: CleanThread[] = [],
+) {
+  // Initialize emailsMap with sorted threads and proper dates
+  const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>(() =>
+    createEmailMap(initialThreads),
+  );
+
+  // Initialize emailOrder sorted by date (newest first)
+  const [emailOrder, setEmailOrder] = useState<string[]>(() =>
+    getSortedThreadIds(initialThreads),
+  );
+
+  // Initialize stats
+  const [stats, setStats] = useState<CleanStats>(() =>
+    getInitialStats(initialThreads),
+  );
+
   const [isPaused, setIsPaused] = useState(initialPaused);
   const eventSourceRef = useRef<EventSource | null>(null);
   const maxEmails = 1000; // Maximum emails to keep in the buffer
@@ -58,32 +68,36 @@ export function useEmailStream(initialPaused = false) {
 
       // Handle thread events
       eventSource.addEventListener("thread", (event) => {
-        console.log("SSE thread received:", event.data);
         try {
-          const d: CleanThread = JSON.parse(event.data);
-          const data = { ...d, date: new Date(d.date) };
+          const threadData: CleanThread = JSON.parse(event.data);
+          const thread = {
+            ...threadData,
+            date: new Date(threadData.date),
+          };
 
           setEmailsMap((prev) => {
             // If we're at the limit and this is a new email, remove the oldest one
-            if (Object.keys(prev).length >= maxEmails && !prev[data.threadId]) {
+            if (
+              Object.keys(prev).length >= maxEmails &&
+              !prev[thread.threadId]
+            ) {
               const newMap = { ...prev };
               delete newMap[emailOrder[emailOrder.length - 1]];
               return {
                 ...newMap,
-                [data.threadId]: data,
+                [thread.threadId]: thread,
               };
             }
             return {
               ...prev,
-              [data.threadId]: data,
+              [thread.threadId]: thread,
             };
           });
 
-          // Update order - add to beginning if new, otherwise maintain existing position
+          // Update order - add to beginning if new
           setEmailOrder((prev) => {
-            if (!prev.includes(data.threadId)) {
-              const newOrder = [data.threadId, ...prev];
-              return newOrder.slice(0, maxEmails);
+            if (!prev.includes(thread.threadId)) {
+              return [thread.threadId, ...prev].slice(0, maxEmails);
             }
             return prev;
           });
@@ -138,5 +152,41 @@ export function useEmailStream(initialPaused = false) {
     stats,
     isPaused,
     togglePause,
+  };
+}
+
+/**
+ * Helper Functions
+ */
+
+function createEmailMap(threads: CleanThread[]): Record<string, CleanThread> {
+  const threadsWithDates = threads.map((thread) => ({
+    ...thread,
+    date: new Date(thread.date),
+  }));
+  return keyBy(threadsWithDates, "threadId");
+}
+
+function getSortedThreadIds(threads: CleanThread[]): string[] {
+  return threads
+    .slice()
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .map((thread) => thread.threadId);
+}
+
+function getInitialStats(threads: CleanThread[]): CleanStats {
+  const archivedCount = threads.filter((t) => t.archive).length;
+  const labelCounts = countBy(
+    threads.filter((t) => t.label),
+    "label",
+  );
+
+  return {
+    total: threads.length,
+    processing: 0,
+    applying: 0,
+    completed: 0,
+    archived: archivedCount,
+    labels: labelCounts,
   };
 }

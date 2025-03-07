@@ -56,7 +56,16 @@ export function EmailItem({ email }: { email: CleanThread }) {
         )}
 
         {email.archive ? (
-          <Badge color="green">Archived</Badge>
+          <Badge
+            color="green"
+            className="hover:cursor-pointer hover:bg-red-100 hover:text-red-900"
+            onClick={() => {
+              console.log("undo archive");
+            }}
+          >
+            <span className="group-hover:hidden">Archived</span>
+            <span className="hidden group-hover:inline">Undo</span>
+          </Badge>
         ) : (
           <Badge color="blue">Keep</Badge>
         )}
