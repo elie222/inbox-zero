@@ -11,7 +11,7 @@ export function EmailPanel({
   row,
   onPlanAiAction,
   onArchive,
-  OpenEmailOnArchive,
+  openEmailOnArchive,
   close,
   executingPlan,
   rejectingPlan,
@@ -22,7 +22,7 @@ export function EmailPanel({
   row: Thread;
   onPlanAiAction: (thread: Thread) => void;
   onArchive: (thread: Thread) => void;
-  OpenEmailOnArchive: () => void;
+  openEmailOnArchive: () => void;
   close: () => void;
   executingPlan: boolean;
   rejectingPlan: boolean;
@@ -58,7 +58,7 @@ export function EmailPanel({
             onPlanAiAction={() => onPlanAiAction(row)}
             onArchive={() => {
               onArchive(row);
-              OpenEmailOnArchive();
+              openEmailOnArchive();
             }}
             refetch={refetch}
           />

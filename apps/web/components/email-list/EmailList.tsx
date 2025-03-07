@@ -508,7 +508,7 @@ export function EmailList({
                 row={openedRow}
                 onPlanAiAction={onPlanAiAction}
                 onArchive={onArchive}
-                OpenEmailOnArchive={setPrevOrNextRow}
+                openEmailOnArchive={setPrevOrNextRow}
                 close={closePanel}
                 executePlan={executePlan}
                 rejectPlan={rejectPlan}
