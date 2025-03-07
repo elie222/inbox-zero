@@ -275,8 +275,10 @@ export function EmailList({
       (thread) => thread.id === openThreadId,
     );
 
-    if (openedRowIndex === -1 || threads.length === 0 || threads.length === 1)
+    if (openedRowIndex === -1 || threads.length === 0 || threads.length === 1) {
       closePanel();
+      return;
+    }
 
     const rowIndex =
       openedRowIndex < threads.length - 1
