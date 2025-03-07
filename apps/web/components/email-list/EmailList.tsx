@@ -271,13 +271,12 @@ export function EmailList({
   }
 
   function setPrevOrNextRow() {
-    if (threads.length === 1) setOpenThreadId(threads[0].id);
-
     const openedRowIndex = threads.findIndex(
       (thread) => thread.id === openThreadId,
     );
 
-    if (openedRowIndex === -1 || threads.length === 0) closePanel();
+    if (openedRowIndex === -1 || threads.length === 0 || threads.length === 1)
+      closePanel();
 
     const rowIndex =
       openedRowIndex < threads.length - 1
