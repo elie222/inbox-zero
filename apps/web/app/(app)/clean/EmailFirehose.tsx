@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailStream } from "./use-email-stream";
+import { Loading } from "@/components/Loading";
 
 export function EmailFirehose() {
   const [isPaused, setIsPaused] = useState(false);
@@ -77,8 +78,9 @@ export function EmailFirehose() {
                 ))}
               </div>
             ) : (
-              <div className="flex h-full items-center justify-center py-20 text-muted-foreground">
-                No emails processed yet.
+              <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
+                <Loading />
+                <span>Processing...</span>
               </div>
             )}
           </div>
