@@ -188,27 +188,6 @@ export function EmailList({
     [openThreadId, threads],
   );
 
-  const prevOrNextRowId = useMemo(() => {
-    const openedRowIndex = threads.findIndex(
-      (thread) => thread.id === openThreadId,
-    );
-
-    if (openedRowIndex === -1 || threads.length === 0) {
-      return openThreadId;
-    }
-
-    if (threads.length === 1) {
-      return threads[0].id;
-    }
-
-    const rowIndex =
-      openedRowIndex < threads.length - 1
-        ? openedRowIndex + 1
-        : openedRowIndex - 1;
-
-    return threads[rowIndex].id;
-  }, [openThreadId, threads]);
-
   // if checkbox for a row has been checked
   const [selectedRows, setSelectedRows] = useState<Record<string, boolean>>({});
 
@@ -237,8 +216,6 @@ export function EmailList({
 
   const onArchive = useCallback(
     (thread: Thread) => {
-      setOpenThreadId(prevOrNextRowId);
-
       const threadIds = [thread.id];
       toast.promise(
         async () => {
@@ -261,7 +238,7 @@ export function EmailList({
         },
       );
     },
-    [refetch, prevOrNextRowId],
+    [refetch],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -291,6 +268,24 @@ export function EmailList({
         listRef.current.scrollTop = topPos;
       }
     }, 100);
+  }
+
+  function setPrevOrNextRow() {
+    if (threads.length === 1) setOpenThreadId(threads[0].id);
+
+    const openedRowIndex = threads.findIndex(
+      (thread) => thread.id === openThreadId,
+    );
+
+    if (openedRowIndex === -1 || threads.length === 0) closePanel();
+
+    const rowIndex =
+      openedRowIndex < threads.length - 1
+        ? openedRowIndex + 1
+        : openedRowIndex - 1;
+
+    const prevOrNextRowId = threads[rowIndex].id;
+    setOpenThreadId(prevOrNextRowId);
   }
 
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
@@ -514,6 +509,7 @@ export function EmailList({
                 row={openedRow}
                 onPlanAiAction={onPlanAiAction}
                 onArchive={onArchive}
+                OpenEmailOnArchive={setPrevOrNextRow}
                 close={closePanel}
                 executePlan={executePlan}
                 rejectPlan={rejectPlan}
