@@ -14,6 +14,7 @@ import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
+import { inboxZeroLabels } from "@/utils/label";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -55,7 +56,7 @@ export const cleanInboxAction = withActionInstrumentation(
       const { threads, nextPageToken: pageToken } =
         await getThreadsWithNextPageToken({
           gmail,
-          q: `older_than:${data.daysOld}d`,
+          q: `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}"`,
           labelIds: [GmailLabel.INBOX],
           maxResults: Math.min(data.maxEmails || 100, 100),
         });
