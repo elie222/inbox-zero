@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ArchiveIcon, TagIcon } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { TagIcon } from "lucide-react";
+import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
@@ -55,13 +55,15 @@ export function EmailItem({ email }: { email: CleanThread }) {
           </span>
         )}
 
-        {email.archive && (
-          <ArchiveIcon className="h-3.5 w-3.5 text-green-500" />
+        {email.archive ? (
+          <Badge color="green">Archived</Badge>
+        ) : (
+          <Badge color="blue">Keep</Badge>
         )}
         {!!email.label && (
           <div className="flex items-center">
             <TagIcon className="mr-1 h-3.5 w-3.5 text-yellow-500" />
-            <Badge variant="outline" className="h-5 px-1 py-0 text-xs">
+            <Badge color="yellow" className="h-5 px-1 py-0 text-xs">
               {email.label}
             </Badge>
           </div>
