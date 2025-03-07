@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { TagIcon } from "lucide-react";
+import { TagIcon, Undo2Icon } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { Button } from "@/components/ui/button";
 
 export function EmailItem({ email }: { email: CleanThread }) {
   const [isNew, setIsNew] = useState(true);
@@ -56,16 +57,23 @@ export function EmailItem({ email }: { email: CleanThread }) {
         )}
 
         {email.archive ? (
-          <Badge
-            color="green"
-            className="hover:cursor-pointer hover:bg-red-100 hover:text-red-900"
-            onClick={() => {
-              console.log("undo archive");
-            }}
-          >
-            <span className="group-hover:hidden">Archived</span>
-            <span className="hidden group-hover:inline">Undo</span>
-          </Badge>
+          <div className="group">
+            <span className="group-hover:hidden">
+              <Badge color="green">Archived</Badge>
+            </span>
+            <div className="hidden group-hover:inline-flex">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  console.log("undo archive");
+                }}
+              >
+                <Undo2Icon className="size-3" />
+                Undo
+              </Button>
+            </div>
+          </div>
         ) : (
           <Badge color="blue">Keep</Badge>
         )}

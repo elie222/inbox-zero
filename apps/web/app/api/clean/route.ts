@@ -1,7 +1,6 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { waitUntil } from "@vercel/functions"; // can use after() from next/server instead, but import not working for some reason
 import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
@@ -64,15 +63,13 @@ async function cleanThread({
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage) return;
 
-  waitUntil(
-    saveThread(userId, {
-      threadId,
-      subject: lastMessage.headers.subject,
-      from: lastMessage.headers.from,
-      snippet: lastMessage.snippet,
-      date: internalDateToDate(lastMessage.internalDate),
-    }),
-  );
+  await saveThread(userId, {
+    threadId,
+    subject: lastMessage.headers.subject,
+    from: lastMessage.headers.from,
+    snippet: lastMessage.snippet,
+    date: internalDateToDate(lastMessage.internalDate),
+  });
 
   const publish = getPublish({
     userId,
@@ -166,6 +163,7 @@ function getPublish({
       userId,
       threadId,
       maxRatePerSecond,
+      archive,
     });
 
     await Promise.all([

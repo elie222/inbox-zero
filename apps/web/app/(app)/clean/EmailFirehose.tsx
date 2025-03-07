@@ -11,7 +11,7 @@ import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailStream } from "./use-email-stream";
 import { Loading } from "@/components/Loading";
-import { CleanThread } from "@/utils/redis/clean.types";
+import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
   const [isPaused, setIsPaused] = useState(false);
