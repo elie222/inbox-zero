@@ -37,7 +37,10 @@ export async function updateThread(
   update: Partial<CleanThread>,
 ) {
   const thread = await getThread(userId, threadId);
-  if (!thread) return;
+  if (!thread) {
+    console.warn("thread not found:", threadId);
+    return;
+  }
 
   const updatedThread = { ...thread, ...update };
   await publishThread(userId, updatedThread);
@@ -45,8 +48,6 @@ export async function updateThread(
 
 export async function publishThread(userId: string, thread: CleanThread) {
   const key = threadKey(userId, thread.threadId);
-
-  console.log("🚀 ~ publishThread ~ key:", key);
 
   // Update stats first before saving new state
   await updateStats(userId, thread);

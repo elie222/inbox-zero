@@ -159,6 +159,15 @@ function getPublish({
       processedLabelId,
     };
 
+    // TODO: it might need labelling and then we do need to push to qstash gmail action
+    if (!archive) {
+      return updateThread(userId, threadId, {
+        archive,
+        // label: "",
+        status: "completed",
+      });
+    }
+
     logger.info("Publishing to Qstash", {
       userId,
       threadId,

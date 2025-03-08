@@ -5,12 +5,18 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import {
   cleanInboxSchema,
   type CleanInboxBody,
+  undoCleanInboxSchema,
+  type UndoCleanInboxBody,
 } from "@/utils/actions/clean.validation";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import { getGmailClient } from "@/utils/gmail/client";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
-import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
+import {
+  getOrCreateInboxZeroLabel,
+  GmailLabel,
+  labelThread,
+} from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
@@ -57,6 +63,7 @@ export const cleanInboxAction = withActionInstrumentation(
         await getThreadsWithNextPageToken({
           gmail,
           q: `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}"`,
+          // q: `-in:"${inboxZeroLabels.processed.name}"`,
           labelIds: [GmailLabel.INBOX],
           maxResults: Math.min(data.maxEmails || 100, 100),
         });
@@ -115,3 +122,30 @@ function isMaxEmailsReached(totalEmailsProcessed: number, maxEmails?: number) {
   if (!maxEmails) return false;
   return totalEmailsProcessed >= maxEmails;
 }
+
+export const undoCleanInboxAction = withActionInstrumentation(
+  "undoCleanInbox",
+  async (unsafeData: UndoCleanInboxBody) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const { data, success, error } = undoCleanInboxSchema.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    const { threadId, archived } = data;
+
+    const gmail = getGmailClient(session);
+
+    // if archived, put back in inbox
+    if (archived) {
+      await labelThread({
+        gmail,
+        threadId,
+        addLabelIds: [GmailLabel.INBOX],
+      });
+    }
+
+    return { success: true };
+  },
+);

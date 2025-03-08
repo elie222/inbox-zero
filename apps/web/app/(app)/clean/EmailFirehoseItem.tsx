@@ -8,9 +8,13 @@ import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
+import { undoCleanInboxAction } from "@/utils/actions/clean";
+import { isActionError } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 
 export function EmailItem({ email }: { email: CleanThread }) {
   const [isNew, setIsNew] = useState(true);
+  const [undone, setUndone] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -20,13 +24,15 @@ export function EmailItem({ email }: { email: CleanThread }) {
     return () => clearTimeout(timer);
   }, []);
 
+  const pending = isPending(email);
+  const keep = email.archive === false;
+
   return (
     <div
       className={cn(
         "flex items-center rounded-md border p-2 text-sm transition-all duration-300",
         isNew ? "bg-primary/5" : "bg-card",
-        isPending(email) &&
-          "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20",
+        pending && "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20",
         // email.status === "completed" &&
         //   "border-green-500/30 bg-green-50/50 dark:bg-green-950/20",
         email.archive && "border-green-500/30",
@@ -38,7 +44,8 @@ export function EmailItem({ email }: { email: CleanThread }) {
           <div
             className={cn(
               "mr-2 size-2 rounded-full",
-              email.archive ? "bg-green-500" : "bg-blue-500",
+              email.archive && "bg-green-500",
+              keep && "bg-blue-500",
               !!email.label && "bg-yellow-500",
             )}
           />
@@ -50,13 +57,13 @@ export function EmailItem({ email }: { email: CleanThread }) {
       </div>
 
       <div className="ml-2 flex items-center space-x-2">
-        {isPending(email) && (
+        {pending && (
           <span className="mr-2 inline-flex items-center">
             <LoadingMiniSpinner />
           </span>
         )}
 
-        {email.archive ? (
+        {email.archive && !undone ? (
           <div className="group">
             <span className="group-hover:hidden">
               <Badge color="green">Archived</Badge>
@@ -65,8 +72,17 @@ export function EmailItem({ email }: { email: CleanThread }) {
               <Button
                 size="xs"
                 variant="ghost"
-                onClick={() => {
-                  console.log("undo archive");
+                onClick={async () => {
+                  const result = await undoCleanInboxAction({
+                    threadId: email.threadId,
+                    archived: !!email.archive,
+                  });
+
+                  if (isActionError(result)) {
+                    toastError({ description: result.error });
+                  } else {
+                    setUndone(true);
+                  }
                 }}
               >
                 <Undo2Icon className="size-3" />
@@ -74,9 +90,9 @@ export function EmailItem({ email }: { email: CleanThread }) {
               </Button>
             </div>
           </div>
-        ) : (
+        ) : keep ? (
           <Badge color="blue">Keep</Badge>
-        )}
+        ) : null}
         {!!email.label && (
           <div className="flex items-center">
             <TagIcon className="mr-1 h-3.5 w-3.5 text-yellow-500" />

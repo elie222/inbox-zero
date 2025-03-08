@@ -15,7 +15,7 @@ import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
   const [isPaused, setIsPaused] = useState(false);
-  const [tab] = useQueryState("tab", parseAsString.withDefault("firehose"));
+  const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
 
   const { emails, stats, togglePause } = useEmailStream(isPaused, threads);
 
@@ -36,26 +36,19 @@ export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
 
   // Auto-scroll based on display order
   useEffect(() => {
-    if (
-      !isPaused &&
-      tab === "firehose" &&
-      parentRef.current &&
-      emails.length > 0
-    ) {
+    if (!isPaused && tab === "feed" && parentRef.current && emails.length > 0) {
       virtualizer.scrollToIndex(0, { align: "start" });
     }
   }, [isPaused, tab, emails.length, virtualizer]);
 
-  console.log("🚀 ~ EmailFirehose ~ stats:", stats);
-
   return (
     <div className="flex flex-col space-y-4">
-      <Tabs defaultValue="firehose" className="w-full">
+      <Tabs defaultValue="feed" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="firehose">Firehose</TabsTrigger>
-          <TabsTrigger value="stats">Statistics</TabsTrigger>
+          <TabsTrigger value="feed">Feed</TabsTrigger>
+          <TabsTrigger value="stats">Stats</TabsTrigger>
         </TabsList>
-        <TabsContent value="firehose">
+        <TabsContent value="feed">
           <div
             ref={parentRef}
             className="mt-2 h-[600px] overflow-y-auto rounded-md border bg-muted/20"
