@@ -13,11 +13,20 @@ import { useEmailStream } from "./use-email-stream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
 
-export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
+export function EmailFirehose({
+  threads,
+  stats,
+}: {
+  threads: CleanThread[];
+  stats: {
+    total: number;
+    archived: number;
+  };
+}) {
   const [isPaused, setIsPaused] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
 
-  const { emails, stats, togglePause } = useEmailStream(isPaused, threads);
+  const { emails, togglePause } = useEmailStream(isPaused, threads);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);

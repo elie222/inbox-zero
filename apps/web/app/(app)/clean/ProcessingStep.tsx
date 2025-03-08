@@ -26,7 +26,15 @@ export async function ProcessingStep({
     );
   }
 
+  const [total, archived] = await Promise.all([
+    prisma.cleanupThread.count({ where: { jobId, userId } }),
+    prisma.cleanupThread.count({ where: { jobId, userId, archived: true } }),
+  ]);
+
   return (
-    <EmailFirehose threads={threads.filter((t) => t.status !== "processing")} />
+    <EmailFirehose
+      threads={threads.filter((t) => t.status !== "processing")}
+      stats={{ total, archived }}
+    />
   );
 }

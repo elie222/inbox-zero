@@ -1,7 +1,6 @@
+import { ArchiveIcon, InboxIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Archive, Inbox, Tag } from "lucide-react";
 import { cn } from "@/utils";
-import type { CleanStats } from "@/utils/redis/clean.types";
 
 function Progress({
   value,
@@ -25,43 +24,51 @@ function Progress({
   );
 }
 
-export function EmailStats({ stats }: { stats: CleanStats }) {
+export function EmailStats({
+  stats,
+}: {
+  stats: {
+    total: number;
+    archived: number;
+  };
+}) {
   // Calculate inbox count (total - archived)
   const inboxCount = stats.total - stats.archived;
+  // console.log("🚀 ~ EmailStats ~ stats:", stats)
 
   // Calculate total labeled count (sum of all label counts)
-  const labeledCount = Object.values(stats.labels).reduce(
-    (sum, count) => sum + count,
-    0,
-  );
+  // const labeledCount = Object.values(stats.labels).reduce(
+  //   (sum, count) => sum + count,
+  //   0,
+  // );
 
   const chartData = [
     {
       label: "Inbox",
       value: inboxCount,
       percentage: stats.total > 0 ? (inboxCount / stats.total) * 100 : 0,
-      icon: Inbox,
+      icon: InboxIcon,
       color: "bg-blue-500",
     },
     {
       label: "Archived",
       value: stats.archived,
       percentage: stats.total > 0 ? (stats.archived / stats.total) * 100 : 0,
-      icon: Archive,
+      icon: ArchiveIcon,
       color: "bg-green-500",
     },
-    {
-      label: "Labeled",
-      value: labeledCount,
-      percentage: stats.total > 0 ? (labeledCount / stats.total) * 100 : 0,
-      icon: Tag,
-      color: "bg-yellow-500",
-    },
+    // {
+    //   label: "Labeled",
+    //   value: labeledCount,
+    //   percentage: stats.total > 0 ? (labeledCount / stats.total) * 100 : 0,
+    //   icon: Tag,
+    //   color: "bg-yellow-500",
+    // },
   ];
 
-  const topLabels = Object.entries(stats.labels)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
+  // const topLabels = Object.entries(stats.labels)
+  //   .sort(([, a], [, b]) => b - a)
+  //   .slice(0, 5);
 
   return (
     <div className="mt-2 h-[600px] space-y-4 overflow-y-auto rounded-md border bg-muted/20 p-4">
@@ -108,7 +115,7 @@ export function EmailStats({ stats }: { stats: CleanStats }) {
           </CardContent>
         </Card>
 
-        <Card>
+        {/* <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Top Labels</CardTitle>
           </CardHeader>
@@ -145,7 +152,7 @@ export function EmailStats({ stats }: { stats: CleanStats }) {
               </div>
             )}
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
     </div>
   );
