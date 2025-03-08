@@ -11,6 +11,7 @@ import { ProcessingStep } from "@/app/(app)/clean/ProcessingStep";
 import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getInboxCount } from "@/utils/assess";
+import { Loading } from "@/components/Loading";
 
 export default async function CleanPage({
   searchParams,
@@ -43,7 +44,7 @@ export default async function CleanPage({
 
       case CleanStep.PROCESSING:
         return (
-          <Suspense>
+          <Suspense fallback={<Loading />}>
             <ProcessingStep userId={session.user.id} />
           </Suspense>
         );

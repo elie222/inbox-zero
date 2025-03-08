@@ -390,6 +390,7 @@ async function streamCompletionTools({
   return result;
 }
 
+// NOTE: Think we can just switch this out for p-retry that we already use in the project
 export async function withRetry<T>(
   fn: () => Promise<T>,
   {

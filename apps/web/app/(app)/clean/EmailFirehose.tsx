@@ -51,7 +51,7 @@ export function EmailFirehose({ threads }: { threads: CleanThread[] }) {
         <TabsContent value="feed">
           <div
             ref={parentRef}
-            className="mt-2 h-[600px] overflow-y-auto rounded-md border bg-muted/20"
+            className="mt-2 h-[calc(100vh-300px)] overflow-y-auto rounded-md border bg-muted/20"
           >
             {emails.length > 0 ? (
               <div

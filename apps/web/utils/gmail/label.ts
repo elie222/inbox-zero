@@ -13,6 +13,7 @@ import {
   type MessageVisibility,
 } from "@/utils/gmail/constants";
 import { createScopedLogger } from "@/utils/logger";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/label");
 
@@ -45,14 +46,16 @@ export async function labelThread(options: {
     return;
   }
 
-  return gmail.users.threads.modify({
-    userId: "me",
-    id: threadId,
-    requestBody: {
-      addLabelIds,
-      removeLabelIds,
-    },
-  });
+  return withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: {
+        addLabelIds,
+        removeLabelIds,
+      },
+    }),
+  );
 }
 
 export async function archiveThread({
