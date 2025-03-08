@@ -99,7 +99,7 @@ export function EmailStats({ stats }: { stats: CleanStats }) {
                       indicatorClassName={item.color}
                     />
                     <span className="w-10 text-xs text-muted-foreground">
-                      {item.percentage.toFixed(1)}%
+                      {item.percentage}%
                     </span>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export function EmailStats({ stats }: { stats: CleanStats }) {
                         indicatorClassName="bg-yellow-500"
                       />
                       <span className="w-10 text-xs text-muted-foreground">
-                        {((count / labeledCount) * 100).toFixed(1)}%
+                        {(count / labeledCount) * 100}%
                       </span>
                     </div>
                   </div>

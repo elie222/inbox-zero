@@ -56,7 +56,7 @@ export default async function CleanPage({
 
   return (
     <div>
-      <Card className={cn("mx-4 mt-10 max-w-2xl p-6 md:mx-auto")}>
+      <Card className={cn("mt-4 max-w-2xl p-6 sm:mx-4 md:mx-auto")}>
         {renderStepContent()}
       </Card>
     </div>

@@ -49,6 +49,7 @@ import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
+import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
 
 type NavItem = {
   name: string;
@@ -109,18 +110,18 @@ const navigationItems: NavItem[] = [
 
 export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
-  // const showReplyTracker = useReplyTrackingEnabled();
+  const showCleaner = useCleanerEnabled();
 
-  // const navItems = useMemo(
-  //   () =>
-  //     navigationItems.filter((item) => {
-  //       if (item.href === "/reply-zero") return showReplyTracker;
-  //       return true;
-  //     }),
-  //   [showReplyTracker],
-  // );
+  const navItems = useMemo(
+    () =>
+      navigationItems.filter((item) => {
+        if (item.href === "/clean") return showCleaner;
+        return true;
+      }),
+    [showCleaner],
+  );
 
-  return navigationItems;
+  return navItems;
 };
 
 const bottomLinks: NavItem[] = [
