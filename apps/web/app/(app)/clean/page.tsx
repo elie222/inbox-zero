@@ -16,11 +16,12 @@ import { Loading } from "@/components/Loading";
 export default async function CleanPage({
   searchParams,
 }: {
-  searchParams: { step: string };
+  searchParams: { step: string; jobId: string };
 }) {
   const step = searchParams.step
     ? Number.parseInt(searchParams.step)
     : CleanStep.INTRO;
+  const jobId = searchParams.jobId;
 
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
@@ -45,7 +46,7 @@ export default async function CleanPage({
       case CleanStep.PROCESSING:
         return (
           <Suspense fallback={<Loading />}>
-            <ProcessingStep userId={session.user.id} />
+            <ProcessingStep userId={session.user.id} jobId={jobId} />
           </Suspense>
         );
 

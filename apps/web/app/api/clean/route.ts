@@ -26,6 +26,7 @@ const cleanThreadBody = z.object({
   threadId: z.string(),
   archiveLabelId: z.string(),
   processedLabelId: z.string(),
+  jobId: z.string(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
@@ -34,6 +35,7 @@ async function cleanThread({
   threadId,
   archiveLabelId,
   processedLabelId,
+  jobId,
 }: CleanThreadBody) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic
@@ -76,6 +78,7 @@ async function cleanThread({
     threadId,
     archiveLabelId,
     processedLabelId,
+    jobId,
   });
 
   if (messages.length === 1) {
@@ -134,11 +137,13 @@ function getPublish({
   threadId,
   archiveLabelId,
   processedLabelId,
+  jobId,
 }: {
   userId: string;
   threadId: string;
   archiveLabelId: string;
   processedLabelId: string;
+  jobId: string;
 }) {
   return async ({ archive }: { archive: boolean }) => {
     // max rate:
@@ -157,6 +162,7 @@ function getPublish({
       // label: aiResult.label,
       archiveLabelId,
       processedLabelId,
+      jobId,
     };
 
     // TODO: it might need labelling and then we do need to push to qstash gmail action

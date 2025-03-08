@@ -19,6 +19,7 @@ const cleanGmailSchema = z.object({
   labelId: z.string().optional(),
   archiveLabelId: z.string().optional(),
   processedLabelId: z.string().optional(),
+  jobId: z.string(),
 });
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
@@ -29,6 +30,7 @@ async function performGmailAction({
   labelId,
   archiveLabelId,
   processedLabelId,
+  jobId,
 }: CleanGmailBody) {
   const account = await prisma.account.findUnique({
     where: { userId },
@@ -56,15 +58,43 @@ async function performGmailAction({
     removeLabelIds,
   });
 
+  await labelThread({
+    gmail,
+    threadId,
+    addLabelIds,
+    removeLabelIds,
+  });
+
   await Promise.all([
     updateThread(userId, threadId, { status: "completed" }),
-    labelThread({
-      gmail,
+    saveToDatabase({
+      userId,
       threadId,
-      addLabelIds,
-      removeLabelIds,
+      archive,
+      jobId,
     }),
   ]);
+}
+
+async function saveToDatabase({
+  userId,
+  threadId,
+  archive,
+  jobId,
+}: {
+  userId: string;
+  threadId: string;
+  archive: boolean;
+  jobId: string;
+}) {
+  await prisma.cleanupThread.create({
+    data: {
+      userId,
+      threadId,
+      archived: archive,
+      jobId,
+    },
+  });
 }
 
 export const POST = withError(

@@ -96,6 +96,8 @@ model User {
   categories        Category[]
   threadTrackers    ThreadTracker[]
   unsubscribeTokens EmailToken[]
+  cleanupJobs       CleanupJob[]
+  cleanupThreads    CleanupThread[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -377,6 +379,28 @@ model ThreadTracker {
   @@index([userId, resolved])
   @@index([userId, resolved, sentAt, type])
   @@index([userId, type, resolved, sentAt])
+}
+
+model CleanupJob {
+  id        String          @id @default(cuid())
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threads   CleanupThread[]
+}
+
+model CleanupThread {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  threadId  String
+  archived  Boolean
+  // labelIds  String[]
+  jobId     String
+  job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {

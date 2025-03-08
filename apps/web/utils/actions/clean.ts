@@ -1,5 +1,6 @@
 "use server";
 
+import { waitUntil } from "@vercel/functions";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import {
@@ -21,6 +22,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -53,68 +55,78 @@ export const cleanInboxAction = withActionInstrumentation(
     const processedLabelId = processedLabel?.id;
     if (!processedLabelId) return { error: "Failed to create processed label" };
 
-    let nextPageToken: string | undefined | null;
+    // create a cleanup job
+    const job = await prisma.cleanupJob.create({ data: { userId } });
 
-    let totalEmailsProcessed = 0;
+    const process = async () => {
+      let nextPageToken: string | undefined | null;
 
-    do {
-      // fetch all emails from the user's inbox
-      const { threads, nextPageToken: pageToken } =
-        await getThreadsWithNextPageToken({
-          gmail,
-          q: `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}"`,
-          // q: `-in:"${inboxZeroLabels.processed.name}"`,
-          labelIds: [GmailLabel.INBOX],
-          maxResults: Math.min(data.maxEmails || 100, 100),
+      let totalEmailsProcessed = 0;
+
+      do {
+        // fetch all emails from the user's inbox
+        const { threads, nextPageToken: pageToken } =
+          await getThreadsWithNextPageToken({
+            gmail,
+            q: `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}"`,
+            // q: `-in:"${inboxZeroLabels.processed.name}"`,
+            labelIds: [GmailLabel.INBOX],
+            maxResults: Math.min(data.maxEmails || 100, 100),
+          });
+
+        logger.info("Fetched threads", {
+          userId,
+          threadCount: threads.length,
+          nextPageToken,
         });
 
-      logger.info("Fetched threads", {
-        userId,
-        threadCount: threads.length,
-        nextPageToken,
-      });
+        nextPageToken = pageToken;
 
-      nextPageToken = pageToken;
+        if (threads.length === 0) break;
 
-      if (threads.length === 0) break;
+        const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
-      const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
+        logger.info("Pushing to Qstash", {
+          userId,
+          threadCount: threads.length,
+          nextPageToken,
+        });
 
-      logger.info("Pushing to Qstash", {
-        userId,
-        threadCount: threads.length,
-        nextPageToken,
-      });
+        const items = threads
+          .map((thread) => {
+            if (!thread.id) return;
+            return {
+              url,
+              body: {
+                userId,
+                threadId: thread.id,
+                archiveLabelId,
+                processedLabelId,
+                jobId: job.id,
+              } satisfies CleanThreadBody,
+              // give every user their own queue for ai processing. if we get too many parallel users we may need more
+              // api keys or a global queue
+              // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
+              flowControl: {
+                key: `ai-clean-${userId}`,
+                parallelism: 1,
+              },
+            };
+          })
+          .filter(isDefined);
 
-      const items = threads
-        .map((thread) => {
-          if (!thread.id) return;
-          return {
-            url,
-            body: {
-              userId,
-              threadId: thread.id,
-              archiveLabelId,
-              processedLabelId,
-            } satisfies CleanThreadBody,
-            // give every user their own queue for ai processing. if we get too many parallel users we may need more
-            // api keys or a global queue
-            // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
-            flowControl: {
-              key: `ai-clean-${userId}`,
-              parallelism: 1,
-            },
-          };
-        })
-        .filter(isDefined);
+        await bulkPublishToQstash({ items });
 
-      await bulkPublishToQstash({ items });
+        totalEmailsProcessed += items.length;
+      } while (
+        nextPageToken &&
+        !isMaxEmailsReached(totalEmailsProcessed, data.maxEmails)
+      );
+    };
 
-      totalEmailsProcessed += items.length;
-    } while (
-      nextPageToken &&
-      !isMaxEmailsReached(totalEmailsProcessed, data.maxEmails)
-    );
+    waitUntil(process());
+
+    return { jobId: job.id };
   },
 );
 

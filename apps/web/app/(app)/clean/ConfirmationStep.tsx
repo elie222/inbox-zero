@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
+import { parseAsString, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -12,6 +13,7 @@ import { toastError } from "@/components/Toast";
 
 export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const { onNext } = useStep();
+  const [, setJobId] = useQueryState("jobId", parseAsString);
 
   const estimatedTime = useMemo(() => {
     if (!unreadCount) return "calculating...";
@@ -34,13 +36,15 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
     const result = await cleanInboxAction({
       daysOld: 7,
       prompt: "",
-      maxEmails: 20,
+      maxEmails: 100,
     }); // TODO: params
 
     if (isActionError(result)) {
       toastError({ description: result.error });
       return;
     }
+
+    setJobId(result.jobId);
 
     onNext();
   };
