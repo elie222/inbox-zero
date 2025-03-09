@@ -13,6 +13,8 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
 
+type Status = "archived" | "archiving" | "keep" | "labelled";
+
 export function EmailItem({
   email,
   userEmail,
@@ -20,10 +22,8 @@ export function EmailItem({
   email: CleanThread;
   userEmail: string;
 }) {
-  const [undone, setUndone] = useState(false);
-
+  const status = getStatus(email);
   const pending = isPending(email);
-  const keep = email.archive === false;
   const archive = email.archive === true;
   const label = !!email.label;
 
@@ -38,14 +38,7 @@ export function EmailItem({
     >
       <div className="min-w-0 flex-1">
         <div className="flex items-center">
-          <div
-            className={cn(
-              "mr-2 size-2 rounded-full",
-              archive && "bg-green-500",
-              keep && "bg-blue-500",
-              label && "bg-yellow-500",
-            )}
-          />
+          <StatusCircle status={status} />
           <div className="truncate font-medium">{email.subject}</div>
           <Link
             className="ml-2 hover:text-foreground"
@@ -61,48 +54,93 @@ export function EmailItem({
       </div>
 
       <div className="ml-2 flex items-center space-x-2">
-        {keep && <Badge color="blue">Keep</Badge>}
-        {!keep && !undone && (
-          <div className="group">
-            <span className="group-hover:hidden">
-              <Badge color="green">
-                {pending ? "Archiving..." : "Archived"}
-              </Badge>
-            </span>
-            <div className="hidden group-hover:inline-flex">
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={async () => {
-                  const result = await undoCleanInboxAction({
-                    threadId: email.threadId,
-                    archived: !!email.archive,
-                  });
-
-                  if (isActionError(result)) {
-                    toastError({ description: result.error });
-                  } else {
-                    setUndone(true);
-                  }
-                }}
-              >
-                <Undo2Icon className="size-3" />
-                Undo
-              </Button>
-            </div>
-          </div>
-        )}
-        {label && (
-          <div className="flex items-center">
-            <TagIcon className="mr-1 h-3.5 w-3.5 text-yellow-500" />
-            <Badge color="yellow" className="h-5 px-1 py-0 text-xs">
-              {email.label}
-            </Badge>
-          </div>
-        )}
+        <StatusBadge status={status} email={email} />
       </div>
     </div>
   );
+}
+
+function StatusCircle({ status }: { status: Status }) {
+  return (
+    <div
+      className={cn(
+        "mr-2 size-2 rounded-full",
+        (status === "archived" || status === "archiving") && "bg-green-500",
+        status === "keep" && "bg-blue-500",
+        status === "labelled" && "bg-yellow-500",
+      )}
+    />
+  );
+}
+
+function StatusBadge({
+  status,
+  email,
+}: {
+  status: Status;
+  email: CleanThread;
+}) {
+  const [undone, setUndone] = useState(false);
+
+  if (undone) {
+    return <Badge color="purple">Undone</Badge>;
+  }
+
+  if (status === "archived" || status === "archiving") {
+    return (
+      <div className="group">
+        <span className="group-hover:hidden">
+          <Badge color="green">
+            {status === "archiving" ? "Archiving..." : "Archived"}
+          </Badge>
+        </span>
+        <div className="hidden group-hover:inline-flex">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={async () => {
+              if (undone) return;
+
+              const result = await undoCleanInboxAction({
+                threadId: email.threadId,
+                archived: !!email.archive,
+              });
+
+              if (isActionError(result)) {
+                toastError({ description: result.error });
+              } else {
+                setUndone(true);
+              }
+            }}
+          >
+            <Undo2Icon className="size-3" />
+            Undo
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "keep") {
+    return <Badge color="blue">Keep</Badge>;
+  }
+
+  if (status === "labelled") {
+    return <Badge color="yellow">{email.label}</Badge>;
+  }
+}
+
+function getStatus(email: CleanThread): Status {
+  if (email.archive) {
+    if (email.status === "processing") return "archiving";
+    return "archived";
+  }
+
+  if (email.label) {
+    return "labelled";
+  }
+
+  return "keep";
 }
 
 function isPending(email: CleanThread) {
