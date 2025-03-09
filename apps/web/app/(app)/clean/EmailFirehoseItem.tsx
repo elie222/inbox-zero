@@ -80,9 +80,13 @@ function StatusBadge({
   status: Status;
   email: CleanThread;
 }) {
-  const [undone, setUndone] = useState(false);
+  const [undone, setUndone] = useState<"undoing" | "undone">();
 
-  if (undone) {
+  if (undone === "undoing") {
+    return <Badge color="purple">Undoing...</Badge>;
+  }
+
+  if (undone === "undone") {
     return <Badge color="purple">Undone</Badge>;
   }
 
@@ -101,6 +105,8 @@ function StatusBadge({
             onClick={async () => {
               if (undone) return;
 
+              setUndone("undoing");
+
               const result = await undoCleanInboxAction({
                 threadId: email.threadId,
                 archived: !!email.archive,
@@ -109,7 +115,7 @@ function StatusBadge({
               if (isActionError(result)) {
                 toastError({ description: result.error });
               } else {
-                setUndone(true);
+                setUndone("undone");
               }
             }}
           >
