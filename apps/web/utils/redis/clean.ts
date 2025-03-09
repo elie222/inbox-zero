@@ -1,12 +1,11 @@
 import { redis } from "@/utils/redis";
-import type { CleanThread, CleanStats } from "@/utils/redis/clean.types";
+import type { CleanThread } from "@/utils/redis/clean.types";
 import { isDefined } from "@/utils/types";
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
 const threadKey = (userId: string, threadId: string) =>
   `thread:${userId}:${threadId}`;
-const statsKey = (userId: string) => `clean-stats:${userId}`;
 
 export async function saveThread(
   userId: string,
@@ -49,8 +48,6 @@ export async function updateThread(
 export async function publishThread(userId: string, thread: CleanThread) {
   const key = threadKey(userId, thread.threadId);
 
-  // Update stats first before saving new state
-  await updateStats(userId, thread);
   // Store the data with expiration
   await redis.set(key, thread, { ex: EXPIRATION });
   // Publish the update to any listening clients
@@ -89,81 +86,6 @@ export async function getThreads(userId: string, limit = 1000) {
   return threads.filter(isDefined);
 }
 
-async function updateStats(userId: string, thread: CleanThread) {
-  const key = statsKey(userId);
-  const currentStats = await getStats(userId);
-  const oldThread = await getThread(userId, thread.threadId);
-
-  // Initialize stats if they don't exist
-  const stats: CleanStats = currentStats || {
-    total: 0,
-    processing: 0,
-    applying: 0,
-    completed: 0,
-    archived: 0,
-    labels: {},
-  };
-
-  // If this is a new thread
-  if (!oldThread) {
-    stats.total++;
-    // Add new status count
-    if (thread.status === "processing") stats.processing++;
-    else if (thread.status === "applying") stats.applying++;
-    else if (thread.status === "completed") stats.completed++;
-
-    if (thread.archive) stats.archived++;
-    if (thread.label) {
-      stats.labels[thread.label] = (stats.labels[thread.label] || 0) + 1;
-    }
-  } else {
-    // Handle status changes
-    if (oldThread.status !== thread.status) {
-      // Decrement old status
-      if (oldThread.status === "processing") stats.processing--;
-      else if (oldThread.status === "applying") stats.applying--;
-      else if (oldThread.status === "completed") stats.completed--;
-
-      // Increment new status
-      if (thread.status === "processing") stats.processing++;
-      else if (thread.status === "applying") stats.applying++;
-      else if (thread.status === "completed") stats.completed++;
-    }
-
-    // Handle archive changes
-    if (thread.archive && !oldThread.archive) {
-      stats.archived++;
-    }
-
-    // Handle label changes
-    if (thread.label && !oldThread.label) {
-      stats.labels[thread.label] = (stats.labels[thread.label] || 0) + 1;
-    }
-  }
-
-  await redis.set(key, stats, { ex: EXPIRATION });
-  await redis.publish(`${key}:updates`, JSON.stringify(stats));
-}
-
-export async function getStats(userId: string): Promise<CleanStats | null> {
-  const key = statsKey(userId);
-  return redis.get<CleanStats>(key);
-}
-
-export async function resetStats(userId: string) {
-  const key = statsKey(userId);
-  const initialStats: CleanStats = {
-    total: 0,
-    processing: 0,
-    applying: 0,
-    completed: 0,
-    archived: 0,
-    labels: {},
-  };
-  await redis.set(key, initialStats, { ex: EXPIRATION });
-  return initialStats;
-}
-
 export async function deleteAllUserData(userId: string) {
   // Delete all thread keys for this user
   const threadPattern = `thread:${userId}:*`;
@@ -184,12 +106,5 @@ export async function deleteAllUserData(userId: string) {
     }
   } while (cursor !== 0);
 
-  // Delete stats
-  const statsKey = `clean-stats:${userId}`;
-  await redis.unlink(statsKey);
-
-  return {
-    deletedThreads,
-    deletedStats: true,
-  };
+  return { deletedThreads };
 }

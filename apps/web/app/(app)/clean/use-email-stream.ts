@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import type { CleanThread, CleanStats } from "@/utils/redis/clean.types";
 import keyBy from "lodash/keyBy";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function useEmailStream(
   initialPaused = false,
