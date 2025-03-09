@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { TagIcon, Undo2Icon } from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
+import { ExternalLinkIcon, TagIcon, Undo2Icon } from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
@@ -10,32 +11,29 @@ import { Button } from "@/components/ui/button";
 import { undoCleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
+import { getGmailUrl } from "@/utils/url";
 
-export function EmailItem({ email }: { email: CleanThread }) {
-  const [isNew, setIsNew] = useState(true);
+export function EmailItem({
+  email,
+  userEmail,
+}: {
+  email: CleanThread;
+  userEmail: string;
+}) {
   const [undone, setUndone] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsNew(false);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   const pending = isPending(email);
   const keep = email.archive === false;
+  const archive = email.archive === true;
+  const label = !!email.label;
 
   return (
     <div
       className={cn(
         "flex items-center rounded-md border p-2 text-sm transition-all duration-300",
-        isNew ? "bg-primary/5" : "bg-card",
         pending && "border-blue-500/30 bg-blue-50/50 dark:bg-blue-950/20",
-        // email.status === "completed" &&
-        //   "border-green-500/30 bg-green-50/50 dark:bg-green-950/20",
-        email.archive && "border-green-500/30",
-        email.label && "border-yellow-500/30",
+        archive && "border-green-500/30",
+        label && "border-yellow-500/30",
       )}
     >
       <div className="min-w-0 flex-1">
@@ -43,12 +41,19 @@ export function EmailItem({ email }: { email: CleanThread }) {
           <div
             className={cn(
               "mr-2 size-2 rounded-full",
-              email.archive && "bg-green-500",
+              archive && "bg-green-500",
               keep && "bg-blue-500",
-              !!email.label && "bg-yellow-500",
+              label && "bg-yellow-500",
             )}
           />
           <div className="truncate font-medium">{email.subject}</div>
+          <Link
+            className="ml-2 hover:text-foreground"
+            href={getGmailUrl(email.threadId, userEmail)}
+            target="_blank"
+          >
+            <ExternalLinkIcon className="size-3" />
+          </Link>
         </div>
         <div className="truncate text-xs text-muted-foreground">
           From: {email.from} • {formatShortDate(email.date)}
@@ -87,7 +92,7 @@ export function EmailItem({ email }: { email: CleanThread }) {
             </div>
           </div>
         )}
-        {!!email.label && (
+        {label && (
           <div className="flex items-center">
             <TagIcon className="mr-1 h-3.5 w-3.5 text-yellow-500" />
             <Badge color="yellow" className="h-5 px-1 py-0 text-xs">

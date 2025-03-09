@@ -6,9 +6,11 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 export async function ProcessingStep({
   userId,
   jobId,
+  userEmail,
 }: {
   userId: string;
   jobId: string;
+  userEmail: string;
 }) {
   const threads = await getThreadsByJobId(userId, jobId);
 
@@ -35,6 +37,7 @@ export async function ProcessingStep({
     <EmailFirehose
       threads={threads.filter((t) => t.status !== "processing")}
       stats={{ total, archived }}
+      userEmail={userEmail}
     />
   );
 }

@@ -46,7 +46,11 @@ export default async function CleanPage({
       case CleanStep.PROCESSING:
         return (
           <Suspense fallback={<Loading />}>
-            <ProcessingStep userId={session.user.id} jobId={jobId} />
+            <ProcessingStep
+              userId={session.user.id}
+              jobId={jobId}
+              userEmail={session.user.email || ""}
+            />
           </Suspense>
         );
 

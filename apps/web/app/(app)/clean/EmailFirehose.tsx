@@ -16,12 +16,14 @@ import type { CleanThread } from "@/utils/redis/clean.types";
 export function EmailFirehose({
   threads,
   stats,
+  userEmail,
 }: {
   threads: CleanThread[];
   stats: {
     total: number;
     archived: number;
   };
+  userEmail: string;
 }) {
   const [isPaused, setIsPaused] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
@@ -76,7 +78,10 @@ export function EmailFirehose({
                       transform: `translateY(${virtualItem.start}px)`,
                     }}
                   >
-                    <EmailItem email={emails[virtualItem.index]} />
+                    <EmailItem
+                      email={emails[virtualItem.index]}
+                      userEmail={userEmail}
+                    />
                   </div>
                 ))}
               </div>
