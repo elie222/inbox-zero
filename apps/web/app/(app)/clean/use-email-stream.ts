@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CleanThread, CleanStats } from "@/utils/redis/clean.types";
 import keyBy from "lodash/keyBy";
-import countBy from "lodash/countBy";
 
 export function useEmailStream(
   initialPaused = false,
@@ -17,11 +16,6 @@ export function useEmailStream(
   // Initialize emailOrder sorted by date (newest first)
   const [emailOrder, setEmailOrder] = useState<string[]>(() =>
     getSortedThreadIds(initialThreads),
-  );
-
-  // Initialize stats
-  const [stats, setStats] = useState<CleanStats>(() =>
-    getInitialStats(initialThreads),
   );
 
   const [isPaused, setIsPaused] = useState(initialPaused);
@@ -54,17 +48,6 @@ export function useEmailStream(
       eventSource.onopen = () => {
         console.log("SSE connection opened");
       };
-
-      // Handle stats events
-      eventSource.addEventListener("stats", (event) => {
-        console.log("SSE stats received:", event.data);
-        try {
-          const statsData: CleanStats = JSON.parse(event.data);
-          setStats(statsData);
-        } catch (error) {
-          console.error("Error processing stats:", error);
-        }
-      });
 
       // Handle thread events
       eventSource.addEventListener("thread", (event) => {
@@ -149,7 +132,6 @@ export function useEmailStream(
 
   return {
     emails,
-    stats,
     isPaused,
     togglePause,
   };
@@ -172,21 +154,4 @@ function getSortedThreadIds(threads: CleanThread[]): string[] {
     .slice()
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     .map((thread) => thread.threadId);
-}
-
-function getInitialStats(threads: CleanThread[]): CleanStats {
-  const archivedCount = threads.filter((t) => t.archive).length;
-  const labelCounts = countBy(
-    threads.filter((t) => t.label),
-    "label",
-  );
-
-  return {
-    total: threads.length,
-    processing: 0,
-    applying: 0,
-    completed: 0,
-    archived: archivedCount,
-    labels: labelCounts,
-  };
 }

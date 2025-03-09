@@ -2,7 +2,6 @@ import type { NextRequest } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 import { RedisSubscriber } from "@/utils/redis/subscriber";
-import { getStats } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("email-stream");
 
@@ -39,20 +38,6 @@ export async function GET(request: NextRequest) {
     async start(controller) {
       let inactivityTimer: NodeJS.Timeout;
       let isControllerClosed = false;
-
-      // Send initial stats
-      try {
-        const initialStats = await getStats(session.user.id);
-        if (initialStats) {
-          controller.enqueue(
-            encoder.encode(
-              `event: stats\ndata: ${JSON.stringify(initialStats)}\n\n`,
-            ),
-          );
-        }
-      } catch (error) {
-        logger.error("Error sending initial stats", { error });
-      }
 
       const resetInactivityTimer = () => {
         if (inactivityTimer) clearTimeout(inactivityTimer);
