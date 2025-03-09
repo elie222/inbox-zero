@@ -8,7 +8,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { updateThread } from "@/utils/redis/clean";
+import { saveCleanResult } from "@/app/api/clean/save-result";
 
 const logger = createScopedLogger("api/clean/gmail");
 
@@ -54,8 +54,8 @@ async function performGmailAction({
 
   logger.info("Labeling thread", {
     threadId,
-    addLabelIds,
-    removeLabelIds,
+    // addLabelIds,
+    // removeLabelIds,
   });
 
   await labelThread({
@@ -65,35 +65,11 @@ async function performGmailAction({
     removeLabelIds,
   });
 
-  await Promise.all([
-    updateThread(userId, threadId, { status: "completed" }),
-    saveToDatabase({
-      userId,
-      threadId,
-      archive,
-      jobId,
-    }),
-  ]);
-}
-
-async function saveToDatabase({
-  userId,
-  threadId,
-  archive,
-  jobId,
-}: {
-  userId: string;
-  threadId: string;
-  archive: boolean;
-  jobId: string;
-}) {
-  await prisma.cleanupThread.create({
-    data: {
-      userId,
-      threadId,
-      archived: archive,
-      jobId,
-    },
+  await saveCleanResult({
+    userId,
+    threadId,
+    archive,
+    jobId,
   });
 }
 

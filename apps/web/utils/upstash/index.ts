@@ -25,7 +25,15 @@ export async function publishToQstash(
   const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${path}`;
 
   if (client) {
-    return client.publishJSON({ url, body, flowControl });
+    return client.publishJSON({
+      url,
+      body,
+      flowControl,
+      retries: 3,
+      headers: {
+        "Retry-After": "10", // 10 seconds
+      },
+    });
   }
 
   return fallbackPublishToQstash(url, body);

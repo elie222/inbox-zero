@@ -13,9 +13,21 @@ export async function withGmailRetry<T>(
   return pRetry(operation, {
     retries: maxRetries,
     onFailedAttempt: (error) => {
-      // Only retry on rate limit errors (429)
+      // For Gmail API, rate limit errors have status 429 and reason 'rateLimitExceeded'
       const originalError = error.cause as any;
-      if (originalError?.response?.status !== 429) {
+
+      // Looking at the error structure directly from logs
+      const isRateLimitError =
+        originalError?.status === 429 &&
+        originalError?.errors?.some(
+          (err: any) => err.reason === "rateLimitExceeded",
+        );
+
+      if (!isRateLimitError) {
+        logger.error("Non-rate limit error encountered, not retrying", {
+          errorMessage: originalError?.message || error.message,
+          status: originalError?.status,
+        });
         throw error;
       }
 

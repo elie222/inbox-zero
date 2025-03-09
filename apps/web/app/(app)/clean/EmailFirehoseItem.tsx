@@ -6,7 +6,6 @@ import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
-import { LoadingMiniSpinner } from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { undoCleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
@@ -57,16 +56,13 @@ export function EmailItem({ email }: { email: CleanThread }) {
       </div>
 
       <div className="ml-2 flex items-center space-x-2">
-        {pending && (
-          <span className="mr-2 inline-flex items-center">
-            <LoadingMiniSpinner />
-          </span>
-        )}
-
-        {email.archive && !undone ? (
+        {keep && <Badge color="blue">Keep</Badge>}
+        {!keep && !undone && (
           <div className="group">
             <span className="group-hover:hidden">
-              <Badge color="green">Archived</Badge>
+              <Badge color="green">
+                {pending ? "Archiving..." : "Archived"}
+              </Badge>
             </span>
             <div className="hidden group-hover:inline-flex">
               <Button
@@ -90,9 +86,7 @@ export function EmailItem({ email }: { email: CleanThread }) {
               </Button>
             </div>
           </div>
-        ) : keep ? (
-          <Badge color="blue">Keep</Badge>
-        ) : null}
+        )}
         {!!email.label && (
           <div className="flex items-center">
             <TagIcon className="mr-1 h-3.5 w-3.5 text-yellow-500" />

@@ -18,6 +18,7 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
 import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
+import { saveCleanResult } from "@/app/api/clean/save-result";
 
 const logger = createScopedLogger("api/clean");
 
@@ -167,10 +168,11 @@ function getPublish({
 
     // TODO: it might need labelling and then we do need to push to qstash gmail action
     if (!archive) {
-      return updateThread(userId, threadId, {
+      return await saveCleanResult({
+        userId,
+        threadId,
         archive,
-        // label: "",
-        status: "completed",
+        jobId,
       });
     }
 
@@ -188,8 +190,8 @@ function getPublish({
       }),
       updateThread(userId, threadId, {
         archive,
-        // label: "",
         status: "applying",
+        // label: "",
       }),
     ]);
 
