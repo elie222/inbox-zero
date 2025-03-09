@@ -4,13 +4,14 @@ import { isDefined } from "@/utils/types";
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
-const threadKey = (userId: string, threadId: string) =>
-  `thread:${userId}:${threadId}`;
+const threadKey = (userId: string, jobId: string, threadId: string) =>
+  `thread:${userId}:${jobId}:${threadId}`;
 
 export async function saveThread(
   userId: string,
   thread: {
     threadId: string;
+    jobId: string;
     from: string;
     subject: string;
     snippet: string;
@@ -32,10 +33,11 @@ export async function saveThread(
 
 export async function updateThread(
   userId: string,
+  jobId: string,
   threadId: string,
   update: Partial<CleanThread>,
 ) {
-  const thread = await getThread(userId, threadId);
+  const thread = await getThread(userId, jobId, threadId);
   if (!thread) {
     console.warn("thread not found:", threadId);
     return;
@@ -46,7 +48,7 @@ export async function updateThread(
 }
 
 export async function publishThread(userId: string, thread: CleanThread) {
-  const key = threadKey(userId, thread.threadId);
+  const key = threadKey(userId, thread.jobId, thread.threadId);
 
   // Store the data with expiration
   await redis.set(key, thread, { ex: EXPIRATION });
@@ -54,13 +56,17 @@ export async function publishThread(userId: string, thread: CleanThread) {
   await redis.publish(key, JSON.stringify(thread));
 }
 
-export async function getThread(userId: string, threadId: string) {
-  const key = threadKey(userId, threadId);
+async function getThread(userId: string, jobId: string, threadId: string) {
+  const key = threadKey(userId, jobId, threadId);
   return redis.get<CleanThread>(key);
 }
 
-export async function getThreads(userId: string, limit = 1000) {
-  const pattern = `thread:${userId}:*`;
+export async function getThreadsByJobId(
+  userId: string,
+  jobId: string,
+  limit = 1000,
+) {
+  const pattern = `thread:${userId}:${jobId}:*`;
   const keys = [];
   let cursor = 0;
 

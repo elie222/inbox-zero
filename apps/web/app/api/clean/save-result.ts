@@ -13,7 +13,7 @@ export async function saveCleanResult({
   jobId: string;
 }) {
   await Promise.all([
-    updateThread(userId, threadId, { status: "completed" }),
+    updateThread(userId, jobId, threadId, { status: "completed" }),
     saveToDatabase({
       userId,
       threadId,

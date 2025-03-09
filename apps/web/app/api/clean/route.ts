@@ -68,6 +68,7 @@ async function cleanThread({
 
   await saveThread(userId, {
     threadId,
+    jobId,
     subject: lastMessage.headers.subject,
     from: lastMessage.headers.from,
     snippet: lastMessage.snippet,
@@ -188,7 +189,7 @@ function getPublish({
         key: `gmail-action-${userId}`,
         ratePerSecond: maxRatePerSecond,
       }),
-      updateThread(userId, threadId, {
+      updateThread(userId, jobId, threadId, {
         archive,
         status: "applying",
         // label: "",
