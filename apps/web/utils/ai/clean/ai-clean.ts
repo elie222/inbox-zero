@@ -8,6 +8,7 @@ import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
+import { formatDateForLLM } from "@/utils/date";
 
 const logger = createScopedLogger("ai/clean");
 
@@ -54,6 +55,8 @@ ${messages
   .map((message) => `<message>${stringifyEmailFromBody(message)}</message>`)
   .join("\n")}
 </previous_messages>
+
+The current date is ${formatDateForLLM(new Date())}.
 `.trim();
 
   logger.trace("Input", { system, prompt });

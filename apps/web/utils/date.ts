@@ -1,3 +1,5 @@
+import { formatDate } from "date-fns";
+
 export const ONE_MINUTE_MS = 1000 * 60;
 export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
 export const ONE_DAY_MS = ONE_HOUR_MS * 24;
@@ -47,4 +49,8 @@ export function internalDateToDate(internalDate?: string | null): Date {
   if (Number.isNaN(date.getTime())) return new Date();
 
   return date;
+}
+
+export function formatDateForLLM(date: Date) {
+  return formatDate(date, "EEEE, yyyy-MM-dd HH:mm:ss 'UTC'");
 }
