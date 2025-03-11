@@ -27,7 +27,7 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
     parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
   );
   const [timeRange] = useQueryState("timeRange", parseAsInteger);
-  const [labelInstructions] = useQueryState("labelInstructions", parseAsString);
+  const [instructions] = useQueryState("instructions", parseAsString);
 
   const estimatedTime = useMemo(() => {
     if (!unreadCount) return "calculating...";
@@ -48,9 +48,9 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({
-      daysOld: timeRange ?? undefined,
-      prompt: labelInstructions || undefined,
-      action: action || undefined,
+      daysOld: timeRange ?? 7,
+      instructions: instructions || "",
+      action: action || CleanAction.ARCHIVE,
     });
 
     if (isActionError(result)) {

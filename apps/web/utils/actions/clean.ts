@@ -60,7 +60,7 @@ export const cleanInboxAction = withActionInstrumentation(
       data: {
         userId,
         action: data.action,
-        instructions: data.prompt,
+        instructions: data.instructions,
         daysOld: data.daysOld,
       },
     });
@@ -111,6 +111,8 @@ export const cleanInboxAction = withActionInstrumentation(
                 archiveLabelId,
                 processedLabelId,
                 jobId: job.id,
+                action: data.action,
+                instructions: data.instructions,
               } satisfies CleanThreadBody,
               // give every user their own queue for ai processing. if we get too many parallel users we may need more
               // api keys or a global queue

@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import { saveCleanResult } from "@/app/api/clean/save-result";
+import { CleanAction } from "@prisma/client";
 
 const logger = createScopedLogger("api/clean/gmail");
 
@@ -16,6 +17,7 @@ const cleanGmailSchema = z.object({
   userId: z.string(),
   threadId: z.string(),
   archive: z.boolean(),
+  action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
   labelId: z.string().optional(),
   archiveLabelId: z.string().optional(),
   processedLabelId: z.string().optional(),

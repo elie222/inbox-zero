@@ -9,12 +9,9 @@ import { SectionDescription, TypographyH3 } from "@/components/Typography";
 import { Input } from "@/components/Input";
 import { useStep } from "@/app/(app)/clean/useStep";
 
-// Define the schema for the label input
-const labelInputSchema = z.object({
-  labelInstructions: z.string().optional(),
-});
+const schema = z.object({ instructions: z.string().optional() });
 
-type LabelInputs = z.infer<typeof labelInputSchema>;
+type Inputs = z.infer<typeof schema>;
 
 export function CleanInstructionsStep() {
   const { onNext } = useStep();
@@ -22,16 +19,13 @@ export function CleanInstructionsStep() {
     register,
     handleSubmit,
     formState: { errors },
-  } = useForm<LabelInputs>({
-    resolver: zodResolver(labelInputSchema),
+  } = useForm<Inputs>({
+    resolver: zodResolver(schema),
   });
-  const [_, setLabelInstructions] = useQueryState(
-    "labelInstructions",
-    parseAsString,
-  );
+  const [_, setInstructions] = useQueryState("instructions", parseAsString);
 
-  const onLabelSubmit: SubmitHandler<LabelInputs> = (data) => {
-    setLabelInstructions(data.labelInstructions || "");
+  const onSubmit: SubmitHandler<Inputs> = (data) => {
+    setInstructions(data.instructions || "");
     onNext();
   };
 
@@ -47,15 +41,15 @@ export function CleanInstructionsStep() {
         Don't archive emails needing a reply.
       </SectionDescription>
 
-      <form onSubmit={handleSubmit(onLabelSubmit)} className="mt-2">
+      <form onSubmit={handleSubmit(onSubmit)} className="mt-2">
         <Input
           type="text"
           autosizeTextarea
           rows={3}
-          name="labelInstructions"
-          registerProps={register("labelInstructions")}
+          name="instructions"
+          registerProps={register("instructions")}
           placeholder="Optional"
-          error={errors.labelInstructions}
+          error={errors.instructions}
         />
 
         <div className="mt-6 flex justify-center">

@@ -29,7 +29,7 @@ const cleanThreadBody = z.object({
   archiveLabelId: z.string(),
   processedLabelId: z.string(),
   jobId: z.string(),
-  action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]).optional(),
+  action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
   instructions: z.string().optional(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
@@ -86,6 +86,7 @@ async function cleanThread({
     archiveLabelId,
     processedLabelId,
     jobId,
+    action,
   });
 
   if (messages.length === 1) {
@@ -146,12 +147,14 @@ function getPublish({
   archiveLabelId,
   processedLabelId,
   jobId,
+  action,
 }: {
   userId: string;
   threadId: string;
   archiveLabelId: string;
   processedLabelId: string;
   jobId: string;
+  action: CleanAction;
 }) {
   return async ({ archive }: { archive: boolean }) => {
     // max rate:
@@ -167,6 +170,7 @@ function getPublish({
       userId,
       threadId,
       archive,
+      action,
       // label: aiResult.label,
       archiveLabelId,
       processedLabelId,
