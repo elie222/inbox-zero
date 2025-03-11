@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQueryState, parseAsString } from "nuqs";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,13 @@ export function CleanInstructionsStep() {
   } = useForm<LabelInputs>({
     resolver: zodResolver(labelInputSchema),
   });
+  const [_, setLabelInstructions] = useQueryState(
+    "labelInstructions",
+    parseAsString,
+  );
 
   const onLabelSubmit: SubmitHandler<LabelInputs> = (data) => {
-    // onSubmit(data.labelInstructions || "");
+    setLabelInstructions(data.labelInstructions || "");
     onNext();
   };
 
@@ -49,6 +54,7 @@ export function CleanInstructionsStep() {
           rows={3}
           name="labelInstructions"
           registerProps={register("labelInstructions")}
+          placeholder="Optional"
           error={errors.labelInstructions}
         />
 

@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
-import { parseAsString, useQueryState } from "nuqs";
+import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -14,6 +14,11 @@ import { toastError } from "@/components/Toast";
 export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const { onNext } = useStep();
   const [, setJobId] = useQueryState("jobId", parseAsString);
+
+  // values from previous steps
+  const [action] = useQueryState("action", parseAsString);
+  const [timeRange] = useQueryState("timeRange", parseAsInteger);
+  const [labelInstructions] = useQueryState("labelInstructions", parseAsString);
 
   const estimatedTime = useMemo(() => {
     if (!unreadCount) return "calculating...";
@@ -34,10 +39,10 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({
-      daysOld: 7,
-      prompt: "",
-      maxEmails: 100,
-    }); // TODO: params
+      daysOld: timeRange || 7,
+      prompt: labelInstructions || "",
+      action: action || "archive",
+    });
 
     if (isActionError(result)) {
       toastError({ description: result.error });
@@ -63,7 +68,7 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
       <TypographyH3 className="mt-2">Ready to clean up your inbox</TypographyH3>
 
       <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
-        <li>We'll start with 20 emails as a test run</li>
+        {/* <li>We'll start with 20 emails as a test run</li> */}
         <li>Full process takes approximately {estimatedTime}</li>
         <li>
           All archived emails will be labeled as{" "}
