@@ -15,6 +15,7 @@ import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
 import {
   getOrCreateInboxZeroLabel,
+  getOrCreateLabels,
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
@@ -23,6 +24,8 @@ import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
+import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -65,7 +68,41 @@ export const cleanInboxAction = withActionInstrumentation(
       },
     });
 
+    const getLabels = async (instructions?: string) => {
+      if (!instructions) return [];
+
+      let labels: { id: string; name: string }[] | undefined;
+
+      const user = await getAiUser({ id: userId });
+      if (!user) throw new Error("User not found");
+
+      const labelNames = await aiCleanSelectLabels({ user, instructions });
+
+      if (labelNames) {
+        const gmailLabels = await getOrCreateLabels({
+          names: labelNames,
+          gmail,
+        });
+
+        labels = gmailLabels
+          .map((label) => ({
+            id: label.id || "",
+            name: label.name || "",
+          }))
+          .filter((label) => label.id && label.name);
+
+        logger.info("Selected labels", {
+          email: session?.user.email,
+          labels,
+        });
+      }
+
+      return labels;
+    };
+
     const process = async () => {
+      const labels = await getLabels(data.instructions);
+
       let nextPageToken: string | undefined | null;
 
       let totalEmailsProcessed = 0;
