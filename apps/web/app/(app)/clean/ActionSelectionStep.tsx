@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useQueryState } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { useStep } from "@/app/(app)/clean/useStep";
 import type { EmailAction } from "@/app/(app)/clean/types";
@@ -9,7 +9,7 @@ import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 
 export function ActionSelectionStep() {
   const { onNext } = useStep();
-  const [_, setAction] = useQueryState("action", { defaultValue: "archive" });
+  const [_, setAction] = useQueryState("action", parseAsString);
 
   const onSetAction = useCallback(
     (action: EmailAction) => {

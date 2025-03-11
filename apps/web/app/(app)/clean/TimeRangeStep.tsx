@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useQueryState } from "nuqs";
+import { parseAsInteger, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { timeRangeOptions } from "@/app/(app)/clean/types";
 import { useStep } from "@/app/(app)/clean/useStep";
@@ -10,11 +10,12 @@ import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 export function TimeRangeStep() {
   const { onNext } = useStep();
 
-  const [_, setTimeRange] = useQueryState("timeRange", { defaultValue: "7" });
+  const [_, setTimeRange] = useQueryState("timeRange", parseAsInteger);
 
   const handleTimeRangeSelect = useCallback(
-    (selectedRange: string) => {
-      setTimeRange(selectedRange);
+    (selectedRange: string | number) => {
+      const range = Number(selectedRange);
+      setTimeRange(range);
       onNext();
     },
     [setTimeRange, onNext],
