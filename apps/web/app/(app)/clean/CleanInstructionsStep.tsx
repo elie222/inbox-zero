@@ -15,7 +15,7 @@ const labelInputSchema = z.object({
 
 type LabelInputs = z.infer<typeof labelInputSchema>;
 
-export function LabelOptionsStep() {
+export function CleanInstructionsStep() {
   const { onNext } = useStep();
   const {
     register,
@@ -32,7 +32,7 @@ export function LabelOptionsStep() {
 
   return (
     <div className="text-center">
-      <TypographyH3>Any emails you want handled a certain way?</TypographyH3>
+      <TypographyH3>Any emails you want to be skipped?</TypographyH3>
 
       <SectionDescription className="mt-4 max-w-prose text-left">
         <strong>Example:</strong>
@@ -42,7 +42,7 @@ export function LabelOptionsStep() {
         Don't archive emails needing a reply.
       </SectionDescription>
 
-      <form onSubmit={handleSubmit(onLabelSubmit)} className="mt-6">
+      <form onSubmit={handleSubmit(onLabelSubmit)} className="mt-2">
         <Input
           type="text"
           autosizeTextarea

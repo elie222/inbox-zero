@@ -4,7 +4,7 @@ import { cn } from "@/utils";
 import { CleanStep } from "./types";
 import { IntroStep } from "@/app/(app)/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/clean/ActionSelectionStep";
-import { LabelOptionsStep } from "@/app/(app)/clean/LabelOptionsStep";
+import { CleanInstructionsStep } from "@/app/(app)/clean/CleanInstructionsStep";
 import { TimeRangeStep } from "@/app/(app)/clean/TimeRangeStep";
 import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
 import { ProcessingStep } from "@/app/(app)/clean/ProcessingStep";
@@ -38,7 +38,7 @@ export default async function CleanPage({
         return <TimeRangeStep />;
 
       case CleanStep.LABEL_OPTIONS:
-        return <LabelOptionsStep />;
+        return <CleanInstructionsStep />;
 
       case CleanStep.FINAL_CONFIRMATION:
         return <ConfirmationStep unreadCount={inboxCount} />;

@@ -34,7 +34,7 @@ export function IntroStep({ unreadCount }: { unreadCount: number }) {
             You have {unreadCount.toLocaleString()} emails in your inbox.
           </SectionDescription>
           <SectionDescription className="mx-auto mt-2 max-w-prose">
-            We'd like to archive them all, but we want to make sure we don't
+            We'd like to clean up as much as possible, but we don't want to
             archive anything important.
           </SectionDescription>
         </>
@@ -42,7 +42,7 @@ export function IntroStep({ unreadCount }: { unreadCount: number }) {
 
       <div className="mt-6">
         <Button onClick={onNext} disabled={unreadCount === null}>
-          Got it
+          Next
         </Button>
       </div>
     </div>
