@@ -33,6 +33,7 @@ async function performGmailAction({
   archiveLabelId,
   processedLabelId,
   jobId,
+  action,
 }: CleanGmailBody) {
   const account = await prisma.account.findUnique({
     where: { userId },
@@ -48,17 +49,20 @@ async function performGmailAction({
     refreshToken: account.refresh_token,
   });
 
+  const shouldArchive = archive && action === CleanAction.ARCHIVE;
+  const shouldMarkAsRead = archive && action === CleanAction.MARK_READ;
+
+  // NOTE: Should probably use a different label for marking as read
   const addLabelIds = [
     archive ? archiveLabelId : processedLabelId,
     labelId,
   ].filter(isDefined);
-  const removeLabelIds = archive ? [GmailLabel.INBOX] : undefined;
+  const removeLabelIds = [
+    shouldArchive ? GmailLabel.INBOX : undefined,
+    shouldMarkAsRead ? GmailLabel.UNREAD : undefined,
+  ].filter(isDefined);
 
-  logger.info("Labeling thread", {
-    threadId,
-    // addLabelIds,
-    // removeLabelIds,
-  });
+  logger.info("Handling thread", { threadId, shouldArchive, shouldMarkAsRead });
 
   await labelThread({
     gmail,
