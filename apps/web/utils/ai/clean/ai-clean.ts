@@ -23,9 +23,11 @@ const schema = z.object({
 export async function aiClean({
   user,
   messages,
+  instructions,
 }: {
   user: Pick<User, "about"> & UserEmailWithAI;
   messages: EmailForLLM[];
+  instructions?: string;
 }) {
   const lastMessage = messages.at(-1);
 
@@ -41,7 +43,15 @@ Common labels include: "Finance", "Work", "Personal", "Shopping", "Travel", "Soc
 
   // ${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-  const prompt = `The message to analyze:
+  const prompt = `
+${
+  instructions
+    ? `Additional user instructions:
+<instructions>${instructions}</instructions>`
+    : ""
+}
+
+The message to analyze:
 
 <message>
 ${stringifyEmailSimple(lastMessage)}

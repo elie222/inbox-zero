@@ -19,6 +19,7 @@ import { isReceipt } from "@/utils/ai/group/find-receipts";
 import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 import { saveCleanResult } from "@/app/api/clean/save-result";
+import { CleanAction } from "@prisma/client";
 
 const logger = createScopedLogger("api/clean");
 
@@ -28,6 +29,8 @@ const cleanThreadBody = z.object({
   archiveLabelId: z.string(),
   processedLabelId: z.string(),
   jobId: z.string(),
+  action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]).optional(),
+  instructions: z.string().optional(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
@@ -37,6 +40,8 @@ async function cleanThread({
   archiveLabelId,
   processedLabelId,
   jobId,
+  action,
+  instructions,
 }: CleanThreadBody) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic
@@ -129,6 +134,7 @@ async function cleanThread({
   const aiResult = await aiClean({
     user,
     messages: messages.map((m) => getEmailForLLM(m)),
+    instructions,
   });
 
   await publish({ archive: aiResult.archive });

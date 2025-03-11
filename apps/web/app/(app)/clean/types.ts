@@ -15,6 +15,3 @@ export const timeRangeOptions = [
   { value: "14", label: "Older than 2 weeks" },
   { value: "30", label: "Older than 1 month" },
 ];
-
-// Email action types
-export type EmailAction = "archive" | "mark-read";

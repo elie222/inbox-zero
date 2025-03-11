@@ -382,12 +382,15 @@ model ThreadTracker {
 }
 
 model CleanupJob {
-  id        String          @id @default(cuid())
-  createdAt DateTime        @default(now())
-  updatedAt DateTime        @updatedAt
-  userId    String
-  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  threads   CleanupThread[]
+  id           String          @id @default(cuid())
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  action       CleanAction     @default(ARCHIVE)
+  daysOld      Int             @default(7)
+  instructions String?
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threads      CleanupThread[]
 }
 
 model CleanupThread {
@@ -558,4 +561,9 @@ enum ThreadTrackerType {
 
 enum ProcessorType {
   LEMON_SQUEEZY
+}
+
+enum CleanAction {
+  ARCHIVE
+  MARK_READ
 }

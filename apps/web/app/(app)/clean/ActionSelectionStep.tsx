@@ -1,18 +1,21 @@
 "use client";
 
 import { useCallback } from "react";
-import { parseAsString, useQueryState } from "nuqs";
+import { parseAsStringEnum, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { useStep } from "@/app/(app)/clean/useStep";
-import type { EmailAction } from "@/app/(app)/clean/types";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
+import { CleanAction } from "@prisma/client";
 
 export function ActionSelectionStep() {
   const { onNext } = useStep();
-  const [_, setAction] = useQueryState("action", parseAsString);
+  const [_, setAction] = useQueryState(
+    "action",
+    parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
+  );
 
   const onSetAction = useCallback(
-    (action: EmailAction) => {
+    (action: CleanAction) => {
       setAction(action);
       onNext();
     },
@@ -30,12 +33,12 @@ export function ActionSelectionStep() {
         options={[
           {
             label: "Archive",
-            value: "archive",
+            value: CleanAction.ARCHIVE,
             recommended: true,
           },
-          { label: "Mark as Read", value: "mark-read" },
+          { label: "Mark as Read", value: CleanAction.MARK_READ },
         ]}
-        onClick={(value) => onSetAction(value as EmailAction)}
+        onClick={(value) => onSetAction(value as CleanAction)}
       />
     </div>
   );

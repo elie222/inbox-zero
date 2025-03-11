@@ -2,7 +2,12 @@
 
 import { useMemo } from "react";
 import Image from "next/image";
-import { parseAsInteger, parseAsString, useQueryState } from "nuqs";
+import {
+  parseAsInteger,
+  parseAsString,
+  parseAsStringEnum,
+  useQueryState,
+} from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -10,13 +15,17 @@ import { useStep } from "@/app/(app)/clean/useStep";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
+import { CleanAction } from "@prisma/client";
 
 export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const { onNext } = useStep();
   const [, setJobId] = useQueryState("jobId", parseAsString);
 
   // values from previous steps
-  const [action] = useQueryState("action", parseAsString);
+  const [action] = useQueryState(
+    "action",
+    parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
+  );
   const [timeRange] = useQueryState("timeRange", parseAsInteger);
   const [labelInstructions] = useQueryState("labelInstructions", parseAsString);
 
@@ -39,9 +48,9 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({
-      daysOld: timeRange || 7,
-      prompt: labelInstructions || "",
-      action: action || "archive",
+      daysOld: timeRange ?? undefined,
+      prompt: labelInstructions || undefined,
+      action: action || undefined,
     });
 
     if (isActionError(result)) {

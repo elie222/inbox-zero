@@ -1,9 +1,13 @@
 import { z } from "zod";
+import { CleanAction } from "@prisma/client";
 
 export const cleanInboxSchema = z.object({
-  daysOld: z.number().default(7),
+  daysOld: z.number().default(7).optional(),
   prompt: z.string().optional(),
-  action: z.string().default("archive"),
+  action: z
+    .enum([CleanAction.ARCHIVE, CleanAction.MARK_READ])
+    .default(CleanAction.ARCHIVE)
+    .optional(),
   maxEmails: z.number().optional(),
 });
 

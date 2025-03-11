@@ -56,14 +56,21 @@ export const cleanInboxAction = withActionInstrumentation(
     if (!processedLabelId) return { error: "Failed to create processed label" };
 
     // create a cleanup job
-    const job = await prisma.cleanupJob.create({ data: { userId } });
+    const job = await prisma.cleanupJob.create({
+      data: {
+        userId,
+        action: data.action,
+        instructions: data.prompt,
+        daysOld: data.daysOld,
+      },
+    });
 
     const process = async () => {
       let nextPageToken: string | undefined | null;
 
       let totalEmailsProcessed = 0;
 
-      const query = `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}"`;
+      const query = `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}" in:inbox`;
 
       do {
         // fetch all emails from the user's inbox
