@@ -59,6 +59,7 @@ export const env = createEnv({
     // See Vercel limits here: https://vercel.com/docs/functions/configuring-functions/duration#duration-limits
     // Vercel Fluid Compute allows up to 800s, but other plans are capped at 300s or less
     MAX_DURATION: z.coerce.number().optional().default(800),
+    ELEVENLABS_WEBHOOK_SECRET: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -127,6 +128,7 @@ export const env = createEnv({
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
+    NEXT_PUBLIC_ELEVENLABS_CLEANER_AGENT_ID: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -199,5 +201,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
+    NEXT_PUBLIC_ELEVENLABS_CLEANER_AGENT_ID:
+      process.env.NEXT_PUBLIC_ELEVENLABS_CLEANER_AGENT_ID,
   },
 });

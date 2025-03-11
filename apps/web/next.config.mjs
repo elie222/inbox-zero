@@ -201,7 +201,7 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               // Next.js needs these
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https: blob:",
               // Needed for Tailwind/Shadcn
               "style-src 'self' 'unsafe-inline' https:",
               // Add this line to allow data: fonts
