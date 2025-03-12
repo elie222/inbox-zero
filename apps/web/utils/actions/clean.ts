@@ -14,8 +14,9 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
 import {
+  getLabel,
   getOrCreateInboxZeroLabel,
-  getOrCreateLabels,
+  // getOrCreateLabels,
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
@@ -24,8 +25,8 @@ import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
-import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
-import { getAiUser } from "@/utils/user/get";
+// import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
+// import { getAiUser } from "@/utils/user/get";
 import { CleanAction } from "@prisma/client";
 
 const logger = createScopedLogger("actions/clean");
@@ -74,40 +75,40 @@ export const cleanInboxAction = withActionInstrumentation(
       },
     });
 
-    const getLabels = async (instructions?: string) => {
-      if (!instructions) return [];
+    // const getLabels = async (instructions?: string) => {
+    //   if (!instructions) return [];
 
-      let labels: { id: string; name: string }[] | undefined;
+    //   let labels: { id: string; name: string }[] | undefined;
 
-      const user = await getAiUser({ id: userId });
-      if (!user) throw new Error("User not found");
+    //   const user = await getAiUser({ id: userId });
+    //   if (!user) throw new Error("User not found");
 
-      const labelNames = await aiCleanSelectLabels({ user, instructions });
+    //   const labelNames = await aiCleanSelectLabels({ user, instructions });
 
-      if (labelNames) {
-        const gmailLabels = await getOrCreateLabels({
-          names: labelNames,
-          gmail,
-        });
+    //   if (labelNames) {
+    //     const gmailLabels = await getOrCreateLabels({
+    //       names: labelNames,
+    //       gmail,
+    //     });
 
-        labels = gmailLabels
-          .map((label) => ({
-            id: label.id || "",
-            name: label.name || "",
-          }))
-          .filter((label) => label.id && label.name);
+    //     labels = gmailLabels
+    //       .map((label) => ({
+    //         id: label.id || "",
+    //         name: label.name || "",
+    //       }))
+    //       .filter((label) => label.id && label.name);
 
-        logger.info("Selected labels", {
-          email: session?.user.email,
-          labels,
-        });
-      }
+    //     logger.info("Selected labels", {
+    //       email: session?.user.email,
+    //       labels,
+    //     });
+    //   }
 
-      return labels;
-    };
+    //   return labels;
+    // };
 
     const process = async () => {
-      const labels = await getLabels(data.instructions);
+      // const labels = await getLabels(data.instructions);
 
       let nextPageToken: string | undefined | null;
 
@@ -157,7 +158,7 @@ export const cleanInboxAction = withActionInstrumentation(
                 action: data.action,
                 instructions: data.instructions,
                 skips: data.skips,
-                labels,
+                labels: [],
               } satisfies CleanThreadBody,
               // give every user their own queue for ai processing. if we get too many parallel users we may need more
               // api keys or a global queue
@@ -200,18 +201,33 @@ export const undoCleanInboxAction = withActionInstrumentation(
     const { data, success, error } = undoCleanInboxSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    const { threadId, archived } = data;
+    const { threadId, markedDone, action } = data;
+
+    // nothing to do atm if wasn't marked done
+    if (!markedDone) return { success: true };
 
     const gmail = getGmailClient(session);
 
-    // if archived, put back in inbox
-    if (archived) {
-      await labelThread({
-        gmail,
-        threadId,
-        addLabelIds: [GmailLabel.INBOX],
-      });
-    }
+    // get the label to remove
+    const markedDoneLabel = await getLabel({
+      name:
+        action === CleanAction.ARCHIVE
+          ? inboxZeroLabels.archived.name
+          : inboxZeroLabels.marked_read.name,
+      gmail,
+    });
+
+    await labelThread({
+      gmail,
+      threadId,
+      // undo core action
+      addLabelIds:
+        action === CleanAction.ARCHIVE
+          ? [GmailLabel.INBOX]
+          : [GmailLabel.UNREAD],
+      // undo our own labelling
+      removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
+    });
 
     return { success: true };
   },
