@@ -18,7 +18,6 @@ import {
   PlusCircle,
   TagIcon,
   TrashIcon,
-  UserPlus,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
 import { Button } from "@/components/ui/button";
@@ -401,15 +400,15 @@ export function MoreDropdown<T extends Row>({
           </Link>
         </DropdownMenuItem>
 
-        <DropdownMenuSub>
+        {/* <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <UserPlus className="mr-2 size-4" />
-            <span>Add sender to group</span>
+            <span>Add sender to rule</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <GroupsSubMenu sender={item.name} />
           </DropdownMenuPortal>
-        </DropdownMenuSub>
+        </DropdownMenuSub> */}
 
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
