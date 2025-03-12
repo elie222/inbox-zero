@@ -4,12 +4,12 @@ import { updateThread } from "@/utils/redis/clean";
 export async function saveCleanResult({
   userId,
   threadId,
-  archive,
+  markDone,
   jobId,
 }: {
   userId: string;
   threadId: string;
-  archive: boolean;
+  markDone: boolean;
   jobId: string;
 }) {
   await Promise.all([
@@ -17,7 +17,7 @@ export async function saveCleanResult({
     saveToDatabase({
       userId,
       threadId,
-      archive,
+      archive: markDone,
       jobId,
     }),
   ]);

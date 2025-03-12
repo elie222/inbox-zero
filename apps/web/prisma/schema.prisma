@@ -398,7 +398,7 @@ model CleanupThread {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   threadId  String
-  archived  Boolean
+  archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
   // labelIds  String[]
   jobId     String
   job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)

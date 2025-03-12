@@ -12,10 +12,7 @@ import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getAiUserWithTokens } from "@/utils/user/get";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import {
-  getCalendarEventStatus,
-  isCalendarEventInPast,
-} from "@/utils/parse/calender-event";
+import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
@@ -29,7 +26,7 @@ const logger = createScopedLogger("api/clean");
 const cleanThreadBody = z.object({
   userId: z.string(),
   threadId: z.string(),
-  archiveLabelId: z.string(),
+  markedDoneLabelId: z.string(),
   processedLabelId: z.string(),
   jobId: z.string(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
@@ -41,7 +38,7 @@ export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 async function cleanThread({
   userId,
   threadId,
-  archiveLabelId,
+  markedDoneLabelId,
   processedLabelId,
   jobId,
   action,
@@ -88,7 +85,7 @@ async function cleanThread({
   const publish = getPublish({
     userId,
     threadId,
-    archiveLabelId,
+    markedDoneLabelId,
     processedLabelId,
     jobId,
     action,
@@ -101,12 +98,12 @@ async function cleanThread({
     const calendarEventStatus = getCalendarEventStatus(message);
     if (calendarEventStatus.isEvent) {
       if (calendarEventStatus.timing === "past") {
-        await publish({ archive: true });
+        await publish({ markDone: true });
         return;
       }
 
       if (calendarEventStatus.timing === "future") {
-        await publish({ archive: false });
+        await publish({ markDone: false });
         return;
       }
     }
@@ -116,19 +113,19 @@ async function cleanThread({
       findUnsubscribeLink(message.textHtml) ||
       message.headers["list-unsubscribe"];
     if (unsubscribeLink) {
-      await publish({ archive: true });
+      await publish({ markDone: true });
       return;
     }
 
     // receipt
     if (isReceipt(message)) {
-      await publish({ archive: false });
+      await publish({ markDone: false });
       return;
     }
 
     // newsletter
     if (isNewsletterSender(message.headers.from)) {
-      await publish({ archive: true });
+      await publish({ markDone: true });
       return;
     }
 
@@ -139,7 +136,7 @@ async function cleanThread({
       message.labelIds?.includes(GmailLabel.UPDATES) ||
       message.labelIds?.includes(GmailLabel.FORUMS)
     ) {
-      await publish({ archive: true });
+      await publish({ markDone: true });
       return;
     }
   }
@@ -150,25 +147,25 @@ async function cleanThread({
     instructions,
   });
 
-  await publish({ archive: aiResult.archive });
+  await publish({ markDone: aiResult.archive });
 }
 
 function getPublish({
   userId,
   threadId,
-  archiveLabelId,
+  markedDoneLabelId,
   processedLabelId,
   jobId,
   action,
 }: {
   userId: string;
   threadId: string;
-  archiveLabelId: string;
+  markedDoneLabelId: string;
   processedLabelId: string;
   jobId: string;
   action: CleanAction;
 }) {
-  return async ({ archive }: { archive: boolean }) => {
+  return async ({ markDone }: { markDone: boolean }) => {
     // max rate:
     // https://developers.google.com/gmail/api/reference/quota
     // 15,000 quota units per user per minute
@@ -181,20 +178,20 @@ function getPublish({
     const cleanGmailBody: CleanGmailBody = {
       userId,
       threadId,
-      archive,
+      markDone,
       action,
       // label: aiResult.label,
-      archiveLabelId,
+      markedDoneLabelId,
       processedLabelId,
       jobId,
     };
 
     // TODO: it might need labelling and then we do need to push to qstash gmail action
-    if (!archive) {
+    if (!markDone) {
       return await saveCleanResult({
         userId,
         threadId,
-        archive,
+        markDone,
         jobId,
       });
     }
@@ -203,7 +200,7 @@ function getPublish({
       userId,
       threadId,
       maxRatePerSecond,
-      archive,
+      markDone,
     });
 
     await Promise.all([
@@ -212,7 +209,7 @@ function getPublish({
         ratePerSecond: maxRatePerSecond,
       }),
       updateThread(userId, jobId, threadId, {
-        archive,
+        archive: markDone,
         status: "applying",
         // label: "",
       }),

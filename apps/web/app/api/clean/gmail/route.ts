@@ -16,10 +16,10 @@ const logger = createScopedLogger("api/clean/gmail");
 const cleanGmailSchema = z.object({
   userId: z.string(),
   threadId: z.string(),
-  archive: z.boolean(),
+  markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
   labelId: z.string().optional(),
-  archiveLabelId: z.string().optional(),
+  markedDoneLabelId: z.string().optional(),
   processedLabelId: z.string().optional(),
   jobId: z.string(),
 });
@@ -28,9 +28,9 @@ export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 async function performGmailAction({
   userId,
   threadId,
-  archive,
+  markDone,
   labelId,
-  archiveLabelId,
+  markedDoneLabelId,
   processedLabelId,
   jobId,
   action,
@@ -49,12 +49,11 @@ async function performGmailAction({
     refreshToken: account.refresh_token,
   });
 
-  const shouldArchive = archive && action === CleanAction.ARCHIVE;
-  const shouldMarkAsRead = archive && action === CleanAction.MARK_READ;
+  const shouldArchive = markDone && action === CleanAction.ARCHIVE;
+  const shouldMarkAsRead = markDone && action === CleanAction.MARK_READ;
 
-  // NOTE: Should probably use a different label for marking as read
   const addLabelIds = [
-    archive ? archiveLabelId : processedLabelId,
+    markDone ? markedDoneLabelId : processedLabelId,
     labelId,
   ].filter(isDefined);
   const removeLabelIds = [
@@ -74,7 +73,7 @@ async function performGmailAction({
   await saveCleanResult({
     userId,
     threadId,
-    archive,
+    markDone,
     jobId,
   });
 }

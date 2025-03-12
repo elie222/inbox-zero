@@ -26,6 +26,7 @@ import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
 import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
 import { getAiUser } from "@/utils/user/get";
+import { CleanAction } from "@prisma/client";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -41,9 +42,9 @@ export const cleanInboxAction = withActionInstrumentation(
 
     const gmail = getGmailClient(session);
 
-    const [archiveLabel, processedLabel] = await Promise.all([
+    const [markedDoneLabel, processedLabel] = await Promise.all([
       getOrCreateInboxZeroLabel({
-        key: "archived",
+        key: data.action === CleanAction.ARCHIVE ? "archived" : "marked_read",
         gmail,
       }),
       getOrCreateInboxZeroLabel({
@@ -52,8 +53,8 @@ export const cleanInboxAction = withActionInstrumentation(
       }),
     ]);
 
-    const archiveLabelId = archiveLabel?.id;
-    if (!archiveLabelId) return { error: "Failed to create archived label" };
+    const markedDoneLabelId = markedDoneLabel?.id;
+    if (!markedDoneLabelId) return { error: "Failed to create archived label" };
 
     const processedLabelId = processedLabel?.id;
     if (!processedLabelId) return { error: "Failed to create processed label" };
@@ -145,7 +146,7 @@ export const cleanInboxAction = withActionInstrumentation(
               body: {
                 userId,
                 threadId: thread.id,
-                archiveLabelId,
+                markedDoneLabelId,
                 processedLabelId,
                 jobId: job.id,
                 action: data.action,
