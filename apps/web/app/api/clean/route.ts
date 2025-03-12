@@ -12,7 +12,10 @@ import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getAiUserWithTokens } from "@/utils/user/get";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { isCalendarEventInPast } from "@/utils/parse/calender-event";
+import {
+  getCalendarEventStatus,
+  isCalendarEventInPast,
+} from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
@@ -95,10 +98,17 @@ async function cleanThread({
     const message = messages[0];
 
     // calendar invite
-    const isPastCalendarEvent = isCalendarEventInPast(message);
-    if (isPastCalendarEvent) {
-      await publish({ archive: true });
-      return;
+    const calendarEventStatus = getCalendarEventStatus(message);
+    if (calendarEventStatus.isEvent) {
+      if (calendarEventStatus.timing === "past") {
+        await publish({ archive: true });
+        return;
+      }
+
+      if (calendarEventStatus.timing === "future") {
+        await publish({ archive: false });
+        return;
+      }
     }
 
     // unsubscribe link

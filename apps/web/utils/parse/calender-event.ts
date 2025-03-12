@@ -11,6 +11,11 @@ interface CalendarEventInfo {
   organizer?: string;
 }
 
+export type CalendarEventStatus = {
+  isEvent: boolean;
+  timing?: "past" | "future";
+};
+
 /**
  * Checks if an email is a calendar event and extracts event date information
  * @param email The email to analyze
@@ -263,4 +268,23 @@ export function isCalendarEventInPast(email: ParsedMessage) {
     calendarEvent.eventDate &&
     calendarEvent.eventDate < new Date()
   );
+}
+
+export function getCalendarEventStatus(
+  email: ParsedMessage,
+): CalendarEventStatus {
+  const calendarEvent = analyzeCalendarEvent(email);
+
+  if (!calendarEvent.isCalendarEvent) {
+    return { isEvent: false };
+  }
+
+  if (!calendarEvent.eventDate) {
+    return { isEvent: true };
+  }
+
+  return {
+    isEvent: true,
+    timing: calendarEvent.eventDate < new Date() ? "past" : "future",
+  };
 }
