@@ -31,6 +31,13 @@ const cleanThreadBody = z.object({
   jobId: z.string(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
   instructions: z.string().optional(),
+  skips: z.object({
+    reply: z.boolean().default(true).nullish(),
+    starred: z.boolean().default(true).nullish(),
+    calendar: z.boolean().default(true).nullish(),
+    receipt: z.boolean().default(false).nullish(),
+    attachment: z.boolean().default(false).nullish(),
+  }),
   labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
@@ -43,6 +50,7 @@ async function cleanThread({
   jobId,
   action,
   instructions,
+  skips,
   labels,
 }: CleanThreadBody) {
   // 1. get thread with messages
@@ -94,9 +102,24 @@ async function cleanThread({
   if (messages.length === 1) {
     const message = messages[0];
 
+    // Skip if message has attachments and skipAttachment is true
+    if (
+      skips.attachment &&
+      message.payload?.parts?.some((part) => part.filename)
+    ) {
+      await publish({ markDone: false });
+      return;
+    }
+
+    // Skip if message is starred and skipStarred is true
+    if (skips.starred && message.labelIds?.includes(GmailLabel.STARRED)) {
+      await publish({ markDone: false });
+      return;
+    }
+
     // calendar invite
     const calendarEventStatus = getCalendarEventStatus(message);
-    if (calendarEventStatus.isEvent) {
+    if (skips.calendar && calendarEventStatus.isEvent) {
       if (calendarEventStatus.timing === "past") {
         await publish({ markDone: true });
         return;
@@ -118,7 +141,7 @@ async function cleanThread({
     }
 
     // receipt
-    if (isReceipt(message)) {
+    if (skips.receipt && isReceipt(message)) {
       await publish({ markDone: false });
       return;
     }
@@ -145,6 +168,7 @@ async function cleanThread({
     user,
     messages: messages.map((m) => getEmailForLLM(m)),
     instructions,
+    skips,
   });
 
   await publish({ markDone: aiResult.archive });

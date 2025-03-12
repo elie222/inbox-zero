@@ -66,6 +66,11 @@ export const cleanInboxAction = withActionInstrumentation(
         action: data.action,
         instructions: data.instructions,
         daysOld: data.daysOld,
+        skipReply: data.skips.reply,
+        skipStarred: data.skips.starred,
+        skipCalendar: data.skips.calendar,
+        skipReceipt: data.skips.receipt,
+        skipAttachment: data.skips.attachment,
       },
     });
 
@@ -151,6 +156,7 @@ export const cleanInboxAction = withActionInstrumentation(
                 jobId: job.id,
                 action: data.action,
                 instructions: data.instructions,
+                skips: data.skips,
                 labels,
               } satisfies CleanThreadBody,
               // give every user their own queue for ai processing. if we get too many parallel users we may need more

@@ -24,10 +24,18 @@ export async function aiClean({
   user,
   messages,
   instructions,
+  skips,
 }: {
   user: Pick<User, "about"> & UserEmailWithAI;
   messages: EmailForLLM[];
   instructions?: string;
+  skips: {
+    reply?: boolean | null;
+    starred?: boolean | null;
+    calendar?: boolean | null;
+    receipt?: boolean | null;
+    attachment?: boolean | null;
+  };
 }) {
   const lastMessage = messages.at(-1);
 

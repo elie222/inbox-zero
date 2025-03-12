@@ -9,11 +9,11 @@ export const cleanInboxSchema = z.object({
     .default(CleanAction.ARCHIVE),
   maxEmails: z.number().optional(),
   skips: z.object({
-    skipReply: z.boolean().default(true).nullish(),
-    skipStarred: z.boolean().default(true).nullish(),
-    skipCalendar: z.boolean().default(true).nullish(),
-    skipReceipt: z.boolean().default(false).nullish(),
-    skipAttachment: z.boolean().default(false).nullish(),
+    reply: z.boolean().default(true).nullish(),
+    starred: z.boolean().default(true).nullish(),
+    calendar: z.boolean().default(true).nullish(),
+    receipt: z.boolean().default(false).nullish(),
+    attachment: z.boolean().default(false).nullish(),
   }),
 });
 

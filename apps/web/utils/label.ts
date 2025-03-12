@@ -32,7 +32,7 @@ export const inboxZeroLabels = {
     messageListVisibility: messageVisibility.hide,
   },
   marked_read: {
-    name: `${PARENT_LABEL}/Marked Read`,
+    name: `${PARENT_LABEL}/Read`,
     color: blue,
     messageListVisibility: messageVisibility.hide,
   },
