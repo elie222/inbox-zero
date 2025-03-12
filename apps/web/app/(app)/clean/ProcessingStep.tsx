@@ -30,11 +30,12 @@ export async function ProcessingStep({
 
   return (
     <>
-      <TestBatchCompleted total={total} archived={archived} />
+      <TestBatchCompleted total={total} archived={archived} job={job} />
       <EmailFirehose
         threads={threads.filter((t) => t.status !== "processing")}
         stats={{ total, archived }}
         userEmail={userEmail}
+        action={job.action}
       />
     </>
   );

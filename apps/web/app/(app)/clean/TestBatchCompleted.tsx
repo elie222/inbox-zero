@@ -1,11 +1,5 @@
 "use client";
 
-import {
-  parseAsStringEnum,
-  parseAsString,
-  parseAsInteger,
-  useQueryState,
-} from "nuqs";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,28 +11,22 @@ import {
 } from "@/components/ui/card";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
-import { CleanAction } from "@prisma/client";
+import { CleanAction, type CleanupJob } from "@prisma/client";
 
 export function TestBatchCompleted({
   total,
   archived,
+  job,
 }: {
   total: number;
   archived: number;
+  job: CleanupJob;
 }) {
-  const [action] = useQueryState(
-    "action",
-    parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
-  );
-  const [timeRange] = useQueryState("timeRange", parseAsInteger);
-  const [instructions] = useQueryState("instructions", parseAsString);
-
   const handleRunOnFullInbox = async () => {
-    // TODO: use from existing job instead
     const result = await cleanInboxAction({
-      daysOld: timeRange ?? 7,
-      instructions: instructions || "",
-      action: action || CleanAction.ARCHIVE,
+      daysOld: job.daysOld,
+      instructions: job.instructions || "",
+      action: job.action,
     });
 
     if (isActionError(result)) {
@@ -52,10 +40,13 @@ export function TestBatchCompleted({
       <CardHeader>
         <CardTitle>Batch completed</CardTitle>
         <CardDescription>
-          We've processed {total} emails. {archived} were archived.
+          We processed {total} emails. {archived} were{" "}
+          {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
         </CardDescription>
         <CardDescription>
-          To undo any, hover over the "Archive" badge and click undo.
+          To undo any, hover over the "
+          {job.action === CleanAction.ARCHIVE ? "Archive" : "Mark as read"}"
+          badge and click undo.
         </CardDescription>
       </CardHeader>
       <CardContent>

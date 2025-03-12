@@ -12,11 +12,13 @@ import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailStream } from "./use-email-stream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
+import type { CleanAction } from "@prisma/client";
 
 export function EmailFirehose({
   threads,
   stats,
   userEmail,
+  action,
 }: {
   threads: CleanThread[];
   stats: {
@@ -24,6 +26,7 @@ export function EmailFirehose({
     archived: number;
   };
   userEmail: string;
+  action: CleanAction;
 }) {
   const [isPaused, setIsPaused] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
@@ -81,6 +84,7 @@ export function EmailFirehose({
                     <EmailItem
                       email={emails[virtualItem.index]}
                       userEmail={userEmail}
+                      action={action}
                     />
                   </div>
                 ))}

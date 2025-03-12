@@ -12,15 +12,18 @@ import { undoCleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
+import { CleanAction } from "@prisma/client";
 
-type Status = "archived" | "archiving" | "keep" | "labelled";
+type Status = "markedDone" | "markingDone" | "keep" | "labelled";
 
 export function EmailItem({
   email,
   userEmail,
+  action,
 }: {
   email: CleanThread;
   userEmail: string;
+  action: CleanAction;
 }) {
   const status = getStatus(email);
   const pending = isPending(email);
@@ -54,7 +57,7 @@ export function EmailItem({
       </div>
 
       <div className="ml-2 flex items-center space-x-2">
-        <StatusBadge status={status} email={email} />
+        <StatusBadge status={status} email={email} action={action} />
       </div>
     </div>
   );
@@ -65,7 +68,7 @@ function StatusCircle({ status }: { status: Status }) {
     <div
       className={cn(
         "mr-2 size-2 rounded-full",
-        (status === "archived" || status === "archiving") && "bg-green-500",
+        (status === "markedDone" || status === "markingDone") && "bg-green-500",
         status === "keep" && "bg-blue-500",
         status === "labelled" && "bg-yellow-500",
       )}
@@ -76,9 +79,11 @@ function StatusCircle({ status }: { status: Status }) {
 function StatusBadge({
   status,
   email,
+  action,
 }: {
   status: Status;
   email: CleanThread;
+  action: CleanAction;
 }) {
   const [undone, setUndone] = useState<"undoing" | "undone">();
 
@@ -90,12 +95,18 @@ function StatusBadge({
     return <Badge color="purple">Undone</Badge>;
   }
 
-  if (status === "archived" || status === "archiving") {
+  if (status === "markedDone" || status === "markingDone") {
     return (
       <div className="group">
         <span className="group-hover:hidden">
           <Badge color="green">
-            {status === "archiving" ? "Archiving..." : "Archived"}
+            {status === "markingDone"
+              ? action === CleanAction.MARK_READ
+                ? "Marking read..."
+                : "Archiving..."
+              : action === CleanAction.MARK_READ
+                ? "Marked read"
+                : "Archived"}
           </Badge>
         </span>
         <div className="hidden group-hover:inline-flex">
@@ -138,8 +149,8 @@ function StatusBadge({
 
 function getStatus(email: CleanThread): Status {
   if (email.archive) {
-    if (email.status === "processing") return "archiving";
-    return "archived";
+    if (email.status === "processing") return "markingDone";
+    return "markedDone";
   }
 
   if (email.label) {
