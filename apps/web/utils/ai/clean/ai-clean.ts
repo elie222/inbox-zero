@@ -16,7 +16,7 @@ const logger = createScopedLogger("ai/clean");
 // Pass in prompt labels
 const schema = z.object({
   archive: z.boolean(),
-  label: z.string().optional(),
+  // label: z.string().optional(),
   // reasoning: z.string(),
 });
 
@@ -31,10 +31,7 @@ export async function aiClean({
   instructions?: string;
   skips: {
     reply?: boolean | null;
-    starred?: boolean | null;
-    calendar?: boolean | null;
     receipt?: boolean | null;
-    attachment?: boolean | null;
   };
 }) {
   const lastMessage = messages.at(-1);
@@ -59,6 +56,9 @@ ${
     : ""
 }
 
+${skips.reply ? "Do not archive emails that the user needs to reply to. Social media updates, GitHub issues, LinkedIn messages, Facebook messages, marketing, and newsletters do not need to be replied to." : ""}
+${skips.receipt ? "Do not archive emails that are receipts." : ""}
+
 The message to analyze:
 
 <message>
@@ -70,7 +70,10 @@ Previous messages in the thread for context:
 <previous_messages>
 ${messages
   .slice(-3, -1) // Take 2 messages before the last message
-  .map((message) => `<message>${stringifyEmailFromBody(message)}</message>`)
+  .map(
+    (message) =>
+      `<message>${stringifyEmailFromBody(message).slice(0, 500)}</message>`,
+  )
   .join("\n")}
 </previous_messages>
 
