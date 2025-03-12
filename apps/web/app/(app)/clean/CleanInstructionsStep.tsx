@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useQueryState, parseAsString, parseAsBoolean } from "nuqs";
+import { useQueryState, parseAsString } from "nuqs";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { TypographyH3 } from "@/components/Typography";
 import { Input } from "@/components/Input";
 import { useStep } from "@/app/(app)/clean/useStep";
 import { Toggle } from "@/components/Toggle";
+import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
 
 const schema = z.object({ instructions: z.string().optional() });
 
@@ -26,22 +27,7 @@ export function CleanInstructionsStep() {
   });
   const [_, setInstructions] = useQueryState("instructions", parseAsString);
   const [showCustom, setShowCustom] = useState(false);
-  const [skipReply, setSkipReply] = useQueryState(
-    "skipReply",
-    parseAsBoolean.withDefault(true),
-  );
-  const [skipCalendar, setSkipCalendar] = useQueryState(
-    "skipCalendar",
-    parseAsBoolean.withDefault(true),
-  );
-  const [skipReceipt, setSkipReceipt] = useQueryState(
-    "skipReceipt",
-    parseAsBoolean.withDefault(false),
-  );
-  const [skipAttachment, setSkipAttachment] = useQueryState(
-    "skipAttachment",
-    parseAsBoolean.withDefault(false),
-  );
+  const [skipStates, setSkipStates] = useSkipSettings();
 
   const onSubmit: SubmitHandler<Inputs> = (data) => {
     setInstructions(data.instructions || "");
@@ -55,26 +41,32 @@ export function CleanInstructionsStep() {
       <div className="mt-4 grid gap-4">
         <Toggle
           name="reply"
-          enabled={skipReply}
-          onChange={setSkipReply}
+          enabled={skipStates.skipReply}
+          onChange={(value) => setSkipStates({ skipReply: value })}
           labelRight="Skip emails needing replies"
         />
         <Toggle
+          name="starred"
+          enabled={skipStates.skipStarred}
+          onChange={(value) => setSkipStates({ skipStarred: value })}
+          labelRight="Skip starred emails"
+        />
+        <Toggle
           name="calendar"
-          enabled={skipCalendar}
-          onChange={setSkipCalendar}
+          enabled={skipStates.skipCalendar}
+          onChange={(value) => setSkipStates({ skipCalendar: value })}
           labelRight="Skip future events"
         />
         <Toggle
           name="receipt"
-          enabled={skipReceipt}
-          onChange={setSkipReceipt}
+          enabled={skipStates.skipReceipt}
+          onChange={(value) => setSkipStates({ skipReceipt: value })}
           labelRight="Skip receipts"
         />
         <Toggle
           name="attachment"
-          enabled={skipAttachment}
-          onChange={setSkipAttachment}
+          enabled={skipStates.skipAttachment}
+          onChange={(value) => setSkipStates({ skipAttachment: value })}
           labelRight="Skip anything with an attachment"
         />
       </div>
