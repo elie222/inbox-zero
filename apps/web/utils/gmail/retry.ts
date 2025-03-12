@@ -17,11 +17,7 @@ export async function withGmailRetry<T>(
       const originalError = error.cause as any;
 
       // Looking at the error structure directly from logs
-      const isRateLimitError =
-        originalError?.status === 429 &&
-        originalError?.errors?.some(
-          (err: any) => err.reason === "rateLimitExceeded",
-        );
+      const isRateLimitError = originalError?.status === 429;
 
       if (!isRateLimitError) {
         logger.error("Non-rate limit error encountered, not retrying", {

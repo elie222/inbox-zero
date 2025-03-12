@@ -15,6 +15,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { createReplyContent } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -263,15 +264,27 @@ export async function draftEmail(
     },
   });
 
-  const result = await gmail.users.drafts.create({
-    userId: "me",
-    requestBody: {
-      message: {
-        threadId: originalEmail.threadId,
-        raw,
+  const result = await createDraft(gmail, originalEmail.threadId, raw);
+
+  return result;
+}
+
+async function createDraft(
+  gmail: gmail_v1.Gmail,
+  threadId: string,
+  raw: string,
+) {
+  const result = await withGmailRetry(async () =>
+    gmail.users.drafts.create({
+      userId: "me",
+      requestBody: {
+        message: {
+          threadId,
+          raw,
+        },
       },
-    },
-  });
+    }),
+  );
 
   return result;
 }
