@@ -2,16 +2,18 @@ import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
 import { CardTitle } from "@/components/ui/card";
-import { TestBatchCompleted } from "@/app/(app)/clean/TestBatchCompleted";
+import { PreviewBatchCompleted } from "@/app/(app)/clean/PreviewBatchCompleted";
 
 export async function ProcessingStep({
   userId,
   jobId,
   userEmail,
+  isPreviewBatch,
 }: {
   userId: string;
   jobId: string;
   userEmail: string;
+  isPreviewBatch?: string;
 }) {
   const threads = await getThreadsByJobId(userId, jobId);
 
@@ -30,7 +32,9 @@ export async function ProcessingStep({
 
   return (
     <>
-      <TestBatchCompleted total={total} archived={archived} job={job} />
+      {isPreviewBatch && (
+        <PreviewBatchCompleted total={total} archived={archived} job={job} />
+      )}
       <EmailFirehose
         threads={threads.filter((t) => t.status !== "processing")}
         stats={{ total, archived }}

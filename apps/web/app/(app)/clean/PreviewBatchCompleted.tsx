@@ -1,5 +1,6 @@
 "use client";
 
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +14,9 @@ import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
 
-export function TestBatchCompleted({
+const PREVIEW_RUN_COUNT = 50;
+
+export function PreviewBatchCompleted({
   total,
   archived,
   job,
@@ -22,17 +25,19 @@ export function TestBatchCompleted({
   archived: number;
   job: CleanupJob;
 }) {
+  const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
   const handleRunOnFullInbox = async () => {
+    setIsPreviewBatch(false);
     const result = await cleanInboxAction({
       daysOld: job.daysOld,
       instructions: job.instructions || "",
       action: job.action,
       skips: {
-        skipReply: job.skipReply,
-        skipStarred: job.skipStarred,
-        skipCalendar: job.skipCalendar,
-        skipReceipt: job.skipReceipt,
-        skipAttachment: job.skipAttachment,
+        reply: job.skipReply,
+        starred: job.skipStarred,
+        calendar: job.skipCalendar,
+        receipt: job.skipReceipt,
+        attachment: job.skipAttachment,
       },
     });
 
@@ -57,7 +62,13 @@ export function TestBatchCompleted({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button onClick={handleRunOnFullInbox}>Run on Full Inbox</Button>
+        {total >= PREVIEW_RUN_COUNT ? (
+          <Button onClick={handleRunOnFullInbox}>Run on Full Inbox</Button>
+        ) : (
+          <CardDescription>
+            All emails have been processed. No more emails to process.
+          </CardDescription>
+        )}
       </CardContent>
     </CardGreen>
   );

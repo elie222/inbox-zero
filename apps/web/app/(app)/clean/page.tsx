@@ -16,7 +16,7 @@ import { Loading } from "@/components/Loading";
 export default async function CleanPage({
   searchParams,
 }: {
-  searchParams: { step: string; jobId: string };
+  searchParams: { step: string; jobId: string; isPreviewBatch: string };
 }) {
   const step = searchParams.step
     ? Number.parseInt(searchParams.step)
@@ -52,6 +52,7 @@ export default async function CleanPage({
               userId={session.user.id}
               jobId={jobId}
               userEmail={session.user.email || ""}
+              isPreviewBatch={searchParams.isPreviewBatch}
             />
           </Suspense>
         );

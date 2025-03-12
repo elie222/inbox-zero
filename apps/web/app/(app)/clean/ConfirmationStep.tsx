@@ -3,6 +3,7 @@
 // import { useMemo } from "react";
 import Image from "next/image";
 import {
+  parseAsBoolean,
   parseAsInteger,
   parseAsString,
   parseAsStringEnum,
@@ -27,6 +28,7 @@ export function ConfirmationStep({
 }) {
   const { onNext } = useStep();
   const [, setJobId] = useQueryState("jobId", parseAsString);
+  const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
 
   // values from previous steps
   const [action] = useQueryState(
@@ -60,7 +62,13 @@ export function ConfirmationStep({
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
       maxEmails: TEST_RUN_COUNT,
-      skips,
+      skips: {
+        reply: skips.skipReply,
+        starred: skips.skipStarred,
+        calendar: skips.skipCalendar,
+        receipt: skips.skipReceipt,
+        attachment: skips.skipAttachment,
+      },
     });
 
     if (isActionError(result)) {
@@ -69,6 +77,7 @@ export function ConfirmationStep({
     }
 
     setJobId(result.jobId);
+    setIsPreviewBatch(true);
 
     onNext();
   };
