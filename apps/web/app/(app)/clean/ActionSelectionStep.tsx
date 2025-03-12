@@ -34,7 +34,6 @@ export function ActionSelectionStep() {
           {
             label: "Archive",
             value: CleanAction.ARCHIVE,
-            recommended: true,
           },
           { label: "Mark as Read", value: CleanAction.MARK_READ },
         ]}

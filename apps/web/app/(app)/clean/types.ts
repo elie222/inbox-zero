@@ -8,10 +8,13 @@ export enum CleanStep {
   PROCESSING = 5,
 }
 
-// Define the time range options
 export const timeRangeOptions = [
+  { value: "0", label: "All emails" },
   { value: "1", label: "Older than 1 day" },
+  { value: "3", label: "Older than 3 days" },
   { value: "7", label: "Older than 1 week", recommended: true },
   { value: "14", label: "Older than 2 weeks" },
   { value: "30", label: "Older than 1 month" },
+  { value: "90", label: "Older than 3 months" },
+  { value: "365", label: "Older than 1 year" },
 ];

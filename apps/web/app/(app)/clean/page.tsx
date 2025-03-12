@@ -10,7 +10,7 @@ import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
 import { ProcessingStep } from "@/app/(app)/clean/ProcessingStep";
 import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getInboxCount } from "@/utils/assess";
+import { getInboxCount, getUnreadCount } from "@/utils/assess";
 import { Loading } from "@/components/Loading";
 
 export default async function CleanPage({
@@ -28,6 +28,8 @@ export default async function CleanPage({
 
   const gmail = getGmailClient(session);
   const inboxCount = await getInboxCount(gmail);
+  const unreadCount = await getUnreadCount(gmail);
+  const unhandledCount = Math.min(unreadCount, inboxCount);
 
   const renderStepContent = () => {
     switch (step) {
@@ -41,7 +43,7 @@ export default async function CleanPage({
         return <CleanInstructionsStep />;
 
       case CleanStep.FINAL_CONFIRMATION:
-        return <ConfirmationStep unreadCount={inboxCount} />;
+        return <ConfirmationStep unhandledCount={unhandledCount} />;
 
       case CleanStep.PROCESSING:
         return (
@@ -56,7 +58,9 @@ export default async function CleanPage({
 
       // first / default step
       default:
-        return <IntroStep unreadCount={inboxCount} />;
+        return (
+          <IntroStep unhandledCount={unhandledCount} cleanAction={"ARCHIVE"} />
+        );
     }
   };
 

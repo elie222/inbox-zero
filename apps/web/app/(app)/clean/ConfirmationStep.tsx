@@ -17,7 +17,11 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 
-export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
+export function ConfirmationStep({
+  unhandledCount,
+}: {
+  unhandledCount: number;
+}) {
   const { onNext } = useStep();
   const [, setJobId] = useQueryState("jobId", parseAsString);
 
@@ -30,10 +34,10 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
   const [instructions] = useQueryState("instructions", parseAsString);
 
   const estimatedTime = useMemo(() => {
-    if (!unreadCount) return "calculating...";
+    if (!unhandledCount) return "calculating...";
 
     const secondsPerEmail = 1;
-    const totalSeconds = unreadCount * secondsPerEmail;
+    const totalSeconds = unhandledCount * secondsPerEmail;
 
     if (totalSeconds < 60) {
       return `${totalSeconds} seconds`;
@@ -44,7 +48,7 @@ export function ConfirmationStep({ unreadCount }: { unreadCount: number }) {
       const minutes = Math.ceil((totalSeconds % 3600) / 60);
       return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
     }
-  }, [unreadCount]);
+  }, [unhandledCount]);
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({

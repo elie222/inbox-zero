@@ -5,8 +5,15 @@ import { SectionDescription } from "@/components/Typography";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useStep } from "@/app/(app)/clean/useStep";
+import { CleanAction } from "@prisma/client";
 
-export function IntroStep({ unreadCount }: { unreadCount: number }) {
+export function IntroStep({
+  unhandledCount,
+  cleanAction,
+}: {
+  unhandledCount: number;
+  cleanAction: CleanAction;
+}) {
   const { onNext } = useStep();
 
   return (
@@ -24,14 +31,16 @@ export function IntroStep({ unreadCount }: { unreadCount: number }) {
         Let's get your inbox cleaned up in 5 minutes
       </TypographyH3>
 
-      {unreadCount === null ? (
+      {unhandledCount === null ? (
         <SectionDescription className="mx-auto mt-2 max-w-prose">
           Checking your inbox...
         </SectionDescription>
       ) : (
         <>
           <SectionDescription className="mx-auto mt-2 max-w-prose">
-            You have {unreadCount.toLocaleString()} emails in your inbox.
+            You have {unhandledCount.toLocaleString()}{" "}
+            {cleanAction === CleanAction.ARCHIVE ? "unarchived" : "unread"}{" "}
+            emails in your inbox.
           </SectionDescription>
           <SectionDescription className="mx-auto mt-2 max-w-prose">
             We'd like to clean up as much as possible, but we don't want to
@@ -41,7 +50,7 @@ export function IntroStep({ unreadCount }: { unreadCount: number }) {
       )}
 
       <div className="mt-6">
-        <Button onClick={onNext} disabled={unreadCount === null}>
+        <Button onClick={onNext} disabled={unhandledCount === null}>
           Next
         </Button>
       </div>
