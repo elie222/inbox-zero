@@ -7,7 +7,6 @@ import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { LoadStats } from "@/providers/StatLoaderProvider";
 import { UTMs } from "@/app/(landing)/welcome/utms";
 import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
 import { CardBasic } from "@/components/ui/card";
@@ -58,7 +57,6 @@ export default async function WelcomePage({
           </div>
         </div>
       </CardBasic>
-      <LoadStats loadBefore showToast={false} />
       {!user.utms && (
         <Suspense>
           <UTMs userId={session.user.id} />
