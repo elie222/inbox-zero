@@ -3,6 +3,7 @@ import { Shield, Tag, Archive, Check, Zap } from "lucide-react";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { PageHeading, SectionDescription } from "@/components/Typography";
+import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export default async function SetupPage() {
   const session = await auth();
@@ -28,12 +29,15 @@ export default async function SetupPage() {
   const isAiAssistantConfigured = user.rules.some((rule) => !rule.trackReplies);
   const isBulkUnsubscribeConfigured = user.newsletters.length > 0;
   return (
-    <SetupContent
-      isReplyTrackerConfigured={isReplyTrackerConfigured}
-      isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
-      isAiAssistantConfigured={isAiAssistantConfigured}
-      isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
-    />
+    <>
+      <SetupContent
+        isReplyTrackerConfigured={isReplyTrackerConfigured}
+        isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
+        isAiAssistantConfigured={isAiAssistantConfigured}
+        isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
+      />
+      <LoadStats loadBefore showToast={false} />
+    </>
   );
 }
 
