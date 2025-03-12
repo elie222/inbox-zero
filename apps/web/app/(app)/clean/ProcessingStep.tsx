@@ -2,6 +2,7 @@ import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
 import { CardTitle } from "@/components/ui/card";
+import { TestBatchCompleted } from "@/app/(app)/clean/TestBatchCompleted";
 
 export async function ProcessingStep({
   userId,
@@ -28,10 +29,13 @@ export async function ProcessingStep({
   ]);
 
   return (
-    <EmailFirehose
-      threads={threads.filter((t) => t.status !== "processing")}
-      stats={{ total, archived }}
-      userEmail={userEmail}
-    />
+    <>
+      <TestBatchCompleted total={total} archived={archived} />
+      <EmailFirehose
+        threads={threads.filter((t) => t.status !== "processing")}
+        stats={{ total, archived }}
+        userEmail={userEmail}
+      />
+    </>
   );
 }
