@@ -17,6 +17,8 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 
+const TEST_RUN_COUNT = 50;
+
 export function ConfirmationStep({
   unhandledCount,
 }: {
@@ -33,28 +35,29 @@ export function ConfirmationStep({
   const [timeRange] = useQueryState("timeRange", parseAsInteger);
   const [instructions] = useQueryState("instructions", parseAsString);
 
-  const estimatedTime = useMemo(() => {
-    if (!unhandledCount) return "calculating...";
+  // const estimatedTime = useMemo(() => {
+  //   if (!unhandledCount) return "calculating...";
 
-    const secondsPerEmail = 1;
-    const totalSeconds = unhandledCount * secondsPerEmail;
+  //   const secondsPerEmail = 1;
+  //   const totalSeconds = unhandledCount * secondsPerEmail;
 
-    if (totalSeconds < 60) {
-      return `${totalSeconds} seconds`;
-    } else if (totalSeconds < 3600) {
-      return `${Math.ceil(totalSeconds / 60)} minutes`;
-    } else {
-      const hours = Math.floor(totalSeconds / 3600);
-      const minutes = Math.ceil((totalSeconds % 3600) / 60);
-      return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
-    }
-  }, [unhandledCount]);
+  //   if (totalSeconds < 60) {
+  //     return `${totalSeconds} seconds`;
+  //   } else if (totalSeconds < 3600) {
+  //     return `${Math.ceil(totalSeconds / 60)} minutes`;
+  //   } else {
+  //     const hours = Math.floor(totalSeconds / 3600);
+  //     const minutes = Math.ceil((totalSeconds % 3600) / 60);
+  //     return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
+  //   }
+  // }, [unhandledCount]);
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({
       daysOld: timeRange ?? 7,
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
+      maxEmails: TEST_RUN_COUNT,
     });
 
     if (isActionError(result)) {
@@ -81,19 +84,32 @@ export function ConfirmationStep({
       <TypographyH3 className="mt-2">Ready to clean up your inbox</TypographyH3>
 
       <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
-        {/* <li>We'll start with 20 emails as a test run</li> */}
-        <li>Full process takes approximately {estimatedTime}</li>
+        <li>We'll start with {TEST_RUN_COUNT} emails as a test run</li>
+        {/* TODO: we should count only emails we're processing */}
+        {/* <li>
+          The full process to handle {unhandledCount} emails will take
+          approximately {estimatedTime}
+        </li> */}
         <li>
-          All archived emails will be labeled as{" "}
-          <Badge color="green">Archived</Badge> so you can find them later or
-          restore them
+          {action === CleanAction.ARCHIVE ? (
+            <>
+              Emails we archive will be labeled as{" "}
+              <Badge color="green">Archived</Badge>
+            </>
+          ) : (
+            <>
+              Emails we mark as read will be labeled as{" "}
+              <Badge color="green">Read</Badge>
+            </>
+          )}{" "}
+          so you can find them later or restore them
         </li>
         <li>No emails are deleted - everything can be found in search</li>
       </ul>
 
       <div className="mt-6">
         <Button size="lg" onClick={handleStartCleaning}>
-          Start Cleaning
+          Start Test Run
         </Button>
       </div>
     </div>
