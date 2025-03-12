@@ -27,6 +27,13 @@ export function TestBatchCompleted({
       daysOld: job.daysOld,
       instructions: job.instructions || "",
       action: job.action,
+      skips: {
+        skipReply: job.skipReply,
+        skipStarred: job.skipStarred,
+        skipCalendar: job.skipCalendar,
+        skipReceipt: job.skipReceipt,
+        skipAttachment: job.skipAttachment,
+      },
     });
 
     if (isActionError(result)) {

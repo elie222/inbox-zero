@@ -382,15 +382,20 @@ model ThreadTracker {
 }
 
 model CleanupJob {
-  id           String          @id @default(cuid())
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
-  action       CleanAction     @default(ARCHIVE)
-  daysOld      Int             @default(7)
-  instructions String?
-  userId       String
-  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  threads      CleanupThread[]
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  action         CleanAction     @default(ARCHIVE)
+  daysOld        Int             @default(7)
+  instructions   String?
+  skipReply      Boolean?
+  skipStarred    Boolean?
+  skipCalendar   Boolean?
+  skipReceipt    Boolean?
+  skipAttachment Boolean?
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threads        CleanupThread[]
 }
 
 model CleanupThread {

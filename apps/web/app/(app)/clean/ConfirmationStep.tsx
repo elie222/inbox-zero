@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+// import { useMemo } from "react";
 import Image from "next/image";
 import {
   parseAsInteger,
@@ -16,6 +16,7 @@ import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
+import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
 
 const TEST_RUN_COUNT = 50;
 
@@ -34,6 +35,7 @@ export function ConfirmationStep({
   );
   const [timeRange] = useQueryState("timeRange", parseAsInteger);
   const [instructions] = useQueryState("instructions", parseAsString);
+  const [skips] = useSkipSettings();
 
   // const estimatedTime = useMemo(() => {
   //   if (!unhandledCount) return "calculating...";
@@ -58,6 +60,7 @@ export function ConfirmationStep({
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
       maxEmails: TEST_RUN_COUNT,
+      skips,
     });
 
     if (isActionError(result)) {

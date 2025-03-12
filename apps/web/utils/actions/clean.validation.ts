@@ -8,6 +8,13 @@ export const cleanInboxSchema = z.object({
     .enum([CleanAction.ARCHIVE, CleanAction.MARK_READ])
     .default(CleanAction.ARCHIVE),
   maxEmails: z.number().optional(),
+  skips: z.object({
+    skipReply: z.boolean().default(true).nullish(),
+    skipStarred: z.boolean().default(true).nullish(),
+    skipCalendar: z.boolean().default(true).nullish(),
+    skipReceipt: z.boolean().default(false).nullish(),
+    skipAttachment: z.boolean().default(false).nullish(),
+  }),
 });
 
 export type CleanInboxBody = z.infer<typeof cleanInboxSchema>;
