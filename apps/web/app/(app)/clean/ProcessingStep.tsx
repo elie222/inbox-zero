@@ -1,7 +1,7 @@
 import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardTitle } from "@/components/ui/card";
 
 export async function ProcessingStep({
   userId,
@@ -14,19 +14,13 @@ export async function ProcessingStep({
 }) {
   const threads = await getThreadsByJobId(userId, jobId);
 
+  if (!jobId) return <CardTitle>No job ID</CardTitle>;
+
   const job = await prisma.cleanupJob.findUnique({
     where: { id: jobId, userId },
   });
 
-  if (!job) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Job not found</CardTitle>
-        </CardHeader>
-      </Card>
-    );
-  }
+  if (!job) return <CardTitle>Job not found</CardTitle>;
 
   const [total, archived] = await Promise.all([
     prisma.cleanupThread.count({ where: { jobId, userId } }),
