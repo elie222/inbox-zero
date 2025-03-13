@@ -1,4 +1,4 @@
-import { Client, type HeadersInit } from "@upstash/qstash";
+import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { SafeError } from "@/utils/error";
@@ -15,11 +15,7 @@ function getQstashClient() {
 export async function publishToQstash(
   path: string,
   body: any,
-  flowControl?: {
-    key: string;
-    ratePerSecond?: number;
-    parallelism?: number;
-  },
+  flowControl?: FlowControl,
 ) {
   const client = getQstashClient();
   const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${path}`;
@@ -45,11 +41,7 @@ export async function bulkPublishToQstash({
   items: {
     url: string;
     body: any;
-    flowControl?: {
-      key: string;
-      ratePerSecond?: number;
-      parallelism?: number;
-    };
+    flowControl?: FlowControl;
   }[];
 }) {
   const client = getQstashClient();
