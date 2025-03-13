@@ -13,6 +13,7 @@ import {
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
+import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
 export function PreviewBatch({ job }: { job: CleanupJob }) {
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
@@ -45,6 +46,10 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
           We processed {total} emails. {archived} were{" "}
           {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
         </CardDescription> */}
+        <CardDescription>
+          We're cleaning up {PREVIEW_RUN_COUNT} emails so you can see how it
+          works.
+        </CardDescription>
         <CardDescription>
           To undo any, hover over the "
           {job.action === CleanAction.ARCHIVE ? "Archive" : "Mark as read"}"
