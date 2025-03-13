@@ -18,7 +18,7 @@ const cleanGmailSchema = z.object({
   threadId: z.string(),
   markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
-  labelId: z.string().optional(),
+  // labelId: z.string().optional(),
   markedDoneLabelId: z.string().optional(),
   processedLabelId: z.string().optional(),
   jobId: z.string(),
@@ -29,7 +29,7 @@ async function performGmailAction({
   userId,
   threadId,
   markDone,
-  labelId,
+  // labelId,
   markedDoneLabelId,
   processedLabelId,
   jobId,
@@ -53,8 +53,9 @@ async function performGmailAction({
   const shouldMarkAsRead = markDone && action === CleanAction.MARK_READ;
 
   const addLabelIds = [
-    markDone ? markedDoneLabelId : processedLabelId,
-    labelId,
+    processedLabelId,
+    markDone ? markedDoneLabelId : undefined,
+    // labelId,
   ].filter(isDefined);
   const removeLabelIds = [
     shouldArchive ? GmailLabel.INBOX : undefined,
