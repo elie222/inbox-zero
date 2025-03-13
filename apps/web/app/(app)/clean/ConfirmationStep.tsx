@@ -88,7 +88,11 @@ export function ConfirmationStep({
       <TypographyH3 className="mt-2">Ready to clean up your inbox</TypographyH3>
 
       <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
-        <li>We'll start with {TEST_RUN_COUNT} emails as a test run</li>
+        <li>We'll process {TEST_RUN_COUNT} emails in an initial clean up.</li>
+        <li>
+          If you're happy with the results, we'll continue to process the rest
+          of your inbox.
+        </li>
         {/* TODO: we should count only emails we're processing */}
         {/* <li>
           The full process to handle {unhandledCount} emails will take
@@ -97,23 +101,23 @@ export function ConfirmationStep({
         <li>
           {action === CleanAction.ARCHIVE ? (
             <>
-              Emails we archive will be labeled as{" "}
+              Emails we archive will be labeled{" "}
               <Badge color="green">Archived</Badge>
             </>
           ) : (
             <>
-              Emails we mark as read will be labeled as{" "}
+              Emails we mark as read will be labeled{" "}
               <Badge color="green">Read</Badge>
             </>
           )}{" "}
-          so you can find them later or restore them
+          so you can find them later or restore them.
         </li>
-        <li>No emails are deleted - everything can be found in search</li>
+        <li>No emails are deleted - everything can be found in search.</li>
       </ul>
 
       <div className="mt-6">
         <Button size="lg" onClick={handleStartCleaning}>
-          Start Test Run
+          Start Cleaning
         </Button>
       </div>
     </div>
