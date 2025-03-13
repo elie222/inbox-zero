@@ -32,7 +32,7 @@ export default async function CleanRunPage({
   ]);
 
   return (
-    <div className="my-4 max-w-2xl sm:mx-4 md:mx-auto">
+    <div className="mx-auto my-4 w-full max-w-2xl px-4">
       {isPreviewBatch && (
         <PreviewBatchCompleted total={total} archived={archived} job={job} />
       )}

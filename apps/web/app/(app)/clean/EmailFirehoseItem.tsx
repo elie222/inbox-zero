@@ -120,7 +120,8 @@ function StatusBadge({
 
               const result = await undoCleanInboxAction({
                 threadId: email.threadId,
-                archived: !!email.archive,
+                markedDone: !!email.archive,
+                action,
               });
 
               if (isActionError(result)) {
