@@ -225,6 +225,32 @@ export function Rules() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={async () => {
+                                const result = await setRuleEnabledAction({
+                                  ruleId: rule.id,
+                                  enabled: !rule.enabled,
+                                });
+
+                                if (isActionError(result)) {
+                                  toastError({
+                                    description: `There was an error ${
+                                      rule.enabled ? "disabling" : "enabling"
+                                    } your rule. ${result.error}`,
+                                  });
+                                } else {
+                                  toastSuccess({
+                                    description: `Rule ${
+                                      rule.enabled ? "disabled" : "enabled"
+                                    }!`,
+                                  });
+                                }
+
+                                mutate();
+                              }}
+                            >
+                              {rule.enabled ? "Disable" : "Enable"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={async () => {
                                 const yes = confirm(
                                   "Are you sure you want to delete this rule?",
                                 );
