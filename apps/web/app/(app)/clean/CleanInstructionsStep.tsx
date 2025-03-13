@@ -36,38 +36,38 @@ export function CleanInstructionsStep() {
 
   return (
     <div className="text-center">
-      <TypographyH3>Any emails you want us to skip?</TypographyH3>
+      <TypographyH3>Which emails should stay in your inbox?</TypographyH3>
 
       <div className="mt-4 grid gap-4">
         <Toggle
           name="reply"
           enabled={skipStates.skipReply}
           onChange={(value) => setSkipStates({ skipReply: value })}
-          labelRight="Skip emails needing replies"
+          labelRight="Emails needing replies"
         />
         <Toggle
           name="starred"
           enabled={skipStates.skipStarred}
           onChange={(value) => setSkipStates({ skipStarred: value })}
-          labelRight="Skip starred emails"
+          labelRight="Starred emails"
         />
         <Toggle
           name="calendar"
           enabled={skipStates.skipCalendar}
           onChange={(value) => setSkipStates({ skipCalendar: value })}
-          labelRight="Skip future events"
+          labelRight="Future events"
         />
         <Toggle
           name="receipt"
           enabled={skipStates.skipReceipt}
           onChange={(value) => setSkipStates({ skipReceipt: value })}
-          labelRight="Skip receipts"
+          labelRight="Receipts"
         />
         <Toggle
           name="attachment"
           enabled={skipStates.skipAttachment}
           onChange={(value) => setSkipStates({ skipAttachment: value })}
-          labelRight="Skip anything with an attachment"
+          labelRight="Emails with attachments"
         />
       </div>
 
