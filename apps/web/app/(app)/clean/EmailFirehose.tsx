@@ -98,7 +98,7 @@ export function EmailFirehose({
           </div>
         </TabsContent>
         <TabsContent value="stats">
-          <EmailStats stats={stats} />
+          <EmailStats stats={stats} action={action} />
         </TabsContent>
       </Tabs>
 

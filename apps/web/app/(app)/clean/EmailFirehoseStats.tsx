@@ -1,36 +1,17 @@
 import { ArchiveIcon, InboxIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/utils";
-
-function Progress({
-  value,
-  className,
-  indicatorClassName,
-}: {
-  value: number;
-  className: string;
-  indicatorClassName: string;
-}) {
-  return (
-    <div className={cn("relative h-2 rounded-full bg-gray-200", className)}>
-      <div
-        className={cn(
-          "absolute inset-0 rounded-full bg-blue-500",
-          indicatorClassName,
-        )}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-}
+import { CleanAction } from "@prisma/client";
 
 export function EmailStats({
   stats,
+  action,
 }: {
   stats: {
     total: number;
     archived: number;
   };
+  action: CleanAction;
 }) {
   const inboxCount = stats.total - stats.archived;
 
@@ -43,7 +24,7 @@ export function EmailStats({
       color: "bg-blue-500",
     },
     {
-      label: "Archived",
+      label: action === CleanAction.ARCHIVE ? "Archived" : "Marked as read",
       value: stats.archived,
       percentage: stats.total > 0 ? (stats.archived / stats.total) * 100 : 0,
       icon: ArchiveIcon,
@@ -87,6 +68,28 @@ export function EmailStats({
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Progress({
+  value,
+  className,
+  indicatorClassName,
+}: {
+  value: number;
+  className: string;
+  indicatorClassName: string;
+}) {
+  return (
+    <div className={cn("relative h-2 rounded-full bg-gray-200", className)}>
+      <div
+        className={cn(
+          "absolute inset-0 rounded-full bg-blue-500",
+          indicatorClassName,
+        )}
+        style={{ width: `${value}%` }}
+      />
     </div>
   );
 }
