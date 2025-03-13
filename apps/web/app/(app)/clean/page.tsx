@@ -1,27 +1,22 @@
-import { Suspense } from "react";
 import { Card } from "@/components/ui/card";
-import { cn } from "@/utils";
 import { CleanStep } from "./types";
 import { IntroStep } from "@/app/(app)/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/clean/ActionSelectionStep";
 import { CleanInstructionsStep } from "@/app/(app)/clean/CleanInstructionsStep";
 import { TimeRangeStep } from "@/app/(app)/clean/TimeRangeStep";
 import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
-import { ProcessingStep } from "@/app/(app)/clean/ProcessingStep";
 import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getInboxCount, getUnreadCount } from "@/utils/assess";
-import { Loading } from "@/components/Loading";
 
 export default async function CleanPage({
   searchParams,
 }: {
-  searchParams: { step: string; jobId: string; isPreviewBatch: string };
+  searchParams: { step: string };
 }) {
   const step = searchParams.step
     ? Number.parseInt(searchParams.step)
     : CleanStep.INTRO;
-  const jobId = searchParams.jobId;
 
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
@@ -44,18 +39,6 @@ export default async function CleanPage({
 
       case CleanStep.FINAL_CONFIRMATION:
         return <ConfirmationStep unhandledCount={unhandledCount} />;
-
-      case CleanStep.PROCESSING:
-        return (
-          <Suspense fallback={<Loading />}>
-            <ProcessingStep
-              userId={session.user.id}
-              jobId={jobId}
-              userEmail={session.user.email || ""}
-              isPreviewBatch={searchParams.isPreviewBatch}
-            />
-          </Suspense>
-        );
 
       // first / default step
       default:

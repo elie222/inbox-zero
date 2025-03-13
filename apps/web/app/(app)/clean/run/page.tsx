@@ -1,20 +1,21 @@
 import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
-import { CardTitle } from "@/components/ui/card";
+import { Card, CardTitle } from "@/components/ui/card";
 import { PreviewBatchCompleted } from "@/app/(app)/clean/PreviewBatchCompleted";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export async function ProcessingStep({
-  userId,
-  jobId,
-  userEmail,
-  isPreviewBatch,
+export default async function CleanRunPage({
+  searchParams: { jobId, isPreviewBatch },
 }: {
-  userId: string;
-  jobId: string;
-  userEmail: string;
-  isPreviewBatch?: string;
+  searchParams: { jobId: string; isPreviewBatch: string };
 }) {
+  const session = await auth();
+  if (!session?.user.email) return <div>Not authenticated</div>;
+
+  const userId = session.user.id;
+  const userEmail = session.user.email;
+
   const threads = await getThreadsByJobId(userId, jobId);
 
   if (!jobId) return <CardTitle>No job ID</CardTitle>;
@@ -31,16 +32,18 @@ export async function ProcessingStep({
   ]);
 
   return (
-    <>
+    <div className="my-4 max-w-2xl sm:mx-4 md:mx-auto">
       {isPreviewBatch && (
         <PreviewBatchCompleted total={total} archived={archived} job={job} />
       )}
-      <EmailFirehose
-        threads={threads.filter((t) => t.status !== "processing")}
-        stats={{ total, archived }}
-        userEmail={userEmail}
-        action={job.action}
-      />
-    </>
+      <Card className="p-6">
+        <EmailFirehose
+          threads={threads.filter((t) => t.status !== "processing")}
+          stats={{ total, archived }}
+          userEmail={userEmail}
+          action={job.action}
+        />
+      </Card>
+    </div>
   );
 }

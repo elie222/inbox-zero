@@ -1,9 +1,8 @@
 "use client";
 
-// import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
-  parseAsBoolean,
   parseAsInteger,
   parseAsString,
   parseAsStringEnum,
@@ -12,7 +11,6 @@ import {
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
-import { useStep } from "@/app/(app)/clean/useStep";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
@@ -26,10 +24,7 @@ export function ConfirmationStep({
 }: {
   unhandledCount: number;
 }) {
-  const { onNext } = useStep();
-  const [, setJobId] = useQueryState("jobId", parseAsString);
-  const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
-
+  const router = useRouter();
   // values from previous steps
   const [action] = useQueryState(
     "action",
@@ -76,10 +71,7 @@ export function ConfirmationStep({
       return;
     }
 
-    setJobId(result.jobId);
-    setIsPreviewBatch(true);
-
-    onNext();
+    router.push(`/clean/run?jobId=${result.jobId}&isPreviewBatch=true`);
   };
 
   return (
