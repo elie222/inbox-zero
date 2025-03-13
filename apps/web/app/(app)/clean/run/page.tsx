@@ -2,7 +2,7 @@ import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
 import { Card, CardTitle } from "@/components/ui/card";
-import { PreviewBatchCompleted } from "@/app/(app)/clean/PreviewBatchCompleted";
+import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export default async function CleanRunPage({
@@ -33,9 +33,7 @@ export default async function CleanRunPage({
 
   return (
     <div className="mx-auto my-4 w-full max-w-2xl px-4">
-      {isPreviewBatch && (
-        <PreviewBatchCompleted total={total} archived={archived} job={job} />
-      )}
+      {isPreviewBatch === "true" && <PreviewBatch job={job} />}
       <Card className="p-6">
         <EmailFirehose
           threads={threads.filter((t) => t.status !== "processing")}

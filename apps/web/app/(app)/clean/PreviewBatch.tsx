@@ -13,17 +13,8 @@ import {
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
-import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
-export function PreviewBatchCompleted({
-  total,
-  archived,
-  job,
-}: {
-  total: number;
-  archived: number;
-  job: CleanupJob;
-}) {
+export function PreviewBatch({ job }: { job: CleanupJob }) {
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
   const handleRunOnFullInbox = async () => {
     setIsPreviewBatch(false);
@@ -46,16 +37,14 @@ export function PreviewBatchCompleted({
     }
   };
 
-  const disableRunOnFullInbox = total < PREVIEW_RUN_COUNT;
-
   return (
     <CardGreen className="mb-4">
       <CardHeader>
         <CardTitle>Preview run</CardTitle>
-        <CardDescription>
+        {/* <CardDescription>
           We processed {total} emails. {archived} were{" "}
           {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
-        </CardDescription>
+        </CardDescription> */}
         <CardDescription>
           To undo any, hover over the "
           {job.action === CleanAction.ARCHIVE ? "Archive" : "Mark as read"}"
@@ -63,14 +52,12 @@ export function PreviewBatchCompleted({
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
-        <Button onClick={handleRunOnFullInbox} disabled={disableRunOnFullInbox}>
-          Run on Full Inbox
-        </Button>
-        {disableRunOnFullInbox && (
+        <Button onClick={handleRunOnFullInbox}>Run on Full Inbox</Button>
+        {/* {disableRunOnFullInbox && (
           <CardDescription className="font-semibold">
             All emails have been processed
           </CardDescription>
-        )}
+        )} */}
       </CardContent>
     </CardGreen>
   );
