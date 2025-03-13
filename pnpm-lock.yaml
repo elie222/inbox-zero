@@ -281,11 +281,11 @@ importers:
         specifier: ^3.18.6
         version: 3.18.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@upstash/qstash':
-        specifier: ^2.7.20
-        version: 2.7.20
+        specifier: 2.7.22
+        version: 2.7.22
       '@upstash/redis':
-        specifier: ^1.34.3
-        version: 1.34.3
+        specifier: 1.34.5
+        version: 1.34.5
       '@vercel/analytics':
         specifier: ^1.4.1
         version: 1.4.1(next@14.2.15(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(svelte@4.2.12)(vue@3.4.19(typescript@5.7.2))
@@ -5763,11 +5763,11 @@ packages:
   '@ungap/structured-clone@1.2.0':
     resolution: {integrity: sha512-zuVdFrMJiuCDQUMCzQaD6KL28MjnqqN8XnAqiEq9PNm/hCPTSGfrXCOfwj1ow4LFb/tNymJPwsNbVePc1xFqrQ==}
 
-  '@upstash/qstash@2.7.20':
-    resolution: {integrity: sha512-fdh5df4BuJwSUhXv33g/Eaj7gG+fu3tBoXyGE5hg4zEZX9fwUY/nuc0uDlLWh54L66JfMdESVOjIaiLa1cgL1Q==}
+  '@upstash/qstash@2.7.22':
+    resolution: {integrity: sha512-JFmISZd9U3hTI03ZNLBKrel3r61ojp+ZejBio9ECUAPAdDK8sU5nwXq/drkM1M789a8KFsZ2nKSOKY4gxI8DoQ==}
 
-  '@upstash/redis@1.34.3':
-    resolution: {integrity: sha512-VT25TyODGy/8ljl7GADnJoMmtmJ1F8d84UXfGonRRF8fWYJz7+2J6GzW+a6ETGtk4OyuRTt7FRSvFG5GvrfSdQ==}
+  '@upstash/redis@1.34.5':
+    resolution: {integrity: sha512-ZsYy1AX89OWQIGGQcO8CDBoWyLuVuvuJdjLKfj5WYxnhzYBzYb8E26gbvLO1lVlhVBAIuFX/k0LNjtv7wn2bcQ==}
 
   '@vercel/analytics@1.4.1':
     resolution: {integrity: sha512-ekpL4ReX2TH3LnrRZTUKjHHNpNy9S1I7QmS+g/RQXoSUQ8ienzosuX7T9djZ/s8zPhBx1mpHP/Rw5875N+zQIQ==}
@@ -18438,13 +18438,13 @@ snapshots:
 
   '@ungap/structured-clone@1.2.0': {}
 
-  '@upstash/qstash@2.7.20':
+  '@upstash/qstash@2.7.22':
     dependencies:
       crypto-js: 4.2.0
       jose: 5.9.6
       neverthrow: 7.2.0
 
-  '@upstash/redis@1.34.3':
+  '@upstash/redis@1.34.5':
     dependencies:
       crypto-js: 4.2.0
 
