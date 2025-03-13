@@ -13,8 +13,7 @@ import {
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
-
-const PREVIEW_RUN_COUNT = 50;
+import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
 export function PreviewBatchCompleted({
   total,
@@ -47,10 +46,12 @@ export function PreviewBatchCompleted({
     }
   };
 
+  const disableRunOnFullInbox = total < PREVIEW_RUN_COUNT;
+
   return (
     <CardGreen className="mb-4">
       <CardHeader>
-        <CardTitle>Batch completed</CardTitle>
+        <CardTitle>Preview run</CardTitle>
         <CardDescription>
           We processed {total} emails. {archived} were{" "}
           {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
@@ -61,12 +62,13 @@ export function PreviewBatchCompleted({
           badge and click undo.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        {total >= PREVIEW_RUN_COUNT ? (
-          <Button onClick={handleRunOnFullInbox}>Run on Full Inbox</Button>
-        ) : (
-          <CardDescription>
-            All emails have been processed. No more emails to process.
+      <CardContent className="flex items-center gap-4">
+        <Button onClick={handleRunOnFullInbox} disabled={disableRunOnFullInbox}>
+          Run on Full Inbox
+        </Button>
+        {disableRunOnFullInbox && (
+          <CardDescription className="font-semibold">
+            All emails have been processed
           </CardDescription>
         )}
       </CardContent>

@@ -16,8 +16,7 @@ import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
-
-const TEST_RUN_COUNT = 50;
+import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
 export function ConfirmationStep({
   unhandledCount,
@@ -56,7 +55,7 @@ export function ConfirmationStep({
       daysOld: timeRange ?? 7,
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
-      maxEmails: TEST_RUN_COUNT,
+      maxEmails: PREVIEW_RUN_COUNT,
       skips: {
         reply: skips.skipReply,
         starred: skips.skipStarred,
@@ -88,7 +87,9 @@ export function ConfirmationStep({
       <TypographyH3 className="mt-2">Ready to clean up your inbox</TypographyH3>
 
       <ul className="mx-auto mt-4 max-w-prose list-disc space-y-2 pl-4 text-left">
-        <li>We'll process {TEST_RUN_COUNT} emails in an initial clean up.</li>
+        <li>
+          We'll process {PREVIEW_RUN_COUNT} emails in an initial clean up.
+        </li>
         <li>
           If you're happy with the results, we'll continue to process the rest
           of your inbox.
