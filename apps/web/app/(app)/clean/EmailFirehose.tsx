@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { EmailStats } from "./EmailFirehoseStats";
-import { useEmailStream } from "./use-email-stream";
+import { useEmailStream } from "./useEmailStream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { CleanAction } from "@prisma/client";
