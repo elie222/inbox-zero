@@ -93,8 +93,7 @@ export function CleanInstructionsStep() {
             registerProps={register("instructions")}
             placeholder={`Example:
 
-I work as a freelance designer. Label emails from clients as "Freelance".
-Don't archive emails needing a reply.`}
+I work as a freelance designer. Don't archive emails from clients.`}
             error={errors.instructions}
           />
         </div>
