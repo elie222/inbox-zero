@@ -20,10 +20,16 @@ export function EmailItem({
   email,
   userEmail,
   action,
+  undoState,
+  setUndoing,
+  setUndone,
 }: {
   email: CleanThread;
   userEmail: string;
   action: CleanAction;
+  undoState?: "undoing" | "undone";
+  setUndoing: (threadId: string) => void;
+  setUndone: (threadId: string) => void;
 }) {
   const status = getStatus(email);
   const pending = isPending(email);
@@ -57,7 +63,14 @@ export function EmailItem({
       </div>
 
       <div className="ml-2 flex items-center space-x-2">
-        <StatusBadge status={status} email={email} action={action} />
+        <StatusBadge
+          status={status}
+          email={email}
+          action={action}
+          undoState={undoState}
+          setUndoing={setUndoing}
+          setUndone={setUndone}
+        />
       </div>
     </div>
   );
@@ -80,18 +93,22 @@ function StatusBadge({
   status,
   email,
   action,
+  undoState,
+  setUndoing,
+  setUndone,
 }: {
   status: Status;
   email: CleanThread;
   action: CleanAction;
+  undoState?: "undoing" | "undone";
+  setUndoing: (threadId: string) => void;
+  setUndone: (threadId: string) => void;
 }) {
-  const [undone, setUndone] = useState<"undoing" | "undone">();
-
-  if (undone === "undoing") {
+  if (undoState === "undoing") {
     return <Badge color="purple">Undoing...</Badge>;
   }
 
-  if (undone === "undone") {
+  if (undoState === "undone") {
     return <Badge color="purple">Undone</Badge>;
   }
 
@@ -114,9 +131,9 @@ function StatusBadge({
             size="xs"
             variant="ghost"
             onClick={async () => {
-              if (undone) return;
+              if (undoState) return;
 
-              setUndone("undoing");
+              setUndoing(email.threadId);
 
               const result = await undoCleanInboxAction({
                 threadId: email.threadId,
@@ -127,7 +144,7 @@ function StatusBadge({
               if (isActionError(result)) {
                 toastError({ description: result.error });
               } else {
-                setUndone("undone");
+                setUndone(email.threadId);
               }
             }}
           >

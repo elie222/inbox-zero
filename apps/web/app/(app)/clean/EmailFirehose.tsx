@@ -32,6 +32,10 @@ export function EmailFirehose({
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
   const [filter, setFilter] = useQueryState("filter", parseAsString);
+  // Track undo state for all threads
+  const [undoStates, setUndoStates] = useState<
+    Record<string, "undoing" | "undone">
+  >({});
 
   const { emails, togglePause } = useEmailStream(isPaused, threads, filter);
 
@@ -107,6 +111,19 @@ export function EmailFirehose({
                       email={emails[virtualItem.index]}
                       userEmail={userEmail}
                       action={action}
+                      undoState={undoStates[emails[virtualItem.index].threadId]}
+                      setUndoing={(threadId) => {
+                        setUndoStates((prev) => ({
+                          ...prev,
+                          [threadId]: "undoing",
+                        }));
+                      }}
+                      setUndone={(threadId) => {
+                        setUndoStates((prev) => ({
+                          ...prev,
+                          [threadId]: "undone",
+                        }));
+                      }}
                     />
                   </div>
                 ))}
