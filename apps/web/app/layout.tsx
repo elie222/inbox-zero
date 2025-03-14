@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Analytics } from "@vercel/analytics/react";
+// import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Inter } from "next/font/google";
@@ -89,7 +89,7 @@ export default async function RootLayout({
           </Suspense>
           <GlobalProviders>{children}</GlobalProviders>
         </PostHogProvider>
-        <Analytics />
+        {/* <Analytics /> */}
         <AxiomWebVitals />
         <UTM />
         {env.NEXT_PUBLIC_GTM_ID ? (
