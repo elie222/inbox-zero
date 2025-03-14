@@ -12,7 +12,7 @@ import { EmailStats } from "./EmailFirehoseStats";
 import { useEmailStream } from "./use-email-stream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
-import type { CleanAction } from "@prisma/client";
+import { CleanAction } from "@prisma/client";
 
 export function EmailFirehose({
   threads,
@@ -127,16 +127,18 @@ export function EmailFirehose({
         <div className="flex items-center space-x-4">
           <div className="flex items-center">
             <div className="mr-1 size-3 rounded-full bg-blue-500" />
-            <span>Inbox</span>
+            <span>Keep</span>
           </div>
           <div className="flex items-center">
             <div className="mr-1 size-3 rounded-full bg-green-500" />
-            <span>Archived</span>
+            <span>
+              {action === CleanAction.ARCHIVE ? "Archived" : "Marked read"}
+            </span>
           </div>
-          <div className="flex items-center">
+          {/* <div className="flex items-center">
             <div className="mr-1 size-3 rounded-full bg-yellow-500" />
             <span>Labeled</span>
-          </div>
+          </div> */}
         </div>
         <div>Processed: {stats.total} emails</div>
       </div>
