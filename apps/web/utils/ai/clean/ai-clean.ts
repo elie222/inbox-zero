@@ -57,7 +57,7 @@ ${
 }
 
 ${skips.reply ? "Do not archive emails that the user needs to reply to. Social media updates, GitHub issues, LinkedIn messages, Facebook messages, marketing, and newsletters do not need to be replied to." : ""}
-${skips.receipt ? "Do not archive emails that are receipts." : ""}
+${skips.receipt ? "Do not archive emails that are receipts, payments, or invoices." : ""}
 
 The message to analyze:
 
