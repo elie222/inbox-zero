@@ -8,8 +8,8 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { saveCleanResult } from "@/app/api/clean/save-result";
 import { CleanAction } from "@prisma/client";
+import { updateThread } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("api/clean/gmail");
 
@@ -76,6 +76,49 @@ async function performGmailAction({
     threadId,
     markDone,
     jobId,
+  });
+}
+
+async function saveCleanResult({
+  userId,
+  threadId,
+  markDone,
+  jobId,
+}: {
+  userId: string;
+  threadId: string;
+  markDone: boolean;
+  jobId: string;
+}) {
+  await Promise.all([
+    updateThread(userId, jobId, threadId, { status: "completed" }),
+    saveToDatabase({
+      userId,
+      threadId,
+      archive: markDone,
+      jobId,
+    }),
+  ]);
+}
+
+async function saveToDatabase({
+  userId,
+  threadId,
+  archive,
+  jobId,
+}: {
+  userId: string;
+  threadId: string;
+  archive: boolean;
+  jobId: string;
+}) {
+  await prisma.cleanupThread.create({
+    data: {
+      userId,
+      threadId,
+      archived: archive,
+      jobId,
+    },
   });
 }
 

@@ -18,7 +18,6 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceipt } from "@/utils/ai/group/find-receipts";
 import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
-import { saveCleanResult } from "@/app/api/clean/save-result";
 import { CleanAction } from "@prisma/client";
 
 const logger = createScopedLogger("api/clean");
@@ -209,16 +208,6 @@ function getPublish({
       processedLabelId,
       jobId,
     };
-
-    // TODO: it might need labelling and then we do need to push to qstash gmail action
-    if (!markDone) {
-      return await saveCleanResult({
-        userId,
-        threadId,
-        markDone,
-        jobId,
-      });
-    }
 
     logger.info("Publishing to Qstash", {
       userId,
