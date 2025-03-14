@@ -270,6 +270,25 @@ export function EmailList({
     }, 100);
   }
 
+  function advanceToAdjacentThread() {
+    const openedRowIndex = threads.findIndex(
+      (thread) => thread.id === openThreadId,
+    );
+
+    if (openedRowIndex === -1 || threads.length === 0 || threads.length === 1) {
+      closePanel();
+      return;
+    }
+
+    const rowIndex =
+      openedRowIndex < threads.length - 1
+        ? openedRowIndex + 1
+        : openedRowIndex - 1;
+
+    const prevOrNextRowId = threads[rowIndex].id;
+    setOpenThreadId(prevOrNextRowId);
+  }
+
   const { executingPlan, rejectingPlan, executePlan, rejectPlan } =
     useExecutePlan(refetch);
 
@@ -491,6 +510,7 @@ export function EmailList({
                 row={openedRow}
                 onPlanAiAction={onPlanAiAction}
                 onArchive={onArchive}
+                advanceToAdjacentThread={advanceToAdjacentThread}
                 close={closePanel}
                 executePlan={executePlan}
                 rejectPlan={rejectPlan}

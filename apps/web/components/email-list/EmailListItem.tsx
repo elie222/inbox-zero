@@ -35,7 +35,6 @@ export const EmailListItem = forwardRef(
       onSelected: (id: string) => void;
       onPlanAiAction: (thread: Thread) => void;
       onArchive: (thread: Thread) => void;
-
       executingPlan: boolean;
       rejectingPlan: boolean;
       executePlan: (thread: Thread) => Promise<void>;
