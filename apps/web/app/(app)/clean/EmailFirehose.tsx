@@ -62,7 +62,7 @@ export function EmailFirehose({
     setUserHasScrolled(false);
   }, [tab]);
 
-  // Modified auto-scroll behavior
+  // Modified auto-scroll behavior - now scrolls to bottom for new items
   useEffect(() => {
     if (
       !isPaused &&
@@ -71,7 +71,7 @@ export function EmailFirehose({
       emails.length > 0 &&
       !userHasScrolled
     ) {
-      virtualizer.scrollToIndex(0, { align: "start" });
+      virtualizer.scrollToIndex(emails.length - 1, { align: "end" });
     }
   }, [isPaused, tab, emails.length, virtualizer, userHasScrolled]);
 

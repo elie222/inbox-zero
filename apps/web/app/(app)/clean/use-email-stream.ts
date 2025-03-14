@@ -77,10 +77,10 @@ export function useEmailStream(
             };
           });
 
-          // Update order - add to beginning if new
+          // Update order - add to end if new
           setEmailOrder((prev) => {
             if (!prev.includes(thread.threadId)) {
-              return [thread.threadId, ...prev].slice(0, maxEmails);
+              return [...prev, thread.threadId];
             }
             return prev;
           });
@@ -152,6 +152,6 @@ function createEmailMap(threads: CleanThread[]): Record<string, CleanThread> {
 function getSortedThreadIds(threads: CleanThread[]): string[] {
   return threads
     .slice()
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
     .map((thread) => thread.threadId);
 }
