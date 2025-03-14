@@ -114,7 +114,7 @@ export const cleanInboxAction = withActionInstrumentation(
 
       let totalEmailsProcessed = 0;
 
-      const query = `older_than:${data.daysOld}d -in:"${inboxZeroLabels.processed.name}" in:inbox`;
+      const query = `${data.daysOld ? `older_than:${data.daysOld}d ` : ""}-in:"${inboxZeroLabels.processed.name}"`;
 
       do {
         // fetch all emails from the user's inbox
@@ -122,7 +122,10 @@ export const cleanInboxAction = withActionInstrumentation(
           await getThreadsWithNextPageToken({
             gmail,
             q: query,
-            labelIds: [GmailLabel.INBOX],
+            labelIds:
+              data.action === CleanAction.ARCHIVE
+                ? [GmailLabel.INBOX]
+                : [GmailLabel.INBOX, GmailLabel.UNREAD],
             maxResults: Math.min(data.maxEmails || 100, 100),
           });
 
