@@ -3,6 +3,8 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 import { RedisSubscriber } from "@/utils/redis/subscriber";
 
+export const maxDuration = 300;
+
 const logger = createScopedLogger("email-stream");
 
 // 5 minutes in milliseconds
