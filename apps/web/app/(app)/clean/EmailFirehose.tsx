@@ -29,6 +29,7 @@ export function EmailFirehose({
   action: CleanAction;
 }) {
   const [isPaused, setIsPaused] = useState(false);
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
 
   const { emails, togglePause } = useEmailStream(isPaused, threads);
@@ -48,12 +49,31 @@ export function EmailFirehose({
   //   togglePause();
   // };
 
-  // Auto-scroll based on display order
+  // Handle scroll events to detect user interaction
+  const handleScroll = () => {
+    if (!userHasScrolled) {
+      setUserHasScrolled(true);
+    }
+  };
+
+  // Reset userHasScrolled when switching tabs
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We want to reset scroll state when tab changes
   useEffect(() => {
-    if (!isPaused && tab === "feed" && parentRef.current && emails.length > 0) {
+    setUserHasScrolled(false);
+  }, [tab]);
+
+  // Modified auto-scroll behavior
+  useEffect(() => {
+    if (
+      !isPaused &&
+      tab === "feed" &&
+      parentRef.current &&
+      emails.length > 0 &&
+      !userHasScrolled
+    ) {
       virtualizer.scrollToIndex(0, { align: "start" });
     }
-  }, [isPaused, tab, emails.length, virtualizer]);
+  }, [isPaused, tab, emails.length, virtualizer, userHasScrolled]);
 
   return (
     <div className="flex flex-col space-y-4">
@@ -65,6 +85,7 @@ export function EmailFirehose({
         <TabsContent value="feed">
           <div
             ref={parentRef}
+            onScroll={handleScroll}
             className="mt-2 h-[calc(100vh-300px)] overflow-y-auto rounded-md border bg-muted/20"
           >
             {emails.length > 0 ? (
