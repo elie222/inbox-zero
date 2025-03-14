@@ -30,12 +30,14 @@ export function CleanInstructionsStep() {
   const [skipStates, setSkipStates] = useSkipSettings();
 
   const onSubmit: SubmitHandler<Inputs> = (data) => {
-    setInstructions(data.instructions || "");
+    if (showCustom) {
+      setInstructions(data.instructions || "");
+    }
     onNext();
   };
 
   return (
-    <div className="text-center">
+    <form onSubmit={handleSubmit(onSubmit)} className="text-center">
       <TypographyH3>Which emails should stay in your inbox?</TypographyH3>
 
       <div className="mt-4 grid gap-4">
@@ -72,13 +74,17 @@ export function CleanInstructionsStep() {
       </div>
 
       <div className="mt-4">
-        <Button variant="secondary" onClick={() => setShowCustom(!showCustom)}>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => setShowCustom(!showCustom)}
+        >
           Set Custom Instructions
         </Button>
       </div>
 
       {showCustom && (
-        <form onSubmit={handleSubmit(onSubmit)} className="mt-4">
+        <div className="mt-4">
           <Input
             type="text"
             autosizeTextarea
@@ -91,12 +97,12 @@ I work as a freelance designer. Label emails from clients as "Freelance".
 Don't archive emails needing a reply.`}
             error={errors.instructions}
           />
-        </form>
+        </div>
       )}
 
       <div className="mt-6 flex justify-center">
-        <Button onClick={onNext}>Continue</Button>
+        <Button type="submit">Continue</Button>
       </div>
-    </div>
+    </form>
   );
 }
