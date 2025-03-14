@@ -11,6 +11,7 @@ const coral = "#ffc8af";
 const orange = "#ffdeb5";
 const yellow = "#fdedc1";
 const green = "#b3efd3";
+const gray = "#c2c2c2";
 
 const LABEL_COLORS = [
   blue,
@@ -30,6 +31,11 @@ export const inboxZeroLabels = {
     color: blue,
     messageListVisibility: messageVisibility.hide,
   },
+  marked_read: {
+    name: `${PARENT_LABEL}/Read`,
+    color: blue,
+    messageListVisibility: messageVisibility.hide,
+  },
   cold_email: {
     name: `${PARENT_LABEL}/Cold Email`,
     color: orange,
@@ -44,6 +50,11 @@ export const inboxZeroLabels = {
     name: `${PARENT_LABEL}/Processing`,
     color: yellow,
     messageListVisibility: messageVisibility.show,
+  },
+  processed: {
+    name: `${PARENT_LABEL}/Processed`,
+    color: gray,
+    messageListVisibility: messageVisibility.hide,
   },
   assistant: {
     name: `${PARENT_LABEL}/Assistant`,

@@ -13,6 +13,7 @@ import {
   type MessageVisibility,
 } from "@/utils/gmail/constants";
 import { createScopedLogger } from "@/utils/logger";
+import { withGmailRetry } from "@/utils/gmail/retry";
 
 const logger = createScopedLogger("gmail/label");
 
@@ -25,6 +26,11 @@ export const GmailLabel = {
   SPAM: "SPAM",
   TRASH: "TRASH",
   DRAFT: "DRAFT",
+  PERSONAL: "CATEGORY_PERSONAL",
+  SOCIAL: "CATEGORY_SOCIAL",
+  PROMOTIONS: "CATEGORY_PROMOTIONS",
+  FORUMS: "CATEGORY_FORUMS",
+  UPDATES: "CATEGORY_UPDATES",
 };
 
 export async function labelThread(options: {
@@ -35,14 +41,21 @@ export async function labelThread(options: {
 }) {
   const { gmail, threadId, addLabelIds, removeLabelIds } = options;
 
-  return gmail.users.threads.modify({
-    userId: "me",
-    id: threadId,
-    requestBody: {
-      addLabelIds,
-      removeLabelIds,
-    },
-  });
+  if (!addLabelIds?.length && !removeLabelIds?.length) {
+    logger.warn("No labels to add or remove", { threadId });
+    return;
+  }
+
+  return withGmailRetry(() =>
+    gmail.users.threads.modify({
+      userId: "me",
+      id: threadId,
+      requestBody: {
+        addLabelIds,
+        removeLabelIds,
+      },
+    }),
+  );
 }
 
 export async function archiveThread({

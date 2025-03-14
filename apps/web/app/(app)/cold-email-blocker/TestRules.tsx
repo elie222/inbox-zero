@@ -163,10 +163,6 @@ function TestRulesContentRow({
               color="white"
               loading={testing}
               onClick={async () => {
-                console.log(
-                  "🚀 ~ onClick={ ~ message.internalDate:",
-                  message.internalDate,
-                );
                 await testEmail({
                   from: message.headers.from,
                   subject: message.headers.subject,

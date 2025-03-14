@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Shield, Tag, Archive, Check, Zap } from "lucide-react";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
+import { PageHeading, SectionDescription } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export default async function SetupPage() {
@@ -64,16 +65,17 @@ function SetupContent({
   const completedCount = completedSteps.length;
   const progressPercentage = (completedCount / totalSteps) * 100;
 
+  // force light mode on this for now
   return (
-    <div className="bg-gray-50">
+    <div className="bg-slate-50">
       <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-800">
+          <PageHeading className="dark:text-slate-800">
             Set up Inbox Zero
-          </h1>
-          <p className="text-gray-600">
+          </PageHeading>
+          <SectionDescription className="text-base dark:text-slate-600">
             Complete these steps to get the most out of your email experience
-          </p>
+          </SectionDescription>
         </div>
 
         {/* Progress indicator */}

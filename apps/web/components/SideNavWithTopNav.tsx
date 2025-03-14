@@ -16,7 +16,7 @@ export function SideNavWithTopNav({ children }: { children: React.ReactNode }) {
   return (
     <SidebarProvider defaultOpen={!isClosed}>
       <AppSidebar />
-      <SidebarInset className="overflow-hidden">
+      <SidebarInset className="overflow-hidden bg-slate-50 dark:bg-black">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
         <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}

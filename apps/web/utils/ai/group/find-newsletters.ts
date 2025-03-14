@@ -3,9 +3,9 @@ import uniq from "lodash/uniq";
 import { queryBatchMessagesPages } from "@/utils/gmail/message";
 
 export const newsletterSenders = [
-  "@substack.com",
-  "@mail.beehiiv.com",
-  "@ghost.io",
+  "substack.com",
+  "mail.beehiiv.com",
+  "ghost.io",
 ];
 const ignoreList = ["@github.com", "@google.com", "@gmail.com", "@slack.com"];
 

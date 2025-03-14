@@ -5,7 +5,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
 import { aiGenerateReply } from "@/utils/ai/reply/generate-reply";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getAiUserByEmail } from "@/utils/user/get";
+import { getAiUser } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -35,7 +35,7 @@ export async function generateDraft({
 
   logger.info("Generating draft");
 
-  const user = await getAiUserByEmail({ email: userEmail });
+  const user = await getAiUser({ id: userId });
   if (!user) throw new Error("User not found");
 
   const messages = await getThreadMessages(message.threadId, gmail);

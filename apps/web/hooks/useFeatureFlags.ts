@@ -3,9 +3,9 @@ import {
   useFeatureFlagVariantKey,
 } from "posthog-js/react";
 
-// export function useReplyTrackingEnabled() {
-//   return useFeatureFlagEnabled("reply-tracker");
-// }
+export function useCleanerEnabled() {
+  return useFeatureFlagEnabled("inbox-cleaner");
+}
 
 const HERO_FLAG_NAME = "hero-copy-7";
 

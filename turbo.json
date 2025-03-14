@@ -22,6 +22,7 @@
         "OLLAMA_BASE_URL",
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
+        "REDIS_URL",
         "QSTASH_TOKEN",
         "QSTASH_CURRENT_SIGNING_KEY",
         "QSTASH_NEXT_SIGNING_KEY",

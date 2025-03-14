@@ -5,13 +5,10 @@ import { queryBatchMessagesPages } from "@/utils/gmail/message";
 import { GroupItemType } from "@prisma/client";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { generalizeSubject } from "@/utils/string";
+import type { ParsedMessage } from "@/utils/types";
 
 // Predefined lists of receipt senders and subjects
-export const defaultReceiptSenders = [
-  "invoice+statements",
-  "receipt@",
-  "invoice@",
-];
+const defaultReceiptSenders = ["invoice+statements", "receipt@", "invoice@"];
 const defaultReceiptSubjects = [
   "Invoice #",
   "Payment Receipt",
@@ -133,4 +130,18 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
 
 export function isReceiptSender(sender: string) {
   return defaultReceiptSenders.some((receipt) => sender.includes(receipt));
+}
+
+export function isReceiptSubject(subject: string) {
+  const lowerSubject = subject.toLowerCase();
+  return defaultReceiptSubjects.some((receipt) =>
+    lowerSubject.includes(receipt.toLowerCase()),
+  );
+}
+
+export function isReceipt(message: ParsedMessage) {
+  return (
+    isReceiptSender(message.headers.from) ||
+    isReceiptSubject(message.headers.subject)
+  );
 }

@@ -1,0 +1,157 @@
+"use client";
+
+import keyBy from "lodash/keyBy";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import type { CleanThread } from "@/utils/redis/clean.types";
+
+export function useEmailStream(
+  initialPaused = false,
+  initialThreads: CleanThread[] = [],
+) {
+  // Initialize emailsMap with sorted threads and proper dates
+  const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>(() =>
+    createEmailMap(initialThreads),
+  );
+
+  // Initialize emailOrder sorted by date (newest first)
+  const [emailOrder, setEmailOrder] = useState<string[]>(() =>
+    getSortedThreadIds(initialThreads),
+  );
+
+  const [isPaused, setIsPaused] = useState(initialPaused);
+  const eventSourceRef = useRef<EventSource | null>(null);
+  const maxEmails = 1000; // Maximum emails to keep in the buffer
+
+  const connectToSSE = useCallback(() => {
+    try {
+      if (isPaused) {
+        console.log("SSE paused - closing connection if exists");
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+        return;
+      }
+
+      if (eventSourceRef.current) {
+        console.log("SSE connection already exists");
+        return;
+      }
+
+      console.log("Connecting to SSE...");
+
+      const eventSource = new EventSource("/api/email-stream");
+      eventSourceRef.current = eventSource;
+
+      console.log("SSE connection created");
+
+      eventSource.onopen = () => {
+        console.log("SSE connection opened");
+      };
+
+      // Handle thread events
+      eventSource.addEventListener("thread", (event) => {
+        try {
+          const threadData: CleanThread = JSON.parse(event.data);
+          const thread = {
+            ...threadData,
+            date: new Date(threadData.date),
+          };
+
+          setEmailsMap((prev) => {
+            // If we're at the limit and this is a new email, remove the oldest one
+            if (
+              Object.keys(prev).length >= maxEmails &&
+              !prev[thread.threadId]
+            ) {
+              const newMap = { ...prev };
+              delete newMap[emailOrder[emailOrder.length - 1]];
+              return {
+                ...newMap,
+                [thread.threadId]: thread,
+              };
+            }
+            return {
+              ...prev,
+              [thread.threadId]: thread,
+            };
+          });
+
+          // Update order - add to beginning if new
+          setEmailOrder((prev) => {
+            if (!prev.includes(thread.threadId)) {
+              return [thread.threadId, ...prev].slice(0, maxEmails);
+            }
+            return prev;
+          });
+        } catch (error) {
+          console.error("Error processing thread:", error);
+        }
+      });
+
+      eventSource.onerror = (error) => {
+        console.error("SSE connection error:", error);
+        if (eventSourceRef.current) {
+          eventSourceRef.current.close();
+          eventSourceRef.current = null;
+        }
+
+        // Attempt to reconnect after a short delay if not paused
+        if (!isPaused) {
+          console.log("Attempting to reconnect in 2 seconds...");
+          setTimeout(connectToSSE, 2000);
+        }
+      };
+    } catch (error) {
+      console.error("Error establishing SSE connection:", error);
+    }
+  }, [isPaused, emailOrder]);
+
+  // Connect or disconnect based on pause state
+  useEffect(() => {
+    console.log("SSE effect triggered, isPaused:", isPaused);
+    connectToSSE();
+
+    // Cleanup
+    return () => {
+      console.log("Cleaning up SSE connection");
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+    };
+  }, [connectToSSE, isPaused]);
+
+  const togglePause = useCallback(() => {
+    setIsPaused((prev) => !prev);
+  }, []);
+
+  const emails = useMemo(() => {
+    return emailOrder.map((id) => emailsMap[id]).filter(Boolean);
+  }, [emailsMap, emailOrder]);
+
+  return {
+    emails,
+    isPaused,
+    togglePause,
+  };
+}
+
+/**
+ * Helper Functions
+ */
+
+function createEmailMap(threads: CleanThread[]): Record<string, CleanThread> {
+  const threadsWithDates = threads.map((thread) => ({
+    ...thread,
+    date: new Date(thread.date),
+  }));
+  return keyBy(threadsWithDates, "threadId");
+}
+
+function getSortedThreadIds(threads: CleanThread[]): string[] {
+  return threads
+    .slice()
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .map((thread) => thread.threadId);
+}

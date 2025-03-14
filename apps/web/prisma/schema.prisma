@@ -96,6 +96,8 @@ model User {
   categories        Category[]
   threadTrackers    ThreadTracker[]
   unsubscribeTokens EmailToken[]
+  cleanupJobs       CleanupJob[]
+  cleanupThreads    CleanupThread[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -379,6 +381,36 @@ model ThreadTracker {
   @@index([userId, type, resolved, sentAt])
 }
 
+model CleanupJob {
+  id             String          @id @default(cuid())
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  action         CleanAction     @default(ARCHIVE)
+  daysOld        Int             @default(7)
+  instructions   String?
+  skipReply      Boolean?
+  skipStarred    Boolean?
+  skipCalendar   Boolean?
+  skipReceipt    Boolean?
+  skipAttachment Boolean?
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  threads        CleanupThread[]
+}
+
+model CleanupThread {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  threadId  String
+  archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
+  // labelIds  String[]
+  jobId     String
+  job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
 model ApiKey {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
@@ -534,4 +566,9 @@ enum ThreadTrackerType {
 
 enum ProcessorType {
   LEMON_SQUEEZY
+}
+
+enum CleanAction {
+  ARCHIVE
+  MARK_READ
 }

@@ -8,6 +8,7 @@ From this directory:
 
 ```
 pnpm run build
+pnpm start
 ```
 
 Then use the MCP at path `apps/mcp-server/build/index.js` in Cursor or Claude Desktop. Note, use the full path.
