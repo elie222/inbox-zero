@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,10 @@ import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
 export function PreviewBatch({ job }: { job: CleanupJob }) {
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleRunOnFullInbox = async () => {
+    setIsLoading(true);
     setIsPreviewBatch(false);
     const result = await cleanInboxAction({
       daysOld: job.daysOld,
@@ -31,6 +35,8 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
         attachment: job.skipAttachment,
       },
     });
+
+    setIsLoading(false);
 
     if (isActionError(result)) {
       toastError({ description: result.error });
@@ -57,7 +63,9 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex items-center gap-4">
-        <Button onClick={handleRunOnFullInbox}>Run on Full Inbox</Button>
+        <Button onClick={handleRunOnFullInbox} loading={isLoading}>
+          Run on Full Inbox
+        </Button>
         {/* {disableRunOnFullInbox && (
           <CardDescription className="font-semibold">
             All emails have been processed
