@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Inbox, Pause, Play } from "lucide-react";
+import { Inbox, Pause, Play, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,8 +31,9 @@ export function EmailFirehose({
   const [isPaused, setIsPaused] = useState(false);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("feed"));
+  const [filter, setFilter] = useQueryState("filter", parseAsString);
 
-  const { emails, togglePause } = useEmailStream(isPaused, threads);
+  const { emails, togglePause } = useEmailStream(isPaused, threads, filter);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
@@ -125,20 +126,40 @@ export function EmailFirehose({
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <div className="flex items-center space-x-4">
-          <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => setFilter(filter === "keep" ? null : "keep")}
+            className={`flex items-center ${filter === "keep" ? "rounded-md bg-blue-100 px-2 py-1 dark:bg-blue-900/30" : "hover:underline"}`}
+          >
             <div className="mr-1 size-3 rounded-full bg-blue-500" />
             <span>Keep</span>
-          </div>
-          <div className="flex items-center">
+            {filter === "keep" && (
+              <XCircle className="ml-1 size-3 text-muted-foreground" />
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter(filter === "archived" ? null : "archived")}
+            className={`flex items-center ${filter === "archived" ? "rounded-md bg-green-100 px-2 py-1 dark:bg-green-900/30" : "hover:underline"}`}
+          >
             <div className="mr-1 size-3 rounded-full bg-green-500" />
             <span>
               {action === CleanAction.ARCHIVE ? "Archived" : "Marked read"}
             </span>
-          </div>
-          {/* <div className="flex items-center">
+            {filter === "archived" && (
+              <XCircle className="ml-1 size-3 text-muted-foreground" />
+            )}
+          </button>
+          {/* <button
+            onClick={() => setFilter(filter === 'labeled' ? null : 'labeled')}
+            className={`flex items-center ${filter === 'labeled' ? 'bg-yellow-100 dark:bg-yellow-900/30 px-2 py-1 rounded-md' : 'hover:underline'}`}
+          >
             <div className="mr-1 size-3 rounded-full bg-yellow-500" />
             <span>Labeled</span>
-          </div> */}
+            {filter === 'labeled' && (
+              <XCircle className="ml-1 size-3 text-muted-foreground" />
+            )}
+          </button> */}
         </div>
         <div>Processed: {stats.total} emails</div>
       </div>

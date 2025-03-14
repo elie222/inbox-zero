@@ -7,6 +7,7 @@ import type { CleanThread } from "@/utils/redis/clean.types";
 export function useEmailStream(
   initialPaused = false,
   initialThreads: CleanThread[] = [],
+  filter?: string | null,
 ) {
   // Initialize emailsMap with sorted threads and proper dates
   const [emailsMap, setEmailsMap] = useState<Record<string, CleanThread>>(() =>
@@ -127,8 +128,23 @@ export function useEmailStream(
   }, []);
 
   const emails = useMemo(() => {
-    return emailOrder.map((id) => emailsMap[id]).filter(Boolean);
-  }, [emailsMap, emailOrder]);
+    const allEmails = emailOrder.map((id) => emailsMap[id]).filter(Boolean);
+
+    if (!filter) return allEmails;
+
+    return allEmails.filter((email) => {
+      if (filter === "keep") {
+        return !email.archive && !email.label;
+      }
+      if (filter === "archived") {
+        return email.archive === true;
+      }
+      // if (filter === 'labeled') {
+      //   return !!email.label;
+      // }
+      return true;
+    });
+  }, [emailsMap, emailOrder, filter]);
 
   return {
     emails,
