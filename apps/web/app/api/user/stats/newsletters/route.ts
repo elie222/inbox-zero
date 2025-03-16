@@ -107,6 +107,14 @@ type NewsletterCountResult = {
   lastUnsubscribeLink: string | null;
 };
 
+type NewsletterCountRawResult = {
+  from: string;
+  count: bigint;
+  inboxEmails: bigint;
+  readEmails: bigint;
+  lastUnsubscribeLink: string | null;
+};
+
 async function getNewsletterCounts(
   options: NewsletterStatsQuery & {
     userId: string;
@@ -118,35 +126,49 @@ async function getNewsletterCounts(
     andClause?: boolean;
   },
 ): Promise<NewsletterCountResult[]> {
-  const where = [];
+  const whereConditions = [];
+  const params: Array<string | Date> = [];
 
   // Add date filters if provided
   if (options.fromDate) {
-    where.push(`date >= '${new Date(options.fromDate).toISOString()}'`);
+    whereConditions.push(`"date" >= $${params.length + 1}`);
+    params.push(new Date(options.fromDate));
   }
 
   if (options.toDate) {
-    where.push(`date <= '${new Date(options.toDate).toISOString()}'`);
+    whereConditions.push(`"date" <= $${params.length + 1}`);
+    params.push(new Date(options.toDate));
   }
 
   // Add read/unread filters
   if (options.read) {
-    where.push("read = true");
+    whereConditions.push("read = true");
   } else if (options.unread) {
-    where.push("read = false");
+    whereConditions.push("read = false");
   }
 
   // Add inbox/archived filters
   if (options.unarchived) {
-    where.push("inbox = true");
+    whereConditions.push("inbox = true");
   } else if (options.archived) {
-    where.push("inbox = false");
+    whereConditions.push("inbox = false");
   }
 
   // Always filter by userId
-  where.push(`"userId" = '${options.userId}'`);
+  whereConditions.push(`"userId" = $${params.length + 1}`);
+  params.push(options.userId);
 
-  const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const whereClause = whereConditions.length
+    ? `WHERE ${whereConditions.join(" AND ")}`
+    : "";
+
+  // Build order by clause
+  const orderByClause = options.orderBy
+    ? getOrderByClause(options.orderBy)
+    : '"count" DESC';
+
+  // Build limit clause
+  const limitClause = options.limit ? `LIMIT ${options.limit}` : "";
 
   // Wrap in a subquery so we can use aliases in ORDER BY
   const query = Prisma.sql`
@@ -162,12 +184,15 @@ async function getNewsletterCounts(
       GROUP BY "from"
     )
     SELECT * FROM newsletter_stats
-    ${Prisma.raw(options.orderBy ? `ORDER BY ${getOrderByClause(options.orderBy)}` : 'ORDER BY "count" DESC')}
-    ${Prisma.raw(options.limit ? `LIMIT ${options.limit}` : "")}
+    ORDER BY ${Prisma.raw(orderByClause)}
+    ${Prisma.raw(limitClause)}
   `;
 
   try {
-    const results = await prisma.$queryRaw<any[]>(query);
+    const results = await prisma.$queryRaw<NewsletterCountRawResult[]>(
+      query,
+      ...params,
+    );
 
     // Convert BigInt values to regular numbers
     return results.map((result) => ({
