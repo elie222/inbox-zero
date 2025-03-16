@@ -1,19 +1,12 @@
 import { NextResponse } from "next/server";
 import { format } from "date-fns";
 import { z } from "zod";
-import keyBy from "lodash/keyBy";
-import groupBy from "lodash/groupBy";
-import merge from "lodash/merge";
 import sumBy from "lodash/sumBy";
-import {
-  getEmailsByPeriod,
-  getInboxEmailsByPeriod,
-  getReadEmailsByPeriod,
-  getSentEmailsByPeriod,
-  zodPeriod,
-} from "@inboxzero/tinybird";
+import { zodPeriod } from "@inboxzero/tinybird";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
+import { Prisma } from "@prisma/client";
 
 const statsByWeekParams = z.object({
   period: zodPeriod,
@@ -23,83 +16,126 @@ const statsByWeekParams = z.object({
 export type StatsByWeekParams = z.infer<typeof statsByWeekParams>;
 export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByPeriod>>;
 
+async function getEmailStatsByPeriod(
+  options: StatsByWeekParams & { userId: string },
+) {
+  const { period, fromDate, toDate, userId } = options;
+
+  // Build date conditions without starting with AND
+  const dateConditions: Prisma.Sql[] = [];
+  if (fromDate) {
+    dateConditions.push(Prisma.sql`date >= ${new Date(fromDate)}`);
+  }
+  if (toDate) {
+    dateConditions.push(Prisma.sql`date <= ${new Date(toDate)}`);
+  }
+
+  const dateFormat =
+    period === "day"
+      ? "YYYY-MM-DD"
+      : period === "week"
+        ? "YYYY-WW"
+        : period === "month"
+          ? "YYYY-MM"
+          : "YYYY";
+
+  // Using raw query with properly typed parameters
+  type StatsResult = {
+    period_group: string;
+    startOfPeriod: Date;
+    totalCount: bigint;
+    inboxCount: bigint;
+    readCount: bigint;
+    sentCount: bigint;
+    unread: bigint;
+    notInbox: bigint;
+  };
+
+  // Create WHERE clause properly
+  const whereClause = Prisma.sql`WHERE "userId" = ${userId}`;
+  const dateClause =
+    dateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
+      : Prisma.sql``;
+
+  // Convert period and dateFormat to string literals in PostgreSQL
+  return prisma.$queryRaw<StatsResult[]>`
+    WITH stats AS (
+      SELECT
+        TO_CHAR(date, ${Prisma.raw(`'${dateFormat}'`)}) AS period_group,
+        DATE_TRUNC(${Prisma.raw(`'${period}'`)}, date) AS start_of_period,
+        COUNT(*) AS total_count,
+        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) AS inbox_count,
+        SUM(CASE WHEN inbox = false THEN 1 ELSE 0 END) AS not_inbox,
+        SUM(CASE WHEN read = true THEN 1 ELSE 0 END) AS read_count,
+        SUM(CASE WHEN read = false THEN 1 ELSE 0 END) AS unread,
+        SUM(CASE WHEN sent = true THEN 1 ELSE 0 END) AS sent_count
+      FROM "EmailMessage"
+      ${whereClause}${dateClause}
+      GROUP BY period_group, start_of_period
+      ORDER BY start_of_period
+    )
+    SELECT 
+      period_group,
+      start_of_period AS "startOfPeriod",
+      total_count AS "totalCount",
+      inbox_count AS "inboxCount",
+      not_inbox AS "notInbox",
+      read_count AS "readCount",
+      unread,
+      sent_count AS "sentCount"
+    FROM stats
+  `;
+}
+
 async function getStatsByPeriod(
   options: StatsByWeekParams & {
     ownerEmail: string;
   },
 ) {
-  const [all, read, sent, inbox] = await Promise.all([
-    getEmailsByPeriod(options),
-    getReadEmailsByPeriod(options),
-    getSentEmailsByPeriod(options),
-    getInboxEmailsByPeriod(options),
-  ]);
+  // Get the userId from the ownerEmail
+  const user = await prisma.user.findUnique({
+    where: { email: options.ownerEmail },
+    select: { id: true },
+  });
 
-  const allObject = keyBy(
-    all.data.map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      All: d.count,
-    })),
-    "startOfPeriod",
-  );
+  if (!user) {
+    throw new Error("User not found");
+  }
 
-  const sentObject = keyBy(
-    sent.data.map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      Sent: d.count,
-    })),
-    "startOfPeriod",
-  );
+  // Get all stats in a single query
+  const stats = await getEmailStatsByPeriod({
+    ...options,
+    userId: user.id,
+  });
 
-  // read/unread
-  const readUnreadGroups = groupBy(read.data, "read");
-  const readObject = keyBy(
-    (readUnreadGroups.true || []).map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      Read: d.count,
-    })),
-    "startOfPeriod",
-  );
-  const unreadObject = keyBy(
-    (readUnreadGroups.false || []).map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      Unread: d.count,
-    })),
-    "startOfPeriod",
-  );
+  // Transform stats to match the expected format
+  const formattedStats = stats.map((stat) => {
+    const startOfPeriodFormatted = format(stat.startOfPeriod, "LLL dd, y");
 
-  // inbox/archived
-  const inboxArchiveGroups = groupBy(inbox.data, "inbox");
-  const inboxObject = keyBy(
-    (inboxArchiveGroups.true || []).map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      Unarchived: d.count,
-    })),
-    "startOfPeriod",
-  );
-  const archiveObject = keyBy(
-    (inboxArchiveGroups.false || []).map((d) => ({
-      startOfPeriod: format(d.startOfPeriod, "LLL dd, y"),
-      Archived: d.count,
-    })),
-    "startOfPeriod",
-  );
+    return {
+      startOfPeriod: startOfPeriodFormatted,
+      All: Number(stat.totalCount),
+      Sent: Number(stat.sentCount),
+      Read: Number(stat.readCount),
+      Unread: Number(stat.unread),
+      Unarchived: Number(stat.inboxCount),
+      Archived: Number(stat.notInbox),
+    };
+  });
 
-  const merged = merge(
-    allObject,
-    sentObject,
-    readObject,
-    unreadObject,
-    inboxObject,
-    archiveObject,
-  );
+  // Calculate totals
+  const totalAll = sumBy(stats, (stat) => Number(stat.totalCount));
+  const totalInbox = sumBy(stats, (stat) => Number(stat.inboxCount));
+  const totalRead = sumBy(stats, (stat) => Number(stat.readCount));
+  const totalSent = sumBy(stats, (stat) => Number(stat.sentCount));
 
   return {
-    result: Object.values(merged),
-    allCount: sumBy(all.data, "count"),
-    inboxCount: sumBy(inboxArchiveGroups.true, "count"),
-    readCount: sumBy(readUnreadGroups.true, "count"),
-    sentCount: sumBy(sent.data, "count"),
+    result: formattedStats,
+    allCount: totalAll,
+    inboxCount: totalInbox,
+    readCount: totalRead,
+    sentCount: totalSent,
   };
 }
 

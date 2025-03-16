@@ -37,9 +37,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: "https://www.getinboxzero.com/block-cold-emails",
     },
     {
-      url: "https://www.getinboxzero.com/new-email-senders",
-    },
-    {
       url: "https://www.getinboxzero.com/privacy",
     },
     {

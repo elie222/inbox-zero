@@ -1,41 +1,83 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import {
-  getDomainsMostReceivedFrom,
-  getMostReceivedFrom,
-  zodPeriod,
-} from "@inboxzero/tinybird";
 import { withError } from "@/utils/middleware";
+import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
 
 const senderStatsQuery = z.object({
-  period: zodPeriod,
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
 });
 export type SenderStatsQuery = z.infer<typeof senderStatsQuery>;
-export type SendersResponse = Awaited<ReturnType<typeof getSendersTinybird>>;
 
-async function getSendersTinybird(
-  options: SenderStatsQuery & {
-    ownerEmail: string;
-  },
-) {
-  const [mostSent, mostSentDomains] = await Promise.all([
+export interface SendersResponse {
+  mostActiveSenderEmails: { name: string; value: number }[];
+  mostActiveSenderDomains: { name: string; value: number }[];
+}
+
+/**
+ * Get sender statistics from database
+ */
+async function getSenderStatistics(
+  options: SenderStatsQuery & { userId: string },
+): Promise<SendersResponse> {
+  const [mostReceived, mostReceivedDomains] = await Promise.all([
     getMostReceivedFrom(options),
     getDomainsMostReceivedFrom(options),
   ]);
 
   return {
-    mostActiveSenderEmails: mostSent.data.map((d) => ({
-      name: d.from,
-      value: d.count,
-    })),
-    mostActiveSenderDomains: mostSentDomains.data.map((d) => ({
-      name: d.from,
-      value: d.count,
-    })),
+    mostActiveSenderEmails: mostReceived.data.map(
+      (d: { from?: string; count: number }) => ({
+        name: d.from || "",
+        value: d.count,
+      }),
+    ),
+    mostActiveSenderDomains: mostReceivedDomains.data.map(
+      (d: { from?: string; count: number }) => ({
+        name: d.from || "",
+        value: d.count,
+      }),
+    ),
   };
+}
+
+/**
+ * Get most received from senders by email address
+ */
+async function getMostReceivedFrom({
+  userId,
+  fromDate,
+  toDate,
+}: SenderStatsQuery & {
+  userId: string;
+}) {
+  return getEmailFieldStats({
+    userId,
+    fromDate,
+    toDate,
+    field: "from",
+    isSent: false,
+  });
+}
+
+/**
+ * Get most received from senders by domain
+ */
+async function getDomainsMostReceivedFrom({
+  userId,
+  fromDate,
+  toDate,
+}: SenderStatsQuery & {
+  userId: string;
+}) {
+  return getEmailFieldStats({
+    userId,
+    fromDate,
+    toDate,
+    field: "fromDomain",
+    isSent: false,
+  });
 }
 
 export const GET = withError(async (request) => {
@@ -45,14 +87,13 @@ export const GET = withError(async (request) => {
 
   const { searchParams } = new URL(request.url);
   const query = senderStatsQuery.parse({
-    period: searchParams.get("period") || "week",
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
   });
 
-  const result = await getSendersTinybird({
+  const result = await getSenderStatistics({
     ...query,
-    ownerEmail: session.user.email,
+    userId: session.user.id,
   });
 
   return NextResponse.json(result);

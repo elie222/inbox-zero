@@ -98,6 +98,7 @@ model User {
   unsubscribeTokens EmailToken[]
   cleanupJobs       CleanupJob[]
   cleanupThreads    CleanupThread[]
+  emailMessages     EmailMessage[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -357,6 +358,32 @@ model ColdEmail {
   @@unique([userId, fromEmail])
   @@index([userId, status])
   @@index([userId, createdAt])
+}
+
+model EmailMessage {
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  threadId        String
+  messageId       String
+  date            DateTime // date of the email
+  from            String
+  fromDomain      String
+  to              String
+  toDomain        String
+  unsubscribeLink String?
+  read            Boolean
+  sent            Boolean
+  draft           Boolean
+  inbox           Boolean
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, threadId, messageId])
+  @@index([userId, threadId])
+  @@index([userId, date])
+  @@index([userId, from])
 }
 
 model ThreadTracker {

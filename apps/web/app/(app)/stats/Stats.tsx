@@ -5,7 +5,6 @@ import { useState, useMemo, useCallback, useEffect } from "react";
 import type { DateRange } from "react-day-picker";
 import { DetailedStats } from "@/app/(app)/stats/DetailedStats";
 import { LoadStatsButton } from "@/app/(app)/stats/LoadStatsButton";
-import { LargestEmails } from "@/app/(app)/stats/LargestEmails";
 import { EmailAnalytics } from "@/app/(app)/stats/EmailAnalytics";
 import { StatsSummary } from "@/app/(app)/stats/StatsSummary";
 import { StatsOnboarding } from "@/app/(app)/stats/StatsOnboarding";
@@ -115,10 +114,6 @@ export function Stats() {
 
       <div className="mt-4 px-4">
         <EmailActionsAnalytics />
-      </div>
-
-      <div className="mt-4 px-4">
-        <LargestEmails refreshInterval={refreshInterval} />
       </div>
 
       <StatsOnboarding />

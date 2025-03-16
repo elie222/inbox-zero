@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getNewsletterCounts } from "@inboxzero/tinybird";
 import { withError } from "@/utils/middleware";
 import {
   filterNewsletters,
@@ -9,6 +8,8 @@ import {
   findNewsletterStatus,
   getAutoArchiveFilters,
 } from "@/app/api/user/stats/newsletters/helpers";
+import prisma from "@/utils/prisma";
+import { Prisma } from "@prisma/client";
 
 // not sure why this is slow sometimes
 export const maxDuration = 30;
@@ -79,7 +80,7 @@ async function getNewslettersTinybird(
       findNewsletterStatus(options.userId),
     ]);
 
-  const newsletters = newsletterCounts.data.map((email) => {
+  const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {
     return {
       name: email.from,
       value: email.count,
@@ -96,6 +97,128 @@ async function getNewslettersTinybird(
   return {
     newsletters: filterNewsletters(newsletters, options.filters),
   };
+}
+
+type NewsletterCountResult = {
+  from: string;
+  count: number;
+  inboxEmails: number;
+  readEmails: number;
+  lastUnsubscribeLink: string | null;
+};
+
+type NewsletterCountRawResult = {
+  from: string;
+  count: bigint;
+  inboxEmails: bigint;
+  readEmails: bigint;
+  lastUnsubscribeLink: string | null;
+};
+
+async function getNewsletterCounts(
+  options: NewsletterStatsQuery & {
+    userId: string;
+    read?: boolean;
+    unread?: boolean;
+    archived?: boolean;
+    unarchived?: boolean;
+    all?: boolean;
+    andClause?: boolean;
+  },
+): Promise<NewsletterCountResult[]> {
+  const whereConditions = [];
+  const params: Array<string | Date> = [];
+
+  // Add date filters if provided
+  if (options.fromDate) {
+    whereConditions.push(`"date" >= $${params.length + 1}`);
+    params.push(new Date(options.fromDate));
+  }
+
+  if (options.toDate) {
+    whereConditions.push(`"date" <= $${params.length + 1}`);
+    params.push(new Date(options.toDate));
+  }
+
+  // Add read/unread filters
+  if (options.read) {
+    whereConditions.push("read = true");
+  } else if (options.unread) {
+    whereConditions.push("read = false");
+  }
+
+  // Add inbox/archived filters
+  if (options.unarchived) {
+    whereConditions.push("inbox = true");
+  } else if (options.archived) {
+    whereConditions.push("inbox = false");
+  }
+
+  // Always filter by userId
+  whereConditions.push(`"userId" = $${params.length + 1}`);
+  params.push(options.userId);
+
+  const whereClause = whereConditions.length
+    ? `WHERE ${whereConditions.join(" AND ")}`
+    : "";
+
+  // Build order by clause
+  const orderByClause = options.orderBy
+    ? getOrderByClause(options.orderBy)
+    : '"count" DESC';
+
+  // Build limit clause
+  const limitClause = options.limit ? `LIMIT ${options.limit}` : "";
+
+  // Wrap in a subquery so we can use aliases in ORDER BY
+  const query = Prisma.sql`
+    WITH newsletter_stats AS (
+      SELECT 
+        "from",
+        COUNT(*) as "count",
+        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) as "inboxEmails",
+        SUM(CASE WHEN read = true THEN 1 ELSE 0 END) as "readEmails",
+        MAX("unsubscribeLink") as "lastUnsubscribeLink"
+      FROM "EmailMessage"
+      ${Prisma.raw(whereClause)}
+      GROUP BY "from"
+    )
+    SELECT * FROM newsletter_stats
+    ORDER BY ${Prisma.raw(orderByClause)}
+    ${Prisma.raw(limitClause)}
+  `;
+
+  try {
+    const results = await prisma.$queryRaw<NewsletterCountRawResult[]>(
+      query,
+      ...params,
+    );
+
+    // Convert BigInt values to regular numbers
+    return results.map((result) => ({
+      from: result.from,
+      count: Number(result.count),
+      inboxEmails: Number(result.inboxEmails),
+      readEmails: Number(result.readEmails),
+      lastUnsubscribeLink: result.lastUnsubscribeLink,
+    }));
+  } catch (error) {
+    console.error("Newsletter query error:", error);
+    return [];
+  }
+}
+
+function getOrderByClause(orderBy: string): string {
+  switch (orderBy) {
+    case "emails":
+      return '"count" DESC';
+    case "unread":
+      return '"count" - "readEmails" DESC';
+    case "unarchived":
+      return '"inboxEmails" DESC';
+    default:
+      return '"count" DESC';
+  }
 }
 
 export const GET = withError(async (request) => {
