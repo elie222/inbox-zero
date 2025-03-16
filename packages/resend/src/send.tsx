@@ -1,6 +1,7 @@
 import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
 import { resend } from "./client";
+import type { ReactElement } from "react";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
 
 const sendEmail = async ({
@@ -13,7 +14,7 @@ const sendEmail = async ({
 }: {
   to: string;
   subject: string;
-  react: React.ReactNode;
+  react: ReactElement;
   test?: boolean;
   entityRefId?: string;
   tags?: { name: string; value: string }[];
