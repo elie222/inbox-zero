@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { format } from "date-fns";
 import { z } from "zod";
-import keyBy from "lodash/keyBy";
-import groupBy from "lodash/groupBy";
-import merge from "lodash/merge";
 import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -24,12 +21,13 @@ async function getEmailStatsByPeriod(
 ) {
   const { period, fromDate, toDate, userId } = options;
 
+  // Build date conditions without starting with AND
   const dateConditions: Prisma.Sql[] = [];
   if (fromDate) {
-    dateConditions.push(Prisma.sql`AND date >= ${new Date(fromDate)}`);
+    dateConditions.push(Prisma.sql`date >= ${new Date(fromDate)}`);
   }
   if (toDate) {
-    dateConditions.push(Prisma.sql`AND date <= ${new Date(toDate)}`);
+    dateConditions.push(Prisma.sql`date <= ${new Date(toDate)}`);
   }
 
   const dateFormat =
@@ -53,11 +51,19 @@ async function getEmailStatsByPeriod(
     notInbox: bigint;
   };
 
+  // Create WHERE clause properly
+  const whereClause = Prisma.sql`WHERE "userId" = ${userId}`;
+  const dateClause =
+    dateConditions.length > 0
+      ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
+      : Prisma.sql``;
+
+  // Convert period and dateFormat to string literals in PostgreSQL
   return prisma.$queryRaw<StatsResult[]>`
     WITH stats AS (
       SELECT
-        TO_CHAR(date, ${dateFormat}) AS period_group,
-        DATE_TRUNC(${period}, date) AS start_of_period,
+        TO_CHAR(date, ${Prisma.raw(`'${dateFormat}'`)}) AS period_group,
+        DATE_TRUNC(${Prisma.raw(`'${period}'`)}, date) AS start_of_period,
         COUNT(*) AS total_count,
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) AS inbox_count,
         SUM(CASE WHEN inbox = false THEN 1 ELSE 0 END) AS not_inbox,
@@ -65,9 +71,7 @@ async function getEmailStatsByPeriod(
         SUM(CASE WHEN read = false THEN 1 ELSE 0 END) AS unread,
         SUM(CASE WHEN sent = true THEN 1 ELSE 0 END) AS sent_count
       FROM "EmailMessage"
-      WHERE 
-        "userId" = ${userId}
-        ${Prisma.join(dateConditions)}
+      ${whereClause}${dateClause}
       GROUP BY period_group, start_of_period
       ORDER BY start_of_period
     )
