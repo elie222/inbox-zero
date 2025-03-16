@@ -2,14 +2,12 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
-import { loadTinybirdEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
+import { loadEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
 import { loadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 
 export const maxDuration = 90;
 
-export type LoadTinybirdEmailsResponse = Awaited<
-  ReturnType<typeof loadTinybirdEmails>
->;
+export type LoadTinybirdEmailsResponse = Awaited<ReturnType<typeof loadEmails>>;
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();
@@ -24,9 +22,10 @@ export const POST = withError(async (request: Request) => {
 
   if (!token.token) return NextResponse.json({ error: "Missing access token" });
 
-  const result = await loadTinybirdEmails(
+  const result = await loadEmails(
     {
       ownerEmail: session.user.email,
+      userId: session.user.id,
       gmail,
       accessToken: token.token,
     },
