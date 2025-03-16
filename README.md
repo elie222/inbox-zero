@@ -24,6 +24,10 @@ There are two parts to Inbox Zero:
 
 If you're looking to contribue to the project, the email client is the best place to do this.
 
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_ENCRYPT_SECRET,GOOGLE_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
+
+Thanks to Vercel for sponsoring Inbox Zero in support of open-source software.
+
 ## Features
 
 - **AI Personal Assistant:** Manages your email for you based on a plain text prompt file. It can take any action a human assistant can take on your behalf (Draft reply, Label, Archive, Reply, Forward, Mark Spam, and even call a webhook).
@@ -53,7 +57,6 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Tailwind CSS](https://tailwindcss.com/)
 - [shadcn/ui](https://ui.shadcn.com/)
 - [Prisma](https://www.prisma.io/)
-- [Tinybird](https://tinybird.co/)
 - [Upstash](https://upstash.com/)
 - [Turborepo](https://turbo.build/)
 
