@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { tb } from "./client";
-import { decrypt, encrypt } from "./encrypt";
+import { decrypt } from "./encrypt";
 
 export const zodPeriod = z.enum(["day", "week", "month", "year"]);
 export type ZodPeriod = z.infer<typeof zodPeriod>;
@@ -56,20 +56,6 @@ export const getMostReceivedFrom = tb.buildPipe({
     count: z.number(),
   }),
 });
-export const getMostSentTo = tb.buildPipe({
-  pipe: "most_sent_to",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-  }),
-  data: z.object({
-    to: z.string().transform(decrypt),
-    count: z.number(),
-  }),
-});
-
 export const getDomainsMostReceivedFrom = tb.buildPipe({
   pipe: "get_popular_senders_domains",
   parameters: z.object({
@@ -80,19 +66,6 @@ export const getDomainsMostReceivedFrom = tb.buildPipe({
   }),
   data: z.object({
     from: z.string().transform(decrypt),
-    count: z.number(),
-  }),
-});
-export const getDomainsMostSentTo = tb.buildPipe({
-  pipe: "get_popular_recipients_domains",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-  }),
-  data: z.object({
-    to: z.string().transform(decrypt),
     count: z.number(),
   }),
 });

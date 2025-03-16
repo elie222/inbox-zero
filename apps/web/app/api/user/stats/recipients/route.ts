@@ -4,16 +4,12 @@ import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-// import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import {
-  getDomainsMostSentTo,
-  getMostSentTo,
-  zodPeriod,
-} from "@inboxzero/tinybird";
+import { zodPeriod } from "@inboxzero/tinybird";
 import { extractDomainFromEmail } from "@/utils/email";
 import { withError } from "@/utils/middleware";
+import prisma from "@/utils/prisma";
 
 const recipientStatsQuery = z.object({
   period: zodPeriod,
@@ -62,9 +58,7 @@ async function getRecipients({ gmail }: { gmail: gmail_v1.Gmail }) {
 }
 
 async function getRecipientsTinybird(
-  options: RecipientStatsQuery & {
-    ownerEmail: string;
-  },
+  options: RecipientStatsQuery & { userId: string },
 ): Promise<RecipientsResponse> {
   const [mostReceived, mostReceivedDomains] = await Promise.all([
     getMostSentTo(options),
@@ -72,23 +66,106 @@ async function getRecipientsTinybird(
   ]);
 
   return {
-    mostActiveRecipientEmails: mostReceived.data.map((d) => ({
-      name: d.to,
-      value: d.count,
-    })),
-    mostActiveRecipientDomains: mostReceivedDomains.data.map((d) => ({
-      name: d.to,
-      value: d.count,
+    mostActiveRecipientEmails: mostReceived.data.map(
+      (d: { to: string; count: number }) => ({
+        name: d.to,
+        value: d.count,
+      }),
+    ),
+    mostActiveRecipientDomains: mostReceivedDomains.data.map(
+      (d: { to: string; count: number }) => ({
+        name: d.to,
+        value: d.count,
+      }),
+    ),
+  };
+}
+
+async function getRecipientStats({
+  userId,
+  fromDate,
+  toDate,
+  field,
+}: {
+  userId: string;
+  fromDate?: number | null;
+  toDate?: number | null;
+  field: "to" | "toDomain";
+}) {
+  const recipientsCount = await prisma.emailMessage.groupBy({
+    by: [field],
+    where: {
+      userId,
+      sent: true,
+      date:
+        fromDate || toDate
+          ? {
+              gte: fromDate ? new Date(fromDate) : undefined,
+              lte: toDate ? new Date(toDate) : undefined,
+            }
+          : undefined,
+    },
+    _count: {
+      [field]: true,
+    },
+    orderBy: {
+      _count: {
+        [field]: "desc",
+      },
+    },
+    take: 50,
+  });
+
+  return {
+    data: recipientsCount.map((item) => ({
+      to: item[field] || "",
+      count: item._count[field],
     })),
   };
+}
+
+/**
+ * Get most sent to recipients by email address
+ */
+async function getMostSentTo({
+  userId,
+  period, // Kept for API compatibility
+  fromDate,
+  toDate,
+}: RecipientStatsQuery & {
+  userId: string;
+}) {
+  return getRecipientStats({
+    userId,
+    fromDate,
+    toDate,
+    field: "to",
+  });
+}
+
+/**
+ * Get most sent to recipients by domain
+ */
+async function getDomainsMostSentTo({
+  userId,
+  period, // Kept for API compatibility
+  fromDate,
+  toDate,
+}: RecipientStatsQuery & {
+  userId: string;
+}) {
+  return getRecipientStats({
+    userId,
+    fromDate,
+    toDate,
+    field: "toDomain",
+  });
 }
 
 export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
-
-  // const gmail = getGmailClient(session);
 
   const { searchParams } = new URL(request.url);
   const query = recipientStatsQuery.parse({
@@ -97,10 +174,9 @@ export const GET = withError(async (request) => {
     toDate: searchParams.get("toDate"),
   });
 
-  // const result = await getRecipients({ gmail });
   const result = await getRecipientsTinybird({
     ...query,
-    ownerEmail: session.user.email,
+    userId: session.user.id,
   });
 
   return NextResponse.json(result);

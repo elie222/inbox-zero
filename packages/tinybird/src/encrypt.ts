@@ -15,16 +15,6 @@ if (password && !salt) throw new Error("Missing TINYBIRD_ENCRYPT_SALT");
 const key = password && salt ? scryptSync(password, salt, 32) : undefined; // 32 bytes for AES-256
 const iv = Buffer.alloc(16, 0); // A fixed IV (all zeros);
 
-export function encrypt(text: string): string {
-  if (!key) return text;
-  const cipher = createCipheriv(ALGORITHM, key, iv);
-  const encrypted = Buffer.concat([
-    cipher.update(text, "utf8"),
-    cipher.final(),
-  ]);
-  return encrypted.toString("hex");
-}
-
 export function decrypt(encryptedText: string | null): string {
   if (encryptedText === null) return "";
   if (!key) return encryptedText;
