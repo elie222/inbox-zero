@@ -237,7 +237,7 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
   }
 }
 
-function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement>) {
+function useIframeHeight(iframeRef: React.RefObject<HTMLIFrameElement | null>) {
   const [height, setHeight] = useState(0);
 
   useEffect(() => {

@@ -17,11 +17,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/welcome" },
 };
 
-export default async function WelcomePage({
-  searchParams,
-}: {
-  searchParams: { question?: string; force?: boolean };
+export default async function WelcomePage(props: {
+  searchParams: Promise<{ question?: string; force?: boolean }>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
 
   if (!session?.user.email) redirect("/login");

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface TooltipProps {
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   content?: string;
   contentComponent?: React.ReactNode;
 }

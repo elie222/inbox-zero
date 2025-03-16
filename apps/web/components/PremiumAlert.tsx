@@ -130,7 +130,7 @@ export function PremiumAlertWithData({ className }: { className?: string }) {
 }
 
 export function PremiumTooltip(props: {
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   showTooltip: boolean;
   openModal: () => void;
 }) {

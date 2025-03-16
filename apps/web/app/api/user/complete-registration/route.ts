@@ -7,6 +7,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
 import { createScopedLogger } from "@/utils/logger";
+import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapters/headers";
 
 const logger = createScopedLogger("complete-registration");
 
@@ -17,11 +18,12 @@ export const POST = withError(async (_request: NextRequest) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const eventSourceUrl = headers().get("referer");
-  const userAgent = headers().get("user-agent");
-  const ip = getIp();
+  const headersList = await headers();
+  const eventSourceUrl = headersList.get("referer");
+  const userAgent = headersList.get("user-agent");
+  const ip = getIp(headersList);
 
-  const c = cookies();
+  const c = await cookies();
 
   const fbc = c.get("_fbc")?.value;
   const fbp = c.get("_fbp")?.value;
@@ -62,15 +64,15 @@ export const POST = withError(async (_request: NextRequest) => {
   return NextResponse.json({ success: true });
 });
 
-function getIp() {
+function getIp(headersList: ReadonlyHeaders) {
   const FALLBACK_IP_ADDRESS = "0.0.0.0";
-  const forwardedFor = headers().get("x-forwarded-for");
+  const forwardedFor = headersList.get("x-forwarded-for");
 
   if (forwardedFor) {
     return forwardedFor.split(",")[0] ?? FALLBACK_IP_ADDRESS;
   }
 
-  return headers().get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
+  return headersList.get("x-real-ip") ?? FALLBACK_IP_ADDRESS;
 }
 
 async function storePosthogSignupEvent(userId: string, email: string) {

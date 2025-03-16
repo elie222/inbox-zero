@@ -15,11 +15,13 @@ import { getMessage, getMessages } from "@/utils/gmail/message";
 
 export const dynamic = "force-dynamic";
 
-export default async function SimplePage({
-  searchParams: { pageToken, type = "IMPORTANT" },
-}: {
-  searchParams: { pageToken?: string; type?: string };
+export default async function SimplePage(props: {
+  searchParams: Promise<{ pageToken?: string; type?: string }>;
 }) {
+  const searchParams = await props.searchParams;
+
+  const { pageToken, type = "IMPORTANT" } = searchParams;
+
   const session = await auth();
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");

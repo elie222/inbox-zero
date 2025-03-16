@@ -31,11 +31,14 @@ import { GmailProvider } from "@/providers/GmailProvider";
 // export const maxDuration = Math.min(env.MAX_DURATION, 600);
 export const maxDuration = 300;
 
-export default async function ReplyTrackerPage({
-  searchParams,
-}: {
-  searchParams: { page?: string; timeRange?: TimeRange; enabled?: boolean };
+export default async function ReplyTrackerPage(props: {
+  searchParams: Promise<{
+    page?: string;
+    timeRange?: TimeRange;
+    enabled?: boolean;
+  }>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (!session?.user.email) redirect("/login");
 

@@ -1,4 +1,3 @@
-import { cookies } from "next/headers";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
@@ -9,12 +8,15 @@ import {
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/SideNav";
 
-export function SideNavWithTopNav({ children }: { children: React.ReactNode }) {
-  const cookieStore = cookies();
-  const isClosed = cookieStore.get("sidebar_state")?.value === "false";
-
+export function SideNavWithTopNav({
+  children,
+  defaultOpen,
+}: {
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
   return (
-    <SidebarProvider defaultOpen={!isClosed}>
+    <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
       <SidebarInset className="overflow-hidden bg-slate-50 dark:bg-black">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />

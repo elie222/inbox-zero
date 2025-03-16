@@ -87,7 +87,7 @@ function CategorizeWithAiButtonTooltip({
   hasAiAccess,
   openPremiumModal,
 }: {
-  children: React.ReactElement;
+  children: React.ReactElement<any>;
   hasAiAccess: boolean;
   openPremiumModal: () => void;
 }) {

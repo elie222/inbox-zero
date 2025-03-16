@@ -14,11 +14,10 @@ export const metadata: Metadata = {
   alternates: { canonical: "/login" },
 };
 
-export default async function AuthenticationPage({
-  searchParams,
-}: {
-  searchParams?: Record<string, string>;
+export default async function AuthenticationPage(props: {
+  searchParams?: Promise<Record<string, string>>;
 }) {
+  const searchParams = await props.searchParams;
   const session = await auth();
   if (session?.user.email && !searchParams?.error) {
     if (searchParams?.next) {

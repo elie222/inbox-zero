@@ -3,17 +3,16 @@ import { examples } from "@/app/(app)/automation/create/examples";
 import { getEmptyCondition } from "@/utils/condition";
 import { ActionType, type RuleType } from "@prisma/client";
 
-export default function CreateRulePage({
-  searchParams,
-}: {
-  searchParams: {
+export default async function CreateRulePage(props: {
+  searchParams: Promise<{
     example?: string;
     groupId?: string;
     type?: Exclude<RuleType, "GROUP">;
     categoryId?: string;
     label?: string;
-  };
+  }>;
 }) {
+  const searchParams = await props.searchParams;
   const rule =
     searchParams.example &&
     examples[Number.parseInt(searchParams.example)].rule;
