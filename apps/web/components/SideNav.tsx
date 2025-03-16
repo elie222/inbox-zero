@@ -88,7 +88,7 @@ const navigationItems: NavItem[] = [
   },
 
   {
-    name: "Smart Categories",
+    name: "Sender Categories",
     href: "/smart-categories",
     icon: TagIcon,
   },

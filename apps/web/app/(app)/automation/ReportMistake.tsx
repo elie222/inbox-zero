@@ -595,7 +595,7 @@ function CategoryMismatch({
         <strong className="font-semibold text-blue-700">
           {categoryMatch.category.name}
         </strong>{" "}
-        smart category.
+        sender category.
       </SectionDescription>
 
       <div className="mb-1 mt-4">

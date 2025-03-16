@@ -323,7 +323,7 @@ function Checklist({
     icon={<Tag size={20} />}
     iconBg="bg-green-100"
     iconColor="text-green-500"
-    title="Enable Smart Categories"
+    title="Enable Sender Categories"
     description="Auto-organize emails into intuitive categories"
     timeEstimate="0 seconds (auto-enabled)"
     completed={completedSteps.smartCategories}

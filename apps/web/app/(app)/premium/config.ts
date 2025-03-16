@@ -90,7 +90,7 @@ const coldEmailBlockerFeature = {
 };
 
 const smartCategoriesFeature = {
-  text: "Smart categories",
+  text: "Sender categories",
   tooltip: "Automatically group emails for easier management and bulk actions",
 };
 

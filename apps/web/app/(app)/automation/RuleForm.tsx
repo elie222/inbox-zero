@@ -274,7 +274,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   options={[
                     { label: "AI", value: RuleType.AI },
                     { label: "Static", value: RuleType.STATIC },
-                    { label: "Smart Category", value: RuleType.CATEGORY },
+                    { label: "Sender Category", value: RuleType.CATEGORY },
                   ]}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
@@ -463,12 +463,12 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       ) : (
                         <div>
                           <SectionDescription>
-                            No smart categories found.
+                            No sender categories found.
                           </SectionDescription>
 
                           <Button asChild className="mt-1">
                             <Link href="/smart-categories" target="_blank">
-                              Set up Smart Categories
+                              Set up Sender Categories
                               <ExternalLinkIcon className="ml-1.5 size-4" />
                             </Link>
                           </Button>

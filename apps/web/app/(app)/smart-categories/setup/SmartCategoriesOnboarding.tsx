@@ -19,7 +19,7 @@ export function SmartCategoriesOnboarding() {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Welcome to Smart Categories</DialogTitle>
+          <DialogTitle>Welcome to Sender Categories</DialogTitle>
           <DialogDescription>
             Automatically categorize who emails you for better inbox management
             and smarter automation.
