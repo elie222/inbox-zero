@@ -31,7 +31,6 @@ import {
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { useComposeModal } from "@/providers/ComposeModalProvider";
-import { env } from "@/env";
 import {
   Sidebar,
   SidebarContent,
@@ -60,8 +59,6 @@ type NavItem = {
   hideInMail?: boolean;
 };
 
-const NEXT_PUBLIC_DISABLE_TINYBIRD = env.NEXT_PUBLIC_DISABLE_TINYBIRD;
-
 const navigationItems: NavItem[] = [
   {
     name: "AI Personal Assistant",
@@ -78,34 +75,28 @@ const navigationItems: NavItem[] = [
     href: "/clean",
     icon: BrushIcon,
   },
-  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
-    ? []
-    : [
-        {
-          name: "Bulk Unsubscribe",
-          href: "/bulk-unsubscribe",
-          icon: MailsIcon,
-        },
-      ]),
+
+  {
+    name: "Bulk Unsubscribe",
+    href: "/bulk-unsubscribe",
+    icon: MailsIcon,
+  },
   {
     name: "Cold Email Blocker",
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
   },
-  ...(NEXT_PUBLIC_DISABLE_TINYBIRD
-    ? []
-    : [
-        {
-          name: "Smart Categories",
-          href: "/smart-categories",
-          icon: TagIcon,
-        },
-        {
-          name: "Analytics",
-          href: "/stats",
-          icon: BarChartBigIcon,
-        },
-      ]),
+
+  {
+    name: "Smart Categories",
+    href: "/smart-categories",
+    icon: TagIcon,
+  },
+  {
+    name: "Analytics",
+    href: "/stats",
+    icon: BarChartBigIcon,
+  },
 ];
 
 export const useNavigation = () => {
