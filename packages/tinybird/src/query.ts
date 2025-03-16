@@ -43,33 +43,6 @@ export const getInboxEmailsByPeriod = tb.buildPipe({
   data: getEmailsData.merge(z.object({ inbox: zodNumberToBoolean })),
 });
 
-export const getMostReceivedFrom = tb.buildPipe({
-  pipe: "most_received_from",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-  }),
-  data: z.object({
-    from: z.string().transform(decrypt),
-    count: z.number(),
-  }),
-});
-export const getDomainsMostReceivedFrom = tb.buildPipe({
-  pipe: "get_popular_senders_domains",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-  }),
-  data: z.object({
-    from: z.string().transform(decrypt),
-    count: z.number(),
-  }),
-});
-
 export const getEmailActionsByDay = tb.buildPipe({
   pipe: "get_email_actions_by_period",
   parameters: z.object({

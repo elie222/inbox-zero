@@ -6,20 +6,26 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { zodPeriod } from "@inboxzero/tinybird";
 import { extractDomainFromEmail } from "@/utils/email";
 import { withError } from "@/utils/middleware";
-import prisma from "@/utils/prisma";
+import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
 
 const recipientStatsQuery = z.object({
-  period: zodPeriod,
   fromDate: z.coerce.number().nullish(),
   toDate: z.coerce.number().nullish(),
 });
 export type RecipientStatsQuery = z.infer<typeof recipientStatsQuery>;
-export type RecipientsResponse = Awaited<ReturnType<typeof getRecipients>>;
 
-async function getRecipients({ gmail }: { gmail: gmail_v1.Gmail }) {
+export interface RecipientsResponse {
+  mostActiveRecipientEmails: { name: string; value: number }[];
+  mostActiveRecipientDomains: { name: string; value: number }[];
+}
+
+async function getRecipients({
+  gmail,
+}: {
+  gmail: gmail_v1.Gmail;
+}): Promise<RecipientsResponse> {
   const res = await getMessages(gmail, {
     query: "in:sent",
     maxResults: 50,
@@ -57,7 +63,7 @@ async function getRecipients({ gmail }: { gmail: gmail_v1.Gmail }) {
   return { mostActiveRecipientEmails, mostActiveRecipientDomains };
 }
 
-async function getRecipientsTinybird(
+async function getRecipientStatistics(
   options: RecipientStatsQuery & { userId: string },
 ): Promise<RecipientsResponse> {
   const [mostReceived, mostReceivedDomains] = await Promise.all([
@@ -67,60 +73,17 @@ async function getRecipientsTinybird(
 
   return {
     mostActiveRecipientEmails: mostReceived.data.map(
-      (d: { to: string; count: number }) => ({
-        name: d.to,
+      (d: { to?: string; count: number }) => ({
+        name: d.to || "",
         value: d.count,
       }),
     ),
     mostActiveRecipientDomains: mostReceivedDomains.data.map(
-      (d: { to: string; count: number }) => ({
-        name: d.to,
+      (d: { to?: string; count: number }) => ({
+        name: d.to || "",
         value: d.count,
       }),
     ),
-  };
-}
-
-async function getRecipientStats({
-  userId,
-  fromDate,
-  toDate,
-  field,
-}: {
-  userId: string;
-  fromDate?: number | null;
-  toDate?: number | null;
-  field: "to" | "toDomain";
-}) {
-  const recipientsCount = await prisma.emailMessage.groupBy({
-    by: [field],
-    where: {
-      userId,
-      sent: true,
-      date:
-        fromDate || toDate
-          ? {
-              gte: fromDate ? new Date(fromDate) : undefined,
-              lte: toDate ? new Date(toDate) : undefined,
-            }
-          : undefined,
-    },
-    _count: {
-      [field]: true,
-    },
-    orderBy: {
-      _count: {
-        [field]: "desc",
-      },
-    },
-    take: 50,
-  });
-
-  return {
-    data: recipientsCount.map((item) => ({
-      to: item[field] || "",
-      count: item._count[field],
-    })),
   };
 }
 
@@ -129,17 +92,17 @@ async function getRecipientStats({
  */
 async function getMostSentTo({
   userId,
-  period, // Kept for API compatibility
   fromDate,
   toDate,
 }: RecipientStatsQuery & {
   userId: string;
 }) {
-  return getRecipientStats({
+  return getEmailFieldStats({
     userId,
     fromDate,
     toDate,
     field: "to",
+    isSent: true,
   });
 }
 
@@ -148,17 +111,17 @@ async function getMostSentTo({
  */
 async function getDomainsMostSentTo({
   userId,
-  period, // Kept for API compatibility
   fromDate,
   toDate,
 }: RecipientStatsQuery & {
   userId: string;
 }) {
-  return getRecipientStats({
+  return getEmailFieldStats({
     userId,
     fromDate,
     toDate,
     field: "toDomain",
+    isSent: true,
   });
 }
 
@@ -169,12 +132,11 @@ export const GET = withError(async (request) => {
 
   const { searchParams } = new URL(request.url);
   const query = recipientStatsQuery.parse({
-    period: searchParams.get("period") || "week",
     fromDate: searchParams.get("fromDate"),
     toDate: searchParams.get("toDate"),
   });
 
-  const result = await getRecipientsTinybird({
+  const result = await getRecipientStatistics({
     ...query,
     userId: session.user.id,
   });
