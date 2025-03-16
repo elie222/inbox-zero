@@ -18,7 +18,7 @@ async function getGroups({ userId }: { userId: string }) {
   return { groups };
 }
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

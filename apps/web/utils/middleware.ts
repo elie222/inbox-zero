@@ -10,13 +10,13 @@ const logger = createScopedLogger("middleware");
 
 export type NextHandler = (
   req: NextRequest,
-  { params }: { params: Record<string, string | undefined> },
-) => Promise<NextResponse | Response>;
+  context: { params: Promise<Record<string, string>> },
+) => Promise<Response>;
 
 export function withError(handler: NextHandler): NextHandler {
-  return async (req, params) => {
+  return async (req, context) => {
     try {
-      return await handler(req, params);
+      return await handler(req, context);
     } catch (error) {
       if (error instanceof ZodError) {
         if (env.LOG_ZOD_ERRORS) {
@@ -52,10 +52,9 @@ export function withError(handler: NextHandler): NextHandler {
       logger.error("Unhandled error", {
         error,
         url: req.url,
-        params,
-        email: await getEmailFromRequest(req),
+        email: await getEmailFromRequest(),
       });
-      captureException(error, { extra: { url: req.url, params } });
+      captureException(error, { extra: { url: req.url } });
 
       return NextResponse.json(
         { error: "An unexpected error occurred" },
@@ -76,7 +75,7 @@ function isErrorWithConfigAndHeaders(
   );
 }
 
-async function getEmailFromRequest(req: NextRequest) {
+async function getEmailFromRequest() {
   try {
     const session = await auth();
     return session?.user.email;

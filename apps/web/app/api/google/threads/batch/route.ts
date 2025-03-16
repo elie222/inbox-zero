@@ -13,7 +13,7 @@ export type ThreadsBatchResponse = Awaited<
   ReturnType<typeof getThreadsBatchAndParse>
 >;
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

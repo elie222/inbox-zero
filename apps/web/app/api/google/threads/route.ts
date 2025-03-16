@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (request) => {
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
   const fromEmail = searchParams.get("fromEmail");

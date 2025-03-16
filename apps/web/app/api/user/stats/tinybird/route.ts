@@ -103,7 +103,7 @@ async function getStatsByPeriod(
   };
 }
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

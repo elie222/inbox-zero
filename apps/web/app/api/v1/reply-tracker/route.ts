@@ -13,7 +13,7 @@ import { isDefined } from "@/utils/types";
 
 const logger = createScopedLogger("api/v1/reply-tracker");
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const { accessToken, userId } =
     await validateApiKeyAndGetGmailClient(request);
 

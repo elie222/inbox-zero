@@ -132,7 +132,7 @@ async function watchAllEmails() {
   return NextResponse.json({ success: true });
 }
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (request) => {
   if (!hasCronSecret(request)) {
     captureException(
       new Error("Unauthorized cron request: api/google/watch/all"),
@@ -143,7 +143,7 @@ export const GET = withError(async (request: Request) => {
   return watchAllEmails();
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!(await hasPostCronSecret(request))) {
     captureException(
       new Error("Unauthorized cron request: api/google/watch/all"),

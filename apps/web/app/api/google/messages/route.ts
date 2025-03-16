@@ -83,7 +83,7 @@ async function getMessages({
   }
 }
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const pageToken = searchParams.get("pageToken");
