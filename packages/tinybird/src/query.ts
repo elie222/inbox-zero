@@ -97,31 +97,6 @@ export const getDomainsMostSentTo = tb.buildPipe({
   }),
 });
 
-export const getNewsletterCounts = tb.buildPipe({
-  pipe: "newsletters",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    includeMissingUnsubscribe: z.boolean().nullish(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-    orderBy: z.enum(["emails", "unread", "unarchived"]).optional(),
-    all: z.boolean(),
-    read: z.boolean(),
-    unread: z.boolean(),
-    archived: z.boolean(),
-    unarchived: z.boolean(),
-    andClause: z.boolean().optional(),
-  }),
-  data: z.object({
-    from: z.string().transform(decrypt),
-    count: z.number(),
-    readEmails: z.number(),
-    inboxEmails: z.number(),
-    lastUnsubscribeLink: z.string().nullish(),
-  }),
-});
-
 export const getEmailsFromSender = tb.buildPipe({
   pipe: "emails_from_sender",
   parameters: getEmailsParameters.merge(
