@@ -24,7 +24,6 @@ export const POST = withError(async (request: Request) => {
 
   const result = await loadEmails(
     {
-      ownerEmail: session.user.email,
       userId: session.user.id,
       gmail,
       accessToken: token.token,
