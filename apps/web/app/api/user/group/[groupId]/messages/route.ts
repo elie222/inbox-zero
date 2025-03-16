@@ -9,7 +9,7 @@ export const GET = withError(async (_request, { params }) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const groupId = params.groupId;
+  const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Missing group id" });
 
   const gmail = getGmailClient(session);

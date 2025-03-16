@@ -16,10 +16,11 @@ export const GET = withError(async (_request, { params }) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  if (!params.id) return NextResponse.json({ error: "Missing rule id" });
+  const { id } = await params;
+  if (!id) return NextResponse.json({ error: "Missing rule id" });
 
   const result = await getRule({
-    ruleId: params.id,
+    ruleId: id,
     userId: session.user.id,
   });
 
