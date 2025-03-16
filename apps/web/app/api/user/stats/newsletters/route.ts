@@ -126,18 +126,19 @@ async function getNewsletterCounts(
     andClause?: boolean;
   },
 ): Promise<NewsletterCountResult[]> {
-  const whereConditions = [];
-  const params: Array<string | Date> = [];
+  // Collect SQL query conditions
+  const whereConditions: string[] = [];
+  const queryParams: Array<string | Date> = [];
 
   // Add date filters if provided
   if (options.fromDate) {
-    whereConditions.push(`"date" >= $${params.length + 1}`);
-    params.push(new Date(options.fromDate));
+    whereConditions.push(`"date" >= $${queryParams.length + 1}`);
+    queryParams.push(new Date(options.fromDate));
   }
 
   if (options.toDate) {
-    whereConditions.push(`"date" <= $${params.length + 1}`);
-    params.push(new Date(options.toDate));
+    whereConditions.push(`"date" <= $${queryParams.length + 1}`);
+    queryParams.push(new Date(options.toDate));
   }
 
   // Add read/unread filters
@@ -155,9 +156,10 @@ async function getNewsletterCounts(
   }
 
   // Always filter by userId
-  whereConditions.push(`"userId" = $${params.length + 1}`);
-  params.push(options.userId);
+  whereConditions.push(`"userId" = $${queryParams.length + 1}`);
+  queryParams.push(options.userId);
 
+  // Create WHERE clause
   const whereClause = whereConditions.length
     ? `WHERE ${whereConditions.join(" AND ")}`
     : "";
@@ -189,9 +191,10 @@ async function getNewsletterCounts(
   `;
 
   try {
-    const results = await prisma.$queryRaw<NewsletterCountRawResult[]>(
-      query,
-      ...params,
+    const results = await prisma.$queryRawUnsafe<NewsletterCountRawResult[]>(
+      query.sql,
+      ...queryParams,
+      ...query.values,
     );
 
     // Convert BigInt values to regular numbers
