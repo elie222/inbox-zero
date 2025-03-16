@@ -105,22 +105,6 @@ export const getEmailsFromSender = tb.buildPipe({
   data: getEmailsData,
 });
 
-export const getNewSenders = tb.buildPipe({
-  pipe: "new_senders",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    cutOffDate: z.number(),
-  }),
-  data: z.object({
-    gmailMessageId: z.string(),
-    from: z.string().transform(decrypt),
-    fromDomain: z.string().transform(decrypt),
-    subject: z.string().nullable().transform(decrypt),
-    timestamp: z.number(),
-    unsubscribeLink: z.string().nullish(),
-  }),
-});
-
 export const getEmailActionsByDay = tb.buildPipe({
   pipe: "get_email_actions_by_period",
   parameters: z.object({

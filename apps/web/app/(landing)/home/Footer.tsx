@@ -7,7 +7,6 @@ const navigation = {
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
-    { name: "New Sender Management", href: "/new-email-senders" },
     { name: "Open Source", href: "/github", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
   ],
