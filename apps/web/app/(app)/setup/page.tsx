@@ -228,7 +228,11 @@ const StepItem = ({
   actionButton?: string;
 }) => {
   return (
-    <div className="border-b border-gray-100 last:border-0">
+    <Link
+      className="border-b border-gray-100 last:border-0"
+      href={href}
+      target="_blank"
+    >
       <div className="flex items-center justify-between p-4">
         <div className="flex max-w-lg items-center">
           <div
@@ -251,16 +255,12 @@ const StepItem = ({
               <Check size={14} className="text-green-600" />
             </div>
           ) : (
-            <Link
-              href={href}
-              target="_blank"
-              className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200"
-            >
+            <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200">
               {actionButton || "Enable"}
-            </Link>
+            </div>
           )}
         </div>
       </div>
-    </div>
+    </Link>
   );
 };
