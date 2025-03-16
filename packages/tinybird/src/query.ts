@@ -97,14 +97,6 @@ export const getDomainsMostSentTo = tb.buildPipe({
   }),
 });
 
-export const getEmailsFromSender = tb.buildPipe({
-  pipe: "emails_from_sender",
-  parameters: getEmailsParameters.merge(
-    z.object({ fromEmail: z.string().transform(encrypt) }),
-  ),
-  data: getEmailsData,
-});
-
 export const getEmailActionsByDay = tb.buildPipe({
   pipe: "get_email_actions_by_period",
   parameters: z.object({
