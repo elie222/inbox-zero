@@ -150,21 +150,6 @@ export const getNewSenders = tb.buildPipe({
   }),
 });
 
-export const getWeeklyStats = tb.buildPipe({
-  pipe: "weekly_stats",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    cutOffDate: z.number(),
-  }),
-  data: z.object({
-    totalEmails: z.number(),
-    readEmails: z.number(),
-    sentEmails: z.number(),
-    archivedEmails: z.number(),
-    unsubscribeEmails: z.number(),
-  }),
-});
-
 export const getEmailActionsByDay = tb.buildPipe({
   pipe: "get_email_actions_by_period",
   parameters: z.object({
