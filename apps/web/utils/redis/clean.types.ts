@@ -11,4 +11,5 @@ export type CleanThread = {
 
   archive?: boolean;
   label?: string;
+  undone?: boolean;
 };

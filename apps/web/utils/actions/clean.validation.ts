@@ -14,7 +14,6 @@ export const cleanInboxSchema = z.object({
     attachment: z.boolean().default(false).nullish(),
   }),
 });
-
 export type CleanInboxBody = z.infer<typeof cleanInboxSchema>;
 
 export const undoCleanInboxSchema = z.object({
@@ -22,5 +21,10 @@ export const undoCleanInboxSchema = z.object({
   markedDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
 });
-
 export type UndoCleanInboxBody = z.infer<typeof undoCleanInboxSchema>;
+
+export const changeKeepToDoneSchema = z.object({
+  threadId: z.string(),
+  action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
+});
+export type ChangeKeepToDoneBody = z.infer<typeof changeKeepToDoneSchema>;

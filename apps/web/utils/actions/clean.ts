@@ -8,6 +8,8 @@ import {
   type CleanInboxBody,
   undoCleanInboxSchema,
   type UndoCleanInboxBody,
+  changeKeepToDoneSchema,
+  type ChangeKeepToDoneBody,
 } from "@/utils/actions/clean.validation";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -28,6 +30,7 @@ import prisma from "@/utils/prisma";
 // import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
 // import { getAiUser } from "@/utils/user/get";
 import { CleanAction } from "@prisma/client";
+import { updateThread } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -231,6 +234,87 @@ export const undoCleanInboxAction = withActionInstrumentation(
       // undo our own labelling
       removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
     });
+
+    // Update Redis to mark this thread as undone
+    try {
+      // We need to get the thread first to get the jobId
+      const thread = await prisma.cleanupThread.findFirst({
+        where: { userId, threadId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (thread) {
+        await updateThread(userId, thread.jobId, threadId, {
+          undone: true,
+          archive: false, // Reset the archive status since we've undone it
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to update Redis for undone thread", {
+        error,
+        threadId,
+      });
+      // Continue even if Redis update fails
+    }
+
+    return { success: true };
+  },
+);
+
+export const changeKeepToDoneAction = withActionInstrumentation(
+  "changeKeepToDone",
+  async (unsafeData: ChangeKeepToDoneBody) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const { data, success, error } =
+      changeKeepToDoneSchema.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    const { threadId, action } = data;
+
+    const gmail = getGmailClient(session);
+
+    // Get the label to add (archived or marked_read)
+    const actionLabel = await getOrCreateInboxZeroLabel({
+      key: action === CleanAction.ARCHIVE ? "archived" : "marked_read",
+      gmail,
+    });
+
+    await labelThread({
+      gmail,
+      threadId,
+      // Apply the action (archive or mark as read)
+      removeLabelIds: [
+        ...(action === CleanAction.ARCHIVE ? [GmailLabel.INBOX] : []),
+        ...(action === CleanAction.MARK_READ ? [GmailLabel.UNREAD] : []),
+      ],
+      addLabelIds: [...(actionLabel?.id ? [actionLabel.id] : [])],
+    });
+
+    // Update Redis to mark this thread with the new status
+    try {
+      // We need to get the thread first to get the jobId
+      const thread = await prisma.cleanupThread.findFirst({
+        where: { userId, threadId },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (thread) {
+        await updateThread(userId, thread.jobId, threadId, {
+          archive: action === CleanAction.ARCHIVE,
+          status: "completed",
+          undone: true,
+        });
+      }
+    } catch (error) {
+      logger.error("Failed to update Redis for changed thread:", {
+        error,
+        threadId,
+      });
+      // Continue even if Redis update fails
+    }
 
     return { success: true };
   },

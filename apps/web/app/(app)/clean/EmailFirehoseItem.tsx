@@ -1,14 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { ExternalLinkIcon, TagIcon, Undo2Icon } from "lucide-react";
+import {
+  ExternalLinkIcon,
+  Undo2Icon,
+  ArchiveIcon,
+  CheckIcon,
+} from "lucide-react";
 import { Badge } from "@/components/Badge";
 import { cn } from "@/utils";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { formatShortDate } from "@/utils/date";
 import { Button } from "@/components/ui/button";
-import { undoCleanInboxAction } from "@/utils/actions/clean";
+import {
+  undoCleanInboxAction,
+  changeKeepToDoneAction,
+} from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
@@ -112,6 +119,11 @@ function StatusBadge({
     return <Badge color="purple">Undone</Badge>;
   }
 
+  // If the email has the undone flag, show it as undone regardless of other status
+  if (email.undone) {
+    return <Badge color="purple">Undone</Badge>;
+  }
+
   if (status === "markedDone" || status === "markingDone") {
     return (
       <div className="group">
@@ -157,7 +169,47 @@ function StatusBadge({
   }
 
   if (status === "keep") {
-    return <Badge color="blue">Keep</Badge>;
+    return (
+      <div className="group">
+        <span className="group-hover:hidden">
+          <Badge color="blue">Keep</Badge>
+        </span>
+        <div className="hidden group-hover:inline-flex">
+          <Button
+            size="xs"
+            variant="ghost"
+            onClick={async () => {
+              if (undoState) return;
+
+              setUndoing(email.threadId);
+
+              const result = await changeKeepToDoneAction({
+                threadId: email.threadId,
+                action,
+              });
+
+              if (isActionError(result)) {
+                toastError({ description: result.error });
+              } else {
+                setUndone(email.threadId);
+              }
+            }}
+          >
+            {action === CleanAction.ARCHIVE ? (
+              <>
+                <ArchiveIcon className="mr-1 size-3" />
+                Archive
+              </>
+            ) : (
+              <>
+                <CheckIcon className="mr-1 size-3" />
+                Mark Read
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (status === "labelled") {
@@ -166,6 +218,9 @@ function StatusBadge({
 }
 
 function getStatus(email: CleanThread): Status {
+  // If the email is marked as undone, we still want to show the original status
+  // The StatusBadge component will handle showing the undone state
+
   if (email.archive) {
     if (email.status === "processing") return "markingDone";
     return "markedDone";
