@@ -172,12 +172,6 @@
     "vitest-mock-extended": "^2.0.2"
   },
   "engines": {
-    "node": ">=18.17"
-  },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.0.10",
-      "@types/react-dom": "19.0.4"
-    }
+    "node": ">=22.0.0"
   }
 }

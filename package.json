@@ -28,6 +28,12 @@
     "*.{ts,tsx,md}": "prettier --write"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=22.0.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.0.10",
+      "@types/react-dom": "19.0.4"
+    }
   }
 }
