@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getSenders } from "@inboxzero/tinybird";
 import {
   type CreateCategoryBody,
   createCategoryBody,
@@ -23,6 +22,7 @@ import {
 } from "@/utils/upstash/categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
+import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
 
 const logger = createScopedLogger("actions/categorize");
 
@@ -48,11 +48,11 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
 
     async function getUncategorizedSenders(offset: number) {
       const result = await getSenders({
-        ownerEmail: user.email,
+        userId: user.id,
         limit: LIMIT,
         offset,
       });
-      const allSenders = result.data.map((sender) => sender.from);
+      const allSenders = result.map((sender) => sender.from);
       const existingSenders = await prisma.newsletter.findMany({
         where: {
           email: { in: allSenders },

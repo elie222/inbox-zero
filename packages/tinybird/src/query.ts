@@ -108,15 +108,3 @@ export const getEmailActionsByDay = tb.buildPipe({
     delete_count: z.number(),
   }),
 });
-
-export const getSenders = tb.buildPipe({
-  pipe: "get_distinct_senders",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().optional().default(100),
-    offset: z.number().optional().default(0),
-  }),
-  data: z.object({
-    from: z.string().transform(decrypt),
-  }),
-});
