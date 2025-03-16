@@ -168,7 +168,6 @@ async function saveBatch({
         sent: !!m.labelIds?.includes(GmailLabel.SENT),
         draft: !!m.labelIds?.includes(GmailLabel.DRAFT),
         inbox: !!m.labelIds?.includes(GmailLabel.INBOX),
-        sizeEstimate: m.sizeEstimate ?? 0,
         userId,
       };
     })

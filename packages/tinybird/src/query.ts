@@ -105,35 +105,6 @@ export const getEmailsFromSender = tb.buildPipe({
   data: getEmailsData,
 });
 
-export const getLargestEmails = tb.buildPipe({
-  pipe: "largest_emails",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    limit: z.number().nullish(),
-    fromDate: z.number().nullish(),
-    toDate: z.number().nullish(),
-  }),
-  data: z.object({
-    gmailMessageId: z.string(),
-    from: z.string().transform(decrypt),
-    subject: z.string().nullable().transform(decrypt),
-    timestamp: z.number(),
-    sizeEstimate: z.number().transform((t) => t ?? 0),
-  }),
-});
-
-export const getLastEmail = tb.buildPipe({
-  pipe: "last_email",
-  parameters: z.object({
-    ownerEmail: z.string(),
-    direction: z.enum(["oldest", "newest"]),
-  }),
-  data: z.object({
-    timestamp: z.number(),
-    gmailMessageId: z.string(),
-  }),
-});
-
 export const getNewSenders = tb.buildPipe({
   pipe: "new_senders",
   parameters: z.object({

@@ -376,7 +376,6 @@ model EmailMessage {
   sent            Boolean
   draft           Boolean
   inbox           Boolean
-  sizeEstimate    Int
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
