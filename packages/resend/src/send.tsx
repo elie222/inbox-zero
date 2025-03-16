@@ -1,4 +1,3 @@
-import type { JSXElementConstructor, ReactElement } from "react";
 import { render } from "@react-email/render";
 import { nanoid } from "nanoid";
 import { resend } from "./client";
@@ -14,7 +13,7 @@ const sendEmail = async ({
 }: {
   to: string;
   subject: string;
-  react: ReactElement<any, string | JSXElementConstructor<any>>;
+  react: React.ReactNode;
   test?: boolean;
   entityRefId?: string;
   tags?: { name: string; value: string }[];

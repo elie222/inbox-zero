@@ -136,7 +136,7 @@
     "swr": "2.3.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "5.7.2",
+    "typescript": "5.8.2",
     "usehooks-ts": "^3.1.0",
     "zod": "3.24.2",
     "zod-to-json-schema": "3.24.1"
