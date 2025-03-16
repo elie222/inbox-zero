@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, use } from "react";
 import useSWRInfinite from "swr/infinite";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
@@ -12,11 +12,10 @@ import { BetaBanner } from "@/app/(app)/mail/BetaBanner";
 import { ClientOnly } from "@/components/ClientOnly";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
-export default function Mail({
-  searchParams,
-}: {
-  searchParams: { type?: string; labelId?: string };
+export default function Mail(props: {
+  searchParams: Promise<{ type?: string; labelId?: string }>;
 }) {
+  const searchParams = use(props.searchParams);
   const query: ThreadsQuery = {};
 
   // Handle different query params

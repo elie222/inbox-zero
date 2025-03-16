@@ -5,11 +5,13 @@ import { Card, CardTitle } from "@/components/ui/card";
 import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export default async function CleanRunPage({
-  searchParams: { jobId, isPreviewBatch },
-}: {
-  searchParams: { jobId: string; isPreviewBatch: string };
+export default async function CleanRunPage(props: {
+  searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
 }) {
+  const searchParams = await props.searchParams;
+
+  const { jobId, isPreviewBatch } = searchParams;
+
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
 

@@ -9,11 +9,10 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getInboxCount, getUnreadCount } from "@/utils/assess";
 
-export default async function CleanPage({
-  searchParams,
-}: {
-  searchParams: { step: string };
+export default async function CleanPage(props: {
+  searchParams: Promise<{ step: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const step = searchParams.step
     ? Number.parseInt(searchParams.step)
     : CleanStep.INTRO;

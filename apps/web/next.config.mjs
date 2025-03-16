@@ -15,10 +15,8 @@ const withMDX = nextMdx();
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  swcMinify: true,
+  serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   experimental: {
-    serverComponentsExternalPackages: ["@sentry/nextjs", "@sentry/node"],
-    instrumentationHook: true,
     turbo: {
       rules: {
         "*.svg": {

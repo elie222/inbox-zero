@@ -7,10 +7,10 @@ import {
 import { withError } from "@/utils/middleware";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
 
-export const GET = withError(async (request: NextRequest, { params }) => {
+export const GET = withError(async (request, { params }) => {
   const { gmail, userId } = await validateApiKeyAndGetGmailClient(request);
 
-  const { groupId } = params;
+  const { groupId } = await params;
   if (!groupId)
     return NextResponse.json({ error: "Missing groupId" }, { status: 400 });
 

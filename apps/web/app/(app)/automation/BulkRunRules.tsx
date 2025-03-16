@@ -39,7 +39,7 @@ export function BulkRunRules() {
   const [startDate, setStartDate] = useState<Date | undefined>();
   const [endDate, setEndDate] = useState<Date | undefined>();
 
-  const abortRef = useRef<() => void>();
+  const abortRef = useRef<() => void>(undefined);
 
   return (
     <div>

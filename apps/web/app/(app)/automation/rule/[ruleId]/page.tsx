@@ -6,13 +6,12 @@ import { TopSection } from "@/components/TopSection";
 import { hasVariables } from "@/utils/template";
 import { getConditions } from "@/utils/condition";
 
-export default async function RulePage({
-  params,
-  searchParams,
-}: {
-  params: { ruleId: string };
-  searchParams: { new: string };
+export default async function RulePage(props: {
+  params: Promise<{ ruleId: string }>;
+  searchParams: Promise<{ new: string }>;
 }) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const session = await auth();
   if (!session?.user) redirect("/login");
 

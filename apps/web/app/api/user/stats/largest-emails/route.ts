@@ -78,7 +78,7 @@ async function getLargeEmails(gmail: gmail_v1.Gmail, accessToken: string) {
   };
 }
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

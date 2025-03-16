@@ -14,7 +14,7 @@ const attachmentQuery = z.object({
 // export type AttachmentQuery = z.infer<typeof attachmentQuery>;
 // export type AttachmentResponse = Awaited<ReturnType<typeof getGmailAttachment>>;
 
-export const GET = withError(async (request: NextRequest) => {
+export const GET = withError(async (request) => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

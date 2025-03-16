@@ -15,7 +15,7 @@ export const POST = withError(async (request) => {
     });
   }
 
-  if (!isValidInternalApiKey(headers()))
+  if (!isValidInternalApiKey(await headers()))
     return NextResponse.json({ error: "Invalid API key" });
 
   return handleBatchRequest(request);

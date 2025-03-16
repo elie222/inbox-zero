@@ -9,7 +9,7 @@ export type UncategorizedSendersResponse = {
   nextOffset?: number;
 };
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (request) => {
   const sessionResult = await getSessionAndGmailClient();
   if (isActionError(sessionResult))
     return NextResponse.json({ error: sessionResult.error });

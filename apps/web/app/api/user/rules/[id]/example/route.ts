@@ -31,10 +31,10 @@ export const GET = withError(async (_request, { params }) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  const ruleId = params.id;
-  if (!ruleId) return NextResponse.json({ error: "Missing rule id" });
+  const { id } = await params;
+  if (!id) return NextResponse.json({ error: "Missing rule id" });
 
-  const result = await getExamples({ ruleId });
+  const result = await getExamples({ ruleId: id });
 
   return NextResponse.json(result);
 });

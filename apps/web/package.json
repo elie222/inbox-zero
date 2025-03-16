@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
@@ -36,8 +36,8 @@
     "@lemonsqueezy/lemonsqueezy.js": "^4.0.0",
     "@mdx-js/loader": "^3.1.0",
     "@mdx-js/react": "^3.1.0",
-    "@next/mdx": "^14.2.15",
-    "@next/third-parties": "^14.2.15",
+    "@next/mdx": "15.2.2",
+    "@next/third-parties": "15.2.2",
     "@openrouter/ai-sdk-provider": "0.4.2",
     "@portabletext/react": "^3.2.0",
     "@prisma/client": "6.4.1",
@@ -90,7 +90,7 @@
     "email-reply-parser": "^1.9.2",
     "encoding": "^0.1.13",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.15",
+    "eslint-config-next": "15.2.2",
     "framer-motion": "^11.15.0",
     "gmail-api-parse-message": "^2.1.2",
     "google": "link:@next/third-parties/google",
@@ -104,7 +104,7 @@
     "linkifyjs": "^4.2.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.469.0",
-    "next": "14.2.15",
+    "next": "15.2.2",
     "next-auth": "5.0.0-beta.25",
     "next-axiom": "^1.9.1",
     "next-sanity": "9",
@@ -119,9 +119,9 @@
     "posthog-node": "^4.3.2",
     "prettier": "^3.4.2",
     "prettier-plugin-tailwindcss": "^0.6.9",
-    "react": "18.3.1",
+    "react": "19.0.0",
     "react-day-picker": "8.10.1",
-    "react-dom": "18.3.1",
+    "react-dom": "19.0.0",
     "react-dom-confetti": "^0.2.0",
     "react-hook-form": "^7.54.2",
     "react-hotkeys-hook": "4.6.1",
@@ -136,7 +136,7 @@
     "swr": "2.3.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "5.7.2",
+    "typescript": "5.8.2",
     "usehooks-ts": "^3.1.0",
     "zod": "3.24.2",
     "zod-to-json-schema": "3.24.1"
@@ -154,8 +154,8 @@
     "@types/mdx": "^2.0.13",
     "@types/node": "22.10.2",
     "@types/nodemailer": "^6.4.17",
-    "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
+    "@types/react": "19.0.10",
+    "@types/react-dom": "19.0.4",
     "autoprefixer": "10.4.20",
     "cross-env": "^7.0.3",
     "dotenv": "16.4.7",
@@ -172,6 +172,6 @@
     "vitest-mock-extended": "^2.0.2"
   },
   "engines": {
-    "node": ">=18.17"
+    "node": ">=22.0.0"
   }
 }

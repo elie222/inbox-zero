@@ -1,15 +1,15 @@
 "use client";
 
+import { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useSession } from "next-auth/react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect } from "react";
 import { env } from "@/env";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
-export function PostHogPageview(): JSX.Element {
+export function PostHogPageview() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
@@ -28,7 +28,7 @@ export function PostHogPageview(): JSX.Element {
   return <></>;
 }
 
-export function PostHogIdentify(): JSX.Element {
+export function PostHogIdentify() {
   const session = useSession();
 
   useEffect(() => {

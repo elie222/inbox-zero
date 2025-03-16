@@ -6,11 +6,11 @@ import { Frequency } from "@prisma/client";
 
 const logger = createScopedLogger("unsubscribe");
 
-export const GET = withError(async (request: Request) => {
+export const GET = withError(async (request) => {
   return unsubscribe(request);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   return unsubscribe(request);
 });
 

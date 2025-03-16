@@ -28,7 +28,8 @@ async function getThread(
   return { thread: { ...thread, messages } };
 }
 
-export const GET = withError(async (request, { params }) => {
+export const GET = withError(async (request, context) => {
+  const params = await context.params;
   const { id } = threadQuery.parse(params);
 
   const session = await auth();

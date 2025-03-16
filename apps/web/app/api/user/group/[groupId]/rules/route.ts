@@ -34,11 +34,12 @@ export const GET = withError(async (_request: Request, { params }) => {
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
-  if (!params.groupId) return NextResponse.json({ error: "Group id required" });
+  const { groupId } = await params;
+  if (!groupId) return NextResponse.json({ error: "Group id required" });
 
   const result = await getGroupRules({
     userId: session.user.id,
-    groupId: params.groupId,
+    groupId,
   });
 
   return NextResponse.json(result);

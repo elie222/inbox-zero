@@ -1,5 +1,6 @@
 import "../../styles/globals.css";
 import type React from "react";
+import { cookies } from "next/headers";
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
@@ -38,9 +39,12 @@ export default async function AppLayout({
 
   if (!session?.user.email) redirect("/login");
 
+  const cookieStore = await cookies();
+  const isClosed = cookieStore.get("sidebar_state")?.value === "false";
+
   return (
     <AppProviders>
-      <SideNavWithTopNav>
+      <SideNavWithTopNav defaultOpen={!isClosed}>
         <ErrorMessages />
         {children}
       </SideNavWithTopNav>
