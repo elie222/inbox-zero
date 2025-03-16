@@ -21,7 +21,7 @@ export const BarList = (props: {
   extra?: React.ReactNode;
 }) => {
   return (
-    <Card className="h-full">
+    <Card className="h-full bg-background">
       <Title>{props.title}</Title>
       {props.subtitle ? <Text>{props.subtitle}</Text> : null}
       <Flex className="mt-4">

@@ -312,7 +312,7 @@ export function BulkUnsubscribeSection({
                 <div className="mt-2 px-6 pb-6">{extra}</div>
               </>
             ) : (
-              <p className="max-w-prose space-y-4 p-4 text-gray-700">
+              <p className="max-w-prose space-y-4 p-4 text-muted-foreground">
                 No emails found. To see more, adjust the filter options or click
                 the "Load More" button.
               </p>
