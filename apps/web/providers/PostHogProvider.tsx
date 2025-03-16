@@ -9,7 +9,7 @@ import { env } from "@/env";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
-export function PostHogPageview(): JSX.Element {
+export function PostHogPageview() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
