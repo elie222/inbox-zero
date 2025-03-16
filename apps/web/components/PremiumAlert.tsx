@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
-import { Button } from "@/components/Button";
+import { Button } from "@/components/ui/button";
 import {
   hasAiAccess,
   hasColdEmailAccess,
@@ -75,31 +75,28 @@ function PremiumAiAssistantAlert({
           button={<Button onClick={openModal}>Switch Plan</Button>}
           variant="blue"
         />
+      ) : showSetApiKey ? (
+        <AlertWithButton
+          title="API Key Required"
+          description="You need to set an AI API key to use this feature."
+          button={
+            <Button asChild variant="blue">
+              <Link href="/settings">Set API Key</Link>
+            </Button>
+          }
+          icon={<CrownIcon className="size-4" />}
+          variant="blue"
+        />
       ) : (
         <AlertWithButton
           title="Premium"
-          description={
-            <>
-              This is a premium feature. Upgrade to the {businessTierName} plan
-              {showSetApiKey ? (
-                <>
-                  {" "}
-                  or set an AI API key on the{" "}
-                  <Link
-                    href="/settings"
-                    className="font-semibold hover:text-gray-700"
-                  >
-                    settings
-                  </Link>{" "}
-                  page.
-                </>
-              ) : (
-                <>.</>
-              )}
-            </>
+          description={`This is a premium feature. Upgrade to the ${businessTierName} plan.`}
+          button={
+            <Button onClick={openModal} variant="blue">
+              Upgrade
+            </Button>
           }
-          icon={<CrownIcon className="h-4 w-4" />}
-          button={<Button onClick={openModal}>Upgrade</Button>}
+          icon={<CrownIcon className="size-4" />}
           variant="blue"
         />
       )}

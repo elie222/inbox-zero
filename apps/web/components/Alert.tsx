@@ -41,7 +41,10 @@ export function AlertWithButton({
   className?: string;
 }) {
   return (
-    <Alert variant={variant} className={cn("pb-3 pt-5", className)}>
+    <Alert
+      variant={variant}
+      className={cn("bg-background pb-3 pt-5", className)}
+    >
       {icon === null ? null : icon || <TerminalIcon className="h-4 w-4" />}
       <div className="flex items-center justify-between">
         <div>
