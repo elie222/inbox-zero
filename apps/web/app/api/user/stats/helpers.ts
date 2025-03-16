@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 
-type EmailField = "to" | "toDomain" | "from" | "fromDomain";
+type EmailField = "to" | "from" | "fromDomain";
 
 interface EmailFieldStatsResult {
   data: Array<{

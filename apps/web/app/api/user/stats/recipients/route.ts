@@ -18,7 +18,6 @@ export type RecipientStatsQuery = z.infer<typeof recipientStatsQuery>;
 
 export interface RecipientsResponse {
   mostActiveRecipientEmails: { name: string; value: number }[];
-  mostActiveRecipientDomains: { name: string; value: number }[];
 }
 
 async function getRecipients({
@@ -40,9 +39,6 @@ async function getRecipients({
   );
 
   const countByRecipient = countBy(messages, (m) => m.headers.to);
-  const countByDomain = countBy(messages, (m) =>
-    extractDomainFromEmail(m.headers.to),
-  );
 
   const mostActiveRecipientEmails = sortBy(
     Object.entries(countByRecipient),
@@ -52,33 +48,16 @@ async function getRecipients({
     value: count,
   }));
 
-  const mostActiveRecipientDomains = sortBy(
-    Object.entries(countByDomain),
-    ([, count]) => -count,
-  ).map(([recipient, count]) => ({
-    name: recipient,
-    value: count,
-  }));
-
-  return { mostActiveRecipientEmails, mostActiveRecipientDomains };
+  return { mostActiveRecipientEmails };
 }
 
 async function getRecipientStatistics(
   options: RecipientStatsQuery & { userId: string },
 ): Promise<RecipientsResponse> {
-  const [mostReceived, mostReceivedDomains] = await Promise.all([
-    getMostSentTo(options),
-    getDomainsMostSentTo(options),
-  ]);
+  const [mostReceived] = await Promise.all([getMostSentTo(options)]);
 
   return {
     mostActiveRecipientEmails: mostReceived.data.map(
-      (d: { to?: string; count: number }) => ({
-        name: d.to || "",
-        value: d.count,
-      }),
-    ),
-    mostActiveRecipientDomains: mostReceivedDomains.data.map(
       (d: { to?: string; count: number }) => ({
         name: d.to || "",
         value: d.count,
@@ -102,25 +81,6 @@ async function getMostSentTo({
     fromDate,
     toDate,
     field: "to",
-    isSent: true,
-  });
-}
-
-/**
- * Get most sent to recipients by domain
- */
-async function getDomainsMostSentTo({
-  userId,
-  fromDate,
-  toDate,
-}: RecipientStatsQuery & {
-  userId: string;
-}) {
-  return getEmailFieldStats({
-    userId,
-    fromDate,
-    toDate,
-    field: "toDomain",
     isSent: true,
   });
 }

@@ -159,9 +159,6 @@ async function saveBatch({
         from: extractEmailAddress(m.headers.from),
         fromDomain: extractDomainFromEmail(m.headers.from),
         to: m.headers.to ? extractEmailAddress(m.headers.to) : "Missing",
-        toDomain: m.headers.to
-          ? extractDomainFromEmail(m.headers.to)
-          : "Missing",
         date,
         unsubscribeLink,
         read: !m.labelIds?.includes(GmailLabel.UNREAD),

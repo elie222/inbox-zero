@@ -370,7 +370,6 @@ model EmailMessage {
   from            String
   fromDomain      String
   to              String
-  toDomain        String
   unsubscribeLink String?
   read            Boolean
   sent            Boolean
