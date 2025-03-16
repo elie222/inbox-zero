@@ -90,14 +90,6 @@ const features = [
       "Track emails needing replies & follow-ups. Get AI-drafted responses",
   },
   {
-    href: "/cold-email-blocker",
-    icon: BanIcon,
-    iconBg: "bg-orange-100",
-    iconColor: "text-orange-600",
-    title: "Cold Email Blocker",
-    description: "Filter out unsolicited messages and keep your inbox clean",
-  },
-  {
     href: "/bulk-unsubscribe",
     icon: ArchiveIcon,
     iconBg: "bg-purple-100",
@@ -113,6 +105,14 @@ const features = [
     title: "AI Assistant",
     description:
       "Your personal email assistant that organizes, archives, and drafts replies",
+  },
+  {
+    href: "/cold-email-blocker",
+    icon: BanIcon,
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-600",
+    title: "Cold Email Blocker",
+    description: "Filter out unsolicited messages and keep your inbox clean",
   },
 ] as const;
 
