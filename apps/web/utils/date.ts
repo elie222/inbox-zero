@@ -1,4 +1,4 @@
-import { formatDate } from "date-fns";
+import { formatDate, formatDistanceToNow } from "date-fns";
 
 export const ONE_MINUTE_MS = 1000 * 60;
 export const ONE_HOUR_MS = ONE_MINUTE_MS * 60;
@@ -53,4 +53,8 @@ export function internalDateToDate(internalDate?: string | null): Date {
 
 export function formatDateForLLM(date: Date) {
   return formatDate(date, "EEEE, yyyy-MM-dd HH:mm:ss 'UTC'");
+}
+
+export function formatRelativeTimeForLLM(date: Date) {
+  return formatDistanceToNow(date, { addSuffix: true });
 }

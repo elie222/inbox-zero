@@ -8,7 +8,8 @@ import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
-import { formatDateForLLM } from "@/utils/date";
+import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
+// import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai/clean");
 
@@ -20,13 +21,17 @@ const schema = z.object({
   // reasoning: z.string(),
 });
 
+// const braintrust = new Braintrust("cleaner-1");
+
 export async function aiClean({
   user,
+  messageId,
   messages,
   instructions,
   skips,
 }: {
   user: Pick<User, "about"> & UserEmailWithAI;
+  messageId: string;
   messages: EmailForLLM[];
   instructions?: string;
   skips: {
@@ -38,15 +43,55 @@ export async function aiClean({
 
   if (!lastMessage) throw new Error("No messages");
 
-  const system = `You are an AI assistant that is helping a user get to inbox zero.
-Your task is to analyze each email and decide on the best action to take:
-1. archive - For newsletters, marketing, notifications, or low-priority emails
-2. label - For emails that need labelling
+  const system =
+    `You are an AI assistant designed to help users achieve inbox zero by analyzing emails and deciding whether they should be archived or not.
+  
+Examples of emails to archive:
+- Newsletters
+- Marketing
+- Notifications
+- Low-priority emails
+- Notifications
+- Social
+- LinkedIn messages
+- Facebook messages
+- GitHub issues
 
-For emails that should be labeled, suggest an appropriate label name.
-Common labels include: "Finance", "Work", "Personal", "Shopping", "Travel", "Social", etc.`;
+${skips.reply ? "Do not archive emails that the user needs to reply to. But do archive old emails that are clearly not needed." : ""}
+${
+  skips.receipt
+    ? `Do not archive emails that are receipts, payments, or invoices.
+You should archive emails that are payment related but not receipts. For example, an overdue payment notification should be archived.`
+    : ""
+}`.trim();
 
-  // ${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
+  const message = `${stringifyEmailSimple(lastMessage)}
+  ${
+    lastMessage.date
+      ? `<date>${formatDateForLLM(lastMessage.date)} (${formatRelativeTimeForLLM(lastMessage.date)})</date>`
+      : ""
+  }`;
+
+  const previousMessages = messages
+    .slice(-3, -1) // Take 2 messages before the last message
+    .map(
+      (message) =>
+        `<message>${stringifyEmailFromBody(message).slice(0, 500)}</message>`,
+    )
+    .join("\n");
+
+  const previous =
+    messages.length > 1
+      ? `
+Previous emails in the thread for context:
+
+<previous_emails>
+${previousMessages}
+</previous_emails>
+`
+      : "";
+
+  const currentDate = formatDateForLLM(new Date());
 
   const prompt = `
 ${
@@ -56,29 +101,16 @@ ${
     : ""
 }
 
-${skips.reply ? "Do not archive emails that the user needs to reply to. Social media updates, GitHub issues, LinkedIn messages, Facebook messages, marketing, and newsletters do not need to be replied to." : ""}
-${skips.receipt ? "Do not archive emails that are receipts, payments, or invoices." : ""}
+The email to analyze:
 
-The message to analyze:
-
-<message>
-${stringifyEmailSimple(lastMessage)}
-</message>
-
-Previous messages in the thread for context:
-
-<previous_messages>
-${messages
-  .slice(-3, -1) // Take 2 messages before the last message
-  .map(
-    (message) =>
-      `<message>${stringifyEmailFromBody(message).slice(0, 500)}</message>`,
-  )
-  .join("\n")}
-</previous_messages>
-
-The current date is ${formatDateForLLM(new Date())}.
+<email>
+${message}
+</email>
+${previous}
+The current date is ${currentDate}.
 `.trim();
+
+  // ${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
   logger.trace("Input", { system, prompt });
 
@@ -92,6 +124,12 @@ The current date is ${formatDateForLLM(new Date())}.
   });
 
   logger.trace("Result", { response: aiResponse.object });
+
+  // braintrust.insertToDataset({
+  //   id: messageId,
+  //   input: { message, previousMessages, currentDate },
+  //   expected: aiResponse.object,
+  // });
 
   return aiResponse.object;
 }

@@ -78,6 +78,7 @@
     "@vercel/analytics": "^1.4.1",
     "@vercel/functions": "2.0.0",
     "ai": "4.1.46",
+    "braintrust": "0.0.190",
     "capital-case": "^2.0.0",
     "cheerio": "1.0.0",
     "class-variance-authority": "^0.7.1",

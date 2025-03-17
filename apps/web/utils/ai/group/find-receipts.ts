@@ -8,7 +8,12 @@ import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";
 
 // Predefined lists of receipt senders and subjects
-const defaultReceiptSenders = ["invoice+statements", "receipt@", "invoice@"];
+const defaultReceiptSenders = [
+  "invoice+statements",
+  "receipt@",
+  "invoice@",
+  "billing@",
+];
 const defaultReceiptSubjects = [
   "Invoice #",
   "Payment Receipt",
@@ -107,6 +112,7 @@ const receiptSubjects = [
   "invoice",
   "receipt",
   "payment",
+  "purchase",
   '"purchase order"',
   '"order confirmation"',
   '"billing statement"',
