@@ -74,9 +74,7 @@ function ProfileDropdown() {
               src={session.user.image}
               alt="Profile"
             />
-          ) : (
-            <div className="h-8 w-8 rounded-full bg-primary" />
-          )}
+          ) : null}
           <span className="hidden lg:flex lg:items-center">
             <span
               className="ml-4 text-sm font-semibold leading-6 text-foreground"
