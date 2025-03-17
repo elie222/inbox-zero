@@ -145,3 +145,10 @@ export function isReceipt(message: ParsedMessage) {
     isReceiptSubject(message.headers.subject)
   );
 }
+
+export function isMaybeReceipt(message: ParsedMessage) {
+  const lowerSubject = message.headers.subject.toLowerCase();
+  return receiptSubjects.some((subject) =>
+    lowerSubject.includes(subject.toLowerCase()),
+  );
+}

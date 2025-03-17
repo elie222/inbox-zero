@@ -15,10 +15,11 @@ import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
-import { isReceipt } from "@/utils/ai/group/find-receipts";
+import { isMaybeReceipt, isReceipt } from "@/utils/ai/group/find-receipts";
 import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
+import type { ParsedMessage } from "@/utils/types";
 
 const logger = createScopedLogger("api/clean");
 
@@ -98,22 +99,53 @@ async function cleanThread({
     action,
   });
 
-  if (messages.length === 1) {
-    const message = messages[0];
+  function isStarred(message: ParsedMessage) {
+    return message.labelIds?.includes(GmailLabel.STARRED);
+  }
 
-    // Skip if message has attachments and skipAttachment is true
-    if (
-      skips.attachment &&
-      message.payload?.parts?.some((part) => part.filename)
-    ) {
+  function hasAttachments(message: ParsedMessage) {
+    return message.payload?.parts?.some((part) => part.filename);
+  }
+
+  function hasUnsubscribeLink(message: ParsedMessage) {
+    return (
+      findUnsubscribeLink(message.textHtml) ||
+      message.headers["list-unsubscribe"]
+    );
+  }
+
+  function hasSentMail(message: ParsedMessage) {
+    return message.labelIds?.includes(GmailLabel.SENT);
+  }
+
+  let needsLLMCheck = false;
+
+  // Run through static rules before running against our LLM
+  for (const message of messages) {
+    // Skip if message is starred and skipStarred is true
+    if (skips.starred && isStarred(message)) {
       await publish({ markDone: false });
       return;
     }
 
-    // Skip if message is starred and skipStarred is true
-    if (skips.starred && message.labelIds?.includes(GmailLabel.STARRED)) {
+    // Skip if message has attachments and skipAttachment is true
+    if (skips.attachment && hasAttachments(message)) {
       await publish({ markDone: false });
       return;
+    }
+
+    // receipt
+    if (skips.receipt) {
+      if (isReceipt(message)) {
+        await publish({ markDone: false });
+        return;
+      }
+
+      if (isMaybeReceipt(message)) {
+        // check with llm
+        needsLLMCheck = true;
+        break;
+      }
     }
 
     // calendar invite
@@ -131,40 +163,37 @@ async function cleanThread({
     }
 
     // unsubscribe link
-    const unsubscribeLink =
-      findUnsubscribeLink(message.textHtml) ||
-      message.headers["list-unsubscribe"];
-    if (unsubscribeLink) {
+    if (!hasSentMail(message) && hasUnsubscribeLink(message)) {
       await publish({ markDone: true });
-      return;
-    }
-
-    // receipt
-    if (skips.receipt && isReceipt(message)) {
-      await publish({ markDone: false });
       return;
     }
 
     // newsletter
-    if (isNewsletterSender(message.headers.from)) {
-      await publish({ markDone: true });
-      return;
-    }
-
-    // promotion/social/update
-    if (
-      message.labelIds?.includes(GmailLabel.SOCIAL) ||
-      message.labelIds?.includes(GmailLabel.PROMOTIONS) ||
-      message.labelIds?.includes(GmailLabel.UPDATES) ||
-      message.labelIds?.includes(GmailLabel.FORUMS)
-    ) {
+    if (!hasSentMail(message) && isNewsletterSender(message.headers.from)) {
       await publish({ markDone: true });
       return;
     }
   }
 
+  // promotion/social/update
+  if (
+    !needsLLMCheck &&
+    lastMessage.labelIds?.some(
+      (label) =>
+        label === GmailLabel.SOCIAL ||
+        label === GmailLabel.PROMOTIONS ||
+        label === GmailLabel.UPDATES ||
+        label === GmailLabel.FORUMS,
+    )
+  ) {
+    await publish({ markDone: true });
+    return;
+  }
+
+  // llm check
   const aiResult = await aiClean({
     user,
+    messageId: lastMessage.id,
     messages: messages.map((m) => getEmailForLLM(m)),
     instructions,
     skips,
