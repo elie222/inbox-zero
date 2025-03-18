@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/utils";
 import { CleanAction } from "@prisma/client";
 
-export function EmailStats({
+export function CleanStats({
   stats,
   action,
 }: {
@@ -34,7 +34,7 @@ export function EmailStats({
 
   return (
     <div className="mt-2 space-y-4 overflow-y-auto rounded-md border bg-muted/20 p-4">
-      <Card className="max-w-xs">
+      <Card>
         <CardContent className="pt-6">
           <div className="text-2xl font-bold">
             {stats.total.toLocaleString()}

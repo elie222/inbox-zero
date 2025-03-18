@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
-import { EmailStats } from "./EmailFirehoseStats";
+import { CleanStats } from "./CleanStats";
 import { useEmailStream } from "./useEmailStream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
@@ -164,7 +164,7 @@ export function EmailFirehose({
           </div>
         </TabsContent>
         <TabsContent value="stats">
-          <EmailStats stats={stats} action={action} />
+          <CleanStats stats={stats} action={action} />
         </TabsContent>
         <TabsContent value="history">
           <CleanHistory />
