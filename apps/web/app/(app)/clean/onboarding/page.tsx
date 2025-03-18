@@ -61,6 +61,7 @@ export default async function CleanPage(props: {
               receipt: searchParams.skipReceipt ?? false,
               attachment: searchParams.skipAttachment ?? false,
             }}
+            reuseSettings={false}
           />
         );
 

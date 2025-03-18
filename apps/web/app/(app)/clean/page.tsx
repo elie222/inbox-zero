@@ -25,6 +25,7 @@ export default async function CleanPage() {
           receipt: lastJob.skipReceipt ?? false,
           attachment: lastJob.skipAttachment ?? false,
         }}
+        reuseSettings={true}
       />
     </Card>
   );

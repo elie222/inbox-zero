@@ -3,12 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  parseAsInteger,
-  parseAsString,
-  parseAsStringEnum,
-  useQueryState,
-} from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -16,7 +10,6 @@ import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
-import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 
@@ -26,6 +19,7 @@ export function ConfirmationStep({
   timeRange,
   instructions,
   skips,
+  reuseSettings,
 }: {
   showFooter: boolean;
   action: CleanAction;
@@ -38,6 +32,7 @@ export function ConfirmationStep({
     receipt: boolean;
     attachment: boolean;
   };
+  reuseSettings: boolean;
 }) {
   const router = useRouter();
 
@@ -99,6 +94,19 @@ export function ConfirmationStep({
           so you can find them later or restore them.
         </li>
         <li>No emails are deleted - everything can be found in search.</li>
+        {reuseSettings && (
+          <li>
+            We'll use your settings from the last time you cleaned your inbox.
+            You can adjust these{" "}
+            <Link
+              className="font-semibold hover:underline"
+              href="/clean/onboarding"
+            >
+              here
+            </Link>
+            .
+          </li>
+        )}
       </ul>
 
       <div className="mt-6">
