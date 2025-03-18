@@ -171,7 +171,7 @@ export const cleanInboxAction = withActionInstrumentation(
               // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
               flowControl: {
                 key: `ai-clean-${userId}`,
-                parallelism: 1,
+                parallelism: 3,
               },
             };
           })

@@ -4,6 +4,7 @@ import prisma from "@/utils/prisma";
 import { Card, CardTitle } from "@/components/ui/card";
 import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { getJobById, getLastJob } from "@/app/(app)/clean/helpers";
 
 export default async function CleanRunPage(props: {
   searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
@@ -20,11 +21,9 @@ export default async function CleanRunPage(props: {
 
   const threads = await getThreadsByJobId(userId, jobId);
 
-  if (!jobId) return <CardTitle>No job ID</CardTitle>;
-
-  const job = await prisma.cleanupJob.findUnique({
-    where: { id: jobId, userId },
-  });
+  const job = jobId
+    ? await getJobById({ userId, jobId })
+    : await getLastJob(userId);
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
