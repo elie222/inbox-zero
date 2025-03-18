@@ -13,7 +13,19 @@ export default async function CleanPage() {
 
   return (
     <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
-      <ConfirmationStep showFooter />
+      <ConfirmationStep
+        showFooter
+        action={lastJob.action}
+        timeRange={lastJob.daysOld}
+        instructions={lastJob.instructions ?? undefined}
+        skips={{
+          reply: lastJob.skipReply ?? true,
+          starred: lastJob.skipStarred ?? true,
+          calendar: lastJob.skipCalendar ?? true,
+          receipt: lastJob.skipReceipt ?? false,
+          attachment: lastJob.skipAttachment ?? false,
+        }}
+      />
     </Card>
   );
 }

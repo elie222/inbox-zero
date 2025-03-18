@@ -20,33 +20,26 @@ import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 
-export function ConfirmationStep({ showFooter }: { showFooter: boolean }) {
+export function ConfirmationStep({
+  showFooter,
+  action,
+  timeRange,
+  instructions,
+  skips,
+}: {
+  showFooter: boolean;
+  action: CleanAction;
+  timeRange: number;
+  instructions?: string;
+  skips: {
+    reply: boolean;
+    starred: boolean;
+    calendar: boolean;
+    receipt: boolean;
+    attachment: boolean;
+  };
+}) {
   const router = useRouter();
-  // values from previous steps
-  const [action] = useQueryState(
-    "action",
-    parseAsStringEnum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
-  );
-  const [timeRange] = useQueryState("timeRange", parseAsInteger);
-  const [instructions] = useQueryState("instructions", parseAsString);
-  const [skips] = useSkipSettings();
-
-  // const estimatedTime = useMemo(() => {
-  //   if (!unhandledCount) return "calculating...";
-
-  //   const secondsPerEmail = 1;
-  //   const totalSeconds = unhandledCount * secondsPerEmail;
-
-  //   if (totalSeconds < 60) {
-  //     return `${totalSeconds} seconds`;
-  //   } else if (totalSeconds < 3600) {
-  //     return `${Math.ceil(totalSeconds / 60)} minutes`;
-  //   } else {
-  //     const hours = Math.floor(totalSeconds / 3600);
-  //     const minutes = Math.ceil((totalSeconds % 3600) / 60);
-  //     return `${hours} hour${hours > 1 ? "s" : ""} and ${minutes} minute${minutes > 1 ? "s" : ""}`;
-  //   }
-  // }, [unhandledCount]);
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction({
@@ -54,13 +47,7 @@ export function ConfirmationStep({ showFooter }: { showFooter: boolean }) {
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
       maxEmails: PREVIEW_RUN_COUNT,
-      skips: {
-        reply: skips.skipReply,
-        starred: skips.skipStarred,
-        calendar: skips.skipCalendar,
-        receipt: skips.skipReceipt,
-        attachment: skips.skipAttachment,
-      },
+      skips,
     });
 
     if (isActionError(result)) {

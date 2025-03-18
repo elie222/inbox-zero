@@ -8,9 +8,20 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getInboxCount, getUnreadCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/clean/types";
+import { CleanAction } from "@prisma/client";
 
 export default async function CleanPage(props: {
-  searchParams: Promise<{ step: string }>;
+  searchParams: Promise<{
+    step: string;
+    action?: CleanAction;
+    timeRange?: number;
+    instructions?: string;
+    skipReply?: boolean;
+    skipStarred?: boolean;
+    skipCalendar?: boolean;
+    skipReceipt?: boolean;
+    skipAttachment?: boolean;
+  }>;
 }) {
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
@@ -37,7 +48,21 @@ export default async function CleanPage(props: {
         return <CleanInstructionsStep />;
 
       case CleanStep.FINAL_CONFIRMATION:
-        return <ConfirmationStep showFooter={false} />;
+        return (
+          <ConfirmationStep
+            showFooter={false}
+            action={searchParams.action ?? CleanAction.ARCHIVE}
+            timeRange={searchParams.timeRange ?? 7}
+            instructions={searchParams.instructions}
+            skips={{
+              reply: searchParams.skipReply ?? true,
+              starred: searchParams.skipStarred ?? true,
+              calendar: searchParams.skipCalendar ?? true,
+              receipt: searchParams.skipReceipt ?? false,
+              attachment: searchParams.skipAttachment ?? false,
+            }}
+          />
+        );
 
       // first / default step
       default:
