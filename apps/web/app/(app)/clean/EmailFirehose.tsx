@@ -13,6 +13,7 @@ import { useEmailStream } from "./useEmailStream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { CleanAction } from "@prisma/client";
+import { CleanHistory } from "@/app/(app)/clean/CleanHistory";
 
 export function EmailFirehose({
   threads,
@@ -41,6 +42,8 @@ export function EmailFirehose({
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);
+  // Track programmatic scrolling
+  const isProgrammaticScrollRef = useRef(false);
 
   const virtualizer = useVirtualizer({
     count: emails.length,
@@ -54,9 +57,25 @@ export function EmailFirehose({
   //   togglePause();
   // };
 
+  // Reset to live view
+  // const resetToLive = () => {
+  //   setUserHasScrolled(false);
+  //   if (emails.length > 0) {
+  //     // Set flag to indicate programmatic scrolling
+  //     isProgrammaticScrollRef.current = true;
+  //     virtualizer.scrollToIndex(emails.length - 1, { align: "end" });
+
+  //     // Clear flag after scrolling is likely complete
+  //     setTimeout(() => {
+  //       isProgrammaticScrollRef.current = false;
+  //     }, 100);
+  //   }
+  // };
+
   // Handle scroll events to detect user interaction
   const handleScroll = () => {
-    if (!userHasScrolled) {
+    // Only set userHasScrolled if this is not a programmatic scroll
+    if (!userHasScrolled && !isProgrammaticScrollRef.current) {
       setUserHasScrolled(true);
     }
   };
@@ -76,16 +95,24 @@ export function EmailFirehose({
       emails.length > 0 &&
       !userHasScrolled
     ) {
+      // Set flag to indicate programmatic scrolling
+      isProgrammaticScrollRef.current = true;
       virtualizer.scrollToIndex(emails.length - 1, { align: "end" });
+
+      // Clear flag after scrolling is likely complete
+      setTimeout(() => {
+        isProgrammaticScrollRef.current = false;
+      }, 100);
     }
   }, [isPaused, tab, emails.length, virtualizer, userHasScrolled]);
 
   return (
     <div className="flex flex-col space-y-4">
       <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="stats">Stats</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="feed">
           <div
@@ -139,6 +166,9 @@ export function EmailFirehose({
         <TabsContent value="stats">
           <EmailStats stats={stats} action={action} />
         </TabsContent>
+        <TabsContent value="history">
+          <CleanHistory />
+        </TabsContent>
       </Tabs>
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -178,7 +208,37 @@ export function EmailFirehose({
             )}
           </button> */}
         </div>
-        {/* <div>Processed: {stats.total} emails</div> */}
+        {/* <div className="flex items-center space-x-2">
+          {userHasScrolled && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetToLive}
+              className="h-8"
+            >
+              <Play className="mr-1 h-3.5 w-3.5" />
+              Back to Live
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePauseToggle}
+            className="h-8"
+          >
+            {isPaused ? (
+              <>
+                <Play className="mr-1 h-3.5 w-3.5" />
+                Resume
+              </>
+            ) : (
+              <>
+                <Pause className="mr-1 h-3.5 w-3.5" />
+                Pause
+              </>
+            )}
+          </Button>
+        </div> */}
       </div>
 
       {/* <div className="flex items-center justify-between">

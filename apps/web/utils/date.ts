@@ -58,3 +58,12 @@ export function formatDateForLLM(date: Date) {
 export function formatRelativeTimeForLLM(date: Date) {
   return formatDistanceToNow(date, { addSuffix: true });
 }
+
+// Format: Mar 18, 2025
+export function formatDateSimple(date: Date) {
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
