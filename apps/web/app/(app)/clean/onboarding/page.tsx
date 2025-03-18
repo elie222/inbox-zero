@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card";
-import { CleanStep } from "./types";
 import { IntroStep } from "@/app/(app)/clean/IntroStep";
 import { ActionSelectionStep } from "@/app/(app)/clean/ActionSelectionStep";
 import { CleanInstructionsStep } from "@/app/(app)/clean/CleanInstructionsStep";
@@ -8,15 +7,12 @@ import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
 import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getInboxCount, getUnreadCount } from "@/utils/assess";
+import prisma from "utils/prisma";
+import { CleanStep } from "@/app/(app)/clean/types";
 
 export default async function CleanPage(props: {
   searchParams: Promise<{ step: string }>;
 }) {
-  const searchParams = await props.searchParams;
-  const step = searchParams.step
-    ? Number.parseInt(searchParams.step)
-    : CleanStep.INTRO;
-
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
 
@@ -24,6 +20,22 @@ export default async function CleanPage(props: {
   const inboxCount = await getInboxCount(gmail);
   const unreadCount = await getUnreadCount(gmail);
   const unhandledCount = Math.min(unreadCount, inboxCount);
+
+  const lastJob = await prisma.cleanupJob.findFirst({
+    where: {
+      userId: session.user.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  const searchParams = await props.searchParams;
+  const step = lastJob
+    ? CleanStep.FINAL_CONFIRMATION
+    : searchParams.step
+      ? Number.parseInt(searchParams.step)
+      : CleanStep.INTRO;
 
   const renderStepContent = () => {
     switch (step) {
@@ -37,7 +49,9 @@ export default async function CleanPage(props: {
         return <CleanInstructionsStep />;
 
       case CleanStep.FINAL_CONFIRMATION:
-        return <ConfirmationStep unhandledCount={unhandledCount} />;
+        return (
+          <ConfirmationStep unhandledCount={unhandledCount} lastJob={lastJob} />
+        );
 
       // first / default step
       default:
