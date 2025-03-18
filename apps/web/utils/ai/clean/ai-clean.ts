@@ -60,8 +60,8 @@ Examples of emails to archive:
 ${skips.reply ? "Do not archive emails that the user needs to reply to. But do archive old emails that are clearly not needed." : ""}
 ${
   skips.receipt
-    ? `Do not archive emails that are receipts, payments, or invoices.
-You should archive emails that are payment related but not receipts. For example, an overdue payment notification should be archived.`
+    ? `Do not archive emails that are actual financial records: receipts, payment confirmations, or invoices.
+However, do archive payment-related communications like overdue payment notifications, payment reminders, or subscription renewal notices.`
     : ""
 }`.trim();
 
