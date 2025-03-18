@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Inbox, Pause, Play, XCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { CleanStats } from "./CleanStats";
@@ -13,7 +11,6 @@ import { useEmailStream } from "./useEmailStream";
 import { Loading } from "@/components/Loading";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { CleanAction } from "@prisma/client";
-import { CleanHistory } from "@/app/(app)/clean/CleanHistory";
 
 export function EmailFirehose({
   threads,
@@ -109,10 +106,9 @@ export function EmailFirehose({
   return (
     <div className="flex flex-col space-y-4">
       <Tabs defaultValue="feed" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="feed">Feed</TabsTrigger>
           <TabsTrigger value="stats">Stats</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
         </TabsList>
         <TabsContent value="feed">
           <div
@@ -165,9 +161,6 @@ export function EmailFirehose({
         </TabsContent>
         <TabsContent value="stats">
           <CleanStats stats={stats} action={action} />
-        </TabsContent>
-        <TabsContent value="history">
-          <CleanHistory />
         </TabsContent>
       </Tabs>
 

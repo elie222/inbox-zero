@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
@@ -17,12 +18,9 @@ import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 import { useSkipSettings } from "@/app/(app)/clean/useSkipSettings";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
+import { HistoryIcon, SettingsIcon } from "lucide-react";
 
-export function ConfirmationStep({
-  unhandledCount,
-}: {
-  unhandledCount: number;
-}) {
+export function ConfirmationStep({ showFooter }: { showFooter: boolean }) {
   const router = useRouter();
   // values from previous steps
   const [action] = useQueryState(
@@ -121,6 +119,35 @@ export function ConfirmationStep({
           Start Cleaning
         </Button>
       </div>
+
+      {showFooter && (
+        <div className="mt-6 flex items-center justify-center space-x-6 text-sm text-muted-foreground">
+          <FooterLink icon={HistoryIcon} text="History" href="/clean/history" />
+          <FooterLink
+            icon={SettingsIcon}
+            text="Edit settings"
+            href="/clean/onboarding"
+          />
+        </div>
+      )}
     </div>
   );
 }
+
+const FooterLink = ({
+  icon: Icon,
+  text,
+  href,
+}: {
+  icon: React.ElementType;
+  text: string;
+  href: string;
+}) => (
+  <Link
+    href={href}
+    className="flex items-center transition-colors hover:text-primary"
+  >
+    <Icon className="mr-1 h-4 w-4" />
+    <span>{text}</span>
+  </Link>
+);

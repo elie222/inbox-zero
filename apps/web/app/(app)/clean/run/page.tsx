@@ -1,10 +1,9 @@
-import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
-import { Card, CardTitle } from "@/components/ui/card";
-import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
+import { CardTitle } from "@/components/ui/card";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getJobById, getLastJob } from "@/app/(app)/clean/helpers";
+import { CleanRun } from "@/app/(app)/clean/CleanRun";
 
 export default async function CleanRunPage(props: {
   searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
@@ -33,16 +32,13 @@ export default async function CleanRunPage(props: {
   ]);
 
   return (
-    <div className="mx-auto my-4 w-full max-w-2xl px-4">
-      {isPreviewBatch === "true" && <PreviewBatch job={job} />}
-      <Card className="p-6">
-        <EmailFirehose
-          threads={threads.filter((t) => t.status !== "processing")}
-          stats={{ total, archived }}
-          userEmail={userEmail}
-          action={job.action}
-        />
-      </Card>
-    </div>
+    <CleanRun
+      isPreviewBatch={isPreviewBatch === "true"}
+      job={job}
+      threads={threads}
+      total={total}
+      archived={archived}
+      userEmail={userEmail}
+    />
   );
 }

@@ -1,8 +1,9 @@
+"use client";
+
 import useSWR from "swr";
 import Link from "next/link";
 import type { CleanHistoryResponse } from "@/app/api/clean/history/route";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Button } from "@/components/ui/button";
 import { formatDateSimple } from "@/utils/date";
 
 export function CleanHistory() {
