@@ -21,7 +21,7 @@ import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
 import { CleanAction } from "@prisma/client";
 
-type Status = "markedDone" | "markingDone" | "keep" | "labelled";
+type Status = "markedDone" | "markingDone" | "keep" | "labelled" | "processing";
 
 export function EmailItem({
   email,
@@ -111,6 +111,10 @@ function StatusBadge({
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
 }) {
+  if (status === "processing") {
+    return <Badge color="purple">Processing...</Badge>;
+  }
+
   if (undoState === "undoing") {
     return <Badge color="purple">Undoing...</Badge>;
   }
@@ -230,7 +234,11 @@ function getStatus(email: CleanThread): Status {
     return "labelled";
   }
 
-  return "keep";
+  if (email.archive === false) {
+    return "keep";
+  }
+
+  return "processing";
 }
 
 function isPending(email: CleanThread) {

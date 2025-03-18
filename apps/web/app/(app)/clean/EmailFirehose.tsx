@@ -178,7 +178,7 @@ export function EmailFirehose({
             )}
           </button> */}
         </div>
-        <div>Processed: {stats.total} emails</div>
+        {/* <div>Processed: {stats.total} emails</div> */}
       </div>
 
       {/* <div className="flex items-center justify-between">
