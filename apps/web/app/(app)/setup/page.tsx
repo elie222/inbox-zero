@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { PageHeading } from "@/components/Typography";
+import { PageHeading, SectionDescription } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export default async function SetupPage() {
@@ -150,6 +150,8 @@ function SetupContent({
   const completedCount = completedSteps.length;
   const progressPercentage = (completedCount / totalSteps) * 100;
 
+  const isSetupComplete = progressPercentage === 100;
+
   // force light mode on this for now
   return (
     <div className="bg-slate-50">
@@ -158,22 +160,26 @@ function SetupContent({
           <PageHeading className="text-center dark:text-slate-800">
             Welcome to Inbox Zero
           </PageHeading>
-          {/* <SectionDescription className="text-base dark:text-slate-600">
-            Complete these steps to get the most out of your email experience
-          </SectionDescription> */}
+          <SectionDescription className="mt-2 text-center text-base dark:text-slate-600">
+            {isSetupComplete
+              ? "What would you like to do?"
+              : "Complete these steps to get the most out of your email experience"}
+          </SectionDescription>
         </div>
 
-        <FeatureGrid />
-
-        <Checklist
-          isReplyTrackerConfigured={isReplyTrackerConfigured}
-          isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
-          isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
-          isAiAssistantConfigured={isAiAssistantConfigured}
-          completedCount={completedCount}
-          totalSteps={totalSteps}
-          progressPercentage={progressPercentage}
-        />
+        {isSetupComplete ? (
+          <FeatureGrid />
+        ) : (
+          <Checklist
+            isReplyTrackerConfigured={isReplyTrackerConfigured}
+            isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
+            isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
+            isAiAssistantConfigured={isAiAssistantConfigured}
+            completedCount={completedCount}
+            totalSteps={totalSteps}
+            progressPercentage={progressPercentage}
+          />
+        )}
       </div>
     </div>
   );
@@ -256,7 +262,7 @@ function Checklist({
   isAiAssistantConfigured: boolean;
 }) {
   return (
-    <div className="mb-6 mt-20 overflow-hidden rounded-lg bg-white shadow-sm">
+    <div className="mb-6 overflow-hidden rounded-lg bg-white shadow-sm">
       <div className="border-b border-gray-100 p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-gray-800">Complete your setup</h2>
