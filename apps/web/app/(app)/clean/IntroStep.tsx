@@ -19,7 +19,7 @@ export function IntroStep({
   return (
     <div className="text-center">
       <Image
-        src="https://illustrations.popsy.co/amber/home-office.svg"
+        src="/images/illustrations/home-office.svg"
         alt="clean up"
         width={200}
         height={200}
