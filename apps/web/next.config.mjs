@@ -170,6 +170,10 @@ const nextConfig = {
         source: "/vendor/lemon/affiliate.js",
         destination: "https://lmsqueezy.com/affiliate.js",
       },
+      {
+        source: "/game/:path*",
+        destination: "https://email-blaster.vercel.app/:path*",
+      },
     ];
   },
   // Security headers: https://nextjs.org/docs/app/building-your-application/configuring/progressive-web-apps#8-securing-your-application
