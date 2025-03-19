@@ -72,7 +72,7 @@ However, do archive payment-related communications like overdue payment notifica
       : ""
   }`;
 
-  const previousMessages = stringifyPreviousEmails(messages.slice(-3, -1));
+  const previousMessages = stringifyPreviousEmails(messages.slice(-2, -1), 300);
 
   const previous =
     messages.length > 1

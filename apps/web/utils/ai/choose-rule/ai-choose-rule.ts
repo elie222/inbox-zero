@@ -57,16 +57,15 @@ Respond with a JSON object with the following fields:
 
 Select a rule to apply to the email:`;
 
-  const previousMessages = stringifyPreviousEmails(messages.slice(-3, -1));
+  // just using 1 message for now
+  const previousMessages = stringifyPreviousEmails(messages.slice(-2, -1), 300);
 
   const previous =
     messages.length > 1
       ? `
-Previous emails in the thread for context:
+Previous email in thread for context:
 
-<previous_emails>
 ${previousMessages}
-</previous_emails>
 `
       : "";
 
