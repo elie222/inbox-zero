@@ -266,6 +266,11 @@ Let me know if you're interested!
                     Save
                   </Button>
 
+                  <Button variant="outline" onClick={onOpenPersonaDialog}>
+                    <UserPenIcon className="mr-2 size-4" />
+                    Choose persona
+                  </Button>
+
                   <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
                     <Button
                       type="button"
@@ -313,11 +318,6 @@ Let me know if you're interested!
                       Give me ideas
                     </Button>
                   </Tooltip>
-
-                  <Button variant="outline" onClick={onOpenPersonaDialog}>
-                    <UserPenIcon className="mr-2 size-4" />
-                    Choose persona
-                  </Button>
                 </div>
               </div>
             </form>
