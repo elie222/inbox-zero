@@ -14,13 +14,13 @@ export default async function CleanPage(props: {
   searchParams: Promise<{
     step: string;
     action?: CleanAction;
-    timeRange?: number;
+    timeRange?: string;
     instructions?: string;
-    skipReply?: boolean;
-    skipStarred?: boolean;
-    skipCalendar?: boolean;
-    skipReceipt?: boolean;
-    skipAttachment?: boolean;
+    skipReply?: string;
+    skipStarred?: string;
+    skipCalendar?: string;
+    skipReceipt?: string;
+    skipAttachment?: string;
   }>;
 }) {
   const session = await auth();
@@ -52,14 +52,18 @@ export default async function CleanPage(props: {
           <ConfirmationStep
             showFooter={false}
             action={searchParams.action ?? CleanAction.ARCHIVE}
-            timeRange={searchParams.timeRange ?? 7}
+            timeRange={
+              searchParams.timeRange
+                ? Number.parseInt(searchParams.timeRange)
+                : 7
+            }
             instructions={searchParams.instructions}
             skips={{
-              reply: searchParams.skipReply ?? true,
-              starred: searchParams.skipStarred ?? true,
-              calendar: searchParams.skipCalendar ?? true,
-              receipt: searchParams.skipReceipt ?? false,
-              attachment: searchParams.skipAttachment ?? false,
+              reply: searchParams.skipReply === "true",
+              starred: searchParams.skipStarred === "true",
+              calendar: searchParams.skipCalendar === "true",
+              receipt: searchParams.skipReceipt === "true",
+              attachment: searchParams.skipAttachment === "true",
             }}
             reuseSettings={false}
           />
