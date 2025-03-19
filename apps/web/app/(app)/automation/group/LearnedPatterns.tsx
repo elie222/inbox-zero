@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import {
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
 } from "@/components/ui/collapsible";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
 import { ViewGroup } from "@/app/(app)/automation/group/ViewGroup";
 
 export function LearnedPatterns({ groupId }: { groupId: string }) {
@@ -21,9 +21,7 @@ export function LearnedPatterns({ groupId }: { groupId: string }) {
       <CollapsibleTrigger className="flex w-full items-center justify-between bg-background p-4 hover:bg-muted">
         <div className="flex items-center gap-2">
           <BrainIcon size={16} className="text-muted-foreground" />
-          <span className="font-medium">
-            Learned Patterns (previously known as Groups)
-          </span>
+          <span className="font-medium">Learned Patterns</span>
         </div>
 
         <div className="flex items-center gap-4">

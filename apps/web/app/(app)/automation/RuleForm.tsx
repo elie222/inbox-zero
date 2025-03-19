@@ -14,7 +14,12 @@ import { toast } from "sonner";
 import TextareaAutosize from "react-textarea-autosize";
 import { capitalCase } from "capital-case";
 import { usePostHog } from "posthog-js/react";
-import { ExternalLinkIcon, PlusIcon, FilterIcon } from "lucide-react";
+import {
+  ExternalLinkIcon,
+  PlusIcon,
+  FilterIcon,
+  BrainIcon,
+} from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage, Input, Label } from "@/components/Input";
@@ -59,6 +64,8 @@ import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import { Tooltip } from "@/components/Tooltip";
+import { createGroupAction } from "@/utils/actions/group";
 
 export function RuleForm({
   rule,
@@ -201,6 +208,10 @@ export function RuleForm({
     ];
   }, []);
 
+  const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
+    rule.groupId,
+  );
+
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
       {isSubmitted && Object.keys(errors).length > 0 && (
@@ -231,34 +242,63 @@ export function RuleForm({
 
       <div className="mt-6 flex items-end justify-between">
         <TypographyH3>Conditions</TypographyH3>
+        <div className="flex items-center gap-1.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <FilterIcon className="mr-2 h-4 w-4" />
+                Match{" "}
+                {!conditionalOperator ||
+                conditionalOperator === LogicalOperator.AND
+                  ? "all"
+                  : "any"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuRadioGroup
+                value={conditionalOperator}
+                onValueChange={(value) =>
+                  setValue("conditionalOperator", value as LogicalOperator)
+                }
+              >
+                <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                  Match all conditions
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                  Match any condition
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <FilterIcon className="mr-2 h-4 w-4" />
-              Match{" "}
-              {!conditionalOperator ||
-              conditionalOperator === LogicalOperator.AND
-                ? "all"
-                : "any"}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuRadioGroup
-              value={conditionalOperator}
-              onValueChange={(value) =>
-                setValue("conditionalOperator", value as LogicalOperator)
-              }
-            >
-              <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                Match all conditions
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                Match any condition
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          {!learnedPatternGroupId && (
+            <Tooltip content="Show learned patterns">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9"
+                onClick={async () => {
+                  if (!rule.id) return;
+
+                  const result = await createGroupAction({ ruleId: rule.id });
+
+                  if (isActionError(result)) {
+                    toastError({ description: result.error });
+                  } else if (!result.groupId) {
+                    toastError({
+                      description:
+                        "There was an error setting up learned patterns.",
+                    });
+                  } else {
+                    setLearnedPatternGroupId(result.groupId);
+                  }
+                }}
+              >
+                <BrainIcon className="size-4" />
+              </Button>
+            </Tooltip>
+          )}
+        </div>
       </div>
 
       {errors.conditions?.root?.message && (
@@ -513,9 +553,9 @@ export function RuleForm({
         </div>
       )}
 
-      {rule.groupId && (
+      {learnedPatternGroupId && (
         <div className="mt-4">
-          <LearnedPatterns groupId={rule.groupId} />
+          <LearnedPatterns groupId={learnedPatternGroupId} />
         </div>
       )}
 

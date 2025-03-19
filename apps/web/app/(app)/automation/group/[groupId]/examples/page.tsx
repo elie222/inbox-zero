@@ -26,21 +26,16 @@ export default function RuleExamplesPage(props: {
   return (
     <div>
       <TopSection
-        title="Examples of emails that match this group"
+        title="Examples of emails that match"
         descriptionComponent={
           isLoading ? (
             <p>Loading...</p>
           ) : (
             <>
               {hasExamples ? (
-                <p>
-                  Here are some examples of previous emails that match this
-                  rule.
-                </p>
+                <p>Here are examples of emails that match.</p>
               ) : (
-                <p>
-                  We did not find any examples to show you that match this rule.
-                </p>
+                <p>We did not find any examples to show you that match.</p>
               )}
             </>
           )

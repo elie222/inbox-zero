@@ -6,9 +6,41 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   type AddGroupItemBody,
   addGroupItemBody,
+  type CreateGroupBody,
+  createGroupBody,
 } from "@/utils/actions/group.validation";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
+
+export const createGroupAction = withActionInstrumentation(
+  "createGroup",
+  async (unsafeData: CreateGroupBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { error, data } = createGroupBody.safeParse(unsafeData);
+    if (error) return { error: error.message };
+
+    const rule = await prisma.rule.findUnique({
+      where: { id: data.ruleId, userId: session.user.id },
+      select: { name: true, groupId: true },
+    });
+    if (rule?.groupId) return { groupId: rule.groupId };
+    if (!rule) return { error: "Rule not found" };
+
+    const group = await prisma.group.create({
+      data: {
+        name: rule.name,
+        userId: session.user.id,
+        rule: {
+          connect: { id: data.ruleId },
+        },
+      },
+    });
+
+    return { groupId: group.id };
+  },
+);
 
 export const addGroupItemAction = withActionInstrumentation(
   "addGroupItem",
