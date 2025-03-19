@@ -37,6 +37,7 @@ export default async function CreateRulePage(props: {
             automate: true,
           }
         }
+        isReplyTrackingRule={false}
       />
     </div>
   );

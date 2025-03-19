@@ -60,7 +60,13 @@ import {
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 
-export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
+export function RuleForm({
+  rule,
+  isReplyTrackingRule,
+}: {
+  rule: CreateRuleBody & { id?: string };
+  isReplyTrackingRule: boolean;
+}) {
   const {
     register,
     handleSubmit,
@@ -515,9 +521,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
-      <div className="mt-4">
-        <ReplyTrackerActionSection />
-      </div>
+      {isReplyTrackingRule && (
+        <div className="mt-4">
+          <ReplyTrackerActionSection />
+        </div>
+      )}
 
       {actionErrors.length > 0 && (
         <div className="mt-4">
@@ -794,7 +802,7 @@ function LabelCombobox({
 
 function ReplyTrackerActionSection() {
   return (
-    <CardBasic>
+    <CardBasic className="border-blue-500">
       <div className="space-y-4">
         <div>
           <TypographyH3>Reply Zero Tracker</TypographyH3>

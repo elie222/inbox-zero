@@ -58,7 +58,10 @@ export default async function RulePage(props: {
         />
       )}
       <div className="content-container mx-auto w-full max-w-3xl">
-        <RuleForm rule={ruleWithActions} />
+        <RuleForm
+          rule={ruleWithActions}
+          isReplyTrackingRule={!!rule.trackReplies}
+        />
       </div>
     </div>
   );
