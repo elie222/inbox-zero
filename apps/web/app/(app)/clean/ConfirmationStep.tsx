@@ -56,7 +56,7 @@ export function ConfirmationStep({
   return (
     <div className="text-center">
       <Image
-        src="https://illustrations.popsy.co/amber/business-success-chart.svg"
+        src="/images/illustrations/business-success-chart.svg"
         alt="clean up"
         width={200}
         height={200}
