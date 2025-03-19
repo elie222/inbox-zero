@@ -158,6 +158,11 @@ const nextConfig = {
         destination: "/reply-zero",
         permanent: false,
       },
+      {
+        source: "/game",
+        destination: "https://email-blaster.vercel.app/",
+        permanent: false,
+      },
     ];
   },
   async rewrites() {
@@ -169,10 +174,6 @@ const nextConfig = {
       {
         source: "/vendor/lemon/affiliate.js",
         destination: "https://lmsqueezy.com/affiliate.js",
-      },
-      {
-        source: "/game/:path*",
-        destination: "https://email-blaster.vercel.app/:path*",
       },
     ];
   },

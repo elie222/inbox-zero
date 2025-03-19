@@ -9,6 +9,7 @@ const navigation = {
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Open Source", href: "/github", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
+    { name: "Email Blaster", href: "/game" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
