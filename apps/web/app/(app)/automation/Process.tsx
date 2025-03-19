@@ -17,24 +17,28 @@ export function Process() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>
-          {isApplyMode ? "Process your emails" : "Test your rules"}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col space-y-1.5">
+            <CardTitle>
+              {isApplyMode ? "Process your emails" : "Test your rules"}
+            </CardTitle>
 
-        <CardDescription>
-          {isApplyMode
-            ? "Run your rules on previous emails."
-            : "Check how your rules perform against previous emails."}
-        </CardDescription>
+            <CardDescription>
+              {isApplyMode
+                ? "Run your rules on previous emails."
+                : "Check how your rules perform against previous emails."}
+            </CardDescription>
+          </div>
 
-        <div className="flex pt-1">
-          <Toggle
-            name="test-mode"
-            label="Test"
-            labelRight="Apply"
-            enabled={isApplyMode}
-            onChange={(enabled) => setMode(enabled ? "apply" : "test")}
-          />
+          <div className="flex pt-1">
+            <Toggle
+              name="test-mode"
+              label="Test"
+              labelRight="Apply"
+              enabled={isApplyMode}
+              onChange={(enabled) => setMode(enabled ? "apply" : "test")}
+            />
+          </div>
         </div>
       </CardHeader>
       <ProcessRulesContent testMode={!isApplyMode} />

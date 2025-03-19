@@ -44,14 +44,11 @@ export function BulkRunRules() {
   return (
     <div>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <Tooltip content="Bulk process emails">
-          <DialogTrigger asChild>
-            <Button type="button" size="icon" variant="outline">
-              <HistoryIcon className="size-4" />
-              <span className="sr-only">Select emails to process</span>
-            </Button>
-          </DialogTrigger>
-        </Tooltip>
+        <DialogTrigger asChild>
+          <Button type="button" variant="outline" Icon={HistoryIcon}>
+            Bulk Process Emails
+          </Button>
+        </DialogTrigger>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Process Existing Inbox Emails</DialogTitle>
