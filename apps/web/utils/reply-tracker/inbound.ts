@@ -126,7 +126,7 @@ export async function handleInboundReply(
   if (!replyTrackingRule?.instructions) return;
 
   const result = await aiChooseRule({
-    email: getEmailForLLM(message),
+    messages: [getEmailForLLM(message)],
     rules: [
       {
         id: replyTrackingRule.id,

@@ -196,7 +196,7 @@ async function findMatchingRuleWithReasons(
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
-      email: getEmailForLLM(message),
+      messages: [getEmailForLLM(message)],
       rules: potentialMatches,
       user,
     });
