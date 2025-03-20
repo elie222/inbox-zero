@@ -2,7 +2,7 @@ import { chatCompletion } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
-
+import type { EmailForLLM } from "@/utils/types";
 const logger = createScopedLogger("generate-reply");
 
 export async function aiGenerateReply({
@@ -10,13 +10,7 @@ export async function aiGenerateReply({
   user,
   instructions,
 }: {
-  messages: {
-    from: string;
-    to: string;
-    subject: string;
-    content: string;
-    date: Date;
-  }[];
+  messages: (EmailForLLM & { to: string })[];
   user: UserEmailWithAI;
   instructions: string | null;
 }) {
@@ -47,7 +41,7 @@ ${messages
   .map(
     (msg) => `<email>
 ${stringifyEmail(msg, 3000)}
-<date>${msg.date.toISOString()}</date>
+<date>${msg.date?.toISOString() ?? "unknown"}</date>
 </email>`,
   )
   .join("\n")}
