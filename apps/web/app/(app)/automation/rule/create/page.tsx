@@ -35,6 +35,7 @@ export default async function CreateRulePage(props: {
               ? [getEmptyCondition(searchParams.type, searchParams.categoryId)]
               : [],
             automate: true,
+            runOnThreads: true,
           }
         }
         isReplyTrackingRule={false}
