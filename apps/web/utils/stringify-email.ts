@@ -35,7 +35,7 @@ export function stringifyEmailFromBody(email: EmailForLLM) {
 
 export function stringifyPreviousEmails(
   messages: EmailForLLM[],
-  maxLength = 500,
+  maxLength: number,
 ) {
   return messages
     .map(
