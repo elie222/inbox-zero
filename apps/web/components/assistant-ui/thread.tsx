@@ -83,25 +83,45 @@ const ThreadWelcome: FC = () => {
 
 const ThreadWelcomeSuggestions: FC = () => {
   return (
-    <div className="mt-3 flex w-full items-stretch justify-center gap-4">
+    <div className="mt-3 grid w-full gap-2 lg:grid-cols-2">
       <ThreadPrimitive.Suggestion
         className="flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-slate-200 p-3 transition-colors ease-in hover:bg-slate-100/80 dark:border-slate-800 dark:hover:bg-slate-800/80"
-        prompt="What is the weather in Tokyo?"
+        prompt="What can you do?"
         method="replace"
         autoSend
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          What is the weather in Tokyo?
+          What can you do?
         </span>
       </ThreadPrimitive.Suggestion>
       <ThreadPrimitive.Suggestion
         className="flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-slate-200 p-3 transition-colors ease-in hover:bg-slate-100/80 dark:border-slate-800 dark:hover:bg-slate-800/80"
-        prompt="What is assistant-ui?"
+        prompt="Add a rule to label and archive newsletters I get as 'Newsletter'"
         method="replace"
         autoSend
       >
         <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
-          What is assistant-ui?
+          Label and archive newsletters
+        </span>
+      </ThreadPrimitive.Suggestion>
+      <ThreadPrimitive.Suggestion
+        className="flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-slate-200 p-3 transition-colors ease-in hover:bg-slate-100/80 dark:border-slate-800 dark:hover:bg-slate-800/80"
+        prompt="Add a rule to label urgent emails as 'Urgent'"
+        method="replace"
+        autoSend
+      >
+        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          Label urgent emails
+        </span>
+      </ThreadPrimitive.Suggestion>
+      <ThreadPrimitive.Suggestion
+        className="flex max-w-sm grow basis-0 flex-col items-center justify-center rounded-lg border border-slate-200 p-3 transition-colors ease-in hover:bg-slate-100/80 dark:border-slate-800 dark:hover:bg-slate-800/80"
+        prompt="Add a rule to label emails needing a reply as 'Needs Reply'"
+        method="replace"
+        autoSend
+      >
+        <span className="line-clamp-2 text-ellipsis text-sm font-semibold">
+          Label emails needing a reply
         </span>
       </ThreadPrimitive.Suggestion>
     </div>
