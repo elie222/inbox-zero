@@ -175,13 +175,6 @@ describe("processHistoryItem", () => {
           { name: "Subject", value: "Test Email" },
           { name: "Date", value: "2024-01-01T00:00:00Z" },
         ],
-        parts: [
-          {
-            body: {
-              data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
-            },
-          },
-        ],
       },
     });
 
