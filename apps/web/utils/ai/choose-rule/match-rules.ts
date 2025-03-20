@@ -17,6 +17,7 @@ import {
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { isReplyInThread } from "@/utils/thread";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type {
@@ -164,10 +165,10 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
 
 export async function findMatchingRule(
   rules: RuleWithActionsAndCategories[],
-  messages: ParsedMessage[],
+  message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
 ) {
-  const result = await findMatchingRuleWithReasons(rules, messages, user);
+  const result = await findMatchingRuleWithReasons(rules, message, user);
   return {
     ...result,
     reason: result.reason || getMatchReason(result.matchReasons || []),
@@ -176,18 +177,18 @@ export async function findMatchingRule(
 
 async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
-  messages: ParsedMessage[],
+  message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
   reason?: string;
 }> {
-  const isThread = messages.length > 1;
+  const isThread = isReplyInThread(message.id, message.threadId);
   const { match, matchReasons, potentialMatches } =
     await findPotentialMatchingRules({
       rules,
-      message: messages[messages.length - 1],
+      message,
       isThread,
     });
 
@@ -195,7 +196,7 @@ async function findMatchingRuleWithReasons(
 
   if (potentialMatches?.length) {
     const result = await aiChooseRule({
-      messages: messages.map((m) => getEmailForLLM(m)),
+      email: getEmailForLLM(message),
       rules: potentialMatches,
       user,
     });

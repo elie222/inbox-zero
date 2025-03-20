@@ -59,7 +59,7 @@ export async function processPreviousSentEmails(
       } else {
         // inbound
         logger.info("Processing inbound reply", loggerOptions);
-        await handleInboundReply(user, threadMessages, gmail);
+        await handleInboundReply(user, latestMessage, gmail);
       }
 
       revalidatePath("/reply-zero");

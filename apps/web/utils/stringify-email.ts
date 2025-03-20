@@ -32,15 +32,3 @@ export function stringifyEmailFromBody(email: EmailForLLM) {
 
   return emailParts.filter(Boolean).join("\n");
 }
-
-export function stringifyPreviousEmails(
-  messages: EmailForLLM[],
-  maxLength: number,
-) {
-  return messages
-    .map(
-      (message) =>
-        `<message>${stringifyEmailFromBody(message).slice(0, maxLength)}</message>`,
-    )
-    .join("\n");
-}
