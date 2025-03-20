@@ -354,6 +354,7 @@ function getEmail({
   content = "content",
 }: { from?: string; subject?: string; content?: string } = {}) {
   return {
+    id: "id",
     from,
     subject,
     content,
