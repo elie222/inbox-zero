@@ -9,7 +9,7 @@ import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai-choose-rule");
 
-const braintrust = new Braintrust("choose-rule-array-3");
+const braintrust = new Braintrust("choose-rule-1");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -117,6 +117,7 @@ ${emailSection}
       hasAbout: !!user.about,
       userAbout: user.about,
       userEmail: user.email,
+      specialRuleNumber,
     },
     expected: aiResponse.object.rule,
   });
