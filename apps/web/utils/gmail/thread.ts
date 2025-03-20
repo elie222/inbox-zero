@@ -12,7 +12,11 @@ export async function getThread(
   threadId: string,
   gmail: gmail_v1.Gmail,
 ): Promise<ThreadWithPayloadMessages> {
-  const thread = await gmail.users.threads.get({ userId: "me", id: threadId });
+  const thread = await gmail.users.threads.get({
+    userId: "me",
+    id: threadId,
+    format: "full",
+  });
   return thread.data as ThreadWithPayloadMessages;
 }
 

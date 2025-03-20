@@ -16,6 +16,7 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { internalDateToDate } from "@/utils/date";
+import { getThreadMessages } from "@/utils/gmail/thread";
 
 export async function processHistoryItem(
   {
@@ -53,8 +54,8 @@ export async function processHistoryItem(
   logger.info("Getting message", loggerOptions);
 
   try {
-    const [gmailMessage, hasExistingRule] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
+    const [messages, hasExistingRule] = await Promise.all([
+      getThreadMessages(threadId, gmail),
       prisma.executedRule.findUnique({
         where: {
           unique_user_thread_message: { userId: user.id, threadId, messageId },
@@ -69,7 +70,7 @@ export async function processHistoryItem(
       return;
     }
 
-    const message = parseMessage(gmailMessage);
+    const message = messages[messages.length - 1];
 
     if (isIgnoredSender(message.headers.from)) {
       logger.info("Skipping. Ignored sender.", loggerOptions);
@@ -169,7 +170,7 @@ export async function processHistoryItem(
 
       await runRulesOnMessage({
         gmail,
-        message,
+        messages,
         rules,
         user,
         isTest: false,
