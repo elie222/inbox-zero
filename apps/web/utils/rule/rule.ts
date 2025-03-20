@@ -94,7 +94,7 @@ export async function safeUpdateRule(
   }
 }
 
-async function createRule({
+export async function createRule({
   result,
   userId,
   categoryIds,
