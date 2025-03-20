@@ -114,7 +114,7 @@ export async function markNeedsReply(
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
   user: Pick<User, "about"> & UserEmailWithAI,
-  message: ParsedMessage,
+  messages: ParsedMessage[],
   gmail: gmail_v1.Gmail,
 ) {
   // 1. Run rules check
@@ -126,7 +126,7 @@ export async function handleInboundReply(
   if (!replyTrackingRule?.instructions) return;
 
   const result = await aiChooseRule({
-    messages: [getEmailForLLM(message)],
+    messages: messages.map((m) => getEmailForLLM(m)),
     rules: [
       {
         id: replyTrackingRule.id,
@@ -137,6 +137,8 @@ export async function handleInboundReply(
   });
 
   if (result.rule?.id === replyTrackingRule.id) {
+    const message = messages[messages.length - 1];
+
     await markNeedsReply(
       user.id,
       user.email,
