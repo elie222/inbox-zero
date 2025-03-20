@@ -10,6 +10,7 @@ import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
+import type { EmailForLLM } from "@/utils/types";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -20,14 +21,7 @@ export async function isColdEmail({
   user,
   gmail,
 }: {
-  email: {
-    from: string;
-    subject: string;
-    content: string;
-    date?: Date;
-    threadId?: string;
-    messageId: string | null;
-  };
+  email: EmailForLLM & { threadId?: string };
   user: Pick<User, "id" | "email" | "coldEmailPrompt"> & UserAIFields;
   gmail: gmail_v1.Gmail;
 }): Promise<{
@@ -39,7 +33,7 @@ export async function isColdEmail({
     userId: user.id,
     email: user.email,
     threadId: email.threadId,
-    messageId: email.messageId,
+    messageId: email.id,
   };
 
   logger.info("Checking is cold email", loggerOptions);
@@ -59,11 +53,11 @@ export async function isColdEmail({
   }
 
   const hasPreviousEmail =
-    email.date && email.messageId
+    email.date && email.id
       ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
           from: email.from,
           date: email.date,
-          messageId: email.messageId,
+          messageId: email.id,
         })
       : false;
 
@@ -105,7 +99,7 @@ async function isKnownColdEmailSender({
 }
 
 async function aiIsColdEmail(
-  email: { from: string; subject: string; content: string },
+  email: EmailForLLM,
   user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
@@ -153,14 +147,7 @@ ${stringifyEmail(email, 500)}
 }
 
 export async function runColdEmailBlocker(options: {
-  email: {
-    from: string;
-    subject: string;
-    content: string;
-    messageId: string;
-    threadId: string;
-    date: Date;
-  };
+  email: EmailForLLM & { threadId: string };
   gmail: gmail_v1.Gmail;
   user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &
     UserAIFields;
@@ -173,7 +160,7 @@ export async function runColdEmailBlocker(options: {
 
 export async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
-  email: { from: string; messageId: string; threadId: string };
+  email: { from: string; id: string; threadId: string };
   user: Pick<User, "id" | "email" | "coldEmailBlocker">;
   aiReason: string | null;
 }) {
@@ -187,7 +174,7 @@ export async function blockColdEmail(options: {
       fromEmail: email.from,
       userId: user.id,
       reason: aiReason,
-      messageId: email.messageId,
+      messageId: email.id,
       threadId: email.threadId,
     },
   });
@@ -221,7 +208,7 @@ export async function blockColdEmail(options: {
 
     await labelMessage({
       gmail,
-      messageId: email.messageId,
+      messageId: email.id,
       addLabelIds: addLabelIds.length ? addLabelIds : undefined,
       removeLabelIds: removeLabelIds.length ? removeLabelIds : undefined,
     });

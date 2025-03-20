@@ -137,7 +137,7 @@ export async function processHistoryItem(
           from: message.headers.from,
           subject: message.headers.subject,
           content,
-          messageId,
+          id: messageId,
           threadId,
           date: internalDateToDate(message.internalDate),
         },
