@@ -41,6 +41,7 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { getThreadMessages } from "@/utils/gmail/thread";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -75,8 +76,8 @@ export const runRulesAction = withActionInstrumentation(
 
     const fetchExecutedRule = !isTest && !rerun;
 
-    const [gmailMessage, executedRule] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
+    const [messages, executedRule] = await Promise.all([
+      getThreadMessages(threadId, gmail),
       fetchExecutedRule
         ? prisma.executedRule.findUnique({
             where: {
@@ -112,12 +113,10 @@ export const runRulesAction = withActionInstrumentation(
       };
     }
 
-    const message = parseMessage(gmailMessage);
-
     const result = await runRulesOnMessage({
       isTest,
       gmail,
-      message,
+      messages,
       rules: user.rules,
       user: { ...user, email: user.email },
     });
@@ -158,21 +157,23 @@ export const testAiCustomContentAction = withActionInstrumentation(
     const result = await runRulesOnMessage({
       isTest: true,
       gmail,
-      message: {
-        id: "testMessageId",
-        threadId: "testThreadId",
-        snippet: content,
-        textPlain: content,
-        headers: {
-          date: new Date().toISOString(),
-          from: "",
-          to: "",
-          subject: "",
+      messages: [
+        {
+          id: "testMessageId",
+          threadId: "testThreadId",
+          snippet: content,
+          textPlain: content,
+          headers: {
+            date: new Date().toISOString(),
+            from: "",
+            to: "",
+            subject: "",
+          },
+          historyId: "",
+          inline: [],
+          internalDate: new Date().toISOString(),
         },
-        historyId: "",
-        inline: [],
-        internalDate: new Date().toISOString(),
-      },
+      ],
       rules: user.rules,
       user,
     });

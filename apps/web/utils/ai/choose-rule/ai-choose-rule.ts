@@ -2,26 +2,27 @@ import { z } from "zod";
 import type { UserAIFields } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { User } from "@prisma/client";
-import { stringifyEmail } from "@/utils/stringify-email";
+import {
+  stringifyEmail,
+  stringifyPreviousEmails,
+} from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-choose-rule");
 
 type GetAiResponseOptions = {
-  email: {
-    from: string;
-    subject: string;
-    content: string;
-    cc?: string;
-    replyTo?: string;
-  };
+  messages: EmailForLLM[];
   user: Pick<User, "email" | "about"> & UserAIFields;
   rules: { instructions: string }[];
 };
 
 async function getAiResponse(options: GetAiResponseOptions) {
-  const { email, user, rules } = options;
+  const { messages, user, rules } = options;
+
+  const lastMessage = messages.at(-1);
+
+  if (!lastMessage) throw new Error("No messages");
 
   const rulesWithUnknownRule = [
     ...rules,
@@ -56,9 +57,23 @@ Respond with a JSON object with the following fields:
 
 Select a rule to apply to the email:`;
 
+  // just using 1 message for now
+  const previousMessages = stringifyPreviousEmails(messages.slice(-2, -1), 300);
+
+  const previous =
+    messages.length > 1
+      ? `
+Previous email in thread for context:
+
+${previousMessages}
+`
+      : "";
+
   const prompt = `<email>
-${stringifyEmail(email, 500)}
-</email>`;
+${stringifyEmail(lastMessage, 500)}
+</email>
+${previous}
+`.trim();
 
   logger.trace("Input", { system, prompt });
 
@@ -100,16 +115,16 @@ ${stringifyEmail(email, 500)}
 export async function aiChooseRule<
   T extends { instructions: string },
 >(options: {
-  email: EmailForLLM;
+  messages: EmailForLLM[];
   rules: T[];
   user: Pick<User, "email" | "about"> & UserAIFields;
 }) {
-  const { email, rules, user } = options;
+  const { messages, rules, user } = options;
 
   if (!rules.length) return { reason: "No rules" };
 
   const aiResponse = await getAiResponse({
-    email,
+    messages,
     rules,
     user,
   });
