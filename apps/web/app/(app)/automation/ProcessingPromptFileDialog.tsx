@@ -118,7 +118,7 @@ function IntroStep({ next }: StepProps) {
         <DialogDescription className="text-center">
           This will take a minute.
           <br />
-          In the meantime, get to know our AI assistant better!
+          In the meantime, get to know your AI assistant better!
         </DialogDescription>
       </DialogHeader>
       <div className="flex justify-center">
@@ -167,12 +167,10 @@ function Step2({ back, next }: StepProps) {
 function Step3({ back, next }: StepProps) {
   return (
     <Step back={back} next={next} title="Test Your Rules">
-      <p>Shortly, you'll be taken to the "Test" tab. Here you can:</p>
-      <ul className="mt-1 list-disc pl-6 text-left">
-        <li>Check the AI rules are working as expected</li>
-        <li>Understand why the AI made certain choices</li>
-        <li>Fix any mistakes easily</li>
-      </ul>
+      <p>
+        Shortly, you'll be taken to the "Test" tab. Here you can check the
+        assistant is working as expected.
+      </p>
 
       <Image
         src="/images/automation/process.png"
@@ -189,8 +187,8 @@ function Step4({ back, next }: StepProps) {
   return (
     <Step back={back} next={next} title="Improve Your Rules">
       <p>
-        Use the "Fix" buttons to correct any mistakes. Each fix helps train the
-        AI to better match your needs.
+        Click "Fix" to correct any mistakes. Each fix helps train the AI to
+        better match your needs.
       </p>
 
       <Image
