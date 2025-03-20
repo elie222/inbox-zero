@@ -32,25 +32,25 @@ export type RunRulesResult = {
 
 export async function runRulesOnMessage({
   gmail,
-  messages,
+  message,
   rules,
   user,
   isTest,
 }: {
   gmail: gmail_v1.Gmail;
-  messages: ParsedMessage[];
+  message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  const result = await findMatchingRule(rules, messages, user);
+  const result = await findMatchingRule(rules, message, user);
 
   logger.trace("Matching rule", { result });
 
   if (result.rule) {
     return await runRule(
       result.rule,
-      messages,
+      message,
       user,
       gmail,
       result.reason,
@@ -58,7 +58,6 @@ export async function runRulesOnMessage({
       isTest,
     );
   } else {
-    const message = messages[messages.length - 1];
     await saveSkippedExecutedRule({
       userId: user.id,
       threadId: message.threadId,
@@ -71,14 +70,13 @@ export async function runRulesOnMessage({
 
 async function runRule(
   rule: RuleWithActionsAndCategories,
-  messages: ParsedMessage[],
+  message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
 ) {
-  const message = messages[messages.length - 1];
   const email = getEmailForLLM(message);
 
   // get action items with args

@@ -1,7 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { emailToContent } from "@/utils/mail";
+import { emailToContent, parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
+import { getMessage } from "@/utils/gmail/message";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
@@ -15,7 +16,6 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { internalDateToDate } from "@/utils/date";
-import { getThreadMessages } from "@/utils/gmail/thread";
 
 export async function processHistoryItem(
   {
@@ -53,8 +53,8 @@ export async function processHistoryItem(
   logger.info("Getting message", loggerOptions);
 
   try {
-    const [messages, hasExistingRule] = await Promise.all([
-      getThreadMessages(threadId, gmail),
+    const [gmailMessage, hasExistingRule] = await Promise.all([
+      getMessage(messageId, gmail, "full"),
       prisma.executedRule.findUnique({
         where: {
           unique_user_thread_message: { userId: user.id, threadId, messageId },
@@ -69,7 +69,7 @@ export async function processHistoryItem(
       return;
     }
 
-    const message = messages[messages.length - 1];
+    const message = parseMessage(gmailMessage);
 
     if (isIgnoredSender(message.headers.from)) {
       logger.info("Skipping. Ignored sender.", loggerOptions);
@@ -169,7 +169,7 @@ export async function processHistoryItem(
 
       await runRulesOnMessage({
         gmail,
-        messages,
+        message,
         rules,
         user,
         isTest: false,

@@ -16,17 +16,6 @@ export async function getThread(
   return thread.data as ThreadWithPayloadMessages;
 }
 
-export async function getThreadMessages(
-  threadId: string,
-  gmail: gmail_v1.Gmail,
-) {
-  const thread = await getThread(threadId, gmail);
-  if (!thread?.messages) return [];
-  return thread.messages
-    .map((m) => parseMessage(m as MessageWithPayload))
-    .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
-}
-
 export async function getThreads(
   q: string,
   labelIds: string[],
@@ -156,4 +145,15 @@ export async function getThreadsFromSenderWithSubject(
         : undefined,
     )
     .filter(isDefined);
+}
+
+export async function getThreadMessages(
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+) {
+  const thread = await getThread(threadId, gmail);
+  if (!thread?.messages) return [];
+  return thread.messages
+    .map((m) => parseMessage(m as MessageWithPayload))
+    .filter((m) => !m.labelIds?.includes(GmailLabel.DRAFT));
 }

@@ -13,7 +13,7 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
   test("Should return no rule when no rules passed", async () => {
     const result = await aiChooseRule({
       rules: [],
-      messages: [getEmail()],
+      email: getEmail(),
       user: getUser(),
     });
 
@@ -26,7 +26,7 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     );
 
     const result = await aiChooseRule({
-      messages: [getEmail({ subject: "test" })],
+      email: getEmail({ subject: "test" }),
       rules: [rule],
       user: getUser(),
     });
@@ -47,7 +47,7 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
 
     const result = await aiChooseRule({
       rules: [rule1, rule2],
-      messages: [getEmail({ subject: "remember that call" })],
+      email: getEmail({ subject: "remember that call" }),
       user: getUser(),
     });
 
@@ -80,12 +80,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
 
     const result = await aiChooseRule({
       rules: [rule1, rule2],
-      messages: [
-        getEmail({
-          subject: "Joke",
-          content: "Tell me a joke about sheep",
-        }),
-      ],
+      email: getEmail({
+        subject: "Joke",
+        content: "Tell me a joke about sheep",
+      }),
       user: getUser(),
     });
 
@@ -149,13 +147,11 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match simple response required", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            from: "alicesmith@gmail.com",
-            subject: "Can we meet for lunch tomorrow?",
-            content: "LMK\n\n--\nAlice Smith,\nCEO, The Boring Fund",
-          }),
-        ],
+        email: getEmail({
+          from: "alicesmith@gmail.com",
+          subject: "Can we meet for lunch tomorrow?",
+          content: "LMK\n\n--\nAlice Smith,\nCEO, The Boring Fund",
+        }),
         user: getUser(),
       });
 
@@ -168,13 +164,11 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match technical issues", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Server downtime reported",
-            content:
-              "We're experiencing critical server issues affecting production.",
-          }),
-        ],
+        email: getEmail({
+          subject: "Server downtime reported",
+          content:
+            "We're experiencing critical server issues affecting production.",
+        }),
         user: getUser(),
       });
 
@@ -187,12 +181,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match financial emails", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Your invoice for March 2024",
-            content: "Please find attached your invoice for services rendered.",
-          }),
-        ],
+        email: getEmail({
+          subject: "Your invoice for March 2024",
+          content: "Please find attached your invoice for services rendered.",
+        }),
         user: getUser(),
       });
 
@@ -205,13 +197,11 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match recruiter emails", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "New job opportunity at Tech Corp",
-            content:
-              "I came across your profile and think you'd be perfect for...",
-          }),
-        ],
+        email: getEmail({
+          subject: "New job opportunity at Tech Corp",
+          content:
+            "I came across your profile and think you'd be perfect for...",
+        }),
         user: getUser(),
       });
 
@@ -224,12 +214,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match legal documents", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Please review: Contract for new project",
-            content: "Attached is the contract for your review and signature.",
-          }),
-        ],
+        email: getEmail({
+          subject: "Please review: Contract for new project",
+          content: "Attached is the contract for your review and signature.",
+        }),
         user: getUser(),
       });
 
@@ -242,13 +230,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match emails requiring response", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Team lunch tomorrow?",
-            content:
-              "Would you like to join us for team lunch tomorrow at 12pm?",
-          }),
-        ],
+        email: getEmail({
+          subject: "Team lunch tomorrow?",
+          content: "Would you like to join us for team lunch tomorrow at 12pm?",
+        }),
         user: getUser(),
       });
 
@@ -261,12 +246,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match product updates", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "New Feature Release: AI Integration",
-            content: "We're excited to announce our new AI features...",
-          }),
-        ],
+        email: getEmail({
+          subject: "New Feature Release: AI Integration",
+          content: "We're excited to announce our new AI features...",
+        }),
         user: getUser(),
       });
 
@@ -279,12 +262,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match marketing emails", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "50% off Spring Sale!",
-            content: "Don't miss out on our biggest sale of the season!",
-          }),
-        ],
+        email: getEmail({
+          subject: "50% off Spring Sale!",
+          content: "Don't miss out on our biggest sale of the season!",
+        }),
         user: getUser(),
       });
 
@@ -297,12 +278,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match team updates", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Weekly Team Update",
-            content: "Here's what the team accomplished this week...",
-          }),
-        ],
+        email: getEmail({
+          subject: "Weekly Team Update",
+          content: "Here's what the team accomplished this week...",
+        }),
         user: getUser(),
       });
 
@@ -315,12 +294,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match customer feedback", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Customer Feedback: App Performance",
-            content: "I've been experiencing slow loading times...",
-          }),
-        ],
+        email: getEmail({
+          subject: "Customer Feedback: App Performance",
+          content: "I've been experiencing slow loading times...",
+        }),
         user: getUser(),
       });
 
@@ -333,12 +310,10 @@ describe.skipIf(!isAiTest)("aiChooseRule", () => {
     test("Should match event invitations", async () => {
       const result = await aiChooseRule({
         rules,
-        messages: [
-          getEmail({
-            subject: "Invitation: Annual Tech Conference",
-            content: "You're invited to speak at our annual conference...",
-          }),
-        ],
+        email: getEmail({
+          subject: "Invitation: Annual Tech Conference",
+          content: "You're invited to speak at our annual conference...",
+        }),
         user: getUser(),
       });
 
