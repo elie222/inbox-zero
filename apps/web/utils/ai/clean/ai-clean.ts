@@ -4,12 +4,9 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
-import {
-  stringifyEmailFromBody,
-  stringifyEmailSimple,
-} from "@/utils/stringify-email";
+import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
-// import { Braintrust } from "@/utils/braintrust";
+import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai/clean");
 
@@ -21,7 +18,7 @@ const schema = z.object({
   // reasoning: z.string(),
 });
 
-// const braintrust = new Braintrust("cleaner-1");
+const braintrust = new Braintrust("cleaner-1");
 
 export async function aiClean({
   user,
@@ -72,25 +69,6 @@ However, do archive payment-related communications like overdue payment notifica
       : ""
   }`;
 
-  const previousMessages = messages
-    .slice(-3, -1) // Take 2 messages before the last message
-    .map(
-      (message) =>
-        `<message>${stringifyEmailFromBody(message).slice(0, 500)}</message>`,
-    )
-    .join("\n");
-
-  const previous =
-    messages.length > 1
-      ? `
-Previous emails in the thread for context:
-
-<previous_emails>
-${previousMessages}
-</previous_emails>
-`
-      : "";
-
   const currentDate = formatDateForLLM(new Date());
 
   const prompt = `
@@ -106,7 +84,7 @@ The email to analyze:
 <email>
 ${message}
 </email>
-${previous}
+
 The current date is ${currentDate}.
 `.trim();
 
@@ -125,11 +103,11 @@ The current date is ${currentDate}.
 
   logger.trace("Result", { response: aiResponse.object });
 
-  // braintrust.insertToDataset({
-  //   id: messageId,
-  //   input: { message, previousMessages, currentDate },
-  //   expected: aiResponse.object,
-  // });
+  braintrust.insertToDataset({
+    id: messageId,
+    input: { message, currentDate },
+    expected: aiResponse.object,
+  });
 
   return aiResponse.object;
 }
