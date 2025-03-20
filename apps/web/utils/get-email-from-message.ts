@@ -7,6 +7,7 @@ export function getEmailForLLM(
   contentOptions?: EmailToContentOptions,
 ): EmailForLLM {
   return {
+    id: message.id,
     from: message.headers.from,
     replyTo: message.headers["reply-to"],
     cc: message.headers.cc,

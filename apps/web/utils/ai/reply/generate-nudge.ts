@@ -2,6 +2,7 @@ import { chatCompletion } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
+import type { EmailForLLM } from "@/utils/types";
 
 const logger = createScopedLogger("generate-nudge");
 
@@ -9,13 +10,7 @@ export async function aiGenerateNudge({
   messages,
   user,
 }: {
-  messages: {
-    from: string;
-    to: string;
-    subject: string;
-    content: string;
-    date: Date;
-  }[];
+  messages: EmailForLLM[];
   user: UserEmailWithAI;
   onFinish?: (completion: string) => Promise<void>;
 }) {
@@ -32,7 +27,7 @@ ${messages
   .map(
     (msg) => `<email>
 ${stringifyEmail(msg, 3000)}
-<date>${msg.date.toISOString()}</date>
+<date>${msg.date?.toISOString() ?? "unknown"}</date>
 </email>`,
   )
   .join("\n")}

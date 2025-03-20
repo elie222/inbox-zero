@@ -632,6 +632,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
     const snippetsResult = await aiFindSnippets({
       user,
       sentEmails: lastSentMessages.map((message) => ({
+        id: message.id,
         from: message.headers.from,
         replyTo: message.headers["reply-to"],
         cc: message.headers.cc,
@@ -721,6 +722,7 @@ export const reportAiMistakeAction = withActionInstrumentation(
       actualRule,
       expectedRule,
       email: {
+        id: "",
         ...email,
         content,
       },

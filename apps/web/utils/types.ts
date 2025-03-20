@@ -102,6 +102,7 @@ export interface ParsedMessageHeaders {
 }
 
 export type EmailForLLM = {
+  id: string;
   from: string;
   replyTo?: string;
   cc?: string;

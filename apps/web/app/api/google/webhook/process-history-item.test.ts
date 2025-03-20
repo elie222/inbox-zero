@@ -164,24 +164,19 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    vi.mocked(getThreadMessages).mockResolvedValueOnce([
-      {
-        id: "123",
-        threadId: "thread-123",
-        labelIds: [GmailLabel.SENT],
-        internalDate: "1704067200000", // 2024-01-01T00:00:00Z
-        snippet: "Hello World",
-        historyId: "12345",
-        inline: [],
-        headers: {
-          from: "user@example.com",
-          to: "recipient@example.com",
-          subject: "Test Email",
-          date: "2024-01-01T00:00:00Z",
-        },
-        textPlain: "Hello World",
+    vi.mocked(getMessage).mockResolvedValueOnce({
+      id: "123",
+      threadId: "thread-123",
+      labelIds: [GmailLabel.SENT],
+      payload: {
+        headers: [
+          { name: "From", value: "user@example.com" },
+          { name: "To", value: "recipient@example.com" },
+          { name: "Subject", value: "Test Email" },
+          { name: "Date", value: "2024-01-01T00:00:00Z" },
+        ],
       },
-    ]);
+    });
 
     await processHistoryItem(createHistoryItem(), createOptions());
 
