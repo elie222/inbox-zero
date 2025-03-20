@@ -14,6 +14,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { getThreadMessages } from "@/utils/gmail/thread";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -41,6 +42,23 @@ vi.mock("@/utils/gmail/message", () => ({
       ],
     },
   }),
+}));
+vi.mock("@/utils/gmail/thread", () => ({
+  getThreadMessages: vi.fn().mockResolvedValue([
+    {
+      id: "123",
+      threadId: "thread-123",
+      labelIds: ["INBOX"],
+      internalDate: "1704067200000", // 2024-01-01T00:00:00Z
+      headers: {
+        from: "sender@example.com",
+        to: "user@example.com",
+        subject: "Test Email",
+        date: "2024-01-01T00:00:00Z",
+      },
+      body: "Hello World",
+    },
+  ]),
 }));
 vi.mock("@/utils/assistant/is-assistant-email", () => ({
   isAssistantEmail: vi.fn().mockReturnValue(false),
@@ -146,20 +164,24 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    vi.mocked(getMessage).mockResolvedValueOnce({
-      id: "123",
-      threadId: "thread-123",
-      labelIds: [GmailLabel.SENT],
-      payload: {
-        headers: [
-          { name: "From", value: "user@example.com" },
-          { name: "To", value: "recipient@example.com" },
-          { name: "Subject", value: "Test Email" },
-          { name: "Date", value: "2024-01-01T00:00:00Z" },
-        ],
-        parts: [],
+    vi.mocked(getThreadMessages).mockResolvedValueOnce([
+      {
+        id: "123",
+        threadId: "thread-123",
+        labelIds: [GmailLabel.SENT],
+        internalDate: "1704067200000", // 2024-01-01T00:00:00Z
+        snippet: "Hello World",
+        historyId: "12345",
+        inline: [],
+        headers: {
+          from: "user@example.com",
+          to: "recipient@example.com",
+          subject: "Test Email",
+          date: "2024-01-01T00:00:00Z",
+        },
+        textPlain: "Hello World",
       },
-    });
+    ]);
 
     await processHistoryItem(createHistoryItem(), createOptions());
 
