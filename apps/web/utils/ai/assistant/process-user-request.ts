@@ -20,9 +20,9 @@ import {
 import { deleteGroupItem } from "@/utils/group/group-item";
 import {
   addRuleCategories,
+  createRule,
   partialUpdateRule,
   removeRuleCategories,
-  safeCreateRule,
 } from "@/utils/rule/rule";
 import { updateCategoryForSender } from "@/utils/categorize/senders/categorize";
 import { findSenderByEmail } from "@/utils/sender";
@@ -34,6 +34,7 @@ import {
 } from "@/utils/rule/prompt-file";
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { getUserCategoriesForNames } from "@/utils/category.server";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -516,11 +517,16 @@ ${senderCategory || "No category"}
             condition as CreateRuleSchemaWithCategories["condition"];
 
           try {
-            const rule = await safeCreateRule(
-              { name, condition, actions },
+            const categoryIds = await getUserCategoriesForNames(
               user.id,
               conditions.categories?.categoryFilters || [],
             );
+
+            const rule = await createRule({
+              result: { name, condition, actions },
+              userId: user.id,
+              categoryIds,
+            });
 
             if ("error" in rule) {
               logger.error("Error while creating rule", {
