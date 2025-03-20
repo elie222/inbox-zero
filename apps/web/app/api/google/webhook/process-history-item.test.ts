@@ -208,7 +208,7 @@ describe("processHistoryItem", () => {
         from: "sender@example.com",
         subject: "Test Email",
         content: expect.any(String),
-        messageId: "123",
+        id: "123",
         threadId: "thread-123",
         date: expect.any(Date),
       }),

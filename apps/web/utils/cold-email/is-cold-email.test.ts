@@ -30,7 +30,7 @@ describe("blockColdEmail", () => {
   const mockGmail = {} as gmail_v1.Gmail;
   const mockEmail = {
     from: "sender@example.com",
-    messageId: "123",
+    id: "123",
     threadId: "thread123",
   };
   const mockUser = {
@@ -62,7 +62,7 @@ describe("blockColdEmail", () => {
         fromEmail: mockEmail.from,
         userId: mockUser.id,
         reason: mockAiReason,
-        messageId: mockEmail.messageId,
+        messageId: mockEmail.id,
         threadId: mockEmail.threadId,
       },
     });
@@ -86,7 +86,7 @@ describe("blockColdEmail", () => {
     });
     expect(labelUtils.labelMessage).toHaveBeenCalledWith({
       gmail: mockGmail,
-      messageId: mockEmail.messageId,
+      messageId: mockEmail.id,
       addLabelIds: ["label123"],
       removeLabelIds: undefined,
     });
@@ -110,7 +110,7 @@ describe("blockColdEmail", () => {
 
     expect(labelUtils.labelMessage).toHaveBeenCalledWith({
       gmail: mockGmail,
-      messageId: mockEmail.messageId,
+      messageId: mockEmail.id,
       addLabelIds: ["label123"],
       removeLabelIds: [GmailLabel.INBOX],
     });
@@ -134,14 +134,14 @@ describe("blockColdEmail", () => {
 
     expect(labelUtils.labelMessage).toHaveBeenCalledWith({
       gmail: mockGmail,
-      messageId: mockEmail.messageId,
+      messageId: mockEmail.id,
       addLabelIds: ["label123"],
       removeLabelIds: [GmailLabel.INBOX, GmailLabel.UNREAD],
     });
   });
 
   it("should throw error when user email is missing", async () => {
-    const userWithoutEmail = { ...mockUser, email: null };
+    const userWithoutEmail = { ...mockUser, email: null as any };
 
     await expect(
       blockColdEmail({
@@ -167,7 +167,7 @@ describe("blockColdEmail", () => {
 
     expect(labelUtils.labelMessage).toHaveBeenCalledWith({
       gmail: mockGmail,
-      messageId: mockEmail.messageId,
+      messageId: mockEmail.id,
       addLabelIds: undefined,
       removeLabelIds: undefined,
     });
