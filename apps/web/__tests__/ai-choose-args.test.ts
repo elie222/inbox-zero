@@ -191,6 +191,8 @@ function getRule(
     conditionalOperator: LogicalOperator.AND,
     type: null,
     trackReplies: null,
+    draftReplies: null,
+    draftRepliesInstructions: null,
   };
 }
 
@@ -200,6 +202,7 @@ function getEmail({
   content = "content",
 }: { from?: string; subject?: string; content?: string } = {}) {
   return {
+    id: "id",
     from,
     subject,
     content,

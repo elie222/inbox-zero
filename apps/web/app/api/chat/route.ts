@@ -10,10 +10,11 @@ import { getUserCategoriesForNames } from "@/utils/category.server";
 import prisma from "@/utils/prisma";
 import { createRule } from "@/utils/rule/rule";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 
 const logger = createScopedLogger("chat");
 
-export const maxDuration = 30;
+export const maxDuration = 120;
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -25,8 +26,245 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json();
 
-  const system =
-    "You are an assistant that helps create rules to manage a user's inbox.";
+  const system = `You are an assistant that helps create and update rules to manage a user's inbox.
+  
+You can't perform any actions, you can only adjust their rules.
+
+A rule is comprised of:
+1. A condition
+2. A set of actions
+
+A condition can be:
+1. AI instructions
+2. Static
+
+An action can be:
+1. Archive
+2. Label
+3. Draft a reply
+4. Send an email
+5. Forward
+6. Mark as read
+7. Mark spam
+8. Call a webhook
+
+You can use {{variables}} in the fields to insert AI generated content. For example:
+"Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
+
+Rule matching logic:
+- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
+- Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the "conditionalOperator" setting
+
+Best practices:
+- For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
+- IMPORTANT: do not create new rules unless absolutely necessary. Avoid duplicate rules, so make sure to check if the rule already exists.
+- You can use multiple conditions in a rule, but aim for simplicity.
+- When creating rules, in most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
+- If a rule can be handled fully with static conditions, do so, but this is rarely possible.
+
+Always explain the changes you made.
+Use simple language and avoid jargon in your reply.
+If you are unable to fix the rule, say so.
+
+You can set general infomation about the user too that will be passed as context when the AI is processing emails.
+You can enable the cold email blocker by setting the "coldEmailBlocker" setting to true.
+You can enable the reply zero setting by setting the "replyZero" setting to true. Reply Zero is a feature that tracks replies for users.
+
+Examples:
+
+<examples>
+  <example>
+    <input>
+      When I get a newsletter, archive it and label it as "Newsletter"
+    </input>
+    <output>
+      <create_rule>
+        {
+          "name": "Label Newsletters",
+          "condition": { "aiInstructions": "Newsletters" },
+          "actions": [
+            {
+              "type": "archive",
+              "fields": {}
+            },
+            {
+              "type": "label",
+              "fields": {
+                "label": "Newsletter"
+              }
+            }
+          ]
+        }
+      </create_rule>
+      <explanation>
+        I created a rule to label newsletters.
+      </explanation>
+    </output>
+  </example>
+
+  <example>
+    <input>
+      I run a marketing agency and use this email address for cold outreach.
+      If someone shows interest, label it "Interested".
+      If someone says they're interested in learning more, send them my Cal link (cal.com/alice).
+      If they ask for more info, send them my deck (https://drive.google.com/alice-deck.pdf).
+      If they're not interested, label it as "Not interested" and archive it.
+      If you don't know how to respond, label it as "Needs review".
+    </input>
+    <output>
+      <update_about>
+        I run a marketing agency and use this email address for cold outreach.
+        My cal link is https://cal.com/alice
+        My deck is https://drive.google.com/alice-deck.pdf
+        Write concise and friendly replies.
+      </update_about>
+      <create_rule>
+        {
+          "name": "Interested",
+          "condition": { "aiInstructions": "When someone shows interest in setting up a call or learning more." },
+          "actions": [
+            {
+              "type": "label",
+              "fields": {
+                "label": "Interested"
+              }
+            },
+            {
+              "type": "draft",
+              "fields": {
+                "content": "{{draft a reply}}"
+              }
+            }
+          ]
+        }
+      </create_rule>
+      <create_rule>
+        {
+          "name": "Not Interested",
+          "condition": { "aiInstructions": "When someone says they're not interested." },
+          "actions": [
+            {
+              "type": "label",
+              "fields": {
+                "label": "Not Interested"
+              }
+            },
+            {
+              "type": "archive",
+              "fields": {}
+            }
+          ]
+        }
+      </create_rule>
+      <create_rule>
+        {
+          "name": "Needs Review",
+          "condition": { "aiInstructions": "When you don't know how to respond." },
+          "actions": [
+            {
+              "type": "label",
+              "fields": {
+                "label": "Needs Review"
+              }
+            }
+          ]
+        }
+      </create_rule>
+      <explanation>
+        I created three rules to handle different types of responses.
+      </explanation>
+    </output>
+  </example>
+
+  <example>
+    <input>
+      Set a rule to archive emails older than 30 days.
+    </input>
+    <output>
+      Inbox Zero doesn't support time-based actions yet. We only process emails as they arrive in your inbox.
+    </output>
+  </example>
+
+  <example>
+    <input>
+      Create some good default rules for me.
+    </input>
+    <output>
+      <enable_cold_email_blocker>
+        {
+          "action": "ARCHIVE_AND_LABEL"
+        }
+      </enable_cold_email_blocker>
+      <enable_reply_zero>
+        {
+          "enabled": true,
+          "draft_replies": true
+        }
+      </enable_reply_zero>
+      <create_rule>
+        {
+          "name": "Urgent",
+          "condition": { "aiInstructions": "Urgent emails" },
+          "actions": [
+            { "type": "label", "fields": { "label": "Urgent" } }
+          ]
+        }
+      </create_rule>
+      <create_rule>
+        {
+          "name": "Newsletters",
+          "condition": { "aiInstructions": "Newsletters" },
+          "actions": [
+            { "type": "archive", "fields": {} },
+            { "type": "label", "fields": { "label": "Newsletter" } }
+          ]
+        }
+      </create_rule>
+      <create_rule>
+        {
+          "name": "Promotions",
+          "condition": { "aiInstructions": "Marketing and promotional emails" },
+          "actions": [
+            { "type": "archive", "fields": {} },
+            { "type": "label", "fields": { "label": "Promotions" } }
+          ]
+        }
+      </create_rule>
+      <create_rule>
+        {
+          "name": "Team",
+          "condition": { "aiInstructions": "Team emails" },
+          "actions": [
+            { "type": "label", "fields": { "label": "Team" } }
+          ]
+        }
+      </create_rule>
+      <explanation>
+        I created 4 rules to handle different types of emails.
+        I also enabled the cold email blocker and reply zero feature.
+      </explanation>
+    </output>
+  </example>
+
+  <example>
+    <input>
+      I don't need to reply to emails from GitHub, stop labelling them as "To reply".
+    </input>
+    <output>
+      <update_rule>
+        {
+          "name": "To reply",
+          "learnedPatterns": [
+            { "exclude": { "from": "@github.com" } }
+          ]
+        }
+      </update_rule>
+      <explanation>
+        I updated the rule to stop labelling emails from GitHub as "To reply".
+      </explanation>
+    </output>
+  </example>
+</examples>`;
 
   const result = streamText({
     model: anthropic("claude-3-5-sonnet-20240620"),
@@ -91,6 +329,65 @@ export async function POST(req: Request) {
           }
         },
       }),
+      update_rule: tool({
+        description: "Update an existing rule",
+        parameters: z.object({
+          ruleName: z.string().describe("The name of the rule to update"),
+          condition: z
+            .object({
+              aiInstructions: z.string(),
+              static: z.object({
+                from: z.string(),
+                to: z.string(),
+                subject: z.string(),
+                body: z.string(),
+              }),
+              conditionalOperator: z.enum([
+                LogicalOperator.AND,
+                LogicalOperator.OR,
+              ]),
+            })
+            .optional(),
+          actions: z.array(
+            z
+              .object({
+                type: z.enum([
+                  ActionType.ARCHIVE,
+                  ActionType.LABEL,
+                  ActionType.REPLY,
+                  ActionType.SEND_EMAIL,
+                  ActionType.FORWARD,
+                  ActionType.MARK_READ,
+                  ActionType.MARK_SPAM,
+                  ActionType.CALL_WEBHOOK,
+                ]),
+                fields: z.object({
+                  label: z.string().optional(),
+                  content: z.string().optional(),
+                  webhookUrl: z.string().optional(),
+                }),
+              })
+              .optional(),
+          ),
+          learnedPatterns: z
+            .array(
+              z.object({
+                include: z.object({
+                  from: z.string(),
+                  subject: z.string(),
+                }),
+                exclude: z.object({
+                  from: z.string(),
+                  subject: z.string(),
+                }),
+              }),
+            )
+            .optional(),
+        }),
+        execute: async ({ ruleName, condition, actions, learnedPatterns }) => {
+          return { success: true };
+        },
+      }),
       list_rules: tool({
         description: "List all existing rules for the user",
         parameters: z.object({}),
@@ -98,11 +395,42 @@ export async function POST(req: Request) {
           // trackToolCall("list_rules", user.email);
           // return userRules;
 
-          const rules = await prisma.rule.findMany({
-            where: { userId },
-          });
+          const rules = await prisma.rule.findMany({ where: { userId } });
 
           return rules;
+        },
+      }),
+      update_about: tool({
+        description: "Update the user's about information",
+        parameters: z.object({
+          about: z.string(),
+        }),
+        execute: async ({ about }) => {
+          return { success: true };
+        },
+      }),
+      enable_cold_email_blocker: tool({
+        description: "Enable the cold email blocker",
+        parameters: z.object({
+          action: z.enum([
+            ColdEmailSetting.DISABLED,
+            ColdEmailSetting.LABEL,
+            ColdEmailSetting.ARCHIVE_AND_LABEL,
+            ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+          ]),
+        }),
+        execute: async ({ action }) => {
+          return { success: true };
+        },
+      }),
+      enable_reply_zero: tool({
+        description: "Enable the reply zero feature",
+        parameters: z.object({
+          enabled: z.boolean(),
+          draft_replies: z.boolean(),
+        }),
+        execute: async ({ enabled, draft_replies }) => {
+          return { success: true };
         },
       }),
     },

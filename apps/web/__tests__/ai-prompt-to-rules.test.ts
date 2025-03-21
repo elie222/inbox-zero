@@ -329,6 +329,6 @@ describe.skipIf(!isAiTest)("aiPromptToRules", () => {
     const replyAction = result[0].actions.find(
       (a) => a.type === ActionType.REPLY,
     );
-    expect(replyAction?.content).toContain("{{firstName}}");
+    expect(replyAction?.fields?.content).toContain("{{firstName}}");
   }, 15_000);
 });
