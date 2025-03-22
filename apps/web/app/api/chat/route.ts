@@ -4,11 +4,11 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import {
   createRuleSchema,
-  type CreateRuleSchemaWithCategories,
+  // type CreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
-import { getUserCategoriesForNames } from "@/utils/category.server";
+// import { getUserCategoriesForNames } from "@/utils/category.server";
 import prisma from "@/utils/prisma";
-import { createRule } from "@/utils/rule/rule";
+import { createRule, partialUpdateRule } from "@/utils/rule/rule";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 
@@ -354,6 +354,7 @@ Examples:
     model: anthropic("claude-3-5-sonnet-20240620"),
     messages,
     system,
+    maxSteps: 10,
     tools: {
       create_rule: tool({
         description: "Create a new rule",
@@ -367,19 +368,19 @@ Examples:
           logger.info("Create Rule", { name, condition, actions });
           // trackToolCall("create_rule", user.email);
 
-          const conditions =
-            condition as CreateRuleSchemaWithCategories["condition"];
+          // const conditions =
+          //   condition as CreateRuleSchemaWithCategories["condition"];
 
           try {
-            const categoryIds = await getUserCategoriesForNames(
-              userId,
-              conditions.categories?.categoryFilters || [],
-            );
+            // const categoryIds = await getUserCategoriesForNames(
+            //   userId,
+            //   conditions.categories?.categoryFilters || [],
+            // );
 
             const rule = await createRule({
               result: { name, condition, actions },
               userId,
-              categoryIds,
+              categoryIds: [],
             });
 
             if ("error" in rule) {
@@ -413,10 +414,30 @@ Examples:
           }
         },
       }),
+      // TODO: break this down into small tools to update actions / learned patterns
       update_rule: tool({
         description: "Update an existing rule",
         parameters: updateRuleSchema,
         execute: async ({ ruleName, condition, actions, learnedPatterns }) => {
+          const rule = await prisma.rule.findUnique({
+            where: { id: ruleName, userId },
+          });
+
+          if (!rule)
+            return {
+              error:
+                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+            };
+
+          await partialUpdateRule({
+            ruleId: rule.id,
+            data: {
+              instructions: condition?.aiInstructions || undefined,
+              from: condition?.static?.from || undefined,
+              subject: condition?.static?.subject || undefined,
+            },
+          });
+
           return { success: true };
         },
       }),
