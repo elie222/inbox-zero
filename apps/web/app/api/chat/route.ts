@@ -16,6 +16,84 @@ const logger = createScopedLogger("chat");
 
 export const maxDuration = 120;
 
+// schemas
+export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
+
+const updateRuleSchema = z.object({
+  ruleName: z.string().describe("The name of the rule to update"),
+  condition: z
+    .object({
+      aiInstructions: z.string(),
+      static: z.object({
+        from: z.string(),
+        to: z.string(),
+        subject: z.string(),
+        body: z.string(),
+      }),
+      conditionalOperator: z.enum([LogicalOperator.AND, LogicalOperator.OR]),
+    })
+    .optional(),
+  actions: z.array(
+    z
+      .object({
+        type: z.enum([
+          ActionType.ARCHIVE,
+          ActionType.LABEL,
+          ActionType.REPLY,
+          ActionType.SEND_EMAIL,
+          ActionType.FORWARD,
+          ActionType.MARK_READ,
+          ActionType.MARK_SPAM,
+          ActionType.CALL_WEBHOOK,
+        ]),
+        fields: z.object({
+          label: z.string().optional(),
+          content: z.string().optional(),
+          webhookUrl: z.string().optional(),
+        }),
+      })
+      .optional(),
+  ),
+  learnedPatterns: z
+    .array(
+      z.object({
+        include: z.object({
+          from: z.string(),
+          subject: z.string(),
+        }),
+        exclude: z.object({
+          from: z.string(),
+          subject: z.string(),
+        }),
+      }),
+    )
+    .optional(),
+});
+export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
+
+const updateAboutSchema = z.object({
+  about: z.string(),
+});
+export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
+
+const enableColdEmailBlockerSchema = z.object({
+  action: z.enum([
+    ColdEmailSetting.DISABLED,
+    ColdEmailSetting.LABEL,
+    ColdEmailSetting.ARCHIVE_AND_LABEL,
+    ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+  ]),
+});
+export type EnableColdEmailBlockerSchema = z.infer<
+  typeof enableColdEmailBlockerSchema
+>;
+
+const enableReplyZeroSchema = z.object({
+  enabled: z.boolean(),
+  draft_replies: z.boolean(),
+});
+export type EnableReplyZeroSchema = z.infer<typeof enableReplyZeroSchema>;
+
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user.id) {
@@ -26,7 +104,7 @@ export async function POST(req: Request) {
 
   const { messages } = await req.json();
 
-  const system = `You are an assistant that helps create and update rules to manage a user's inbox.
+  const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
 You can't perform any actions, you can only adjust their rules.
 
@@ -53,7 +131,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 
 Rule matching logic:
 - All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
-- Top level conditions (AI instructions, static, category) can use either AND or OR logic, controlled by the "conditionalOperator" setting
+- Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
 - For static conditions, use email patterns (e.g., '@company.com') when matching multiple addresses
@@ -67,8 +145,14 @@ Use simple language and avoid jargon in your reply.
 If you are unable to fix the rule, say so.
 
 You can set general infomation about the user too that will be passed as context when the AI is processing emails.
-You can enable the cold email blocker by setting the "coldEmailBlocker" setting to true.
-You can enable the reply zero setting by setting the "replyZero" setting to true. Reply Zero is a feature that tracks replies for users.
+Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The also is also able to see these in a minimalist UI within Inbox Zero which only shows these features.
+Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
+Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, you can ask the user.
+
+Learned patterns:
+- Learned patterns override the conditional logic for a rule.
+- This avoids us having to use AI to process rules.
+- There's some similarity to static rules, but you can only use one static condition for a rule. But you can use multiple learned patterns. And over time the list of learned patterns will grow.
 
 Examples:
 
@@ -233,7 +317,7 @@ Examples:
       <create_rule>
         {
           "name": "Team",
-          "condition": { "aiInstructions": "Team emails" },
+          "condition": { "static": { "from": "@company.com" } },
           "actions": [
             { "type": "label", "fields": { "label": "Team" } }
           ]
@@ -331,59 +415,7 @@ Examples:
       }),
       update_rule: tool({
         description: "Update an existing rule",
-        parameters: z.object({
-          ruleName: z.string().describe("The name of the rule to update"),
-          condition: z
-            .object({
-              aiInstructions: z.string(),
-              static: z.object({
-                from: z.string(),
-                to: z.string(),
-                subject: z.string(),
-                body: z.string(),
-              }),
-              conditionalOperator: z.enum([
-                LogicalOperator.AND,
-                LogicalOperator.OR,
-              ]),
-            })
-            .optional(),
-          actions: z.array(
-            z
-              .object({
-                type: z.enum([
-                  ActionType.ARCHIVE,
-                  ActionType.LABEL,
-                  ActionType.REPLY,
-                  ActionType.SEND_EMAIL,
-                  ActionType.FORWARD,
-                  ActionType.MARK_READ,
-                  ActionType.MARK_SPAM,
-                  ActionType.CALL_WEBHOOK,
-                ]),
-                fields: z.object({
-                  label: z.string().optional(),
-                  content: z.string().optional(),
-                  webhookUrl: z.string().optional(),
-                }),
-              })
-              .optional(),
-          ),
-          learnedPatterns: z
-            .array(
-              z.object({
-                include: z.object({
-                  from: z.string(),
-                  subject: z.string(),
-                }),
-                exclude: z.object({
-                  from: z.string(),
-                  subject: z.string(),
-                }),
-              }),
-            )
-            .optional(),
-        }),
+        parameters: updateRuleSchema,
         execute: async ({ ruleName, condition, actions, learnedPatterns }) => {
           return { success: true };
         },
@@ -402,33 +434,21 @@ Examples:
       }),
       update_about: tool({
         description: "Update the user's about information",
-        parameters: z.object({
-          about: z.string(),
-        }),
+        parameters: updateAboutSchema,
         execute: async ({ about }) => {
           return { success: true };
         },
       }),
       enable_cold_email_blocker: tool({
         description: "Enable the cold email blocker",
-        parameters: z.object({
-          action: z.enum([
-            ColdEmailSetting.DISABLED,
-            ColdEmailSetting.LABEL,
-            ColdEmailSetting.ARCHIVE_AND_LABEL,
-            ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-          ]),
-        }),
+        parameters: enableColdEmailBlockerSchema,
         execute: async ({ action }) => {
           return { success: true };
         },
       }),
       enable_reply_zero: tool({
         description: "Enable the reply zero feature",
-        parameters: z.object({
-          enabled: z.boolean(),
-          draft_replies: z.boolean(),
-        }),
+        parameters: enableReplyZeroSchema,
         execute: async ({ enabled, draft_replies }) => {
           return { success: true };
         },
