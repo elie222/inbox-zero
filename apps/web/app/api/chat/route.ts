@@ -445,6 +445,11 @@ Examples:
         description: "Update the user's about information",
         parameters: updateAboutSchema,
         execute: async ({ about }) => {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { about },
+          });
+
           return { success: true };
         },
       }),
@@ -452,13 +457,27 @@ Examples:
         description: "Enable the cold email blocker",
         parameters: enableColdEmailBlockerSchema,
         execute: async ({ action }) => {
+          await prisma.user.update({
+            where: { id: userId },
+            data: { coldEmailBlocker: action },
+          });
+
           return { success: true };
         },
       }),
       enable_reply_zero: tool({
         description: "Enable the reply zero feature",
         parameters: enableReplyZeroSchema,
-        execute: async ({ enabled, draft_replies }) => {
+        execute: async ({ enabled }) => {
+          // if (enabled) {
+          //   await enableReplyTrackerAction();
+          // } else {
+          //   // Maybe show a UI button so the user can confirm delete the rule instead
+          //   // await prisma.rule.delete({
+          //   //   where: { id: userId, trackReplies: true },
+          //   // });
+          // }
+
           return { success: true };
         },
       }),
