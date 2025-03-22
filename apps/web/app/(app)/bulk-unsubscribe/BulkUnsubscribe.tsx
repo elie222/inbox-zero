@@ -1,6 +1,6 @@
 "use client";
 
-import { subDays } from "date-fns";
+import subDays from "date-fns/subDays";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useWindowSize } from "usehooks-ts";
 import type { DateRange } from "react-day-picker";

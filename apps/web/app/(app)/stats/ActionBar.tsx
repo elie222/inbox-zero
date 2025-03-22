@@ -1,5 +1,5 @@
 import React from "react";
-import { subDays } from "date-fns";
+import subDays from "date-fns/subDays";
 import { GanttChartIcon, Tally3Icon } from "lucide-react";
 import type { DateRange } from "react-day-picker";
 import { DetailedStatsFilter } from "@/app/(app)/stats/DetailedStatsFilter";

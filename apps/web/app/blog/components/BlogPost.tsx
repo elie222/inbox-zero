@@ -1,5 +1,3 @@
-// import { format, parseISO } from "date-fns";
-import Image from "next/image";
 import { Prose } from "@/app/blog/components/Prose";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
 import { Card, CardContent } from "@/components/ui/card";
