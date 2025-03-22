@@ -28,6 +28,10 @@ import {
 import { generatePromptOnDeleteRule } from "@/utils/ai/rule/generate-prompt-on-delete-rule";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule } from "@/utils/rule/rule";
+import { createScopedLogger } from "@/utils/logger";
+import { SafeError } from "@/utils/error";
+
+const logger = createScopedLogger("actions/rule");
 
 export const createRuleAction = withActionInstrumentation(
   "createRule",
@@ -99,7 +103,9 @@ export const createRuleAction = withActionInstrumentation(
           error: "Group already has a rule. Please use the existing rule.",
         };
       }
-      return { error: "Error creating rule." };
+
+      logger.error("Error creating rule", { error });
+      throw new SafeError("Error creating rule");
     }
   },
 );
@@ -224,7 +230,9 @@ export const updateRuleAction = withActionInstrumentation(
           error: "Group already has a rule. Please use the existing rule.",
         };
       }
-      return { error: "Error updating rule." };
+
+      logger.error("Error updating rule", { error });
+      throw new SafeError("Error updating rule");
     }
   },
 );

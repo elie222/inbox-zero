@@ -1,4 +1,5 @@
-import { format, parseISO } from "date-fns";
+import format from "date-fns/format";
+import parseISO from "date-fns/parseISO";
 
 export function LegalPage(props: {
   date: string;
