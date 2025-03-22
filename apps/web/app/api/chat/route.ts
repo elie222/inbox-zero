@@ -420,16 +420,25 @@ Examples:
           return { success: true };
         },
       }),
-      list_rules: tool({
-        description: "List all existing rules for the user",
+      get_user_rules_and_settings: tool({
+        description:
+          "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
         parameters: z.object({}),
         execute: async () => {
           // trackToolCall("list_rules", user.email);
-          // return userRules;
+          const [rules, user] = await Promise.all([
+            prisma.rule.findMany({ where: { userId } }),
+            prisma.user.findUnique({
+              where: { id: userId },
+              select: { about: true, coldEmailBlocker: true },
+            }),
+          ]);
 
-          const rules = await prisma.rule.findMany({ where: { userId } });
-
-          return rules;
+          return {
+            rules,
+            about: user?.about || "Not set",
+            coldEmailBlocker: user?.coldEmailBlocker || "Not set",
+          };
         },
       }),
       update_about: tool({
