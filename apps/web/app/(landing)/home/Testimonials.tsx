@@ -80,12 +80,11 @@ const desktopTestimonials: Testimonial[][][] = [
   [
     [
       {
-        body: "fwiw this looks pretty slick. Connected one of my accounts to check it out.",
+        body: "I was mostly hoping to turn my email inbox into less of the mess that it is. I’ve been losing tasks that I should do as the emails get buried. So far it’s really helped.",
         author: {
-          name: "Nate Kadlac",
-          handle: "kadlac",
-          imageUrl:
-            "https://pbs.twimg.com/profile_images/1558195781089120256/RWvUylSb_400x400.jpg",
+          name: "Steve Radabaugh",
+          handle: "stevenpaulr",
+          imageUrl: "https://images.getinboxzero.com/steve-rad.png",
         },
       },
       {
