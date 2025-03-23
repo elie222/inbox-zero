@@ -66,7 +66,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/automation",
+        destination: "/setup",
         has: [
           {
             type: "cookie",
@@ -77,7 +77,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/automation",
+        destination: "/setup",
         has: [
           {
             type: "cookie",
@@ -88,7 +88,7 @@ const nextConfig = {
       },
       {
         source: "/",
-        destination: "/automation",
+        destination: "/setup",
         has: [
           {
             type: "cookie",
