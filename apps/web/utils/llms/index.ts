@@ -8,16 +8,9 @@ import {
   RetryError,
   streamText,
 } from "ai";
-import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
-import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { createGroq } from "@ai-sdk/groq";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
-import { Model, Provider, supportsOllama } from "@/utils/llms/config";
+import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
@@ -30,112 +23,7 @@ import {
   isServiceUnavailableError,
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
-
-function getDefaultProvider(): string {
-  if (env.BEDROCK_ACCESS_KEY) return Provider.ANTHROPIC;
-  if (env.ANTHROPIC_API_KEY) return Provider.ANTHROPIC;
-  if (env.OPENAI_API_KEY) return Provider.OPEN_AI;
-  if (env.OPENROUTER_API_KEY) return Provider.OPENROUTER;
-  if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
-  if (env.GROQ_API_KEY) return Provider.GROQ;
-  if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
-  throw new Error(
-    "No AI provider found. Please set at least one API key in env variables.",
-  );
-}
-
-function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  const provider = aiProvider || getDefaultProvider();
-
-  if (provider === Provider.OPEN_AI) {
-    const model = aiModel || Model.GPT_4O;
-    return {
-      provider: Provider.OPEN_AI,
-      model,
-      llmModel: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(model),
-    };
-  }
-
-  if (provider === Provider.ANTHROPIC) {
-    if (aiApiKey) {
-      const model = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
-      return {
-        provider: Provider.ANTHROPIC,
-        model,
-        llmModel: createAnthropic({ apiKey: aiApiKey })(model),
-      };
-    }
-    if (!env.BEDROCK_ACCESS_KEY)
-      throw new Error("BEDROCK_ACCESS_KEY is not set");
-    if (!env.BEDROCK_SECRET_KEY)
-      throw new Error("BEDROCK_SECRET_KEY is not set");
-
-    const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
-
-    return {
-      provider: Provider.ANTHROPIC,
-      model,
-      llmModel: createAmazonBedrock({
-        region: env.BEDROCK_REGION,
-        accessKeyId: env.BEDROCK_ACCESS_KEY,
-        secretAccessKey: env.BEDROCK_SECRET_KEY,
-        sessionToken: undefined,
-      })(model),
-    };
-  }
-
-  if (provider === Provider.GOOGLE) {
-    if (!aiApiKey) throw new Error("Google API key is not set");
-
-    const model = aiModel || Model.GEMINI_1_5_PRO;
-    return {
-      provider: Provider.GOOGLE,
-      model,
-      llmModel: createGoogleGenerativeAI({ apiKey: aiApiKey })(model),
-    };
-  }
-
-  if (provider === Provider.GROQ) {
-    if (!aiApiKey) throw new Error("Groq API key is not set");
-
-    const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
-    return {
-      provider: Provider.GROQ,
-      model,
-      llmModel: createGroq({ apiKey: aiApiKey })(model),
-    };
-  }
-
-  if (provider === Provider.OPENROUTER) {
-    if (!aiApiKey && !env.OPENROUTER_API_KEY)
-      throw new Error("OpenRouter API key is not set");
-    if (!aiModel) throw new Error("OpenRouter model is not set");
-
-    const openrouter = createOpenRouter({
-      apiKey: aiApiKey || env.OPENROUTER_API_KEY,
-    });
-
-    const chatModel = openrouter.chat(aiModel);
-
-    return {
-      provider: Provider.OPENROUTER,
-      model: aiModel,
-      llmModel: chatModel,
-    };
-  }
-
-  if (provider === Provider.OLLAMA && env.NEXT_PUBLIC_OLLAMA_MODEL) {
-    return {
-      provider: Provider.OLLAMA,
-      model: env.NEXT_PUBLIC_OLLAMA_MODEL,
-      llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(
-        aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL,
-      ),
-    };
-  }
-
-  throw new Error("AI provider not supported");
-}
+import { getModel } from "@/utils/llms/model";
 
 export async function chatCompletion({
   userAi,

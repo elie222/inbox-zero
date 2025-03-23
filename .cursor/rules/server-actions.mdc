@@ -57,17 +57,3 @@ const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
   }
 }, []);
 ```
-
-## Logging
-```typescript
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("Rules");
-
-logger.log("Created rule", { userId });
-```
-
-## Prisma Usage
-```typescript
-import prisma from "@/utils/prisma";
-``` 
