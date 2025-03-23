@@ -23,6 +23,7 @@ export const env = createEnv({
         "ollama",
       ])
       .default("google"),
+    DEFAULT_LLM_MODEL: z.string().optional().default("gemini-1.5-pro-latest"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),

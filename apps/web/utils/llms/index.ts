@@ -5,6 +5,7 @@ import {
   type CoreTool,
   generateObject,
   generateText,
+  type LanguageModelV1,
   RetryError,
   streamText,
 } from "ai";
@@ -55,108 +56,107 @@ function getDefaultProvider(): string {
   }
 }
 
-// If user has not api key set, then use default model
-// If they do they can use the model of their choice
-function getModel(userAi: UserAIFields) {
+function getModel(userAi: UserAIFields): {
+  provider: string;
+  model: string;
+  llmModel: LanguageModelV1;
+} {
+  const defaultProvider = getDefaultProvider();
   const aiApiKey = userAi.aiApiKey;
-  let provider = userAi.aiProvider;
-  let aiModel: string | undefined | null = userAi.aiModel;
+  let aiProvider: string;
+  let aiModel: string;
 
-  if (!aiApiKey) {
-    provider = getDefaultProvider();
-    aiModel = undefined;
+  // If user has not api key set, then use default model
+  // If they do they can use the model of their choice
+  if (aiApiKey) {
+    aiProvider = userAi.aiProvider || defaultProvider;
+    aiModel = userAi.aiModel || env.DEFAULT_LLM_MODEL;
+  } else {
+    aiProvider = defaultProvider;
+    aiModel = env.DEFAULT_LLM_MODEL;
   }
 
-  if (provider === Provider.OPEN_AI) {
-    const model = aiModel || Model.GPT_4O;
-    return {
-      provider: Provider.OPEN_AI,
-      model,
-      llmModel: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(model),
-    };
-  }
-
-  if (provider === Provider.ANTHROPIC) {
-    if (aiApiKey) {
-      const model = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
+  switch (aiProvider) {
+    case Provider.OPEN_AI: {
+      const model = aiModel || Model.GPT_4O;
       return {
-        provider: Provider.ANTHROPIC,
+        provider: Provider.OPEN_AI,
         model,
-        llmModel: createAnthropic({ apiKey: aiApiKey })(model),
+        llmModel: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
+          model,
+        ),
       };
     }
-    if (!env.BEDROCK_ACCESS_KEY)
-      throw new Error("BEDROCK_ACCESS_KEY is not set");
-    if (!env.BEDROCK_SECRET_KEY)
-      throw new Error("BEDROCK_SECRET_KEY is not set");
+    case Provider.GOOGLE: {
+      const mod = aiModel || Model.GEMINI_1_5_PRO;
+      return {
+        provider: Provider.GOOGLE,
+        model: mod,
+        llmModel: createGoogleGenerativeAI({
+          apiKey: aiApiKey || env.GOOGLE_API_KEY,
+        })(mod),
+      };
+    }
+    case Provider.GROQ: {
+      const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      return {
+        provider: Provider.GROQ,
+        model,
+        llmModel: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(model),
+      };
+    }
+    case Provider.OPENROUTER: {
+      const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      const openrouter = createOpenRouter({
+        apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+      });
+      const chatModel = openrouter.chat(model);
 
-    const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
+      return {
+        provider: Provider.OPENROUTER,
+        model,
+        llmModel: chatModel,
+      };
+    }
+    case Provider.OLLAMA: {
+      const model = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
+      if (!model) throw new Error("Ollama model is not set");
+      return {
+        provider: Provider.OLLAMA!,
+        model,
+        llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
+      };
+    }
 
-    return {
-      provider: Provider.ANTHROPIC,
-      model,
-      llmModel: createAmazonBedrock({
-        region: env.BEDROCK_REGION,
-        accessKeyId: env.BEDROCK_ACCESS_KEY,
-        secretAccessKey: env.BEDROCK_SECRET_KEY,
-        sessionToken: "",
-      })(model),
-    };
+    // this is messy. might be better to have two providers. one for bedrock and one for anthropic
+    case Provider.ANTHROPIC: {
+      if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY) {
+        const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
+        return {
+          provider: Provider.ANTHROPIC,
+          model,
+          llmModel: createAmazonBedrock({
+            region: env.BEDROCK_REGION,
+            accessKeyId: env.BEDROCK_ACCESS_KEY,
+            secretAccessKey: env.BEDROCK_SECRET_KEY,
+            sessionToken: undefined,
+          })(model),
+        };
+      } else {
+        const model = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
+        return {
+          provider: Provider.ANTHROPIC,
+          model,
+          llmModel: createAnthropic({
+            apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
+          })(model),
+        };
+      }
+    }
+    default: {
+      throw new Error("LLM provider not supported");
+    }
   }
-
-  if (provider === Provider.GOOGLE) {
-    const apiKey = aiApiKey || env.GOOGLE_API_KEY;
-    if (!apiKey) throw new Error("Google API key is not set");
-
-    const model = aiModel || Model.GEMINI_1_5_PRO;
-    return {
-      provider: Provider.GOOGLE,
-      model,
-      llmModel: createGoogleGenerativeAI({ apiKey })(model),
-    };
-  }
-
-  if (provider === Provider.GROQ) {
-    const apiKey = aiApiKey || env.GROQ_API_KEY;
-    if (!apiKey) throw new Error("Groq API key is not set");
-
-    const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
-    return {
-      provider: Provider.GROQ,
-      model,
-      llmModel: createGroq({ apiKey })(model),
-    };
-  }
-
-  if (provider === Provider.OPENROUTER) {
-    if (!aiApiKey && !env.OPENROUTER_API_KEY)
-      throw new Error("OpenRouter API key is not set");
-    if (!aiModel) throw new Error("OpenRouter model is not set");
-
-    const openrouter = createOpenRouter({
-      apiKey: aiApiKey || env.OPENROUTER_API_KEY,
-    });
-
-    const chatModel = openrouter.chat(aiModel);
-
-    return {
-      provider: Provider.OPENROUTER,
-      model: aiModel,
-      llmModel: chatModel,
-    };
-  }
-
-  if (provider === Provider.OLLAMA && env.NEXT_PUBLIC_OLLAMA_MODEL) {
-    return {
-      provider: Provider.OLLAMA,
-      model: env.NEXT_PUBLIC_OLLAMA_MODEL,
-      llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(
-        aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL,
-      ),
-    };
-  }
-
-  throw new Error("AI provider not supported");
 }
 
 export async function chatCompletion({
