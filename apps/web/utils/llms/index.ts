@@ -32,11 +32,11 @@ import {
 import { sleep } from "@/utils/sleep";
 
 function getDefaultProvider(): string {
+  if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
   if (env.BEDROCK_ACCESS_KEY) return Provider.ANTHROPIC;
   if (env.ANTHROPIC_API_KEY) return Provider.ANTHROPIC;
   if (env.OPENAI_API_KEY) return Provider.OPEN_AI;
   if (env.OPENROUTER_API_KEY) return Provider.OPENROUTER;
-  if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
   if (env.GROQ_API_KEY) return Provider.GROQ;
   if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
   throw new Error(
