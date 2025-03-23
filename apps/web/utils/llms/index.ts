@@ -79,7 +79,7 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
         region: env.BEDROCK_REGION,
         accessKeyId: env.BEDROCK_ACCESS_KEY,
         secretAccessKey: env.BEDROCK_SECRET_KEY,
-        sessionToken: undefined,
+        sessionToken: "",
       })(model),
     };
   }
