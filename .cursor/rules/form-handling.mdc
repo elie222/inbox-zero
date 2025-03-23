@@ -1,0 +1,47 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Form Handling
+
+- Use React Hook Form with Zod for validation
+- The same validation should be done in the server action too
+
+## Form Example
+```tsx
+import { Input } from "@/components/Input";
+import { Button } from "@/components/ui/button";
+
+export const ProcessHistory = () => {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ProcessHistoryOptions>({
+    resolver: zodResolver(processHistorySchema),
+  });
+
+  const onSubmit: SubmitHandler<ProcessHistoryOptions> = useCallback(
+    async (data) => {
+      const result = await processHistoryAction(data.email);
+      handleActionResult(result, `Processed history for ${data.email}`);
+    },
+    []
+  );
+
+  return (
+    <form className="max-w-sm space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      <Input
+        type="email"
+        name="email"
+        label="Email"
+        registerProps={register("email", { required: true })}
+        error={errors.email}
+      />
+      <Button type="submit" loading={isSubmitting}>
+        Process History
+      </Button>
+    </form>
+  );
+}; 
