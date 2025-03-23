@@ -55,10 +55,17 @@ function getDefaultProvider(): string {
   }
 }
 
-function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  // If user has not api key set, then use default model
-  // If they do they can use the model of their choice
-  const provider = aiApiKey ? aiProvider : getDefaultProvider();
+// If user has not api key set, then use default model
+// If they do they can use the model of their choice
+function getModel(userAi: UserAIFields) {
+  const aiApiKey = userAi.aiApiKey;
+  let provider = userAi.aiProvider;
+  let aiModel: string | undefined | null = userAi.aiModel;
+
+  if (!aiApiKey) {
+    provider = getDefaultProvider();
+    aiModel = undefined;
+  }
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;
