@@ -1,5 +1,5 @@
 ---
-description: 
+description: Util functions
 globs: 
 alwaysApply: false
 ---
@@ -11,3 +11,4 @@ alwaysApply: false
   import groupBy from "lodash/groupBy";
   ```
 - Create utility functions in `utils/` folder for reusable logic
+- The `utils` folder also contains core app logic such as Next.js Server Actions and Gmail API requests.

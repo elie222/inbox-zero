@@ -1,3 +1,8 @@
+---
+description: Page structure
+globs: 
+alwaysApply: false
+---
 # Page Structure
 
 - Create new pages at: `apps/web/app/(app)/PAGE_NAME/page.tsx`
