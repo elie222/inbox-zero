@@ -1,61 +1,48 @@
 ---
-description: Add env var
+description: Add environment variable
 globs: 
+alwaysApply: false
 ---
 # Environment Variables
 
-Rules for adding new environment variables to the project.
+This is how we add environment variables to the project:
 
-<rule>
-name: add_environment_variable
-description: Process for adding new environment variables
-filters:
-  - type: file_extension
-    pattern: "\\.(env|env\\..*|ts)$"
-  - type: file_path
-    pattern: "(env\\.ts|turbo\\.json)"
+  1. Add to `.env.example`:
+      ```bash
+      NEW_VARIABLE=value_example
+      ```
 
-actions:
-  - type: suggest
-    message: |
-      When adding a new environment variable:
+  2. Add to `apps/web/env.ts`:
+      ```typescript
+      // For server-only variables
+      server: {
+        NEW_VARIABLE: z.string(),
+      }
+      // For client-side variables
+      client: {
+        NEXT_PUBLIC_NEW_VARIABLE: z.string(),
+      }
+      experimental__runtimeEnv: {
+        NEXT_PUBLIC_NEW_VARIABLE: process.env.NEXT_PUBLIC_NEW_VARIABLE,
+      }
+      ```
 
-      1. Add to `.env.example`:
-         ```bash
-         NEW_VARIABLE=value_example
-         ```
+  3. For client-side variables:
+      - Must be prefixed with `NEXT_PUBLIC_`
+      - Add to both `client` and `experimental__runtimeEnv` sections
 
-      2. Add to `apps/web/env.ts`:
-         ```typescript
-         // For server-only variables
-         server: {
-           NEW_VARIABLE: z.string(),
-         }
-         // For client-side variables
-         client: {
-           NEXT_PUBLIC_NEW_VARIABLE: z.string(),
-         }
-         experimental__runtimeEnv: {
-           NEXT_PUBLIC_NEW_VARIABLE: process.env.NEXT_PUBLIC_NEW_VARIABLE,
-         }
-         ```
-
-      3. For client-side variables:
-         - Must be prefixed with `NEXT_PUBLIC_`
-         - Add to both `client` and `experimental__runtimeEnv` sections
-
-      4. Add to `turbo.json` under `globalDependencies`:
-         ```json
-         {
-           "tasks": {
-             "build": {
-               "env": [
-                 "NEW_VARIABLE"
-               ]
-             }
-           }
-         }
-         ```
+  4. Add to `turbo.json` under `globalDependencies`:
+      ```json
+      {
+        "tasks": {
+          "build": {
+            "env": [
+              "NEW_VARIABLE"
+            ]
+          }
+        }
+      }
+      ```
 
 examples:
   - input: |
@@ -93,11 +80,7 @@ examples:
       }
     output: "Client-side environment variable properly added"
 
-metadata:
-  priority: high
-  version: 1.0
-  references:
-    - apps/web/env.ts
-    - apps/web/.env.example
-    - turbo.json
-</rule> 
+references:
+  - apps/web/env.ts
+  - apps/web/.env.example
+  - turbo.json

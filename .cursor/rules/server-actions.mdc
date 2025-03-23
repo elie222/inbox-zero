@@ -1,0 +1,73 @@
+---
+description: Guidelines for implementing Next.js server actions
+globs: 
+alwaysApply: false
+---
+# Server Actions
+
+## Format and Structure
+Server actions should follow this format:
+
+```typescript
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+
+export const deactivateApiKeyAction = withActionInstrumentation(
+  "deactivateApiKey",
+  async (unsafeData: DeactivateApiKeyBody) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const { data, success, error } =
+      deactivateApiKeyBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    await prisma.apiKey.update({
+      where: { id: data.id, userId },
+      data: { isActive: false },
+    });
+
+    revalidatePath("/settings");
+  }
+);
+```
+
+## Implementation Guidelines
+- Implement type-safe server actions with proper validation
+- Define input schemas using Zod for robust type checking and validation
+- Handle errors gracefully and return appropriate responses
+- Ensure all server actions return the `Promise<ServerActionResponse>` type
+- Use React Hook Form with Zod for validation
+
+## Error Handling with Toasts
+Use `isActionError` with `toastError` and `toastSuccess`:
+
+```typescript
+import { toastError, toastSuccess } from "@/components/Toast";
+
+const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
+  const result = await testAiCustomContentAction({ content: data.message });
+  if (isActionError(result)) {
+    toastError({
+      title: "Error testing email",
+      description: result.error,
+    });
+  } else {
+    toastSuccess({ description: "Saved!" });
+  }
+}, []);
+```
+
+## Logging
+```typescript
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("Rules");
+
+logger.log("Created rule", { userId });
+```
+
+## Prisma Usage
+```typescript
+import prisma from "@/utils/prisma";
+``` 

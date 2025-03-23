@@ -1,0 +1,44 @@
+---
+description: Guidelines for testing the application with Vitest
+globs: 
+alwaysApply: false
+---
+# Testing Guidelines
+
+## Testing Framework
+- `vitest` is used for testing
+- Tests are colocated next to the tested file
+  - Example: `dir/format.ts` and `dir/format.test.ts`
+- AI tests are placed in the `__tests__` directory and are not run by default (they use a real LLM)
+
+## Common Mocks
+
+### Server-Only Mock
+```ts
+vi.mock("server-only", () => ({}));
+```
+
+### Prisma Mock
+```ts
+import { beforeEach } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
+
+vi.mock("@/utils/prisma");
+
+describe("example", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("test", async () => {
+    prisma.group.findMany.mockResolvedValue([]);
+  });
+});
+```
+
+## Best Practices
+- Each test should be independent
+- Use descriptive test names
+- Mock external dependencies
+- Clean up mocks between tests
+- Avoid testing implementation details
