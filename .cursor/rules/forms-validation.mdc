@@ -1,0 +1,77 @@
+---
+description: Guidelines for implementing forms and validation with React Hook Form and Zod
+globs: 
+alwaysApply: false
+---
+# Forms and Validation
+
+## Form Implementation
+Use React Hook Form with Zod for validation:
+
+```tsx
+import { Input } from "@/components/Input";
+import { Button } from "@/components/ui/button";
+
+export const ProcessHistory = () => {
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<ProcessHistoryOptions>({
+    resolver: zodResolver(processHistorySchema),
+  });
+
+  const onSubmit: SubmitHandler<ProcessHistoryOptions> = useCallback(
+    async (data) => {
+      const result = await processHistoryAction(data.email);
+      handleActionResult(result, `Processed history for ${data.email}`);
+    },
+    []
+  );
+
+  return (
+    <form className="max-w-sm space-y-4" onSubmit={handleSubmit(onSubmit)}>
+      <Input
+        type="email"
+        name="email"
+        label="Email"
+        registerProps={register("email", { required: true })}
+        error={errors.email}
+      />
+      <Button type="submit" loading={isSubmitting}>
+        Process History
+      </Button>
+    </form>
+  );
+};
+```
+
+## Validation Guidelines
+- Define validation schemas using Zod
+- Apply the same validation in both client and server
+- Use descriptive error messages
+- Validate form inputs before submission
+- Show validation errors inline next to form fields
+
+## Form Components
+### Button with Loading State
+```tsx
+<Button type="submit" loading={isSubmitting}>
+  Submit
+</Button>
+```
+
+### Form Submission Pattern
+```tsx
+const onSubmit: SubmitHandler<FormInputs> = useCallback(async (data) => {
+  const result = await serverAction(data);
+  if (isActionError(result)) {
+    toastError({
+      title: "Error",
+      description: result.error,
+    });
+  } else {
+    toastSuccess({ description: "Success!" });
+  }
+}, []);
+``` 
