@@ -12,6 +12,17 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_ENCRYPT_SECRET: z.string(),
     GOOGLE_ENCRYPT_SALT: z.string(),
+    DEFAULT_LLM_PROVIDER: z
+      .enum([
+        "anthropic",
+        "google",
+        "openai",
+        "bedrock",
+        "openrouter",
+        "groq",
+        "ollama",
+      ])
+      .default("google"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),

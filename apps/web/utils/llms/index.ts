@@ -32,20 +32,33 @@ import {
 import { sleep } from "@/utils/sleep";
 
 function getDefaultProvider(): string {
-  if (env.GOOGLE_API_KEY) return Provider.GOOGLE;
-  if (env.BEDROCK_ACCESS_KEY) return Provider.ANTHROPIC;
-  if (env.ANTHROPIC_API_KEY) return Provider.ANTHROPIC;
-  if (env.OPENAI_API_KEY) return Provider.OPEN_AI;
-  if (env.OPENROUTER_API_KEY) return Provider.OPENROUTER;
-  if (env.GROQ_API_KEY) return Provider.GROQ;
-  if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
-  throw new Error(
-    "No AI provider found. Please set at least one API key in env variables.",
-  );
+  switch (env.DEFAULT_LLM_PROVIDER) {
+    case "google":
+      return Provider.GOOGLE;
+    case "anthropic":
+      return Provider.ANTHROPIC;
+    case "bedrock":
+      return Provider.ANTHROPIC;
+    case "openai":
+      return Provider.OPEN_AI;
+    case "openrouter":
+      return Provider.OPENROUTER;
+    case "groq":
+      return Provider.GROQ;
+    case "ollama":
+      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
+      throw new Error("Ollama is not supported");
+    default:
+      throw new Error(
+        "No AI provider found. Please set at least one API key in env variables.",
+      );
+  }
 }
 
 function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
-  const provider = aiProvider || getDefaultProvider();
+  // If user has not api key set, then use default model
+  // If they do they can use the model of their choice
+  const provider = aiApiKey ? aiProvider : getDefaultProvider();
 
   if (provider === Provider.OPEN_AI) {
     const model = aiModel || Model.GPT_4O;
@@ -85,24 +98,26 @@ function getModel({ aiProvider, aiModel, aiApiKey }: UserAIFields) {
   }
 
   if (provider === Provider.GOOGLE) {
-    if (!aiApiKey) throw new Error("Google API key is not set");
+    const apiKey = aiApiKey || env.GOOGLE_API_KEY;
+    if (!apiKey) throw new Error("Google API key is not set");
 
     const model = aiModel || Model.GEMINI_1_5_PRO;
     return {
       provider: Provider.GOOGLE,
       model,
-      llmModel: createGoogleGenerativeAI({ apiKey: aiApiKey })(model),
+      llmModel: createGoogleGenerativeAI({ apiKey })(model),
     };
   }
 
   if (provider === Provider.GROQ) {
-    if (!aiApiKey) throw new Error("Groq API key is not set");
+    const apiKey = aiApiKey || env.GROQ_API_KEY;
+    if (!apiKey) throw new Error("Groq API key is not set");
 
     const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
     return {
       provider: Provider.GROQ,
       model,
-      llmModel: createGroq({ apiKey: aiApiKey })(model),
+      llmModel: createGroq({ apiKey })(model),
     };
   }
 
