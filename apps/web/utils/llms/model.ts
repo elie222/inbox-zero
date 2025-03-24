@@ -108,7 +108,7 @@ export function getModel(userAi: UserAIFields): {
 
     // this is messy. might be better to have two providers. one for bedrock and one for anthropic
     case Provider.ANTHROPIC: {
-      if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY) {
+      if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
         const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
         return {
           provider: Provider.ANTHROPIC,
