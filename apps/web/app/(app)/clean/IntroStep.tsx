@@ -43,8 +43,7 @@ export function IntroStep({
             emails in your inbox.
           </SectionDescription>
           <SectionDescription className="mx-auto mt-2 max-w-prose">
-            We'd like to clean up as much as possible, but we don't want to
-            archive anything important.
+            Let's clean up your inbox while keeping important emails safe.
           </SectionDescription>
         </>
       )}
