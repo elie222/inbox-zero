@@ -42,13 +42,21 @@ export function getModel(userAi: UserAIFields): {
   const defaultProvider = getDefaultProvider();
   const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
-  let aiModel: string;
+  let aiModel: string | null;
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
   if (aiApiKey) {
     aiProvider = userAi.aiProvider || defaultProvider;
-    aiModel = userAi.aiModel || env.DEFAULT_LLM_MODEL;
+
+    if (userAi.aiModel) {
+      aiModel = userAi.aiModel;
+    } else if (userAi.aiProvider) {
+      // if user has a provider but no model, then we use the default model for that provider
+      aiModel = null;
+    } else {
+      aiModel = env.DEFAULT_LLM_MODEL;
+    }
   } else {
     aiProvider = defaultProvider;
     aiModel = env.DEFAULT_LLM_MODEL;
