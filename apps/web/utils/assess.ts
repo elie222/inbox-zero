@@ -125,3 +125,18 @@ async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
     logger.error("Error getting email clients", { error });
   }
 }
+
+export async function getUnhandledCount(gmail: gmail_v1.Gmail): Promise<{
+  unhandledCount: number;
+  type: "inbox" | "unread";
+}> {
+  const [inboxCount, unreadCount] = await Promise.all([
+    getInboxCount(gmail),
+    getUnreadCount(gmail),
+  ]);
+  const unhandledCount = Math.min(unreadCount, inboxCount);
+  return {
+    unhandledCount,
+    type: unhandledCount === inboxCount ? "inbox" : "unread",
+  };
+}

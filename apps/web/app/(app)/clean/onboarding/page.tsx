@@ -6,7 +6,7 @@ import { TimeRangeStep } from "@/app/(app)/clean/TimeRangeStep";
 import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
 import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getInboxCount, getUnreadCount } from "@/utils/assess";
+import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/clean/types";
 import { CleanAction } from "@prisma/client";
 
@@ -27,9 +27,7 @@ export default async function CleanPage(props: {
   if (!session?.user.email) return <div>Not authenticated</div>;
 
   const gmail = getGmailClient(session);
-  const inboxCount = await getInboxCount(gmail);
-  const unreadCount = await getUnreadCount(gmail);
-  const unhandledCount = Math.min(unreadCount, inboxCount);
+  const { unhandledCount } = await getUnhandledCount(gmail);
 
   const searchParams = await props.searchParams;
   const step = searchParams.step
