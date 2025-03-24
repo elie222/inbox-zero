@@ -33,6 +33,7 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
         calendar: job.skipCalendar,
         receipt: job.skipReceipt,
         attachment: job.skipAttachment,
+        conversation: job.skipConversation,
       },
     });
 

@@ -65,11 +65,17 @@ export function CleanInstructionsStep() {
           onChange={(value) => setSkipStates({ skipReceipt: value })}
           labelRight="Receipts"
         />
-        <Toggle
+        {/* <Toggle
           name="attachment"
           enabled={skipStates.skipAttachment}
           onChange={(value) => setSkipStates({ skipAttachment: value })}
           labelRight="Emails with attachments"
+        /> */}
+        <Toggle
+          name="conversation"
+          enabled={skipStates.skipConversation}
+          onChange={(value) => setSkipStates({ skipConversation: value })}
+          labelRight="Conversations"
         />
       </div>
 

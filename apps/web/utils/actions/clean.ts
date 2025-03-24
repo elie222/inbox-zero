@@ -75,6 +75,7 @@ export const cleanInboxAction = withActionInstrumentation(
         skipCalendar: data.skips.calendar,
         skipReceipt: data.skips.receipt,
         skipAttachment: data.skips.attachment,
+        skipConversation: data.skips.conversation,
       },
     });
 
