@@ -310,6 +310,7 @@ const exportConfig = useSentry
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
+  disable: env.NODE_ENV !== "production",
 });
 
 export default withAxiom(withSerwist(exportConfig));
