@@ -34,21 +34,10 @@ export function useEmailStream(
         return;
       }
 
-      if (eventSourceRef.current) {
-        console.log("SSE connection already exists");
-        return;
-      }
-
-      console.log("Connecting to SSE...");
+      if (eventSourceRef.current) return;
 
       const eventSource = new EventSource("/api/email-stream");
       eventSourceRef.current = eventSource;
-
-      console.log("SSE connection created");
-
-      eventSource.onopen = () => {
-        console.log("SSE connection opened");
-      };
 
       // Handle thread events
       eventSource.addEventListener("thread", (event) => {
@@ -128,22 +117,23 @@ export function useEmailStream(
   }, []);
 
   const emails = useMemo(() => {
-    const allEmails = emailOrder.map((id) => emailsMap[id]).filter(Boolean);
+    return emailOrder.reduce<(typeof emailsMap)[string][]>((acc, id) => {
+      const email = emailsMap[id];
+      if (!email) return acc;
 
-    if (!filter) return allEmails;
+      if (!filter) {
+        acc.push(email);
+        return acc;
+      }
 
-    return allEmails.filter((email) => {
-      if (filter === "keep") {
-        return !email.archive && !email.label;
+      if (filter === "keep" && !email.archive && !email.label) {
+        acc.push(email);
+      } else if (filter === "archived" && email.archive === true) {
+        acc.push(email);
       }
-      if (filter === "archived") {
-        return email.archive === true;
-      }
-      // if (filter === 'labeled') {
-      //   return !!email.label;
-      // }
-      return true;
-    });
+
+      return acc;
+    }, []);
   }, [emailsMap, emailOrder, filter]);
 
   return {
