@@ -18,7 +18,7 @@ export function EmailFirehose({
   threads: CleanThread[];
   stats: {
     total: number;
-    archived: number;
+    done: number;
   };
   userEmail: string;
   action: CleanAction;
@@ -130,7 +130,14 @@ export function EmailFirehose({
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center py-20 text-muted-foreground">
-              <span>No emails yet</span>
+              {stats.total ? (
+                <span>
+                  {stats.total} emails processed. {stats.done}{" "}
+                  {action === CleanAction.ARCHIVE ? "archived" : "marked read"}.
+                </span>
+              ) : (
+                <span>No emails yet</span>
+              )}
             </div>
           )}
         </div>
