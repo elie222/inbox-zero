@@ -42,21 +42,28 @@ export function EmailMessageCell({
   const { userLabels } = useGmail();
 
   const labelsToDisplay = useMemo(() => {
-    let labels = labelIds
+    const labels = labelIds
       ?.map((id) => {
         const label = userLabels[id];
         if (!label) return null;
         return { id, name: label.name };
       })
-      .filter(isDefined);
+      .filter(isDefined)
+      .filter((label) => {
+        if (filterReplyTrackerLabels) {
+          if (
+            label.name === NEEDS_REPLY_LABEL_NAME ||
+            label.name === AWAITING_REPLY_LABEL_NAME
+          ) {
+            return false;
+          }
+        }
 
-    if (filterReplyTrackerLabels) {
-      labels = labels?.filter(
-        (label) =>
-          label.name !== NEEDS_REPLY_LABEL_NAME &&
-          label.name !== AWAITING_REPLY_LABEL_NAME,
-      );
-    }
+        if (label.name.includes("/")) {
+          return false;
+        }
+        return true;
+      });
 
     if (labelIds && !labelIds.includes("INBOX")) {
       labels?.unshift({ id: "ARCHIVE", name: "Archived" });
