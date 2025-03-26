@@ -16,6 +16,7 @@ if (env.CORS_ORIGIN) {
 
 const unsubscribeSchema = z.object({
   url: z.string().url(),
+  email: z.string().email(),
 });
 
 server.get("/", async (request, reply) => {
@@ -24,8 +25,8 @@ server.get("/", async (request, reply) => {
 
 server.post("/unsubscribe", async (request, reply) => {
   try {
-    const { url } = unsubscribeSchema.parse(request.body);
-    const success = await autoUnsubscribe(url);
+    const { url, email } = unsubscribeSchema.parse(request.body);
+    const success = await autoUnsubscribe({ url, email });
     return {
       success,
       message: success
