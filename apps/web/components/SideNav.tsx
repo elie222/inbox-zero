@@ -71,7 +71,7 @@ const navigationItems: NavItem[] = [
     icon: MessageCircleReplyIcon,
   },
   {
-    name: "Cleaner",
+    name: "Deep Clean",
     href: "/clean",
     icon: BrushIcon,
   },
