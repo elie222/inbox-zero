@@ -86,12 +86,6 @@ const navigationItems: NavItem[] = [
     href: "/cold-email-blocker",
     icon: ShieldCheckIcon,
   },
-
-  {
-    name: "Sender Categories",
-    href: "/smart-categories",
-    icon: TagIcon,
-  },
   {
     name: "Analytics",
     href: "/stats",
