@@ -23,5 +23,6 @@ The main files and directories for this are:
 - apps/web/utils/redis/clean.ts
 
 The database models to look at are:
+
 - CleanupThread
 - CleanupJob
