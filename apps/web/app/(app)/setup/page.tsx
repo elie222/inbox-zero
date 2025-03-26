@@ -11,6 +11,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
+import { Card } from "@/components/ui/card";
 
 export default async function SetupPage() {
   const session = await auth();
@@ -66,14 +67,14 @@ function FeatureCard({
 }) {
   return (
     <Link href={href} className="block">
-      <div className="h-full rounded-lg bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+      <div className="h-full rounded-lg p-6 shadow transition-shadow hover:bg-muted/50 hover:shadow-md">
         <div
           className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full ${iconBg}`}
         >
           <Icon className={`h-5 w-5 ${iconColor}`} />
         </div>
-        <h3 className="mb-2 text-lg font-medium text-gray-800">{title}</h3>
-        <p className="text-sm text-gray-600">{description}</p>
+        <h3 className="mb-2 text-lg font-medium text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground">{description}</p>
       </div>
     </Link>
   );
@@ -83,8 +84,8 @@ const features = [
   {
     href: "/reply-zero",
     icon: MailIcon,
-    iconBg: "bg-blue-100",
-    iconColor: "text-blue-600",
+    iconBg: "bg-blue-100 dark:bg-blue-900/50",
+    iconColor: "text-blue-600 dark:text-blue-400",
     title: "Reply Zero",
     description:
       "Track emails needing replies & follow-ups. Get AI-drafted responses",
@@ -92,16 +93,16 @@ const features = [
   {
     href: "/bulk-unsubscribe",
     icon: ArchiveIcon,
-    iconBg: "bg-purple-100",
-    iconColor: "text-purple-600",
+    iconBg: "bg-purple-100 dark:bg-purple-900/50",
+    iconColor: "text-purple-600 dark:text-purple-400",
     title: "Bulk Unsubscribe",
     description: "Easily unsubscribe from unwanted newsletters in one click",
   },
   {
     href: "/automation",
     icon: BotIcon,
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
+    iconBg: "bg-green-100 dark:bg-green-900/50",
+    iconColor: "text-green-600 dark:text-green-400",
     title: "AI Assistant",
     description:
       "Your personal email assistant that organizes, archives, and drafts replies",
@@ -109,8 +110,8 @@ const features = [
   {
     href: "/cold-email-blocker",
     icon: BanIcon,
-    iconBg: "bg-orange-100",
-    iconColor: "text-orange-600",
+    iconBg: "bg-orange-100 dark:bg-orange-900/50",
+    iconColor: "text-orange-600 dark:text-orange-400",
     title: "Cold Email Blocker",
     description: "Filter out unsolicited messages and keep your inbox clean",
   },
@@ -152,35 +153,30 @@ function SetupContent({
 
   const isSetupComplete = progressPercentage === 100;
 
-  // force light mode on this for now
   return (
-    <div className="bg-slate-50">
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
-        <div className="mb-4 sm:mb-8">
-          <PageHeading className="text-center dark:text-slate-800">
-            Welcome to Inbox Zero
-          </PageHeading>
-          <SectionDescription className="mt-2 text-center text-base dark:text-slate-600">
-            {isSetupComplete
-              ? "What would you like to do?"
-              : "Complete these steps to get the most out of your email experience"}
-          </SectionDescription>
-        </div>
-
-        {isSetupComplete ? (
-          <FeatureGrid />
-        ) : (
-          <Checklist
-            isReplyTrackerConfigured={isReplyTrackerConfigured}
-            isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
-            isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
-            isAiAssistantConfigured={isAiAssistantConfigured}
-            completedCount={completedCount}
-            totalSteps={totalSteps}
-            progressPercentage={progressPercentage}
-          />
-        )}
+    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col p-6">
+      <div className="mb-4 sm:mb-8">
+        <PageHeading className="text-center">Welcome to Inbox Zero</PageHeading>
+        <SectionDescription className="mt-2 text-center text-base">
+          {isSetupComplete
+            ? "What would you like to do?"
+            : "Complete these steps to get the most out of your email experience"}
+        </SectionDescription>
       </div>
+
+      {isSetupComplete ? (
+        <FeatureGrid />
+      ) : (
+        <Checklist
+          isReplyTrackerConfigured={isReplyTrackerConfigured}
+          isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
+          isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
+          isAiAssistantConfigured={isAiAssistantConfigured}
+          completedCount={completedCount}
+          totalSteps={totalSteps}
+          progressPercentage={progressPercentage}
+        />
+      )}
     </div>
   );
 }
@@ -208,7 +204,7 @@ const StepItem = ({
 }) => {
   return (
     <Link
-      className={`border-b border-gray-100 last:border-0 ${completed ? "opacity-50" : ""}`}
+      className={`border-b border-border last:border-0 ${completed ? "opacity-50" : ""}`}
       href={href}
       target="_blank"
     >
@@ -220,9 +216,9 @@ const StepItem = ({
             <div className={iconColor}>{icon}</div>
           </div>
           <div>
-            <h3 className="font-medium text-gray-800">{title}</h3>
-            <p className="text-sm text-gray-600">{description}</p>
-            <p className="mt-1 text-xs text-gray-500">
+            <h3 className="font-medium text-foreground">{title}</h3>
+            <p className="text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-xs text-muted-foreground/75">
               Estimated: {timeEstimate}
             </p>
           </div>
@@ -230,11 +226,14 @@ const StepItem = ({
 
         <div className="flex items-center">
           {completed ? (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100">
-              <CheckIcon size={14} className="text-green-600" />
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+              <CheckIcon
+                size={14}
+                className="text-green-600 dark:text-green-400"
+              />
             </div>
           ) : (
-            <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200">
+            <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75">
               {actionButton || "Enable"}
             </div>
           )}
@@ -262,17 +261,17 @@ function Checklist({
   isAiAssistantConfigured: boolean;
 }) {
   return (
-    <div className="mb-6 overflow-hidden rounded-lg bg-white shadow-sm">
-      <div className="border-b border-gray-100 p-4">
+    <Card className="mb-6 overflow-hidden">
+      <div className="border-b border-border p-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">Complete your setup</h2>
+          <h2 className="font-semibold text-foreground">Complete your setup</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {completedCount} of {totalSteps} completed
             </span>
-            <div className="h-2 w-32 overflow-hidden rounded-full bg-gray-200">
+            <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-2 rounded-full bg-blue-500"
+                className="h-2 rounded-full bg-primary"
                 style={{ width: `${progressPercentage}%` }}
               />
             </div>
@@ -283,8 +282,8 @@ function Checklist({
       <StepItem
         href="/reply-zero"
         icon={<MailIcon size={20} />}
-        iconBg="bg-blue-100"
-        iconColor="text-blue-500"
+        iconBg="bg-blue-100 dark:bg-blue-900/50"
+        iconColor="text-blue-500 dark:text-blue-400"
         title="Enable Reply Zero"
         description="Track emails needing replies & follow-ups. Get AI-drafted responses"
         timeEstimate="30 seconds"
@@ -294,8 +293,8 @@ function Checklist({
       <StepItem
         href="/cold-email-blocker"
         icon={<BanIcon size={20} />}
-        iconBg="bg-orange-100"
-        iconColor="text-orange-500"
+        iconBg="bg-orange-100 dark:bg-orange-900/50"
+        iconColor="text-orange-500 dark:text-orange-400"
         title="Enable Cold Email Blocker"
         description="Filter out unsolicited messages"
         timeEstimate="30 seconds"
@@ -305,8 +304,8 @@ function Checklist({
       <StepItem
         href="/bulk-unsubscribe"
         icon={<ArchiveIcon size={20} />}
-        iconBg="bg-purple-100"
-        iconColor="text-purple-500"
+        iconBg="bg-purple-100 dark:bg-purple-900/50"
+        iconColor="text-purple-500 dark:text-purple-400"
         title="Unsubscribe from emails you don't read"
         description="Easily unsubscribe from unwanted newsletters"
         timeEstimate="5 minutes"
@@ -317,36 +316,13 @@ function Checklist({
       <StepItem
         href="/automation"
         icon={<BotIcon size={20} />}
-        iconBg="bg-green-100"
-        iconColor="text-green-500"
+        iconBg="bg-green-100 dark:bg-green-900/50"
+        iconColor="text-green-500 dark:text-green-400"
         title="Set up AI Assistant"
         description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
         timeEstimate="10 minutes"
         completed={isAiAssistantConfigured}
       />
-
-      {/* <StepItem
-    icon={<Tag size={20} />}
-    iconBg="bg-green-100"
-    iconColor="text-green-500"
-    title="Enable Sender Categories"
-    description="Auto-organize emails into intuitive categories"
-    timeEstimate="0 seconds (auto-enabled)"
-    completed={completedSteps.smartCategories}
-    autoCompleted={true}
-  /> */}
-
-      {/* <StepItem
-    icon={<X size={20} />}
-    iconBg="bg-purple-100"
-    iconColor="text-purple-500"
-    title="Review unsubscribe suggestions"
-    description="Easily unsubscribe from unwanted newsletters"
-    timeEstimate="30 seconds"
-    completed={completedSteps.bulkUnsubscribe}
-    onClick={() => toggleStep("bulkUnsubscribe")}
-    actionButton="Review"
-  /> */}
-    </div>
+    </Card>
   );
 }
