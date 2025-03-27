@@ -140,7 +140,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         where: { id: userId },
         data: {
           rulesPrompt:
-            `${user.rulesPrompt}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
+            `${user.rulesPrompt || ""}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
         },
       });
     }
