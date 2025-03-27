@@ -42,7 +42,7 @@ export function getModel(userAi: UserAIFields): {
   const defaultProvider = getDefaultProvider();
   const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
-  let aiModel: string | null;
+  let aiModel: string | null = null;
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
@@ -51,15 +51,9 @@ export function getModel(userAi: UserAIFields): {
 
     if (userAi.aiModel) {
       aiModel = userAi.aiModel;
-    } else if (userAi.aiProvider) {
-      // if user has a provider but no model, then we use the default model for that provider
-      aiModel = null;
-    } else {
-      aiModel = env.DEFAULT_LLM_MODEL;
     }
   } else {
     aiProvider = defaultProvider;
-    aiModel = env.DEFAULT_LLM_MODEL;
   }
 
   switch (aiProvider) {
@@ -74,7 +68,7 @@ export function getModel(userAi: UserAIFields): {
       };
     }
     case Provider.GOOGLE: {
-      const mod = aiModel || Model.GEMINI_1_5_PRO;
+      const mod = aiModel || Model.GEMINI_2_0_FLASH;
       return {
         provider: Provider.GOOGLE,
         model: mod,

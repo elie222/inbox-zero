@@ -38,7 +38,6 @@ vi.mock("ollama-ai-provider", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
-    DEFAULT_LLM_MODEL: "gpt-4o",
     OPENAI_API_KEY: "test-openai-key",
     GOOGLE_API_KEY: "test-google-key",
     ANTHROPIC_API_KEY: "test-anthropic-key",
@@ -67,7 +66,6 @@ describe("Models", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.mocked(env).DEFAULT_LLM_PROVIDER = "openai";
-    vi.mocked(env).DEFAULT_LLM_MODEL = "gpt-4o";
   });
 
   describe("getModel", () => {

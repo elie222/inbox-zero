@@ -11,6 +11,7 @@
         "NEXTAUTH_URL",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
+        "DEFAULT_LLM_PROVIDER",
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
         "BEDROCK_ACCESS_KEY",
