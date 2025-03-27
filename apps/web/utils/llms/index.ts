@@ -25,14 +25,33 @@ import {
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
 
-const commonOptions = {
-  experimental_telemetry: { isEnabled: true },
-  // OpenRouter
-  headers: {
-    "HTTP-Referer": "https://www.getinboxzero.com",
-    "X-Title": "Inbox Zero",
-  },
-};
+function getCommonOptions(provider: string) {
+  const isOpenRouter = provider === Provider.OPENROUTER;
+  console.log("🚀 ~ getCommonOptions ~ isOpenRouter:", isOpenRouter);
+
+  return {
+    experimental_telemetry: { isEnabled: true },
+    ...(isOpenRouter
+      ? {
+          headers: {
+            "HTTP-Referer": "https://www.getinboxzero.com",
+            "X-Title": "Inbox Zero",
+          },
+          providerOptions: {
+            openrouter: {
+              models: [
+                "google/gemini-2.0-flash-001",
+                "anthropic/claude-3.7-sonnet",
+              ],
+              provider: {
+                order: ["Google AI Studio", "Amazon Bedrock", "Anthropic"],
+              },
+            },
+          },
+        }
+      : {}),
+  };
+}
 
 export async function chatCompletion({
   userAi,
@@ -54,7 +73,7 @@ export async function chatCompletion({
       model: llmModel,
       prompt,
       system,
-      ...commonOptions,
+      ...getCommonOptions(provider),
     });
 
     if (result.usage) {
@@ -116,7 +135,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
-      ...commonOptions,
+      ...getCommonOptions(provider),
     });
 
     if (result.usage) {
@@ -157,7 +176,7 @@ export async function chatCompletionStream({
     model: llmModel,
     prompt,
     system,
-    ...commonOptions,
+    ...getCommonOptions(provider),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
@@ -218,7 +237,7 @@ async function chatCompletionToolsInternal({
       prompt,
       messages,
       maxSteps,
-      ...commonOptions,
+      ...getCommonOptions(provider),
     });
 
     if (result.usage) {
@@ -267,7 +286,7 @@ async function streamCompletionTools({
     prompt,
     system,
     maxSteps,
-    ...commonOptions,
+    ...getCommonOptions(provider),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,

@@ -86,7 +86,7 @@ export function getModel(userAi: UserAIFields): {
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.CLAUDE_3_7_SONNET_OPENROUTER;
+      const model = aiModel || Model.GEMINI_2_0_FLASH_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
       });
