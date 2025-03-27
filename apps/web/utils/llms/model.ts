@@ -86,7 +86,7 @@ export function getModel(userAi: UserAIFields): {
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      const model = aiModel || Model.CLAUDE_3_7_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
       });
