@@ -25,6 +25,15 @@ import {
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
 
+const commonOptions = {
+  experimental_telemetry: { isEnabled: true },
+  // OpenRouter
+  headers: {
+    "HTTP-Referer": "https://www.getinboxzero.com",
+    "X-Title": "Inbox Zero",
+  },
+};
+
 export async function chatCompletion({
   userAi,
   prompt,
@@ -45,7 +54,7 @@ export async function chatCompletion({
       model: llmModel,
       prompt,
       system,
-      experimental_telemetry: { isEnabled: true },
+      ...commonOptions,
     });
 
     if (result.usage) {
@@ -107,7 +116,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
-      experimental_telemetry: { isEnabled: true },
+      ...commonOptions,
     });
 
     if (result.usage) {
@@ -148,7 +157,7 @@ export async function chatCompletionStream({
     model: llmModel,
     prompt,
     system,
-    experimental_telemetry: { isEnabled: true },
+    ...commonOptions,
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
@@ -209,7 +218,7 @@ async function chatCompletionToolsInternal({
       prompt,
       messages,
       maxSteps,
-      experimental_telemetry: { isEnabled: true },
+      ...commonOptions,
     });
 
     if (result.usage) {
@@ -258,7 +267,7 @@ async function streamCompletionTools({
     prompt,
     system,
     maxSteps,
-    experimental_telemetry: { isEnabled: true },
+    ...commonOptions,
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
