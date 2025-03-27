@@ -22,7 +22,7 @@ export const env = createEnv({
         "groq",
         "ollama",
       ])
-      .default("google"),
+      .default("bedrock"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
