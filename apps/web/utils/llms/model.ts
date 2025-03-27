@@ -121,11 +121,17 @@ export function getModel(userAi: UserAIFields): {
         return {
           provider: Provider.ANTHROPIC,
           model,
+          // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
           llmModel: createAmazonBedrock({
+            // accessKeyId: env.BEDROCK_ACCESS_KEY,
+            // secretAccessKey: env.BEDROCK_SECRET_KEY,
+            // sessionToken: undefined,
             region: env.BEDROCK_REGION,
-            accessKeyId: env.BEDROCK_ACCESS_KEY,
-            secretAccessKey: env.BEDROCK_SECRET_KEY,
-            sessionToken: undefined,
+            credentialProvider: async () => ({
+              accessKeyId: env.BEDROCK_ACCESS_KEY!,
+              secretAccessKey: env.BEDROCK_SECRET_KEY!,
+              sessionToken: undefined,
+            }),
           })(model),
         };
       } else {

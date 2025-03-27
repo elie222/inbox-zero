@@ -22,8 +22,11 @@ export const env = createEnv({
         "groq",
         "ollama",
       ])
-      .default("google"),
-    DEFAULT_LLM_MODEL: z.string().optional().default("gemini-1.5-pro-latest"),
+      .default("bedrock"),
+    DEFAULT_LLM_MODEL: z
+      .string()
+      .optional()
+      .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
