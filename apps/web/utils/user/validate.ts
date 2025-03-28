@@ -10,6 +10,7 @@ export async function validateUserAndAiAccess(userId: string) {
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
+      about: true,
       premium: { select: { aiAutomationAccess: true } },
     },
   });
