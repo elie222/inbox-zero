@@ -64,6 +64,7 @@ export function CleanInstructionsStep() {
           enabled={skipStates.skipReceipt}
           onChange={(value) => setSkipStates({ skipReceipt: value })}
           labelRight="Receipts"
+          tooltipText="Emails with a payment receipt"
         />
         {/* <Toggle
           name="attachment"
@@ -76,6 +77,7 @@ export function CleanInstructionsStep() {
           enabled={skipStates.skipConversation}
           onChange={(value) => setSkipStates({ skipConversation: value })}
           labelRight="Conversations"
+          tooltipText="Email threads where you sent a reply"
         />
         <Toggle
           name="custom"
