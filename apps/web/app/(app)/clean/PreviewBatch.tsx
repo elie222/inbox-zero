@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { parseAsBoolean, useQueryState } from "nuqs";
 import { toastError } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,10 +53,6 @@ export function PreviewBatch({
     <CardGreen className="mb-4">
       <CardHeader>
         <CardTitle>Preview run</CardTitle>
-        {/* <CardDescription>
-          We processed {total} emails. {archived} were{" "}
-          {job.action === CleanAction.ARCHIVE ? "archived" : "marked as read"}.
-        </CardDescription> */}
         <CardDescription>
           We're cleaning up {PREVIEW_RUN_COUNT} emails so you can see how it
           works.
@@ -72,11 +67,6 @@ export function PreviewBatch({
         <Button onClick={handleRunOnFullInbox} loading={isLoading}>
           Run on Full Inbox
         </Button>
-        {/* {disableRunOnFullInbox && (
-          <CardDescription className="font-semibold">
-            All emails have been processed
-          </CardDescription>
-        )} */}
       </CardContent>
     </CardGreen>
   );
