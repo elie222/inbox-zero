@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { auth, signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
@@ -27,6 +28,8 @@ export const saveAboutAction = withActionInstrumentation(
       where: { email: session.user.email },
       data: { about: data.about },
     });
+
+    revalidatePath("/settings");
   },
 );
 
