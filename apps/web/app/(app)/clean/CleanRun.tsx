@@ -34,13 +34,9 @@ export function CleanRun({
           action={job.action}
         />
       </Card>
-      <Card className="mb-4 p-4">
+      <Card className="mt-2 p-6">
         <div className="mb-2 flex items-center justify-between">
-          {/* <div className="text-sm text-muted-foreground">
-            {jobStatus?.previewBatchDone
-              ? "Preview batch completed"
-              : "Processing preview batch..."}
-          </div> */}
+          <div className="text-sm text-muted-foreground">Processing...</div>
           <div className="text-sm text-muted-foreground">
             {data?.completed || 0} / {data?.total || 0} emails
           </div>
