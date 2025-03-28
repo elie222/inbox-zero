@@ -63,8 +63,7 @@ export function CleanInstructionsStep() {
           name="receipt"
           enabled={skipStates.skipReceipt}
           onChange={(value) => setSkipStates({ skipReceipt: value })}
-          labelRight="Receipts"
-          tooltipText="Emails with a payment receipt"
+          labelRight="Payment receipts"
         />
         {/* <Toggle
           name="attachment"
