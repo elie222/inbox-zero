@@ -45,6 +45,7 @@ export const enableReplyTrackerAction = withActionInstrumentation(
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
+        about: true,
         rulesPrompt: true,
         rules: {
           select: {
