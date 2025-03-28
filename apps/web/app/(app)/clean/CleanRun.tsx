@@ -1,3 +1,5 @@
+"use client";
+
 import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
 import { Card } from "@/components/ui/card";
