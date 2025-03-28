@@ -39,11 +39,15 @@ function getCommonOptions(provider: string) {
           providerOptions: {
             openrouter: {
               models: [
-                "google/gemini-2.0-flash-001",
                 "anthropic/claude-3.7-sonnet",
+                // "google/gemini-2.0-flash-001",
               ],
               provider: {
-                order: ["Google AI Studio", "Amazon Bedrock", "Anthropic"],
+                order: [
+                  "Amazon Bedrock",
+                  "Anthropic",
+                  // "Google AI Studio",
+                ],
               },
             },
           },
