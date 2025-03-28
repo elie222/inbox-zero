@@ -29,7 +29,7 @@ import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
 // import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
 // import { getAiUser } from "@/utils/user/get";
-import { CleanAction } from "@prisma/client";
+import { CleanAction, JobStatus } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 
@@ -77,6 +77,7 @@ export const cleanInboxAction = withActionInstrumentation(
         skipReceipt: data.skips.receipt,
         skipAttachment: data.skips.attachment,
         skipConversation: data.skips.conversation,
+        status: JobStatus.RUNNING,
       },
     });
 
@@ -319,6 +320,58 @@ export const changeKeepToDoneAction = withActionInstrumentation(
       });
       // Continue even if Redis update fails
     }
+
+    return { success: true };
+  },
+);
+
+export const pauseCleanupAction = withActionInstrumentation(
+  "pauseCleanup",
+  async (jobId: string) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const job = await prisma.cleanupJob.findUnique({
+      where: { id: jobId, userId },
+    });
+
+    if (!job) return { error: "Job not found" };
+    if (job.status !== JobStatus.RUNNING)
+      return { error: "Job is not running" };
+
+    await prisma.cleanupJob.update({
+      where: { id: jobId },
+      data: { status: JobStatus.PAUSED },
+    });
+
+    return { success: true };
+  },
+);
+
+export const resumeCleanupAction = withActionInstrumentation(
+  "resumeCleanup",
+  async (jobId: string) => {
+    const session = await auth();
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
+
+    const job = await prisma.cleanupJob.findUnique({
+      where: { id: jobId, userId },
+    });
+
+    if (!job) return { error: "Job not found" };
+    if (job.status !== JobStatus.PAUSED) return { error: "Job is not paused" };
+
+    await prisma.cleanupJob.update({
+      where: { id: jobId },
+      data: { status: JobStatus.RUNNING },
+    });
+
+    // TODO: Re-trigger the cleaning process
+    // // Re-trigger the cleaning process
+    // const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean/resume`;
+    // await bulkPublishToQstash({ items: [{ url, body: { jobId, userId } }] });
 
     return { success: true };
   },

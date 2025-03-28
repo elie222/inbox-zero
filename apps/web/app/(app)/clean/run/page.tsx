@@ -1,5 +1,4 @@
 import { getThreadsByJobId } from "@/utils/redis/clean";
-import prisma from "@/utils/prisma";
 import { CardTitle } from "@/components/ui/card";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getJobById, getLastJob } from "@/app/(app)/clean/helpers";
@@ -26,18 +25,11 @@ export default async function CleanRunPage(props: {
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
-  const [total, done] = await Promise.all([
-    prisma.cleanupThread.count({ where: { jobId, userId } }),
-    prisma.cleanupThread.count({ where: { jobId, userId, archived: true } }),
-  ]);
-
   return (
     <CleanRun
       isPreviewBatch={isPreviewBatch === "true"}
       job={job}
       threads={threads}
-      total={total}
-      done={done}
       userEmail={userEmail}
     />
   );

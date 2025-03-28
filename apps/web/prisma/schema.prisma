@@ -420,22 +420,27 @@ model CleanupJob {
   skipReceipt      Boolean?
   skipAttachment   Boolean?
   skipConversation Boolean?
+  status           JobStatus       @default(RUNNING)
   userId           String
   user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   threads          CleanupThread[]
 }
 
 model CleanupThread {
-  id        String     @id @default(cuid())
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id        String              @id @default(cuid())
+  createdAt DateTime            @default(now())
+  updatedAt DateTime            @updatedAt
   threadId  String
   archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
   // labelIds  String[]
+  status    CleanupThreadStatus @default(PENDING)
   jobId     String
-  job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job       CleanupJob          @relation(fields: [jobId], references: [id], onDelete: Cascade)
   userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, jobId, status])
+  @@index([userId, jobId, archived])
 }
 
 model ApiKey {
@@ -598,4 +603,19 @@ enum ProcessorType {
 enum CleanAction {
   ARCHIVE
   MARK_READ
+}
+
+enum JobStatus {
+  RUNNING
+  PAUSED
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum CleanupThreadStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
 }
