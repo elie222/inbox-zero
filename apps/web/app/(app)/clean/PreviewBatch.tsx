@@ -16,8 +16,13 @@ import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
-export function PreviewBatch({ job }: { job: CleanupJob }) {
-  const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
+export function PreviewBatch({
+  job,
+  setIsPreviewBatch,
+}: {
+  job: CleanupJob;
+  setIsPreviewBatch: (value: boolean) => void;
+}) {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRunOnFullInbox = async () => {

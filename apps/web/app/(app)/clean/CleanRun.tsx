@@ -1,5 +1,6 @@
 "use client";
 
+import { parseAsBoolean, useQueryState } from "nuqs";
 import { EmailFirehose } from "@/app/(app)/clean/EmailFirehose";
 import { PreviewBatch } from "@/app/(app)/clean/PreviewBatch";
 import { Card } from "@/components/ui/card";
@@ -9,23 +10,27 @@ import type { getThreadsByJobId } from "@/utils/redis/clean";
 import type { CleanupJob } from "@prisma/client";
 
 export function CleanRun({
-  isPreviewBatch,
   job,
   threads,
   userEmail,
 }: {
-  isPreviewBatch: boolean;
   job: CleanupJob;
   threads: Awaited<ReturnType<typeof getThreadsByJobId>>;
   userEmail: string;
 }) {
   const { data } = useJobStatus(job.id);
+  const [isPreviewBatch, setIsPreviewBatch] = useQueryState(
+    "isPreviewBatch",
+    parseAsBoolean,
+  );
 
   const progress = data ? data.progress : undefined;
 
   return (
     <div className="mx-auto my-4 w-full max-w-2xl px-4">
-      {isPreviewBatch && <PreviewBatch job={job} />}
+      {isPreviewBatch && (
+        <PreviewBatch job={job} setIsPreviewBatch={setIsPreviewBatch} />
+      )}
       <Card className="p-6">
         <EmailFirehose
           threads={threads.filter((t) => t.status !== "processing")}
