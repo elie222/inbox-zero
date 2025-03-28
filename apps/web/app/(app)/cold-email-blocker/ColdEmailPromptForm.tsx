@@ -61,10 +61,10 @@ export function ColdEmailPromptForm(props: {
         autosizeTextarea
         rows={10}
         name="coldEmailPrompt"
-        label="Prompt to classify cold emails"
+        label="How to classify cold emails"
         registerProps={register("coldEmailPrompt")}
         error={errors.coldEmailPrompt}
-        explainText="Adjust to your needs.Use a similar style for best results. Delete your prompt to revert to the default prompt."
+        explainText="Use a similar style to the example prompt for best results. Delete your prompt to revert to the default prompt."
       />
 
       <div className="mt-2">
