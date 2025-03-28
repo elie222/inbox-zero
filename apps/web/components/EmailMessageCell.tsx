@@ -75,7 +75,9 @@ export function EmailMessageCell({
   return (
     <div className="min-w-0 break-words">
       <MessageText className="flex items-center">
-        {extractNameFromEmail(sender)}{" "}
+        <span className="max-w-[300px] truncate">
+          {extractNameFromEmail(sender)}
+        </span>{" "}
         <Link
           className="ml-2 hover:text-foreground"
           href={getGmailUrl(messageId, userEmail)}
