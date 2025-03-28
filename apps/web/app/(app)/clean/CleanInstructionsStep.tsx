@@ -77,16 +77,12 @@ export function CleanInstructionsStep() {
           onChange={(value) => setSkipStates({ skipConversation: value })}
           labelRight="Conversations"
         />
-      </div>
-
-      <div className="mt-4">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setShowCustom(!showCustom)}
-        >
-          Set Custom Instructions
-        </Button>
+        <Toggle
+          name="custom"
+          enabled={showCustom}
+          onChange={(value) => setShowCustom(value)}
+          labelRight="Custom"
+        />
       </div>
 
       {showCustom && (
@@ -99,7 +95,8 @@ export function CleanInstructionsStep() {
             registerProps={register("instructions")}
             placeholder={`Example:
 
-I work as a freelance designer. Don't archive emails from clients.`}
+I work as a freelance designer. Don't archive emails from clients.
+I'm in the middle of a building project, keep those emails too.`}
             error={errors.instructions}
           />
         </div>
