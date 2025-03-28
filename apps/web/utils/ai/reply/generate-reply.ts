@@ -3,6 +3,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
+
 const logger = createScopedLogger("generate-reply");
 
 export async function aiGenerateReply({
@@ -35,7 +36,18 @@ ${instructions}
 `
     : "";
 
+  const userAbout = user.about
+    ? `Context about the user:
+    
+<userAbout>
+${user.about}
+</userAbout>
+`
+    : "";
+
   const prompt = `${userInstructions}
+${userAbout}
+
 Here is the context of the email thread (from oldest to newest):
 ${messages
   .map(
