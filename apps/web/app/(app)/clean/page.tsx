@@ -3,6 +3,7 @@ import { getLastJob } from "@/app/(app)/clean/helpers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ConfirmationStep } from "@/app/(app)/clean/ConfirmationStep";
 import { Card } from "@/components/ui/card";
+import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 
 export default async function CleanPage() {
   const session = await auth();
@@ -13,6 +14,7 @@ export default async function CleanPage() {
 
   return (
     <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
+      <PermissionsCheck />
       <ConfirmationStep
         showFooter
         action={lastJob.action}

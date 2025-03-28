@@ -39,7 +39,7 @@ const cleanThreadBody = z.object({
     attachment: z.boolean().default(false).nullish(),
     conversation: z.boolean().default(false).nullish(),
   }),
-  labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  // labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
@@ -52,7 +52,7 @@ async function cleanThread({
   action,
   instructions,
   skips,
-  labels,
+  // labels,
 }: CleanThreadBody) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic

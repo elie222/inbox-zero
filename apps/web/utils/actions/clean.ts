@@ -169,7 +169,7 @@ export const cleanInboxAction = withActionInstrumentation(
                 action: data.action,
                 instructions: data.instructions,
                 skips: data.skips,
-                labels: [],
+                // labels: [],
               } satisfies CleanThreadBody,
               // give every user their own queue for ai processing. if we get too many parallel users we may need more
               // api keys or a global queue
