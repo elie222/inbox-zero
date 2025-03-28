@@ -27,7 +27,6 @@ import { getModel } from "@/utils/llms/model";
 
 function getCommonOptions(provider: string) {
   const isOpenRouter = provider === Provider.OPENROUTER;
-  console.log("🚀 ~ getCommonOptions ~ isOpenRouter:", isOpenRouter);
 
   return {
     experimental_telemetry: { isEnabled: true },
