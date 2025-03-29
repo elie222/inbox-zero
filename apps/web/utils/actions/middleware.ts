@@ -12,6 +12,7 @@ import {
 import { logErrorToPosthog } from "@/utils/error.server";
 import { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { env } from "@/env";
 
 const logger = createScopedLogger("action-middleware");
 
@@ -89,6 +90,11 @@ export function withActionInstrumentation<
             }
 
             if (isAICallError(error)) {
+              // Quick fix: log full error in development. TODO: handle properly
+              if (env.NODE_ENV === "development") {
+                console.error(error);
+              }
+
               logger.error("AI call error", {
                 action: name,
                 error: (error.data as any)?.message,
@@ -122,6 +128,11 @@ export function withActionInstrumentation<
       return result;
     } catch (error) {
       logger.error("Error in action", { action: name, error });
+
+      // Quick fix: log full error in development. TODO: handle properly
+      if (env.NODE_ENV === "development") {
+        console.error(error);
+      }
 
       // error is already captured by Sentry in `withServerActionInstrumentation`
       return {
