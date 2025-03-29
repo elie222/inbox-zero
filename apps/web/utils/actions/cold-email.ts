@@ -1,6 +1,5 @@
 "use server";
 
-import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -16,14 +15,50 @@ import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
   type ColdEmailBlockerBody,
+  markNotColdEmailBody,
+  type MarkNotColdEmailBody,
+  updateColdEmailPromptBody,
+  type UpdateColdEmailPromptBody,
+  updateColdEmailSettingsBody,
+  type UpdateColdEmailSettingsBody,
 } from "@/utils/actions/cold-email.validation";
 import { formatZodError } from "@/utils/error";
 
-const markNotColdEmailBody = z.object({ sender: z.string() });
+export const updateColdEmailSettingsAction = withActionInstrumentation(
+  "updateColdEmailSettings",
+  async (body: UpdateColdEmailSettingsBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = updateColdEmailSettingsBody.safeParse(body);
+    if (error) return { error: error.message };
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { coldEmailBlocker: data.coldEmailBlocker },
+    });
+  },
+);
+
+export const updateColdEmailPromptAction = withActionInstrumentation(
+  "updateColdEmailPrompt",
+  async (body: UpdateColdEmailPromptBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = updateColdEmailPromptBody.safeParse(body);
+    if (error) return { error: error.message };
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: { coldEmailPrompt: data.coldEmailPrompt },
+    });
+  },
+);
 
 export const markNotColdEmailAction = withActionInstrumentation(
   "markNotColdEmail",
-  async (body: { sender: string }) => {
+  async (body: MarkNotColdEmailBody) => {
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
