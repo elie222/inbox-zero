@@ -36,11 +36,12 @@ export default function OnboardingPage() {
 function CategoriesStep() {
   return (
     <div>
-      <TypographyH3 className="mt-2">Categorize your emails</TypographyH3>
+      <TypographyH3 className="mt-2">Set up your assistant</TypographyH3>
 
       <TypographyP className="mt-2">
-        Select the categories you want to use to categorize your emails. You can
-        add and edit categories later.
+        Choose how you want your emails organized.
+        <br />
+        You can add custom categories and rules later.
       </TypographyP>
 
       <div className="mt-4 grid grid-cols-1 gap-4">
@@ -88,9 +89,15 @@ function CategoriesStep() {
         />
       </div>
 
-      <Button className="mt-8 w-full" size="lg" asChild>
-        <Link href="/automation/onboarding/draft-replies">Next</Link>
-      </Button>
+      <div className="mt-6 flex flex-col gap-2">
+        <Button className="w-full" size="lg" asChild>
+          <Link href="/automation/onboarding/draft-replies">Next</Link>
+        </Button>
+
+        <Button className="w-full" size="lg" variant="outline" asChild>
+          <Link href="/automation/onboarding/draft-replies">Skip</Link>
+        </Button>
+      </div>
     </div>
   );
 }
