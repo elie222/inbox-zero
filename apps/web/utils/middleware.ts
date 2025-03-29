@@ -49,6 +49,11 @@ export function withError(handler: NextHandler): NextHandler {
         );
       }
 
+      // Quick fix: log full error in development. TODO: handle properly
+      if (env.NODE_ENV === "development") {
+        console.error(error);
+      }
+
       logger.error("Unhandled error", {
         error,
         url: req.url,
