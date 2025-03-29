@@ -21,7 +21,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -389,5 +389,88 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     const { data, error } = createRulesOnboardingBody.safeParse(options);
     if (error) return { error: error.message };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { rulesPrompt: true },
+    });
+    if (!user) return { error: "User not found" };
+
+    const promises: Promise<any>[] = [];
+
+    // cold email blocker
+    if (data.coldEmails !== "none") {
+      const promise = prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          coldEmailBlocker:
+            data.coldEmails === "label"
+              ? ColdEmailSetting.LABEL
+              : ColdEmailSetting.ARCHIVE_AND_LABEL,
+        },
+      });
+      promises.push(promise);
+    }
+
+    const rules = [];
+
+    // reply tracker
+    if (data.toReply === "label") {
+      rules.push("Label all emails that need replies as 'To Reply'");
+    }
+
+    // regular categories
+    if (data.newsletters !== "none") {
+      rules.push(
+        `Label all newsletters as 'Newsletter'${
+          data.newsletters === "label_archive" ? " and archive them" : ""
+        }.`,
+      );
+    }
+
+    if (data.marketing !== "none") {
+      rules.push(
+        `Label all marketing emails as 'Marketing'${
+          data.marketing === "label_archive" ? " and archive them" : ""
+        }.`,
+      );
+    }
+
+    if (data.calendar !== "none") {
+      rules.push(
+        `Label all calendar emails as 'Calendar'${
+          data.calendar === "label_archive" ? " and archive them" : ""
+        }.`,
+      );
+    }
+
+    if (data.receipts !== "none") {
+      rules.push(
+        `Label all receipts as 'Receipts'${
+          data.receipts === "label_archive" ? " and archive them" : ""
+        }.`,
+      );
+    }
+
+    if (data.notifications !== "none") {
+      rules.push(
+        `Label all notifications as 'Notifications'${
+          data.notifications === "label_archive" ? " and archive them" : ""
+        }.`,
+      );
+    }
+
+    const rulesPromptPromise = prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        rulesPrompt: `${rules.map((r) => `* ${r}`).join("\n")}\n\n${
+          user.rulesPrompt || ""
+        }`.trim(),
+      },
+    });
+
+    promises.push(rulesPromptPromise);
+
+    await Promise.all(promises);
   },
 );
