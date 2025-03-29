@@ -23,7 +23,7 @@
     "prettier": "3.5.3",
     "turbo": "2.4.4"
   },
-  "packageManager": "pnpm@10.6.5",
+  "packageManager": "pnpm@10.7.0",
   "lint-staged": {
     "*.{ts,tsx,md}": "prettier --write"
   },

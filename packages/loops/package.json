@@ -6,7 +6,7 @@
     "loops": "^4.1.0"
   },
   "devDependencies": {
-    "@types/node": "22.13.11",
+    "@types/node": "22.13.14",
     "tsconfig": "workspace:*",
     "typescript": "5.8.2"
   }
