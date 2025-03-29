@@ -146,3 +146,17 @@ export const updateRuleSettingsBody = z.object({
   draftRepliesInstructions: z.string(),
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
+
+const categoryAction = z.enum(["label", "label_archive", "none"]);
+export const createRulesOnboardingBody = z.object({
+  toReply: categoryAction,
+  newsletters: categoryAction,
+  marketing: categoryAction,
+  calendar: categoryAction,
+  receipts: categoryAction,
+  notifications: categoryAction,
+  coldEmails: categoryAction,
+});
+export type CreateRulesOnboardingBody = z.infer<
+  typeof createRulesOnboardingBody
+>;

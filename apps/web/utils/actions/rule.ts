@@ -12,6 +12,8 @@ import {
   type RulesExamplesBody,
   updateRuleSettingsBody,
   type UpdateRuleSettingsBody,
+  createRulesOnboardingBody,
+  type CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
@@ -376,5 +378,16 @@ export const getRuleExamplesAction = withActionInstrumentation(
     );
 
     return { matches };
+  },
+);
+
+export const createRulesOnboardingAction = withActionInstrumentation(
+  "createRulesOnboarding",
+  async (options: CreateRulesOnboardingBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = createRulesOnboardingBody.safeParse(options);
+    if (error) return { error: error.message };
   },
 );
