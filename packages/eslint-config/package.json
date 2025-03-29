@@ -8,8 +8,8 @@
     "react-internal.js"
   ],
   "devDependencies": {
-    "@typescript-eslint/eslint-plugin": "8.27.0",
-    "@typescript-eslint/parser": "8.27.0",
+    "@typescript-eslint/eslint-plugin": "8.28.0",
+    "@typescript-eslint/parser": "8.28.0",
     "@vercel/style-guide": "6.0.0",
     "eslint-config-prettier": "10.1.1",
     "eslint-config-turbo": "2.4.4",
