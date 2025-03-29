@@ -62,7 +62,7 @@
     "@sanity/icons": "3.7.0",
     "@sanity/image-url": "1",
     "@sanity/vision": "3",
-    "@sentry/nextjs": "9.8.0",
+    "@sentry/nextjs": "9.10.1",
     "@serwist/next": "9.0.12",
     "@t3-oss/env-nextjs": "0.12.0",
     "@tailwindcss/forms": "0.5.10",
