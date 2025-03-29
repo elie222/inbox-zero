@@ -4,7 +4,10 @@ import React, { useCallback, useState } from "react";
 import { toast } from "sonner";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
-import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
+import {
+  setNewsletterStatusAction,
+  unsubscribeAction,
+} from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
 import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
@@ -54,6 +57,10 @@ export function useUnsubscribe<T extends Row>({
       posthog.capture("Clicked Unsubscribe");
 
       if (item.status === NewsletterStatus.UNSUBSCRIBED) {
+        if (item.lastUnsubscribeLink) {
+          await unsubscribeAction({ url: item.lastUnsubscribeLink });
+        }
+
         await setNewsletterStatusAction({
           newsletterEmail: item.name,
           status: null,
@@ -72,6 +79,7 @@ export function useUnsubscribe<T extends Row>({
     hasUnsubscribeAccess,
     item.name,
     item.status,
+    item.lastUnsubscribeLink,
     mutate,
     refetchPremium,
     posthog,
