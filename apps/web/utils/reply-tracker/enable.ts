@@ -16,7 +16,7 @@ export async function enableReplyTracker(userId: string) {
     where: { id: userId, trackReplies: true },
   });
 
-  if (existingRule) return { success: true };
+  if (existingRule) return { success: true, alreadyEnabled: true };
 
   // Find existing reply required rule, make it track replies
   const user = await prisma.user.findUnique({

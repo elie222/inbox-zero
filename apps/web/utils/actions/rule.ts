@@ -450,25 +450,28 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     // reply tracker
     if (isSet(data.toReply)) {
-      const promise = enableReplyTracker(session.user.id);
-      promises.push(promise);
+      const promise = enableReplyTracker(session.user.id).then((res) => {
+        if (res?.alreadyEnabled) return;
 
-      if (env.INTERNAL_API_KEY) {
-        // Process in background as this can take a while
-        fetch(
-          `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+        // Load previous emails needing replies in background
+        // This can take a while
+        if (env.INTERNAL_API_KEY) {
+          fetch(
+            `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+              },
+              body: JSON.stringify({
+                userId: session.user.id,
+              } satisfies ProcessPreviousBody),
             },
-            body: JSON.stringify({
-              userId: session.user.id,
-            } satisfies ProcessPreviousBody),
-          },
-        );
-      }
+          );
+        }
+      });
+      promises.push(promise);
     }
 
     // regular categories
