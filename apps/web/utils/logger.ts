@@ -66,7 +66,7 @@ function createAxiomLogger(scope: string) {
     info: (message: string, args?: Record<string, unknown>) =>
       log.info(message, { scope, ...fields, ...args }),
     error: (message: string, args?: Record<string, unknown>) =>
-      log.error(message, { scope, ...fields, ...args }),
+      log.error(message, { scope, ...fields, ...formatError(args) }),
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...fields, ...args }),
     trace: (message: string, args?: Record<string, unknown>) => {
@@ -79,4 +79,16 @@ function createAxiomLogger(scope: string) {
   });
 
   return createLogger();
+}
+
+function formatError(args?: Record<string, unknown>) {
+  if (env.NODE_ENV !== "production") return args;
+  const error = args?.error;
+  if (error) args.error = cleanError(error);
+  return args;
+}
+
+function cleanError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
