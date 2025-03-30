@@ -145,6 +145,9 @@ export const updateRuleSettingsBody = z.object({
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 
+export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
+export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
+
 const categoryAction = z.enum(["label", "label_archive", "none"]);
 export const createRulesOnboardingBody = z.object({
   toReply: categoryAction,

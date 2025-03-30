@@ -5,14 +5,24 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
+import { enableDraftRepliesAction } from "@/utils/actions/rule";
+import { isActionError } from "@/utils/error";
+import { toastError } from "@/components/Toast";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
 
   const onSetDraftReplies = useCallback(
-    (value: string) => {
+    async (value: string) => {
       if (value === "yes") {
         // enable draft replies
+        const result = await enableDraftRepliesAction({ enable: true });
+
+        if (isActionError(result)) {
+          toastError({
+            description: "There was an error enabling draft replies",
+          });
+        }
       }
       router.push("/automation/onboarding/completed");
     },

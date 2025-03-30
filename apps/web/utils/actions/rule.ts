@@ -14,6 +14,8 @@ import {
   type UpdateRuleSettingsBody,
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
+  enableDraftRepliesBody,
+  type EnableDraftRepliesBody,
 } from "@/utils/actions/rule.validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
@@ -286,6 +288,31 @@ export const updateRuleSettingsAction = withActionInstrumentation(
     });
 
     revalidatePath(`/automation/rule/${body.id}`);
+    revalidatePath("/automation");
+    revalidatePath("/reply-zero");
+  },
+);
+
+export const enableDraftRepliesAction = withActionInstrumentation(
+  "enableDraftReplies",
+  async (options: EnableDraftRepliesBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = enableDraftRepliesBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    const rule = await prisma.rule.findFirst({
+      where: { userId: session.user.id, trackReplies: true },
+    });
+    if (!rule) return { error: "Rule not found" };
+
+    await prisma.rule.update({
+      where: { id: rule.id, userId: session.user.id },
+      data: { draftReplies: data.enable },
+    });
+
+    revalidatePath(`/automation/rule/${rule.id}`);
     revalidatePath("/automation");
     revalidatePath("/reply-zero");
   },
