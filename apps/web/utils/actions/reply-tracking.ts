@@ -52,7 +52,7 @@ export const processPreviousSentEmailsAction = withActionInstrumentation(
     if (!user) return { error: "User not found" };
 
     const gmail = getGmailClient({ accessToken: session.accessToken });
-    await processPreviousSentEmails(gmail, user, 100);
+    await processPreviousSentEmails(gmail, user);
 
     return { success: true };
   },

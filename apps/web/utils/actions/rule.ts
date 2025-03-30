@@ -35,6 +35,9 @@ import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
+import { env } from "@/env";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -449,6 +452,23 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     if (isSet(data.toReply)) {
       const promise = enableReplyTracker(session.user.id);
       promises.push(promise);
+
+      if (env.INTERNAL_API_KEY) {
+        // Process in background as this can take a while
+        fetch(
+          `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+            },
+            body: JSON.stringify({
+              userId: session.user.id,
+            } satisfies ProcessPreviousBody),
+          },
+        );
+      }
     }
 
     // regular categories

@@ -15,7 +15,7 @@ const logger = createScopedLogger("reply-tracker/check-previous-emails");
 export async function processPreviousSentEmails(
   gmail: gmail_v1.Gmail,
   user: Pick<User, "about"> & UserEmailWithAI,
-  maxResults: number,
+  maxResults = 100,
 ) {
   if (!user.email) throw new Error("User email not found");
 
