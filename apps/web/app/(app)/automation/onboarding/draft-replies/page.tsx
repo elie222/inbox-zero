@@ -8,6 +8,7 @@ import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
+import { ONBOARDING_COOKIE_NAME } from "@/app/(app)/automation/consts";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
@@ -23,6 +24,9 @@ export default function DraftRepliesPage() {
           });
         }
       }
+
+      // This sets the cookie to keep the sidebar state.
+      document.cookie = `${ONBOARDING_COOKIE_NAME}=true; path=/; max-age=${Number.MAX_SAFE_INTEGER}`;
 
       router.push("/automation/onboarding/completed");
     },

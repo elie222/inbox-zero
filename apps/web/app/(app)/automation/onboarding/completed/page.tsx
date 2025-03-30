@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Settings } from "lucide-react";
+import { Check } from "lucide-react";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/automation/History";
 import { Pending } from "@/app/(app)/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,12 +14,29 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
+import { ONBOARDING_COOKIE_NAME } from "@/app/(app)/automation/consts";
 
 export const maxDuration = 300; // Applies to the actions
 
 export default async function AutomationPage() {
   const session = await auth();
   if (!session?.user) redirect("/login");
+
+  // onboarding redirect
+  const cookieStore = await cookies();
+  const viewedOnboarding =
+    cookieStore.get(ONBOARDING_COOKIE_NAME)?.value === "true";
+
+  if (!viewedOnboarding) {
+    const hasRule = await prisma.rule.findFirst({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+
+    if (!hasRule) {
+      redirect("/automation/onboarding");
+    }
+  }
 
   return (
     <GmailProvider>
