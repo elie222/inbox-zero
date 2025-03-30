@@ -59,7 +59,8 @@ type NavItem = {
   hideInMail?: boolean;
 };
 
-const navigationItems: NavItem[] = [
+// Assistant category items
+const assistantItems: NavItem[] = [
   {
     name: "Personal Assistant",
     href: "/automation",
@@ -71,20 +72,23 @@ const navigationItems: NavItem[] = [
     icon: MessageCircleReplyIcon,
   },
   {
-    name: "Deep Clean",
-    href: "/clean",
-    icon: BrushIcon,
+    name: "Cold Email Blocker",
+    href: "/cold-email-blocker",
+    icon: ShieldCheckIcon,
   },
+];
 
+// Clean category items
+const cleanItems: NavItem[] = [
   {
     name: "Bulk Unsubscribe",
     href: "/bulk-unsubscribe",
     icon: MailsIcon,
   },
   {
-    name: "Cold Email Blocker",
-    href: "/cold-email-blocker",
-    icon: ShieldCheckIcon,
+    name: "Deep Clean",
+    href: "/clean",
+    icon: BrushIcon,
   },
   {
     name: "Analytics",
@@ -97,16 +101,19 @@ export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
 
-  const navItems = useMemo(
+  const cleanItemsFiltered = useMemo(
     () =>
-      navigationItems.filter((item) => {
+      cleanItems.filter((item) => {
         if (item.href === "/clean") return showCleaner;
         return true;
       }),
     [showCleaner],
   );
 
-  return navItems;
+  return {
+    assistantItems,
+    cleanItems: cleanItemsFiltered,
+  };
 };
 
 const bottomLinks: NavItem[] = [
@@ -258,9 +265,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {showMailNav ? (
             <MailNav path={path} />
           ) : (
-            <SidebarGroup>
-              <SideNavMenu items={navigation} activeHref={path} />
-            </SidebarGroup>
+            <>
+              <SidebarGroup>
+                <SidebarGroupLabel>Assistant</SidebarGroupLabel>
+                <SideNavMenu
+                  items={navigation.assistantItems}
+                  activeHref={path}
+                />
+              </SidebarGroup>
+              <SidebarGroup>
+                <SidebarGroupLabel>Clean</SidebarGroupLabel>
+                <SideNavMenu items={navigation.cleanItems} activeHref={path} />
+              </SidebarGroup>
+            </>
           )}
         </SidebarGroupContent>
       </SidebarContent>
