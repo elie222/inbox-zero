@@ -64,11 +64,11 @@ export function CategoriesSetup() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
-        <TypographyH3 className="mt-2">Set up your assistant</TypographyH3>
+        <TypographyH3 className="mt-2">
+          How do you want your emails organized?
+        </TypographyH3>
 
         <TypographyP className="mt-2">
-          Choose how you want your emails organized.
-          <br />
           You can add custom categories and rules later.
         </TypographyP>
 
