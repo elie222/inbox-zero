@@ -61,7 +61,7 @@ type NavItem = {
 
 const navigationItems: NavItem[] = [
   {
-    name: "AI Personal Assistant",
+    name: "Personal Assistant",
     href: "/automation",
     icon: SparklesIcon,
   },

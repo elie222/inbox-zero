@@ -54,16 +54,9 @@ export function CategoriesSetup() {
 
   const onSubmit = useCallback(
     async (data: CreateRulesOnboardingBody) => {
-      const result = await createRulesOnboardingAction(data);
-
-      if (isActionError(result)) {
-        toastError({
-          title: "Error setting up rules",
-          description: result.error,
-        });
-      } else {
-        router.push(NEXT_URL);
-      }
+      // runs in background so we can move on to next step faster
+      createRulesOnboardingAction(data);
+      router.push(NEXT_URL);
     },
     [router],
   );

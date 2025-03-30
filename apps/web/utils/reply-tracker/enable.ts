@@ -82,7 +82,7 @@ export async function enableReplyTracker(userId: string) {
   if (!ruleId) {
     const newRule = await safeCreateRule(
       {
-        name: "Label Emails Requiring Reply",
+        name: "To Reply",
         condition: {
           aiInstructions: defaultReplyTrackerInstructions,
         },
