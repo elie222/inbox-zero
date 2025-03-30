@@ -25,9 +25,8 @@ export default function CompletedPage() {
             </TypographyP>
 
             <TypographyP>
-              Want to customize further? You can create custom rules, edit
-              categories, and fine-tune your preferences anytime in the
-              settings.
+              Want to customize further? You can create custom rules, and
+              fine-tune your preferences anytime.
             </TypographyP>
           </div>
 

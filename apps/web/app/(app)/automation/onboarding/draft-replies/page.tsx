@@ -15,7 +15,6 @@ export default function DraftRepliesPage() {
   const onSetDraftReplies = useCallback(
     async (value: string) => {
       if (value === "yes") {
-        // enable draft replies
         const result = await enableDraftRepliesAction({ enable: true });
 
         if (isActionError(result)) {
@@ -24,6 +23,7 @@ export default function DraftRepliesPage() {
           });
         }
       }
+
       router.push("/automation/onboarding/completed");
     },
     [router],
