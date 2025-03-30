@@ -12,16 +12,12 @@ import {
   CheckCircleIcon,
   CircleXIcon,
   HandIcon,
-  HistoryIcon,
   RefreshCwIcon,
   ReplyIcon,
   XIcon,
 } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
-import {
-  processPreviousSentEmailsAction,
-  resolveThreadTrackerAction,
-} from "@/utils/actions/reply-tracking";
+import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
 import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Loading } from "@/components/Loading";
@@ -463,40 +459,10 @@ function EmptyState({
             </Button>
           </>
         ) : (
-          <>
-            <p className="text-sm text-muted-foreground">{message}</p>
-            <div className="mt-4">
-              <ScanOlderEmailsButton />
-            </div>
-          </>
+          <p className="text-sm text-muted-foreground">{message}</p>
         )}
       </div>
     </div>
-  );
-}
-
-function ScanOlderEmailsButton() {
-  const [isScanning, setIsScanning] = useState(false);
-
-  return (
-    <Button
-      variant="outline"
-      Icon={HistoryIcon}
-      loading={isScanning}
-      onClick={async () => {
-        setIsScanning(true);
-        const result = await processPreviousSentEmailsAction();
-        if (isActionError(result)) {
-          toastError({
-            title: "Error scanning older emails",
-            description: result.error,
-          });
-        }
-        setIsScanning(false);
-      }}
-    >
-      Scan Older Emails
-    </Button>
   );
 }
 
