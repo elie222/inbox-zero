@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "NODE_OPTIONS=--max_old_space_size=8192 next dev",
-    "build": "NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build",
+    "dev": "cross-env NODE_OPTIONS=--max_old_space_size=8192 next dev",
+    "build": "cross-env NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",

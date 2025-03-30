@@ -136,7 +136,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-To run the app locally in developer mode (slower):
+To run the app locally for development (slower):
 
 ```bash
 pnpm run dev
@@ -149,15 +149,16 @@ turbo dev
 ```
 
 To build and run the app locally in production mode (faster):
+
 ```bash
 pnpm run build
 pnpm start
 ```
-If you are building under Windows, you will need to modify the build line of `package.json` by prepending `cross-env ` to the appropriate line as follows: 
-`"build": "cross-env NODE_OPTIONS=--max_old_space_size=8192 prisma migrate deploy && next build"`
 
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
+Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
+
+To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
+Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
 
 ### Supported LLMs
 
