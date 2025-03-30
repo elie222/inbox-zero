@@ -76,7 +76,7 @@ export const getGmailClientWithRefresh = async (
     return g;
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.error("Error refreshing Gmail access token", { error });
+      logger.warn("Error refreshing Gmail access token", { error });
       return undefined;
     }
 
