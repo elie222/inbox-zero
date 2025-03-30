@@ -601,9 +601,8 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        rulesPrompt: `${rules.map((r) => `* ${r}`).join("\n")}\n\n${
-          user.rulesPrompt || ""
-        }`.trim(),
+        rulesPrompt:
+          `${user.rulesPrompt || ""}\n\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
       },
     });
   },
