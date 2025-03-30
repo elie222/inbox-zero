@@ -4,14 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import {
-  type UpdateColdEmailSettingsBody,
-  updateColdEmailSettingsBody,
-} from "@/app/api/user/settings/cold-email/validation";
-import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
-import { postRequest } from "@/utils/api";
+  updateColdEmailPromptBody,
+  type UpdateColdEmailPromptBody,
+} from "@/utils/actions/cold-email.validation";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isErrorMessage } from "@/utils/error";
+import { isActionError } from "@/utils/error";
+import { updateColdEmailPromptAction } from "@/utils/actions/cold-email";
 
 export function ColdEmailPromptForm(props: {
   coldEmailPrompt?: string | null;
@@ -21,8 +20,8 @@ export function ColdEmailPromptForm(props: {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<UpdateColdEmailSettingsBody>({
-    resolver: zodResolver(updateColdEmailSettingsBody),
+  } = useForm<UpdateColdEmailPromptBody>({
+    resolver: zodResolver(updateColdEmailPromptBody),
     defaultValues: {
       coldEmailPrompt: props.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT,
     },
@@ -30,12 +29,9 @@ export function ColdEmailPromptForm(props: {
 
   const { onSuccess } = props;
 
-  const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
+  const onSubmit: SubmitHandler<UpdateColdEmailPromptBody> = useCallback(
     async (data) => {
-      const res = await postRequest<
-        SaveEmailUpdateSettingsResponse,
-        UpdateColdEmailSettingsBody
-      >("/api/user/settings/cold-email", {
+      const result = await updateColdEmailPromptAction({
         // if user hasn't changed the prompt, unset their custom prompt
         coldEmailPrompt:
           !data.coldEmailPrompt ||
@@ -44,7 +40,7 @@ export function ColdEmailPromptForm(props: {
             : data.coldEmailPrompt,
       });
 
-      if (isErrorMessage(res)) {
+      if (isActionError(result)) {
         toastError({ description: "Error updating cold email prompt." });
       } else {
         toastSuccess({ description: "Prompt updated!" });

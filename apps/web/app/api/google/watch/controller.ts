@@ -43,7 +43,7 @@ export async function unwatchEmails({
     await unwatch(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.error("Error unwatching emails, invalid grant", { userId });
+      logger.warn("Error unwatching emails, invalid grant", { userId });
       return;
     }
 

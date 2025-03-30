@@ -134,9 +134,7 @@ export type UpdateRuleInstructionsBody = z.infer<
 export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
-export const rulesExamplesBody = z.object({
-  rulesPrompt: z.string(),
-});
+export const rulesExamplesBody = z.object({ rulesPrompt: z.string() });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
 export const updateRuleSettingsBody = z.object({
@@ -146,3 +144,20 @@ export const updateRuleSettingsBody = z.object({
   draftRepliesInstructions: z.string(),
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
+
+export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
+export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
+
+const categoryAction = z.enum(["label", "label_archive", "none"]);
+export const createRulesOnboardingBody = z.object({
+  toReply: categoryAction,
+  newsletters: categoryAction,
+  marketing: categoryAction,
+  calendar: categoryAction,
+  receipts: categoryAction,
+  notifications: categoryAction,
+  coldEmails: categoryAction,
+});
+export type CreateRulesOnboardingBody = z.infer<
+  typeof createRulesOnboardingBody
+>;

@@ -33,7 +33,6 @@ export default async function SetupPage() {
   if (!user) throw new Error("User not found");
 
   const isReplyTrackerConfigured = user.rules.some((rule) => rule.trackReplies);
-  const isColdEmailBlockerConfigured = !!user.coldEmailBlocker;
   const isAiAssistantConfigured = user.rules.some((rule) => !rule.trackReplies);
   const isBulkUnsubscribeConfigured = user.newsletters.length > 0;
 
@@ -41,7 +40,6 @@ export default async function SetupPage() {
     <>
       <SetupContent
         isReplyTrackerConfigured={isReplyTrackerConfigured}
-        isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
         isAiAssistantConfigured={isAiAssistantConfigured}
         isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
       />
@@ -129,18 +127,15 @@ function FeatureGrid() {
 
 function SetupContent({
   isReplyTrackerConfigured,
-  isColdEmailBlockerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
 }: {
   isReplyTrackerConfigured: boolean;
-  isColdEmailBlockerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
   const steps = [
     isReplyTrackerConfigured,
-    isColdEmailBlockerConfigured,
     isBulkUnsubscribeConfigured,
     isAiAssistantConfigured,
   ];
@@ -169,7 +164,6 @@ function SetupContent({
       ) : (
         <Checklist
           isReplyTrackerConfigured={isReplyTrackerConfigured}
-          isColdEmailBlockerConfigured={isColdEmailBlockerConfigured}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
           completedCount={completedCount}
@@ -190,7 +184,6 @@ const StepItem = ({
   description,
   timeEstimate,
   completed,
-  actionButton,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -200,7 +193,6 @@ const StepItem = ({
   description: string;
   timeEstimate: string;
   completed: boolean;
-  actionButton?: string;
 }) => {
   return (
     <Link
@@ -234,7 +226,7 @@ const StepItem = ({
             </div>
           ) : (
             <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75">
-              {actionButton || "Enable"}
+              View
             </div>
           )}
         </div>
@@ -248,7 +240,6 @@ function Checklist({
   totalSteps,
   progressPercentage,
   isReplyTrackerConfigured,
-  isColdEmailBlockerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
 }: {
@@ -256,7 +247,6 @@ function Checklist({
   totalSteps: number;
   progressPercentage: number;
   isReplyTrackerConfigured: boolean;
-  isColdEmailBlockerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
@@ -280,25 +270,14 @@ function Checklist({
       </div>
 
       <StepItem
-        href="/reply-zero"
-        icon={<MailIcon size={20} />}
-        iconBg="bg-blue-100 dark:bg-blue-900/50"
-        iconColor="text-blue-500 dark:text-blue-400"
-        title="Enable Reply Zero"
-        description="Track emails needing replies & follow-ups. Get AI-drafted responses"
-        timeEstimate="30 seconds"
-        completed={isReplyTrackerConfigured}
-      />
-
-      <StepItem
-        href="/cold-email-blocker"
-        icon={<BanIcon size={20} />}
-        iconBg="bg-orange-100 dark:bg-orange-900/50"
-        iconColor="text-orange-500 dark:text-orange-400"
-        title="Enable Cold Email Blocker"
-        description="Filter out unsolicited messages"
-        timeEstimate="30 seconds"
-        completed={isColdEmailBlockerConfigured}
+        href="/automation/onboarding"
+        icon={<BotIcon size={20} />}
+        iconBg="bg-green-100 dark:bg-green-900/50"
+        iconColor="text-green-500 dark:text-green-400"
+        title="Set up AI Assistant"
+        description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
+        timeEstimate="5 minutes"
+        completed={isAiAssistantConfigured}
       />
 
       <StepItem
@@ -310,18 +289,17 @@ function Checklist({
         description="Easily unsubscribe from unwanted newsletters"
         timeEstimate="5 minutes"
         completed={isBulkUnsubscribeConfigured}
-        actionButton="View"
       />
 
       <StepItem
-        href="/automation"
-        icon={<BotIcon size={20} />}
-        iconBg="bg-green-100 dark:bg-green-900/50"
-        iconColor="text-green-500 dark:text-green-400"
-        title="Set up AI Assistant"
-        description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
-        timeEstimate="10 minutes"
-        completed={isAiAssistantConfigured}
+        href="/reply-zero"
+        icon={<MailIcon size={20} />}
+        iconBg="bg-blue-100 dark:bg-blue-900/50"
+        iconColor="text-blue-500 dark:text-blue-400"
+        title="View emails needing replies"
+        description="Track emails needing replies & follow-ups. Get AI-drafted responses"
+        timeEstimate="30 seconds"
+        completed={isReplyTrackerConfigured}
       />
     </Card>
   );

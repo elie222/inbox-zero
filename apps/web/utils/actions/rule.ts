@@ -12,6 +12,10 @@ import {
   type RulesExamplesBody,
   updateRuleSettingsBody,
   type UpdateRuleSettingsBody,
+  createRulesOnboardingBody,
+  type CreateRulesOnboardingBody,
+  enableDraftRepliesBody,
+  type EnableDraftRepliesBody,
 } from "@/utils/actions/rule.validation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
@@ -19,7 +23,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -30,6 +34,10 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
+import { enableReplyTracker } from "@/utils/reply-tracker/enable";
+import { env } from "@/env";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -288,6 +296,31 @@ export const updateRuleSettingsAction = withActionInstrumentation(
   },
 );
 
+export const enableDraftRepliesAction = withActionInstrumentation(
+  "enableDraftReplies",
+  async (options: EnableDraftRepliesBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = enableDraftRepliesBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    const rule = await prisma.rule.findFirst({
+      where: { userId: session.user.id, trackReplies: true },
+    });
+    if (!rule) return { error: "Rule not found" };
+
+    await prisma.rule.update({
+      where: { id: rule.id, userId: session.user.id },
+      data: { draftReplies: data.enable },
+    });
+
+    revalidatePath(`/automation/rule/${rule.id}`);
+    revalidatePath("/automation");
+    revalidatePath("/reply-zero");
+  },
+);
+
 export const deleteRuleAction = withActionInstrumentation(
   "deleteRule",
   async ({ ruleId }: { ruleId: string }) => {
@@ -376,5 +409,202 @@ export const getRuleExamplesAction = withActionInstrumentation(
     );
 
     return { matches };
+  },
+);
+
+export const createRulesOnboardingAction = withActionInstrumentation(
+  "createRulesOnboarding",
+  async (options: CreateRulesOnboardingBody) => {
+    const session = await auth();
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, error } = createRulesOnboardingBody.safeParse(options);
+    if (error) return { error: error.message };
+
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { rulesPrompt: true },
+    });
+    if (!user) return { error: "User not found" };
+
+    const promises: Promise<any>[] = [];
+
+    const isSet = (value: string): value is "label" | "label_archive" =>
+      value !== "none";
+
+    // cold email blocker
+    if (isSet(data.coldEmails)) {
+      const promise = prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          coldEmailBlocker:
+            data.coldEmails === "label"
+              ? ColdEmailSetting.LABEL
+              : ColdEmailSetting.ARCHIVE_AND_LABEL,
+        },
+      });
+      promises.push(promise);
+    }
+
+    const rules: string[] = [];
+
+    // reply tracker
+    if (isSet(data.toReply)) {
+      const promise = enableReplyTracker(session.user.id).then((res) => {
+        if (res?.alreadyEnabled) return;
+
+        // Load previous emails needing replies in background
+        // This can take a while
+        if (env.INTERNAL_API_KEY) {
+          fetch(
+            `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+              },
+              body: JSON.stringify({
+                userId: session.user.id,
+              } satisfies ProcessPreviousBody),
+            },
+          );
+        }
+      });
+      promises.push(promise);
+    }
+
+    // regular categories
+    async function createRule(
+      name: string,
+      instructions: string,
+      promptFileInstructions: string,
+      runOnThreads: boolean,
+      categoryAction: "label" | "label_archive",
+    ) {
+      const existingRule = await prisma.rule.findUnique({
+        where: { name_userId: { name, userId: session?.user.id! } },
+      });
+
+      if (existingRule) {
+        const promise = prisma.rule.update({
+          where: { id: existingRule.id },
+          data: {
+            instructions,
+            actions: {
+              createMany: {
+                data: [
+                  { type: ActionType.LABEL, label: "Newsletter" },
+                  ...(categoryAction === "label_archive"
+                    ? [{ type: ActionType.ARCHIVE }]
+                    : []),
+                ],
+              },
+            },
+          },
+        });
+        promises.push(promise);
+
+        // TODO: prompt file update
+      } else {
+        const promise = prisma.rule
+          .create({
+            data: {
+              userId: session?.user.id!,
+              name,
+              instructions,
+              automate: true,
+              runOnThreads,
+              actions: {
+                createMany: {
+                  data: [
+                    { type: ActionType.LABEL, label: "Newsletter" },
+                    ...(categoryAction === "label_archive"
+                      ? [{ type: ActionType.ARCHIVE }]
+                      : []),
+                  ],
+                },
+              },
+            },
+          })
+          .catch((error) => {
+            if (isDuplicateError(error, "name")) return;
+            throw error;
+          });
+        promises.push(promise);
+
+        rules.push(
+          `${promptFileInstructions}${
+            categoryAction === "label_archive" ? " and archive them" : ""
+          }.`,
+        );
+      }
+    }
+
+    // newsletters
+    if (isSet(data.newsletters)) {
+      createRule(
+        "Newsletter",
+        "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
+        "Label all newsletters as 'Newsletter'",
+        false,
+        data.newsletters,
+      );
+    }
+
+    // marketing
+    if (isSet(data.marketing)) {
+      createRule(
+        "Marketing",
+        "Marketing: Promotional emails about products, services, sales, or offers",
+        "Label all marketing emails as 'Marketing'",
+        false,
+        data.marketing,
+      );
+    }
+
+    // calendar
+    if (isSet(data.calendar)) {
+      createRule(
+        "Calendar",
+        "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
+        "Label all calendar emails as 'Calendar'",
+        false,
+        data.calendar,
+      );
+    }
+
+    // receipts
+    if (isSet(data.receipts)) {
+      createRule(
+        "Receipts",
+        "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
+        "Label all receipts as 'Receipts'",
+        false,
+        data.receipts,
+      );
+    }
+
+    // notifications
+    if (isSet(data.notifications)) {
+      createRule(
+        "Notifications",
+        "Notifications: Alerts, status updates, or system messages",
+        "Label all notifications as 'Notifications'",
+        false,
+        data.notifications,
+      );
+    }
+
+    await Promise.allSettled(promises);
+
+    await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        rulesPrompt: `${rules.map((r) => `* ${r}`).join("\n")}\n\n${
+          user.rulesPrompt || ""
+        }`.trim(),
+      },
+    });
   },
 );

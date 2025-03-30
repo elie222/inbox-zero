@@ -1,55 +1,71 @@
 import { revalidatePath } from "next/cache";
 import type { gmail_v1 } from "@googleapis/gmail";
-import groupBy from "lodash/groupBy";
-import { getMessages } from "@/utils/gmail/message";
 import { createScopedLogger } from "@/utils/logger";
-import { getThreadMessages } from "@/utils/gmail/thread";
+import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { GmailLabel } from "@/utils/gmail/label";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
 import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 import { getAssistantEmail } from "@/utils/assistant/is-assistant-email";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
 export async function processPreviousSentEmails(
   gmail: gmail_v1.Gmail,
   user: Pick<User, "about"> & UserEmailWithAI,
-  maxResults: number,
+  maxResults = 100,
 ) {
   if (!user.email) throw new Error("User email not found");
 
   const assistantEmail = getAssistantEmail({ userEmail: user.email });
 
   // Get last sent messages
-  const result = await getMessages(gmail, {
-    query: `in:sent -to:${assistantEmail} -from:${assistantEmail}`,
+  const result = await getThreads(
+    `in:sent -to:${assistantEmail} -from:${assistantEmail}`,
+    [GmailLabel.SENT],
+    gmail,
     maxResults,
-  });
+  );
 
-  if (!result.messages) {
+  if (!result.threads) {
     logger.info("No sent messages found");
     return;
   }
 
-  const messagesByThreadId = groupBy(result.messages, (m) => m.threadId);
-
   // Process each message
-  for (const threadId of Object.keys(messagesByThreadId)) {
-    const threadMessages = await getThreadMessages(threadId, gmail);
+  for (const thread of result.threads) {
+    const threadMessages = await getThreadMessages(thread.id, gmail);
 
-    const latestMessage = threadMessages.sort(
+    const sortedMessages = threadMessages.sort(
       (a, b) => (Number(b.internalDate) || 0) - (Number(a.internalDate) || 0),
-    )[0];
+    );
+    const latestMessage = sortedMessages[0];
 
     if (!latestMessage.id || !latestMessage.threadId) continue;
+
+    const isProcessed = await prisma.executedRule.findUnique({
+      where: {
+        unique_user_thread_message: {
+          userId: user.id,
+          threadId: latestMessage.threadId,
+          messageId: latestMessage.id,
+        },
+      },
+      select: { id: true },
+    });
 
     const loggerOptions = {
       email: user.email,
       messageId: latestMessage.id,
       threadId: latestMessage.threadId,
     };
+
+    if (isProcessed) {
+      logger.trace("Message already processed", loggerOptions);
+      continue;
+    }
 
     try {
       if (latestMessage.labelIds?.includes(GmailLabel.SENT)) {
