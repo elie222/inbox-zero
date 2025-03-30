@@ -184,6 +184,7 @@ const StepItem = ({
   description,
   timeEstimate,
   completed,
+  actionText,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -193,12 +194,12 @@ const StepItem = ({
   description: string;
   timeEstimate: string;
   completed: boolean;
+  actionText: string;
 }) => {
   return (
     <Link
       className={`border-b border-border last:border-0 ${completed ? "opacity-50" : ""}`}
       href={href}
-      target="_blank"
     >
       <div className="flex items-center justify-between p-4">
         <div className="flex max-w-lg items-center">
@@ -226,7 +227,7 @@ const StepItem = ({
             </div>
           ) : (
             <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75">
-              View
+              {actionText}
             </div>
           )}
         </div>
@@ -278,6 +279,7 @@ function Checklist({
         description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
         timeEstimate="5 minutes"
         completed={isAiAssistantConfigured}
+        actionText="Set up"
       />
 
       <StepItem
@@ -289,6 +291,7 @@ function Checklist({
         description="Easily unsubscribe from unwanted newsletters"
         timeEstimate="5 minutes"
         completed={isBulkUnsubscribeConfigured}
+        actionText="View"
       />
 
       <StepItem
@@ -300,6 +303,7 @@ function Checklist({
         description="Track emails needing replies & follow-ups. Get AI-drafted responses"
         timeEstimate="30 seconds"
         completed={isReplyTrackerConfigured}
+        actionText="View"
       />
     </Card>
   );
