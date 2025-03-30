@@ -52,7 +52,7 @@ export function ProcessingPromptFileDialog({
   }, []);
 
   useEffect(() => {
-    if (currentStep >= STEPS) {
+    if (currentStep > 0) {
       setViewedProcessingPromptFileDialog(true);
     }
   }, [currentStep, setViewedProcessingPromptFileDialog]);
