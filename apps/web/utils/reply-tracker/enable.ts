@@ -12,8 +12,8 @@ export async function enableReplyTracker(userId: string) {
   const logger = createScopedLogger("reply-tracker/enable").with({ userId });
 
   // If enabled already skip
-  const existingRule = await prisma.rule.findUnique({
-    where: { id: userId, trackReplies: true },
+  const existingRule = await prisma.rule.findFirst({
+    where: { userId, trackReplies: true },
   });
 
   if (existingRule) return { success: true, alreadyEnabled: true };
