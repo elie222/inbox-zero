@@ -32,6 +32,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
+import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -415,8 +416,9 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     const rules = [];
 
     // reply tracker
-    if (data.toReply === "label") {
-      rules.push("Label all emails that need replies as 'To Reply'");
+    if (data.toReply !== "none") {
+      const promise = enableReplyTracker(session.user.id);
+      promises.push(promise);
     }
 
     // regular categories
