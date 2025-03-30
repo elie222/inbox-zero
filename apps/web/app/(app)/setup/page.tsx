@@ -270,7 +270,7 @@ function Checklist({
       </div>
 
       <StepItem
-        href="/automation"
+        href="/automation/onboarding"
         icon={<BotIcon size={20} />}
         iconBg="bg-green-100 dark:bg-green-900/50"
         iconColor="text-green-500 dark:text-green-400"
