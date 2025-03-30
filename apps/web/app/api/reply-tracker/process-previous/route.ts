@@ -47,7 +47,7 @@ export const POST = withError(async (request: Request) => {
     refreshToken: account.refresh_token ?? undefined,
   });
 
-  const result = await processPreviousSentEmails(gmail, user);
+  await processPreviousSentEmails(gmail, user);
 
-  return NextResponse.json(result);
+  return NextResponse.json({ success: true });
 });
