@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import {
   ArchiveIcon,
   CheckIcon,
@@ -12,6 +13,7 @@ import prisma from "@/utils/prisma";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { Card } from "@/components/ui/card";
+import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 
 export default async function SetupPage() {
   const session = await auth();
@@ -32,9 +34,11 @@ export default async function SetupPage() {
 
   if (!user) throw new Error("User not found");
 
-  const isReplyTrackerConfigured = user.rules.some((rule) => rule.trackReplies);
   const isAiAssistantConfigured = user.rules.some((rule) => !rule.trackReplies);
   const isBulkUnsubscribeConfigured = user.newsletters.length > 0;
+  const cookieStore = await cookies();
+  const isReplyTrackerConfigured =
+    cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";
 
   return (
     <>
