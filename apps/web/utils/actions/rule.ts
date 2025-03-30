@@ -452,7 +452,6 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     }
 
     // regular categories
-
     async function createRule(
       name: string,
       instructions: string,
@@ -460,33 +459,63 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       runOnThreads: boolean,
       categoryAction: "label" | "label_archive",
     ) {
-      const promise = prisma.rule.create({
-        data: {
-          userId: session?.user.id!,
-          name,
-          instructions,
-          automate: true,
-          runOnThreads,
-          actions: {
-            createMany: {
-              data: [
-                { type: ActionType.LABEL, label: "Newsletter" },
-                ...(categoryAction === "label_archive"
-                  ? [{ type: ActionType.ARCHIVE }]
-                  : []),
-              ],
-            },
-          },
-        },
+      const existingRule = await prisma.rule.findUnique({
+        where: { name_userId: { name, userId: session?.user.id! } },
       });
 
-      promises.push(promise);
+      if (existingRule) {
+        const promise = prisma.rule.update({
+          where: { id: existingRule.id },
+          data: {
+            instructions,
+            actions: {
+              createMany: {
+                data: [
+                  { type: ActionType.LABEL, label: "Newsletter" },
+                  ...(categoryAction === "label_archive"
+                    ? [{ type: ActionType.ARCHIVE }]
+                    : []),
+                ],
+              },
+            },
+          },
+        });
+        promises.push(promise);
 
-      rules.push(
-        `${promptFileInstructions}${
-          categoryAction === "label_archive" ? " and archive them" : ""
-        }.`,
-      );
+        // TODO: prompt file update
+      } else {
+        const promise = prisma.rule
+          .create({
+            data: {
+              userId: session?.user.id!,
+              name,
+              instructions,
+              automate: true,
+              runOnThreads,
+              actions: {
+                createMany: {
+                  data: [
+                    { type: ActionType.LABEL, label: "Newsletter" },
+                    ...(categoryAction === "label_archive"
+                      ? [{ type: ActionType.ARCHIVE }]
+                      : []),
+                  ],
+                },
+              },
+            },
+          })
+          .catch((error) => {
+            if (isDuplicateError(error, "name")) return;
+            throw error;
+          });
+        promises.push(promise);
+
+        rules.push(
+          `${promptFileInstructions}${
+            categoryAction === "label_archive" ? " and archive them" : ""
+          }.`,
+        );
+      }
     }
 
     // newsletters
@@ -544,7 +573,9 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       );
     }
 
-    const rulesPromptPromise = prisma.user.update({
+    await Promise.allSettled(promises);
+
+    await prisma.user.update({
       where: { id: session.user.id },
       data: {
         rulesPrompt: `${rules.map((r) => `* ${r}`).join("\n")}\n\n${
@@ -552,9 +583,5 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         }`.trim(),
       },
     });
-
-    promises.push(rulesPromptPromise);
-
-    await Promise.all(promises);
   },
 );
