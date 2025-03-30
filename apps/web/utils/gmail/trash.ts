@@ -34,12 +34,24 @@ export async function trashThread(options: {
   ]);
 
   if (trashResult.status === "rejected") {
-    logger.error("Failed to trash thread", {
-      email: ownerEmail,
-      threadId,
-      error: trashResult.reason,
-    });
-    throw trashResult.reason;
+    const error = trashResult.reason;
+
+    if (error.message === "Requested entity was not found.") {
+      // thread doesn't exist, so it's already been deleted
+      logger.warn("Failed to trash non-existant thread", {
+        email: ownerEmail,
+        threadId,
+        error,
+      });
+      return { status: 200 };
+    } else {
+      logger.error("Failed to trash thread", {
+        email: ownerEmail,
+        threadId,
+        error,
+      });
+      throw error;
+    }
   }
 
   if (publishResult.status === "rejected") {
