@@ -21,7 +21,7 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { ColdEmailSetting, LogicalOperator } from "@prisma/client";
+import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -399,8 +399,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     const promises: Promise<any>[] = [];
 
+    const isSet = (value: string): value is "label" | "label_archive" =>
+      value !== "none";
+
     // cold email blocker
-    if (data.coldEmails !== "none") {
+    if (isSet(data.coldEmails)) {
       const promise = prisma.user.update({
         where: { id: session.user.id },
         data: {
@@ -413,52 +416,104 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       promises.push(promise);
     }
 
-    const rules = [];
+    const rules: string[] = [];
 
     // reply tracker
-    if (data.toReply !== "none") {
+    if (isSet(data.toReply)) {
       const promise = enableReplyTracker(session.user.id);
       promises.push(promise);
     }
 
     // regular categories
-    if (data.newsletters !== "none") {
+
+    async function createRule(
+      name: string,
+      instructions: string,
+      promptFileInstructions: string,
+      runOnThreads: boolean,
+      categoryAction: "label" | "label_archive",
+    ) {
+      const promise = prisma.rule.create({
+        data: {
+          userId: session?.user.id!,
+          name,
+          instructions,
+          automate: true,
+          runOnThreads,
+          actions: {
+            createMany: {
+              data: [
+                { type: ActionType.LABEL, label: "Newsletter" },
+                ...(categoryAction === "label_archive"
+                  ? [{ type: ActionType.ARCHIVE }]
+                  : []),
+              ],
+            },
+          },
+        },
+      });
+
+      promises.push(promise);
+
       rules.push(
-        `Label all newsletters as 'Newsletter'${
-          data.newsletters === "label_archive" ? " and archive them" : ""
+        `${promptFileInstructions}${
+          categoryAction === "label_archive" ? " and archive them" : ""
         }.`,
       );
     }
 
-    if (data.marketing !== "none") {
-      rules.push(
-        `Label all marketing emails as 'Marketing'${
-          data.marketing === "label_archive" ? " and archive them" : ""
-        }.`,
+    // newsletters
+    if (isSet(data.newsletters)) {
+      createRule(
+        "Newsletter",
+        "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
+        "Label all newsletters as 'Newsletter'",
+        false,
+        data.newsletters,
       );
     }
 
-    if (data.calendar !== "none") {
-      rules.push(
-        `Label all calendar emails as 'Calendar'${
-          data.calendar === "label_archive" ? " and archive them" : ""
-        }.`,
+    // marketing
+    if (isSet(data.marketing)) {
+      createRule(
+        "Marketing",
+        "Marketing: Promotional emails about products, services, sales, or offers",
+        "Label all marketing emails as 'Marketing'",
+        false,
+        data.marketing,
       );
     }
 
-    if (data.receipts !== "none") {
-      rules.push(
-        `Label all receipts as 'Receipts'${
-          data.receipts === "label_archive" ? " and archive them" : ""
-        }.`,
+    // calendar
+    if (isSet(data.calendar)) {
+      createRule(
+        "Calendar",
+        "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
+        "Label all calendar emails as 'Calendar'",
+        false,
+        data.calendar,
       );
     }
 
-    if (data.notifications !== "none") {
-      rules.push(
-        `Label all notifications as 'Notifications'${
-          data.notifications === "label_archive" ? " and archive them" : ""
-        }.`,
+    // receipts
+    if (isSet(data.receipts)) {
+      createRule(
+        "Receipts",
+        "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
+        "Label all receipts as 'Receipts'",
+        false,
+        data.receipts,
+      );
+    }
+
+    // notifications
+    if (isSet(data.notifications)) {
+      createRule(
+        "Notifications",
+        "Notifications: Alerts, status updates, or system messages",
+        "Label all notifications as 'Notifications'",
+        false,
+        data.notifications,
       );
     }
 
