@@ -11,7 +11,6 @@ import { Resolved } from "./Resolved";
 import { AwaitingReply } from "./AwaitingReply";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { EnableReplyTracker } from "./EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
@@ -26,6 +25,8 @@ import {
 } from "@/components/ui/dialog";
 import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
 import { GmailProvider } from "@/providers/GmailProvider";
+import { cookies } from "next/headers";
+import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 
 // https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
 // export const maxDuration = Math.min(env.MAX_DURATION, 600);
@@ -45,16 +46,20 @@ export default async function ReplyTrackerPage(props: {
   const userId = session.user.id;
   const userEmail = session.user.email;
 
+  const cookieStore = await cookies();
+  const viewedOnboarding =
+    cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";
+
+  if (!viewedOnboarding) redirect("/reply-zero/onboarding");
+
   const trackRepliesRule = await prisma.rule.findFirst({
     where: { userId, trackReplies: true },
     select: { trackReplies: true, id: true },
   });
 
-  const isAnalyzing = await isAnalyzingReplyTracker(userId);
+  if (!trackRepliesRule?.trackReplies) redirect("/reply-zero/onboarding");
 
-  if (!trackRepliesRule?.trackReplies && !searchParams.enabled) {
-    return <EnableReplyTracker />;
-  }
+  const isAnalyzing = await isAnalyzingReplyTracker(userId);
 
   const page = Number(searchParams.page || "1");
   const timeRange = searchParams.timeRange || "all";

@@ -15,7 +15,7 @@ import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
-import { ONBOARDING_COOKIE_NAME } from "@/app/(app)/automation/consts";
+import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { Button } from "@/components/ui/button";
 
 export const maxDuration = 300; // Applies to the actions
@@ -27,7 +27,7 @@ export default async function AutomationPage() {
   // onboarding redirect
   const cookieStore = await cookies();
   const viewedOnboarding =
-    cookieStore.get(ONBOARDING_COOKIE_NAME)?.value === "true";
+    cookieStore.get(ASSISTANT_ONBOARDING_COOKIE)?.value === "true";
 
   if (!viewedOnboarding) {
     const hasRule = await prisma.rule.findFirst({

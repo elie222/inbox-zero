@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { parseAsBoolean, useQueryState } from "nuqs";
+import { useRouter } from "next/navigation";
 import { Badge } from "@/components/Badge";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastSuccess } from "@/components/Toast";
@@ -16,12 +16,13 @@ import {
   NEEDS_REPLY_LABEL_NAME,
   AWAITING_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import {
+  markOnboardingAsCompleted,
+  REPLY_ZERO_ONBOARDING_COOKIE,
+} from "@/utils/cookies";
 
-export function EnableReplyTracker() {
-  const [, setEnabled] = useQueryState(
-    "enabled",
-    parseAsBoolean.withDefault(false),
-  );
+export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
+  const router = useRouter();
 
   return (
     <EnableFeatureCard
@@ -56,8 +57,15 @@ export function EnableReplyTracker() {
       }
       imageSrc="/images/illustrations/communication.svg"
       imageAlt="Reply tracking"
-      buttonText="Enable Reply Zero"
+      buttonText={enabled ? "Got it!" : "Enable Reply Zero"}
       onEnable={async () => {
+        markOnboardingAsCompleted(REPLY_ZERO_ONBOARDING_COOKIE);
+
+        if (enabled) {
+          router.push("/reply-zero");
+          return;
+        }
+
         const result = await enableReplyTrackerAction();
 
         if (isActionError(result)) {
@@ -74,12 +82,9 @@ export function EnableReplyTracker() {
 
         toast.promise(
           async () => {
-            const previousSentPromise = processPreviousSentEmailsAction();
-            // this will force the page to hide the enable feature card
-            setEnabled(true);
-            const previousSentResult = await previousSentPromise;
-            if (isActionError(previousSentResult))
-              throw new Error(previousSentResult.error);
+            processPreviousSentEmailsAction();
+
+            router.push("/reply-zero?enabled=true");
           },
           {
             loading:
