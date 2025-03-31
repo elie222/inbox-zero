@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
@@ -80,25 +79,27 @@ export async function aiExtractRelevantKnowledge({
   try {
     logger.info("Extracting knowledge", {
       knowledgeCount: knowledgeBase.length,
-      emailContentLength: emailContent.length,
     });
 
     if (knowledgeBase.length === 0) {
       return { error: "No knowledge base entries provided" };
     }
 
+    const system = SYSTEM_PROMPT;
+    const prompt = USER_PROMPT({ knowledgeBase, emailContent, user });
+
+    logger.trace("Input", { system, prompt });
+
     const result = await chatCompletionObject({
-      system: SYSTEM_PROMPT,
-      prompt: USER_PROMPT({ knowledgeBase, emailContent, user }),
+      system,
+      prompt,
       schema: extractionSchema,
       usageLabel: "Knowledge extraction",
       userAi: user,
       userEmail: user.email,
     });
 
-    logger.info("Successfully extracted knowledge", {
-      contentLength: result.object.relevantContent.length,
-    });
+    logger.trace("Output", result.object);
 
     return { data: result.object };
   } catch (error) {
