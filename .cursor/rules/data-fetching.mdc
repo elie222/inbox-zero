@@ -1,5 +1,5 @@
 ---
-description: 
+description: Fetching data from the API using SWR
 globs: 
 alwaysApply: false
 ---
