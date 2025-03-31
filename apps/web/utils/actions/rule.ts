@@ -488,23 +488,28 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       });
 
       if (existingRule) {
-        const promise = prisma.rule.update({
-          where: { id: existingRule.id },
-          data: {
-            instructions,
-            actions: {
-              deleteMany: {},
-              createMany: {
-                data: [
-                  { type: ActionType.LABEL, label: "Newsletter" },
-                  ...(categoryAction === "label_archive"
-                    ? [{ type: ActionType.ARCHIVE }]
-                    : []),
-                ],
+        const promise = prisma.rule
+          .update({
+            where: { id: existingRule.id },
+            data: {
+              instructions,
+              actions: {
+                deleteMany: {},
+                createMany: {
+                  data: [
+                    { type: ActionType.LABEL, label: "Newsletter" },
+                    ...(categoryAction === "label_archive"
+                      ? [{ type: ActionType.ARCHIVE }]
+                      : []),
+                  ],
+                },
               },
             },
-          },
-        });
+          })
+          .catch((error) => {
+            logger.error("Error updating rule", { error });
+            throw error;
+          });
         promises.push(promise);
 
         // TODO: prompt file update
@@ -531,6 +536,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
           })
           .catch((error) => {
             if (isDuplicateError(error, "name")) return;
+            logger.error("Error creating rule", { error });
             throw error;
           });
         promises.push(promise);
