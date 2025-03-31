@@ -18,7 +18,7 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [], // caching disabled
-  disableDevLogs: true,
+  disableDevLogs: process.env.NODE_ENV === "production",
 });
 
 serwist.addEventListeners();
