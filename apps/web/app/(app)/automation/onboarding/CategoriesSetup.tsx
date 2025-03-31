@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
-import { Tooltip } from "@/components/Tooltip";
 import {
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
@@ -36,19 +35,23 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
-export function CategoriesSetup() {
+export function CategoriesSetup({
+  defaultValues,
+}: {
+  defaultValues?: Partial<CreateRulesOnboardingBody>;
+}) {
   const router = useRouter();
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: "label",
-      newsletters: "label",
-      marketing: "label_archive",
-      calendar: "label",
-      receipts: "label",
-      notifications: "label",
-      coldEmails: "label_archive",
+      toReply: defaultValues?.toReply || "label",
+      newsletters: defaultValues?.newsletters || "label",
+      marketing: defaultValues?.marketing || "label_archive",
+      calendar: defaultValues?.calendar || "label",
+      receipts: defaultValues?.receipts || "label",
+      notifications: defaultValues?.notifications || "label",
+      coldEmails: defaultValues?.coldEmails || "label_archive",
     },
   });
 

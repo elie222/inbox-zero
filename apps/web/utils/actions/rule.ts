@@ -38,6 +38,7 @@ import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
+import { RuleName } from "@/utils/rule/consts";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -492,6 +493,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
           data: {
             instructions,
             actions: {
+              deleteMany: {},
               createMany: {
                 data: [
                   { type: ActionType.LABEL, label: "Newsletter" },
@@ -544,7 +546,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // newsletters
     if (isSet(data.newsletters)) {
       createRule(
-        "Newsletter",
+        RuleName.Newsletters,
         "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
         "Label all newsletters as 'Newsletter'",
         false,
@@ -555,7 +557,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // marketing
     if (isSet(data.marketing)) {
       createRule(
-        "Marketing",
+        RuleName.Marketing,
         "Marketing: Promotional emails about products, services, sales, or offers",
         "Label all marketing emails as 'Marketing'",
         false,
@@ -566,7 +568,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // calendar
     if (isSet(data.calendar)) {
       createRule(
-        "Calendar",
+        RuleName.Calendar,
         "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
         "Label all calendar emails as 'Calendar'",
         false,
@@ -577,7 +579,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // receipts
     if (isSet(data.receipts)) {
       createRule(
-        "Receipts",
+        RuleName.Receipts,
         "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
         "Label all receipts as 'Receipts'",
         false,
@@ -588,7 +590,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // notifications
     if (isSet(data.notifications)) {
       createRule(
-        "Notifications",
+        RuleName.Notifications,
         "Notifications: Alerts, status updates, or system messages",
         "Label all notifications as 'Notifications'",
         false,
@@ -602,7 +604,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       where: { id: session.user.id },
       data: {
         rulesPrompt:
-          `${user.rulesPrompt || ""}\n\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
+          `${user.rulesPrompt || ""}\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
       },
     });
   },
