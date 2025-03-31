@@ -132,13 +132,17 @@ async function getNewsletterCounts(
 
   // Add date filters if provided
   if (options.fromDate) {
-    whereConditions.push(`"date" >= $${queryParams.length + 1}`);
-    queryParams.push(new Date(options.fromDate));
+    whereConditions.push(
+      `"date" >= to_timestamp($${queryParams.length + 1}::double precision)`,
+    );
+    queryParams.push((options.fromDate / 1000).toString()); // Convert milliseconds to seconds
   }
 
   if (options.toDate) {
-    whereConditions.push(`"date" <= $${queryParams.length + 1}`);
-    queryParams.push(new Date(options.toDate));
+    whereConditions.push(
+      `"date" <= to_timestamp($${queryParams.length + 1}::double precision)`,
+    );
+    queryParams.push((options.toDate / 1000).toString()); // Convert milliseconds to seconds
   }
 
   // Add read/unread filters
