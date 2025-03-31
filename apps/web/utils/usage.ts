@@ -1,5 +1,8 @@
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("usage");
 
 export async function saveAiUsage({
   email,
@@ -36,7 +39,7 @@ export async function saveAiUsage({
       saveUsage({ email, cost, usage }),
     ]);
   } catch (error) {
-    console.error(error);
+    logger.error("Failed to save usage", { error });
   }
 }
 
