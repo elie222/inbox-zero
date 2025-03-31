@@ -20,20 +20,24 @@ export async function saveAiUsage({
 }) {
   const cost = calcuateCost(model, usage);
 
-  return Promise.all([
-    publishAiCall({
-      userId: email,
-      provider,
-      model,
-      totalTokens: usage.totalTokens,
-      completionTokens: usage.completionTokens,
-      promptTokens: usage.promptTokens,
-      cost,
-      timestamp: Date.now(),
-      label,
-    }),
-    saveUsage({ email, cost, usage }),
-  ]);
+  try {
+    return Promise.all([
+      publishAiCall({
+        userId: email,
+        provider,
+        model,
+        totalTokens: usage.totalTokens,
+        completionTokens: usage.completionTokens,
+        promptTokens: usage.promptTokens,
+        cost,
+        timestamp: Date.now(),
+        label,
+      }),
+      saveUsage({ email, cost, usage }),
+    ]);
+  } catch (error) {
+    console.error(error);
+  }
 }
 
 const costs: Record<
