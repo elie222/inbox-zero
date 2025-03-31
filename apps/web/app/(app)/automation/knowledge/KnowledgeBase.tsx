@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import useSWR, { type KeyedMutator } from "swr";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,10 +32,11 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
+import { formatDateSimple } from "@/utils/date";
 
 export default function KnowledgeBase() {
   const [isOpen, setIsOpen] = useState(false);
-  const { data, isLoading, error } =
+  const { data, isLoading, error, mutate } =
     useSWR<GetKnowledgeResponse>("/api/knowledge");
 
   return (
@@ -47,11 +48,14 @@ export default function KnowledgeBase() {
             Add
           </Button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add Knowledge Base Entry</DialogTitle>
           </DialogHeader>
-          <KnowledgeForm closeDialog={() => setIsOpen(false)} />
+          <KnowledgeForm
+            closeDialog={() => setIsOpen(false)}
+            refetch={mutate}
+          />
         </DialogContent>
       </Dialog>
 
@@ -62,15 +66,18 @@ export default function KnowledgeBase() {
               <TableRow>
                 <TableHead>Title</TableHead>
                 <TableHead>Last Updated</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="h-24 text-center">
-                    No knowledge base entries found. Click the Add button to
-                    create one.
+                    No knowledge base entries. Click the Add button to create
+                    one.
+                    <br />
+                    Knowledge base entries are used to help draft responses to
+                    emails.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -78,7 +85,7 @@ export default function KnowledgeBase() {
                   <TableRow key={item.id}>
                     <TableCell>{item.title}</TableCell>
                     <TableCell>
-                      {new Date(item.updatedAt).toLocaleDateString()}
+                      {formatDateSimple(new Date(item.updatedAt))}
                     </TableCell>
                     <TableCell className="text-right">
                       <Button variant="outline" size="sm">
@@ -96,7 +103,13 @@ export default function KnowledgeBase() {
   );
 }
 
-function KnowledgeForm({ closeDialog }: { closeDialog: () => void }) {
+function KnowledgeForm({
+  closeDialog,
+  refetch,
+}: {
+  closeDialog: () => void;
+  refetch: KeyedMutator<GetKnowledgeResponse>;
+}) {
   const {
     register,
     handleSubmit,
@@ -107,6 +120,8 @@ function KnowledgeForm({ closeDialog }: { closeDialog: () => void }) {
 
   const onSubmit = async (data: CreateKnowledgeBody) => {
     const result = await createKnowledgeAction(data);
+
+    refetch();
 
     if (isActionError(result)) {
       toastError({
