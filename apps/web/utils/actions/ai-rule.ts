@@ -41,6 +41,7 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -191,15 +192,7 @@ export const createAutomationAction = withActionInstrumentation<
   if (!userId) return { error: "Not logged in" };
   if (!session.accessToken) return { error: "No access token" };
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-      email: true,
-    },
-  });
+  const user = await getAiUser({ id: userId });
   if (!user) return { error: "User not found" };
   if (!user.email) return { error: "User email not found" };
 
@@ -580,16 +573,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        email: true,
-        about: true,
-      },
-    });
+    const user = await getAiUser({ id: session.user.id });
 
     if (!user) return { error: "User not found" };
     if (!user.email) return { error: "User email not found" };
@@ -692,16 +676,7 @@ export const reportAiMistakeAction = withActionInstrumentation(
             where: { id: actualRuleId, userId: session.user.id },
           })
         : null,
-      prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          email: true,
-          about: true,
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-        },
-      }),
+      getAiUser({ id: session.user.id }),
     ]);
 
     if (expectedRuleId && !expectedRule)

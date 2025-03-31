@@ -27,7 +27,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
-import { Tooltip } from "@/components/Tooltip";
 import {
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
@@ -36,19 +35,23 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
-export function CategoriesSetup() {
+export function CategoriesSetup({
+  defaultValues,
+}: {
+  defaultValues?: Partial<CreateRulesOnboardingBody>;
+}) {
   const router = useRouter();
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: "label",
-      newsletters: "label",
-      marketing: "label_archive",
-      calendar: "label",
-      receipts: "label",
-      notifications: "label",
-      coldEmails: "label_archive",
+      toReply: defaultValues?.toReply || "label",
+      newsletter: defaultValues?.newsletter || "label",
+      marketing: defaultValues?.marketing || "label_archive",
+      calendar: defaultValues?.calendar || "label",
+      receipt: defaultValues?.receipt || "label",
+      notification: defaultValues?.notification || "label",
+      coldEmail: defaultValues?.coldEmail || "label_archive",
     },
   });
 
@@ -84,8 +87,8 @@ export function CategoriesSetup() {
             form={form}
           />
           <CategoryCard
-            id="newsletters"
-            label="Newsletters"
+            id="newsletter"
+            label="Newsletter"
             tooltipText="Newsletters, blogs, and publications"
             icon={<Newspaper className="h-5 w-5 text-purple-500" />}
             form={form}
@@ -105,22 +108,22 @@ export function CategoriesSetup() {
             form={form}
           />
           <CategoryCard
-            id="receipts"
-            label="Receipts"
+            id="receipt"
+            label="Receipt"
             tooltipText="Invoices, receipts, and payments"
             icon={<Receipt className="h-5 w-5 text-orange-500" />}
             form={form}
           />
           <CategoryCard
-            id="notifications"
-            label="Notifications"
+            id="notification"
+            label="Notification"
             tooltipText="Alerts, status updates, and system messages"
             icon={<Bell className="h-5 w-5 text-red-500" />}
             form={form}
           />
           <CategoryCard
-            id="coldEmails"
-            label="Cold Emails"
+            id="coldEmail"
+            label="Cold Email"
             tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
             icon={<Users className="h-5 w-5 text-indigo-500" />}
             form={form}

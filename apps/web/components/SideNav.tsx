@@ -49,6 +49,7 @@ import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
+import { ClientOnly } from "@/components/ClientOnly";
 
 type NavItem = {
   name: string;
@@ -275,7 +276,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               </SidebarGroup>
               <SidebarGroup>
                 <SidebarGroupLabel>Clean</SidebarGroupLabel>
-                <SideNavMenu items={navigation.cleanItems} activeHref={path} />
+                <ClientOnly>
+                  <SideNavMenu
+                    items={navigation.cleanItems}
+                    activeHref={path}
+                  />
+                </ClientOnly>
               </SidebarGroup>
             </>
           )}

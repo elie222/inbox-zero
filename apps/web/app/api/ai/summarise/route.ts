@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary } from "@/utils/redis/summary";
 import { emailToContent } from "@/utils/mail";
-import prisma from "@/utils/prisma";
+import { getAiUser } from "@/utils/user/get";
 
 // doesn't work with parsing email packages we use
 // export const runtime = "edge";
@@ -30,10 +30,7 @@ export const POST = withError(async (request: Request) => {
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
-  const userAi = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { aiProvider: true, aiModel: true, aiApiKey: true },
-  });
+  const userAi = await getAiUser({ id: session.user.id });
 
   if (!userAi)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
