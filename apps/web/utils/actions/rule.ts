@@ -39,6 +39,7 @@ import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName } from "@/utils/rule/consts";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -391,15 +392,7 @@ export const getRuleExamplesAction = withActionInstrumentation(
 
     if (!token.token) return { error: "No access token" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        email: true,
-        aiModel: true,
-        aiProvider: true,
-        aiApiKey: true,
-      },
-    });
+    const user = await getAiUser({ id: session.user.id });
     if (!user) return { error: "User not found" };
 
     const { matches } = await aiFindExampleMatches(
