@@ -99,6 +99,7 @@ model User {
   cleanupJobs       CleanupJob[]
   cleanupThreads    CleanupThread[]
   emailMessages     EmailMessage[]
+  Knowledge         Knowledge[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -436,6 +437,17 @@ model CleanupThread {
   job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
   userId    String
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Knowledge {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  title     String
+  content   String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model ApiKey {
