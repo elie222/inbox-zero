@@ -506,6 +506,8 @@ export const createRulesOnboardingAction = withActionInstrumentation(
               },
             },
           })
+          // NOTE: doesn't update without this line
+          .then(() => {})
           .catch((error) => {
             logger.error("Error updating rule", { error });
             throw error;
@@ -534,6 +536,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
               },
             },
           })
+          .then(() => {})
           .catch((error) => {
             if (isDuplicateError(error, "name")) return;
             logger.error("Error creating rule", { error });
