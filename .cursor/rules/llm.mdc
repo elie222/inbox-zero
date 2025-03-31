@@ -1,0 +1,88 @@
+---
+description: Guidelines for implementing LLM (Language Model) functionality in the application
+globs: 
+alwaysApply: false
+---
+# LLM Implementation Guidelines
+
+## Directory Structure
+
+LLM-related code is organized in specific directories:
+
+- `apps/web/utils/ai/` - Main LLM implementations
+- `apps/web/utils/llms/` - Core LLM utilities and configurations
+- `apps/web/__tests__/` - LLM-specific tests
+
+
+## Key Files
+- `utils/llms/index.ts` - Core LLM functionality
+- `utils/llms/model.ts` - Model definitions and configurations
+- `utils/usage.ts` - Usage tracking and monitoring
+
+## Implementation Guidelines
+
+1. Use type-safe LLM responses with `chatCompletionObject` or `chatCompletionTools`:
+
+```typescript
+const aiResponse = await chatCompletionObject({
+  userAi: user,
+  messages: [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userPrompt },
+  ],
+  schema: z.object({
+    // Define expected response shape
+    field: z.string(),
+  }),
+  userEmail: user.email,
+  usageLabel: "Operation Name",
+});
+```
+
+2. Always implement logging:
+
+```typescript
+import { createScopedLogger } from "@/utils/logger";
+const logger = createScopedLogger("scope-name");
+
+logger.trace("Input", { system, prompt });
+logger.warn("Warning message");
+```
+
+3. Structure AI functions with clear types:
+
+```typescript
+type Options = {
+  input: InputType;
+  user: UserEmailWithAI;
+};
+
+export async function aiFunction(options: Options) {
+  const { input, user } = options;
+  // Implementation
+}
+```
+
+## Best Practices
+
+1. Keep system prompts and user prompts separate
+2. Use Zod schemas for response validation
+3. Implement proper error handling with fallbacks
+4. Keep prompts concise and well-structured
+5. Use descriptive logging scopes
+6. Add retry logic for unreliable operations using `withRetry`
+7. Document complex AI logic with clear comments
+8. Place AI-specific tests in `apps/web/__tests__/`
+
+## Error Handling
+
+1. Use proper error types and logging
+2. Implement fallbacks for AI failures
+3. Return structured error responses
+4. Add retry logic for transient failures
+
+## Testing
+
+1. Place AI-specific tests in `apps/web/__tests__/`
+2. Test both success and failure cases
+3. Use mock data for development testing
