@@ -552,15 +552,28 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       }
     }
 
+    async function deleteRule(name: string) {
+      const promise = async () => {
+        const rule = await prisma.rule.findUnique({
+          where: { name_userId: { name, userId: session?.user.id! } },
+        });
+        if (!rule) return;
+        await prisma.rule.delete({ where: { id: rule.id } });
+      };
+      promises.push(promise());
+    }
+
     // newsletters
     if (isSet(data.newsletters)) {
       createRule(
-        RuleName.Newsletters,
+        RuleName.Newsletter,
         "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
         "Label all newsletters as 'Newsletter'",
         false,
         data.newsletters,
       );
+    } else {
+      deleteRule(RuleName.Newsletter);
     }
 
     // marketing
@@ -572,6 +585,8 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.marketing,
       );
+    } else {
+      deleteRule(RuleName.Marketing);
     }
 
     // calendar
@@ -583,28 +598,34 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.calendar,
       );
+    } else {
+      deleteRule(RuleName.Calendar);
     }
 
     // receipts
     if (isSet(data.receipts)) {
       createRule(
-        RuleName.Receipts,
+        RuleName.Receipt,
         "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
         "Label all receipts as 'Receipts'",
         false,
         data.receipts,
       );
+    } else {
+      deleteRule(RuleName.Receipt);
     }
 
     // notifications
     if (isSet(data.notifications)) {
       createRule(
-        RuleName.Notifications,
+        RuleName.Notification,
         "Notifications: Alerts, status updates, or system messages",
         "Label all notifications as 'Notifications'",
         false,
         data.notifications,
       );
+    } else {
+      deleteRule(RuleName.Notification);
     }
 
     await Promise.allSettled(promises);

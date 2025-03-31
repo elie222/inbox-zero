@@ -57,11 +57,11 @@ async function getUserPreferences(userId: string) {
   return {
     toReply: getToReplySetting(user.rules),
     coldEmails: getColdEmailSetting(user.coldEmailBlocker),
-    newsletters: getRuleSetting(RuleName.Newsletters, user.rules),
+    newsletter: getRuleSetting(RuleName.Newsletter, user.rules),
     marketing: getRuleSetting(RuleName.Marketing, user.rules),
     calendar: getRuleSetting(RuleName.Calendar, user.rules),
-    receipts: getRuleSetting(RuleName.Receipts, user.rules),
-    notifications: getRuleSetting(RuleName.Notifications, user.rules),
+    receipt: getRuleSetting(RuleName.Receipt, user.rules),
+    notification: getRuleSetting(RuleName.Notification, user.rules),
   };
 }
 
