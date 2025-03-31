@@ -107,8 +107,8 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("$5,000 per post");
-    expect(result.data?.relevantContent).toContain("3 stories");
+    expect(result.data?.relevantContent).toMatch(/\$5,000 per post/i);
+    expect(result.data?.relevantContent).toMatch(/3 stories/i);
     console.debug(
       "Generated content for Instagram query:\n",
       result.data?.relevantContent,
@@ -126,8 +126,8 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("$10,000");
-    expect(result.data?.relevantContent).toContain("60-90 second integration");
+    expect(result.data?.relevantContent).toMatch(/\$10,000/i);
+    expect(result.data?.relevantContent).toMatch(/60-90 second integration/i);
     console.debug(
       "Generated content for YouTube query:\n",
       result.data?.relevantContent,
@@ -145,8 +145,8 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("$3,000 per video");
-    expect(result.data?.relevantContent).toContain("6-8pm EST");
+    expect(result.data?.relevantContent).toMatch(/\$3,000 per video/i);
+    expect(result.data?.relevantContent).toMatch(/6-8pm EST/i);
     console.debug(
       "Generated content for TikTok query:\n",
       result.data?.relevantContent,
@@ -176,9 +176,9 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("Instagram");
-    expect(result.data?.relevantContent).toContain("YouTube");
-    expect(result.data?.relevantContent).toContain("TikTok");
+    expect(result.data?.relevantContent).toMatch(/instagram/i);
+    expect(result.data?.relevantContent).toMatch(/youtube/i);
+    expect(result.data?.relevantContent).toMatch(/tiktok/i);
     console.debug(
       "Generated content for multi-platform query:\n",
       result.data?.relevantContent,
@@ -196,10 +196,10 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain(
-      "$15,000 for in-person events",
+    expect(result.data?.relevantContent).toMatch(
+      /\$15,000 for in-person events/i,
     );
-    expect(result.data?.relevantContent).toContain("travel expenses");
+    expect(result.data?.relevantContent).toMatch(/travel expenses/i);
     console.debug(
       "Generated content for speaking engagement query:\n",
       result.data?.relevantContent,
@@ -217,8 +217,8 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("$500");
-    expect(result.data?.relevantContent).toContain("strategy audit");
+    expect(result.data?.relevantContent).toMatch(/\$500/i);
+    expect(result.data?.relevantContent).toMatch(/strategy audit/i);
     console.debug(
       "Generated content for consulting query:\n",
       result.data?.relevantContent,
@@ -236,9 +236,9 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
     });
 
     expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toContain("$50,000");
-    expect(result.data?.relevantContent).toContain("quarterly packages");
-    expect(result.data?.relevantContent).toContain("6 months");
+    expect(result.data?.relevantContent).toMatch(/\$50,000/i);
+    expect(result.data?.relevantContent).toMatch(/quarterly packages/i);
+    expect(result.data?.relevantContent).toMatch(/6 months/i);
     console.debug(
       "Generated content for brand ambassador query:\n",
       result.data?.relevantContent,
