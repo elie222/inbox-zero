@@ -69,7 +69,8 @@ export function CategoriesSetup() {
         </TypographyH3>
 
         <TypographyP className="mt-2">
-          You can add custom categories and rules later.
+          We'll automatically categorize your emails to help you focus on what
+          matters. You can add custom categories and rules later.
         </TypographyP>
 
         <div className="mt-4 grid grid-cols-1 gap-4">
