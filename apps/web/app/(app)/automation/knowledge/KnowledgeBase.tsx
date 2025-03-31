@@ -1,7 +1,7 @@
 "use client";
 
-import useSWR, { type KeyedMutator } from "swr";
-import { Plus } from "lucide-react";
+import useSWR from "swr";
+import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -20,41 +20,48 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useState } from "react";
-import { Input } from "@/components/Input";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  createKnowledgeBody,
-  type CreateKnowledgeBody,
-} from "@/utils/actions/knowledge.validation";
-import { createKnowledgeAction } from "@/utils/actions/knowledge";
+import { deleteKnowledgeAction } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import { formatDateSimple } from "@/utils/date";
+import type { Knowledge } from "@prisma/client";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { KnowledgeForm } from "@/app/(app)/automation/knowledge/KnowledgeForm";
 
 export default function KnowledgeBase() {
   const [isOpen, setIsOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
   const { data, isLoading, error, mutate } =
     useSWR<GetKnowledgeResponse>("/api/knowledge");
+
+  const handleClose = () => {
+    setIsOpen(false);
+    setEditingItem(null);
+  };
 
   return (
     <div>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline">
+          <Button variant="outline" onClick={() => setEditingItem(null)}>
             <Plus className="mr-2 h-4 w-4" />
             Add
           </Button>
         </DialogTrigger>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Add Knowledge Base Entry</DialogTitle>
+            <DialogTitle>
+              {editingItem
+                ? "Edit Knowledge Base Entry"
+                : "Add Knowledge Base Entry"}
+            </DialogTitle>
           </DialogHeader>
           <KnowledgeForm
-            closeDialog={() => setIsOpen(false)}
+            closeDialog={handleClose}
             refetch={mutate}
+            editingItem={editingItem}
           />
         </DialogContent>
       </Dialog>
@@ -88,9 +95,44 @@ export default function KnowledgeBase() {
                       {formatDateSimple(new Date(item.updatedAt))}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="outline" size="sm">
-                        Edit
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setEditingItem(item);
+                            setIsOpen(true);
+                          }}
+                        >
+                          Edit
+                        </Button>
+                        <ConfirmDialog
+                          trigger={
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          }
+                          title="Delete Knowledge Base Entry"
+                          description={`Are you sure you want to delete "${item.title}"? This action cannot be undone.`}
+                          onConfirm={async () => {
+                            const result = await deleteKnowledgeAction({
+                              id: item.id,
+                            });
+                            if (isActionError(result)) {
+                              toastError({
+                                title: "Error deleting knowledge base entry",
+                                description: result.error,
+                              });
+                              return;
+                            }
+                            toastSuccess({
+                              description:
+                                "Knowledge base entry deleted successfully",
+                            });
+                            mutate();
+                          }}
+                        />
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -100,64 +142,5 @@ export default function KnowledgeBase() {
         </LoadingContent>
       </Card>
     </div>
-  );
-}
-
-function KnowledgeForm({
-  closeDialog,
-  refetch,
-}: {
-  closeDialog: () => void;
-  refetch: KeyedMutator<GetKnowledgeResponse>;
-}) {
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<CreateKnowledgeBody>({
-    resolver: zodResolver(createKnowledgeBody),
-  });
-
-  const onSubmit = async (data: CreateKnowledgeBody) => {
-    const result = await createKnowledgeAction(data);
-
-    refetch();
-
-    if (isActionError(result)) {
-      toastError({
-        title: "Error creating knowledge base entry",
-        description: result.error,
-      });
-      return;
-    }
-
-    toastSuccess({
-      description: "Knowledge base entry created successfully",
-    });
-    closeDialog();
-  };
-
-  return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Input
-        type="text"
-        name="title"
-        label="Title"
-        registerProps={register("title")}
-        error={errors.title}
-      />
-      <Input
-        type="text"
-        name="content"
-        label="Content"
-        autosizeTextarea
-        rows={5}
-        registerProps={register("content")}
-        error={errors.content}
-      />
-      <Button type="submit" loading={isSubmitting}>
-        Create
-      </Button>
-    </form>
   );
 }
