@@ -13,9 +13,8 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 
    ```
    apps/web/__tests__/
-   ├── ai/
-   │   └── your-feature.test.ts
-   │   └── another-feature.test.ts
+   │ └── your-feature.test.ts
+   │ └── another-feature.test.ts
    └── ...
    ```
 
