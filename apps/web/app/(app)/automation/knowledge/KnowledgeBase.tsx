@@ -1,5 +1,6 @@
 "use client";
 
+import useSWR from "swr";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,9 +30,13 @@ import {
 import { createKnowledgeAction } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
+import { LoadingContent } from "@/components/LoadingContent";
+import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 
 export default function KnowledgeBase() {
   const [isOpen, setIsOpen] = useState(false);
+  const { data, isLoading, error } =
+    useSWR<GetKnowledgeResponse>("/api/knowledge");
 
   return (
     <div>
@@ -51,38 +56,41 @@ export default function KnowledgeBase() {
       </Dialog>
 
       <Card className="mt-2">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              {/* <TableHead>Category</TableHead> */}
-              <TableHead>Last Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell>Email Templates</TableCell>
-              {/* <TableCell>Communication</TableCell> */}
-              <TableCell>2024-03-21</TableCell>
-              <TableCell className="text-right">
-                <Button variant="outline" size="sm">
-                  Edit
-                </Button>
-              </TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell>Product Documentation</TableCell>
-              {/* <TableCell>Technical</TableCell> */}
-              <TableCell>2024-03-20</TableCell>
-              <TableCell className="text-right">
-                <Button variant="outline" size="sm">
-                  Edit
-                </Button>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        <LoadingContent loading={isLoading} error={error}>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Title</TableHead>
+                <TableHead>Last Updated</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {data?.items.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    No knowledge base entries found. Click the Add button to
+                    create one.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                data?.items.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>{item.title}</TableCell>
+                    <TableCell>
+                      {new Date(item.updatedAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="outline" size="sm">
+                        Edit
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </LoadingContent>
       </Card>
     </div>
   );
