@@ -218,11 +218,6 @@ export function conditionsToString(rule: RuleConditions) {
     );
   }
 
-  // Group condition
-  if (rule.groupId) {
-    conditions.push("Group");
-  }
-
   return conditions.join(connector);
 }
 
