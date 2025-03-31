@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { Action, User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { Action } from "@prisma/client";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import {
@@ -56,7 +56,7 @@ export async function getActionItemsWithAiArgs({
   selectedRule,
 }: {
   email: EmailForLLM;
-  user: Pick<User, "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   selectedRule: RuleWithActions;
 }): Promise<Action[]> {
   const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);
@@ -112,7 +112,7 @@ async function getArgsAiResponse({
   parameters,
 }: {
   email: EmailForLLM;
-  user: Pick<User, "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   selectedRule: RuleWithActions;
   parameters: ActionRequiringAi[];
 }): Promise<ActionArgResponse | undefined> {
@@ -183,11 +183,7 @@ async function getArgsAiResponse({
   return toolCallArgs;
 }
 
-function getSystemPrompt({
-  user,
-}: {
-  user: Pick<User, "email" | "about"> & UserAIFields;
-}) {
+function getSystemPrompt({ user }: { user: UserEmailWithAI }) {
   return `You are an AI assistant that helps people manage their emails.
 
 <key_instructions>

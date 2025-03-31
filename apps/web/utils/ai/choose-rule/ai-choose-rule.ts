@@ -1,7 +1,6 @@
 import { z } from "zod";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
-import type { User } from "@prisma/client";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -13,7 +12,7 @@ const braintrust = new Braintrust("choose-rule-1");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
-  user: Pick<User, "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   rules: { instructions: string }[];
 };
 
@@ -127,11 +126,7 @@ ${emailSection}
 
 export async function aiChooseRule<
   T extends { instructions: string },
->(options: {
-  email: EmailForLLM;
-  rules: T[];
-  user: Pick<User, "email" | "about"> & UserAIFields;
-}) {
+>(options: { email: EmailForLLM; rules: T[]; user: UserEmailWithAI }) {
   const { email, rules, user } = options;
 
   if (!rules.length) return { reason: "No rules" };

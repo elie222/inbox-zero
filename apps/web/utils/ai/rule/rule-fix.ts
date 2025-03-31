@@ -2,8 +2,8 @@ import { z } from "zod";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { Rule, User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { Rule } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("AI Rule Fix");
@@ -20,7 +20,7 @@ export async function aiRuleFix({
   email,
   explanation,
 }: {
-  user: Pick<User, "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   actualRule: Pick<Rule, "instructions"> | null;
   expectedRule: Pick<Rule, "instructions"> | null;
   email: EmailForLLM;
