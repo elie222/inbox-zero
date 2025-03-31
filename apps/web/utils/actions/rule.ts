@@ -434,12 +434,12 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       value !== "none";
 
     // cold email blocker
-    if (isSet(data.coldEmails)) {
+    if (isSet(data.coldEmail)) {
       const promise = prisma.user.update({
         where: { id: session.user.id },
         data: {
           coldEmailBlocker:
-            data.coldEmails === "label"
+            data.coldEmail === "label"
               ? ColdEmailSetting.LABEL
               : ColdEmailSetting.ARCHIVE_AND_LABEL,
         },
@@ -563,14 +563,14 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       promises.push(promise());
     }
 
-    // newsletters
-    if (isSet(data.newsletters)) {
+    // newsletter
+    if (isSet(data.newsletter)) {
       createRule(
         RuleName.Newsletter,
         "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
         "Label all newsletters as 'Newsletter'",
         false,
-        data.newsletters,
+        data.newsletter,
       );
     } else {
       deleteRule(RuleName.Newsletter);
@@ -602,27 +602,27 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       deleteRule(RuleName.Calendar);
     }
 
-    // receipts
-    if (isSet(data.receipts)) {
+    // receipt
+    if (isSet(data.receipt)) {
       createRule(
         RuleName.Receipt,
         "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
         "Label all receipts as 'Receipts'",
         false,
-        data.receipts,
+        data.receipt,
       );
     } else {
       deleteRule(RuleName.Receipt);
     }
 
-    // notifications
-    if (isSet(data.notifications)) {
+    // notification
+    if (isSet(data.notification)) {
       createRule(
         RuleName.Notification,
         "Notifications: Alerts, status updates, or system messages",
         "Label all notifications as 'Notifications'",
         false,
-        data.notifications,
+        data.notification,
       );
     } else {
       deleteRule(RuleName.Notification);
