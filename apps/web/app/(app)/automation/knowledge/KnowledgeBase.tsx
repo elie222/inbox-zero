@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import useSWR from "swr";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useState } from "react";
 import { deleteKnowledgeAction } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
@@ -36,16 +36,21 @@ export default function KnowledgeBase() {
   const { data, isLoading, error, mutate } =
     useSWR<GetKnowledgeResponse>("/api/knowledge");
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsOpen(false);
     setEditingItem(null);
-  };
+  }, []);
+
+  const onOpenChange = useCallback((open: boolean) => {
+    if (!open) setEditingItem(null);
+    setIsOpen(open);
+  }, []);
 
   return (
     <div>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
         <DialogTrigger asChild>
-          <Button variant="outline" onClick={() => setEditingItem(null)}>
+          <Button variant="outline">
             <Plus className="mr-2 h-4 w-4" />
             Add
           </Button>
@@ -80,11 +85,10 @@ export default function KnowledgeBase() {
               {data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="h-24 text-center">
-                    No knowledge base entries. Click the Add button to create
-                    one.
-                    <br />
                     Knowledge base entries are used to help draft responses to
                     emails.
+                    <br />
+                    Click "Add" to create one.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -101,7 +105,6 @@ export default function KnowledgeBase() {
                           size="sm"
                           onClick={() => {
                             setEditingItem(item);
-                            setIsOpen(true);
                           }}
                         >
                           Edit
