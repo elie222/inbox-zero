@@ -121,7 +121,6 @@
     "posthog-js": "1.234.1",
     "posthog-node": "4.11.1",
     "prettier": "3.5.3",
-    "prettier-plugin-tailwindcss": "0.6.11",
     "react": "19.1.0",
     "react-day-picker": "8.10.1",
     "react-dom": "19.1.0",
