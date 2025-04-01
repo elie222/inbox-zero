@@ -2,12 +2,14 @@
 
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { Markdown } from "tiptap-markdown";
 import { useCallback, forwardRef, useImperativeHandle } from "react";
 import { cn } from "@/utils";
 import { EnterHandler } from "@/components/editor/extensions";
 
 export type TiptapHandle = {
   appendContent: (content: string) => void;
+  getMarkdown: () => string | null;
 };
 
 export const Tiptap = forwardRef<
@@ -37,6 +39,7 @@ export const Tiptap = forwardRef<
         },
       }),
       EnterHandler,
+      Markdown,
     ],
     content: initialContent,
     onUpdate: useCallback(
@@ -66,6 +69,10 @@ export const Tiptap = forwardRef<
 
       // Insert content at the end
       editor.commands.insertContentAt(endPosition, content);
+    },
+    getMarkdown: () => {
+      if (!editor) return null;
+      return editor.storage.markdown.getMarkdown();
     },
   }));
 

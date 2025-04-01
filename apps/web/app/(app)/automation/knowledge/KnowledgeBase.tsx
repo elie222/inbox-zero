@@ -58,7 +58,7 @@ export default function KnowledgeBase() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {editingItem ? "Edit Knowledge Entry" : "Add Knowledge Entry"}
+              {editingItem ? "Edit Knowledge" : "Add Knowledge"}
             </DialogTitle>
           </DialogHeader>
           <KnowledgeForm
