@@ -24,9 +24,10 @@ import { isActionError } from "@/utils/error";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
-import type { SendEmailBody } from "@/utils/gmail/mail";
 import { CommandShortcut } from "@/components/ui/command";
 import { useModifierKey } from "@/hooks/useModifierKey";
+import ComposeMailBox from "@/app/(app)/compose/ComposeMailBox";
+import { SendEmailBody } from "@/utils/gmail/mail";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -66,7 +67,8 @@ export const ComposeEmailForm = ({
       replyToEmail: replyingToEmail,
       subject: replyingToEmail?.subject,
       to: replyingToEmail?.to,
-      cc: replyingToEmail?.cc,
+      cc: "",
+      bcc: "",
       messageHtml: replyingToEmail?.draftHtml,
     },
   });
@@ -126,7 +128,10 @@ export const ComposeEmailForm = ({
   );
 
   // TODO not in love with how this was implemented
-  const selectedEmailAddressses = watch("to", "").split(",").filter(Boolean);
+  const toField = watch("to", "");
+  const selectedEmailAddressses = (
+    Array.isArray(toField) ? toField : toField.split(",")
+  ).filter(Boolean);
 
   const onRemoveSelectedEmail = (emailAddress: string) => {
     const filteredEmailAddresses = selectedEmailAddressses.filter(
@@ -304,12 +309,12 @@ export const ComposeEmailForm = ({
               </Combobox>
             </div>
           ) : (
-            <Input
-              type="text"
-              name="to"
-              label="To"
-              registerProps={register("to", { required: true })}
-              error={errors.to}
+            <ComposeMailBox
+              to={watch("to")}
+              cc={watch("cc")}
+              bcc={watch("bcc")}
+              register={register}
+              errors={errors}
             />
           )}
 
