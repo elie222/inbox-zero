@@ -7,6 +7,7 @@ import {
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
 import { createScopedLogger } from "@/utils/logger";
+import { RuleName } from "@/utils/rule/consts";
 
 export async function enableReplyTracker(userId: string) {
   const logger = createScopedLogger("reply-tracker/enable").with({ userId });
@@ -82,7 +83,7 @@ export async function enableReplyTracker(userId: string) {
   if (!ruleId) {
     const newRule = await safeCreateRule(
       {
-        name: "To Reply",
+        name: RuleName.ToReply,
         condition: {
           aiInstructions: defaultReplyTrackerInstructions,
         },

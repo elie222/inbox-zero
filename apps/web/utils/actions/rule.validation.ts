@@ -149,14 +149,15 @@ export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
 const categoryAction = z.enum(["label", "label_archive", "none"]);
+export type CategoryAction = z.infer<typeof categoryAction>;
 export const createRulesOnboardingBody = z.object({
   toReply: categoryAction,
-  newsletters: categoryAction,
+  newsletter: categoryAction,
   marketing: categoryAction,
   calendar: categoryAction,
-  receipts: categoryAction,
-  notifications: categoryAction,
-  coldEmails: categoryAction,
+  receipt: categoryAction,
+  notification: categoryAction,
+  coldEmail: categoryAction,
 });
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody

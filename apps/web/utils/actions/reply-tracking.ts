@@ -13,6 +13,7 @@ import {
   stopAnalyzingReplyTracker,
 } from "@/utils/redis/reply-tracker-analyzing";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -38,17 +39,7 @@ export const processPreviousSentEmailsAction = withActionInstrumentation(
     const userId = session?.user.id;
     if (!userId) return { error: "Not logged in" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        email: true,
-        about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-      },
-    });
+    const user = await getAiUser({ id: userId });
     if (!user) return { error: "User not found" };
 
     const gmail = getGmailClient({ accessToken: session.accessToken });

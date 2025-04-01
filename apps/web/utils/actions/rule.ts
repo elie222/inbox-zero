@@ -38,6 +38,8 @@ import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
+import { RuleName } from "@/utils/rule/consts";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -390,15 +392,7 @@ export const getRuleExamplesAction = withActionInstrumentation(
 
     if (!token.token) return { error: "No access token" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        email: true,
-        aiModel: true,
-        aiProvider: true,
-        aiApiKey: true,
-      },
-    });
+    const user = await getAiUser({ id: session.user.id });
     if (!user) return { error: "User not found" };
 
     const { matches } = await aiFindExampleMatches(
@@ -433,12 +427,12 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       value !== "none";
 
     // cold email blocker
-    if (isSet(data.coldEmails)) {
+    if (isSet(data.coldEmail)) {
       const promise = prisma.user.update({
         where: { id: session.user.id },
         data: {
           coldEmailBlocker:
-            data.coldEmails === "label"
+            data.coldEmail === "label"
               ? ColdEmailSetting.LABEL
               : ColdEmailSetting.ARCHIVE_AND_LABEL,
         },
@@ -487,22 +481,30 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       });
 
       if (existingRule) {
-        const promise = prisma.rule.update({
-          where: { id: existingRule.id },
-          data: {
-            instructions,
-            actions: {
-              createMany: {
-                data: [
-                  { type: ActionType.LABEL, label: "Newsletter" },
-                  ...(categoryAction === "label_archive"
-                    ? [{ type: ActionType.ARCHIVE }]
-                    : []),
-                ],
+        const promise = prisma.rule
+          .update({
+            where: { id: existingRule.id },
+            data: {
+              instructions,
+              actions: {
+                deleteMany: {},
+                createMany: {
+                  data: [
+                    { type: ActionType.LABEL, label: "Newsletter" },
+                    ...(categoryAction === "label_archive"
+                      ? [{ type: ActionType.ARCHIVE }]
+                      : []),
+                  ],
+                },
               },
             },
-          },
-        });
+          })
+          // NOTE: doesn't update without this line
+          .then(() => {})
+          .catch((error) => {
+            logger.error("Error updating rule", { error });
+            throw error;
+          });
         promises.push(promise);
 
         // TODO: prompt file update
@@ -527,8 +529,10 @@ export const createRulesOnboardingAction = withActionInstrumentation(
               },
             },
           })
+          .then(() => {})
           .catch((error) => {
             if (isDuplicateError(error, "name")) return;
+            logger.error("Error creating rule", { error });
             throw error;
           });
         promises.push(promise);
@@ -541,59 +545,80 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       }
     }
 
-    // newsletters
-    if (isSet(data.newsletters)) {
+    async function deleteRule(name: string) {
+      const promise = async () => {
+        const rule = await prisma.rule.findUnique({
+          where: { name_userId: { name, userId: session?.user.id! } },
+        });
+        if (!rule) return;
+        await prisma.rule.delete({ where: { id: rule.id } });
+      };
+      promises.push(promise());
+    }
+
+    // newsletter
+    if (isSet(data.newsletter)) {
       createRule(
-        "Newsletter",
+        RuleName.Newsletter,
         "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
         "Label all newsletters as 'Newsletter'",
         false,
-        data.newsletters,
+        data.newsletter,
       );
+    } else {
+      deleteRule(RuleName.Newsletter);
     }
 
     // marketing
     if (isSet(data.marketing)) {
       createRule(
-        "Marketing",
+        RuleName.Marketing,
         "Marketing: Promotional emails about products, services, sales, or offers",
         "Label all marketing emails as 'Marketing'",
         false,
         data.marketing,
       );
+    } else {
+      deleteRule(RuleName.Marketing);
     }
 
     // calendar
     if (isSet(data.calendar)) {
       createRule(
-        "Calendar",
+        RuleName.Calendar,
         "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
         "Label all calendar emails as 'Calendar'",
         false,
         data.calendar,
       );
+    } else {
+      deleteRule(RuleName.Calendar);
     }
 
-    // receipts
-    if (isSet(data.receipts)) {
+    // receipt
+    if (isSet(data.receipt)) {
       createRule(
-        "Receipts",
+        RuleName.Receipt,
         "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
         "Label all receipts as 'Receipts'",
         false,
-        data.receipts,
+        data.receipt,
       );
+    } else {
+      deleteRule(RuleName.Receipt);
     }
 
-    // notifications
-    if (isSet(data.notifications)) {
+    // notification
+    if (isSet(data.notification)) {
       createRule(
-        "Notifications",
+        RuleName.Notification,
         "Notifications: Alerts, status updates, or system messages",
         "Label all notifications as 'Notifications'",
         false,
-        data.notifications,
+        data.notification,
       );
+    } else {
+      deleteRule(RuleName.Notification);
     }
 
     await Promise.allSettled(promises);
@@ -602,7 +627,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       where: { id: session.user.id },
       data: {
         rulesPrompt:
-          `${user.rulesPrompt || ""}\n\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
+          `${user.rulesPrompt || ""}\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
       },
     });
   },

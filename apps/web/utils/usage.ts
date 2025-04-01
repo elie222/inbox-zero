@@ -1,6 +1,8 @@
-import { Provider } from "@/utils/llms/config";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("usage");
 
 export async function saveAiUsage({
   email,
@@ -10,7 +12,7 @@ export async function saveAiUsage({
   label,
 }: {
   email: string;
-  provider: string | null;
+  provider: string;
   model: string;
   usage: {
     promptTokens: number;
@@ -21,20 +23,24 @@ export async function saveAiUsage({
 }) {
   const cost = calcuateCost(model, usage);
 
-  return Promise.all([
-    publishAiCall({
-      userId: email,
-      provider: provider || Provider.ANTHROPIC,
-      totalTokens: usage.totalTokens,
-      completionTokens: usage.completionTokens,
-      promptTokens: usage.promptTokens,
-      cost,
-      model,
-      timestamp: Date.now(),
-      label,
-    }),
-    saveUsage({ email, cost, usage }),
-  ]);
+  try {
+    return Promise.all([
+      publishAiCall({
+        userId: email,
+        provider,
+        model,
+        totalTokens: usage.totalTokens,
+        completionTokens: usage.completionTokens,
+        promptTokens: usage.promptTokens,
+        cost,
+        timestamp: Date.now(),
+        label,
+      }),
+      saveUsage({ email, cost, usage }),
+    ]);
+  } catch (error) {
+    logger.error("Failed to save usage", { error });
+  }
 }
 
 const costs: Record<

@@ -27,28 +27,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
-import { isActionError } from "@/utils/error";
-import { toastError } from "@/components/Toast";
 import {
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
-export function CategoriesSetup() {
+export function CategoriesSetup({
+  defaultValues,
+}: {
+  defaultValues?: Partial<CreateRulesOnboardingBody>;
+}) {
   const router = useRouter();
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: "label",
-      newsletters: "label",
-      marketing: "label_archive",
-      calendar: "label",
-      receipts: "label",
-      notifications: "label",
-      coldEmails: "label_archive",
+      toReply: defaultValues?.toReply || "label",
+      newsletter: defaultValues?.newsletter || "label",
+      marketing: defaultValues?.marketing || "label_archive",
+      calendar: defaultValues?.calendar || "label",
+      receipt: defaultValues?.receipt || "label",
+      notification: defaultValues?.notification || "label",
+      coldEmail: defaultValues?.coldEmail || "label_archive",
     },
   });
 
@@ -69,49 +72,59 @@ export function CategoriesSetup() {
         </TypographyH3>
 
         <TypographyP className="mt-2">
+          We'll automatically categorize your emails to help you focus on what
+          matters.
+          <br />
           You can add custom categories and rules later.
         </TypographyP>
 
         <div className="mt-4 grid grid-cols-1 gap-4">
           <CategoryCard
-            label="To Reply"
             id="toReply"
+            label="To Reply"
+            tooltipText="Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
             icon={<Mail className="h-5 w-5 text-blue-500" />}
             form={form}
           />
           <CategoryCard
-            label="Newsletters"
-            id="newsletters"
+            id="newsletter"
+            label="Newsletter"
+            tooltipText="Newsletters, blogs, and publications"
             icon={<Newspaper className="h-5 w-5 text-purple-500" />}
             form={form}
           />
           <CategoryCard
-            label="Marketing"
             id="marketing"
+            label="Marketing"
+            tooltipText="Promotional emails about sales and offers"
             icon={<Megaphone className="h-5 w-5 text-green-500" />}
             form={form}
           />
           <CategoryCard
-            label="Calendar"
             id="calendar"
+            label="Calendar"
+            tooltipText="Events, appointments, and reminders"
             icon={<Calendar className="h-5 w-5 text-yellow-500" />}
             form={form}
           />
           <CategoryCard
-            label="Receipts"
-            id="receipts"
+            id="receipt"
+            label="Receipt"
+            tooltipText="Invoices, receipts, and payments"
             icon={<Receipt className="h-5 w-5 text-orange-500" />}
             form={form}
           />
           <CategoryCard
-            label="Notifications"
-            id="notifications"
+            id="notification"
+            label="Notification"
+            tooltipText="Alerts, status updates, and system messages"
             icon={<Bell className="h-5 w-5 text-red-500" />}
             form={form}
           />
           <CategoryCard
-            label="Cold Emails"
-            id="coldEmails"
+            id="coldEmail"
+            label="Cold Email"
+            tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
             icon={<Users className="h-5 w-5 text-indigo-500" />}
             form={form}
           />
@@ -136,17 +149,27 @@ function CategoryCard({
   label,
   icon,
   form,
+  tooltipText,
 }: {
   id: keyof CreateRulesOnboardingBody;
   label: string;
   icon: React.ReactNode;
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
+  tooltipText?: string;
 }) {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
         {icon}
-        <div className="flex-1">{label}</div>
+        <div className="flex flex-1 items-center gap-2">
+          {label}
+          {tooltipText && (
+            <TooltipExplanation
+              text={tooltipText}
+              className="text-muted-foreground"
+            />
+          )}
+        </div>
         <div className="ml-auto flex items-center gap-4">
           <FormField
             control={form.control}
