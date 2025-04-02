@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import type { ParsedMessage } from "@/utils/types";
+import type { EmailForLLM } from "@/utils/types";
 
 // pnpm test-ai extract-from-email-history
 
@@ -20,22 +20,13 @@ function getUser() {
   };
 }
 
-function getMockMessage(overrides = {}): ParsedMessage {
+function getMockMessage(overrides = {}): EmailForLLM {
   return {
     id: "msg1",
-    threadId: "thread1",
-    snippet: "Test email content",
-    historyId: "hist1",
-    attachments: [],
-    inline: [],
-    headers: {
-      from: "sender@test.com",
-      to: "recipient@test.com",
-      subject: "Test Subject",
-      date: "2024-03-20T10:00:00Z",
-      "message-id": "msg1",
-    },
-    textPlain: "This is a test email content.",
+    from: "sender@test.com",
+    subject: "Test Subject",
+    content: "This is a test email content.",
+    date: new Date("2024-03-20T10:00:00Z"),
     ...overrides,
   };
 }
@@ -44,11 +35,9 @@ function getTestMessages(count = 2) {
   return Array.from({ length: count }, (_, i) =>
     getMockMessage({
       id: `msg${i + 1}`,
-      textPlain: `Test email content ${i + 1}`,
-      headers: {
-        from: i % 2 === 0 ? "sender@test.com" : "recipient@test.com",
-        date: new Date(2024, 2, 20 + i).toISOString(),
-      },
+      content: `Test email content ${i + 1}`,
+      from: i % 2 === 0 ? "sender@test.com" : "recipient@test.com",
+      date: new Date(2024, 2, 20 + i),
     }),
   );
 }
@@ -94,10 +83,8 @@ describe.skipIf(!isAiTest)("aiExtractFromEmailHistory", () => {
   test("extracts time-sensitive information", async () => {
     const currentMessages = getTestMessages(1);
     const historicalMessages = getTestMessages(2);
-    historicalMessages[0].textPlain =
-      "Let's meet next Friday at 3 PM to discuss this.";
-    historicalMessages[1].textPlain =
-      "The deadline for this project is March 31st.";
+    historicalMessages[0].content = "Let's meet next Friday at 3 PM to discuss this.";
+    historicalMessages[1].content = "The deadline for this project is March 31st.";
 
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: currentMessages,

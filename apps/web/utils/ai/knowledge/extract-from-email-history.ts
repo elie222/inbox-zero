@@ -2,7 +2,8 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { ParsedMessage } from "@/utils/types";
+import type { EmailForLLM } from "@/utils/types";
+import { stringifyEmail } from "@/utils/stringify-email";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -25,31 +26,17 @@ const USER_PROMPT = ({
   historicalMessages,
   user,
 }: {
-  currentThreadMessages: ParsedMessage[];
-  historicalMessages: ParsedMessage[];
+  currentThreadMessages: EmailForLLM[];
+  historicalMessages: EmailForLLM[];
   user: UserEmailWithAI;
 }) => {
-  const formatMessages = (messages: ParsedMessage[]) => {
-    return messages
-      .map((msg) => {
-        const from = msg.headers.from;
-        const date = msg.headers.date;
-        const content = msg.textPlain || msg.snippet;
-        return `From: ${from}\nDate: ${date}\nContent: ${content}\n`;
-      })
-      .join("\n---\n");
-  };
-
-  const currentThreadHistory = formatMessages(currentThreadMessages);
-  const historicalThreads = formatMessages(historicalMessages);
-
   return `Current Email Thread:
-${currentThreadHistory}
+${currentThreadMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
 
 ${
   historicalMessages.length > 0
     ? `Historical Email Threads:
-${historicalThreads}`
+${historicalMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}`
     : "No historical email threads available."
 }
 
@@ -80,8 +67,8 @@ export async function aiExtractFromEmailHistory({
   historicalMessages,
   user,
 }: {
-  currentThreadMessages: ParsedMessage[];
-  historicalMessages: ParsedMessage[];
+  currentThreadMessages: EmailForLLM[];
+  historicalMessages: EmailForLLM[];
   user: UserEmailWithAI;
 }) {
   try {
