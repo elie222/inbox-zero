@@ -24,7 +24,8 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    import { describe, expect, test, vi, beforeEach } from "vitest";
    import { yourFunction } from "@/utils/ai/your-feature";
 
-   // Required for Next.js compatibility
+   // Run with: pnpm test-ai TEST
+
    vi.mock("server-only", () => ({}));
 
    // Skip tests unless explicitly running AI tests
