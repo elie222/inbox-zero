@@ -475,6 +475,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       promptFileInstructions: string,
       runOnThreads: boolean,
       categoryAction: "label" | "label_archive",
+      label: string,
     ) {
       const existingRule = await prisma.rule.findUnique({
         where: { name_userId: { name, userId: session?.user.id! } },
@@ -490,7 +491,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
                 deleteMany: {},
                 createMany: {
                   data: [
-                    { type: ActionType.LABEL, label: "Newsletter" },
+                    { type: ActionType.LABEL, label },
                     ...(categoryAction === "label_archive"
                       ? [{ type: ActionType.ARCHIVE }]
                       : []),
@@ -564,6 +565,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         "Label all newsletters as 'Newsletter'",
         false,
         data.newsletter,
+        "Newsletter",
       );
     } else {
       deleteRule(RuleName.Newsletter);
@@ -577,6 +579,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         "Label all marketing emails as 'Marketing'",
         false,
         data.marketing,
+        "Marketing",
       );
     } else {
       deleteRule(RuleName.Marketing);
@@ -590,6 +593,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         "Label all calendar emails as 'Calendar'",
         false,
         data.calendar,
+        "Calendar",
       );
     } else {
       deleteRule(RuleName.Calendar);
@@ -603,6 +607,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         "Label all receipts as 'Receipts'",
         false,
         data.receipt,
+        "Receipt",
       );
     } else {
       deleteRule(RuleName.Receipt);
@@ -616,6 +621,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         "Label all notifications as 'Notifications'",
         false,
         data.notification,
+        "Notification",
       );
     } else {
       deleteRule(RuleName.Notification);

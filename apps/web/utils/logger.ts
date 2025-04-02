@@ -90,5 +90,5 @@ function formatError(args?: Record<string, unknown>) {
 
 function cleanError(error: unknown) {
   if (error instanceof Error) return error.message;
-  return String(error);
+  return error;
 }
