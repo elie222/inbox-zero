@@ -79,7 +79,6 @@ ${messages
   .map(
     (msg) => `<email>
 ${stringifyEmail(msg, 3000)}
-<date>${msg.date?.toISOString() ?? "unknown"}</date>
 </email>`,
   )
   .join("\n")}
