@@ -5,6 +5,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getEconomyModel } from "@/utils/llms/model-selector";
+import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -31,13 +32,15 @@ const USER_PROMPT = ({
   historicalMessages: EmailForLLM[];
   user: UserEmailWithAI;
 }) => {
-  return `Current Email Thread:
+  return `<current_email_thread>
 ${currentThreadMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
+</current_email_thread>
 
 ${
   historicalMessages.length > 0
-    ? `Historical Email Threads:
-${historicalMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}`
+    ? `<historical_email_threads>
+${historicalMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
+</historical_email_threads>`
     : "No historical email threads available."
 }
 
@@ -52,6 +55,7 @@ ${
 </user_info>`
 }
 
+${getTodayForLLM()}
 Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;
 };
 

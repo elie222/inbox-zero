@@ -4,6 +4,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
+import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -84,7 +85,7 @@ ${stringifyEmail(msg, 3000)}
   .join("\n")}
      
 Please write a reply to the email.
-Today's date is: ${new Date().toISOString().split("T")[0]}.
+${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.to}.`.trim();
 };
 
