@@ -68,6 +68,8 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
+    // only needed for frontend
+    setManually: z.boolean().nullish(),
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
