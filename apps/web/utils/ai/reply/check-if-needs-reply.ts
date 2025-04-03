@@ -30,7 +30,7 @@ export async function aiCheckIfNeedsReply({
   const prompt =
     `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-The message to analyze:
+We are sending the following message:
 
 <message>
 ${stringifyEmailSimple(lastMessage)}
@@ -48,7 +48,7 @@ ${previousMessages
     : ""
 }
 
-Based on the message content, decide if a reply is needed.
+Decide if the message we are sending needs a reply.
 `.trim();
 
   logger.trace("Input", { system, prompt });
