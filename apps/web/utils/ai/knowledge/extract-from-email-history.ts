@@ -70,16 +70,14 @@ export async function aiExtractFromEmailHistory({
   currentThreadMessages: EmailForLLM[];
   historicalMessages: EmailForLLM[];
   user: UserEmailWithAI;
-}) {
+}): Promise<string | null> {
   try {
     logger.info("Extracting information from email history", {
       currentThreadCount: currentThreadMessages.length,
       historicalCount: historicalMessages.length,
     });
 
-    if (historicalMessages.length === 0) {
-      return { data: { summary: "No relevant historical context available." } };
-    }
+    if (historicalMessages.length === 0) return null;
 
     const system = SYSTEM_PROMPT;
     const prompt = USER_PROMPT({
@@ -101,11 +99,9 @@ export async function aiExtractFromEmailHistory({
 
     logger.trace("Output", result.object);
 
-    return { data: result.object };
+    return result.object.summary;
   } catch (error) {
     logger.error("Failed to extract information from email history", { error });
-    return {
-      error: "Failed to analyze email history",
-    };
+    return null;
   }
 }

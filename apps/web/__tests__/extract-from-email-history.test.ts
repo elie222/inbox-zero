@@ -57,11 +57,11 @@ describe.skipIf(!isAiTest)("aiExtractFromEmailHistory", () => {
       user,
     });
 
-    expect(result.data).toBeDefined();
-    if (result.data) {
-      expect(result.data.summary).toBeTypeOf("string");
-      expect(result.data.summary.length).toBeLessThanOrEqual(500);
-      console.debug("Extracted summary:", result.data.summary);
+    expect(result).toBeDefined();
+    if (result) {
+      expect(typeof result).toBe("string");
+      expect(result.length).toBeLessThanOrEqual(500);
+      console.debug("Extracted summary:", result);
     }
   }, 15_000);
 
@@ -74,17 +74,17 @@ describe.skipIf(!isAiTest)("aiExtractFromEmailHistory", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.summary).toBe(
-      "No relevant historical context available.",
-    );
+    expect(result).toBeDefined();
+    expect(result).toBe("No relevant historical context available.");
   });
 
   test("extracts time-sensitive information", async () => {
     const currentMessages = getTestMessages(1);
     const historicalMessages = getTestMessages(2);
-    historicalMessages[0].content = "Let's meet next Friday at 3 PM to discuss this.";
-    historicalMessages[1].content = "The deadline for this project is March 31st.";
+    historicalMessages[0].content =
+      "Let's meet next Friday at 3 PM to discuss this.";
+    historicalMessages[1].content =
+      "The deadline for this project is March 31st.";
 
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: currentMessages,
@@ -92,11 +92,11 @@ describe.skipIf(!isAiTest)("aiExtractFromEmailHistory", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    if (result.data) {
-      expect(result.data.summary).toContain("Friday");
-      expect(result.data.summary).toContain("March 31st");
-      console.debug("Summary with time context:", result.data.summary);
+    expect(result).toBeDefined();
+    if (result) {
+      expect(result).toContain("Friday");
+      expect(result).toContain("March 31st");
+      console.debug("Summary with time context:", result);
     }
   }, 15_000);
 });
