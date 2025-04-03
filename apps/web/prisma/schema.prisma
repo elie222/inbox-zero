@@ -99,7 +99,7 @@ model User {
   cleanupJobs       CleanupJob[]
   cleanupThreads    CleanupThread[]
   emailMessages     EmailMessage[]
-  Knowledge         Knowledge[]
+  knowledges        Knowledge[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -448,6 +448,8 @@ model Knowledge {
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, title])
 }
 
 model ApiKey {
