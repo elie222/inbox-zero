@@ -4,7 +4,6 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { getEconomyModel } from "@/utils/llms/model-selector";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
@@ -60,10 +59,13 @@ Analyze the historical email threads and extract any relevant information that w
 };
 
 const extractionSchema = z.object({
+  hasHistoricalContext: z
+    .boolean()
+    .describe("Whether there is any relevant historical context found."),
   summary: z
     .string()
     .describe(
-      "A concise summary of relevant historical context, including key points, commitments, deadlines, and communication patterns from past conversations",
+      "A concise summary of relevant historical context, including key points, commitments, deadlines, from past conversations.",
     ),
 });
 
@@ -93,20 +95,14 @@ export async function aiExtractFromEmailHistory({
 
     logger.trace("Input", { system, prompt });
 
-    // Get the economy model for this high-context task
-    const { provider, model } = getEconomyModel(user);
-    logger.info("Using economy model for email history extraction", {
-      provider,
-      model,
-    });
-
     const result = await chatCompletionObject({
       system,
       prompt,
       schema: extractionSchema,
       usageLabel: "Email history extraction",
-      userAi: { ...user, aiProvider: provider, aiModel: model },
+      userAi: user,
       userEmail: user.email,
+      useEconomyModel: true,
     });
 
     logger.trace("Output", result.object);

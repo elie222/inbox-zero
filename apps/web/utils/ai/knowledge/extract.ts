@@ -3,15 +3,8 @@ import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import { getEconomyModel } from "@/utils/llms/model-selector";
 
 const logger = createScopedLogger("ai/knowledge/extract");
-
-interface ExtractedKnowledge {
-  knowledgeBase: Knowledge[];
-  emailContent: string;
-  user: UserEmailWithAI;
-}
 
 const SYSTEM_PROMPT = `You are a knowledge extraction agent. Your task is to analyze the provided knowledge base entries and extract the most relevant information for drafting an email response.
 
@@ -38,16 +31,22 @@ const USER_PROMPT = ({
   knowledgeBase,
   emailContent,
   user,
-}: ExtractedKnowledge) => {
+}: {
+  knowledgeBase: Knowledge[];
+  emailContent: string;
+  user: UserEmailWithAI;
+}) => {
   const knowledgeBaseText = knowledgeBase
     .map((k) => `Title: ${k.title}\nContent: ${k.content}`)
     .join("\n\n");
 
-  return `Email Content:
+  return `<email>
 ${emailContent}
+</email>
 
-Knowledge Base Entries:
+<knowledge_base>
 ${knowledgeBaseText}
+</knowledge_base>
 
 ${
   user.about
@@ -63,10 +62,7 @@ ${
 Extract the most relevant information for drafting a response to this email.`;
 };
 
-const extractionSchema = z.object({
-  relevantContent: z.string(),
-  explanation: z.string(),
-});
+const extractionSchema = z.object({ relevantContent: z.string() });
 
 export async function aiExtractRelevantKnowledge({
   knowledgeBase,
@@ -76,40 +72,30 @@ export async function aiExtractRelevantKnowledge({
   knowledgeBase: Knowledge[];
   emailContent: string;
   user: UserEmailWithAI;
-}) {
+}): Promise<string | null> {
   try {
-    if (!knowledgeBase.length)
-      return { error: "No knowledge base entries provided" };
+    if (!knowledgeBase.length) return null;
 
     const system = SYSTEM_PROMPT;
     const prompt = USER_PROMPT({ knowledgeBase, emailContent, user });
 
     logger.trace("Input", { system, prompt });
 
-    // Get the economy model for this high-context task
-    const { provider, model } = getEconomyModel(user);
-
-    logger.info("Using economy model for knowledge extraction", {
-      provider,
-      model,
-    });
-
     const result = await chatCompletionObject({
       system,
       prompt,
       schema: extractionSchema,
       usageLabel: "Knowledge extraction",
-      userAi: { ...user, aiProvider: provider, aiModel: model },
+      userAi: user,
       userEmail: user.email,
+      useEconomyModel: true,
     });
 
     logger.trace("Output", result.object);
 
-    return { data: result.object };
+    return result.object.relevantContent;
   } catch (error) {
     logger.error("Failed to extract knowledge", { error });
-    return {
-      error: "Failed to extract relevant knowledge from the knowledge base",
-    };
+    return null;
   }
 }

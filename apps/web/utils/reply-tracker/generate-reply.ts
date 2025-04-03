@@ -147,7 +147,7 @@ async function generateContent(
     messages,
     user,
     instructions,
-    knowledgeBaseContent: knowledgeResult.data?.relevantContent || null,
+    knowledgeBaseContent: knowledgeResult || null,
     emailHistorySummary,
   });
 
