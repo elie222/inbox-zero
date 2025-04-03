@@ -10,7 +10,7 @@ Guidelines for creating and managing task lists in markdown files to track proje
 ## Task List Creation
 
 1. Create task lists in a markdown file (in the project root):
-   - Use `TASKS.md` or a descriptive name relevant to the feature (e.g., `KNOWLEDGE.md`)
+   - Use `TASKS.md` or a descriptive name relevant to the feature (e.g., `ASSISTANT_CHAT.md`)
    - Include a clear title and description of the feature being implemented
 
 2. Structure the file with these sections:
