@@ -82,11 +82,29 @@ export default function KnowledgeBase() {
             <TableBody>
               {data?.items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={3} className="h-24 text-center">
-                    Knowledge base entries are used to help draft responses to
-                    emails.
-                    <br />
-                    Click "Add" to create one.
+                  <TableCell colSpan={3}>
+                    <p className="max-w-prose text-center mx-auto my-8">
+                      Knowledge base entries are used to help draft responses to
+                      emails.
+                      <br />
+                      Click "Add" to create one.
+                      <br />
+                      <br />
+                      <strong className="text-left">Notes:</strong>
+                      <ul className="list-disc text-left">
+                        <li>
+                          Placing all knowledge in one entry is perfectly fine.
+                        </li>
+                        <li>
+                          When our AI drafts replies it also has access to
+                          previous conversations with the person you're talking to.
+                        </li>
+                        <li>
+                          This information is only used to draft replies. You
+                          must click "Send" to send the reply.
+                        </li>
+                      </ul>
+                    </p>
                   </TableCell>
                 </TableRow>
               ) : (
