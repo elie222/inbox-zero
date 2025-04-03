@@ -91,7 +91,7 @@ export function RuleCell({
             <div className="mt-2">{rule ? conditionsToString(rule) : null}</div>
             <div className="mt-2">
               {!!rule && (
-                <Button variant="outline" size="sm" asChild>
+                <Button size="sm" asChild>
                   <Link href={`/automation/rule/${rule.id}`}>View</Link>
                 </Button>
               )}
