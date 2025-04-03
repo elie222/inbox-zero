@@ -3,6 +3,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
+import { getEconomyModel } from "@/utils/llms/model-selector";
 
 const logger = createScopedLogger("KnowledgeExtractor");
 
@@ -90,12 +91,19 @@ export async function aiExtractRelevantKnowledge({
 
     logger.trace("Input", { system, prompt });
 
+    // Get the economy model for this high-context task
+    const { provider, model } = getEconomyModel(user);
+    logger.info("Using economy model for knowledge extraction", {
+      provider,
+      model,
+    });
+
     const result = await chatCompletionObject({
       system,
       prompt,
       schema: extractionSchema,
       usageLabel: "Knowledge extraction",
-      userAi: user,
+      userAi: { ...user, aiProvider: provider, aiModel: model },
       userEmail: user.email,
     });
 

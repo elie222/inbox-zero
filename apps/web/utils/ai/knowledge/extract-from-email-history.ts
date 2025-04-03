@@ -4,6 +4,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
+import { getEconomyModel } from "@/utils/llms/model-selector";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -88,12 +89,19 @@ export async function aiExtractFromEmailHistory({
 
     logger.trace("Input", { system, prompt });
 
+    // Get the economy model for this high-context task
+    const { provider, model } = getEconomyModel(user);
+    logger.info("Using economy model for email history extraction", {
+      provider,
+      model,
+    });
+
     const result = await chatCompletionObject({
       system,
       prompt,
       schema: extractionSchema,
       usageLabel: "Email history extraction",
-      userAi: user,
+      userAi: { ...user, aiProvider: provider, aiModel: model },
       userEmail: user.email,
     });
 
