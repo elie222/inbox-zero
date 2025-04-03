@@ -136,7 +136,7 @@ export function CategoriesSetup({
           </Button>
 
           <Button className="w-full" size="lg" variant="outline" asChild>
-            <Link href={NEXT_URL}>Skip</Link>
+            <Link href="/automation">Skip</Link>
           </Button>
         </div>
       </form>
