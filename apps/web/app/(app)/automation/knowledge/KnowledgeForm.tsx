@@ -48,7 +48,10 @@ export function KnowledgeForm({
           title: editingItem.title,
           content: editingItem.content,
         }
-      : undefined,
+      : {
+          title: "How to draft replies",
+          content: "",
+        },
   });
 
   const editorRef = useRef<TiptapHandle>(null);
@@ -101,12 +104,14 @@ export function KnowledgeForm({
           name="content"
           control={control}
           render={({ field }) => (
-            <Tiptap
-              ref={editorRef}
-              initialContent={field.value ?? ""}
-              className="mt-1"
-              autofocus={false}
-            />
+            <div className="max-h-[600px] overflow-y-auto">
+              <Tiptap
+                ref={editorRef}
+                initialContent={field.value ?? ""}
+                className="mt-1"
+                autofocus={false}
+              />
+            </div>
           )}
         />
         {errors.content && (
