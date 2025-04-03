@@ -5,7 +5,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { getEconomyModel } from "@/utils/llms/model-selector";
 
-const logger = createScopedLogger("KnowledgeExtractor");
+const logger = createScopedLogger("ai/knowledge/extract");
 
 interface ExtractedKnowledge {
   knowledgeBase: Knowledge[];
@@ -78,13 +78,8 @@ export async function aiExtractRelevantKnowledge({
   user: UserEmailWithAI;
 }) {
   try {
-    logger.info("Extracting knowledge", {
-      knowledgeCount: knowledgeBase.length,
-    });
-
-    if (knowledgeBase.length === 0) {
+    if (!knowledgeBase.length)
       return { error: "No knowledge base entries provided" };
-    }
 
     const system = SYSTEM_PROMPT;
     const prompt = USER_PROMPT({ knowledgeBase, emailContent, user });
@@ -93,6 +88,7 @@ export async function aiExtractRelevantKnowledge({
 
     // Get the economy model for this high-context task
     const { provider, model } = getEconomyModel(user);
+
     logger.info("Using economy model for knowledge extraction", {
       provider,
       model,

@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { MessageWithPayload, ParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
@@ -14,8 +14,8 @@ import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import { getMessages } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
+import { getMessagesBatch } from "@/utils/gmail/message";
+import { getAccessTokenFromClient } from "@/utils/gmail/client";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -50,21 +50,16 @@ export async function generateDraft({
   const messages = await getThreadMessages(message.threadId, gmail);
 
   // previous conversation messages
-  const previousConversationMessages = await getMessages(gmail, {
-    query: `from:${message.headers.from}`,
-    maxResults: 20,
-  });
-
-  const previous =
-    previousConversationMessages.messages?.map((msg) =>
-      parseMessage(msg as MessageWithPayload),
-    ) ?? null;
+  const previousConversationMessages = await getMessagesBatch(
+    messages.map((msg) => msg.id),
+    getAccessTokenFromClient(gmail),
+  );
 
   // 1. Draft with AI
   const result = await generateContent(
     user,
     messages,
-    previous,
+    previousConversationMessages,
     replyTrackingRule.draftRepliesInstructions,
   );
 
@@ -131,15 +126,13 @@ async function generateContent(
   });
 
   // Convert to format needed for aiExtractFromEmailHistory
-  const historicalMessagesForLLM = previousConversationMessages?.map((msg) => ({
-    to: msg.headers.to,
-    date: internalDateToDate(msg.internalDate),
-    ...getEmailForLLM(msg, {
+  const historicalMessagesForLLM = previousConversationMessages?.map((msg) => {
+    return getEmailForLLM(msg, {
       maxLength: 1000,
       extractReply: true,
       removeForwarded: false,
-    }),
-  }));
+    });
+  });
 
   const emailHistorySummary = historicalMessagesForLLM?.length
     ? await aiExtractFromEmailHistory({
