@@ -12,3 +12,5 @@ SQL >
     WHERE ownerEmail = {{ String(ownerEmail) }}
     GROUP BY date
     ORDER BY date
+
+TYPE endpoint
