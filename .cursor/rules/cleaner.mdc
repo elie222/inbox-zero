@@ -5,6 +5,8 @@ alwaysApply: false
 ---
 ## Inbox Cleaner
 
+This file explains the Inbox Cleaner feature and how it's implemented.
+
 The inbox cleaner helps users do a deep clean of their inbox.
 It helps them get from 10,000 items in their inbox to only a few.
 It works by archiving/marking read low priority emails.

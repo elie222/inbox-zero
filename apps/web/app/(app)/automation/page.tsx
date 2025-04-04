@@ -17,6 +17,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { Button } from "@/components/ui/button";
+import KnowledgeBase from "@/app/(app)/automation/knowledge/KnowledgeBase";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -54,6 +55,7 @@ export default async function AutomationPage() {
                 <TabsTrigger value="test">Test</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
                 {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
               </TabsList>
             </div>
@@ -90,6 +92,9 @@ export default async function AutomationPage() {
           </TabsContent>
           <TabsContent value="pending" className="content-container mb-10">
             <Pending />
+          </TabsContent>
+          <TabsContent value="knowledge" className="content-container mb-10">
+            <KnowledgeBase />
           </TabsContent>
           {/* no longer in use */}
           <TabsContent value="groups" className="content-container mb-10">

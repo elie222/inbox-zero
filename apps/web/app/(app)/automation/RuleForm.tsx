@@ -84,7 +84,18 @@ export function RuleForm({
     trigger,
   } = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
-    defaultValues: rule,
+    defaultValues: rule
+      ? {
+          ...rule,
+          actions: [
+            ...rule.actions.map((action) => ({
+              ...action,
+              setManually:
+                action.type === ActionType.DRAFT_EMAIL && !!action.content,
+            })),
+          ],
+        }
+      : undefined,
   });
 
   const {
@@ -271,7 +282,7 @@ export function RuleForm({
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {!learnedPatternGroupId && (
+          {!learnedPatternGroupId && !!rule.id && (
             <Tooltip content="Show learned patterns">
               <Button
                 variant="outline"
@@ -584,6 +595,8 @@ export function RuleForm({
 
       <div className="mt-4 space-y-4">
         {watch("actions")?.map((action, i) => {
+          const fields = actionInputs[action.type].fields;
+
           return (
             <CardBasic key={i}>
               <div className="grid gap-4 sm:grid-cols-4">
@@ -606,102 +619,139 @@ export function RuleForm({
                   </Button>
                 </div>
                 <div className="space-y-4 sm:col-span-3">
-                  {actionInputs[action.type].fields.map((field) => {
-                    const isAiGenerated = action[field.name]?.ai;
+                  {action.type === ActionType.DRAFT_EMAIL &&
+                  !action.setManually ? (
+                    <div className="h-full flex flex-col items-center justify-center gap-2">
+                      <div className="text-center text-sm text-muted-foreground max-w-sm">
+                        AI generate reply using knowledge base and previous
+                        conversations with sender
+                      </div>
 
-                    const value = watch(`actions.${i}.${field.name}.value`);
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={() => {
+                          setValue(`actions.${i}.setManually`, true);
+                        }}
+                      >
+                        Set fields manually
+                      </Button>
+                    </div>
+                  ) : (
+                    fields.map((field) => {
+                      const isAiGenerated = action[field.name]?.ai;
 
-                    return (
-                      <div key={field.label}>
-                        <div className="flex items-center justify-between">
-                          <Label name={field.name} label={field.label} />
-                          {field.name === "label" && (
-                            <div className="flex items-center space-x-2">
-                              <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
-                              <Toggle
-                                name={`actions.${i}.${field.name}.ai`}
-                                label="AI generated"
-                                enabled={isAiGenerated || false}
-                                onChange={(enabled) => {
+                      const value = watch(`actions.${i}.${field.name}.value`);
+
+                      return (
+                        <div key={field.label}>
+                          <div className="flex items-center justify-between">
+                            <Label name={field.name} label={field.label} />
+                            {field.name === "label" && (
+                              <div className="flex items-center space-x-2">
+                                <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
+                                <Toggle
+                                  name={`actions.${i}.${field.name}.ai`}
+                                  label="AI generated"
+                                  enabled={isAiGenerated || false}
+                                  onChange={(enabled) => {
+                                    setValue(
+                                      `actions.${i}.${field.name}`,
+                                      enabled
+                                        ? { value: "", ai: true }
+                                        : { value: "", ai: false },
+                                    );
+                                  }}
+                                />
+                              </div>
+                            )}
+                          </div>
+
+                          {field.name === "label" && !isAiGenerated ? (
+                            <div className="mt-2">
+                              <LabelCombobox
+                                userLabels={userLabels}
+                                isLoading={isLoading}
+                                mutate={mutate}
+                                value={action[field.name]?.value || ""}
+                                onChangeValue={(value) => {
                                   setValue(
-                                    `actions.${i}.${field.name}`,
-                                    enabled
-                                      ? { value: "", ai: true }
-                                      : { value: "", ai: false },
+                                    `actions.${i}.${field.name}.value`,
+                                    value,
                                   );
                                 }}
                               />
                             </div>
-                          )}
-                        </div>
-
-                        {field.name === "label" && !isAiGenerated ? (
-                          <div className="mt-2">
-                            <LabelCombobox
-                              userLabels={userLabels}
-                              isLoading={isLoading}
-                              mutate={mutate}
-                              value={action[field.name]?.value || ""}
-                              onChangeValue={(value) => {
-                                setValue(
+                          ) : field.textArea ? (
+                            <div className="mt-2">
+                              <TextareaAutosize
+                                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                                minRows={3}
+                                rows={3}
+                                placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+                                value={value || ""}
+                                {...register(
                                   `actions.${i}.${field.name}.value`,
-                                  value,
-                                );
-                              }}
-                            />
-                          </div>
-                        ) : field.textArea ? (
-                          <div className="mt-2">
-                            <TextareaAutosize
-                              className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              minRows={3}
-                              rows={3}
-                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
-                              value={value || ""}
-                              {...register(`actions.${i}.${field.name}.value`)}
-                            />
-                          </div>
-                        ) : (
-                          <div className="mt-2">
-                            <input
-                              className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                              type="text"
-                              placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
-                              {...register(`actions.${i}.${field.name}.value`)}
-                            />
-                          </div>
-                        )}
+                                )}
+                              />
+                            </div>
+                          ) : (
+                            <div className="mt-2">
+                              <input
+                                className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                                type="text"
+                                placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+                                {...register(
+                                  `actions.${i}.${field.name}.value`,
+                                )}
+                              />
+                            </div>
+                          )}
 
-                        {hasVariables(value) && (
-                          <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
-                            {(value || "")
-                              .split(/(\{\{.*?\}\})/g)
-                              .map((part, i) =>
-                                part.startsWith("{{") ? (
-                                  <span
-                                    key={i}
-                                    className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
-                                  >
-                                    <sub className="font-sans">AI</sub>
-                                    {part}
-                                  </span>
-                                ) : (
-                                  <span key={i}>{part}</span>
-                                ),
-                              )}
-                          </div>
-                        )}
+                          {hasVariables(value) && (
+                            <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
+                              {(value || "")
+                                .split(/(\{\{.*?\}\})/g)
+                                .map((part, i) =>
+                                  part.startsWith("{{") ? (
+                                    <span
+                                      key={i}
+                                      className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
+                                    >
+                                      <sub className="font-sans">AI</sub>
+                                      {part}
+                                    </span>
+                                  ) : (
+                                    <span key={i}>{part}</span>
+                                  ),
+                                )}
+                            </div>
+                          )}
 
-                        {errors.actions?.[i]?.[field.name]?.message ? (
-                          <ErrorMessage
-                            message={
-                              errors.actions?.[i]?.[field.name]?.message!
-                            }
-                          />
-                        ) : null}
-                      </div>
-                    );
-                  })}
+                          {errors.actions?.[i]?.[field.name]?.message ? (
+                            <ErrorMessage
+                              message={
+                                errors.actions?.[i]?.[field.name]?.message!
+                              }
+                            />
+                          ) : null}
+                        </div>
+                      );
+                    })
+                  )}
+
+                  {action.type === ActionType.DRAFT_EMAIL &&
+                    action.setManually && (
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={() => {
+                          setValue(`actions.${i}.setManually`, false);
+                        }}
+                      >
+                        Auto draft
+                      </Button>
+                    )}
                 </div>
               </div>
             </CardBasic>

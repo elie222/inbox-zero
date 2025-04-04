@@ -24,25 +24,31 @@ export async function aiCheckIfNeedsReply({
 
   if (!lastMessage) return { needsReply: false };
 
+  const previousMessages = messages.slice(-3, -1); // Take 2 messages before the last message
   const system = "You are an AI assistant that checks if a reply is needed.";
 
   const prompt =
     `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-The message to analyze:
+We are sending the following message:
 
 <message>
 ${stringifyEmailSimple(lastMessage)}
 </message>
 
-Previous messages in the thread for context:
+${
+  previousMessages.length > 0
+    ? `Previous messages in the thread for context:
 
 <previous_messages>
-${messages
-  .slice(-3, -1) // Take 2 messages before the last message
+${previousMessages
   .map((message) => `<message>${stringifyEmailFromBody(message)}</message>`)
   .join("\n")}
-</previous_messages>
+</previous_messages>`
+    : ""
+}
+
+Decide if the message we are sending needs a reply.
 `.trim();
 
   logger.trace("Input", { system, prompt });
