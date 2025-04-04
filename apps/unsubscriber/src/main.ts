@@ -203,7 +203,13 @@ async function performFallbackUnsubscribe(page: Page): Promise<boolean> {
   return false;
 }
 
-export async function autoUnsubscribe(url: string): Promise<boolean> {
+export async function autoUnsubscribe({
+  url,
+  email,
+}: {
+  url: string;
+  email: string;
+}): Promise<boolean> {
   if (!isValidUrl(url)) {
     console.error("Invalid URL provided:", url);
     return false;
