@@ -6,7 +6,7 @@ import Image from "next/image";
 import { getCelebrationImage } from "@/utils/celebration";
 import { Button } from "@/components/Button";
 
-export function Celebration(props: { message: string }) {
+export function Celebration(props: { message: string; confetti?: boolean }) {
   const [active, setActive] = useState(false);
 
   useEffect(() => {
@@ -16,18 +16,20 @@ export function Celebration(props: { message: string }) {
   return (
     <>
       <div className="flex items-center justify-center font-cal text-2xl text-primary">
-        Congrats! {props.message}
+        {props.confetti !== false && "Congrats!"} {props.message}
       </div>
-      <div className="flex items-center justify-center">
-        <Confetti
-          active={active}
-          config={{
-            duration: 3_000,
-            elementCount: 500,
-            spread: 200,
-          }}
-        />
-      </div>
+      {props.confetti !== false && (
+        <div className="flex items-center justify-center">
+          <Confetti
+            active={active}
+            config={{
+              duration: 3_000,
+              elementCount: 500,
+              spread: 200,
+            }}
+          />
+        </div>
+      )}
 
       <div className="mt-8 flex justify-center">
         <Button
