@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useState,
-  useRef,
-  useEffect,
-  type KeyboardEvent,
-  type ChangeEvent,
-} from "react";
+import { useState, useRef, type KeyboardEvent, type ChangeEvent } from "react";
 import { X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
@@ -34,7 +28,9 @@ export default function MultiEmailInput({
 
   // Email validation regex
   const isValidEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    return /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
+      email,
+    );
   };
 
   const addEmail = (email: string) => {
@@ -67,7 +63,6 @@ export default function MultiEmailInput({
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if ((e.key === " " || e.key === "Tab") && inputValue) {
-      console.log("came here,", e.key);
       e.preventDefault();
       addEmail(inputValue);
     } else if (e.key === "Backspace" && !inputValue && emails.length > 0) {
@@ -103,7 +98,7 @@ export default function MultiEmailInput({
       </Label>
       {emails.map((email, index) => (
         <div
-          key={index}
+          key={email}
           className="flex w-fit items-center gap-1 rounded-md bg-primary/10 px-2 py-1 text-sm text-primary"
         >
           <span>{email}</span>

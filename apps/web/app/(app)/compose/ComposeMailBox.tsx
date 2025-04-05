@@ -17,7 +17,7 @@ type ComposeMailBoxProps = {
 };
 
 export default function ComposeMailBox(props: ComposeMailBoxProps) {
-  const { register, to, cc, bcc, errors } = props;
+  const { register, to, errors } = props;
 
   const [carbonCopy, setCarbonCopy] = useState({
     cc: false,
@@ -99,21 +99,18 @@ const ToggleButtonsWrapper = ({
     <div className="flex justify-end">
       <div className="flex gap-1">
         {[
-          !showCC && { type: CarbonCopyType.CC, width: "w-8" },
-          !showBCC && { type: CarbonCopyType.BCC, width: "w-10" },
+          { type: CarbonCopyType.CC, width: "w-8", show: !showCC },
+          { type: CarbonCopyType.BCC, width: "w-10", show: !showBCC },
         ]
-          .filter(Boolean)
-          .map(
-            (button) =>
-              button && (
-                <ToggleButton
-                  key={button.type}
-                  label={button.type}
-                  className={button.width}
-                  onClick={() => toggleCarbonCopy(button.type)}
-                />
-              ),
-          )}
+          .filter((button) => button.show)
+          .map((button) => (
+            <ToggleButton
+              key={button.type}
+              label={button.type}
+              className={button.width}
+              onClick={() => toggleCarbonCopy(button.type)}
+            />
+          ))}
       </div>
     </div>
   );

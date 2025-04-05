@@ -27,7 +27,7 @@ import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import { CommandShortcut } from "@/components/ui/command";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import ComposeMailBox from "@/app/(app)/compose/ComposeMailBox";
-import { SendEmailBody } from "@/utils/gmail/mail";
+import type { SendEmailBody } from "@/utils/gmail/mail";
 
 export type ReplyingToEmail = {
   threadId: string;
