@@ -151,7 +151,7 @@ export function List({
                 ? "You made it to Inbox Zero!"
                 : "All emails handled!"
             }
-            confetti={type !== "inbox"}
+            confetti={type === "inbox"}
           />
         </div>
       )}

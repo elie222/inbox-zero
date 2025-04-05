@@ -13,12 +13,14 @@ export function Celebration(props: { message: string; confetti?: boolean }) {
     setActive(true);
   }, []);
 
+  const isConfettiEnabled = props.confetti === true || props.confetti === undefined;
+
   return (
     <>
       <div className="flex items-center justify-center font-cal text-2xl text-primary">
-        {props.confetti !== false && "Congrats!"} {props.message}
+      {(isConfettiEnabled ? "Congrats! " : "") + props.message}
       </div>
-      {props.confetti !== false && (
+      {isConfettiEnabled && (
         <div className="flex items-center justify-center">
           <Confetti
             active={active}
@@ -55,7 +57,7 @@ export function Celebration(props: { message: string; confetti?: boolean }) {
           src={getCelebrationImage()}
           width={400}
           height={400}
-          alt="Congrats!"
+          alt={isConfettiEnabled ? "Congrats!" : "All done!"}
           unoptimized
         />
       </div>
