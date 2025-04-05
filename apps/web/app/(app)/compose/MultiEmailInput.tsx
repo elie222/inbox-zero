@@ -66,7 +66,8 @@ export default function MultiEmailInput({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === " " && inputValue) {
+    if ((e.key === " " || e.key === "Tab") && inputValue) {
+      console.log("came here,", e.key);
       e.preventDefault();
       addEmail(inputValue);
     } else if (e.key === "Backspace" && !inputValue && emails.length > 0) {
@@ -92,7 +93,12 @@ export default function MultiEmailInput({
         className,
       )}
     >
-      <Label className={cn("opacity-50", error && "text-destructive")}>
+      <Label
+        className={cn(
+          "text-sm font-normal text-muted-foreground",
+          error && "text-destructive",
+        )}
+      >
         {label}
       </Label>
       {emails.map((email, index) => (

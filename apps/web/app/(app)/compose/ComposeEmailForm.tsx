@@ -77,6 +77,9 @@ export const ComposeEmailForm = ({
     async (data) => {
       const enrichedData = {
         ...data,
+        to: Array.isArray(data.to) ? data.to.join(",") : data.to,
+        cc: Array.isArray(data.cc) ? data.cc.join(",") : data.cc,
+        bcc: Array.isArray(data.bcc) ? data.bcc.join(",") : data.bcc,
         messageHtml: showFullContent
           ? data.messageHtml || ""
           : `${data.messageHtml || ""}<br>${replyingToEmail?.quotedContentHtml || ""}`,

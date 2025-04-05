@@ -18,15 +18,6 @@ type ComposeMailBoxProps = {
 
 export default function ComposeMailBox(props: ComposeMailBoxProps) {
   const { register, to, cc, bcc, errors } = props;
-  useEffect(() => {
-    console.log("ComposeMailBox to", to, typeof to, to?.length);
-    console.log("ComposeMailBox cc", cc, typeof cc);
-    console.log("ComposeMailBox bcc", bcc, typeof bcc);
-  }, [to, cc, bcc]);
-
-  useEffect(() => {
-    console.log("ComposeMailBox errors", errors);
-  }, [errors]);
 
   const [carbonCopy, setCarbonCopy] = useState({
     cc: false,
