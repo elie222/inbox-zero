@@ -8,6 +8,8 @@ import {
   type SubmitHandler,
   useFieldArray,
   useForm,
+  type UseFormRegister,
+  type UseFormSetValue,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -66,6 +68,7 @@ import {
 } from "@/utils/reply-tracker/consts";
 import { Tooltip } from "@/components/Tooltip";
 import { createGroupAction } from "@/utils/actions/group";
+import { z } from "zod";
 
 export function RuleForm({
   rule,
@@ -90,8 +93,10 @@ export function RuleForm({
           actions: [
             ...rule.actions.map((action) => ({
               ...action,
-              setManually:
-                action.type === ActionType.DRAFT_EMAIL && !!action.content,
+              content: {
+                ...action.content,
+                setManually: !!action.content?.value,
+              },
             })),
           ],
         }
@@ -128,6 +133,15 @@ export function RuleForm({
           );
           if (!hasLabel && action.label?.value && !action.label?.ai) {
             await createLabelAction({ name: action.label.value });
+          }
+        }
+      }
+
+      // set content to empty string if it's not set manually
+      for (const action of data.actions) {
+        if (action.type === ActionType.DRAFT_EMAIL) {
+          if (!action.content?.setManually) {
+            action.content = { value: "", ai: false };
           }
         }
       }
@@ -619,139 +633,33 @@ export function RuleForm({
                   </Button>
                 </div>
                 <div className="space-y-4 sm:col-span-3">
-                  {action.type === ActionType.DRAFT_EMAIL &&
-                  !action.setManually ? (
-                    <div className="h-full flex flex-col items-center justify-center gap-2">
-                      <div className="text-center text-sm text-muted-foreground max-w-sm">
-                        AI generate reply using knowledge base and previous
-                        conversations with sender
-                      </div>
+                  {fields.map((field) => {
+                    const isAiGenerated = !!action[field.name]?.ai;
 
-                      <Button
-                        variant="link"
-                        size="xs"
-                        onClick={() => {
-                          setValue(`actions.${i}.setManually`, true);
-                        }}
-                      >
-                        Set fields manually
-                      </Button>
-                    </div>
-                  ) : (
-                    fields.map((field) => {
-                      const isAiGenerated = action[field.name]?.ai;
+                    const value =
+                      watch(`actions.${i}.${field.name}.value`) || "";
+                    const setManually = !!watch(
+                      `actions.${i}.${field.name}.setManually`,
+                    );
 
-                      const value = watch(`actions.${i}.${field.name}.value`);
-
-                      return (
-                        <div key={field.label}>
-                          <div className="flex items-center justify-between">
-                            <Label name={field.name} label={field.label} />
-                            {field.name === "label" && (
-                              <div className="flex items-center space-x-2">
-                                <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
-                                <Toggle
-                                  name={`actions.${i}.${field.name}.ai`}
-                                  label="AI generated"
-                                  enabled={isAiGenerated || false}
-                                  onChange={(enabled) => {
-                                    setValue(
-                                      `actions.${i}.${field.name}`,
-                                      enabled
-                                        ? { value: "", ai: true }
-                                        : { value: "", ai: false },
-                                    );
-                                  }}
-                                />
-                              </div>
-                            )}
-                          </div>
-
-                          {field.name === "label" && !isAiGenerated ? (
-                            <div className="mt-2">
-                              <LabelCombobox
-                                userLabels={userLabels}
-                                isLoading={isLoading}
-                                mutate={mutate}
-                                value={action[field.name]?.value || ""}
-                                onChangeValue={(value) => {
-                                  setValue(
-                                    `actions.${i}.${field.name}.value`,
-                                    value,
-                                  );
-                                }}
-                              />
-                            </div>
-                          ) : field.textArea ? (
-                            <div className="mt-2">
-                              <TextareaAutosize
-                                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                                minRows={3}
-                                rows={3}
-                                placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
-                                value={value || ""}
-                                {...register(
-                                  `actions.${i}.${field.name}.value`,
-                                )}
-                              />
-                            </div>
-                          ) : (
-                            <div className="mt-2">
-                              <input
-                                className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                                type="text"
-                                placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
-                                {...register(
-                                  `actions.${i}.${field.name}.value`,
-                                )}
-                              />
-                            </div>
-                          )}
-
-                          {hasVariables(value) && (
-                            <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
-                              {(value || "")
-                                .split(/(\{\{.*?\}\})/g)
-                                .map((part, i) =>
-                                  part.startsWith("{{") ? (
-                                    <span
-                                      key={i}
-                                      className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
-                                    >
-                                      <sub className="font-sans">AI</sub>
-                                      {part}
-                                    </span>
-                                  ) : (
-                                    <span key={i}>{part}</span>
-                                  ),
-                                )}
-                            </div>
-                          )}
-
-                          {errors.actions?.[i]?.[field.name]?.message ? (
-                            <ErrorMessage
-                              message={
-                                errors.actions?.[i]?.[field.name]?.message!
-                              }
-                            />
-                          ) : null}
-                        </div>
-                      );
-                    })
-                  )}
-
-                  {action.type === ActionType.DRAFT_EMAIL &&
-                    action.setManually && (
-                      <Button
-                        variant="link"
-                        size="xs"
-                        onClick={() => {
-                          setValue(`actions.${i}.setManually`, false);
-                        }}
-                      >
-                        Auto draft
-                      </Button>
-                    )}
+                    return (
+                      <ActionField
+                        key={field.label}
+                        field={field}
+                        action={action}
+                        index={i}
+                        isAiGenerated={isAiGenerated}
+                        value={value}
+                        setManually={setManually}
+                        register={register}
+                        setValue={setValue}
+                        errors={errors}
+                        userLabels={userLabels}
+                        isLoading={isLoading}
+                        mutate={mutate}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </CardBasic>
@@ -918,5 +826,160 @@ function ReplyTrackerActionSection() {
         </div>
       </div>
     </CardBasic>
+  );
+}
+
+function ActionField({
+  field,
+  action,
+  index: i,
+  isAiGenerated,
+  value,
+  setManually,
+  register,
+  setValue,
+  errors,
+  userLabels,
+  isLoading,
+  mutate,
+}: {
+  field: {
+    name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
+    label: string;
+    textArea?: boolean;
+  };
+  action: CreateRuleBody["actions"][number];
+  index: number;
+  isAiGenerated: boolean;
+  value: string | undefined;
+  setManually: boolean;
+  register: UseFormRegister<CreateRuleBody>;
+  setValue: UseFormSetValue<CreateRuleBody>;
+  errors: any; // Unfortunately, we need to use any here for now
+  userLabels: NonNullable<LabelsResponse["labels"]>;
+  isLoading: boolean;
+  mutate: () => void;
+}) {
+  // Get the typed field value safely
+  const getFieldValue = (fieldName: string): string => {
+    // Type assertion to access the field by name
+    const fieldValue = action[fieldName as keyof typeof action];
+    if (fieldValue && typeof fieldValue === "object" && "value" in fieldValue) {
+      return (fieldValue.value as string) || "";
+    }
+    return "";
+  };
+
+  // Check if this field has an error
+  const fieldError = errors?.actions?.[i]?.[field.name]?.message;
+
+  const isDraftContent =
+    field.name === "content" && action.type === ActionType.DRAFT_EMAIL;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <Label name={field.name} label={field.label} />
+        {field.name === "label" && (
+          <div className="flex items-center space-x-2">
+            <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
+            <Toggle
+              name={`actions.${i}.${field.name}.ai`}
+              label="AI generated"
+              enabled={isAiGenerated || false}
+              onChange={(enabled: boolean) => {
+                setValue(
+                  `actions.${i}.${field.name}`,
+                  enabled ? { value: "", ai: true } : { value: "", ai: false },
+                );
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {field.name === "label" && !isAiGenerated ? (
+        <div className="mt-2">
+          <LabelCombobox
+            userLabels={userLabels}
+            isLoading={isLoading}
+            mutate={mutate}
+            value={getFieldValue(field.name)}
+            onChangeValue={(newValue: string) => {
+              setValue(`actions.${i}.${field.name}.value`, newValue);
+            }}
+          />
+        </div>
+      ) : isDraftContent && !setManually ? (
+        <div className="h-full flex flex-col items-center justify-center gap-2">
+          <div className="text-center text-sm text-muted-foreground max-w-sm">
+            Our AI will generate a reply using your knowledge base and previous
+            conversations with the sender
+          </div>
+
+          <Button
+            variant="link"
+            size="xs"
+            onClick={() => {
+              setValue(`actions.${i}.content.setManually`, true);
+            }}
+          >
+            Set manually
+          </Button>
+        </div>
+      ) : field.textArea ? (
+        <div className="mt-2">
+          <TextareaAutosize
+            className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+            minRows={3}
+            rows={3}
+            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+            value={value || ""}
+            {...register(`actions.${i}.${field.name}.value`)}
+          />
+
+          {isDraftContent && setManually && (
+            <Button
+              variant="link"
+              size="xs"
+              onClick={() => {
+                setValue(`actions.${i}.content.setManually`, false);
+              }}
+            >
+              Auto draft
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="mt-2">
+          <input
+            className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+            type="text"
+            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+            {...register(`actions.${i}.${field.name}.value`)}
+          />
+        </div>
+      )}
+
+      {hasVariables(value) && (
+        <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
+          {(value || "").split(/(\{\{.*?\}\})/g).map((part, idx) =>
+            part.startsWith("{{") ? (
+              <span
+                key={idx}
+                className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
+              >
+                <sub className="font-sans">AI</sub>
+                {part}
+              </span>
+            ) : (
+              <span key={idx}>{part}</span>
+            ),
+          )}
+        </div>
+      )}
+
+      {fieldError && <ErrorMessage message={fieldError.toString()} />}
+    </div>
   );
 }

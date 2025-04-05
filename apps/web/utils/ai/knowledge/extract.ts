@@ -27,7 +27,7 @@ Remember: Quality over quantity. Only include truly relevant information.
 You do not need to draft the response, just extract the relevant information.
 The information you used will be passed to another agent that will draft the response.`;
 
-const USER_PROMPT = ({
+const getUserPrompt = ({
   knowledgeBase,
   emailContent,
   user,
@@ -77,7 +77,7 @@ export async function aiExtractRelevantKnowledge({
     if (!knowledgeBase.length) return null;
 
     const system = SYSTEM_PROMPT;
-    const prompt = USER_PROMPT({ knowledgeBase, emailContent, user });
+    const prompt = getUserPrompt({ knowledgeBase, emailContent, user });
 
     logger.trace("Input", { system, prompt });
 

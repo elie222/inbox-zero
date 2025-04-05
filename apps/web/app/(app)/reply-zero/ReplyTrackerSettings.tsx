@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { isErrorMessage } from "@/utils/error";
-import { Toggle } from "@/components/Toggle";
 import { useRule } from "@/hooks/useRule";
 import type { RuleResponse } from "@/app/api/user/rules/[id]/route";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -32,15 +31,11 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    watch,
-    setValue,
   } = useForm<UpdateRuleSettingsBody>({
     resolver: zodResolver(updateRuleSettingsBody),
     defaultValues: {
       id: rule?.id,
       instructions: rule?.instructions ?? "",
-      draftReplies: rule?.draftReplies ?? false,
-      draftRepliesInstructions: rule?.draftRepliesInstructions ?? "",
     },
   });
 
@@ -54,8 +49,6 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
     [],
   );
 
-  const draftReplies = watch("draftReplies");
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <Input
@@ -68,26 +61,6 @@ const ReplyTrackerSettingsForm = ({ rule }: { rule: RuleResponse["rule"] }) => {
         registerProps={register("instructions", { required: true })}
         error={errors.instructions}
       />
-      <Toggle
-        name="auto-draft"
-        label="Auto draft replies in Gmail"
-        enabled={draftReplies}
-        onChange={(checked) => setValue("draftReplies", checked)}
-      />
-
-      {draftReplies && (
-        <Input
-          type="text"
-          as="textarea"
-          rows={5}
-          autosizeTextarea
-          name="draftRepliesInstructions"
-          label="Instructions for drafting replies"
-          placeholder="Optional"
-          registerProps={register("draftRepliesInstructions")}
-          error={errors.draftRepliesInstructions}
-        />
-      )}
 
       <Button type="submit" loading={isSubmitting}>
         Save

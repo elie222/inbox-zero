@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
-import { ActionType } from "@prisma/client";
+import { ActionType, type Prisma } from "@prisma/client";
 import {
   defaultReplyTrackerInstructions,
   NEEDS_REPLY_LABEL_NAME,
@@ -133,8 +133,27 @@ export async function enableReplyTracker(userId: string) {
     return { error: "Error enabling Reply Zero" };
   }
 
-  await prisma.rule.update({
+  const updatedRule = await prisma.rule.update({
     where: { id: ruleId },
-    data: { trackReplies: true, draftReplies: true, runOnThreads: true },
+    data: { trackReplies: true, runOnThreads: true },
+    select: { id: true, actions: true },
+  });
+
+  await enableDraftReplies(updatedRule);
+}
+
+export async function enableDraftReplies(
+  rule: Prisma.RuleGetPayload<{
+    select: { id: true; actions: true };
+  }>,
+) {
+  // already drafting replies
+  if (rule.actions?.find((a) => a.type === ActionType.DRAFT_EMAIL)) return;
+
+  await prisma.action.create({
+    data: {
+      ruleId: rule.id,
+      type: ActionType.DRAFT_EMAIL,
+    },
   });
 }

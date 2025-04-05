@@ -452,8 +452,6 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     createdAt: new Date(),
     updatedAt: new Date(),
     trackReplies: null,
-    draftReplies: null,
-    draftRepliesInstructions: null,
     ...rule,
   };
 }

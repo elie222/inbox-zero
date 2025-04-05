@@ -54,6 +54,8 @@ const zodField = z
   .object({
     value: z.string().nullish(),
     ai: z.boolean().nullish(),
+    // only needed for frontend
+    setManually: z.boolean().nullish(),
   })
   .nullish();
 
@@ -68,8 +70,6 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
-    // only needed for frontend
-    setManually: z.boolean().nullish(),
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
@@ -142,8 +142,6 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 export const updateRuleSettingsBody = z.object({
   id: z.string(),
   instructions: z.string(),
-  draftReplies: z.boolean(),
-  draftRepliesInstructions: z.string(),
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 

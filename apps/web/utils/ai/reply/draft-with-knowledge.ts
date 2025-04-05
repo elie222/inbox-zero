@@ -20,28 +20,17 @@ IMPORTANT: Use placeholders sparingly! Only use them where you have limited info
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.`;
 
-const USER_PROMPT = ({
+const getUserPrompt = ({
   messages,
   user,
-  instructions,
   knowledgeBaseContent,
   emailHistorySummary,
 }: {
   messages: (EmailForLLM & { to: string })[];
   user: UserEmailWithAI;
-  instructions: string | null;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
 }) => {
-  const userInstructions = instructions
-    ? `Additional user instructions:
-
-<instructions>
-${instructions}
-</instructions>
-`
-    : "";
-
   const userAbout = user.about
     ? `Context about the user:
     
@@ -69,8 +58,7 @@ ${emailHistorySummary}
 `
     : "";
 
-  return `${userInstructions}
-${userAbout}
+  return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
 
@@ -99,13 +87,11 @@ const draftSchema = z.object({
 export async function aiDraftWithKnowledge({
   messages,
   user,
-  instructions,
   knowledgeBaseContent,
   emailHistorySummary,
 }: {
   messages: (EmailForLLM & { to: string })[];
   user: UserEmailWithAI;
-  instructions: string | null;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
 }) {
@@ -117,10 +103,9 @@ export async function aiDraftWithKnowledge({
     });
 
     const system = SYSTEM_PROMPT;
-    const prompt = USER_PROMPT({
+    const prompt = getUserPrompt({
       messages,
       user,
-      instructions,
       knowledgeBaseContent,
       emailHistorySummary,
     });

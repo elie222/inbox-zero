@@ -22,7 +22,7 @@ Provide a concise summary (max 500 characters) that captures the most important 
 - Important dates or deadlines established in past emails
 - Notable preferences or patterns in communication`;
 
-const USER_PROMPT = ({
+const getUserPrompt = ({
   currentThreadMessages,
   historicalMessages,
   user,
@@ -87,7 +87,7 @@ export async function aiExtractFromEmailHistory({
     if (historicalMessages.length === 0) return null;
 
     const system = SYSTEM_PROMPT;
-    const prompt = USER_PROMPT({
+    const prompt = getUserPrompt({
       currentThreadMessages,
       historicalMessages,
       user,

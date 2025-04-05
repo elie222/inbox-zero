@@ -1,15 +1,19 @@
 import { z } from "zod";
+import { InvalidToolArgumentsError } from "ai";
+import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { Action } from "@prisma/client";
+import { ActionType, type Action } from "@prisma/client";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import {
   type EmailForLLM,
   type RuleWithActions,
   isDefined,
+  type ParsedMessage,
 } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { InvalidToolArgumentsError } from "ai";
+import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-reply";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 /**
  * AI Argument Generator for Email Actions
@@ -51,34 +55,68 @@ type ActionArgResponse = {
 };
 
 export async function getActionItemsWithAiArgs({
-  email,
+  message,
   user,
   selectedRule,
+  gmail,
 }: {
-  email: EmailForLLM;
+  message: ParsedMessage;
   user: UserEmailWithAI;
   selectedRule: RuleWithActions;
+  gmail: gmail_v1.Gmail;
 }): Promise<Action[]> {
+  const email = getEmailForLLM(message);
+
+  const draftEmailActions = selectedRule.actions.filter(
+    (action) => action.type === ActionType.DRAFT_EMAIL,
+  );
+
+  // Draft content is handled via its own AI call
+  // We provide a lot more context to the AI to draft the content
+  let draft: string | null = null;
+
+  if (draftEmailActions.length) {
+    draft = await fetchMessagesAndGenerateDraft(user, message.threadId, gmail);
+  }
+
   const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);
 
-  if (parameters.length === 0) return selectedRule.actions;
+  if (parameters.length === 0 && !draft) return selectedRule.actions;
 
-  const result = await getArgsAiResponse({
+  const result = await aiGenerateArgs({
     email,
     user,
     selectedRule,
     parameters,
   });
 
-  // Combine the result with the original action items
-  const combinedActions = selectedRule.actions.map((action) => {
-    const aiAction = result?.[`${action.type}-${action.id}`];
-    if (!aiAction) return action;
+  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
+}
 
+function combineActionsWithAiArgs(
+  actions: Action[],
+  aiArgs: ActionArgResponse | undefined,
+  draft: string | null = null,
+): Action[] {
+  if (!aiArgs && !draft) return actions;
+
+  return actions.map((action) => {
     const updatedAction = { ...action };
+
+    // Add draft content to DRAFT_EMAIL actions if available
+    if (draft && action.type === ActionType.DRAFT_EMAIL) {
+      updatedAction.content = draft;
+    }
+
+    // Process AI args if available
+    const aiAction = aiArgs?.[`${action.type}-${action.id}`];
+    if (!aiAction) return updatedAction;
 
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {
+      // Already handled above
+      if (field === "content" && draft) continue;
+
       // Only process fields that we know can contain template strings
       if (
         field === "label" ||
@@ -101,11 +139,9 @@ export async function getActionItemsWithAiArgs({
 
     return updatedAction;
   });
-
-  return combinedActions;
 }
 
-async function getArgsAiResponse({
+async function aiGenerateArgs({
   email,
   user,
   selectedRule,
@@ -116,30 +152,23 @@ async function getArgsAiResponse({
   selectedRule: RuleWithActions;
   parameters: ActionRequiringAi[];
 }): Promise<ActionArgResponse | undefined> {
-  logger.info("Generating args for rule", {
+  const loggerOptions = {
     email: user.email,
     ruleId: selectedRule.id,
     ruleName: selectedRule.name,
-  });
+  };
+  logger.info("Generating args for rule", loggerOptions);
 
   // If no parameters, skip
   if (parameters.length === 0) {
-    logger.info("Skipping. No parameters for rule", {
-      email: user.email,
-      ruleId: selectedRule.id,
-      ruleName: selectedRule.name,
-    });
+    logger.info("Skipping. No parameters for rule", loggerOptions);
     return;
   }
 
   const system = getSystemPrompt({ user });
   const prompt = getPrompt({ email, selectedRule });
 
-  logger.info("Calling chat completion tools", {
-    email: user.email,
-    ruleId: selectedRule.id,
-    ruleName: selectedRule.name,
-  });
+  logger.info("Calling chat completion tools", loggerOptions);
   logger.trace("System and prompt", { system, prompt });
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
@@ -325,7 +354,7 @@ export function getParameterFieldsForAction(
       const { aiPrompts } = parseTemplate(value);
       if (aiPrompts.length > 0) {
         const schemaFields: Record<string, z.ZodString> = {};
-        aiPrompts.forEach((prompt, index) => {
+        aiPrompts.forEach((_prompt, index) => {
           schemaFields[`var${index + 1}`] = z.string();
         });
 

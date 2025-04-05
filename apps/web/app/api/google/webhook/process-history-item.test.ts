@@ -12,9 +12,8 @@ import { getMessage } from "@/utils/gmail/message";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
-import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
+import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { getThreadMessages } from "@/utils/gmail/thread";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -75,7 +74,7 @@ vi.mock("@/utils/categorize/senders/categorize", () => ({
   categorizeSender: vi.fn(),
 }));
 vi.mock("@/utils/ai/choose-rule/run-rules", () => ({
-  runRulesOnMessage: vi.fn(),
+  runRules: vi.fn(),
 }));
 vi.mock("@/utils/assistant/process-assistant-email", () => ({
   processAssistantEmail: vi.fn().mockResolvedValue(undefined),
@@ -239,7 +238,7 @@ describe("processHistoryItem", () => {
 
     // Verify that further processing is skipped
     expect(categorizeSender).not.toHaveBeenCalled();
-    expect(runRulesOnMessage).not.toHaveBeenCalled();
+    expect(runRules).not.toHaveBeenCalled();
   });
 });
 

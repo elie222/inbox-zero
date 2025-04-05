@@ -9,7 +9,6 @@ import { getAiUser } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getReplyTrackingRule } from "@/utils/reply-tracker";
 import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -37,30 +36,16 @@ export async function generateDraft({
     threadId: message.threadId,
   });
 
-  const replyTrackingRule = await getReplyTrackingRule(userId);
-
-  if (!replyTrackingRule?.draftReplies) return;
-
   logger.info("Generating draft");
 
   const user = await getAiUser({ id: userId });
   if (!user) throw new Error("User not found");
 
-  // current thread messages
-  const messages = await getThreadMessages(message.threadId, gmail);
-
-  // previous conversation messages
-  const previousConversationMessages = await getMessagesBatch(
-    messages.map((msg) => msg.id),
-    getAccessTokenFromClient(gmail),
-  );
-
   // 1. Draft with AI
-  const result = await generateContent(
+  const result = await fetchMessagesAndGenerateDraft(
     user,
-    messages,
-    previousConversationMessages,
-    replyTrackingRule.draftRepliesInstructions,
+    message.threadId,
+    gmail,
   );
 
   logger.info("Draft generated", { result });
@@ -75,11 +60,59 @@ export async function generateDraft({
   logger.info("Draft created");
 }
 
-async function generateContent(
+/**
+ * Fetches thread messages and generates draft content in one step
+ */
+export async function fetchMessagesAndGenerateDraft(
+  user: UserEmailWithAI,
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+): Promise<string> {
+  const { threadMessages, previousConversationMessages } =
+    await fetchThreadAndConversationMessages(threadId, gmail);
+
+  const result = await generateDraftContent(
+    user,
+    threadMessages,
+    previousConversationMessages,
+  );
+
+  if (typeof result !== "string") {
+    throw new Error("Draft result is not a string");
+  }
+
+  return result;
+}
+
+/**
+ * Fetches thread messages and previous conversation messages
+ */
+async function fetchThreadAndConversationMessages(
+  threadId: string,
+  gmail: gmail_v1.Gmail,
+): Promise<{
+  threadMessages: ParsedMessage[];
+  previousConversationMessages: ParsedMessage[] | null;
+}> {
+  // current thread messages
+  const threadMessages = await getThreadMessages(threadId, gmail);
+
+  // previous conversation messages
+  const previousConversationMessages = await getMessagesBatch(
+    threadMessages.map((msg) => msg.id),
+    getAccessTokenFromClient(gmail),
+  );
+
+  return {
+    threadMessages,
+    previousConversationMessages,
+  };
+}
+
+async function generateDraftContent(
   user: UserEmailWithAI,
   threadMessages: ParsedMessage[],
   previousConversationMessages: ParsedMessage[] | null,
-  instructions: string | null,
 ) {
   const lastMessage = threadMessages.at(-1);
 
@@ -146,7 +179,6 @@ async function generateContent(
   const text = await aiDraftWithKnowledge({
     messages,
     user,
-    instructions,
     knowledgeBaseContent: knowledgeResult || null,
     emailHistorySummary,
   });

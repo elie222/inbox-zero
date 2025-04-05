@@ -2,15 +2,24 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
-import { ActionType, ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { markNeedsReply } from "@/utils/reply-tracker/inbound";
+import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
 import type { ParsedMessage } from "@/utils/types";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
 }>;
+
+/**
+ * Executes actions for a rule that has been applied to an email message.
+ * This function:
+ * 1. Updates the executed rule status from PENDING to APPLYING
+ * 2. Processes each action item associated with the rule
+ * 3. Handles reply tracking if this is a reply tracking rule
+ * 4. Updates the rule status to APPLIED when complete
+ */
 export async function executeAct({
   gmail,
   executedRule,
@@ -45,9 +54,6 @@ export async function executeAct({
 
   for (const action of executedRule.actionItems) {
     try {
-      // we handle the reply tracking labelling below instead
-      if (isReplyTrackingRule && action.type === ActionType.LABEL) continue;
-
       await runActionFunction(gmail, message, action, userEmail, executedRule);
     } catch (error) {
       await prisma.executedRule.update({
@@ -59,15 +65,15 @@ export async function executeAct({
   }
 
   // reply tracker
+  // TODO: we should make this an action instead to keep it really clean
   if (isReplyTrackingRule) {
-    await markNeedsReply(
+    await coordinateReplyProcess(
       executedRule.userId,
       userEmail,
       executedRule.threadId,
       executedRule.messageId,
       internalDateToDate(message.internalDate),
       gmail,
-      message,
     ).catch((error) => {
       logger.error("Failed to create reply tracker", { error });
     });
