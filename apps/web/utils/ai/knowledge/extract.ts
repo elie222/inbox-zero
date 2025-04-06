@@ -79,7 +79,7 @@ export async function aiExtractRelevantKnowledge({
     const system = SYSTEM_PROMPT;
     const prompt = getUserPrompt({ knowledgeBase, emailContent, user });
 
-    logger.trace("Input", { system, prompt });
+    logger.trace("Input", { system, prompt: prompt.slice(0, 500) });
 
     const result = await chatCompletionObject({
       system,
