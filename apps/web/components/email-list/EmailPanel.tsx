@@ -1,4 +1,4 @@
-import { XIcon } from "lucide-react";
+import { XIcon, ArrowLeftIcon } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { Tooltip } from "@/components/Tooltip";
 import type { Thread } from "@/components/email-list/types";
@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { EmailThread } from "@/components/email-list/EmailThread";
+import { usePathname } from "next/navigation";
 
 export function EmailPanel({
   row,
@@ -31,6 +32,8 @@ export function EmailPanel({
   refetch: () => void;
 }) {
   const isPlanning = useIsInAiQueue(row.id);
+  const pathname = usePathname();
+  const isFullscreen = pathname.split("/").length > 3; // Checking if we're in /mail/type/threadId
 
   const lastMessage = row.messages?.[row.messages.length - 1];
 
@@ -39,16 +42,26 @@ export function EmailPanel({
   return (
     <div className="flex h-full flex-col overflow-y-hidden border-l border-border">
       <div className="sticky border-b border-border p-4 md:flex md:items-center md:justify-between">
-        <div className="md:w-0 md:flex-1">
-          <h1
-            id="message-heading"
-            className="text-lg font-medium text-foreground"
-          >
-            {lastMessage.headers.subject}
-          </h1>
-          <p className="mt-1 truncate text-sm text-muted-foreground">
-            {lastMessage.headers.from}
-          </p>
+        <div className="flex items-center gap-2 md:w-0 md:flex-1">
+          {isFullscreen && (
+            <Tooltip content="Back to inbox">
+              <Button onClick={close} size="icon" variant="ghost">
+                <span className="sr-only">Back to inbox</span>
+                <ArrowLeftIcon className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
+          )}
+          <div>
+            <h1
+              id="message-heading"
+              className="text-lg font-medium text-foreground"
+            >
+              {lastMessage.headers.subject}
+            </h1>
+            <p className="mt-1 truncate text-sm text-muted-foreground">
+              {lastMessage.headers.from}
+            </p>
+          </div>
         </div>
 
         <div className="mt-3 flex items-center md:ml-2 md:mt-0">
@@ -62,12 +75,14 @@ export function EmailPanel({
             }}
             refetch={refetch}
           />
-          <Tooltip content="Close">
-            <Button onClick={close} size="icon" variant="ghost">
-              <span className="sr-only">Close</span>
-              <XIcon className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          </Tooltip>
+          {!isFullscreen && (
+            <Tooltip content="Close">
+              <Button onClick={close} size="icon" variant="ghost">
+                <span className="sr-only">Close</span>
+                <XIcon className="h-4 w-4" aria-hidden="true" />
+              </Button>
+            </Tooltip>
+          )}
         </div>
       </div>
       <div className="flex flex-1 flex-col overflow-y-auto">
