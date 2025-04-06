@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { Process } from "@/app/(app)/automation/Process";
+import { KnowledgeBase } from "@/app/(app)/automation/knowledge/KnowledgeBase";
 import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -17,7 +18,6 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { Button } from "@/components/ui/button";
-import KnowledgeBase from "@/app/(app)/automation/knowledge/KnowledgeBase";
 
 export const maxDuration = 300; // Applies to the actions
 

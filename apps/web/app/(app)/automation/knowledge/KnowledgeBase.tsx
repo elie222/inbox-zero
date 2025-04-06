@@ -30,7 +30,7 @@ import type { Knowledge } from "@prisma/client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { KnowledgeForm } from "@/app/(app)/automation/knowledge/KnowledgeForm";
 
-export default function KnowledgeBase() {
+export function KnowledgeBase() {
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
   const { data, isLoading, error, mutate } =
