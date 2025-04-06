@@ -158,7 +158,12 @@ function selectModel(userAi: UserAIFields): {
 function selectEconomyModel(userAi: UserAIFields) {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
-    if (!apiKey) return selectModel(userAi);
+    if (!apiKey) {
+      logger.warn("Economy LLM provider configured but API key not found", {
+        provider: env.ECONOMY_LLM_PROVIDER,
+      });
+      return selectModel(userAi);
+    }
 
     return selectModel({
       aiProvider: env.ECONOMY_LLM_PROVIDER,
