@@ -68,7 +68,7 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
 
-    // Economy LLM configuration (for high-volume processing where cost efficiency matters)
+    // Economy LLM configuration (for large context windows where cost efficiency matters)
     ECONOMY_LLM_PROVIDER: z
       .enum([
         "anthropic",
