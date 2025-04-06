@@ -1,3 +1,3 @@
-export function getTodayForLLM() {
-  return `Today's date and time is: ${new Date().toISOString()}.`;
+export function getTodayForLLM(date: Date = new Date()) {
+  return `Today's date and time is: ${date.toISOString()}.`;
 }
