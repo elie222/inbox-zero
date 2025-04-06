@@ -36,7 +36,7 @@ export async function aiClean({
     reply?: boolean | null;
     receipt?: boolean | null;
   };
-}) {
+}): Promise<{ archive: boolean }> {
   const lastMessage = messages.at(-1);
 
   if (!lastMessage) throw new Error("No messages");
@@ -110,5 +110,5 @@ The current date is ${currentDate}.
     expected: aiResponse.object,
   });
 
-  return aiResponse.object;
+  return aiResponse.object as { archive: boolean };
 }
