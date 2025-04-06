@@ -81,7 +81,7 @@ The dual LLM approach is implemented as follows:
 
    - Uses a more cost-efficient model like Gemini Flash for processing large volumes of knowledge base content
    - Analyzes all knowledge entries and extracts only relevant information based on the email content
-   - Configured via environment variables (`NEXT_PUBLIC_ECONOMY_LLM_PROVIDER` and `NEXT_PUBLIC_ECONOMY_LLM_MODEL`)
+   - Configured via environment variables (`ECONOMY_LLM_PROVIDER` and `ECONOMY_LLM_MODEL`)
    - If no specific economy model is configured, defaults to Gemini Flash when Google API key is available
 
 2. **Email Draft Generation (Core LLM)**:

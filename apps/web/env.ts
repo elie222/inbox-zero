@@ -68,6 +68,24 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
 
+    // Economy LLM configuration (for high-volume processing where cost efficiency matters)
+    ECONOMY_LLM_PROVIDER: z
+      .enum([
+        "anthropic",
+        "google",
+        "openai",
+        "bedrock",
+        "openrouter",
+        "groq",
+        "ollama",
+      ])
+      .optional()
+      .default("openrouter"),
+    ECONOMY_LLM_MODEL: z
+      .string()
+      .optional()
+      .default("meta-llama/llama-4-maverick"),
+
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -134,11 +152,6 @@ export const env = createEnv({
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
-    // Economy LLM configuration (for high-volume processing where cost efficiency matters)
-    NEXT_PUBLIC_ECONOMY_LLM_PROVIDER: z
-      .enum(["anthropic", "google", "openai", "bedrock", "openrouter", "groq", "ollama"])
-      .optional(),
-    NEXT_PUBLIC_ECONOMY_LLM_MODEL: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -210,7 +223,5 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
-    NEXT_PUBLIC_ECONOMY_LLM_PROVIDER: process.env.NEXT_PUBLIC_ECONOMY_LLM_PROVIDER,
-    NEXT_PUBLIC_ECONOMY_LLM_MODEL: process.env.NEXT_PUBLIC_ECONOMY_LLM_MODEL,
   },
 });
