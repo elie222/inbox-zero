@@ -26,6 +26,7 @@ export const EmailListItem = forwardRef(
   (
     props: {
       userEmailAddress: string;
+      focused?: boolean;
       thread: Thread;
       opened: boolean;
       selected: boolean;
@@ -76,11 +77,12 @@ export const EmailListItem = forwardRef(
           ref={ref}
           className={clsx("group relative cursor-pointer border-l-4 py-3", {
             "hover:bg-slate-50 dark:hover:bg-slate-950":
-              !props.selected && !props.opened,
+              !props.selected && !props.opened && !props.focused,
             "bg-blue-50 dark:bg-blue-950": props.selected,
             "bg-blue-100 dark:bg-blue-900": props.opened,
             "bg-slate-100 dark:bg-background":
               !isUnread && !props.selected && !props.opened,
+            "z-10 ring-2 ring-blue-400": props.focused,
           })}
           onClick={props.onClick}
           onKeyDown={(e) => {

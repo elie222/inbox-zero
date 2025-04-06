@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { useQueryState } from "nuqs";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
@@ -364,6 +364,53 @@ export function EmailList({
     );
   }, [selectedRows, refetch]);
 
+  const [focusedIndex, setFocusedIndex] = useState(0);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      )
+        return;
+
+      const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+      if (e.key === "ArrowDown") {
+        setFocusedIndex((prev) => Math.min(prev + 1, threads.length - 1));
+      }
+
+      if (e.key === "ArrowUp") {
+        setFocusedIndex((prev) => Math.max(prev - 1, 0));
+      }
+
+      if (e.key === "r" || e.key === "R") {
+        if (isCmdOrCtrl) {
+          e.preventDefault();
+        }
+        const thread = threads[focusedIndex];
+        if (thread) {
+          setOpenThreadId(thread.id);
+          markReadThreads([thread.id], () => refetch());
+          scrollToId(thread.id);
+        }
+      }
+
+      if (e.key === "e" || e.key === "E") {
+        if (isCmdOrCtrl) {
+          e.preventDefault();
+        }
+        const thread = threads[focusedIndex];
+        if (thread) {
+          onArchive(thread);
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [threads, focusedIndex, setOpenThreadId, onArchive, refetch]);
+
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
       async () => {
@@ -443,7 +490,7 @@ export function EmailList({
               className="divide-y divide-border overflow-y-auto scroll-smooth"
               ref={listRef}
             >
-              {threads.map((thread) => {
+              {threads.map((thread, index) => {
                 const onOpen = () => {
                   const alreadyOpen = !!openThreadId;
                   setOpenThreadId(thread.id);
@@ -455,6 +502,7 @@ export function EmailList({
 
                 return (
                   <EmailListItem
+                    focused={focusedIndex === index}
                     key={thread.id}
                     ref={(node) => {
                       const map = getMap();
