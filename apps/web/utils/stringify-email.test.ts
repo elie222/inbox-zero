@@ -16,7 +16,7 @@ describe("stringifyEmail", () => {
     content: "Hello world",
     replyTo: "reply@example.com",
     cc: "cc@example.com",
-    date: new Date(),
+    date: new Date("2025-04-06T13:37:14.413Z"),
   };
 
   it("should format email with all fields", () => {
@@ -25,6 +25,7 @@ describe("stringifyEmail", () => {
       "<from>test@example.com</from>\n" +
         "<replyTo>reply@example.com</replyTo>\n" +
         "<cc>cc@example.com</cc>\n" +
+        "<date>2025-04-06T13:37:14.413Z</date>\n" +
         "<subject>Test Subject</subject>\n" +
         "<body>Hello world</body>",
     );
