@@ -36,8 +36,11 @@ export function createScopedLogger(scope: string) {
 
       const msg = `[${scope}]: ${message} ${formattedArgs}`;
 
-      if (process.env.NODE_ENV === "development")
-        return `${colors[level]}${msg}${colors.reset}`;
+      if (process.env.NODE_ENV === "development") {
+        // Replace literal \n with actual newlines for development logs
+        const formattedMsg = msg.replace(/\\n/g, "\n");
+        return `${colors[level]}${formattedMsg}${colors.reset}`;
+      }
       return msg;
     };
 
@@ -66,7 +69,7 @@ function createAxiomLogger(scope: string) {
     info: (message: string, args?: Record<string, unknown>) =>
       log.info(message, { scope, ...fields, ...args }),
     error: (message: string, args?: Record<string, unknown>) =>
-      log.error(message, { scope, ...fields, ...args }),
+      log.error(message, { scope, ...fields, ...formatError(args) }),
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...fields, ...args }),
     trace: (message: string, args?: Record<string, unknown>) => {
@@ -79,4 +82,16 @@ function createAxiomLogger(scope: string) {
   });
 
   return createLogger();
+}
+
+function formatError(args?: Record<string, unknown>) {
+  if (env.NODE_ENV !== "production") return args;
+  const error = args?.error;
+  if (error) args.error = cleanError(error);
+  return args;
+}
+
+function cleanError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return error;
 }

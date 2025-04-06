@@ -1,0 +1,110 @@
+---
+description: Guidelines for implementing GET API routes in Next.js
+globs: 
+alwaysApply: false
+---
+# GET API Route Guidelines
+
+Guidelines for implementing GET API routes in Next.js App Router:
+
+1. Basic Structure
+
+```typescript
+import { NextResponse } from "next/server";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import prisma from "@/utils/prisma";
+import { withError } from "@/utils/middleware";
+
+// Define response type
+export type GetExampleResponse = {
+  items: ExampleType[];
+};
+
+export const GET = withError(async () => {
+  // Authentication check
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
+
+  // Database query
+  const items = await prisma.example.findMany({
+    where: {
+      userId: session.user.id,
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+  });
+
+  // Return response
+  const result: GetExampleResponse = { items };
+  return NextResponse.json(result);
+});
+```
+
+2. Key Requirements:
+
+   - Always wrap the handler with `withError` for consistent error handling
+   - Always check authentication using `auth()`
+   - Define and export response types for type safety
+   - Use Prisma for database queries
+   - Return responses using `NextResponse.json()`
+
+3. Authentication:
+
+   - Check for authenticated session before processing request
+   - Return error response if user is not authenticated
+   - Use session.user.id for database queries to ensure data isolation
+
+4. Response Format:
+
+   - Use TypeScript interfaces/types for response shape
+   - Export response types for client-side usage
+   - Return data in a consistent structure
+
+5. Database Queries:
+
+   - Use Prisma client for database operations
+   - Include proper where clauses for data isolation
+   - Add appropriate ordering if needed
+   - Consider pagination for large datasets
+
+6. Error Handling:
+   - Use `withError` middleware for consistent error responses
+   - Return appropriate HTTP status codes
+   - Provide clear error messages
+
+Bad Example:
+
+```typescript
+// ❌ Don't do this
+export async function GET() {
+  const items = await prisma.example.findMany();
+  return Response.json({ items });
+}
+```
+
+Good Example:
+
+```typescript
+// ✅ Do this
+export const GET = withError(async () => {
+  const session = await auth();
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" });
+
+  const items = await prisma.example.findMany({
+    where: { userId: session.user.id },
+  });
+
+  return NextResponse.json({ items });
+});
+```
+
+Remember:
+
+- Always validate authentication
+- Always scope queries to the authenticated user
+- Use TypeScript for type safety
+- Follow consistent response formats
+- Handle errors appropriately

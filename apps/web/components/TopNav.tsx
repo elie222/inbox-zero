@@ -16,6 +16,7 @@ import {
   InboxIcon,
   LogOutIcon,
   RibbonIcon,
+  TagIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
@@ -28,6 +29,11 @@ const userNavigation = [
     name: "Mail (Beta)",
     href: "/mail",
     icon: InboxIcon,
+  },
+  {
+    name: "Sender Categories",
+    href: "/smart-categories",
+    icon: TagIcon,
   },
   {
     name: "Early Access",

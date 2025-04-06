@@ -4,9 +4,11 @@ import "dotenv/config";
 
 export const env = createEnv({
   server: {
-    NODE_ENV: z.enum(["development", "production", "test"]),
+    NODE_ENV: z
+      .enum(["development", "production", "test"])
+      .default("development"),
     PORT: z.number().default(5000),
-    GOOGLE_GENERATIVE_AI_API_KEY: z.string().min(1),
+    GOOGLE_GENERATIVE_AI_API_KEY: z.string().optional(),
     CORS_ORIGIN: z.string().optional(),
   },
 

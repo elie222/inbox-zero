@@ -31,6 +31,7 @@ import prisma from "@/utils/prisma";
 // import { getAiUser } from "@/utils/user/get";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
+import { getUnhandledCount } from "@/utils/assess";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -75,6 +76,7 @@ export const cleanInboxAction = withActionInstrumentation(
         skipCalendar: data.skips.calendar,
         skipReceipt: data.skips.receipt,
         skipAttachment: data.skips.attachment,
+        skipConversation: data.skips.conversation,
       },
     });
 
@@ -111,6 +113,8 @@ export const cleanInboxAction = withActionInstrumentation(
     // };
 
     const process = async () => {
+      const { type } = await getUnhandledCount(gmail);
+
       // const labels = await getLabels(data.instructions);
 
       let nextPageToken: string | undefined | null;
@@ -126,7 +130,7 @@ export const cleanInboxAction = withActionInstrumentation(
             gmail,
             q: query,
             labelIds:
-              data.action === CleanAction.ARCHIVE
+              type === "inbox"
                 ? [GmailLabel.INBOX]
                 : [GmailLabel.INBOX, GmailLabel.UNREAD],
             maxResults: Math.min(data.maxEmails || 100, 100),

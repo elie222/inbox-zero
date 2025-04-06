@@ -12,6 +12,7 @@ export const cleanInboxSchema = z.object({
     calendar: z.boolean().default(true).nullish(),
     receipt: z.boolean().default(false).nullish(),
     attachment: z.boolean().default(false).nullish(),
+    conversation: z.boolean().default(false).nullish(),
   }),
 });
 export type CleanInboxBody = z.infer<typeof cleanInboxSchema>;

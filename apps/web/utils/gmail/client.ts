@@ -44,6 +44,13 @@ export const getGmailAccessToken = (session: ClientOptions) => {
   return auth.getAccessToken();
 };
 
+export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
+  const accessToken = (client.context._options.auth as any).credentials
+    .access_token;
+  if (!accessToken) throw new Error("No access token");
+  return accessToken;
+};
+
 export const getGmailClientWithRefresh = async (
   session: ClientOptions & { refreshToken: string; expiryDate?: number | null },
   providerAccountId: string,
@@ -76,7 +83,7 @@ export const getGmailClientWithRefresh = async (
     return g;
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.error("Error refreshing Gmail access token", { error });
+      logger.warn("Error refreshing Gmail access token", { error });
       return undefined;
     }
 

@@ -10,11 +10,13 @@ vi.mock("server-only", () => ({}));
 
 describe("stringifyEmail", () => {
   const mockEmail: EmailForLLM = {
+    id: "1",
     from: "test@example.com",
     subject: "Test Subject",
     content: "Hello world",
     replyTo: "reply@example.com",
     cc: "cc@example.com",
+    date: new Date("2025-04-06T13:37:14.413Z"),
   };
 
   it("should format email with all fields", () => {
@@ -23,6 +25,7 @@ describe("stringifyEmail", () => {
       "<from>test@example.com</from>\n" +
         "<replyTo>reply@example.com</replyTo>\n" +
         "<cc>cc@example.com</cc>\n" +
+        "<date>2025-04-06T13:37:14.413Z</date>\n" +
         "<subject>Test Subject</subject>\n" +
         "<body>Hello world</body>",
     );
@@ -33,6 +36,7 @@ describe("stringifyEmail", () => {
     const maxLength = 50;
     const result = stringifyEmail(
       {
+        id: "1",
         from: "test@example.com",
         subject: "Test Subject",
         content: longContent,
@@ -46,6 +50,7 @@ describe("stringifyEmail", () => {
 
   it("should omit optional fields when not provided", () => {
     const minimalEmail: EmailForLLM = {
+      id: "1",
       from: "test@example.com",
       subject: "Test Subject",
       content: "Hello world",
@@ -62,6 +67,7 @@ describe("stringifyEmail", () => {
 describe("stringifyEmailSimple", () => {
   it("should format email with basic fields", () => {
     const email: EmailForLLM = {
+      id: "1",
       from: "test@example.com",
       subject: "Test Subject",
       content: "Hello world",
@@ -81,6 +87,7 @@ describe("stringifyEmailSimple", () => {
 describe("stringifyEmailFromBody", () => {
   it("should format email with only from and body", () => {
     const email: EmailForLLM = {
+      id: "1",
       from: "test@example.com",
       subject: "Test Subject", // Should be ignored
       content: "Hello world",

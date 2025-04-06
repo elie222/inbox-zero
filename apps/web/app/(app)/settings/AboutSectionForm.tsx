@@ -16,18 +16,18 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
   const {
     register,
     formState: { errors, isSubmitting },
+    handleSubmit,
   } = useForm<SaveAboutBody>({
     defaultValues: { about: about ?? "" },
   });
 
+  const onSubmit = async (data: SaveAboutBody) => {
+    const result = await saveAboutAction(data);
+    handleActionResult(result, "Updated profile!");
+  };
+
   return (
-    <form
-      action={async (formData: FormData) => {
-        const about = formData.get("about") as string;
-        const result = await saveAboutAction({ about });
-        handleActionResult(result, "Updated profile!");
-      }}
-    >
+    <form onSubmit={handleSubmit(onSubmit)}>
       <FormSection>
         <FormSectionLeft
           title="About you"
@@ -39,12 +39,13 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
               <Input
                 type="text"
                 autosizeTextarea
-                rows={3}
+                rows={4}
                 name="about"
                 label="About you"
-                registerProps={register("about", { required: true })}
+                registerProps={register("about")}
                 error={errors.about}
-                placeholder={`Some rules to follow:
+                placeholder={`My name is John Doe. I'm the founder of a startup called Doe.
+Some rules to follow:
 * Be friendly, concise, and professional, but not overly formal.
 * Keep responses short and to the point.`}
               />

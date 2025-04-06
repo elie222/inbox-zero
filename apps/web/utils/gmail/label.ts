@@ -46,6 +46,8 @@ export async function labelThread(options: {
     return;
   }
 
+  logger.trace("Labeling thread", { threadId, addLabelIds, removeLabelIds });
+
   return withGmailRetry(() =>
     gmail.users.threads.modify({
       userId: "me",

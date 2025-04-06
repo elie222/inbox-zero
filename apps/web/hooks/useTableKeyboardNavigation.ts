@@ -41,10 +41,12 @@ export function useTableKeyboardNavigation<T>({
 
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev <= 0 ? items.length - 1 : prev - 1));
+        setSelectedIndex((prev) => (prev <= 0 ? 0 : prev - 1));
       } else if (e.key === "ArrowDown") {
         e.preventDefault();
-        setSelectedIndex((prev) => (prev >= items.length - 1 ? 0 : prev + 1));
+        setSelectedIndex((prev) =>
+          prev >= items.length - 1 ? items.length - 1 : prev + 1,
+        );
       } else if (onKeyAction && selectedIndex >= 0) {
         onKeyAction(selectedIndex, e.key);
       }

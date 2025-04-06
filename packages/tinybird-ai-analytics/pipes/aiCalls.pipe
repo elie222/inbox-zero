@@ -67,4 +67,4 @@ SQL >
     GROUP BY hour
     ORDER BY hour
 
-
+TYPE endpoint

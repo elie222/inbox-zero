@@ -1,34 +1,20 @@
 import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  CheckCircleIcon,
-  ClockIcon,
-  MailIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { CheckCircleIcon, ClockIcon, MailIcon } from "lucide-react";
 import { NeedsReply } from "./NeedsReply";
 import { Resolved } from "./Resolved";
 import { AwaitingReply } from "./AwaitingReply";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { EnableReplyTracker } from "./EnableReplyTracker";
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
-import { Button } from "@/components/ui/button";
 import { TabsToolbar } from "@/components/TabsToolbar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
 import { GmailProvider } from "@/providers/GmailProvider";
+import { cookies } from "next/headers";
+import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
+import { ActionType } from "@prisma/client";
 
-// https://github.com/vercel/next.js/issues/72365#issuecomment-2692403955
-// export const maxDuration = Math.min(env.MAX_DURATION, 600);
 export const maxDuration = 300;
 
 export default async function ReplyTrackerPage(props: {
@@ -45,16 +31,20 @@ export default async function ReplyTrackerPage(props: {
   const userId = session.user.id;
   const userEmail = session.user.email;
 
-  const trackRepliesRule = await prisma.rule.findFirst({
-    where: { userId, trackReplies: true },
-    select: { trackReplies: true, id: true },
+  const cookieStore = await cookies();
+  const viewedOnboarding =
+    cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";
+
+  if (!viewedOnboarding) redirect("/reply-zero/onboarding");
+
+  const trackerRule = await prisma.rule.findFirst({
+    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
+    select: { id: true },
   });
 
-  const isAnalyzing = await isAnalyzingReplyTracker(userId);
+  if (!trackerRule) redirect("/reply-zero/onboarding");
 
-  if (!trackRepliesRule?.trackReplies && !searchParams.enabled) {
-    return <EnableReplyTracker />;
-  }
+  const isAnalyzing = await isAnalyzingReplyTracker(userId);
 
   const page = Number(searchParams.page || "1");
   const timeRange = searchParams.timeRange || "all";
@@ -98,20 +88,6 @@ export default async function ReplyTrackerPage(props: {
               </TabsList>
 
               <div className="flex items-center gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <SettingsIcon className="size-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Settings</DialogTitle>
-                    </DialogHeader>
-
-                    <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
-                  </DialogContent>
-                </Dialog>
                 <TimeRangeFilter />
               </div>
             </div>

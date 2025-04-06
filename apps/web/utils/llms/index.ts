@@ -3,6 +3,7 @@ import {
   APICallError,
   type CoreMessage,
   type CoreTool,
+  type JSONValue,
   generateObject,
   generateText,
   RetryError,
@@ -25,27 +26,67 @@ import {
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
 
+function getCommonOptions(provider: string, useEconomyModel?: boolean) {
+  const isOpenRouter = provider === Provider.OPENROUTER;
+
+  const options: {
+    experimental_telemetry: { isEnabled: boolean };
+    headers?: Record<string, string>;
+    providerOptions?: Record<string, Record<string, JSONValue>>;
+  } = { experimental_telemetry: { isEnabled: true } };
+
+  if (isOpenRouter) {
+    options.headers = {
+      "HTTP-Referer": "https://www.getinboxzero.com",
+      "X-Title": "Inbox Zero",
+    };
+
+    // TODO: this needs cleaning up
+    if (!useEconomyModel) {
+      options.providerOptions = {
+        openrouter: {
+          models: [
+            "anthropic/claude-3.7-sonnet",
+            // "google/gemini-2.0-flash-001",
+          ],
+          provider: {
+            order: [
+              "Amazon Bedrock",
+              "Anthropic",
+              // "Google AI Studio",
+            ],
+          },
+        },
+      };
+    }
+  }
+
+  return options;
+}
+
 export async function chatCompletion({
   userAi,
+  useEconomyModel,
   prompt,
   system,
   userEmail,
   usageLabel,
 }: {
   userAi: UserAIFields;
+  useEconomyModel?: boolean;
   prompt: string;
   system?: string;
   userEmail: string;
   usageLabel: string;
 }) {
   try {
-    const { provider, model, llmModel } = getModel(userAi);
+    const { provider, model, llmModel } = getModel(userAi, useEconomyModel);
 
     const result = await generateText({
       model: llmModel,
       prompt,
       system,
-      experimental_telemetry: { isEnabled: true },
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -67,6 +108,7 @@ export async function chatCompletion({
 
 type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
+  useEconomyModel?: boolean;
   schema: z.Schema<T>;
   userEmail: string;
   usageLabel: string;
@@ -91,6 +133,7 @@ export async function chatCompletionObject<T>(
 
 async function chatCompletionObjectInternal<T>({
   userAi,
+  useEconomyModel,
   system,
   prompt,
   messages,
@@ -99,7 +142,7 @@ async function chatCompletionObjectInternal<T>({
   usageLabel,
 }: ChatCompletionObjectArgs<T>) {
   try {
-    const { provider, model, llmModel } = getModel(userAi);
+    const { provider, model, llmModel } = getModel(userAi, useEconomyModel);
 
     const result = await generateObject({
       model: llmModel,
@@ -107,7 +150,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
-      experimental_telemetry: { isEnabled: true },
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -129,6 +172,7 @@ async function chatCompletionObjectInternal<T>({
 
 export async function chatCompletionStream({
   userAi,
+  useEconomyModel,
   prompt,
   system,
   userEmail,
@@ -136,19 +180,20 @@ export async function chatCompletionStream({
   onFinish,
 }: {
   userAi: UserAIFields;
+  useEconomyModel?: boolean;
   prompt: string;
   system?: string;
   userEmail: string;
   usageLabel: string;
   onFinish?: (text: string) => Promise<void>;
 }) {
-  const { provider, model, llmModel } = getModel(userAi);
+  const { provider, model, llmModel } = getModel(userAi, useEconomyModel);
 
   const result = streamText({
     model: llmModel,
     prompt,
     system,
-    experimental_telemetry: { isEnabled: true },
+    ...getCommonOptions(provider, useEconomyModel),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
@@ -167,6 +212,7 @@ export async function chatCompletionStream({
 
 type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
+  useEconomyModel?: boolean;
   tools: Record<string, CoreTool>;
   maxSteps?: number;
   label: string;
@@ -190,6 +236,7 @@ export async function chatCompletionTools(options: ChatCompletionToolsArgs) {
 
 async function chatCompletionToolsInternal({
   userAi,
+  useEconomyModel,
   system,
   prompt,
   messages,
@@ -199,7 +246,7 @@ async function chatCompletionToolsInternal({
   userEmail,
 }: ChatCompletionToolsArgs) {
   try {
-    const { provider, model, llmModel } = getModel(userAi);
+    const { provider, model, llmModel } = getModel(userAi, useEconomyModel);
 
     const result = await generateText({
       model: llmModel,
@@ -209,7 +256,7 @@ async function chatCompletionToolsInternal({
       prompt,
       messages,
       maxSteps,
-      experimental_telemetry: { isEnabled: true },
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -232,6 +279,7 @@ async function chatCompletionToolsInternal({
 // not in use atm
 async function streamCompletionTools({
   userAi,
+  useEconomyModel,
   prompt,
   system,
   tools,
@@ -241,6 +289,7 @@ async function streamCompletionTools({
   onFinish,
 }: {
   userAi: UserAIFields;
+  useEconomyModel?: boolean;
   prompt: string;
   system?: string;
   tools: Record<string, CoreTool>;
@@ -249,7 +298,7 @@ async function streamCompletionTools({
   label: string;
   onFinish?: (text: string) => Promise<void>;
 }) {
-  const { provider, model, llmModel } = getModel(userAi);
+  const { provider, model, llmModel } = getModel(userAi, useEconomyModel);
 
   const result = await streamText({
     model: llmModel,
@@ -258,7 +307,7 @@ async function streamCompletionTools({
     prompt,
     system,
     maxSteps,
-    experimental_telemetry: { isEnabled: true },
+    ...getCommonOptions(provider, useEconomyModel),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,

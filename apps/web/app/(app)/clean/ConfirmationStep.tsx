@@ -82,16 +82,15 @@ export function ConfirmationStep({
         <li>
           {action === CleanAction.ARCHIVE ? (
             <>
-              Emails we archive will be labeled{" "}
-              <Badge color="green">Archived</Badge>
+              Archived emails will be labeled{" "}
+              <Badge color="green">Archived</Badge> in Gmail.
             </>
           ) : (
             <>
-              Emails we mark as read will be labeled{" "}
-              <Badge color="green">Read</Badge>
+              Emails marked as read will be labeled{" "}
+              <Badge color="green">Read</Badge> in Gmail.
             </>
-          )}{" "}
-          so you can find them later or restore them.
+          )}
         </li>
         <li>No emails are deleted - everything can be found in search.</li>
         {reuseSettings && (

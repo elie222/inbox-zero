@@ -22,8 +22,7 @@ export const env = createEnv({
         "groq",
         "ollama",
       ])
-      .default("google"),
-    DEFAULT_LLM_MODEL: z.string().optional().default("gemini-1.5-pro-latest"),
+      .default("bedrock"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
@@ -68,9 +67,24 @@ export const env = createEnv({
     INTERNAL_API_KEY: z.string().optional(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
-    // See Vercel limits here: https://vercel.com/docs/functions/configuring-functions/duration#duration-limits
-    // Vercel Fluid Compute allows up to 800s, but other plans are capped at 300s or less
-    MAX_DURATION: z.coerce.number().optional().default(800),
+
+    // Economy LLM configuration (for large context windows where cost efficiency matters)
+    ECONOMY_LLM_PROVIDER: z
+      .enum([
+        "anthropic",
+        "google",
+        "openai",
+        "bedrock",
+        "openrouter",
+        "groq",
+        "ollama",
+      ])
+      .optional()
+      .default("openrouter"),
+    ECONOMY_LLM_MODEL: z
+      .string()
+      .optional()
+      .default("meta-llama/llama-4-maverick"),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),

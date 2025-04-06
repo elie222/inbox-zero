@@ -204,7 +204,7 @@ export async function processHistoryForUser(
               stack: error.stack,
               name: error.name,
             }
-          : String(error),
+          : error,
     });
     return NextResponse.json({ error: true });
     // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
@@ -248,7 +248,7 @@ async function processHistory(options: ProcessHistoryOptions) {
                   stack: error.stack,
                   name: error.name,
                 }
-              : String(error),
+              : error,
         });
       }
     }

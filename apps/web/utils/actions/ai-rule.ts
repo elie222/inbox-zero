@@ -7,7 +7,7 @@ import { ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
-  runRulesOnMessage,
+  runRules,
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -41,6 +41,7 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { getAiUser } from "@/utils/user/get";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -114,7 +115,7 @@ export const runRulesAction = withActionInstrumentation(
 
     const message = parseMessage(gmailMessage);
 
-    const result = await runRulesOnMessage({
+    const result = await runRules({
       isTest,
       gmail,
       message,
@@ -155,7 +156,7 @@ export const testAiCustomContentAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const result = await runRulesOnMessage({
+    const result = await runRules({
       isTest: true,
       gmail,
       message: {
@@ -191,15 +192,7 @@ export const createAutomationAction = withActionInstrumentation<
   if (!userId) return { error: "Not logged in" };
   if (!session.accessToken) return { error: "No access token" };
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-      email: true,
-    },
-  });
+  const user = await getAiUser({ id: userId });
   if (!user) return { error: "User not found" };
   if (!user.email) return { error: "User email not found" };
 
@@ -264,7 +257,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     const executedRule = await prisma.executedRule.findUnique({
       where: { id: executedRuleId },
-      include: { actionItems: true, rule: { select: { trackReplies: true } } },
+      include: { actionItems: true },
     });
     if (!executedRule) return { error: "Item not found" };
 
@@ -273,7 +266,6 @@ export const approvePlanAction = withActionInstrumentation(
       message,
       executedRule,
       userEmail: session.user.email,
-      isReplyTrackingRule: executedRule.rule?.trackReplies || false,
     });
   },
 );
@@ -580,16 +572,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
     const session = await auth();
     if (!session?.user.id) return { error: "Not logged in" };
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: {
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
-        email: true,
-        about: true,
-      },
-    });
+    const user = await getAiUser({ id: session.user.id });
 
     if (!user) return { error: "User not found" };
     if (!user.email) return { error: "User email not found" };
@@ -692,16 +675,7 @@ export const reportAiMistakeAction = withActionInstrumentation(
             where: { id: actualRuleId, userId: session.user.id },
           })
         : null,
-      prisma.user.findUnique({
-        where: { id: session.user.id },
-        select: {
-          email: true,
-          about: true,
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
-        },
-      }),
+      getAiUser({ id: session.user.id }),
     ]);
 
     if (expectedRuleId && !expectedRule)

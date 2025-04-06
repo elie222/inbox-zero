@@ -63,24 +63,27 @@ export function CleanInstructionsStep() {
           name="receipt"
           enabled={skipStates.skipReceipt}
           onChange={(value) => setSkipStates({ skipReceipt: value })}
-          labelRight="Receipts"
+          labelRight="Payment receipts"
         />
-        <Toggle
+        {/* <Toggle
           name="attachment"
           enabled={skipStates.skipAttachment}
           onChange={(value) => setSkipStates({ skipAttachment: value })}
           labelRight="Emails with attachments"
+        /> */}
+        <Toggle
+          name="conversation"
+          enabled={skipStates.skipConversation}
+          onChange={(value) => setSkipStates({ skipConversation: value })}
+          labelRight="Conversations"
+          tooltipText="Email threads where you sent a reply"
         />
-      </div>
-
-      <div className="mt-4">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => setShowCustom(!showCustom)}
-        >
-          Set Custom Instructions
-        </Button>
+        <Toggle
+          name="custom"
+          enabled={showCustom}
+          onChange={(value) => setShowCustom(value)}
+          labelRight="Custom"
+        />
       </div>
 
       {showCustom && (
@@ -93,7 +96,8 @@ export function CleanInstructionsStep() {
             registerProps={register("instructions")}
             placeholder={`Example:
 
-I work as a freelance designer. Don't archive emails from clients.`}
+I work as a freelance designer. Don't archive emails from clients.
+I'm in the middle of a building project, keep those emails too.`}
             error={errors.instructions}
           />
         </div>

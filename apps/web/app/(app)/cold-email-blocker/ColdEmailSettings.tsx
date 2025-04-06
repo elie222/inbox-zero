@@ -2,18 +2,17 @@
 
 import { useCallback, useMemo } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
-import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ColdEmailSetting } from "@prisma/client";
-import { isError } from "@/utils/error";
+import { isActionError } from "@/utils/error";
 import { Button } from "@/components/ui/button";
 import {
   type UpdateColdEmailSettingsBody,
   updateColdEmailSettingsBody,
-} from "@/app/api/user/settings/cold-email/validation";
+} from "@/utils/actions/cold-email.validation";
+import { updateColdEmailSettingsAction } from "@/utils/actions/cold-email";
 import { ColdEmailPromptForm } from "@/app/(app)/cold-email-blocker/ColdEmailPromptForm";
 import { RadioGroup } from "@/components/RadioGroup";
 import { useUser } from "@/hooks/useUser";
@@ -58,14 +57,9 @@ export function ColdEmailForm({
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
     async (data) => {
-      const res = await postRequest<
-        SaveEmailUpdateSettingsResponse,
-        UpdateColdEmailSettingsBody
-      >("/api/user/settings/cold-email", {
-        coldEmailBlocker: data.coldEmailBlocker,
-      });
+      const result = await updateColdEmailSettingsAction(data);
 
-      if (isError(res)) {
+      if (isActionError(result)) {
         toastError({
           description: "There was an error updating the settings.",
         });

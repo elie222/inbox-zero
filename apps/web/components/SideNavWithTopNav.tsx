@@ -18,7 +18,7 @@ export function SideNavWithTopNav({
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
-      <SidebarInset className="overflow-hidden bg-slate-50 dark:bg-black">
+      <SidebarInset className="overflow-hidden bg-background">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
         <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}

@@ -37,6 +37,7 @@ const cleanThreadBody = z.object({
     calendar: z.boolean().default(true).nullish(),
     receipt: z.boolean().default(false).nullish(),
     attachment: z.boolean().default(false).nullish(),
+    conversation: z.boolean().default(false).nullish(),
   }),
   labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
@@ -103,6 +104,10 @@ async function cleanThread({
     return message.labelIds?.includes(GmailLabel.STARRED);
   }
 
+  function isSent(message: ParsedMessage) {
+    return message.labelIds?.includes(GmailLabel.SENT);
+  }
+
   function hasAttachments(message: ParsedMessage) {
     return message.payload?.parts?.some((part) => part.filename);
   }
@@ -124,6 +129,12 @@ async function cleanThread({
   for (const message of messages) {
     // Skip if message is starred and skipStarred is true
     if (skips.starred && isStarred(message)) {
+      await publish({ markDone: false });
+      return;
+    }
+
+    // Skip conversations
+    if (skips.conversation && isSent(message)) {
       await publish({ markDone: false });
       return;
     }

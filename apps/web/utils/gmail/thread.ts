@@ -16,19 +16,33 @@ export async function getThread(
   return thread.data as ThreadWithPayloadMessages;
 }
 
+interface MinimalThread {
+  id: string;
+  snippet: string;
+  historyId: string;
+}
+
 export async function getThreads(
   q: string,
   labelIds: string[],
   gmail: gmail_v1.Gmail,
   maxResults = 100,
-) {
+): Promise<{
+  nextPageToken?: string | null;
+  resultSizeEstimate?: number | null;
+  threads: MinimalThread[];
+}> {
   const threads = await gmail.users.threads.list({
     userId: "me",
     q,
     labelIds,
     maxResults,
   });
-  return threads.data || [];
+  return {
+    nextPageToken: threads.data.nextPageToken,
+    resultSizeEstimate: threads.data.resultSizeEstimate,
+    threads: (threads.data.threads || []) as MinimalThread[],
+  };
 }
 
 export async function getThreadsWithNextPageToken({

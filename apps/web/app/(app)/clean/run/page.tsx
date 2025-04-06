@@ -26,7 +26,7 @@ export default async function CleanRunPage(props: {
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
-  const [total, archived] = await Promise.all([
+  const [total, done] = await Promise.all([
     prisma.cleanupThread.count({ where: { jobId, userId } }),
     prisma.cleanupThread.count({ where: { jobId, userId, archived: true } }),
   ]);
@@ -37,7 +37,7 @@ export default async function CleanRunPage(props: {
       job={job}
       threads={threads}
       total={total}
-      archived={archived}
+      done={done}
       userEmail={userEmail}
     />
   );

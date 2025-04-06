@@ -14,13 +14,7 @@ import {
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/Input";
 import {
@@ -203,7 +197,7 @@ function RulesPromptForm({
     <div>
       <PremiumAlertWithData className="my-2" />
 
-      <Card className="grid grid-cols-1 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="sm:col-span-2">
           <ProcessingPromptFileDialog
             open={isDialogOpen}
@@ -214,15 +208,12 @@ function RulesPromptForm({
             }
           />
 
-          <CardHeader>
+          <CardHeader className="px-0 py-4">
             <CardTitle>
               How your AI personal assistant should handle incoming emails
             </CardTitle>
-            <CardDescription>
-              Write a prompt for your assistant to follow.
-            </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-0">
             {showClearWarning && (
               <AlertBasic
                 className="mb-2"
@@ -240,7 +231,7 @@ function RulesPromptForm({
                   name="rulesPrompt"
                   type="text"
                   autosizeTextarea
-                  rows={25}
+                  rows={30}
                   maxRows={50}
                   error={errors.rulesPrompt}
                   placeholder={`Here's an example of what your prompt might look like:
@@ -323,10 +314,10 @@ Let me know if you're interested!
             </form>
           </CardContent>
         </div>
-        <div className="px-4 pb-4 sm:mt-8 sm:px-0 sm:py-0 xl:px-4">
+        <div className="pb-4 sm:mt-4 sm:py-0">
           <SectionHeader>Examples</SectionHeader>
 
-          <ScrollArea className="mt-2 sm:h-[600px] sm:max-h-[600px]">
+          <ScrollArea className="mt-2 sm:h-[75vh] sm:max-h-[75vh]">
             <div className="grid grid-cols-1 gap-2 sm:pr-3">
               {examplePrompts.map((example) => (
                 <Button
@@ -341,7 +332,7 @@ Let me know if you're interested!
             </div>
           </ScrollArea>
         </div>
-      </Card>
+      </div>
     </div>
   );
 }

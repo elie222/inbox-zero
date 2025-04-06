@@ -99,10 +99,6 @@ You also need to set an LLM, but you can use a local one too:
 - Groq Llama 3.3 70B
 - Ollama (local)
 
-To enable Bulk Unsubscriber, Analytics and Smart Categories you will also need to set:
-
-- [Tinybird](https://www.tinybird.co/)
-
 We use Postgres for the database.
 For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
 
@@ -131,7 +127,6 @@ The required environment variables:
 - `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
-- `TINYBIRD_TOKEN` -- (optional) Admin token for your Tinybird workspace (be sure to create an instance in the GCP `us-east4` region. This can also be changed via your `.env` if you prefer a different region). You can also decide to disabled Tinybird and then the analytics and bulk unsubscribe features will be disabled. Set `NEXT_PUBLIC_DISABLE_TINYBIRD=true` if you decide to disable Tinybird.
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
 
@@ -141,7 +136,7 @@ To run the migrations:
 pnpm prisma migrate dev
 ```
 
-To run the app locally:
+To run the app locally for development (slower):
 
 ```bash
 pnpm run dev
@@ -153,8 +148,17 @@ Or from the project root:
 turbo dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-To upgrade yourself to admin visit: [http://localhost:3000/admin](http://localhost:3000/admin).
+To build and run the app locally in production mode (faster):
+
+```bash
+pnpm run build
+pnpm start
+```
+
+Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
+
+To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
+Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
 
 ### Supported LLMs
 
@@ -180,12 +184,6 @@ https://www.googleapis.com/auth/gmail.modify
 https://www.googleapis.com/auth/gmail.settings.basic
 https://www.googleapis.com/auth/contacts
 ```
-
-### Setting up Tinybird
-
-Follow the instructions [here](./packages/tinybird/README.md) to setup the `pipes` and `datasources`.
-
-Optional: If you want to store AI usage stats in Tinybird too, then do the same in `/packages/tinybird-ai-analytics`.
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 

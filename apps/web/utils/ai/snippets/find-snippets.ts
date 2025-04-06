@@ -2,8 +2,7 @@ import { z } from "zod";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("AI Find Snippets");
@@ -23,7 +22,7 @@ export async function aiFindSnippets({
   user,
   sentEmails,
 }: {
-  user: Pick<User, "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   sentEmails: EmailForLLM[];
 }) {
   const system = `You are an AI assistant that analyzes email content to find common snippets (canned responses) that the user frequently uses.

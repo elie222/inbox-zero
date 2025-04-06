@@ -23,11 +23,3 @@ export type ActionItem = {
   bcc?: ExecutedAction["bcc"];
   url?: ExecutedAction["url"];
 };
-
-export type Properties = PartialRecord<
-  "from" | "to" | "cc" | "bcc" | "subject" | "content" | "label" | "url",
-  {
-    type: string;
-    description: string;
-  }
->;

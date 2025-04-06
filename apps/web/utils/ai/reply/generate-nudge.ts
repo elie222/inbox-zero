@@ -3,6 +3,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
+import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("generate-nudge");
 
@@ -27,14 +28,13 @@ ${messages
   .map(
     (msg) => `<email>
 ${stringifyEmail(msg, 3000)}
-<date>${msg.date?.toISOString() ?? "unknown"}</date>
 </email>`,
   )
   .join("\n")}
      
 Write a brief follow-up email to politely nudge for a response.
 
-Today's date is: ${new Date().toISOString().split("T")[0]}.
+${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
   logger.trace("Input", { system, prompt });

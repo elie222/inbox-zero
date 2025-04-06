@@ -47,15 +47,15 @@ export const examplePrompts = [
   'Label Stripe emails as "Stripe"',
 ];
 
-const founderPrompt = `${common}
-* If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example.
+const founderPrompt = `* If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example.
 * Label customer feedback emails as "Customer Feedback".
 * Label customer support emails as "Customer Support".
 * Label emails from investors as "Investor".
 * Label legal documents as "Legal".
 * Label emails about travel as "Travel".
 * Label recruitment related emails as "Hiring".
-* Label press inquiries as "Press" and forward to PR@company.com.`;
+* Label marketing and newsletter emails as "Marketing" and archive them.
+* Label receipts as 'Receipt' and archive them.`;
 
 export const personas = {
   founder: {
@@ -64,8 +64,7 @@ export const personas = {
   },
   creator: {
     label: "📹 Creator",
-    prompt: `${common}
-* Label sponsorship inquiries as "Sponsorship" and draft a reply as follows:
+    prompt: `* Label sponsorship inquiries as "Sponsorship" and draft a reply as follows:
 ---
 Hey NAME,
 
@@ -74,37 +73,20 @@ SENTENCE RELATED TO THEIR INQUIRY
 I've attached my media kit and pricing.
 ---
 
-* If someone asks for fitness advice, draft a reply as follows:
----
-Hey,
-
-I've attached my workout program link: https://example.com/program
----
-
-* If someone asks for medical advice, draft a reply explaining I can't give personal medical advice and to consult their doctor.
-* If someone asks for free coaching, draft a reply with my coaching packages link: https://example.com/coaching
+* Label emails about affiliate programs as "Affiliate" and archive them.
 * Label collaboration requests as "Collab" and draft a reply asking about their audience size and engagement rates.
 * Label brand partnership emails as "Brand Deal" and forward to manager@example.com
-* Label emails about podcast guest appearances as "Podcast" and draft a reply with calendar link: https://cal.com/example
 * Label media inquiries as "Press" and draft a reply a polite reply.
-* If someone reports issues with digital products, label as "Support" and forward to support@example.com
-* Label emails about speaking opportunities as "Speaking".
-* If someone asks about my equipment/gear, draft a reply with my Amazon storefront link: https://amazon.com/shop/creator
-* If someone asks about my supplement stack, draft a reply with my recommended supplements page: https://example.com/supplements
-* Label emails about affiliate programs as "Affiliate" and archive them.
-* If someone asks for a discount code, reply with "CREATOR20" for 20% off.
-* Label emails containing user success stories as "Testimonial" and draft a reply thanking them for their support.`,
+* Label marketing and newsletter emails as "Marketing" and archive them.`,
   },
   investor: {
     label: "💰 Investor",
-    prompt: `${common}
-* If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example.
+    prompt: `* If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example.
 * If a founder sends me an investor update, label it "Investor Update" and archive it.
 * If a founder pitches me their startup, label it "Pitch Deck", and forward it to analyst@vc.com that asks them to review it.
 * Label emails from LPs as "LP".
 * Label legal documents as "Legal".
 * Label emails about travel as "Travel".
-* If someone asks about investment thesis, reply with a link to our public investment memo: https://example.com/thesis
 * Label emails about portfolio company exits as "Exit Opportunity".
 * Label emails containing term sheets as "Term Sheet".
 * If a portfolio company reports bad news, label as "Portfolio Alert" and draft a reply to schedule an emergency call.
@@ -112,7 +94,8 @@ I've attached my workout program link: https://example.com/program
 * Forward emails about industry research reports to research@vc.com
 * If someone asks for a warm intro to a portfolio company, draft a reply asking for more context about why they want to connect.
 * Label emails about fund administration as "Fund Admin".
-* Label emails about speaking at investment conferences as "Speaking Opportunity".`,
+* Label emails about speaking at investment conferences as "Speaking Opportunity".
+* Label marketing and newsletter emails as "Marketing" and archive them.`,
   },
   assistant: {
     label: "📋 Assistant",
@@ -120,8 +103,7 @@ I've attached my workout program link: https://example.com/program
   },
   developer: {
     label: "👨‍💻 Developer",
-    prompt: `${common}
-* Label server errors, deployment failures, and other server alerts as "Alert" and forward to oncall@company.com.
+    prompt: `* Label server errors, deployment failures, and other server alerts as "Alert" and forward to oncall@company.com.
 * Label emails from GitHub as "GitHub" and archive them.
 * Label emails from Figma as "Design" and archive them.
 * Label emails from Stripe as "Stripe" and archive them.
@@ -133,8 +115,7 @@ I've attached my workout program link: https://example.com/program
   },
   designer: {
     label: "🎨 Designer",
-    prompt: `${common}
-* Label emails from Figma, Adobe, Sketch, and other design tools as "Design" and archive them.
+    prompt: `* Label emails from Figma, Adobe, Sketch, and other design tools as "Design" and archive them.
 * Label emails from clients as "Client".
 * If someone sends design assets, label as "Design Assets" and forward to assets@company.com.
 * Label emails from Dribbble, Behance, and other design inspiration sites as "Inspiration" and archive them.
@@ -146,8 +127,7 @@ I've attached my workout program link: https://example.com/program
   },
   sales: {
     label: "🤝 Sales",
-    prompt: `${common}
-* Label emails from prospects as "Prospect".
+    prompt: `* Label emails from prospects as "Prospect".
 * Label emails from customers as "Customer".
 * Label emails about deal negotiations as "Deal Discussion".
 * Label emails from sales tools as "Sales Tool" and archive them.
@@ -162,8 +142,7 @@ I've attached my workout program link: https://example.com/program
   },
   marketing: {
     label: "📢 Marketing",
-    prompt: `${common}
-* Label emails from influencers as "Influencer".
+    prompt: `* Label emails from influencers as "Influencer".
 * Label emails from ad platforms (Google, Meta, LinkedIn) as "Advertising".
 * Label press inquiries as "Press" and forward to pr@company.com.
 * Label emails about content marketing as "Content".
@@ -174,8 +153,7 @@ I've attached my workout program link: https://example.com/program
   },
   support: {
     label: "🛠️ Support",
-    prompt: `${common}
-* Label customer support tickets as "Support Ticket".
+    prompt: `* Label customer support tickets as "Support Ticket".
 * If someone reports a critical issue, label as "Urgent Support" and forward to urgent@company.com.
 * Label bug reports as "Bug" and forward to engineering@company.com.
 * Label feature requests as "Feature Request" and forward to product@company.com.
@@ -190,8 +168,7 @@ I've attached my workout program link: https://example.com/program
   },
   recruiter: {
     label: "👥 Recruiter",
-    prompt: `${common}
-* Label emails from candidates as "Candidate".
+    prompt: `* Label emails from candidates as "Candidate".
 * Label emails from hiring managers as "Hiring Manager".
 * Label emails from recruiters as "Recruiter" and draft a reply with our hiring process overview link: https://company.com/hiring-process.
 * Label emails from job boards as "Job Board" and archive them.

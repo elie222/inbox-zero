@@ -2,11 +2,12 @@ import { removeExcessiveWhitespace, truncate } from "@/utils/string";
 import type { EmailForLLM } from "@/utils/types";
 
 export function stringifyEmail(email: EmailForLLM, maxLength: number) {
-  // TODO: not sure we need to do truncate/removeExcessiveWhitespace here as `emailToContent` will do this. but need to make sure it's always called
+  // not sure we need to do truncate/removeExcessiveWhitespace here as `emailToContent` will do this. but need to make sure it's always called
   const emailParts = [
     `<from>${email.from}</from>`,
     email.replyTo && `<replyTo>${email.replyTo}</replyTo>`,
     email.cc && `<cc>${email.cc}</cc>`,
+    email.date && `<date>${email.date.toISOString()}</date>`,
     `<subject>${email.subject}</subject>`,
     `<body>${truncate(removeExcessiveWhitespace(email.content), maxLength)}</body>`,
   ];

@@ -16,6 +16,7 @@ const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
+  ActionType.TRACK_THREAD,
 ]);
 
 export const zodRuleType = z.enum([
@@ -54,6 +55,8 @@ const zodField = z
   .object({
     value: z.string().nullish(),
     ai: z.boolean().nullish(),
+    // only needed for frontend
+    setManually: z.boolean().nullish(),
   })
   .nullish();
 
@@ -134,15 +137,29 @@ export type UpdateRuleInstructionsBody = z.infer<
 export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
-export const rulesExamplesBody = z.object({
-  rulesPrompt: z.string(),
-});
+export const rulesExamplesBody = z.object({ rulesPrompt: z.string() });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
 export const updateRuleSettingsBody = z.object({
   id: z.string(),
   instructions: z.string(),
-  draftReplies: z.boolean(),
-  draftRepliesInstructions: z.string(),
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
+
+export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
+export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
+
+const categoryAction = z.enum(["label", "label_archive", "none"]);
+export type CategoryAction = z.infer<typeof categoryAction>;
+export const createRulesOnboardingBody = z.object({
+  toReply: categoryAction,
+  newsletter: categoryAction,
+  marketing: categoryAction,
+  calendar: categoryAction,
+  receipt: categoryAction,
+  notification: categoryAction,
+  coldEmail: categoryAction,
+});
+export type CreateRulesOnboardingBody = z.infer<
+  typeof createRulesOnboardingBody
+>;

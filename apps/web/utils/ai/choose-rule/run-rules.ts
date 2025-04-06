@@ -12,9 +12,8 @@ import {
 } from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
-import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { getEmailForLLM } from "@/utils/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
@@ -30,7 +29,7 @@ export type RunRulesResult = {
   existing?: boolean;
 };
 
-export async function runRulesOnMessage({
+export async function runRules({
   gmail,
   message,
   rules,
@@ -48,7 +47,7 @@ export async function runRulesOnMessage({
   logger.trace("Matching rule", { result });
 
   if (result.rule) {
-    return await runRule(
+    return await executeMatchedRule(
       result.rule,
       message,
       user,
@@ -68,7 +67,7 @@ export async function runRulesOnMessage({
   return result;
 }
 
-async function runRule(
+async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
@@ -77,13 +76,12 @@ async function runRule(
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
 ) {
-  const email = getEmailForLLM(message);
-
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
-    email,
+    message,
     user,
     selectedRule: rule,
+    gmail,
   });
 
   // handle action
@@ -110,7 +108,6 @@ async function runRule(
       userEmail: user.email || "",
       executedRule,
       message,
-      isReplyTrackingRule: rule.trackReplies || false,
     });
   }
 
