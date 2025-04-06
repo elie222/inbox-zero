@@ -4,8 +4,6 @@ import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
-import { internalDateToDate } from "@/utils/date";
 import type { ParsedMessage } from "@/utils/types";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
@@ -25,19 +23,16 @@ export async function executeAct({
   executedRule,
   userEmail,
   message,
-  isReplyTrackingRule,
 }: {
   gmail: gmail_v1.Gmail;
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
   userEmail: string;
-  isReplyTrackingRule: boolean;
 }) {
   const logger = createScopedLogger("ai-execute-act").with({
     email: userEmail,
     executedRuleId: executedRule.id,
     ruleId: executedRule.ruleId,
-    isReplyTrackingRule,
     threadId: executedRule.threadId,
     messageId: executedRule.messageId,
   });
@@ -62,21 +57,6 @@ export async function executeAct({
       });
       throw error;
     }
-  }
-
-  // reply tracker
-  // TODO: we should make this an action instead to keep it really clean
-  if (isReplyTrackingRule) {
-    await coordinateReplyProcess(
-      executedRule.userId,
-      userEmail,
-      executedRule.threadId,
-      executedRule.messageId,
-      internalDateToDate(message.internalDate),
-      gmail,
-    ).catch((error) => {
-      logger.error("Failed to create reply tracker", { error });
-    });
   }
 
   await prisma.executedRule

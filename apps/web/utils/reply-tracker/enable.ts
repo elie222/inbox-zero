@@ -13,11 +13,11 @@ export async function enableReplyTracker(userId: string) {
   const logger = createScopedLogger("reply-tracker/enable").with({ userId });
 
   // If enabled already skip
-  const existingRule = await prisma.rule.findFirst({
-    where: { userId, trackReplies: true },
+  const existingRuleAction = await prisma.rule.findFirst({
+    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
   });
 
-  if (existingRule) return { success: true, alreadyEnabled: true };
+  if (existingRuleAction) return { success: true, alreadyEnabled: true };
 
   // Find existing reply required rule, make it track replies
   const user = await prisma.user.findUnique({
@@ -135,11 +135,28 @@ export async function enableReplyTracker(userId: string) {
 
   const updatedRule = await prisma.rule.update({
     where: { id: ruleId },
-    data: { trackReplies: true, runOnThreads: true },
+    data: { runOnThreads: true },
     select: { id: true, actions: true },
   });
 
-  await enableDraftReplies(updatedRule);
+  await Promise.allSettled([
+    enableReplyTracking(updatedRule),
+    enableDraftReplies(updatedRule),
+    enableOutboundReplyTracking(userId),
+  ]);
+}
+
+async function enableReplyTracking(
+  rule: Prisma.RuleGetPayload<{
+    select: { id: true; actions: true };
+  }>,
+) {
+  // already tracking replies
+  if (rule.actions?.find((a) => a.type === ActionType.TRACK_THREAD)) return;
+
+  await prisma.action.create({
+    data: { ruleId: rule.id, type: ActionType.TRACK_THREAD },
+  });
 }
 
 export async function enableDraftReplies(
@@ -155,5 +172,12 @@ export async function enableDraftReplies(
       ruleId: rule.id,
       type: ActionType.DRAFT_EMAIL,
     },
+  });
+}
+
+async function enableOutboundReplyTracking(userId: string) {
+  await prisma.user.update({
+    where: { id: userId },
+    data: { outboundReplyTracking: true },
   });
 }

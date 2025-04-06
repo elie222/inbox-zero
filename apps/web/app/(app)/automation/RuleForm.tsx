@@ -62,20 +62,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { LearnedPatterns } from "@/app/(app)/automation/group/LearnedPatterns";
-import {
-  AWAITING_REPLY_LABEL_NAME,
-  NEEDS_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { Tooltip } from "@/components/Tooltip";
 import { createGroupAction } from "@/utils/actions/group";
-import { z } from "zod";
 
 export function RuleForm({
   rule,
-  isReplyTrackingRule,
 }: {
   rule: CreateRuleBody & { id?: string };
-  isReplyTrackingRule: boolean;
 }) {
   const {
     register,
@@ -230,6 +223,7 @@ export function RuleForm({
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
+      { label: "Track thread", value: ActionType.TRACK_THREAD },
     ];
   }, []);
 
@@ -586,12 +580,6 @@ export function RuleForm({
 
       <TypographyH3 className="mt-6">Actions</TypographyH3>
 
-      {isReplyTrackingRule && (
-        <div className="mt-4">
-          <ReplyTrackerActionSection />
-        </div>
-      )}
-
       {actionErrors.length > 0 && (
         <div className="mt-4">
           <AlertError
@@ -660,6 +648,10 @@ export function RuleForm({
                       />
                     );
                   })}
+
+                  {action.type === ActionType.TRACK_THREAD && (
+                    <ReplyTrackerAction />
+                  )}
                 </div>
               </div>
             </CardBasic>
@@ -798,34 +790,13 @@ function LabelCombobox({
   );
 }
 
-function ReplyTrackerActionSection() {
+function ReplyTrackerAction() {
   return (
-    <CardBasic className="border-blue-500">
-      <div className="space-y-4">
-        <div>
-          <TypographyH3>Reply Zero Tracker</TypographyH3>
-          <SectionDescription>
-            This rule will automatically track emails waiting for replies and
-            help manage your follow-ups:
-          </SectionDescription>
-        </div>
-
-        <ul className="list-inside list-disc space-y-2 text-sm text-muted-foreground">
-          <li>
-            Emails will be labeled as "{NEEDS_REPLY_LABEL_NAME}" and "
-            {AWAITING_REPLY_LABEL_NAME}" when appropriate
-          </li>
-          <li>AI will draft replies when confident it can help</li>
-        </ul>
-
-        <div className="rounded-md bg-muted/50 p-4">
-          <p className="text-sm text-muted-foreground">
-            These actions are automatically configured for reply tracking and
-            cannot be modified.
-          </p>
-        </div>
+    <div className="h-full flex items-center justify-center">
+      <div className="text-center text-sm text-muted-foreground max-w-sm">
+        Automatically updates the label when you reply.
       </div>
-    </CardBasic>
+    </div>
   );
 }
 

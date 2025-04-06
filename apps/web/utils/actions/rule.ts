@@ -307,7 +307,10 @@ export const enableDraftRepliesAction = withActionInstrumentation(
     if (error) return { error: error.message };
 
     const rule = await prisma.rule.findFirst({
-      where: { userId: session.user.id, trackReplies: true },
+      where: {
+        userId: session.user.id,
+        actions: { some: { type: ActionType.TRACK_THREAD } },
+      },
       select: { id: true, actions: true },
     });
     if (!rule) return { error: "Rule not found" };

@@ -1,10 +1,9 @@
 import prisma from "@/utils/prisma";
-import { ThreadTrackerType } from "@prisma/client";
+import { ActionType, ThreadTrackerType } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
-  labelNeedsReply,
   removeAwaitingReplyLabel,
-  getReplyTrackingLabels,
+  getAwaitingReplyLabel,
 } from "@/utils/reply-tracker/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { UserEmailWithAI } from "@/utils/llms/types";
@@ -13,7 +12,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 /**
  * Marks an email thread as needing a reply.
@@ -38,17 +36,14 @@ export async function coordinateReplyProcess(
 
   logger.info("Marking thread as needs reply");
 
-  const { awaitingReplyLabelId, needsReplyLabelId } =
-    await getReplyTrackingLabels(gmail);
+  const awaitingReplyLabelId = await getAwaitingReplyLabel(gmail);
 
   // Process in parallel for better performance
   const dbPromise = updateThreadTrackers(userId, threadId, messageId, sentAt);
-  const labelsPromise = updateGmailLabels(
+  const labelsPromise = removeAwaitingReplyLabel(
     gmail,
     threadId,
-    messageId,
     awaitingReplyLabelId,
-    needsReplyLabelId,
   );
 
   const [dbResult, labelsResult] = await Promise.allSettled([
@@ -109,25 +104,6 @@ async function updateThreadTrackers(
   ]);
 }
 
-/**
- * Updates Gmail labels - removes awaiting reply label and adds needs reply label
- */
-async function updateGmailLabels(
-  gmail: gmail_v1.Gmail,
-  threadId: string,
-  messageId: string,
-  awaitingReplyLabelId: string,
-  needsReplyLabelId: string,
-) {
-  const removeLabelPromise = removeAwaitingReplyLabel(
-    gmail,
-    threadId,
-    awaitingReplyLabelId,
-  );
-  const newLabelPromise = labelNeedsReply(gmail, messageId, needsReplyLabelId);
-  return Promise.all([removeLabelPromise, newLabelPromise]);
-}
-
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
   user: Pick<User, "about"> & UserEmailWithAI,
@@ -138,22 +114,30 @@ export async function handleInboundReply(
   // 2. If the reply tracking rule is selected then mark as needs reply
   // We ignore the rest of the actions for this rule here as this could lead to double handling of emails for the user
 
-  const replyTrackingRule = await getReplyTrackingRule(user.id);
+  const replyTrackingRules = await prisma.rule.findMany({
+    where: {
+      userId: user.id,
+      instructions: { not: null },
+      actions: {
+        some: {
+          type: ActionType.TRACK_THREAD,
+        },
+      },
+    },
+  });
 
-  if (!replyTrackingRule?.instructions) return;
+  if (replyTrackingRules.length === 0) return;
 
   const result = await aiChooseRule({
     email: getEmailForLLM(message),
-    rules: [
-      {
-        id: replyTrackingRule.id,
-        instructions: replyTrackingRule.instructions,
-      },
-    ],
+    rules: replyTrackingRules.map((rule) => ({
+      id: rule.id,
+      instructions: rule.instructions || "",
+    })),
     user,
   });
 
-  if (result.rule?.id === replyTrackingRule.id) {
+  if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
     await coordinateReplyProcess(
       user.id,
       user.email,

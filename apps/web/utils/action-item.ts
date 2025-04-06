@@ -122,6 +122,7 @@ export const actionInputs: Record<
     ],
   },
   [ActionType.MARK_READ]: { fields: [] },
+  [ActionType.TRACK_THREAD]: { fields: [] },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
@@ -170,6 +171,7 @@ export function sanitizeActionFields(
     case ActionType.ARCHIVE:
     case ActionType.MARK_SPAM:
     case ActionType.MARK_READ:
+    case ActionType.TRACK_THREAD:
       return base;
     case ActionType.LABEL: {
       return {

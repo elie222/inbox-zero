@@ -102,16 +102,7 @@ export function Rules() {
                               Disabled
                             </Badge>
                           )}
-                          {rule.trackReplies ? (
-                            <Tooltip content="This is the rule used by Reply Zero">
-                              <Badge color="blue" className="mr-2">
-                                {rule.name}
-                                <InfoIcon className="ml-1 size-3" />
-                              </Badge>
-                            </Tooltip>
-                          ) : (
-                            rule.name
-                          )}
+                          {rule.name}
                         </Link>
 
                         {!rule.enabled && (

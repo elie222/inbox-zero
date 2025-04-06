@@ -1,11 +1,6 @@
 import { redirect } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  CheckCircleIcon,
-  ClockIcon,
-  MailIcon,
-  SettingsIcon,
-} from "lucide-react";
+import { CheckCircleIcon, ClockIcon, MailIcon } from "lucide-react";
 import { NeedsReply } from "./NeedsReply";
 import { Resolved } from "./Resolved";
 import { AwaitingReply } from "./AwaitingReply";
@@ -14,19 +9,11 @@ import prisma from "@/utils/prisma";
 import { TimeRangeFilter } from "./TimeRangeFilter";
 import type { TimeRange } from "./date-filter";
 import { isAnalyzingReplyTracker } from "@/utils/redis/reply-tracker-analyzing";
-import { Button } from "@/components/ui/button";
 import { TabsToolbar } from "@/components/TabsToolbar";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { ReplyTrackerSettings } from "@/app/(app)/reply-zero/ReplyTrackerSettings";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
+import { ActionType } from "@prisma/client";
 
 export const maxDuration = 300;
 
@@ -50,12 +37,12 @@ export default async function ReplyTrackerPage(props: {
 
   if (!viewedOnboarding) redirect("/reply-zero/onboarding");
 
-  const trackRepliesRule = await prisma.rule.findFirst({
-    where: { userId, trackReplies: true },
-    select: { trackReplies: true, id: true },
+  const trackerRule = await prisma.rule.findFirst({
+    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
+    select: { id: true },
   });
 
-  if (!trackRepliesRule?.trackReplies) redirect("/reply-zero/onboarding");
+  if (!trackerRule) redirect("/reply-zero/onboarding");
 
   const isAnalyzing = await isAnalyzingReplyTracker(userId);
 
@@ -101,20 +88,6 @@ export default async function ReplyTrackerPage(props: {
               </TabsList>
 
               <div className="flex items-center gap-2">
-                <Dialog>
-                  <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <SettingsIcon className="size-4" />
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Settings</DialogTitle>
-                    </DialogHeader>
-
-                    <ReplyTrackerSettings ruleId={trackRepliesRule?.id} />
-                  </DialogContent>
-                </Dialog>
                 <TimeRangeFilter />
               </div>
             </div>

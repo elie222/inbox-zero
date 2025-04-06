@@ -9,7 +9,6 @@ import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getReplyTrackingRule } from "@/utils/reply-tracker";
 import { getAiUser } from "@/utils/user/get";
 
 export const generateNudgeReplyAction = withActionInstrumentation(
@@ -35,10 +34,6 @@ export const generateNudgeReplyAction = withActionInstrumentation(
     });
 
     if (reply) return { text: reply };
-
-    const rule = await getReplyTrackingRule(user.id);
-
-    if (!rule) return { error: "No reply tracking rule found" };
 
     const messages = data.messages.map((msg) => ({
       ...msg,

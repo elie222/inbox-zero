@@ -16,6 +16,7 @@ const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
+  ActionType.TRACK_THREAD,
 ]);
 
 export const zodRuleType = z.enum([

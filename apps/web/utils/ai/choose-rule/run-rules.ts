@@ -108,7 +108,6 @@ async function executeMatchedRule(
       userEmail: user.email || "",
       executedRule,
       message,
-      isReplyTrackingRule: rule.trackReplies || false,
     });
   }
 

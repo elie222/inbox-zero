@@ -75,6 +75,7 @@ model User {
   coldEmailPrompt       String?
   rulesPrompt           String?
   webhookSecret         String?
+  outboundReplyTracking Boolean           @default(false)
 
   // categorization
   autoCategorizeSenders Boolean @default(false)
@@ -185,10 +186,10 @@ model Rule {
   executedRules ExecutedRule[]
 
   // reply tracking fields
-  trackReplies             Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
+  trackReplies             Boolean? // deprecated - If this is the reply tracking rule. Using partial unique index (created manually)
   draftReplies             Boolean? // deprecated
   draftRepliesInstructions String? // deprecated
-  threadTrackers           ThreadTracker[]
+  // threadTrackers           ThreadTracker[] // deprecated
 
   // conditions: ai, group, static, category
   type                RuleType? // deprecated
@@ -396,8 +397,8 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  ruleId String?
-  rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  // ruleId String?
+  // rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -517,6 +518,7 @@ enum ActionType {
   MARK_SPAM
   CALL_WEBHOOK
   MARK_READ
+  TRACK_THREAD
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO
