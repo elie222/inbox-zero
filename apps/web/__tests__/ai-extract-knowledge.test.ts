@@ -106,12 +106,12 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/\$5,000 per post/i);
-    expect(result.data?.relevantContent).toMatch(/3 stories/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$5,000 per post/i);
+    expect(result?.relevantContent).toMatch(/3 stories/i);
     console.debug(
       "Generated content for Instagram query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -125,12 +125,12 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/\$10,000/i);
-    expect(result.data?.relevantContent).toMatch(/60-90 second integration/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$10,000/i);
+    expect(result?.relevantContent).toMatch(/60-90 second integration/i);
     console.debug(
       "Generated content for YouTube query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -144,12 +144,12 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/\$3,000 per video/i);
-    expect(result.data?.relevantContent).toMatch(/6-8pm EST/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$3,000 per video/i);
+    expect(result?.relevantContent).toMatch(/6-8pm EST/i);
     console.debug(
       "Generated content for TikTok query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -162,7 +162,7 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.error).toBe("No knowledge base entries provided");
+    expect(result?.relevantContent).toBe("");
   });
 
   test("extracts multiple platform knowledge for general sponsorship inquiry", async () => {
@@ -175,13 +175,13 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/instagram/i);
-    expect(result.data?.relevantContent).toMatch(/youtube/i);
-    expect(result.data?.relevantContent).toMatch(/tiktok/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/instagram/i);
+    expect(result?.relevantContent).toMatch(/youtube/i);
+    expect(result?.relevantContent).toMatch(/tiktok/i);
     console.debug(
       "Generated content for multi-platform query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -195,14 +195,12 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(
-      /\$15,000 for in-person events/i,
-    );
-    expect(result.data?.relevantContent).toMatch(/travel expenses/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$15,000 for in-person events/i);
+    expect(result?.relevantContent).toMatch(/travel expenses/i);
     console.debug(
       "Generated content for speaking engagement query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -216,12 +214,12 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/\$500/i);
-    expect(result.data?.relevantContent).toMatch(/strategy audit/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$500/i);
+    expect(result?.relevantContent).toMatch(/strategy audit/i);
     console.debug(
       "Generated content for consulting query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 
@@ -235,13 +233,13 @@ describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
       user: getUser(),
     });
 
-    expect(result.data).toBeDefined();
-    expect(result.data?.relevantContent).toMatch(/\$50,000/i);
-    expect(result.data?.relevantContent).toMatch(/quarterly packages/i);
-    expect(result.data?.relevantContent).toMatch(/6 months/i);
+    expect(result?.relevantContent).toBeDefined();
+    expect(result?.relevantContent).toMatch(/\$50,000/i);
+    expect(result?.relevantContent).toMatch(/quarterly packages/i);
+    expect(result?.relevantContent).toMatch(/6 months/i);
     console.debug(
       "Generated content for brand ambassador query:\n",
-      result.data?.relevantContent,
+      result?.relevantContent,
     );
   }, 15_000);
 });

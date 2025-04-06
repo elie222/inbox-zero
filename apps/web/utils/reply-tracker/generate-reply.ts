@@ -179,7 +179,7 @@ async function generateDraftContent(
   const text = await aiDraftWithKnowledge({
     messages,
     user,
-    knowledgeBaseContent: knowledgeResult || null,
+    knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
   });
 
