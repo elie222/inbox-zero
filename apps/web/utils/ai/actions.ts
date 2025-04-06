@@ -9,7 +9,7 @@ import { ActionType, type ExecutedRule } from "@prisma/client";
 import {
   archiveThread,
   getOrCreateLabel,
-  labelThread,
+  labelMessage,
   markReadThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
@@ -99,9 +99,9 @@ const label: ActionFunction<{ label: string } | any> = async (
 
   if (!label.id) throw new Error("Label not found and unable to create label");
 
-  await labelThread({
+  await labelMessage({
     gmail,
-    threadId: email.threadId,
+    messageId: email.id,
     addLabelIds: [label.id],
   });
 };

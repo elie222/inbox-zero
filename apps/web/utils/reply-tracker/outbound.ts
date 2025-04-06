@@ -91,7 +91,7 @@ export async function handleOutboundReply(
       logger,
     });
   } else {
-    logger.trace("No need to reply", { rationale: aiResult.rationale });
+    logger.trace("No need to reply");
   }
 }
 

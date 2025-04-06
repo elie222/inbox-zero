@@ -9,6 +9,9 @@ import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider, supportsOllama } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("llms/model");
 
 export function getModel(
   userAi: UserAIFields,
@@ -18,8 +21,17 @@ export function getModel(
   model: string;
   llmModel: LanguageModelV1;
 } {
-  if (useEconomyModel) return selectEconomyModel(userAi);
-  return selectModel(userAi);
+  const model = useEconomyModel
+    ? selectEconomyModel(userAi)
+    : selectModel(userAi);
+
+  logger.trace("Using model", {
+    useEconomyModel,
+    provider: model.provider,
+    model: model.model,
+  });
+
+  return model;
 }
 
 function selectModel(userAi: UserAIFields): {
