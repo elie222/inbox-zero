@@ -84,6 +84,8 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
       case ActionType.MARK_READ:
         actions.push("mark as read");
         break;
+      case ActionType.TRACK_THREAD:
+        break;
       default:
         console.warn(`Unknown action type: ${action.type}`);
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
