@@ -66,7 +66,7 @@ async function getUserPreferences(userId: string) {
 function getToReplySetting(
   rules?: UserPreferences["rules"],
 ): CategoryAction | undefined {
-  if (!rules) return undefined;
+  if (!rules?.length) return undefined;
   const rule = rules.find((rule) =>
     rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
   );
