@@ -1,11 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
-import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
-import type {
-  ParsedMessage,
-  ParsedMessageHeaders,
-  RuleWithActions,
-} from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
 // pnpm test-ai ai-choose-args
 
