@@ -18,8 +18,15 @@ export function getModel(
   model: string;
   llmModel: LanguageModelV1;
 } {
-  if (useEconomyModel) return getEconomyModel(userAi);
+  if (useEconomyModel) return selectEconomyModel(userAi);
+  return selectModel(userAi);
+}
 
+function selectModel(userAi: UserAIFields): {
+  provider: string;
+  model: string;
+  llmModel: LanguageModelV1;
+} {
   const defaultProvider = getDefaultProvider();
   const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
@@ -136,19 +143,19 @@ export function getModel(
  * - Bulk processing emails
  * - Any task with large context windows where cost efficiency matters
  */
-function getEconomyModel(userAi: UserAIFields) {
+function selectEconomyModel(userAi: UserAIFields) {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
-    if (!apiKey) return getModel(userAi);
+    if (!apiKey) return selectModel(userAi);
 
-    return getModel({
+    return selectModel({
       aiProvider: env.ECONOMY_LLM_PROVIDER,
       aiModel: env.ECONOMY_LLM_MODEL,
       aiApiKey: apiKey,
     });
   }
 
-  return getModel(userAi);
+  return selectModel(userAi);
 }
 
 function getProviderApiKey(
