@@ -48,26 +48,32 @@ export default function KnowledgeBase() {
 
   return (
     <div>
-      <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
-        <DialogTrigger asChild>
-          <Button variant="outline">
-            <Plus className="mr-2 h-4 w-4" />
-            Add
-          </Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>
-              {editingItem ? "Edit Knowledge" : "Add Knowledge"}
-            </DialogTitle>
-          </DialogHeader>
-          <KnowledgeForm
-            closeDialog={handleClose}
-            refetch={mutate}
-            editingItem={editingItem}
-          />
-        </DialogContent>
-      </Dialog>
+      <div className="flex items-center justify-between">
+        <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Plus className="mr-2 h-4 w-4" />
+              Add
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>
+                {editingItem ? "Edit Knowledge" : "Add Knowledge"}
+              </DialogTitle>
+            </DialogHeader>
+            <KnowledgeForm
+              closeDialog={handleClose}
+              refetch={mutate}
+              editingItem={editingItem}
+            />
+          </DialogContent>
+        </Dialog>
+
+        <p className="text-sm text-muted-foreground ml-4">
+          The knowledge base is used to help draft responses to emails
+        </p>
+      </div>
 
       <Card className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
@@ -97,7 +103,8 @@ export default function KnowledgeBase() {
                         </li>
                         <li>
                           When our AI drafts replies it also has access to
-                          previous conversations with the person you're talking to.
+                          previous conversations with the person you're talking
+                          to.
                         </li>
                         <li>
                           This information is only used to draft replies. You
@@ -109,51 +116,12 @@ export default function KnowledgeBase() {
                 </TableRow>
               ) : (
                 data?.items.map((item) => (
-                  <TableRow key={item.id}>
-                    <TableCell>{item.title}</TableCell>
-                    <TableCell>
-                      {formatDateSimple(new Date(item.updatedAt))}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setEditingItem(item);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                        <ConfirmDialog
-                          trigger={
-                            <Button variant="outline" size="sm">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          }
-                          title="Delete Knowledge Base Entry"
-                          description={`Are you sure you want to delete "${item.title}"? This action cannot be undone.`}
-                          onConfirm={async () => {
-                            const result = await deleteKnowledgeAction({
-                              id: item.id,
-                            });
-                            if (isActionError(result)) {
-                              toastError({
-                                title: "Error deleting knowledge base entry",
-                                description: result.error,
-                              });
-                              return;
-                            }
-                            toastSuccess({
-                              description:
-                                "Knowledge base entry deleted successfully",
-                            });
-                            mutate();
-                          }}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  <KnowledgeTableRow
+                    key={item.id}
+                    item={item}
+                    onEdit={() => setEditingItem(item)}
+                    onDelete={mutate}
+                  />
                 ))
               )}
             </TableBody>
@@ -161,5 +129,62 @@ export default function KnowledgeBase() {
         </LoadingContent>
       </Card>
     </div>
+  );
+}
+
+function KnowledgeTableRow({
+  item,
+  onEdit,
+  onDelete,
+}: {
+  item: Knowledge;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  return (
+    <TableRow>
+      <TableCell>{item.title}</TableCell>
+      <TableCell>{formatDateSimple(new Date(item.updatedAt))}</TableCell>
+      <TableCell className="text-right">
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onEdit}>
+            Edit
+          </Button>
+          <ConfirmDialog
+            trigger={
+              <Button variant="outline" size="sm" loading={isDeleting}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            }
+            title="Delete Knowledge Base Entry"
+            description={`Are you sure you want to delete "${item.title}"? This action cannot be undone.`}
+            confirmText="Delete"
+            onConfirm={async () => {
+              try {
+                setIsDeleting(true);
+                const result = await deleteKnowledgeAction({
+                  id: item.id,
+                });
+                if (isActionError(result)) {
+                  toastError({
+                    title: "Error deleting knowledge base entry",
+                    description: result.error,
+                  });
+                  return;
+                }
+                toastSuccess({
+                  description: "Knowledge base entry deleted successfully",
+                });
+                onDelete();
+              } finally {
+                setIsDeleting(false);
+              }
+            }}
+          />
+        </div>
+      </TableCell>
+    </TableRow>
   );
 }
