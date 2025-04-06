@@ -3,6 +3,7 @@ import {
   APICallError,
   type CoreMessage,
   type CoreTool,
+  type JSONValue,
   generateObject,
   generateText,
   RetryError,
@@ -25,35 +26,42 @@ import {
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
 
-function getCommonOptions(provider: string) {
+function getCommonOptions(provider: string, useEconomyModel?: boolean) {
   const isOpenRouter = provider === Provider.OPENROUTER;
 
-  return {
-    experimental_telemetry: { isEnabled: true },
-    ...(isOpenRouter
-      ? {
-          headers: {
-            "HTTP-Referer": "https://www.getinboxzero.com",
-            "X-Title": "Inbox Zero",
+  const options: {
+    experimental_telemetry: { isEnabled: boolean };
+    headers?: Record<string, string>;
+    providerOptions?: Record<string, Record<string, JSONValue>>;
+  } = { experimental_telemetry: { isEnabled: true } };
+
+  if (isOpenRouter) {
+    options.headers = {
+      "HTTP-Referer": "https://www.getinboxzero.com",
+      "X-Title": "Inbox Zero",
+    };
+
+    // TODO: this needs cleaning up
+    if (!useEconomyModel) {
+      options.providerOptions = {
+        openrouter: {
+          models: [
+            "anthropic/claude-3.7-sonnet",
+            // "google/gemini-2.0-flash-001",
+          ],
+          provider: {
+            order: [
+              "Amazon Bedrock",
+              "Anthropic",
+              // "Google AI Studio",
+            ],
           },
-          providerOptions: {
-            openrouter: {
-              models: [
-                "anthropic/claude-3.7-sonnet",
-                // "google/gemini-2.0-flash-001",
-              ],
-              provider: {
-                order: [
-                  "Amazon Bedrock",
-                  "Anthropic",
-                  // "Google AI Studio",
-                ],
-              },
-            },
-          },
-        }
-      : {}),
-  };
+        },
+      };
+    }
+  }
+
+  return options;
 }
 
 export async function chatCompletion({
@@ -78,7 +86,7 @@ export async function chatCompletion({
       model: llmModel,
       prompt,
       system,
-      ...getCommonOptions(provider),
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -142,7 +150,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
-      ...getCommonOptions(provider),
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -185,7 +193,7 @@ export async function chatCompletionStream({
     model: llmModel,
     prompt,
     system,
-    ...getCommonOptions(provider),
+    ...getCommonOptions(provider, useEconomyModel),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
@@ -248,7 +256,7 @@ async function chatCompletionToolsInternal({
       prompt,
       messages,
       maxSteps,
-      ...getCommonOptions(provider),
+      ...getCommonOptions(provider, useEconomyModel),
     });
 
     if (result.usage) {
@@ -299,7 +307,7 @@ async function streamCompletionTools({
     prompt,
     system,
     maxSteps,
-    ...getCommonOptions(provider),
+    ...getCommonOptions(provider, useEconomyModel),
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,
