@@ -185,8 +185,10 @@ model Rule {
   executedRules ExecutedRule[]
 
   // reply tracking fields
-  trackReplies   Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
-  threadTrackers ThreadTracker[]
+  trackReplies             Boolean? // If this is the reply tracking rule. Using partial unique index (created manually)
+  draftReplies             Boolean? // deprecated
+  draftRepliesInstructions String? // deprecated
+  threadTrackers           ThreadTracker[]
 
   // conditions: ai, group, static, category
   type                RuleType? // deprecated
