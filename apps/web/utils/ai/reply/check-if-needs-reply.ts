@@ -8,10 +8,12 @@ import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
-
+import { preprocessBooleanLike } from "@/utils/zod";
 const logger = createScopedLogger("check-if-needs-reply");
 
-const schema = z.object({ needsReply: z.boolean() });
+const schema = z.object({
+  needsReply: z.preprocess(preprocessBooleanLike, z.boolean()),
+});
 
 export async function aiCheckIfNeedsReply({
   user,

@@ -5,6 +5,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
+import { preprocessBooleanLike } from "@/utils/zod";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -60,7 +61,7 @@ Analyze the historical email threads and extract any relevant information that w
 
 const extractionSchema = z.object({
   hasHistoricalContext: z
-    .boolean()
+    .preprocess(preprocessBooleanLike, z.boolean())
     .describe("Whether there is any relevant historical context found."),
   summary: z
     .string()

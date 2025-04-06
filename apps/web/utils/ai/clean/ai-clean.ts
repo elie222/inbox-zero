@@ -7,13 +7,14 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
 import { Braintrust } from "@/utils/braintrust";
+import { preprocessBooleanLike } from "@/utils/zod";
 
 const logger = createScopedLogger("ai/clean");
 
 // TODO: allow specific labels
 // Pass in prompt labels
 const schema = z.object({
-  archive: z.boolean(),
+  archive: z.preprocess(preprocessBooleanLike, z.boolean()),
   // label: z.string().optional(),
   // reasoning: z.string(),
 });
