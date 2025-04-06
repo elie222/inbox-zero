@@ -34,8 +34,10 @@ export const POST = withError(async (request: Request) => {
   return await processHistoryForUser(decodedData);
 });
 
-function decodeHistoryId(body: any) {
-  const data = body.message.data;
+function decodeHistoryId(body: { message?: { data?: string } }) {
+  const data = body?.message?.data;
+
+  if (!data) throw new Error("No data found");
 
   // data is base64url-encoded JSON
   const base64 = data.replace(/-/g, "+").replace(/_/g, "/");

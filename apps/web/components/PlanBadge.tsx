@@ -87,7 +87,7 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
     case ActionType.ARCHIVE:
       return <ActionBadge type={ActionType.ARCHIVE} />;
     case ActionType.LABEL:
-      return <Badge color="blue">Label as {action.label}</Badge>;
+      return <Badge color="blue">Label: "{action.label}"</Badge>;
     case ActionType.REPLY:
       return (
         <div>
@@ -164,7 +164,7 @@ function getActionMessage(action: ExecutedAction): string {
   switch (action.type) {
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>
     case ActionType.LABEL:
-      if (action.label) return `Label as ${action.label}`;
+      if (action.label) return `Label: "${action.label}"`;
     case ActionType.REPLY:
     case ActionType.SEND_EMAIL:
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: <explanation>

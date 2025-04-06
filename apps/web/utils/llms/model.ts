@@ -9,32 +9,32 @@ import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider, supportsOllama } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
 
-function getDefaultProvider(): string {
-  switch (env.DEFAULT_LLM_PROVIDER) {
-    case "google":
-      return Provider.GOOGLE;
-    case "anthropic":
-      return Provider.ANTHROPIC;
-    case "bedrock":
-      return Provider.ANTHROPIC;
-    case "openai":
-      return Provider.OPEN_AI;
-    case "openrouter":
-      return Provider.OPENROUTER;
-    case "groq":
-      return Provider.GROQ;
-    case "ollama":
-      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
-      throw new Error("Ollama is not supported");
-    default:
-      throw new Error(
-        "No AI provider found. Please set at least one API key in env variables.",
-      );
-  }
+const logger = createScopedLogger("llms/model");
+
+export function getModel(
+  userAi: UserAIFields,
+  useEconomyModel?: boolean,
+): {
+  provider: string;
+  model: string;
+  llmModel: LanguageModelV1;
+} {
+  const model = useEconomyModel
+    ? selectEconomyModel(userAi)
+    : selectModel(userAi);
+
+  logger.trace("Using model", {
+    useEconomyModel,
+    provider: model.provider,
+    model: model.model,
+  });
+
+  return model;
 }
 
-export function getModel(userAi: UserAIFields): {
+function selectModel(userAi: UserAIFields): {
   provider: string;
   model: string;
   llmModel: LanguageModelV1;
@@ -142,5 +142,80 @@ export function getModel(userAi: UserAIFields): {
     default: {
       throw new Error("LLM provider not supported");
     }
+  }
+}
+
+/**
+ * Selects the appropriate economy model for high-volume or context-heavy tasks
+ * By default, uses a cheaper model like Gemini Flash for tasks that don't require the most powerful LLM
+ *
+ * Use cases:
+ * - Processing large knowledge bases
+ * - Analyzing email history
+ * - Bulk processing emails
+ * - Any task with large context windows where cost efficiency matters
+ */
+function selectEconomyModel(userAi: UserAIFields) {
+  if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Economy LLM provider configured but API key not found", {
+        provider: env.ECONOMY_LLM_PROVIDER,
+      });
+      return selectModel(userAi);
+    }
+
+    return selectModel({
+      aiProvider: env.ECONOMY_LLM_PROVIDER,
+      aiModel: env.ECONOMY_LLM_MODEL,
+      aiApiKey: apiKey,
+    });
+  }
+
+  return selectModel(userAi);
+}
+
+function getProviderApiKey(
+  provider:
+    | "openai"
+    | "anthropic"
+    | "google"
+    | "groq"
+    | "openrouter"
+    | "bedrock"
+    | "ollama",
+) {
+  const providerApiKeys = {
+    [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.OPEN_AI]: env.OPENAI_API_KEY,
+    [Provider.GOOGLE]: env.GOOGLE_API_KEY,
+    [Provider.GROQ]: env.GROQ_API_KEY,
+    [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
+  };
+
+  return providerApiKeys[provider];
+}
+
+function getDefaultProvider(): string {
+  switch (env.DEFAULT_LLM_PROVIDER) {
+    case "google":
+      return Provider.GOOGLE;
+    case "anthropic":
+      return Provider.ANTHROPIC;
+    case "bedrock":
+      return Provider.ANTHROPIC;
+    case "openai":
+      return Provider.OPEN_AI;
+    case "openrouter":
+      return Provider.OPENROUTER;
+    case "groq":
+      return Provider.GROQ;
+    case "ollama":
+      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
+      throw new Error("Ollama is not supported");
+    default:
+      throw new Error(
+        "No AI provider found. Please set at least one API key in env variables.",
+      );
   }
 }

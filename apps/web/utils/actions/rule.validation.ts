@@ -16,6 +16,7 @@ const zodActionType = z.enum([
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
+  ActionType.TRACK_THREAD,
 ]);
 
 export const zodRuleType = z.enum([
@@ -54,6 +55,8 @@ const zodField = z
   .object({
     value: z.string().nullish(),
     ai: z.boolean().nullish(),
+    // only needed for frontend
+    setManually: z.boolean().nullish(),
   })
   .nullish();
 
@@ -140,8 +143,6 @@ export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 export const updateRuleSettingsBody = z.object({
   id: z.string(),
   instructions: z.string(),
-  draftReplies: z.boolean(),
-  draftRepliesInstructions: z.string(),
 });
 export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 

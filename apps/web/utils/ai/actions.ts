@@ -9,15 +9,16 @@ import { ActionType, type ExecutedRule } from "@prisma/client";
 import {
   archiveThread,
   getOrCreateLabel,
-  labelThread,
+  labelMessage,
   markReadThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import type { Attachment } from "@/utils/types/mail";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
-import type { Properties } from "@/utils/ai/types";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
+import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
+import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -29,217 +30,45 @@ type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (
   executedRule: ExecutedRule,
 ) => Promise<any>;
 
-type ActionFunctionDef = {
-  name: string;
-  description: string;
-  parameters:
-    | {
-        type: string;
-        properties: Properties;
-        required: string[];
-      }
-    | { type: string; properties?: undefined; required: string[] };
-  action: ActionType | null;
-};
+export const runActionFunction = async (
+  gmail: gmail_v1.Gmail,
+  email: EmailForAction,
+  action: ActionItem,
+  userEmail: string,
+  executedRule: ExecutedRule,
+) => {
+  logger.info("Running action", {
+    actionType: action.type,
+    userEmail,
+    id: action.id,
+  });
+  logger.trace("Running action:", action);
 
-const ARCHIVE: ActionFunctionDef = {
-  name: "archive",
-  description: "Archive an email",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
-  action: ActionType.ARCHIVE,
-};
-
-const LABEL: ActionFunctionDef = {
-  name: "label",
-  description: "Label an email",
-  parameters: {
-    type: "object",
-    properties: {
-      label: {
-        type: "string",
-        description: "The name of the label.",
-      },
-    },
-    required: ["label"],
-  },
-  action: ActionType.LABEL,
-};
-
-const DRAFT_EMAIL: ActionFunctionDef = {
-  name: "draft",
-  description: "Draft an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description: "A comma separated list of the recipient email addresses.",
-      },
-      cc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the cc recipients to send to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the bcc recipients to send to.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email that is being drafted.",
-      },
-      content: {
-        type: "string",
-        description: "The content of the email that is being drafted.",
-      },
-    },
-    required: ["content"],
-  },
-  action: ActionType.DRAFT_EMAIL,
-};
-
-const REPLY_TO_EMAIL: ActionFunctionDef = {
-  name: "reply",
-  description: "Reply to an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      cc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the cc recipients to send to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "A comma separated list of email addresses of the bcc recipients to send to.",
-      },
-      content: {
-        type: "string",
-        description: "The content to send in the reply.",
-      },
-    },
-    required: ["to", "subject", "content"],
-  },
-  action: ActionType.REPLY,
-};
-
-const SEND_EMAIL: ActionFunctionDef = {
-  name: "send_email",
-  description: "Send an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description: "Comma separated email addresses of the recipients.",
-      },
-      cc: {
-        type: "string",
-        description: "Comma separated email addresses of the cc recipients.",
-      },
-      bcc: {
-        type: "string",
-        description: "Comma separated email addresses of the bcc recipients.",
-      },
-      subject: {
-        type: "string",
-        description: "The subject of the email to be sent.",
-      },
-      content: {
-        type: "string",
-        description: "The content to send in the email.",
-      },
-    },
-    required: ["to", "subject", "content"],
-  },
-  action: ActionType.SEND_EMAIL,
-};
-
-const FORWARD_EMAIL: ActionFunctionDef = {
-  name: "forward",
-  description: "Forward an email.",
-  parameters: {
-    type: "object",
-    properties: {
-      to: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the recipients to forward the email to.",
-      },
-      cc: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the cc recipients to forward the email to.",
-      },
-      bcc: {
-        type: "string",
-        description:
-          "Comma separated email addresses of the bcc recipients to forward the email to.",
-      },
-      content: {
-        type: "string",
-        description: "Extra content to add to the forwarded email.",
-      },
-    },
-    required: ["to"],
-  },
-  action: ActionType.FORWARD,
-};
-
-const MARK_SPAM: ActionFunctionDef = {
-  name: "mark_spam",
-  description: "Mark as spam.",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
-  action: ActionType.MARK_SPAM,
-};
-
-const CALL_WEBHOOK: ActionFunctionDef = {
-  name: "call_webhook",
-  description: "Call a webhook.",
-  parameters: {
-    type: "object",
-    properties: {
-      url: {
-        type: "string",
-        description: "The URL of the webhook to call.",
-      },
-    },
-    required: ["url"],
-  },
-  action: ActionType.CALL_WEBHOOK,
-};
-
-const MARK_READ: ActionFunctionDef = {
-  name: "mark_read",
-  description: "Mark as read.",
-  parameters: {
-    type: "object",
-    properties: {},
-    required: [],
-  },
-  action: ActionType.MARK_READ,
-};
-
-export const actionFunctionDefs: Record<ActionType, ActionFunctionDef> = {
-  [ActionType.ARCHIVE]: ARCHIVE,
-  [ActionType.LABEL]: LABEL,
-  [ActionType.DRAFT_EMAIL]: DRAFT_EMAIL,
-  [ActionType.REPLY]: REPLY_TO_EMAIL,
-  [ActionType.SEND_EMAIL]: SEND_EMAIL,
-  [ActionType.FORWARD]: FORWARD_EMAIL,
-  [ActionType.MARK_SPAM]: MARK_SPAM,
-  [ActionType.CALL_WEBHOOK]: CALL_WEBHOOK,
-  [ActionType.MARK_READ]: MARK_READ,
+  const { type, ...args } = action;
+  switch (type) {
+    case ActionType.ARCHIVE:
+      return archive(gmail, email, args, userEmail, executedRule);
+    case ActionType.LABEL:
+      return label(gmail, email, args, userEmail, executedRule);
+    case ActionType.DRAFT_EMAIL:
+      return draft(gmail, email, args, userEmail, executedRule);
+    case ActionType.REPLY:
+      return reply(gmail, email, args, userEmail, executedRule);
+    case ActionType.SEND_EMAIL:
+      return send_email(gmail, email, args, userEmail, executedRule);
+    case ActionType.FORWARD:
+      return forward(gmail, email, args, userEmail, executedRule);
+    case ActionType.MARK_SPAM:
+      return mark_spam(gmail, email, args, userEmail, executedRule);
+    case ActionType.CALL_WEBHOOK:
+      return call_webhook(gmail, email, args, userEmail, executedRule);
+    case ActionType.MARK_READ:
+      return mark_read(gmail, email, args, userEmail, executedRule);
+    case ActionType.TRACK_THREAD:
+      return track_thread(gmail, email, args, userEmail, executedRule);
+    default:
+      throw new Error(`Unknown action: ${action}`);
+  }
 };
 
 const archive: ActionFunction<Record<string, unknown>> = async (
@@ -270,9 +99,9 @@ const label: ActionFunction<{ label: string } | any> = async (
 
   if (!label.id) throw new Error("Label not found and unable to create label");
 
-  await labelThread({
+  await labelMessage({
     gmail,
-    threadId: email.threadId,
+    messageId: email.id,
     addLabelIds: [label.id],
   });
 };
@@ -345,19 +174,16 @@ const forward: ActionFunction<any> = async (
   });
 };
 
-const mark_spam: ActionFunction<any> = async (
-  gmail: gmail_v1.Gmail,
-  email: EmailForAction,
-) => {
+const mark_spam: ActionFunction<any> = async (gmail, email) => {
   return await markSpam({ gmail, threadId: email.threadId });
 };
 
 const call_webhook: ActionFunction<any> = async (
-  _gmail: gmail_v1.Gmail,
-  email: EmailForAction,
+  _gmail,
+  email,
   args: { url: string },
-  userEmail: string,
-  executedRule: ExecutedRule,
+  userEmail,
+  executedRule,
 ) => {
   await callWebhook(userEmail, args.url, {
     email: {
@@ -379,48 +205,25 @@ const call_webhook: ActionFunction<any> = async (
   });
 };
 
-const mark_read: ActionFunction<any> = async (
-  gmail: gmail_v1.Gmail,
-  email: EmailForAction,
-) => {
+const mark_read: ActionFunction<any> = async (gmail, email) => {
   return await markReadThread({ gmail, threadId: email.threadId, read: true });
 };
 
-export const runActionFunction = async (
-  gmail: gmail_v1.Gmail,
-  email: EmailForAction,
-  action: ActionItem,
-  userEmail: string,
-  executedRule: ExecutedRule,
+const track_thread: ActionFunction<any> = async (
+  gmail,
+  email,
+  _args,
+  userEmail,
+  executedRule,
 ) => {
-  logger.info("Running action", {
-    actionType: action.type,
+  await coordinateReplyProcess(
+    executedRule.userId,
     userEmail,
-    id: action.id,
+    email.threadId,
+    email.id,
+    internalDateToDate(email.internalDate),
+    gmail,
+  ).catch((error) => {
+    logger.error("Failed to create reply tracker", { error });
   });
-  logger.trace("Running action:", action);
-
-  const { type, ...args } = action;
-  switch (type) {
-    case ActionType.ARCHIVE:
-      return archive(gmail, email, args, userEmail, executedRule);
-    case ActionType.LABEL:
-      return label(gmail, email, args, userEmail, executedRule);
-    case ActionType.DRAFT_EMAIL:
-      return draft(gmail, email, args, userEmail, executedRule);
-    case ActionType.REPLY:
-      return reply(gmail, email, args, userEmail, executedRule);
-    case ActionType.SEND_EMAIL:
-      return send_email(gmail, email, args, userEmail, executedRule);
-    case ActionType.FORWARD:
-      return forward(gmail, email, args, userEmail, executedRule);
-    case ActionType.MARK_SPAM:
-      return mark_spam(gmail, email, args, userEmail, executedRule);
-    case ActionType.CALL_WEBHOOK:
-      return call_webhook(gmail, email, args, userEmail, executedRule);
-    case ActionType.MARK_READ:
-      return mark_read(gmail, email, args, userEmail, executedRule);
-    default:
-      throw new Error(`Unknown action: ${action}`);
-  }
 };

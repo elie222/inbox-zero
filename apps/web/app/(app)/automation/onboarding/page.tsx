@@ -24,7 +24,6 @@ type UserPreferences = Prisma.UserGetPayload<{
     rules: {
       select: {
         name: true;
-        trackReplies: true;
         actions: {
           select: { type: true };
         };
@@ -41,7 +40,6 @@ async function getUserPreferences(userId: string) {
       rules: {
         select: {
           name: true,
-          trackReplies: true,
           actions: {
             select: {
               type: true,
@@ -66,10 +64,12 @@ async function getUserPreferences(userId: string) {
 }
 
 function getToReplySetting(
-  rules?: UserPreferences["rules"],
+  rules: UserPreferences["rules"],
 ): CategoryAction | undefined {
-  if (!rules?.length) return undefined;
-  const rule = rules.find((rule) => rule.trackReplies);
+  if (!rules.length) return undefined;
+  const rule = rules.find((rule) =>
+    rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
+  );
   if (rule) return "label";
   return "none";
 }

@@ -68,6 +68,24 @@ export const env = createEnv({
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
 
+    // Economy LLM configuration (for large context windows where cost efficiency matters)
+    ECONOMY_LLM_PROVIDER: z
+      .enum([
+        "anthropic",
+        "google",
+        "openai",
+        "bedrock",
+        "openrouter",
+        "groq",
+        "ollama",
+      ])
+      .optional()
+      .default("openrouter"),
+    ECONOMY_LLM_MODEL: z
+      .string()
+      .optional()
+      .default("meta-llama/llama-4-maverick"),
+
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_3_SEAT_VARIANT_ID: z.coerce.number().optional(),

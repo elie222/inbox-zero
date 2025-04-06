@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { Rules } from "@/app/(app)/automation/Rules";
 import { Process } from "@/app/(app)/automation/Process";
+import { KnowledgeBase } from "@/app/(app)/automation/knowledge/KnowledgeBase";
 import { Groups } from "@/app/(app)/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
@@ -54,6 +55,7 @@ export default async function AutomationPage() {
                 <TabsTrigger value="test">Test</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
                 <TabsTrigger value="pending">Pending</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
                 {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
               </TabsList>
             </div>
@@ -90,6 +92,9 @@ export default async function AutomationPage() {
           </TabsContent>
           <TabsContent value="pending" className="content-container mb-10">
             <Pending />
+          </TabsContent>
+          <TabsContent value="knowledge" className="content-container mb-10">
+            <KnowledgeBase />
           </TabsContent>
           {/* no longer in use */}
           <TabsContent value="groups" className="content-container mb-10">

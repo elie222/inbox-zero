@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
-import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
-import type { RuleWithActions } from "@/utils/types";
+import type { ParsedMessage, RuleWithActions } from "@/utils/types";
+import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 
 // pnpm test-ai ai-choose-args
 
@@ -15,9 +15,13 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
     const rule = getRule("Test rule", actions);
 
     const result = await getActionItemsWithAiArgs({
-      email: getEmail(),
+      message: getParsedMessage({
+        subject: "Test subject",
+        content: "Test content",
+      }),
       user: getUser(),
       selectedRule: rule,
+      gmail: {} as any,
     });
 
     expect(result).toEqual(actions);
@@ -33,12 +37,13 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
     const rule = getRule("Choose this rule for meeting requests", actions);
 
     const result = await getActionItemsWithAiArgs({
-      email: getEmail({
+      message: getParsedMessage({
         subject: "Quick question",
         content: "When is the meeting tomorrow?",
       }),
       user: getUser(),
       selectedRule: rule,
+      gmail: {} as any,
     });
 
     expect(result).toHaveLength(1);
@@ -59,12 +64,13 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
     );
 
     const result = await getActionItemsWithAiArgs({
-      email: getEmail({
+      message: getParsedMessage({
         subject: "Quick question",
         content: "How much are pears?",
       }),
       user: getUser(),
       selectedRule: rule,
+      gmail: {} as any,
     });
 
     expect(result).toHaveLength(1);
@@ -85,12 +91,13 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
     const rule = getRule("Test rule", actions);
 
     const result = await getActionItemsWithAiArgs({
-      email: getEmail({
+      message: getParsedMessage({
         subject: "Project status",
         content: "Can you update me on the project status?",
       }),
       user: getUser(),
       selectedRule: rule,
+      gmail: {} as any,
     });
 
     expect(result).toHaveLength(2);
@@ -120,13 +127,14 @@ Matt`,
     );
 
     const result = await getActionItemsWithAiArgs({
-      email: getEmail({
+      message: getParsedMessage({
         from: "jill@example.com",
         subject: "fruits",
         content: "how much do apples cost?",
       }),
       user: getUser(),
       selectedRule: rule,
+      gmail: {} as any,
     });
 
     expect(result).toHaveLength(2);
@@ -190,24 +198,40 @@ function getRule(
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
     type: null,
-    trackReplies: null,
   };
 }
 
-function getEmail({
+function getParsedMessage({
   from = "from@test.com",
   subject = "subject",
   content = "content",
-}: { from?: string; subject?: string; content?: string } = {}) {
+}): ParsedMessage {
   return {
-    from,
-    subject,
-    content,
+    id: "id",
+    threadId: "thread-id",
+    snippet: "",
+    attachments: [],
+    historyId: "history-id",
+    sizeEstimate: 100,
+    internalDate: new Date().toISOString(),
+    inline: [],
+    textPlain: content,
+    // ...message,
+    headers: {
+      from,
+      to: "recipient@example.com",
+      subject,
+      date: new Date().toISOString(),
+      references: "",
+      "message-id": "message-id",
+      // ...message.headers,
+    },
   };
 }
 
 function getUser() {
   return {
+    id: "userId",
     aiModel: null,
     aiProvider: null,
     email: "user@test.com",

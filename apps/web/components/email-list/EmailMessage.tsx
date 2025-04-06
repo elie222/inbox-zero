@@ -17,7 +17,7 @@ import { extractEmailReply } from "@/utils/parse/extract-reply.client";
 import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
-import { generateReplyAction } from "@/utils/actions/generate-reply";
+import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
 import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
@@ -220,12 +220,14 @@ function ReplyPanel({
 
   useEffect(() => {
     async function generateReply() {
-      setIsGeneratingReply(true);
-
       const isSent = message.labelIds?.includes("SENT");
 
-      const result = await generateReplyAction({
-        type: isSent ? "nudge" : "reply",
+      // Doesn't need a nudge if it's not sent
+      if (!isSent) return;
+
+      setIsGeneratingReply(true);
+
+      const result = await generateNudgeReplyAction({
         messages: [
           {
             id: message.id,

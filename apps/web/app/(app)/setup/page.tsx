@@ -24,7 +24,7 @@ export default async function SetupPage() {
     where: { id: userId },
     select: {
       coldEmailBlocker: true,
-      rules: { select: { trackReplies: true } },
+      rules: { select: { id: true }, take: 1 },
       newsletters: {
         where: { status: { not: null } },
         take: 1,
@@ -34,7 +34,7 @@ export default async function SetupPage() {
 
   if (!user) throw new Error("User not found");
 
-  const isAiAssistantConfigured = user.rules.some((rule) => !rule.trackReplies);
+  const isAiAssistantConfigured = user.rules.length > 0;
   const isBulkUnsubscribeConfigured = user.newsletters.length > 0;
   const cookieStore = await cookies();
   const isReplyTrackerConfigured =

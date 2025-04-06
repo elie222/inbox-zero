@@ -38,7 +38,6 @@ export default async function CreateRulePage(props: {
             runOnThreads: true,
           }
         }
-        isReplyTrackingRule={false}
       />
     </div>
   );

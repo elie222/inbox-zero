@@ -33,18 +33,6 @@ export async function removeAwaitingReplyLabel(
   });
 }
 
-export async function labelNeedsReply(
-  gmail: gmail_v1.Gmail,
-  messageId: string,
-  needsReplyLabelId: string,
-) {
-  await labelMessage({
-    gmail,
-    messageId,
-    addLabelIds: [needsReplyLabelId],
-  });
-}
-
 export async function removeNeedsReplyLabel(
   gmail: gmail_v1.Gmail,
   threadId: string,
@@ -55,6 +43,16 @@ export async function removeNeedsReplyLabel(
     threadId,
     removeLabelIds: [needsReplyLabelId],
   });
+}
+
+export async function getAwaitingReplyLabel(
+  gmail: gmail_v1.Gmail,
+): Promise<string> {
+  const [awaitingReplyLabel] = await getOrCreateLabels({
+    gmail,
+    names: [AWAITING_REPLY_LABEL_NAME],
+  });
+  return awaitingReplyLabel.id || "";
 }
 
 export async function getReplyTrackingLabels(gmail: gmail_v1.Gmail): Promise<{

@@ -4,7 +4,7 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getMessage } from "@/utils/gmail/message";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
-import { runRulesOnMessage } from "@/utils/ai/choose-rule/run-rules";
+import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
@@ -167,7 +167,7 @@ export async function processHistoryItem(
     if (hasAutomationRules && hasAiAutomationAccess) {
       logger.info("Running rules...", loggerOptions);
 
-      await runRulesOnMessage({
+      await runRules({
         gmail,
         message,
         rules,

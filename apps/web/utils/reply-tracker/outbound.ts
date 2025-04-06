@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { ParsedMessage } from "@/utils/types";
+import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
 import { getThreadMessages } from "@/utils/gmail/thread";
@@ -13,20 +13,12 @@ import {
   getReplyTrackingLabels,
 } from "@/utils/reply-tracker/label";
 import { internalDateToDate } from "@/utils/date";
-import { getReplyTrackingRule } from "@/utils/reply-tracker";
 
 export async function handleOutboundReply(
   user: Pick<User, "about"> & UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
-  const userId = user.id;
-
-  const enabled = (await getReplyTrackingRule(userId))?.trackReplies;
-
-  // If reply tracking is disabled, skip
-  if (!enabled) return;
-
   const logger = createScopedLogger("reply-tracker/outbound").with({
     email: user.email,
     userId: user.id,
@@ -34,45 +26,64 @@ export async function handleOutboundReply(
     threadId: message.threadId,
   });
 
+  // 1. Check if feature enabled
+  const isEnabled = await isOutboundTrackingEnabled(user.id);
+  if (!isEnabled) {
+    logger.info("Outbound reply tracking disabled, skipping.");
+    return;
+  }
+
   logger.info("Checking outbound reply");
 
+  // 2. Get necessary labels
   const { awaitingReplyLabelId, needsReplyLabelId } =
     await getReplyTrackingLabels(gmail);
 
-  // When we send a reply, resolve any existing "NEEDS_REPLY" trackers
+  // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackers(
     gmail,
-    userId,
+    user.id,
     message.threadId,
     needsReplyLabelId,
   );
 
+  // 4. Get thread context
   const threadMessages = await getThreadMessages(message.threadId, gmail);
-
   if (!threadMessages?.length) {
-    logger.error("No thread messages found");
+    logger.error("No thread messages found, cannot proceed.");
     return;
   }
 
-  // ai: check if we need to reply
-  const result = await aiCheckIfNeedsReply({
+  // 5. Check if this message is the latest
+  const { isLatest, sortedMessages } = isMessageLatestInThread(
+    message,
+    threadMessages,
+    logger,
+  );
+  if (!isLatest) {
+    logger.info(
+      "Skipping outbound reply check: message is not the latest in the thread",
+    );
+    return; // Stop processing if not the latest
+  }
+
+  // 6. Prepare data for AI
+  const { messageToSendForLLM, threadContextMessagesForLLM } =
+    prepareDataForAICheck(message, sortedMessages);
+
+  // 7. Perform AI check
+  const aiResult = await aiCheckIfNeedsReply({
     user,
-    messages: threadMessages.map((m, index) =>
-      getEmailForLLM(m, {
-        // give more context for the message we're processing
-        maxLength: index === threadMessages.length - 1 ? 2000 : 500,
-        extractReply: true,
-        removeForwarded: false,
-      }),
-    ),
+    messageToSend: messageToSendForLLM,
+    threadContextMessages: threadContextMessagesForLLM,
   });
 
-  // if yes, create a tracker
-  if (result.needsReply) {
+  // 8. If yes, create a tracker
+  if (aiResult.needsReply) {
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
-      userId,
+      userId: user.id,
       threadId: message.threadId,
       messageId: message.id,
       awaitingReplyLabelId,
@@ -80,7 +91,7 @@ export async function handleOutboundReply(
       logger,
     });
   } else {
-    logger.info("No need to reply");
+    logger.trace("No need to reply");
   }
 }
 
@@ -170,4 +181,65 @@ async function resolveReplyTrackers(
   );
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
+}
+
+async function isOutboundTrackingEnabled(userId: string): Promise<boolean> {
+  const userSettings = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { outboundReplyTracking: true },
+  });
+  return !!userSettings?.outboundReplyTracking;
+}
+
+function isMessageLatestInThread(
+  message: ParsedMessage,
+  threadMessages: ParsedMessage[],
+  logger: Logger,
+): { isLatest: boolean; sortedMessages: ParsedMessage[] } {
+  if (!threadMessages.length) return { isLatest: false, sortedMessages: [] }; // Should not happen if called correctly
+
+  const sortedMessages = [...threadMessages].sort(
+    (a, b) => (Number(b.internalDate) || 0) - (Number(a.internalDate) || 0),
+  );
+  const actualLatestMessage = sortedMessages[0];
+
+  if (actualLatestMessage?.id !== message.id) {
+    logger.warn(
+      "Skipping outbound reply check: message is not the latest in the thread",
+      {
+        processingMessageId: message.id,
+        actualLatestMessageId: actualLatestMessage?.id,
+      },
+    );
+    return { isLatest: false, sortedMessages };
+  }
+  return { isLatest: true, sortedMessages };
+}
+
+function prepareDataForAICheck(
+  message: ParsedMessage,
+  sortedThreadMessages: ParsedMessage[],
+): {
+  messageToSendForLLM: EmailForLLM;
+  threadContextMessagesForLLM: EmailForLLM[];
+} {
+  const messageToSendForLLM = getEmailForLLM(message, {
+    maxLength: 2000, // Give more context for the message we're processing
+    extractReply: true,
+    removeForwarded: false,
+  });
+
+  // Filter out the current message and take the next latest 2 messages for context
+  const threadContextMessagesForLLM = sortedThreadMessages
+    .filter((m) => m.id !== message.id) // Exclude the message just sent
+    .slice(0, 2) // Take the latest 2 messages from the sorted list
+    .map((m) =>
+      getEmailForLLM(m, {
+        maxLength: 500, // Shorter context for previous messages
+        extractReply: true,
+        removeForwarded: false,
+      }),
+    );
+
+  return { messageToSendForLLM, threadContextMessagesForLLM };
 }

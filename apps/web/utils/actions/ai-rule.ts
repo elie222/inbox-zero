@@ -7,7 +7,7 @@ import { ExecutedRuleStatus } from "@prisma/client";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
-  runRulesOnMessage,
+  runRules,
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -115,7 +115,7 @@ export const runRulesAction = withActionInstrumentation(
 
     const message = parseMessage(gmailMessage);
 
-    const result = await runRulesOnMessage({
+    const result = await runRules({
       isTest,
       gmail,
       message,
@@ -156,7 +156,7 @@ export const testAiCustomContentAction = withActionInstrumentation(
     });
     if (!user) return { error: "User not found" };
 
-    const result = await runRulesOnMessage({
+    const result = await runRules({
       isTest: true,
       gmail,
       message: {
@@ -257,7 +257,7 @@ export const approvePlanAction = withActionInstrumentation(
 
     const executedRule = await prisma.executedRule.findUnique({
       where: { id: executedRuleId },
-      include: { actionItems: true, rule: { select: { trackReplies: true } } },
+      include: { actionItems: true },
     });
     if (!executedRule) return { error: "Item not found" };
 
@@ -266,7 +266,6 @@ export const approvePlanAction = withActionInstrumentation(
       message,
       executedRule,
       userEmail: session.user.email,
-      isReplyTrackingRule: executedRule.rule?.trackReplies || false,
     });
   },
 );

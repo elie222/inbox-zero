@@ -34,7 +34,10 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
-import { enableReplyTracker } from "@/utils/reply-tracker/enable";
+import {
+  enableDraftReplies,
+  enableReplyTracker,
+} from "@/utils/reply-tracker/enable";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
@@ -285,11 +288,7 @@ export const updateRuleSettingsAction = withActionInstrumentation(
 
     await prisma.rule.update({
       where: { id: body.id, userId: session.user.id },
-      data: {
-        instructions: body.instructions,
-        draftReplies: body.draftReplies,
-        draftRepliesInstructions: body.draftRepliesInstructions,
-      },
+      data: { instructions: body.instructions },
     });
 
     revalidatePath(`/automation/rule/${body.id}`);
@@ -308,14 +307,24 @@ export const enableDraftRepliesAction = withActionInstrumentation(
     if (error) return { error: error.message };
 
     const rule = await prisma.rule.findFirst({
-      where: { userId: session.user.id, trackReplies: true },
+      where: {
+        userId: session.user.id,
+        actions: { some: { type: ActionType.TRACK_THREAD } },
+      },
+      select: { id: true, actions: true },
     });
     if (!rule) return { error: "Rule not found" };
 
-    await prisma.rule.update({
-      where: { id: rule.id, userId: session.user.id },
-      data: { draftReplies: data.enable },
-    });
+    if (data.enable) {
+      await enableDraftReplies(rule);
+    } else {
+      await prisma.action.deleteMany({
+        where: {
+          ruleId: rule.id,
+          type: ActionType.DRAFT_EMAIL,
+        },
+      });
+    }
 
     revalidatePath(`/automation/rule/${rule.id}`);
     revalidatePath("/automation");

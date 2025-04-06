@@ -8,41 +8,60 @@ import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
+import { preprocessBooleanLike } from "@/utils/zod";
 
 const logger = createScopedLogger("check-if-needs-reply");
 
-const schema = z.object({ needsReply: z.boolean() });
+const schema = z.object({
+  rationale: z
+    .string()
+    .describe("Brief one-line explanation for the decision."),
+  needsReply: z.preprocess(
+    preprocessBooleanLike,
+    z.boolean().describe("Whether a reply is needed."),
+  ),
+});
+export type AICheckResult = z.infer<typeof schema>;
 
 export async function aiCheckIfNeedsReply({
   user,
-  messages,
+  messageToSend,
+  threadContextMessages,
 }: {
   user: Pick<User, "about"> & UserEmailWithAI;
-  messages: EmailForLLM[];
-}) {
-  const lastMessage = messages.at(-1);
+  messageToSend: EmailForLLM;
+  threadContextMessages: EmailForLLM[];
+}): Promise<AICheckResult> {
+  // If messageToSend somehow is null/undefined, default to no reply needed.
+  if (!messageToSend)
+    return { needsReply: false, rationale: "No message provided" };
 
-  if (!lastMessage) return { needsReply: false };
+  const userMessageForPrompt = messageToSend;
 
   const system = "You are an AI assistant that checks if a reply is needed.";
 
   const prompt =
     `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-The message to analyze:
+We are sending the following message:
 
 <message>
-${stringifyEmailSimple(lastMessage)}
+${stringifyEmailSimple(userMessageForPrompt)}
 </message>
 
-Previous messages in the thread for context:
+${
+  threadContextMessages.length > 0
+    ? `Previous messages in the thread for context:
 
 <previous_messages>
-${messages
-  .slice(-3, -1) // Take 2 messages before the last message
+${threadContextMessages
   .map((message) => `<message>${stringifyEmailFromBody(message)}</message>`)
   .join("\n")}
-</previous_messages>
+</previous_messages>`
+    : ""
+}
+
+Decide if the message we are sending needs a reply.
 `.trim();
 
   logger.trace("Input", { system, prompt });
@@ -58,5 +77,5 @@ ${messages
 
   logger.trace("Result", { response: aiResponse.object });
 
-  return aiResponse.object;
+  return aiResponse.object as AICheckResult;
 }
