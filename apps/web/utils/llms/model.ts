@@ -10,30 +10,6 @@ import { env } from "@/env";
 import { Model, Provider, supportsOllama } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 
-function getDefaultProvider(): string {
-  switch (env.DEFAULT_LLM_PROVIDER) {
-    case "google":
-      return Provider.GOOGLE;
-    case "anthropic":
-      return Provider.ANTHROPIC;
-    case "bedrock":
-      return Provider.ANTHROPIC;
-    case "openai":
-      return Provider.OPEN_AI;
-    case "openrouter":
-      return Provider.OPENROUTER;
-    case "groq":
-      return Provider.GROQ;
-    case "ollama":
-      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
-      throw new Error("Ollama is not supported");
-    default:
-      throw new Error(
-        "No AI provider found. Please set at least one API key in env variables.",
-      );
-  }
-}
-
 export function getModel(
   userAi: UserAIFields,
   useEconomyModel?: boolean,
@@ -161,35 +137,61 @@ export function getModel(
  * - Any task with large context windows where cost efficiency matters
  */
 function getEconomyModel(userAi: UserAIFields) {
-  // If specific economy model is configured, use it
-  if (
-    env.NEXT_PUBLIC_ECONOMY_LLM_PROVIDER &&
-    env.NEXT_PUBLIC_ECONOMY_LLM_MODEL
-  ) {
+  if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
+    if (!apiKey) return getModel(userAi);
+
     return getModel({
-      ...userAi,
-      aiProvider: env.NEXT_PUBLIC_ECONOMY_LLM_PROVIDER,
-      aiModel: env.NEXT_PUBLIC_ECONOMY_LLM_MODEL,
+      aiProvider: env.ECONOMY_LLM_PROVIDER,
+      aiModel: env.ECONOMY_LLM_MODEL,
+      aiApiKey: apiKey,
     });
   }
 
-  // If only provider is specified (without model), use default model for that provider
-  if (env.NEXT_PUBLIC_ECONOMY_LLM_PROVIDER) {
-    return getModel({
-      ...userAi,
-      aiProvider: env.NEXT_PUBLIC_ECONOMY_LLM_PROVIDER,
-    });
-  }
-
-  // Default to Gemini Flash if Google provider is available
-  if (env.GOOGLE_API_KEY) {
-    return getModel({
-      ...userAi,
-      aiProvider: Provider.GOOGLE,
-      aiModel: Model.GEMINI_2_0_FLASH,
-    });
-  }
-
-  // Fallback to user's default model if no economy-specific configuration
   return getModel(userAi);
+}
+
+function getProviderApiKey(
+  provider:
+    | "openai"
+    | "anthropic"
+    | "google"
+    | "groq"
+    | "openrouter"
+    | "bedrock"
+    | "ollama",
+) {
+  const providerApiKeys = {
+    [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
+    [Provider.OPEN_AI]: env.OPENAI_API_KEY,
+    [Provider.GOOGLE]: env.GOOGLE_API_KEY,
+    [Provider.GROQ]: env.GROQ_API_KEY,
+    [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
+  };
+
+  return providerApiKeys[provider];
+}
+
+function getDefaultProvider(): string {
+  switch (env.DEFAULT_LLM_PROVIDER) {
+    case "google":
+      return Provider.GOOGLE;
+    case "anthropic":
+      return Provider.ANTHROPIC;
+    case "bedrock":
+      return Provider.ANTHROPIC;
+    case "openai":
+      return Provider.OPEN_AI;
+    case "openrouter":
+      return Provider.OPENROUTER;
+    case "groq":
+      return Provider.GROQ;
+    case "ollama":
+      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
+      throw new Error("Ollama is not supported");
+    default:
+      throw new Error(
+        "No AI provider found. Please set at least one API key in env variables.",
+      );
+  }
 }
