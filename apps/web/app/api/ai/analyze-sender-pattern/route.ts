@@ -21,11 +21,11 @@ const MAX_RESULTS = 20;
 
 const logger = createScopedLogger("api/ai/pattern-match");
 
-const patternMatchSchema = z.object({
+const schema = z.object({
   userId: z.string(),
   from: z.string().email("Invalid sender email"),
 });
-export type PatternMatchBody = z.infer<typeof patternMatchSchema>;
+export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
 async function process(request: Request) {
   if (!isValidInternalApiKey(await headers())) {
@@ -34,7 +34,7 @@ async function process(request: Request) {
   }
 
   const json = await request.json();
-  const { userId, from } = patternMatchSchema.parse(json);
+  const { userId, from } = schema.parse(json);
 
   try {
     const user = await getUserWithRules(userId);

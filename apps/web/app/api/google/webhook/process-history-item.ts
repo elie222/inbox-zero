@@ -17,7 +17,7 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { internalDateToDate } from "@/utils/date";
-import type { PatternMatchBody } from "@/app/api/ai/pattern-match/route";
+import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { env } from "@/env";
 
@@ -127,7 +127,7 @@ export async function processHistoryItem(
     }
 
     after(() =>
-      checkPatternMatch({
+      analyzeSenderPattern({
         userId: user.id,
         from: message.headers.from,
       }),
@@ -212,10 +212,10 @@ export function shouldRunColdEmailBlocker(
   );
 }
 
-async function checkPatternMatch(body: PatternMatchBody) {
+async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
   try {
     const response = await fetch(
-      `${env.NEXT_PUBLIC_BASE_URL}/api/ai/pattern-match`,
+      `${env.NEXT_PUBLIC_BASE_URL}/api/ai/analyze-sender-pattern`,
       {
         method: "POST",
         body: JSON.stringify(body),
@@ -227,7 +227,7 @@ async function checkPatternMatch(body: PatternMatchBody) {
     );
 
     if (!response.ok) {
-      logger.error("Pattern match API request failed", {
+      logger.error("Sender pattern analysis API request failed", {
         userId: body.userId,
         from: body.from,
         status: response.status,
@@ -235,7 +235,7 @@ async function checkPatternMatch(body: PatternMatchBody) {
       });
     }
   } catch (error) {
-    logger.error("Error in pattern match execution", {
+    logger.error("Error in sender pattern analysis", {
       userId: body.userId,
       from: body.from,
       error: error instanceof Error ? error.message : error,
