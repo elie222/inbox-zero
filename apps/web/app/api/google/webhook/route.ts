@@ -3,7 +3,7 @@ import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { logger } from "@/app/api/google/webhook/logger";
-export const dynamic = "force-dynamic";
+
 export const maxDuration = 120;
 
 // Google PubSub calls this endpoint each time a user recieves an email. We subscribe for updates via `api/google/watch`
