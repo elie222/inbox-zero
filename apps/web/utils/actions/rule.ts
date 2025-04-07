@@ -458,21 +458,19 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
         // Load previous emails needing replies in background
         // This can take a while
-        if (env.INTERNAL_API_KEY) {
-          fetch(
-            `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-              },
-              body: JSON.stringify({
-                userId: session.user.id,
-              } satisfies ProcessPreviousBody),
+        fetch(
+          `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
             },
-          );
-        }
+            body: JSON.stringify({
+              userId: session.user.id,
+            } satisfies ProcessPreviousBody),
+          },
+        );
       });
       promises.push(promise);
     }

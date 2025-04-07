@@ -16,6 +16,9 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { internalDateToDate } from "@/utils/date";
+import type { PatternMatchBody } from "@/app/api/ai/pattern-match/route";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import { env } from "@/env";
 
 export async function processHistoryItem(
   {
@@ -199,4 +202,15 @@ export function shouldRunColdEmailBlocker(
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasColdEmailAccess
   );
+}
+
+async function checkPatternMatch(body: PatternMatchBody) {
+  await fetch(`${env.NEXT_PUBLIC_BASE_URL}/api/ai/pattern-match`, {
+    method: "POST",
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+    },
+  });
 }

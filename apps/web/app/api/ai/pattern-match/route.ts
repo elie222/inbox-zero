@@ -1,6 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { headers } from "next/headers";
-import { after } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -24,10 +23,11 @@ const logger = createScopedLogger("api/ai/pattern-match");
 const patternMatchSchema = z.object({
   userId: z.string(),
   sender: z.string().email("Invalid sender email"),
-  maxResults: z.number().int().min(1).max(20).default(5),
 });
+export type PatternMatchBody = z.infer<typeof patternMatchSchema>;
 
 const THRESHOLD_EMAILS = 3;
+const MAX_RESULTS = 20;
 
 async function process(request: Request) {
   if (!isValidInternalApiKey(await headers())) {
@@ -36,7 +36,7 @@ async function process(request: Request) {
   }
 
   const json = await request.json();
-  const { userId, sender, maxResults } = patternMatchSchema.parse(json);
+  const { userId, sender } = patternMatchSchema.parse(json);
 
   try {
     const user = await getUserWithRules(userId);
@@ -61,7 +61,7 @@ async function process(request: Request) {
       refreshToken: account.refresh_token,
     });
 
-    const emails = await getMessagesFromSender(gmail, sender, maxResults);
+    const emails = await getMessagesFromSender(gmail, sender, MAX_RESULTS);
 
     // If not enough emails, return null result
     if (emails.length < THRESHOLD_EMAILS) {
