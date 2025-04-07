@@ -8,7 +8,7 @@ import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai-choose-rule");
 
-const braintrust = new Braintrust("choose-rule-1");
+const braintrust = new Braintrust("choose-rule-2");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -29,14 +29,13 @@ async function getAiResponse(options: GetAiResponseOptions) {
   <priority>
   1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
   2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
-  3. Only use rule system fallback if no user-defined rule can reasonably apply.
+  3. Only set "noMatchFound" to true if no user-defined rule can reasonably apply.
   </priority>
 
   <guidelines>
   - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
   - When multiple rules match, choose the more specific one that best matches the email's content.
   - Rules about requiring replies should be prioritized when the email clearly needs a response.
-  - The system fallback rule should ONLY be selected when there is absolutely no user-defined rule that could apply.
   </guidelines>
 </instructions>
 
@@ -50,13 +49,6 @@ ${rules
   )
   .join("\n")}
 </user_rules>
-
-<system_fallback>
-  <name>System fallback</name>
-  <instructions>
-    The system fallback rule should ONLY be selected when there is absolutely no user-defined rule that could apply.
-  </instructions>
-</system_fallback>
 
 ${
   user.about
@@ -73,6 +65,7 @@ ${
 Respond with a JSON object with the following fields:
 "reason" - the reason you chose that rule. Keep it concise.
 "ruleName" - the exact name of the rule you want to apply
+"noMatchFound" - true if no match was found, false otherwise
 </outputFormat>`;
 
   const prompt = `Select a rule to apply to this email that was sent to me:
@@ -106,6 +99,7 @@ ${emailSection}
     schema: z.object({
       reason: z.string(),
       ruleName: z.string(),
+      noMatchFound: z.boolean().optional(),
     }),
     userEmail: user.email || "",
     usageLabel: "Choose rule",
@@ -143,6 +137,9 @@ export async function aiChooseRule<
     rules,
     user,
   });
+
+  if (aiResponse.noMatchFound)
+    return { rule: undefined, reason: "No match found" };
 
   const selectedRule = aiResponse.ruleName
     ? rules.find(
