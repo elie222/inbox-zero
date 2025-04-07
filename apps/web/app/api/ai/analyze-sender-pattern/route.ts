@@ -86,11 +86,11 @@ async function process(request: Request) {
       })),
     });
 
-    if (patternResult) {
+    if (patternResult?.matchedRule) {
       await saveToDb({
         userId,
         from,
-        ruleName: patternResult.name,
+        ruleName: patternResult.matchedRule,
       });
     }
 
