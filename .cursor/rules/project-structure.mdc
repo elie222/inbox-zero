@@ -11,6 +11,38 @@ alwaysApply: false
 - Packages are in the `packages` folder
 - Server actions are in `apps/web/utils/actions` folder
 
+```tree
+.
+├── apps
+│   ├── web/             # Main Next.js application
+│   │   ├── app/         # Next.js App Router (pages, layouts, api routes)
+│   │   ├── components/  # React components (UI and features)
+│   │   ├── utils/       # Utility functions, server actions, helpers
+│   │   ├── public/      # Static assets (images, fonts)
+│   │   ├── prisma/      # Prisma schema and client
+│   │   ├── styles/      # Global CSS styles
+│   │   ├── providers/   # React Context providers
+│   │   ├── hooks/       # Custom React hooks
+│   │   ├── sanity/      # Sanity CMS integration
+│   │   ├── __tests__/   # AI test files (Vitest)
+│   │   ├── scripts/     # Utility scripts
+│   │   ├── store/       # Jotai state management (not heavily used)
+│   │   ├── types/       # TypeScript type definitions
+│   │   ├── next.config.mjs
+│   │   ├── package.json
+│   │   └── ... (config files, etc.)
+│   ├── mcp-server/
+│   └── unsubscriber/    # Automates unsubscribes using browser automation. Not currently in use
+├── packages
+│   ├── tinybird/
+│   ├── eslint-config/
+│   ├── loops/
+│   ├── resend/
+│   ├── tinybird-ai-analytics/
+│   ├── tsconfig/
+...
+```
+
 ## File Naming and Organization
 - Use kebab case for route directories (e.g., `api/hello-world/route`)
 - Use PascalCase for components (e.g. `components/Button.tsx`)
