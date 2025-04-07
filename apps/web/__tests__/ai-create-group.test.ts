@@ -13,7 +13,7 @@ vi.mock("@/utils/gmail/message", () => ({
   queryBatchMessages: vi.fn(),
 }));
 
-describe.skipIf(!isAiTest)("aiGenerateGroupItems", () => {
+describe.runIf(isAiTest)("aiGenerateGroupItems", () => {
   it("should generate group items based on user prompt", async () => {
     const user = {
       email: "user@test.com",

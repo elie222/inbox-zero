@@ -9,7 +9,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiRuleFix", () => {
+describe.runIf(isAiTest)("aiRuleFix", () => {
   test("should fix a rule that incorrectly matched a sales email", async () => {
     const rule = {
       instructions: "Match emails discussing potential business partnerships",

@@ -14,7 +14,7 @@ vi.mock("@/utils/gmail/message", () => ({
   queryBatchMessages: vi.fn(),
 }));
 
-describe.skipIf(!isAiTest)("aiFindExampleMatches", () => {
+describe.runIf(isAiTest)("aiFindExampleMatches", () => {
   it("should find example matches based on user prompt", async () => {
     const user = {
       email: "user@test.com",

@@ -9,7 +9,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
+describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
     const rule = getRule("Test rule", actions);
