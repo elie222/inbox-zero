@@ -13,20 +13,26 @@ const schema = z.object({
   matchedRule: z.string().nullable(),
   explanation: z.string(),
 });
-export type DetectPatternResult = z.infer<typeof schema> | null;
+
+type Rule = {
+  name: string;
+  instructions: string;
+};
 
 /**
  * Determines if emails from a specific sender should always be matched to a specific rule
  * @param options The options for sender rule detection
  * @returns Analysis of the sender and matching rule, or null if no consistent rule found
  */
-export async function aiDetectRecurringPattern(options: {
+export async function aiDetectRecurringPattern({
+  emails,
+  user,
+  rules,
+}: {
   emails: EmailForLLM[];
   user: UserEmailWithAI;
-  rules: { name: string; instructions: string }[];
-}): Promise<DetectPatternResult | null> {
-  const { emails, user, rules } = options;
-
+  rules: Rule[];
+}): Promise<Rule | null> {
   // Extract the sender email from the first email
   // All emails should be from the same sender
   const senderEmail = emails[0].from;
@@ -123,12 +129,21 @@ ${stringifyEmail(email, 1000)}
     //   expected: aiResponse.object.matchedRule,
     // });
 
-    // Return null if matchedRule is null
-    if (!aiResponse.object.matchedRule) {
+    if (!aiResponse.object.matchedRule) return null;
+
+    const rule = rules.find(
+      (rule) => rule.name === aiResponse.object.matchedRule,
+    );
+
+    if (!rule) {
+      logger.error("Rule not found", {
+        rules,
+        matchedRule: aiResponse.object.matchedRule,
+      });
       return null;
     }
 
-    return aiResponse.object;
+    return rule;
   } catch (error) {
     logger.error("Error detecting recurring pattern", { error });
     return null;

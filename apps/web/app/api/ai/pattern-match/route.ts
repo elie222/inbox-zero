@@ -6,15 +6,13 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import {
-  aiDetectRecurringPattern,
-  type DetectPatternResult,
-} from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
+import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { internalDateToDate } from "@/utils/date";
 import { isValidInternalApiKey } from "@/utils/internal-api";
+import { GroupItemType } from "@prisma/client";
 
 export const maxDuration = 60;
 
@@ -88,11 +86,13 @@ async function process(request: Request) {
       })),
     });
 
-    await saveToDb({
-      userId,
-      from,
-      result: patternResult,
-    });
+    if (patternResult) {
+      await saveToDb({
+        userId,
+        from,
+        ruleName: patternResult.name,
+      });
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -118,9 +118,46 @@ export const POST = withError(async (request) => {
 async function saveToDb({
   userId,
   from,
-  result,
-}: { userId: string; from: string; result: DetectPatternResult | null }) {
-  // TODO:
+  ruleName,
+}: {
+  userId: string;
+  from: string;
+  ruleName: string;
+}) {
+  const rule = await prisma.rule.findUnique({
+    where: {
+      name_userId: {
+        name: ruleName,
+        userId,
+      },
+    },
+    select: { groupId: true },
+  });
+
+  if (!rule) {
+    logger.error("Rule not found", { userId, ruleName });
+    return;
+  }
+  if (!rule.groupId) {
+    logger.error("Rule has no group", { userId, ruleName });
+    return;
+  }
+
+  await prisma.groupItem.upsert({
+    where: {
+      groupId_type_value: {
+        groupId: rule.groupId,
+        type: GroupItemType.FROM,
+        value: from,
+      },
+    },
+    update: {},
+    create: {
+      groupId: rule.groupId,
+      type: GroupItemType.FROM,
+      value: from,
+    },
+  });
 }
 
 async function getUserWithRules(userId: string) {
