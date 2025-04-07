@@ -16,14 +16,31 @@ alwaysApply: false
 .
 ├── apps
 │   ├── web/             # Main Next.js application
-│   │   ├── app/         # Next.js App Router (pages, layouts, api routes)
-│   │   ├── components/  # React components
-│   │   │   ├── ui/      # Shadcn UI components
-│   │   │   ├── email-list/  # Email list related components
-│   │   │   ├── editor/      # Editor related components
-│   │   │   ├── charts/      # Chart components
-│   │   │   ├── layouts/     # Layout components
-│   │   │   └── *.tsx        # Other feature components
+│   │   ├── app/         # Next.js App Router
+│   │   │   ├── (app)/   # Main application routes
+│   │   │   │   ├── automation/     # AI assistant feature
+│   │   │   │   ├── reply-zero/     # Reply Zero feature
+│   │   │   │   ├── settings/       # User settings
+│   │   │   │   ├── setup/          # Main onboarding
+│   │   │   │   ├── clean/          # Bulk email cleanup
+│   │   │   │   ├── smart-categories/ # Smart sender categorization
+│   │   │   │   ├── bulk-unsubscribe/ # Bulk unsubscribe
+│   │   │   │   ├── stats/          # Email analytics
+│   │   │   │   ├── mail/           # Email client (in beta)
+│   │   │   │   └── ... (other app routes)
+│   │   │   ├── api/    # API Routes
+│   │   │   │   ├── knowledge/      # Knowledge base API
+│   │   │   │   ├── reply-tracker/  # Reply tracking
+│   │   │   │   ├── clean/          # Cleanup API
+│   │   │   │   ├── ai/            # AI features API
+│   │   │   │   ├── user/          # User management
+│   │   │   │   ├── google/        # Google integration
+│   │   │   │   ├── auth/          # Authentication
+│   │   │   │   └── ... (other APIs)
+│   │   │   ├── (landing)/  # Marketing/landing pages
+│   │   │   ├── blog/       # Blog pages
+│   │   │   ├── layout.tsx  # Root layout
+│   │   │   └── ... (other app files)
 │   │   ├── utils/       # Utility functions and helpers
 │   │   │   ├── actions/    # Server actions
 │   │   │   ├── ai/         # AI-related utilities
