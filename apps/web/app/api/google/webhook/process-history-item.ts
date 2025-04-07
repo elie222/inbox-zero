@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -125,6 +126,13 @@ export async function processHistoryItem(
       return;
     }
 
+    after(
+      checkPatternMatch({
+        userId: user.id,
+        sender: message.headers.from,
+      }),
+    );
+
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
       hasColdEmailAccess,
@@ -205,12 +213,32 @@ export function shouldRunColdEmailBlocker(
 }
 
 async function checkPatternMatch(body: PatternMatchBody) {
-  await fetch(`${env.NEXT_PUBLIC_BASE_URL}/api/ai/pattern-match`, {
-    method: "POST",
-    body: JSON.stringify(body),
-    headers: {
-      "Content-Type": "application/json",
-      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-    },
-  });
+  try {
+    const response = await fetch(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/ai/pattern-match`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      logger.error("Pattern match API request failed", {
+        userId: body.userId,
+        sender: body.sender,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+  } catch (error) {
+    logger.error("Error in pattern match execution", {
+      userId: body.userId,
+      sender: body.sender,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }
