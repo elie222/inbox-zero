@@ -7,17 +7,16 @@ import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
-import type { EmailForLLM } from "@/utils/types";
-import { parseMessage } from "@/utils/mail";
-import { getMessage, getMessages } from "@/utils/gmail/message";
-import { internalDateToDate } from "@/utils/date";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { GroupItemType } from "@prisma/client";
+import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
+import { extractEmailAddress } from "@/utils/email";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 export const maxDuration = 60;
 
 const THRESHOLD_EMAILS = 3;
-const MAX_RESULTS = 20;
+const MAX_RESULTS = 10;
 
 const logger = createScopedLogger("api/ai/pattern-match");
 
@@ -41,17 +40,14 @@ async function process(request: Request) {
 
     if (!user) {
       logger.error("User not found", { userId });
-      return NextResponse.json({ error: "User not found" }, { status: 404 });
+      return NextResponse.json({ success: false }, { status: 404 });
     }
 
     const account = user.accounts[0];
 
     if (!account.access_token || !account.refresh_token) {
       logger.error("No Gmail account found", { userId });
-      return NextResponse.json(
-        { error: "No Gmail account found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ success: false }, { status: 404 });
     }
 
     const gmail = getGmailClient({
@@ -59,15 +55,37 @@ async function process(request: Request) {
       refreshToken: account.refresh_token,
     });
 
-    const emails = await getMessagesFromSender(gmail, from, MAX_RESULTS);
+    const threadsWithMessages = await getThreadsFromSender(
+      gmail,
+      from,
+      MAX_RESULTS,
+    );
 
-    // If not enough emails, return null result
-    if (emails.length < THRESHOLD_EMAILS) {
-      return NextResponse.json({
-        result: null,
-        reason: "Not enough emails found from this sender",
+    // If no threads found or we've detected a conversation, return early
+    if (threadsWithMessages.length === 0) {
+      logger.info("No threads found from this sender", {
+        from,
+        userId,
       });
+      return NextResponse.json({ success: true });
     }
+
+    // Get all messages and check if we have enough for pattern detection
+    const allMessages = threadsWithMessages.flatMap(
+      (thread) => thread.messages,
+    );
+
+    if (allMessages.length < THRESHOLD_EMAILS) {
+      logger.info("Not enough emails found from this sender", {
+        from,
+        userId,
+        count: allMessages.length,
+      });
+      return NextResponse.json({ success: true });
+    }
+
+    // Convert messages to EmailForLLM format
+    const emails = allMessages.map((message) => getEmailForLLM(message));
 
     // Detect pattern
     const patternResult = await aiDetectRecurringPattern({
@@ -189,48 +207,50 @@ async function getUserWithRules(userId: string) {
   });
 }
 
-// TODO: fix this nonsense up. we have similar functions in other files
-// see smart categories for this
-async function getMessagesFromSender(
+/**
+ * Fetches threads from a specific sender and filters out any threads that are conversations.
+ * A thread is considered a conversation if it contains messages from senders other than the original sender.
+ * This helps identify one-way communication patterns (newsletters, marketing, transactional emails)
+ * by excluding threads where users have replied or others have participated.
+ */
+async function getThreadsFromSender(
   gmail: gmail_v1.Gmail,
   sender: string,
-  maxResults = 5,
-): Promise<EmailForLLM[]> {
-  try {
-    // Query Gmail API for messages from the specific sender
-    const response = await getMessages(gmail, {
-      query: `from:${sender} -label:draft`,
-      maxResults,
-    });
+  maxResults: number,
+) {
+  const from = extractEmailAddress(sender);
+  const threads = await getThreads(
+    `from:${from} -label:sent -label:draft`,
+    [],
+    gmail,
+    maxResults,
+  );
 
-    // If no messages found, return empty array
-    if (!response.messages || response.messages.length === 0) {
+  const threadsWithMessages = [];
+
+  // Check for conversation threads
+  for (const thread of threads.threads) {
+    const messages = await getThreadMessages(thread.id, gmail);
+
+    // Check if this is a conversation (multiple senders)
+    const senders = messages.map((msg) =>
+      extractEmailAddress(msg.headers.from),
+    );
+    const hasOtherSenders = senders.some((s) => s !== from);
+
+    // If we found a conversation thread, skip this sender entirely
+    if (hasOtherSenders) {
+      logger.info("Skipping sender pattern detection - conversation detected", {
+        from,
+      });
       return [];
     }
 
-    // Fetch full message details for each message
-    const messages = await Promise.all(
-      response.messages.map(async (message) => {
-        if (!message.id) return null;
-        const fullMessage = await getMessage(message.id, gmail, "full");
-        return parseMessage(fullMessage);
-      }),
-    );
-
-    // Filter out any null messages and convert to EmailForLLM format
-    return messages
-      .filter(
-        (message): message is NonNullable<typeof message> => message !== null,
-      )
-      .map((message) => ({
-        id: message.id,
-        from: message.headers.from,
-        subject: message.headers.subject,
-        content: message.textPlain || message.textHtml || "",
-        date: internalDateToDate(message.internalDate),
-      }));
-  } catch (error) {
-    logger.error("Error fetching emails from sender", { sender, error });
-    return [];
+    threadsWithMessages.push({
+      threadId: thread.id,
+      messages,
+    });
   }
+
+  return threadsWithMessages;
 }
