@@ -21,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { findCtaLink } from "@/utils/parse/parseHtml.client";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { internalDateToDate } from "@/utils/date";
+import { Badge } from "@/components/ui/badge";
+import { isDefined } from "@/utils/types";
+import { useLabels } from "@/hooks/useLabels";
 
 export const EmailListItem = forwardRef(
   (
@@ -45,12 +48,24 @@ export const EmailListItem = forwardRef(
     ref: ForwardedRef<HTMLLIElement>,
   ) => {
     const { thread, splitView, onSelected } = props;
+    const { userLabels } = useLabels();
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
     const isUnread = useMemo(() => {
       return lastMessage?.labelIds?.includes("UNREAD");
     }, [lastMessage?.labelIds]);
+
+    const labelsToDisplay = useMemo(() => {
+      const labelIds = lastMessage?.labelIds;
+      return labelIds
+        ?.map((id) => {
+          const label = userLabels[Number(id)];
+          if (!label) return null;
+          return { id, name: label.name };
+        })
+        .filter(isDefined);
+    }, [lastMessage?.labelIds, userLabels]);
 
     const preventPropagation = useCallback(
       (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation(),
@@ -138,6 +153,19 @@ export const EmailListItem = forwardRef(
                     )}
                     <div className="ml-2 min-w-0 overflow-hidden text-foreground">
                       {lastMessage.headers.subject}
+                      {labelsToDisplay && labelsToDisplay.length > 0 && (
+                        <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+                          {labelsToDisplay.map((label) => (
+                            <Badge
+                              variant="secondary"
+                              key={label.id}
+                              className="text-xs"
+                            >
+                              {label.name}
+                            </Badge>
+                          ))}
+                        </span>
+                      )}
                     </div>
                     <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-muted-foreground">
                       {decodedSnippet}
@@ -195,6 +223,19 @@ export const EmailListItem = forwardRef(
               <div className="mt-1.5 whitespace-nowrap text-sm leading-6">
                 <div className="min-w-0 overflow-hidden font-medium text-foreground">
                   {lastMessage.headers.subject}
+                  {labelsToDisplay && labelsToDisplay.length > 0 && (
+                    <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+                      {labelsToDisplay.map((label) => (
+                        <Badge
+                          variant="secondary"
+                          key={label.id}
+                          className="text-xs"
+                        >
+                          {label.name}
+                        </Badge>
+                      ))}
+                    </span>
+                  )}
                 </div>
                 <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
                   {decodedSnippet}
