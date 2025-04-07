@@ -1,6 +1,6 @@
 "use server";
 
-import { waitUntil } from "@vercel/functions";
+import { after } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import {
@@ -190,7 +190,7 @@ export const cleanInboxAction = withActionInstrumentation(
       );
     };
 
-    waitUntil(process());
+    after(process());
 
     return { jobId: job.id };
   },

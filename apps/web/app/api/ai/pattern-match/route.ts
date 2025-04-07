@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { waitUntil } from "@vercel/functions";
+import { after } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -111,7 +111,7 @@ async function process(request: Request) {
 
 export const POST = withError(async (request) => {
   // return immediately and process in background
-  waitUntil(process(request));
+  after(process(request));
   return NextResponse.json({ processing: true });
 });
 

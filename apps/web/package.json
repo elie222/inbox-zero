@@ -75,7 +75,6 @@
     "@upstash/qstash": "2.7.23",
     "@upstash/redis": "1.34.6",
     "@vercel/analytics": "1.5.0",
-    "@vercel/functions": "2.0.0",
     "ai": "4.2.8",
     "braintrust": "0.0.195",
     "capital-case": "2.0.0",
