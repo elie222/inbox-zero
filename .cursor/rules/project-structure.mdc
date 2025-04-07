@@ -6,6 +6,7 @@ alwaysApply: false
 # Project Structure
 
 ## Main Structure
+
 - We use Turborepo with pnpm workspaces
 - Main app is in `apps/web`
 - Packages are in the `packages` folder
@@ -16,8 +17,24 @@ alwaysApply: false
 ├── apps
 │   ├── web/             # Main Next.js application
 │   │   ├── app/         # Next.js App Router (pages, layouts, api routes)
-│   │   ├── components/  # React components (UI and features)
-│   │   ├── utils/       # Utility functions, server actions, helpers
+│   │   ├── components/  # React components
+│   │   │   ├── ui/      # Shadcn UI components
+│   │   │   ├── email-list/  # Email list related components
+│   │   │   ├── editor/      # Editor related components
+│   │   │   ├── charts/      # Chart components
+│   │   │   ├── layouts/     # Layout components
+│   │   │   └── *.tsx        # Other feature components
+│   │   ├── utils/       # Utility functions and helpers
+│   │   │   ├── actions/    # Server actions
+│   │   │   ├── ai/         # AI-related utilities
+│   │   │   ├── llms/       # Language model utilities
+│   │   │   ├── gmail/      # Gmail integration utilities
+│   │   │   ├── redis/      # Redis utilities
+│   │   │   ├── user/       # User-related utilities
+│   │   │   ├── parse/      # Parsing utilities
+│   │   │   ├── queue/      # Queue management
+│   │   │   ├── error-messages/  # Error handling
+│   │   │   └── *.ts        # Other utility files (auth, email, etc.)
 │   │   ├── public/      # Static assets (images, fonts)
 │   │   ├── prisma/      # Prisma schema and client
 │   │   ├── styles/      # Global CSS styles
@@ -26,24 +43,23 @@ alwaysApply: false
 │   │   ├── sanity/      # Sanity CMS integration
 │   │   ├── __tests__/   # AI test files (Vitest)
 │   │   ├── scripts/     # Utility scripts
-│   │   ├── store/       # Jotai state management (not heavily used)
+│   │   ├── store/       # State management
 │   │   ├── types/       # TypeScript type definitions
 │   │   ├── next.config.mjs
 │   │   ├── package.json
-│   │   └── ... (config files, etc.)
-│   ├── mcp-server/
+│   │   └── ... (config files)
 │   └── unsubscriber/    # Automates unsubscribes using browser automation. Not currently in use
 ├── packages
-│   ├── tinybird/
-│   ├── eslint-config/
-│   ├── loops/
-│   ├── resend/
-│   ├── tinybird-ai-analytics/
-│   ├── tsconfig/
-...
+    ├── tinybird/
+    ├── eslint-config/
+    ├── loops/
+    ├── resend/
+    ├── tinybird-ai-analytics/
+    └── tsconfig/
 ```
 
 ## File Naming and Organization
+
 - Use kebab case for route directories (e.g., `api/hello-world/route`)
 - Use PascalCase for components (e.g. `components/Button.tsx`)
 - Shadcn components are in `components/ui`
@@ -52,6 +68,7 @@ alwaysApply: false
 - If a component can be used in many places, place it in the `components` folder
 
 ## New Pages
+
 - Create new pages at: `apps/web/app/(app)/PAGE_NAME/page.tsx`
 - Components for the page are either in `page.tsx` or in the `apps/web/app/(app)/PAGE_NAME` folder
 - Pages are Server components for direct data loading
@@ -60,9 +77,10 @@ alwaysApply: false
 - Server action files must start with `use server`
 
 ## Utility Functions
+
 - Create utility functions in `utils/` folder for reusable logic
 - Use lodash utilities for common operations (arrays, objects, strings)
 - Import specific lodash functions to minimize bundle size:
   ```ts
   import groupBy from "lodash/groupBy";
-  ``` 
+  ```
