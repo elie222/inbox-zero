@@ -20,7 +20,7 @@ export type DetectPatternResult = z.infer<typeof schema> | null;
  * @param options The options for sender rule detection
  * @returns Analysis of the sender and matching rule, or null if no consistent rule found
  */
-export async function detectRecurringPattern(options: {
+export async function aiDetectRecurringPattern(options: {
   emails: EmailForLLM[];
   user: UserEmailWithAI;
   rules: { name: string; instructions: string }[];
