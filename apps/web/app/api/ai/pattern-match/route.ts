@@ -18,16 +18,16 @@ import { isValidInternalApiKey } from "@/utils/internal-api";
 
 export const maxDuration = 60;
 
+const THRESHOLD_EMAILS = 3;
+const MAX_RESULTS = 20;
+
 const logger = createScopedLogger("api/ai/pattern-match");
 
 const patternMatchSchema = z.object({
   userId: z.string(),
-  sender: z.string().email("Invalid sender email"),
+  from: z.string().email("Invalid sender email"),
 });
 export type PatternMatchBody = z.infer<typeof patternMatchSchema>;
-
-const THRESHOLD_EMAILS = 3;
-const MAX_RESULTS = 20;
 
 async function process(request: Request) {
   if (!isValidInternalApiKey(await headers())) {
@@ -36,7 +36,7 @@ async function process(request: Request) {
   }
 
   const json = await request.json();
-  const { userId, sender } = patternMatchSchema.parse(json);
+  const { userId, from } = patternMatchSchema.parse(json);
 
   try {
     const user = await getUserWithRules(userId);
@@ -61,7 +61,7 @@ async function process(request: Request) {
       refreshToken: account.refresh_token,
     });
 
-    const emails = await getMessagesFromSender(gmail, sender, MAX_RESULTS);
+    const emails = await getMessagesFromSender(gmail, from, MAX_RESULTS);
 
     // If not enough emails, return null result
     if (emails.length < THRESHOLD_EMAILS) {
@@ -90,14 +90,14 @@ async function process(request: Request) {
 
     await saveToDb({
       userId,
-      sender,
+      from,
       result: patternResult,
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error("Error in pattern match API", {
-      sender,
+      from,
       userId,
       error,
     });
@@ -111,15 +111,15 @@ async function process(request: Request) {
 
 export const POST = withError(async (request) => {
   // return immediately and process in background
-  after(process(request));
+  after(() => process(request));
   return NextResponse.json({ processing: true });
 });
 
 async function saveToDb({
   userId,
-  sender,
+  from,
   result,
-}: { userId: string; sender: string; result: DetectPatternResult | null }) {
+}: { userId: string; from: string; result: DetectPatternResult | null }) {
   // TODO:
 }
 

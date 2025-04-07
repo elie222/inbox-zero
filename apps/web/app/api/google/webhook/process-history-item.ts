@@ -126,10 +126,10 @@ export async function processHistoryItem(
       return;
     }
 
-    after(
+    after(() =>
       checkPatternMatch({
         userId: user.id,
-        sender: message.headers.from,
+        from: message.headers.from,
       }),
     );
 
@@ -229,7 +229,7 @@ async function checkPatternMatch(body: PatternMatchBody) {
     if (!response.ok) {
       logger.error("Pattern match API request failed", {
         userId: body.userId,
-        sender: body.sender,
+        from: body.from,
         status: response.status,
         statusText: response.statusText,
       });
@@ -237,7 +237,7 @@ async function checkPatternMatch(body: PatternMatchBody) {
   } catch (error) {
     logger.error("Error in pattern match execution", {
       userId: body.userId,
-      sender: body.sender,
+      from: body.from,
       error: error instanceof Error ? error.message : error,
     });
   }

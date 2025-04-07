@@ -190,7 +190,7 @@ export const cleanInboxAction = withActionInstrumentation(
       );
     };
 
-    after(process());
+    after(() => process());
 
     return { jobId: job.id };
   },
