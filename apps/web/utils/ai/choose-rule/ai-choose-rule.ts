@@ -13,41 +13,49 @@ const braintrust = new Braintrust("choose-rule-1");
 type GetAiResponseOptions = {
   email: EmailForLLM;
   user: UserEmailWithAI;
-  rules: { instructions: string }[];
+  rules: { name: string; instructions: string }[];
 };
 
 async function getAiResponse(options: GetAiResponseOptions) {
   const { email, user, rules } = options;
-
-  const specialRuleNumber = rules.length + 1;
 
   const emailSection = stringifyEmail(email, 500);
 
   const system = `You are an AI assistant that helps people manage their emails.
 
 <instructions>
-IMPORTANT: Follow these instructions carefully when selecting a rule:
+  IMPORTANT: Follow these instructions carefully when selecting a rule:
 
-<priority>
-1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
-2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
-3. Only use rule #${specialRuleNumber} (system fallback) if no user-defined rule can reasonably apply.
-</priority>
+  <priority>
+  1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
+  2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
+  3. Only use rule system fallback if no user-defined rule can reasonably apply.
+  </priority>
 
-<guidelines>
-- If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
-- When multiple rules match, choose the more specific one that best matches the email's content.
-- Rules about requiring replies should be prioritized when the email clearly needs a response.
-- Rule #${specialRuleNumber} should ONLY be selected when there is absolutely no user-defined rule that could apply.
-</guidelines>
+  <guidelines>
+  - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
+  - When multiple rules match, choose the more specific one that best matches the email's content.
+  - Rules about requiring replies should be prioritized when the email clearly needs a response.
+  - The system fallback rule should ONLY be selected when there is absolutely no user-defined rule that could apply.
+  </guidelines>
 </instructions>
 
 <user_rules>
-${rules.map((rule, i) => `${i + 1}. ${rule.instructions}`).join("\n")}
+${rules
+  .map(
+    (rule) => `<rule>
+  <name>${rule.name}</name>
+  <instructions>${rule.instructions}</instructions>
+</rule>`,
+  )
+  .join("\n")}
 </user_rules>
 
 <system_fallback>
-${specialRuleNumber}. None of the other rules match or not enough information to make a decision.
+  <name>System fallback</name>
+  <instructions>
+    The system fallback rule should ONLY be selected when there is absolutely no user-defined rule that could apply.
+  </instructions>
 </system_fallback>
 
 ${
@@ -64,7 +72,7 @@ ${
 <outputFormat>
 Respond with a JSON object with the following fields:
 "reason" - the reason you chose that rule. Keep it concise.
-"rule" - the number of the rule you want to apply
+"ruleName" - the exact name of the rule you want to apply
 </outputFormat>`;
 
   const prompt = `Select a rule to apply to this email that was sent to me:
@@ -97,7 +105,7 @@ ${emailSection}
     ],
     schema: z.object({
       reason: z.string(),
-      rule: z.number(),
+      ruleName: z.string(),
     }),
     userEmail: user.email || "",
     usageLabel: "Choose rule",
@@ -109,23 +117,22 @@ ${emailSection}
     id: email.id,
     input: {
       email: emailSection,
-      rules: rules.map((rule, i) => ({
-        ruleNumber: i + 1,
+      rules: rules.map((rule) => ({
+        name: rule.name,
         instructions: rule.instructions,
       })),
       hasAbout: !!user.about,
       userAbout: user.about,
       userEmail: user.email,
-      specialRuleNumber,
     },
-    expected: aiResponse.object.rule,
+    expected: aiResponse.object.ruleName,
   });
 
   return aiResponse.object;
 }
 
 export async function aiChooseRule<
-  T extends { instructions: string },
+  T extends { name: string; instructions: string },
 >(options: { email: EmailForLLM; rules: T[]; user: UserEmailWithAI }) {
   const { email, rules, user } = options;
 
@@ -137,13 +144,11 @@ export async function aiChooseRule<
     user,
   });
 
-  const ruleNumber = aiResponse ? aiResponse.rule - 1 : undefined;
-  if (typeof ruleNumber !== "number") {
-    logger.warn("No rule selected");
-    return { reason: aiResponse?.reason };
-  }
-
-  const selectedRule = rules[ruleNumber];
+  const selectedRule = aiResponse.ruleName
+    ? rules.find(
+        (rule) => rule.name.toLowerCase() === aiResponse.ruleName.toLowerCase(),
+      )
+    : undefined;
 
   return {
     rule: selectedRule,
