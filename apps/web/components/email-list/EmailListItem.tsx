@@ -154,17 +154,7 @@ export const EmailListItem = forwardRef(
                     <div className="ml-2 min-w-0 overflow-hidden text-foreground">
                       {lastMessage.headers.subject}
                       {labelsToDisplay && labelsToDisplay.length > 0 && (
-                        <span className="ml-2 inline-flex flex-wrap items-center gap-1">
-                          {labelsToDisplay.map((label) => (
-                            <Badge
-                              variant="secondary"
-                              key={label.id}
-                              className="text-xs"
-                            >
-                              {label.name}
-                            </Badge>
-                          ))}
-                        </span>
+                        <LabelsDisplay labels={labelsToDisplay} />
                       )}
                     </div>
                     <div className="ml-4 mr-6 flex flex-1 items-center overflow-hidden truncate font-normal leading-5 text-muted-foreground">
@@ -224,17 +214,7 @@ export const EmailListItem = forwardRef(
                 <div className="min-w-0 overflow-hidden font-medium text-foreground">
                   {lastMessage.headers.subject}
                   {labelsToDisplay && labelsToDisplay.length > 0 && (
-                    <span className="ml-2 inline-flex flex-wrap items-center gap-1">
-                      {labelsToDisplay.map((label) => (
-                        <Badge
-                          variant="secondary"
-                          key={label.id}
-                          className="text-xs"
-                        >
-                          {label.name}
-                        </Badge>
-                      ))}
-                    </span>
+                    <LabelsDisplay labels={labelsToDisplay} />
                   )}
                 </div>
                 <div className="mr-6 mt-0.5 flex flex-1 items-center overflow-hidden truncate pl-1 font-normal leading-5 text-muted-foreground">
@@ -257,3 +237,25 @@ export const EmailListItem = forwardRef(
 );
 
 EmailListItem.displayName = "EmailListItem";
+
+type Label = {
+  id: string;
+  name: string;
+};
+
+type LabelBadgesProps = {
+  labels: Label[] | undefined;
+};
+
+function LabelsDisplay({ labels }: LabelBadgesProps) {
+  if (!labels || labels.length === 0) return null;
+  return (
+    <span className="ml-2 inline-flex flex-wrap items-center gap-1">
+      {labels.map((label) => (
+        <Badge variant="secondary" key={label.id} className="text-xs">
+          {label.name}
+        </Badge>
+      ))}
+    </span>
+  );
+}
