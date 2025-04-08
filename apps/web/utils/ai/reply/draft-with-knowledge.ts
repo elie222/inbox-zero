@@ -73,7 +73,7 @@ ${stringifyEmail(msg, 3000)}
      
 Please write a reply to the email.
 ${getTodayForLLM()}
-IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.to}.`.trim();
+IMPORTANT: You are writing an email as ${user.email}. Write the reply from their perspective.`;
 };
 
 const draftSchema = z.object({
