@@ -41,6 +41,7 @@ import {
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
 import { formatShortDate } from "@/utils/date";
+import { Tooltip } from "@/components/Tooltip";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
@@ -269,7 +270,7 @@ function GroupItemList({
         </TableHeader>
       )}
       <TableBody>
-        {sortBy(items, (item) => -item.createdAt).map((item) => {
+        {sortBy(items, (item) => -new Date(item.createdAt)).map((item) => {
           const twoMinutesAgo = new Date(Date.now() - 1000 * 60 * 2);
           const isCreatedRecently = new Date(item.createdAt) > twoMinutesAgo;
           const isUpdatedRecently = new Date(item.updatedAt) > twoMinutesAgo;
@@ -291,9 +292,11 @@ function GroupItemList({
                 </div>
               </TableCell>
               <TableCell className="py-2 text-right flex justify-end items-center gap-4">
-                <span className="text-sm text-muted-foreground">
-                  Added: {formatShortDate(new Date(item.createdAt))}
-                </span>
+                <Tooltip content="Date added">
+                  <span className="text-sm text-muted-foreground">
+                    {formatShortDate(new Date(item.createdAt))}
+                  </span>
+                </Tooltip>
 
                 <Button
                   variant="outline"
