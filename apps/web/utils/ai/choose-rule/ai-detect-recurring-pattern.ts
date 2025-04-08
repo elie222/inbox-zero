@@ -61,7 +61,7 @@ ${rules
   .map(
     (rule) => `<rule>
   <name>${rule.name}</name>
-  <instructions>${rule.instructions}</instructions>
+  <criteria>${rule.instructions}</criteria>
 </rule>`,
   )
   .join("\n")}
@@ -76,7 +76,7 @@ ${
 <outputFormat>
 Respond with a JSON object with the following fields:
 - "matchedRule": string or null - the name of the existing rule that should handle all emails from this sender
-- "explanation": string - brief explanation of why this rule matches or doesn't match
+- "explanation": string - one sentence explanation of why this rule does or doesn't match
 
 If you're not confident (at least 80% certain) that a single rule should handle all emails from this sender, return null for matchedRule.
 </outputFormat>`;
@@ -122,7 +122,7 @@ ${stringifyEmail(email, 1000)}
     //   },
     //   expected: aiResponse.object.matchedRule,
     // });
-    
+
     return aiResponse.object;
   } catch (error) {
     logger.error("Error detecting recurring pattern", { error });

@@ -22,19 +22,11 @@ const logger = createScopedLogger("api/ai/pattern-match");
 
 const schema = z.object({
   userId: z.string(),
-  from: z.string().email("Invalid sender email"),
+  from: z.string(),
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
-/**
- * Main background process function that:
- * 1. Checks if sender has been analyzed before
- * 2. Gets threads from the sender
- * 3. Analyzes whether threads are one-way communications
- * 4. Detects patterns using AI
- * 5. Stores patterns in DB for future categorization
- */
-async function process(request: Request) {
+export const POST = withError(async (request) => {
   if (!isValidInternalApiKey(await headers())) {
     logger.error("Invalid API key");
     return NextResponse.json({ error: "Invalid API key" });
@@ -45,6 +37,20 @@ async function process(request: Request) {
   const { userId } = data;
   const from = extractEmailAddress(data.from);
 
+  // return immediately and process in background
+  after(() => process({ userId, from }));
+  return NextResponse.json({ processing: true });
+});
+
+/**
+ * Main background process function that:
+ * 1. Checks if sender has been analyzed before
+ * 2. Gets threads from the sender
+ * 3. Analyzes whether threads are one-way communications
+ * 4. Detects patterns using AI
+ * 5. Stores patterns in DB for future categorization
+ */
+async function process({ userId, from }: { userId: string; from: string }) {
   try {
     // Check if we've already analyzed this sender
     const existingCheck = await prisma.newsletter.findUnique({
@@ -155,12 +161,6 @@ async function process(request: Request) {
     );
   }
 }
-
-export const POST = withError(async (request) => {
-  // return immediately and process in background
-  after(() => process(request));
-  return NextResponse.json({ processing: true });
-});
 
 /**
  * Record that we've analyzed a sender for patterns

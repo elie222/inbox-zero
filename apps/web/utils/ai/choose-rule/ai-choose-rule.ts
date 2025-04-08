@@ -44,7 +44,7 @@ ${rules
   .map(
     (rule) => `<rule>
   <name>${rule.name}</name>
-  <instructions>${rule.instructions}</instructions>
+  <criteria>${rule.instructions}</criteria>
 </rule>`,
   )
   .join("\n")}
