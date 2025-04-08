@@ -1,4 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import { after } from "next/server";
 import type {
   ParsedMessage,
   RuleWithActionsAndCategories,
@@ -18,6 +19,8 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
+import { extractEmailAddress } from "@/utils/email";
+import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -43,6 +46,8 @@ export async function runRules({
   isTest: boolean;
 }): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user);
+
+  analyzeSenderPatternIfAiMatch(isTest, result, message, user);
 
   logger.trace("Matching rule", { result });
 
@@ -235,5 +240,28 @@ async function upsertExecutedRule({
     }
     // Re-throw any other errors
     throw error;
+  }
+}
+
+async function analyzeSenderPatternIfAiMatch(
+  isTest: boolean,
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] },
+  message: ParsedMessage,
+  user: Pick<User, "id">,
+) {
+  if (
+    !isTest &&
+    result.rule &&
+    result.matchReasons?.some((reason) => reason.type === "AI")
+  ) {
+    const fromAddress = extractEmailAddress(message.headers.from);
+    if (fromAddress) {
+      after(() =>
+        analyzeSenderPattern({
+          userId: user.id,
+          from: fromAddress,
+        }),
+      );
+    }
   }
 }
