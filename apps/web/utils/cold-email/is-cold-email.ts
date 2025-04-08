@@ -9,7 +9,7 @@ import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
-import { hasPreviousEmailsFromSenderOrDomain } from "@/utils/gmail/message";
+import { hasPreviousCommunicationsWithSenderOrDomain } from "@/utils/gmail/message";
 import type { EmailForLLM } from "@/utils/types";
 
 const logger = createScopedLogger("ai-cold-email");
@@ -54,7 +54,7 @@ export async function isColdEmail({
 
   const hasPreviousEmail =
     email.date && email.id
-      ? await hasPreviousEmailsFromSenderOrDomain(gmail, {
+      ? await hasPreviousCommunicationsWithSenderOrDomain(gmail, {
           from: email.from,
           date: email.date,
           messageId: email.id,

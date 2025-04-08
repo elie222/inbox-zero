@@ -300,6 +300,7 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
   return (
     <div className="flex flex-1 space-x-2">
       {actions.map((action) => {
+        // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
 
         return (
