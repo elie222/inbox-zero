@@ -40,12 +40,12 @@ export default function DraftRepliesPage() {
       <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
         <div className="text-center">
           <TypographyH3 className="mx-auto max-w-lg">
-            Would you like AI to draft your email replies?
+            Would you like our AI to automatically draft replies for you?
           </TypographyH3>
 
           <TypographyP className="mx-auto mt-4 max-w-sm text-muted-foreground">
-            AI will match your writing style and suggest drafts in Gmail. You
-            control when and what to send.
+            The drafts will appear in your inbox, written in your tone and
+            style. You can edit them before sending.
           </TypographyP>
 
           <ButtonListSurvey
