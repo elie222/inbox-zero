@@ -14,6 +14,8 @@ export function extractNameFromEmail(email: string) {
 
 // Converts "John Doe <john.doe@gmail>" to "john.doe@gmail"
 export function extractEmailAddress(email: string): string {
+  if (!email) return "";
+
   // Standard email pattern that matches common email formats
   // Allows:
   // - Letters, numbers, dots, and plus signs in local part
