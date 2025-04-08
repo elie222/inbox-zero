@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { useQueryState } from "nuqs";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
@@ -526,6 +526,19 @@ export function EmailList({
   );
 }
 
+export function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkScreen = () => setIsMobile(window.innerWidth < breakpoint);
+    checkScreen();
+    window.addEventListener("resize", checkScreen);
+    return () => window.removeEventListener("resize", checkScreen);
+  }, [breakpoint]);
+
+  return isMobile;
+}
+
 function ResizeGroup({
   left,
   right,
@@ -533,6 +546,14 @@ function ResizeGroup({
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
+  const isMobile = useIsMobile();
+
+  // On mobile, when right panel (email detail) is open, show only that panel
+  if (isMobile && right) {
+    return right;
+  }
+
+  // Otherwise show split screen or just left panel
   if (!right) return left;
 
   return (
