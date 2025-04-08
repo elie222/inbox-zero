@@ -1,6 +1,7 @@
 "use client";
 
 import useSWR, { type KeyedMutator } from "swr";
+import sortBy from "lodash/sortBy";
 import Link from "next/link";
 import { PlusIcon, ExternalLinkIcon, TrashIcon } from "lucide-react";
 import {
@@ -268,7 +269,7 @@ function GroupItemList({
         </TableHeader>
       )}
       <TableBody>
-        {items.map((item) => {
+        {sortBy(items, (item) => -item.createdAt).map((item) => {
           const twoMinutesAgo = new Date(Date.now() - 1000 * 60 * 2);
           const isCreatedRecently = new Date(item.createdAt) > twoMinutesAgo;
           const isUpdatedRecently = new Date(item.updatedAt) > twoMinutesAgo;
