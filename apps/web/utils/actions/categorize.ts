@@ -23,6 +23,7 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("actions/categorize");
 
@@ -52,7 +53,9 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
         limit: LIMIT,
         offset,
       });
-      const allSenders = result.map((sender) => sender.from);
+      const allSenders = result.map((sender) =>
+        extractEmailAddress(sender.from),
+      );
       const existingSenders = await prisma.newsletter.findMany({
         where: {
           email: { in: allSenders },

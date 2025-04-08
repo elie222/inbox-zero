@@ -155,7 +155,7 @@ async function processAssistantEmailInternal({
           where: {
             email_userId: {
               userId,
-              email: originalMessage.headers.from,
+              email: extractEmailAddress(originalMessage.headers.from),
             },
           },
           select: {

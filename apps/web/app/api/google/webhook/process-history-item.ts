@@ -20,6 +20,7 @@ import { internalDateToDate } from "@/utils/date";
 import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { env } from "@/env";
+import { extractEmailAddress } from "@/utils/email";
 
 export async function processHistoryItem(
   {
@@ -165,7 +166,7 @@ export async function processHistoryItem(
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
     if (user.autoCategorizeSenders) {
-      const sender = message.headers.from;
+      const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: { email_userId: { email: sender, userId: user.id } },
         select: { category: true },

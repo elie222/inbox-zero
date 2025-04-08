@@ -7,6 +7,7 @@ import {
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("google/webhook/block-unsubscribed-emails");
 
@@ -21,10 +22,11 @@ export async function blockUnsubscribedEmails({
   gmail: gmail_v1.Gmail;
   messageId: string;
 }): Promise<boolean> {
+  const email = extractEmailAddress(from);
   const sender = await prisma.newsletter.findFirst({
     where: {
       userId,
-      email: from,
+      email,
       status: NewsletterStatus.UNSUBSCRIBED,
     },
   });
