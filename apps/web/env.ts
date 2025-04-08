@@ -92,6 +92,8 @@ export const env = createEnv({
     LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
+
+    UNSUBSCRIBER_API_URL: z.string().optional(),
   },
   client: {
     NEXT_PUBLIC_LEMON_STORE_ID: z.string().nullish().default("inboxzero"),
