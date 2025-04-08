@@ -16,6 +16,9 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/server", () => ({
+  after: vi.fn((callback) => callback()),
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
