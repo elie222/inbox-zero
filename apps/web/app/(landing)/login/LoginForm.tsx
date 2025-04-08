@@ -34,6 +34,57 @@ export function LoginForm() {
                 height={24}
                 unoptimized
               />
+              <span className="ml-2">Sign in with azure</span>
+            </span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in</DialogTitle>
+          </DialogHeader>
+          <SectionDescription>
+            Inbox Zero{"'"}s use and transfer of information received from
+            Google APIs to any other app will adhere to{" "}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="underline underline-offset-4 hover:text-gray-900"
+            >
+              Google API Services User Data
+            </a>{" "}
+            Policy, including the Limited Use requirements.
+          </SectionDescription>
+          <div>
+            <Button
+              loading={loading}
+              onClick={() => {
+                setLoading(true);
+                signIn(
+                  "azure-ad",
+                  {
+                    ...(next && next.length > 0
+                      ? { callbackUrl: next }
+                      : { callbackUrl: "/welcome" }),
+                  },
+                  error === "RequiresReconsent" ? { consent: true } : undefined,
+                );
+              }}
+            >
+              I agree
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button size="2xl">
+            <span className="flex items-center justify-center">
+              <Image
+                src="/images/google.svg"
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+              />
               <span className="ml-2">Sign in with Google</span>
             </span>
           </Button>

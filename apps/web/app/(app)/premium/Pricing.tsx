@@ -33,6 +33,7 @@ export function Pricing(props: {
   showSkipUpgrade?: boolean;
 }) {
   const { isPremium, data, isLoading, error } = usePremium();
+
   const session = useSession();
 
   const [frequency, setFrequency] = useState(frequencies[1]);

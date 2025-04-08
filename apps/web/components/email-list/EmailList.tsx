@@ -32,6 +32,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import React from "react";
 
 export function List({
   emails,
@@ -110,39 +111,41 @@ export function List({
         </div>
       )}
       {emails.length ? (
-        <EmailList
-          threads={filteredEmails}
-          showLoadMore={showLoadMore}
-          isLoadingMore={isLoadingMore}
-          handleLoadMore={handleLoadMore}
-          emptyMessage={
-            <div className="px-2">
-              {selectedTab === "planned" ? (
-                <AlertBasic
-                  title="No planned emails"
-                  description={
-                    <>
-                      Set rules on the{" "}
-                      <Link
-                        href="/automation"
-                        className="font-semibold hover:underline"
-                      >
-                        Automation page
-                      </Link>{" "}
-                      for our AI to handle incoming emails for you.
-                    </>
-                  }
-                />
-              ) : (
-                <AlertBasic
-                  title="All emails handled"
-                  description="Great work!"
-                />
-              )}
-            </div>
-          }
-          refetch={refetch}
-        />
+        <div>
+          <EmailList
+            threads={filteredEmails}
+            showLoadMore={showLoadMore}
+            isLoadingMore={isLoadingMore}
+            handleLoadMore={handleLoadMore}
+            emptyMessage={
+              <div className="px-2">
+                {selectedTab === "planned" ? (
+                  <AlertBasic
+                    title="No planned emails"
+                    description={
+                      <>
+                        Set rules on the{" "}
+                        <Link
+                          href="/automation"
+                          className="font-semibold hover:underline"
+                        >
+                          Automation page
+                        </Link>{" "}
+                        for our AI to handle incoming emails for you.
+                      </>
+                    }
+                  />
+                ) : (
+                  <AlertBasic
+                    title="All emails handled"
+                    description="Great work!"
+                  />
+                )}
+              </div>
+            }
+            refetch={refetch}
+          />
+        </div>
       ) : (
         <div className="mt-20">
           <Celebration
@@ -364,6 +367,8 @@ export function EmailList({
     );
   }, [selectedRows, refetch]);
 
+  const isMobile = useIsMobile();
+
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
       async () => {
@@ -533,6 +538,14 @@ function ResizeGroup({
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
+  const isMobile = useIsMobile();
+
+  // On mobile, when right panel (email detail) is open, show only that panel
+  if (isMobile && right) {
+    return right;
+  }
+
+  // Otherwise show split screen or just left panel
   if (!right) return left;
 
   return (
@@ -546,4 +559,17 @@ function ResizeGroup({
       </ResizablePanel>
     </ResizablePanelGroup>
   );
+}
+
+export function useIsMobile(breakpoint = 768) {
+  const [isMobile, setIsMobile] = useState(false);
+
+  React.useEffect(() => {
+    const checkScreen = () => setIsMobile(window.innerWidth < breakpoint);
+    checkScreen();
+    window.addEventListener("resize", checkScreen);
+    return () => window.removeEventListener("resize", checkScreen);
+  }, [breakpoint]);
+
+  return isMobile;
 }

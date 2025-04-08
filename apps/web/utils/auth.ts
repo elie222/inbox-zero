@@ -9,6 +9,7 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import AzureADProvider from "next-auth/providers/azure-ad";
 
 const logger = createScopedLogger("auth");
 
@@ -43,6 +44,10 @@ export const getAuthOptions: (options?: {
           ...(options?.consent ? { prompt: "consent" } : {}),
         },
       },
+    }),
+    AzureADProvider({
+      clientId: process.env.AUTH_AZURE_AD_ID,
+      clientSecret: process.env.AUTH_AZURE_AD_SECRET,
     }),
   ],
   adapter: PrismaAdapter(prisma),
