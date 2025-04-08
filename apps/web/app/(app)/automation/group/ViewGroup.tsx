@@ -39,6 +39,7 @@ import {
 } from "@/utils/actions/group.validation";
 import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
+import { formatShortDate } from "@/utils/date";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
@@ -288,7 +289,11 @@ function GroupItemList({
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="py-2 text-right">
+              <TableCell className="py-2 text-right flex justify-end items-center gap-4">
+                <span className="text-sm text-muted-foreground">
+                  Added: {formatShortDate(new Date(item.createdAt))}
+                </span>
+
                 <Button
                   variant="outline"
                   size="icon"
@@ -315,7 +320,7 @@ function GroupItemList({
 
         {items.length === 0 && (
           <TableRow>
-            <TableCell colSpan={2}>
+            <TableCell colSpan={3}>
               <MessageText>No items</MessageText>
             </TableCell>
           </TableRow>

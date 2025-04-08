@@ -37,6 +37,8 @@ export const POST = withError(async (request) => {
   const { userId } = data;
   const from = extractEmailAddress(data.from);
 
+  logger.trace("Analyzing sender pattern", { userId, from });
+
   // return immediately and process in background
   after(() => process({ userId, from }));
   return NextResponse.json({ processing: true });
