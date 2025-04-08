@@ -252,7 +252,14 @@ async function analyzeSenderPatternIfAiMatch(
   if (
     !isTest &&
     result.rule &&
-    result.matchReasons?.some((reason) => reason.type === "AI")
+    // skip if we already matched for static reasons
+    // learnings only needed for rules that would run through an ai
+    !result.matchReasons?.some(
+      (reason) =>
+        reason.type === "STATIC" ||
+        reason.type === "GROUP" ||
+        reason.type === "CATEGORY",
+    )
   ) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
