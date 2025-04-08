@@ -7,7 +7,7 @@ import {
   isDefined,
   type ParsedMessage,
 } from "@/utils/types";
-import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-reply";
+import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 
