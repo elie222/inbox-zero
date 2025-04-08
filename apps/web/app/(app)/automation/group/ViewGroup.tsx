@@ -296,9 +296,12 @@ function GroupItemList({
                     const result = await deleteGroupItemAction(item.id);
                     if (isActionError(result)) {
                       toastError({
-                        description: `Failed to remove ${item.value} from group. ${result.error}`,
+                        description: `Failed to remove ${item.value}. ${result.error}`,
                       });
                     } else {
+                      toastSuccess({
+                        description: "Removed learned pattern!",
+                      });
                       mutate();
                     }
                   }}
