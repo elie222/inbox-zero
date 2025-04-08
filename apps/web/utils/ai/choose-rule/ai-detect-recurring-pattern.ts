@@ -89,7 +89,7 @@ If you're not confident (at least 80% certain) that a single rule should handle 
 ${emails
   .map((email) => {
     return `<email>
-${stringifyEmail(email, 1000)}
+${stringifyEmail(email, 500)}
 </email>`;
   })
   .join("\n")}

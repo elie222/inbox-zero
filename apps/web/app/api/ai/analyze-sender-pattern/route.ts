@@ -137,7 +137,7 @@ async function process({ userId, from }: { userId: string; from: string }) {
 
     if (patternResult?.matchedRule) {
       // Save pattern to DB (adds sender to rule's group)
-      await saveToDb({
+      await saveLearnedPattern({
         userId,
         from,
         ruleName: patternResult.matchedRule,
@@ -234,7 +234,7 @@ async function getThreadsFromSender(
   return threadsWithMessages;
 }
 
-async function saveToDb({
+async function saveLearnedPattern({
   userId,
   from,
   ruleName,
@@ -250,29 +250,40 @@ async function saveToDb({
         userId,
       },
     },
-    select: { groupId: true },
+    select: { id: true, groupId: true },
   });
 
   if (!rule) {
     logger.error("Rule not found", { userId, ruleName });
     return;
   }
-  if (!rule.groupId) {
-    logger.error("Rule has no group", { userId, ruleName });
-    return;
+
+  let groupId = rule.groupId;
+
+  if (!groupId) {
+    // Create a new group for this rule if one doesn't exist
+    const newGroup = await prisma.group.create({
+      data: {
+        userId,
+        name: ruleName,
+        rule: { connect: { id: rule.id } },
+      },
+    });
+
+    groupId = newGroup.id;
   }
 
   await prisma.groupItem.upsert({
     where: {
       groupId_type_value: {
-        groupId: rule.groupId,
+        groupId,
         type: GroupItemType.FROM,
         value: from,
       },
     },
     update: {},
     create: {
-      groupId: rule.groupId,
+      groupId,
       type: GroupItemType.FROM,
       value: from,
     },
