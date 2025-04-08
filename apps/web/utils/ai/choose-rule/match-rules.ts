@@ -24,6 +24,7 @@ import type {
   MatchReason,
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("match-rules");
 
@@ -58,7 +59,10 @@ async function findPotentialMatchingRules({
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
-          email_userId: { email: message.headers.from, userId },
+          email_userId: {
+            email: extractEmailAddress(message.headers.from),
+            userId,
+          },
         },
         select: { categoryId: true },
       });

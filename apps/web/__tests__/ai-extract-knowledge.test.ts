@@ -91,7 +91,7 @@ function getKnowledgeBase(): Knowledge[] {
   ];
 }
 
-describe.skipIf(!isAiTest)("aiExtractRelevantKnowledge", () => {
+describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

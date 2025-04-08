@@ -10,6 +10,7 @@ import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { extractEmailAddress } from "@/utils/email";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -108,11 +109,12 @@ export async function updateCategoryForSender({
   sender: string;
   categoryId: string;
 }) {
+  const email = extractEmailAddress(sender);
   await prisma.newsletter.upsert({
-    where: { email_userId: { email: sender, userId } },
+    where: { email_userId: { email, userId } },
     update: { categoryId },
     create: {
-      email: sender,
+      email,
       userId,
       categoryId,
     },

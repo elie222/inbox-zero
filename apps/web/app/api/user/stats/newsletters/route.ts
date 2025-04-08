@@ -10,6 +10,7 @@ import {
 } from "@/app/api/user/stats/newsletters/helpers";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
+import { extractEmailAddress } from "@/utils/email";
 
 // not sure why this is slow sometimes
 export const maxDuration = 30;
@@ -81,14 +82,15 @@ async function getNewslettersTinybird(
     ]);
 
   const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {
+    const from = extractEmailAddress(email.from);
     return {
-      name: email.from,
+      name: from,
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       lastUnsubscribeLink: email.lastUnsubscribeLink,
-      autoArchived: findAutoArchiveFilter(autoArchiveFilters, email.from),
-      status: userNewsletters?.find((n) => n.email === email.from)?.status,
+      autoArchived: findAutoArchiveFilter(autoArchiveFilters, from),
+      status: userNewsletters?.find((n) => n.email === from)?.status,
     };
   });
 

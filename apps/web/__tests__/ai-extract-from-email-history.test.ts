@@ -42,7 +42,7 @@ function getTestMessages(count = 2) {
   );
 }
 
-describe.skipIf(!isAiTest)("aiExtractFromEmailHistory", () => {
+describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });

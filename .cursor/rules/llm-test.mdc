@@ -31,7 +31,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    // Skip tests unless explicitly running AI tests
    const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-   describe.skipIf(!isAiTest)("yourFunction", () => {
+   describe.runIf(isAiTest)("yourFunction", () => {
      beforeEach(() => {
        vi.clearAllMocks();
      });
@@ -39,7 +39,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
      test("test case description", async () => {
        // Test implementation
      });
-   });
+   }, 15_000);
    ```
 
 ## Helper Functions

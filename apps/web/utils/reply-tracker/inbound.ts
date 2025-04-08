@@ -132,6 +132,7 @@ export async function handleInboundReply(
     email: getEmailForLLM(message),
     rules: replyTrackingRules.map((rule) => ({
       id: rule.id,
+      name: rule.name,
       instructions: rule.instructions || "",
     })),
     user,

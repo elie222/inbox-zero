@@ -2,31 +2,38 @@
 
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import type { NewsletterStatus } from "@prisma/client";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
+import {
+  setNewsletterStatusBody,
+  type SetNewsletterStatusBody,
+} from "@/utils/actions/unsubscriber.validation";
+import { extractEmailAddress } from "@/utils/email";
 
 export const setNewsletterStatusAction = withActionInstrumentation(
   "setNewsletterStatus",
-  async (options: {
-    newsletterEmail: string;
-    status: NewsletterStatus | null;
-  }) => {
+  async (unsafeData: SetNewsletterStatusBody) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+    if (!session?.user.id) return { error: "Not logged in" };
+
+    const { data, success, error } =
+      setNewsletterStatusBody.safeParse(unsafeData);
+    if (!success) return { error: error.message };
+
+    const { newsletterEmail, status } = data;
+
+    const userId = session.user.id;
+    const email = extractEmailAddress(newsletterEmail);
 
     return await prisma.newsletter.upsert({
       where: {
-        email_userId: {
-          email: options.newsletterEmail,
-          userId: session.user.id,
-        },
+        email_userId: { email, userId },
       },
       create: {
-        status: options.status,
-        email: options.newsletterEmail,
-        user: { connect: { id: session.user.id } },
+        status,
+        email,
+        user: { connect: { id: userId } },
       },
-      update: { status: options.status },
+      update: { status },
     });
   },
 );

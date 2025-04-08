@@ -51,7 +51,7 @@ const testSenders = [
   },
 ];
 
-describe.skipIf(!isAiTest)("AI Sender Categorization", () => {
+describe.runIf(isAiTest)("AI Sender Categorization", () => {
   describe("Bulk Categorization", () => {
     it("should categorize senders with snippets using AI", async () => {
       const result = await aiCategorizeSenders({

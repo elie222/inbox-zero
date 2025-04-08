@@ -7,7 +7,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiFindSnippets", () => {
+describe.runIf(isAiTest)("aiFindSnippets", () => {
   test("should find snippets in similar emails", async () => {
     const emails = [
       getEmail({

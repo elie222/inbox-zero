@@ -8,8 +8,8 @@ export async function findSenderByEmail({
   userId: string;
   email: string;
 }) {
+  if (!email) return null;
   const extractedEmail = extractEmailAddress(email);
-  if (!extractedEmail) return null;
 
   const newsletter = await prisma.newsletter.findFirst({
     where: {

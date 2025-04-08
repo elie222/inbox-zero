@@ -7,7 +7,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiDiffRules", () => {
+describe.runIf(isAiTest)("aiDiffRules", () => {
   it("should correctly identify added, edited, and removed rules", async () => {
     const user = {
       email: "user@test.com",

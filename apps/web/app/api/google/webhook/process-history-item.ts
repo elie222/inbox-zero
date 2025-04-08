@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -16,6 +17,10 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import { internalDateToDate } from "@/utils/date";
+import type { AnalyzeSenderPatternBody } from "@/app/api/ai/analyze-sender-pattern/route";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
+import { env } from "@/env";
+import { extractEmailAddress } from "@/utils/email";
 
 export async function processHistoryItem(
   {
@@ -122,6 +127,13 @@ export async function processHistoryItem(
       return;
     }
 
+    after(() =>
+      analyzeSenderPattern({
+        userId: user.id,
+        from: message.headers.from,
+      }),
+    );
+
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       user.coldEmailBlocker,
       hasColdEmailAccess,
@@ -154,7 +166,7 @@ export async function processHistoryItem(
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
     if (user.autoCategorizeSenders) {
-      const sender = message.headers.from;
+      const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: { email_userId: { email: sender, userId: user.id } },
         select: { category: true },
@@ -199,4 +211,35 @@ export function shouldRunColdEmailBlocker(
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasColdEmailAccess
   );
+}
+
+async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
+  try {
+    const response = await fetch(
+      `${env.NEXT_PUBLIC_BASE_URL}/api/ai/analyze-sender-pattern`,
+      {
+        method: "POST",
+        body: JSON.stringify(body),
+        headers: {
+          "Content-Type": "application/json",
+          [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+        },
+      },
+    );
+
+    if (!response.ok) {
+      logger.error("Sender pattern analysis API request failed", {
+        userId: body.userId,
+        from: body.from,
+        status: response.status,
+        statusText: response.statusText,
+      });
+    }
+  } catch (error) {
+    logger.error("Error in sender pattern analysis", {
+      userId: body.userId,
+      from: body.from,
+      error: error instanceof Error ? error.message : error,
+    });
+  }
 }

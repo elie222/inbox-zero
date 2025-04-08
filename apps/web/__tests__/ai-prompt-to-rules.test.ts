@@ -9,7 +9,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiPromptToRules", () => {
+describe.runIf(isAiTest)("aiPromptToRules", () => {
   it("should convert prompt file to rules", async () => {
     const user = {
       email: "user@test.com",

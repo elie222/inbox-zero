@@ -50,3 +50,4 @@ jobs:
           GOOGLE_PUBSUB_TOPIC_NAME: "topic"
           GOOGLE_ENCRYPT_SECRET: "secret"
           GOOGLE_ENCRYPT_SALT: "salt"
+          INTERNAL_API_KEY: "secret"

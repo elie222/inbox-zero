@@ -1,3 +1,4 @@
+import { extractEmailAddress } from "@/utils/email";
 import { getSenders } from "./get-senders";
 import prisma from "@/utils/prisma";
 
@@ -21,7 +22,7 @@ export async function getUncategorizedSenders({
       limit,
       offset: currentOffset,
     });
-    const allSenders = result.map((sender) => sender.from);
+    const allSenders = result.map((sender) => extractEmailAddress(sender.from));
 
     const existingSenders = await prisma.newsletter.findMany({
       where: {

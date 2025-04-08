@@ -82,9 +82,6 @@ async function fallbackPublishToQstash(url: string, body: any) {
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
 
-  if (!env.INTERNAL_API_KEY)
-    throw new SafeError("Internal API key must be set");
-
   // Don't await. Run in background
   fetch(`${url}/simple`, {
     method: "POST",
