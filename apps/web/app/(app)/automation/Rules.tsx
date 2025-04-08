@@ -50,6 +50,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
 import { type RiskLevel, getRiskLevel } from "@/utils/risk";
 import { useRules } from "@/hooks/useRules";
+import { ActionType } from "@prisma/client";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useRules();
@@ -298,7 +299,9 @@ export function Rules() {
 function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
   return (
     <div className="flex flex-1 space-x-2">
-      {actions?.map((action) => {
+      {actions.map((action) => {
+        if (action.type === ActionType.TRACK_THREAD) return null;
+
         return (
           <Badge
             key={action.id}
