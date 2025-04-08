@@ -26,6 +26,14 @@ const schema = z.object({
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
+/**
+ * Main background process function that:
+ * 1. Checks if sender has been analyzed before
+ * 2. Gets threads from the sender
+ * 3. Analyzes whether threads are one-way communications
+ * 4. Detects patterns using AI
+ * 5. Stores patterns in DB for future categorization
+ */
 async function process(request: Request) {
   if (!isValidInternalApiKey(await headers())) {
     logger.error("Invalid API key");
@@ -33,9 +41,21 @@ async function process(request: Request) {
   }
 
   const json = await request.json();
-  const { userId, from } = schema.parse(json);
+  const data = schema.parse(json);
+  const { userId } = data;
+  const from = extractEmailAddress(data.from);
 
   try {
+    // Check if we've already analyzed this sender
+    const existingCheck = await prisma.newsletter.findUnique({
+      where: { email_userId: { email: extractEmailAddress(from), userId } },
+    });
+
+    if (existingCheck?.patternAnalyzed) {
+      logger.info("Sender has already been analyzed", { from, userId });
+      return NextResponse.json({ success: true });
+    }
+
     const user = await getUserWithRules(userId);
 
     if (!user) {
@@ -55,6 +75,7 @@ async function process(request: Request) {
       refreshToken: account.refresh_token,
     });
 
+    // Get threads from this sender
     const threadsWithMessages = await getThreadsFromSender(
       gmail,
       from,
@@ -67,6 +88,8 @@ async function process(request: Request) {
         from,
         userId,
       });
+
+      // Don't record a check since we didn't run the AI analysis
       return NextResponse.json({ success: true });
     }
 
@@ -81,13 +104,15 @@ async function process(request: Request) {
         userId,
         count: allMessages.length,
       });
+
+      // Don't record a check since we didn't run the AI analysis
       return NextResponse.json({ success: true });
     }
 
     // Convert messages to EmailForLLM format
     const emails = allMessages.map((message) => getEmailForLLM(message));
 
-    // Detect pattern
+    // Detect pattern using AI
     const patternResult = await aiDetectRecurringPattern({
       emails,
       user: {
@@ -105,12 +130,16 @@ async function process(request: Request) {
     });
 
     if (patternResult?.matchedRule) {
+      // Save pattern to DB (adds sender to rule's group)
       await saveToDb({
         userId,
         from,
         ruleName: patternResult.matchedRule,
       });
     }
+
+    // Record the pattern analysis result
+    await savePatternCheck(userId, from);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -132,6 +161,78 @@ export const POST = withError(async (request) => {
   after(() => process(request));
   return NextResponse.json({ processing: true });
 });
+
+/**
+ * Record that we've analyzed a sender for patterns
+ */
+async function savePatternCheck(userId: string, from: string) {
+  await prisma.newsletter.upsert({
+    where: {
+      email_userId: {
+        email: from,
+        userId,
+      },
+    },
+    update: {
+      patternAnalyzed: true,
+      lastAnalyzedAt: new Date(),
+    },
+    create: {
+      email: from,
+      userId,
+      patternAnalyzed: true,
+      lastAnalyzedAt: new Date(),
+    },
+  });
+}
+
+/**
+ * Fetches threads from a specific sender and filters out any threads that are conversations.
+ * A thread is considered a conversation if it contains messages from senders other than the original sender.
+ * This helps identify one-way communication patterns (newsletters, marketing, transactional emails)
+ * by excluding threads where users have replied or others have participated.
+ */
+async function getThreadsFromSender(
+  gmail: gmail_v1.Gmail,
+  sender: string,
+  maxResults: number,
+) {
+  const from = extractEmailAddress(sender);
+  const threads = await getThreads(
+    `from:${from} -label:sent -label:draft`,
+    [],
+    gmail,
+    maxResults,
+  );
+
+  const threadsWithMessages = [];
+
+  // Check for conversation threads
+  for (const thread of threads.threads) {
+    const messages = await getThreadMessages(thread.id, gmail);
+
+    // Check if this is a conversation (multiple senders)
+    const senders = messages.map((msg) =>
+      extractEmailAddress(msg.headers.from),
+    );
+    const hasOtherSenders = senders.some((s) => s !== from);
+
+    // If we found a conversation thread, skip this sender entirely
+    if (hasOtherSenders) {
+      logger.info("Skipping sender pattern detection - conversation detected", {
+        from,
+      });
+      return [];
+    }
+
+    threadsWithMessages.push({
+      threadId: thread.id,
+      messages,
+    });
+  }
+
+  return threadsWithMessages;
+}
 
 async function saveToDb({
   userId,
@@ -205,52 +306,4 @@ async function getUserWithRules(userId: string) {
       },
     },
   });
-}
-
-/**
- * Fetches threads from a specific sender and filters out any threads that are conversations.
- * A thread is considered a conversation if it contains messages from senders other than the original sender.
- * This helps identify one-way communication patterns (newsletters, marketing, transactional emails)
- * by excluding threads where users have replied or others have participated.
- */
-async function getThreadsFromSender(
-  gmail: gmail_v1.Gmail,
-  sender: string,
-  maxResults: number,
-) {
-  const from = extractEmailAddress(sender);
-  const threads = await getThreads(
-    `from:${from} -label:sent -label:draft`,
-    [],
-    gmail,
-    maxResults,
-  );
-
-  const threadsWithMessages = [];
-
-  // Check for conversation threads
-  for (const thread of threads.threads) {
-    const messages = await getThreadMessages(thread.id, gmail);
-
-    // Check if this is a conversation (multiple senders)
-    const senders = messages.map((msg) =>
-      extractEmailAddress(msg.headers.from),
-    );
-    const hasOtherSenders = senders.some((s) => s !== from);
-
-    // If we found a conversation thread, skip this sender entirely
-    if (hasOtherSenders) {
-      logger.info("Skipping sender pattern detection - conversation detected", {
-        from,
-      });
-      return [];
-    }
-
-    threadsWithMessages.push({
-      threadId: thread.id,
-      messages,
-    });
-  }
-
-  return threadsWithMessages;
 }

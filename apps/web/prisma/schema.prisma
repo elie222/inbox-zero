@@ -189,7 +189,6 @@ model Rule {
   trackReplies             Boolean? // deprecated - If this is the reply tracking rule. Using partial unique index (created manually)
   draftReplies             Boolean? // deprecated
   draftRepliesInstructions String? // deprecated
-  // threadTrackers           ThreadTracker[] // deprecated
 
   // conditions: ai, group, static, category
   type                RuleType? // deprecated
@@ -335,6 +334,10 @@ model Newsletter {
   email     String
   status    NewsletterStatus?
 
+  // For learned patterns for rules
+  patternAnalyzed Boolean   @default(false)
+  lastAnalyzedAt  DateTime?
+
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   categoryId String?
@@ -396,9 +399,6 @@ model ThreadTracker {
   messageId String
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
-
-  // ruleId String?
-  // rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
