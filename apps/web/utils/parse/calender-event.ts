@@ -54,29 +54,8 @@ export function analyzeCalendarEvent(email: ParsedMessage): CalendarEventInfo {
     body.includes("BEGIN:VEVENT") ||
     body.includes("method=REQUEST");
 
-  // Check for Google Calendar links
-  const hasGoogleCalendarLinks = body.includes(
-    "calendar.google.com/calendar/event",
-  );
-
-  // Check for "RSVP" indicators
-  const hasRSVP =
-    body.includes("RSVP") ||
-    (body.includes("Yes") && body.includes("No") && body.includes("Maybe"));
-
-  // Check for calendar providers
-  const hasCalendarProviders =
-    body.includes("Google Calendar") ||
-    body.includes("Outlook Calendar") ||
-    body.includes("Apple Calendar");
-
   // Determine if it's a calendar event based on checks
-  result.isCalendarEvent =
-    hasCalendarSubject ||
-    hasiCalData ||
-    hasGoogleCalendarLinks ||
-    hasRSVP ||
-    hasCalendarProviders;
+  result.isCalendarEvent = hasCalendarSubject || hasiCalData;
 
   if (result.isCalendarEvent) {
     // Extract event title
