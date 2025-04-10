@@ -185,13 +185,7 @@ model Rule {
   user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   executedRules ExecutedRule[]
 
-  // reply tracking fields
-  trackReplies             Boolean? // deprecated - If this is the reply tracking rule. Using partial unique index (created manually)
-  draftReplies             Boolean? // deprecated
-  draftRepliesInstructions String? // deprecated
-
   // conditions: ai, group, static, category
-  type                RuleType? // deprecated
   conditionalOperator LogicalOperator @default(AND)
 
   // ai conditions
