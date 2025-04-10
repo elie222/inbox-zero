@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { Button } from "@/components/ui/button";
-import { RuleType } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 
 export function Groups() {
   const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");

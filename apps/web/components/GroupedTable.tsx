@@ -22,7 +22,7 @@ import {
   BookmarkXIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { RuleType } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { Skeleton } from "@/components/ui/skeleton";

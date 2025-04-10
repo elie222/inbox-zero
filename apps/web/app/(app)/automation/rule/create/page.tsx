@@ -1,7 +1,8 @@
 import { RuleForm } from "@/app/(app)/automation/RuleForm";
 import { examples } from "@/app/(app)/automation/create/examples";
 import { getEmptyCondition } from "@/utils/condition";
-import { ActionType, type RuleType } from "@prisma/client";
+import { ActionType } from "@prisma/client";
+import type { RuleType } from "@/utils/config";
 
 export default async function CreateRulePage(props: {
   searchParams: Promise<{

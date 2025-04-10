@@ -571,13 +571,6 @@ enum ExecutedRuleStatus {
   ERROR
 }
 
-enum RuleType {
-  AI
-  STATIC
-  GROUP
-  CATEGORY
-}
-
 enum GroupItemType {
   FROM
   SUBJECT

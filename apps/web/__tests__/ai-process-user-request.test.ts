@@ -3,12 +3,7 @@ import stripIndent from "strip-indent";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
-import {
-  type Category,
-  type GroupItem,
-  type Prisma,
-  RuleType,
-} from "@prisma/client";
+import type { Category, GroupItem, Prisma } from "@prisma/client";
 import { GroupItemType, LogicalOperator } from "@prisma/client";
 
 // pnpm test-ai ai-process-user-request
@@ -448,7 +443,6 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     automate: true,
     runOnThreads: true,
     enabled: true,
-    type: RuleType.AI,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...rule,

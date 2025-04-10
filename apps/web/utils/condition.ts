@@ -1,10 +1,10 @@
 import {
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
   type Category,
   type Rule,
 } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 import type {
   CreateRuleBody,
   ZodCondition,

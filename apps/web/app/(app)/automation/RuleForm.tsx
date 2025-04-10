@@ -31,8 +31,8 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
 } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,

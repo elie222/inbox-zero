@@ -3,8 +3,8 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
 } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 
 const zodActionType = z.enum([
   ActionType.ARCHIVE,

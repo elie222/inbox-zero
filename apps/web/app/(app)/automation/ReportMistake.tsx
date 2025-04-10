@@ -39,7 +39,7 @@ import {
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
-import { GroupItemType, RuleType, type Rule } from "@prisma/client";
+import { GroupItemType, type Rule } from "@prisma/client";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";
@@ -60,6 +60,7 @@ import { cn } from "@/utils";
 import { useCategories } from "@/hooks/useCategories";
 import { CategorySelect } from "@/components/CategorySelect";
 import { useModal } from "@/hooks/useModal";
+import { RuleType } from "@/utils/config";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
