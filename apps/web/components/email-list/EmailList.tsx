@@ -32,6 +32,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export function List({
   emails,
@@ -178,6 +179,10 @@ export function EmailList({
   const session = useSession();
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const type = searchParams.get("type") || "inbox";
+
   const closePanel = useCallback(
     () => setOpenThreadId(null),
     [setOpenThreadId],
@@ -445,11 +450,8 @@ export function EmailList({
             >
               {threads.map((thread) => {
                 const onOpen = () => {
-                  const alreadyOpen = !!openThreadId;
-                  setOpenThreadId(thread.id);
-
-                  if (!alreadyOpen) scrollToId(thread.id);
-
+                  // Navigate to the new URL structure
+                  router.push(`/mail/${type}/${thread.id}`);
                   markReadThreads([thread.id], () => refetch());
                 };
 
