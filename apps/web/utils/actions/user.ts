@@ -117,7 +117,7 @@ export const completedOnboardingAction = withActionInstrumentation(
 
     await prisma.user.update({
       where: { id: session.user.id, completedOnboardingAt: null },
-      data: { completedOnboardingAt: new Date(), completedOnboarding: true },
+      data: { completedOnboardingAt: new Date() },
     });
   },
 );
