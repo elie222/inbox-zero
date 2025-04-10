@@ -137,15 +137,16 @@ export function CategoriesSetup({
             Next
           </Button>
 
-          <Button className="w-full" size="lg" variant="outline" asChild>
-            <Link
-              href="/automation"
-              onClick={() => {
-                markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-              }}
-            >
-              Skip
-            </Link>
+          <Button
+            className="w-full"
+            size="lg"
+            variant="outline"
+            onClick={() => {
+              markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+              router.push("/automation");
+            }}
+          >
+            Skip
           </Button>
         </div>
       </form>
