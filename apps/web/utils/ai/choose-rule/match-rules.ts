@@ -8,12 +8,8 @@ import type {
   RuleWithActions,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import {
-  CategoryFilterType,
-  LogicalOperator,
-  RuleType,
-  type User,
-} from "@prisma/client";
+import { CategoryFilterType, LogicalOperator, type User } from "@prisma/client";
+import { RuleType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
