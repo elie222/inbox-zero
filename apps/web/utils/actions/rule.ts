@@ -85,6 +85,7 @@ export const createRuleAction = withActionInstrumentation(
             : undefined,
           userId: session.user.id,
           conditionalOperator: body.conditionalOperator || LogicalOperator.AND,
+          presetType: body.presetType || undefined,
           // conditions
           instructions: conditions.instructions || null,
           from: conditions.from || null,
@@ -159,6 +160,7 @@ export const updateRuleAction = withActionInstrumentation(
             name: body.name || undefined,
             conditionalOperator:
               body.conditionalOperator || LogicalOperator.AND,
+            presetType: body.presetType || undefined,
             // conditions
             instructions: conditions.instructions || null,
             from: conditions.from || null,

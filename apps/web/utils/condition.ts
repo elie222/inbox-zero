@@ -4,7 +4,7 @@ import {
   type Category,
   type Rule,
 } from "@prisma/client";
-import { ConditionType } from "@/utils/config";
+import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
   CreateRuleBody,
   ZodCondition,
@@ -91,7 +91,7 @@ export function getConditionTypes(
 }
 
 export function getEmptyCondition(
-  type: Exclude<ConditionType, "GROUP">,
+  type: CoreConditionType,
   category?: string,
 ): ZodCondition {
   switch (type) {
@@ -179,6 +179,8 @@ function conditionTypeToString(conditionType: ConditionType): string {
       return "Group";
     case ConditionType.CATEGORY:
       return "Category";
+    case ConditionType.PRESET:
+      return "Preset";
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
       const exhaustiveCheck: never = conditionType;

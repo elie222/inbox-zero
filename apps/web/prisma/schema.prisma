@@ -206,6 +206,9 @@ model Rule {
   categoryFilterType CategoryFilterType?
   categoryFilters    Category[]
 
+  // Allows for special conditional logic
+  presetType PresetType?
+
   @@unique([name, userId])
 }
 
@@ -600,4 +603,9 @@ enum ProcessorType {
 enum CleanAction {
   ARCHIVE
   MARK_READ
+}
+
+enum PresetType {
+  CALENDAR
+  TO_REPLY
 }

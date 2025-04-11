@@ -31,8 +31,9 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
+  PresetType,
 } from "@prisma/client";
-import { ConditionType } from "@/utils/config";
+import { ConditionType, type CoreConditionType } from "@/utils/config";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -118,6 +119,11 @@ export function RuleForm({
 
   const posthog = usePostHog();
 
+  // Get display info for preset type
+  const presetDisplay = rule.presetType
+    ? getPresetTypeDisplay(rule.presetType)
+    : null;
+
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
       // create labels that don't exist
@@ -195,7 +201,7 @@ export function RuleForm({
       ConditionType.STATIC,
       ConditionType.CATEGORY,
     ].find((type) => !usedConditions.has(type)) as
-      | Exclude<ConditionType, "GROUP">
+      | CoreConditionType
       | undefined;
   }, [conditions]);
 
@@ -263,6 +269,12 @@ export function RuleForm({
           error={errors.name}
           placeholder="e.g. Label receipts"
         />
+        {presetDisplay && (
+          <div className="mt-2 flex items-center gap-2">
+            <Badge color="gray">{presetDisplay.name}</Badge>
+            <TooltipExplanation text={presetDisplay.description} />
+          </div>
+        )}
       </div>
 
       <div className="mt-6 flex items-end justify-between">
@@ -962,4 +974,23 @@ function ActionField({
       {fieldError && <ErrorMessage message={fieldError.toString()} />}
     </div>
   );
+}
+
+function getPresetTypeDisplay(presetType: PresetType) {
+  switch (presetType) {
+    case PresetType.CALENDAR:
+      return {
+        name: "Calendar",
+        description:
+          "This rule has special logic for calendar invitations (.ics files or event-related emails).",
+      };
+    case PresetType.TO_REPLY:
+      return {
+        name: "Needs Reply",
+        description:
+          "This rule applies special logic based on whether you have replied to the sender before.",
+      };
+    default:
+      return { name: capitalCase(presetType), description: "" };
+  }
 }

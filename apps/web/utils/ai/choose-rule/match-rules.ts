@@ -8,7 +8,12 @@ import type {
   RuleWithActions,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import { CategoryFilterType, LogicalOperator, type User } from "@prisma/client";
+import {
+  CategoryFilterType,
+  LogicalOperator,
+  type User,
+  PresetType,
+} from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
@@ -21,6 +26,8 @@ import type {
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
 import { extractEmailAddress } from "@/utils/email";
+import { analyzeCalendarEvent } from "@/utils/parse/calender-event";
+import { checkSenderReplyHistory } from "@/utils/reply-tracker/query";
 
 const logger = createScopedLogger("match-rules");
 
@@ -40,6 +47,26 @@ async function findPotentialMatchingRules({
   const potentialMatches: (RuleWithActionsAndCategories & {
     instructions: string;
   })[] = [];
+
+  // Check for calendar preset match
+  const calendarInfo = analyzeCalendarEvent(message);
+  if (calendarInfo.isCalendarEvent) {
+    const calendarRule = rules.find(
+      (r) => r.presetType === PresetType.CALENDAR,
+    );
+    if (calendarRule) {
+      logger.info("Found matching calendar rule", {
+        ruleId: calendarRule.id,
+        messageId: message.id,
+      });
+      return {
+        match: calendarRule,
+        matchReasons: [
+          { type: ConditionType.PRESET, presetType: PresetType.CALENDAR },
+        ],
+      };
+    }
+  }
 
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
@@ -143,7 +170,13 @@ async function findPotentialMatchingRules({
     }
   }
 
-  return { potentialMatches };
+  // Apply TO_REPLY preset filter before returning potential matches
+  const filteredPotentialMatches = await filterToReplyPreset(
+    potentialMatches,
+    message,
+  );
+
+  return { potentialMatches: filteredPotentialMatches };
 }
 
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
@@ -271,4 +304,49 @@ async function matchesCategoryRule(
   }
 
   return matchedFilter;
+}
+
+// Helper function to filter out TO_REPLY preset if conditions met
+async function filterToReplyPreset(
+  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
+  message: ParsedMessage,
+): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
+  const toReplyRuleIndex = potentialMatches.findIndex(
+    (r) => r.presetType === PresetType.TO_REPLY,
+  );
+
+  if (toReplyRuleIndex === -1) {
+    return potentialMatches; // No TO_REPLY rule found
+  }
+
+  const senderEmail = message.headers.from;
+  if (!senderEmail) {
+    return potentialMatches; // Cannot check history without sender email
+  }
+
+  try {
+    const { hasReplied, receivedCount } =
+      await checkSenderReplyHistory(senderEmail);
+
+    // If user hasn't replied and received > 10 emails, filter out the rule.
+    if (!hasReplied && receivedCount > 10) {
+      logger.info(
+        "Filtering out TO_REPLY rule due to no prior reply and high received count",
+        {
+          ruleId: potentialMatches[toReplyRuleIndex].id,
+          senderEmail,
+          receivedCount,
+        },
+      );
+      return potentialMatches.filter((_, index) => index !== toReplyRuleIndex);
+    }
+  } catch (error) {
+    // Log the error but proceed without filtering in case of failure
+    logger.error("Error checking reply history for TO_REPLY filter", {
+      senderEmail,
+      error,
+    });
+  }
+
+  return potentialMatches;
 }

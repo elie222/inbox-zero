@@ -1,6 +1,12 @@
-import type { RuleWithActionsAndCategories } from "@/utils/types";
-import type { Category, Group, GroupItem } from "@prisma/client";
+import type {
+  ActionType,
+  Category,
+  Group,
+  GroupItem,
+  PresetType,
+} from "@prisma/client";
 import type { ConditionType } from "@/utils/config";
+import type { RuleWithActionsAndCategories } from "@/utils/types";
 
 export type StaticMatch = {
   type: Extract<ConditionType, "STATIC">;
@@ -21,7 +27,17 @@ export type AiMatch = {
   type: Extract<ConditionType, "AI">;
 };
 
-export type MatchReason = StaticMatch | GroupMatch | CategoryMatch | AiMatch;
+export type PresetMatch = {
+  type: Extract<ConditionType, "PRESET">;
+  presetType: PresetType;
+};
+
+export type MatchReason =
+  | StaticMatch
+  | GroupMatch
+  | CategoryMatch
+  | AiMatch
+  | PresetMatch;
 
 export type MatchingRuleResult = {
   match?: RuleWithActionsAndCategories;
