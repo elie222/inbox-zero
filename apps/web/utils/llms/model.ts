@@ -18,10 +18,11 @@ export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
     ? selectEconomyModel(userAi)
     : selectDefaultModel(userAi);
 
-  logger.trace("Using model", {
+  logger.info("Using model", {
     useEconomyModel,
     provider: data.provider,
     model: data.model,
+    providerOptions: data.providerOptions,
   });
 
   return data;
