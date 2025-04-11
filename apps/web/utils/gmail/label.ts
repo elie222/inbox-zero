@@ -60,6 +60,18 @@ export async function labelThread(options: {
   );
 }
 
+export async function removeThreadLabel(
+  gmail: gmail_v1.Gmail,
+  threadId: string,
+  labelId: string,
+) {
+  await labelThread({
+    gmail,
+    threadId,
+    removeLabelIds: [labelId],
+  });
+}
+
 export async function archiveThread({
   gmail,
   threadId,

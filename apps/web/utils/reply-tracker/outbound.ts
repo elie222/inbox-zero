@@ -7,11 +7,8 @@ import { getThreadMessages } from "@/utils/gmail/thread";
 import { ThreadTrackerType, type User } from "@prisma/client";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import {
-  labelAwaitingReply,
-  removeNeedsReplyLabel,
-  getReplyTrackingLabels,
-} from "@/utils/reply-tracker/label";
+import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
+import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 
 export async function handleOutboundReply(
@@ -132,11 +129,11 @@ async function createReplyTrackerOutbound({
     },
   });
 
-  const labelPromise = labelAwaitingReply(
+  const labelPromise = labelMessage({
     gmail,
     messageId,
-    awaitingReplyLabelId,
-  );
+    addLabelIds: [awaitingReplyLabelId],
+  });
 
   const [upsertResult, labelResult] = await Promise.allSettled([
     upsertPromise,
@@ -174,11 +171,7 @@ async function resolveReplyTrackers(
     },
   });
 
-  const labelPromise = removeNeedsReplyLabel(
-    gmail,
-    threadId,
-    needsReplyLabelId,
-  );
+  const labelPromise = removeThreadLabel(gmail, threadId, needsReplyLabelId);
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }

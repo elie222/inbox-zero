@@ -1,10 +1,8 @@
 import prisma from "@/utils/prisma";
 import { ActionType, ThreadTrackerType } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
-import {
-  removeAwaitingReplyLabel,
-  getAwaitingReplyLabel,
-} from "@/utils/reply-tracker/label";
+import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
+import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { User } from "@prisma/client";
@@ -40,11 +38,7 @@ export async function coordinateReplyProcess(
 
   // Process in parallel for better performance
   const dbPromise = updateThreadTrackers(userId, threadId, messageId, sentAt);
-  const labelsPromise = removeAwaitingReplyLabel(
-    gmail,
-    threadId,
-    awaitingReplyLabelId,
-  );
+  const labelsPromise = removeThreadLabel(gmail, threadId, awaitingReplyLabelId);
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,
