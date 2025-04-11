@@ -60,7 +60,7 @@ import { cn } from "@/utils";
 import { useCategories } from "@/hooks/useCategories";
 import { CategorySelect } from "@/components/CategorySelect";
 import { useModal } from "@/hooks/useModal";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -237,7 +237,7 @@ function Content({
   }
 
   const groupMatch = result?.matchReasons?.find(
-    (reason) => reason.type === RuleType.GROUP,
+    (reason) => reason.type === ConditionType.GROUP,
   );
   if (groupMatch) {
     return (
@@ -278,7 +278,7 @@ function Content({
   }
 
   const categoryMatch = result?.matchReasons?.find(
-    (reason) => reason.type === RuleType.CATEGORY,
+    (reason) => reason.type === ConditionType.CATEGORY,
   );
   if (categoryMatch) {
     return (

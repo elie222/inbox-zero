@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/table";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { Button } from "@/components/ui/button";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 
 export function Groups() {
   const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
@@ -92,7 +92,7 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                 ) : (
                   <Button variant="outline" size="sm" asChild>
                     <Link
-                      href={`/automation/rule/create?groupId=${group.id}&type=${RuleType.GROUP}`}
+                      href={`/automation/rule/create?groupId=${group.id}&type=${ConditionType.GROUP}`}
                     >
                       Attach
                     </Link>

@@ -9,7 +9,7 @@ import type {
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import { CategoryFilterType, LogicalOperator, type User } from "@prisma/client";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -86,7 +86,7 @@ async function findPotentialMatchingRules({
       );
       if (matchingItem) {
         matchReasons.push({
-          type: RuleType.GROUP,
+          type: ConditionType.GROUP,
           groupItem: matchingItem,
           group,
         });
@@ -96,16 +96,16 @@ async function findPotentialMatchingRules({
     }
 
     // Regular conditions:
-    const unmatchedConditions = new Set<RuleType>(
-      Object.keys(conditionTypes) as RuleType[],
+    const unmatchedConditions = new Set<ConditionType>(
+      Object.keys(conditionTypes) as ConditionType[],
     );
 
     // static
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
       if (match) {
-        unmatchedConditions.delete(RuleType.STATIC);
-        matchReasons.push({ type: RuleType.STATIC });
+        unmatchedConditions.delete(ConditionType.STATIC);
+        matchReasons.push({ type: ConditionType.STATIC });
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
           return { match: rule, matchReasons };
       } else {
@@ -121,10 +121,10 @@ async function findPotentialMatchingRules({
         await getSender(rule.userId),
       );
       if (matchedCategory) {
-        unmatchedConditions.delete(RuleType.CATEGORY);
+        unmatchedConditions.delete(ConditionType.CATEGORY);
         if (typeof matchedCategory !== "boolean") {
           matchReasons.push({
-            type: RuleType.CATEGORY,
+            type: ConditionType.CATEGORY,
             category: matchedCategory,
           });
         }
@@ -152,11 +152,11 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   return matchReasons
     .map((reason) => {
       switch (reason.type) {
-        case RuleType.STATIC:
+        case ConditionType.STATIC:
           return "Matched static conditions";
-        case RuleType.GROUP:
+        case ConditionType.GROUP:
           return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
-        case RuleType.CATEGORY:
+        case ConditionType.CATEGORY:
           return `Matched category: "${reason.category.name}"`;
       }
     })

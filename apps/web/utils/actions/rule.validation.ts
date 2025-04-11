@@ -4,7 +4,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
 } from "@prisma/client";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
@@ -19,10 +19,10 @@ const zodActionType = z.enum([
   ActionType.TRACK_THREAD,
 ]);
 
-export const zodRuleType = z.enum([
-  RuleType.AI,
-  RuleType.STATIC,
-  RuleType.CATEGORY,
+const zodConditionType = z.enum([
+  ConditionType.AI,
+  ConditionType.STATIC,
+  ConditionType.CATEGORY,
 ]);
 
 const zodAiCondition = z.object({
@@ -44,7 +44,7 @@ const zodCategoryCondition = z.object({
 });
 
 const zodCondition = z.object({
-  type: zodRuleType,
+  type: zodConditionType,
   ...zodAiCondition.shape,
   ...zodStaticCondition.shape,
   ...zodCategoryCondition.shape,

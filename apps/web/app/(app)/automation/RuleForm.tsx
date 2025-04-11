@@ -32,7 +32,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
 } from "@prisma/client";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -188,9 +188,13 @@ export function RuleForm({
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return [RuleType.AI, RuleType.STATIC, RuleType.CATEGORY].find(
-      (type) => !usedConditions.has(type),
-    ) as Exclude<RuleType, "GROUP"> | undefined;
+    return [
+      ConditionType.AI,
+      ConditionType.STATIC,
+      ConditionType.CATEGORY,
+    ].find((type) => !usedConditions.has(type)) as
+      | Exclude<ConditionType, "GROUP">
+      | undefined;
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -337,9 +341,9 @@ export function RuleForm({
                 <Select
                   label="Type"
                   options={[
-                    { label: "AI", value: RuleType.AI },
-                    { label: "Static", value: RuleType.STATIC },
-                    { label: "Sender Category", value: RuleType.CATEGORY },
+                    { label: "AI", value: ConditionType.AI },
+                    { label: "Static", value: ConditionType.STATIC },
+                    { label: "Sender Category", value: ConditionType.CATEGORY },
                   ]}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
@@ -370,7 +374,7 @@ export function RuleForm({
               </div>
 
               <div className="space-y-4 sm:col-span-3">
-                {watch(`conditions.${index}.type`) === RuleType.AI && (
+                {watch(`conditions.${index}.type`) === ConditionType.AI && (
                   <Input
                     type="text"
                     autosizeTextarea
@@ -390,7 +394,7 @@ export function RuleForm({
                   />
                 )}
 
-                {watch(`conditions.${index}.type`) === RuleType.STATIC && (
+                {watch(`conditions.${index}.type`) === ConditionType.STATIC && (
                   <>
                     <Input
                       type="text"
@@ -433,7 +437,8 @@ export function RuleForm({
                   </>
                 )}
 
-                {watch(`conditions.${index}.type`) === RuleType.CATEGORY && (
+                {watch(`conditions.${index}.type`) ===
+                  ConditionType.CATEGORY && (
                   <>
                     <div className="flex items-center gap-4">
                       <RadioGroup

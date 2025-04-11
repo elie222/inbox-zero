@@ -22,7 +22,7 @@ import {
   BookmarkXIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
-import { RuleType } from "@/utils/config";
+import { ConditionType } from "@/utils/config";
 import { EmailCell } from "@/components/EmailCell";
 import { useThreads } from "@/hooks/useThreads";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -433,7 +433,7 @@ function GroupRow({
         ) : (
           <Button variant="outline" size="xs" asChild>
             <Link
-              href={`/automation/rule/create?type=${RuleType.CATEGORY}&categoryId=${category.id}&label=${category.name}`}
+              href={`/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`}
               target="_blank"
             >
               <PlusIcon className="mr-2 size-4" />
