@@ -64,6 +64,8 @@ import {
 import { LearnedPatterns } from "@/app/(app)/automation/group/LearnedPatterns";
 import { Tooltip } from "@/components/Tooltip";
 import { createGroupAction } from "@/utils/actions/group";
+import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
+import { Badge } from "@/components/Badge";
 
 export function RuleForm({
   rule,
@@ -227,7 +229,7 @@ export function RuleForm({
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      { label: "Track thread", value: ActionType.TRACK_THREAD },
+      { label: "Track reply", value: ActionType.TRACK_THREAD },
     ];
   }, []);
 
@@ -799,7 +801,9 @@ function ReplyTrackerAction() {
   return (
     <div className="h-full flex items-center justify-center">
       <div className="text-center text-sm text-muted-foreground max-w-sm">
-        Automatically updates the label when you reply.
+        Tracks conversations this rule applies to.{" "}
+        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> will be
+        automatically removed after you reply.
       </div>
     </div>
   );
@@ -887,7 +891,7 @@ function ActionField({
           />
         </div>
       ) : isDraftContent && !setManually ? (
-        <div className="h-full flex flex-col items-center justify-center gap-2">
+        <div className="h-full flex flex-col items-center justify-center gap-2 border rounded py-8 mt-2">
           <div className="text-center text-sm text-muted-foreground max-w-sm">
             Our AI will generate a reply using your knowledge base and previous
             conversations with the sender
