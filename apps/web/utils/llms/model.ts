@@ -14,17 +14,17 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("llms/model");
 
 export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
-  const model = useEconomyModel
+  const data = useEconomyModel
     ? selectEconomyModel(userAi)
     : selectDefaultModel(userAi);
 
   logger.trace("Using model", {
     useEconomyModel,
-    provider: model.provider,
-    model: model.model,
+    provider: data.provider,
+    model: data.model,
   });
 
-  return model;
+  return data;
 }
 
 function selectModel(
@@ -74,7 +74,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.GEMINI_2_0_FLASH_OPENROUTER;
+      const model = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
