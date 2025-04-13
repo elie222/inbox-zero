@@ -14,17 +14,18 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("llms/model");
 
 export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
-  const model = useEconomyModel
+  const data = useEconomyModel
     ? selectEconomyModel(userAi)
     : selectDefaultModel(userAi);
 
-  logger.trace("Using model", {
+  logger.info("Using model", {
     useEconomyModel,
-    provider: model.provider,
-    model: model.model,
+    provider: data.provider,
+    model: data.model,
+    providerOptions: data.providerOptions,
   });
 
-  return model;
+  return data;
 }
 
 function selectModel(
@@ -74,7 +75,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.GEMINI_2_0_FLASH_OPENROUTER;
+      const model = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -193,11 +194,11 @@ function selectDefaultModel(userAi: UserAIFields) {
   if (defaultProvider === Provider.OPENROUTER) {
     providerOptions.openrouter = {
       models: [
-        "google/gemini-2.5-pro-preview-03-25",
         "anthropic/claude-3.7-sonnet",
+        "google/gemini-2.5-pro-preview-03-25",
       ],
       provider: {
-        order: ["Google AI Studio", "Amazon Bedrock", "Anthropic"],
+        order: ["Amazon Bedrock", "Google AI Studio", "Anthropic"],
       },
     };
   }
