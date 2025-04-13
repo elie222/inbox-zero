@@ -5,9 +5,9 @@ import prisma from "@/utils/prisma";
 
 export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
-async function getRules(options: { userId: string }) {
+async function getRules({ userId }: { userId: string }) {
   return await prisma.rule.findMany({
-    where: { userId: options.userId },
+    where: { userId },
     include: {
       actions: true,
       group: { select: { name: true } },
