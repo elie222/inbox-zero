@@ -1,3 +1,4 @@
+import type { gmail_v1 } from "@googleapis/gmail";
 import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
@@ -27,9 +28,11 @@ import type {
 } from "@/utils/ai/choose-rule/types";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeCalendarEvent } from "@/utils/parse/calender-event";
-import { checkSenderReplyHistory } from "@/utils/reply-tracker/query";
+import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 
 const logger = createScopedLogger("match-rules");
+
+const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
@@ -39,10 +42,12 @@ async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
+  gmail,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   isThread: boolean;
+  gmail: gmail_v1.Gmail;
 }): Promise<MatchingRuleResult> {
   const potentialMatches: (RuleWithActionsAndCategories & {
     instructions: string;
@@ -174,6 +179,7 @@ async function findPotentialMatchingRules({
   const filteredPotentialMatches = await filterToReplyPreset(
     potentialMatches,
     message,
+    gmail,
   );
 
   return { potentialMatches: filteredPotentialMatches };
@@ -200,8 +206,9 @@ export async function findMatchingRule(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
 ) {
-  const result = await findMatchingRuleWithReasons(rules, message, user);
+  const result = await findMatchingRuleWithReasons(rules, message, user, gmail);
   return {
     ...result,
     reason: result.reason || getMatchReason(result.matchReasons || []),
@@ -212,6 +219,7 @@ async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  gmail: gmail_v1.Gmail,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
@@ -223,6 +231,7 @@ async function findMatchingRuleWithReasons(
       rules,
       message,
       isThread,
+      gmail,
     });
 
   if (match) return { rule: match, matchReasons };
@@ -310,6 +319,7 @@ async function matchesCategoryRule(
 async function filterToReplyPreset(
   potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
   message: ParsedMessage,
+  gmail: gmail_v1.Gmail,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
   const toReplyRuleIndex = potentialMatches.findIndex(
     (r) => r.presetType === PresetType.TO_REPLY,
@@ -325,11 +335,14 @@ async function filterToReplyPreset(
   }
 
   try {
-    const { hasReplied, receivedCount } =
-      await checkSenderReplyHistory(senderEmail);
+    const { hasReplied, receivedCount } = await checkSenderReplyHistory(
+      gmail,
+      senderEmail,
+      TO_REPLY_RECEIVED_THRESHOLD,
+    );
 
-    // If user hasn't replied and received > 10 emails, filter out the rule.
-    if (!hasReplied && receivedCount > 10) {
+    // If user hasn't replied and received count meets/exceeds the threshold, filter out the rule.
+    if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
       logger.info(
         "Filtering out TO_REPLY rule due to no prior reply and high received count",
         {

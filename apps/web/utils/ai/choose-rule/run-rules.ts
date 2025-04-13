@@ -45,7 +45,7 @@ export async function runRules({
   user: Pick<User, "id" | "email" | "about"> & UserAIFields;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  const result = await findMatchingRule(rules, message, user);
+  const result = await findMatchingRule(rules, message, user, gmail);
 
   analyzeSenderPatternIfAiMatch(isTest, result, message, user);
 
