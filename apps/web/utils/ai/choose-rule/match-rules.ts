@@ -27,7 +27,7 @@ import type {
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
 import { extractEmailAddress } from "@/utils/email";
-import { analyzeCalendarEvent } from "@/utils/parse/calender-event";
+import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 
 const logger = createScopedLogger("match-rules");
@@ -54,8 +54,8 @@ async function findPotentialMatchingRules({
   })[] = [];
 
   // Check for calendar preset match
-  const calendarInfo = analyzeCalendarEvent(message);
-  if (calendarInfo.isCalendarEvent) {
+  const isCalendarEvent = hasIcsAttachment(message);
+  if (isCalendarEvent) {
     const calendarRule = rules.find(
       (r) => r.presetType === PresetType.CALENDAR,
     );
