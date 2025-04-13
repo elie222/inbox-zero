@@ -24,13 +24,13 @@ async function getSenderEmails(
   // Define the date truncation function based on the period
   let dateFunction: string;
   if (period === "day") {
-    dateFunction = "DATE_TRUNC('day', TO_TIMESTAMP(date / 1000))";
+    dateFunction = "DATE_TRUNC('day', date)";
   } else if (period === "week") {
-    dateFunction = "DATE_TRUNC('week', TO_TIMESTAMP(date / 1000))";
+    dateFunction = "DATE_TRUNC('week', date)";
   } else if (period === "month") {
-    dateFunction = "DATE_TRUNC('month', TO_TIMESTAMP(date / 1000))";
+    dateFunction = "DATE_TRUNC('month', date)";
   } else {
-    dateFunction = "DATE_TRUNC('year', TO_TIMESTAMP(date / 1000))";
+    dateFunction = "DATE_TRUNC('year', date)";
   }
 
   // Build the query with optional date filters
@@ -43,11 +43,11 @@ async function getSenderEmails(
 
   // Add date filters if provided
   if (fromDate) {
-    query = Prisma.sql`${query} AND "date" >= ${fromDate}`;
+    query = Prisma.sql`${query} AND "date" >= ${new Date(fromDate)}`;
   }
 
   if (toDate) {
-    query = Prisma.sql`${query} AND "date" <= ${toDate}`;
+    query = Prisma.sql`${query} AND "date" <= ${new Date(toDate)}`;
   }
 
   // Complete the query with GROUP BY and ORDER BY
