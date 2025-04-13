@@ -195,7 +195,7 @@ function UnarchivedEmails({
           threads={data.threads}
           emptyMessage={
             <AlertBasic
-              title="No emails"
+              title="No unarchived emails"
               description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
             />
           }
@@ -228,7 +228,7 @@ function AllEmails({
           emptyMessage={
             <AlertBasic
               title="No emails"
-              description={`There are no unarchived emails. Switch to the "All" to view all emails from this sender.`}
+              description="There are no emails from this sender."
             />
           }
           hideActionBarWhenEmpty
