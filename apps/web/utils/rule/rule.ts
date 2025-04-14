@@ -1,7 +1,12 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import prisma, { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { ActionType, type Prisma, type Rule } from "@prisma/client";
+import {
+  ActionType,
+  type SystemType,
+  type Prisma,
+  type Rule,
+} from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/automation/examples";
@@ -26,6 +31,7 @@ export async function safeCreateRule(
   result: CreateOrUpdateRuleSchemaWithCategories,
   userId: string,
   categoryNames?: string[] | null,
+  systemType?: SystemType | null,
 ) {
   const categoryIds = await getUserCategoriesForNames(
     userId,
@@ -37,6 +43,7 @@ export async function safeCreateRule(
       result,
       userId,
       categoryIds,
+      systemType,
     });
     return rule;
   } catch (error) {
@@ -98,10 +105,12 @@ export async function createRule({
   result,
   userId,
   categoryIds,
+  systemType,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   userId: string;
   categoryIds?: string[] | null;
+  systemType?: SystemType | null;
 }) {
   const mappedActions = mapActionFields(result.actions);
 
@@ -109,6 +118,7 @@ export async function createRule({
     data: {
       name: result.name,
       userId,
+      systemType,
       actions: { createMany: { data: mappedActions } },
       automate: shouldAutomate(
         result,

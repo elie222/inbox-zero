@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { findMatchingRule, matchesStaticRule } from "./match-rules";
 import {
   type Category,
@@ -19,6 +20,8 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 
 // Run with:
 // pnpm test match-rules.test.ts
+
+const gmail = {} as gmail_v1.Gmail;
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -104,8 +107,7 @@ describe("findMatchingRule", () => {
       headers: getHeaders({ from: "test@example.com" }),
     });
     const user = getUser();
-
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe("Matched static conditions");
@@ -119,7 +121,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe("Matched static conditions");
@@ -133,7 +135,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -158,7 +160,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
@@ -177,7 +179,7 @@ describe("findMatchingRule", () => {
     const message = getMessage();
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -196,7 +198,7 @@ describe("findMatchingRule", () => {
     const message = getMessage();
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -232,7 +234,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
@@ -262,7 +264,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBeDefined();
@@ -293,7 +295,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule).toBeUndefined();
     expect(result.reason).toBeDefined();
@@ -315,7 +317,7 @@ describe("findMatchingRule", () => {
     const message = getMessage();
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -336,7 +338,7 @@ describe("findMatchingRule", () => {
     const message = getMessage();
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -378,7 +380,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -418,7 +420,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toContain("test@example.com");
@@ -459,7 +461,7 @@ describe("findMatchingRule", () => {
     });
     const user = getUser();
 
-    const result = await findMatchingRule(rules, message, user);
+    const result = await findMatchingRule(rules, message, user, gmail);
 
     // Should match the first rule only
     expect(result.rule?.id).toBe("rule1");

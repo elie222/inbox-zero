@@ -7,6 +7,8 @@ export const ConditionType = {
   STATIC: "STATIC",
   GROUP: "GROUP",
   CATEGORY: "CATEGORY",
+  PRESET: "PRESET",
 } as const;
 
 export type ConditionType = (typeof ConditionType)[keyof typeof ConditionType];
+export type CoreConditionType = Exclude<ConditionType, "GROUP" | "PRESET">;

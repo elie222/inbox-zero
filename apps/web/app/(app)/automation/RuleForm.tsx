@@ -31,8 +31,9 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
+  SystemType,
 } from "@prisma/client";
-import { ConditionType } from "@/utils/config";
+import { ConditionType, type CoreConditionType } from "@/utils/config";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
@@ -195,7 +196,7 @@ export function RuleForm({
       ConditionType.STATIC,
       ConditionType.CATEGORY,
     ].find((type) => !usedConditions.has(type)) as
-      | Exclude<ConditionType, "GROUP">
+      | CoreConditionType
       | undefined;
   }, [conditions]);
 
@@ -265,8 +266,17 @@ export function RuleForm({
         />
       </div>
 
+      {showSystemTypeBadge(rule.systemType) && (
+        <div className="mt-2 flex items-center gap-2">
+          <Badge color="green">
+            This rule has special preset logic that may impact your conditions
+          </Badge>
+        </div>
+      )}
+
       <div className="mt-6 flex items-end justify-between">
         <TypographyH3>Conditions</TypographyH3>
+
         <div className="flex items-center gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -801,9 +811,10 @@ function ReplyTrackerAction() {
   return (
     <div className="h-full flex items-center justify-center">
       <div className="text-center text-sm text-muted-foreground max-w-sm">
-        Tracks conversations this rule applies to.{" "}
-        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> will be
-        automatically removed after you reply.
+        Used for reply tracking (Reply Zero). This action tracks emails this
+        rule is applied to and removes the{" "}
+        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
+        reply to the email.
       </div>
     </div>
   );
@@ -962,4 +973,10 @@ function ActionField({
       {fieldError && <ErrorMessage message={fieldError.toString()} />}
     </div>
   );
+}
+
+function showSystemTypeBadge(systemType?: SystemType | null): boolean {
+  if (systemType === SystemType.TO_REPLY) return true;
+  if (systemType === SystemType.CALENDAR) return true;
+  return false;
 }
