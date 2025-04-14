@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import { capitalCase } from "capital-case";
-import {
-  MoreHorizontalIcon,
-  PenIcon,
-  PlusIcon,
-  AlertTriangleIcon,
-  InfoIcon,
-} from "lucide-react";
+import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -34,13 +28,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  setRuleAutomatedAction,
   setRuleRunOnThreadsAction,
   setRuleEnabledAction,
 } from "@/utils/actions/ai-rule";
 import { deleteRuleAction } from "@/utils/actions/rule";
 import { Toggle } from "@/components/Toggle";
-import { conditionsToString, conditionTypesToString } from "@/utils/condition";
+import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
@@ -51,6 +44,7 @@ import { cn } from "@/utils";
 import { type RiskLevel, getRiskLevel } from "@/utils/risk";
 import { useRules } from "@/hooks/useRules";
 import { ActionType } from "@prisma/client";
+import { ThreadsExplanation } from "@/app/(app)/automation/RuleForm";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useRules();
@@ -69,20 +63,13 @@ export function Rules() {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Condition</TableHead>
-                  <TableHead>Type</TableHead>
                   <TableHead>Actions</TableHead>
-                  <TableHead className="text-center">
-                    <Tooltip content="When disabled, actions require manual approval in the Pending tab.">
-                      <span>Automated</span>
-                    </Tooltip>
-                  </TableHead>
-                  <TableHead className="text-center">
-                    <Tooltip content="Apply rule to email threads">
+                  <TableHead>
+                    <div className="flex items-center justify-center gap-1">
                       <span>Threads</span>
-                    </Tooltip>
+                      <ThreadsExplanation size="sm" />
+                    </div>
                   </TableHead>
-                  {/* <TableHead className="text-right">Pending</TableHead>
-              <TableHead className="text-right">Executed</TableHead> */}
                   <TableHead>
                     <span className="sr-only">User Actions</span>
                   </TableHead>
@@ -104,66 +91,20 @@ export function Rules() {
                             </Badge>
                           )}
                           {rule.name}
+                          {!rule.automate && (
+                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab.">
+                              <Badge color="yellow" className="ml-2">
+                                Requires Approval
+                              </Badge>
+                            </Tooltip>
+                          )}
                         </Link>
-
-                        {!rule.enabled && (
-                          <div>
-                            <Button
-                              size="xs"
-                              className="mt-2"
-                              onClick={async () => {
-                                const result = await setRuleEnabledAction({
-                                  ruleId: rule.id,
-                                  enabled: true,
-                                });
-                                if (isActionError(result)) {
-                                  toastError({
-                                    description: `There was an error enabling your rule. ${result.error}`,
-                                  });
-                                } else {
-                                  toastSuccess({
-                                    description: "Rule enabled!",
-                                  });
-                                }
-                                mutate();
-                              }}
-                            >
-                              Enable
-                            </Button>
-                          </div>
-                        )}
                       </TableCell>
                       <TableCell className="whitespace-pre-wrap">
                         {conditionsToString(rule)}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1.5">
-                          <SecurityAlert rule={rule} />
-                          {conditionTypesToString(rule)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
                         <Actions actions={rule.actions} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-center">
-                          <Toggle
-                            enabled={rule.automate}
-                            name="automate"
-                            onChange={async () => {
-                              const result = await setRuleAutomatedAction({
-                                ruleId: rule.id,
-                                automate: !rule.automate,
-                              });
-                              if (isActionError(result)) {
-                                toastError({
-                                  description: `There was an error updating your rule. ${result.error}`,
-                                });
-                              }
-                              mutate();
-                            }}
-                          />
-                        </div>
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-center">
@@ -185,8 +126,6 @@ export function Rules() {
                           />
                         </div>
                       </TableCell>
-                      {/* <TableCell className="text-right">33</TableCell>
-                <TableCell className="text-right">43</TableCell> */}
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -200,16 +139,6 @@ export function Rules() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            {/* TODO: multiple condition handling */}
-                            {/* {!isAIRule(rule) && (
-                              <DropdownMenuItem asChild>
-                                <Link
-                                  href={`/automation/rule/${rule.id}/examples`}
-                                >
-                                  View Examples
-                                </Link>
-                              </DropdownMenuItem>
-                            )} */}
                             <DropdownMenuItem asChild>
                               <Link href={`/automation/rule/${rule.id}`}>
                                 Edit
@@ -342,18 +271,6 @@ function NoRules() {
         </div>
       </CardContent>
     </>
-  );
-}
-
-function SecurityAlert({ rule }: { rule: RulesResponse[number] }) {
-  const { level, message } = getRiskLevel(rule);
-
-  if (level === "low") return null;
-
-  return (
-    <Tooltip content={message}>
-      <AlertTriangleIcon className={cn("h-4 w-4", getRiskLevelColor(level))} />
-    </Tooltip>
   );
 }
 

@@ -705,10 +705,7 @@ export function RuleForm({
       </div>
 
       <div className="mt-4 flex items-center justify-end space-x-2">
-        <TooltipExplanation
-          size="md"
-          text="When enabled, this rule applies to all emails in a conversation, including replies. When disabled, it only applies to the first email in each conversation."
-        />
+        <ThreadsExplanation size="md" />
 
         <Toggle
           name="runOnThreads"
@@ -979,4 +976,13 @@ function showSystemTypeBadge(systemType?: SystemType | null): boolean {
   if (systemType === SystemType.TO_REPLY) return true;
   if (systemType === SystemType.CALENDAR) return true;
   return false;
+}
+
+export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
+  return (
+    <TooltipExplanation
+      size={size}
+      text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
+    />
+  );
 }

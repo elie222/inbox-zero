@@ -209,19 +209,6 @@ export const createAutomationAction = withActionInstrumentation<
   return await safeCreateRule(result, userId, null);
 });
 
-export const setRuleAutomatedAction = withActionInstrumentation(
-  "setRuleAutomated",
-  async ({ ruleId, automate }: { ruleId: string; automate: boolean }) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    await prisma.rule.update({
-      where: { id: ruleId, userId: session.user.id },
-      data: { automate },
-    });
-  },
-);
-
 export const setRuleRunOnThreadsAction = withActionInstrumentation(
   "setRuleRunOnThreads",
   async ({
