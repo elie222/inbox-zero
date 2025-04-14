@@ -272,6 +272,11 @@ model ExecutedAction {
   cc      String?
   bcc     String?
   url     String?
+
+  // additional fields as a result of the action
+  draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
+  wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftSendLog DraftSendLog? // Will exist if the draft was sent
 }
 
 // Notes:
@@ -502,6 +507,19 @@ model Payment {
 
   // Metadata
   billingReason String? // initial, renewal, update, etc.
+}
+
+model DraftSendLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  executedActionId String         @unique
+  executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
+
+  sentMessageId   String
+  similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
+
+  @@index([executedActionId])
 }
 
 enum ActionType {

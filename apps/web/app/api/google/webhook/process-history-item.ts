@@ -1,4 +1,3 @@
-import { after } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent, parseMessage } from "@/utils/mail";
@@ -18,6 +17,12 @@ import { logger } from "@/app/api/google/webhook/logger";
 import { internalDateToDate } from "@/utils/date";
 import { extractEmailAddress } from "@/utils/email";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import {
+  trackSentDraftStatus,
+  cleanupThreadAIDrafts,
+} from "@/utils/ai/draft-tracking";
+import type { ParsedMessage } from "@/utils/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 
 export async function processHistoryItem(
   {
@@ -106,8 +111,7 @@ export async function processHistoryItem(
     const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutboundReply(user, message, gmail);
-      // skip outbound emails
+      await handleOutbound(user, message, gmail);
       return;
     }
 
@@ -189,6 +193,60 @@ export async function processHistoryItem(
 
     throw error;
   }
+}
+
+async function handleOutbound(
+  user: UserEmailWithAI,
+  message: ParsedMessage,
+  gmail: gmail_v1.Gmail,
+) {
+  const loggerOptions = {
+    email: user.email,
+    messageId: message.id,
+    threadId: message.threadId,
+  };
+
+  // Run tracking and outbound reply handling concurrently
+  // The individual functions handle their own operational errors.
+  const [trackingResult, outboundResult] = await Promise.allSettled([
+    trackSentDraftStatus({
+      user: { id: user.id, email: user.email },
+      message,
+      gmail,
+    }),
+    handleOutboundReply(user, message, gmail),
+  ]);
+
+  if (trackingResult.status === "rejected") {
+    logger.error("Error tracking sent draft status", {
+      ...loggerOptions,
+      error: trackingResult.reason,
+    });
+  }
+
+  if (outboundResult.status === "rejected") {
+    logger.error("Error handling outbound reply", {
+      ...loggerOptions,
+      error: outboundResult.reason,
+    });
+  }
+
+  // Run cleanup for any other old/unmodified drafts in the thread
+  try {
+    await cleanupThreadAIDrafts({
+      threadId: message.threadId,
+      userId: user.id,
+      gmail,
+    });
+  } catch (cleanupError) {
+    logger.error("Error during thread draft cleanup", {
+      ...loggerOptions,
+      error: cleanupError,
+    });
+  }
+
+  // Still skip further processing for outbound emails
+  return;
 }
 
 export function shouldRunColdEmailBlocker(

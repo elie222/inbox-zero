@@ -5,7 +5,6 @@ import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
 import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -38,7 +37,11 @@ export async function coordinateReplyProcess(
 
   // Process in parallel for better performance
   const dbPromise = updateThreadTrackers(userId, threadId, messageId, sentAt);
-  const labelsPromise = removeThreadLabel(gmail, threadId, awaitingReplyLabelId);
+  const labelsPromise = removeThreadLabel(
+    gmail,
+    threadId,
+    awaitingReplyLabelId,
+  );
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,
@@ -100,7 +103,7 @@ async function updateThreadTrackers(
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
-  user: Pick<User, "about"> & UserEmailWithAI,
+  user: UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {

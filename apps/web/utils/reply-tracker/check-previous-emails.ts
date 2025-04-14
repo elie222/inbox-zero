@@ -5,7 +5,6 @@ import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { GmailLabel } from "@/utils/gmail/label";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
 import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 import { getAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import prisma from "@/utils/prisma";
@@ -14,7 +13,7 @@ const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
 export async function processPreviousSentEmails(
   gmail: gmail_v1.Gmail,
-  user: Pick<User, "about"> & UserEmailWithAI,
+  user: UserEmailWithAI,
   maxResults = 100,
 ) {
   if (!user.email) throw new Error("User email not found");

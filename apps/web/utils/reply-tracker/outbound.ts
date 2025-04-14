@@ -4,7 +4,7 @@ import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
 import { getThreadMessages } from "@/utils/gmail/thread";
-import { ThreadTrackerType, type User } from "@prisma/client";
+import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
@@ -12,7 +12,7 @@ import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 
 export async function handleOutboundReply(
-  user: Pick<User, "about"> & UserEmailWithAI,
+  user: UserEmailWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { User } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -28,7 +27,7 @@ export async function aiCheckIfNeedsReply({
   messageToSend,
   threadContextMessages,
 }: {
-  user: Pick<User, "about"> & UserEmailWithAI;
+  user: UserEmailWithAI;
   messageToSend: EmailForLLM;
   threadContextMessages: EmailForLLM[];
 }): Promise<AICheckResult> {
