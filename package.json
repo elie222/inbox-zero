@@ -16,14 +16,14 @@
   "devDependencies": {
     "@biomejs/biome": "1.9.4",
     "@inboxzero/eslint-config": "workspace:*",
-    "@turbo/gen": "2.4.4",
-    "eslint": "9.23.0",
+    "@turbo/gen": "2.5.0",
+    "eslint": "9.24.0",
     "husky": "9.1.7",
-    "lint-staged": "15.5.0",
+    "lint-staged": "15.5.1",
     "prettier": "3.5.3",
-    "turbo": "2.4.4"
+    "turbo": "2.5.0"
   },
-  "packageManager": "pnpm@10.7.0",
+  "packageManager": "pnpm@10.8.0",
   "lint-staged": {
     "*.{ts,tsx,md}": "prettier --write"
   },

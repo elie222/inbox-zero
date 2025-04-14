@@ -75,7 +75,7 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
+      const model = aiModel || Model.CLAUDE_3_7_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
