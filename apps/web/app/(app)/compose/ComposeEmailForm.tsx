@@ -54,6 +54,7 @@ export const ComposeEmailForm = ({
 }) => {
   const [showFullContent, setShowFullContent] = React.useState(false);
   const { symbol } = useModifierKey();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const {
     register,
@@ -100,12 +101,12 @@ export const ComposeEmailForm = ({
     [refetch, onSuccess, showFullContent, replyingToEmail],
   );
 
-  const formRef = useHotkeys(
+  useHotkeys(
     "mod+enter",
     (e) => {
       e.preventDefault();
       if (!isSubmitting) {
-        (e.target as HTMLElement).closest("form")?.requestSubmit();
+        formRef.current?.requestSubmit();
       }
     },
     {
