@@ -197,6 +197,8 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
           return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
         case ConditionType.CATEGORY:
           return `Matched category: "${reason.category.name}"`;
+        case ConditionType.PRESET:
+          return "Matched a system preset";
       }
     })
     .join(", ");
