@@ -48,7 +48,7 @@ export function History() {
             <HistoryTable
               data={data.executedRules}
               totalPages={data.totalPages}
-              userEmail={session.data?.user.email || ""}
+              userEmail={session.data?.user?.email || ""}
             />
           ) : (
             <AlertBasic
