@@ -121,7 +121,16 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
-  systemType: z.enum([SystemType.CALENDAR, SystemType.TO_REPLY]).nullish(),
+  systemType: z
+    .enum([
+      SystemType.TO_REPLY,
+      SystemType.NEWSLETTER,
+      SystemType.MARKETING,
+      SystemType.CALENDAR,
+      SystemType.RECEIPT,
+      SystemType.NOTIFICATION,
+    ])
+    .nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

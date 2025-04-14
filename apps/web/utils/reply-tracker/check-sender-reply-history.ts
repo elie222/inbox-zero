@@ -30,7 +30,13 @@ export async function checkSenderReplyHistory(
     const [hasReplied, receivedCount] = await Promise.all([
       checkIfReplySent(gmail, cleanSenderEmail),
       countReceivedMessages(gmail, cleanSenderEmail, receivedThreshold),
-    ]);
+    ]).catch((error) => {
+      logger.error("Timeout or error in parallel operations", {
+        error,
+        cleanSenderEmail,
+      });
+      return [true, 0] as const; // Safe defaults
+    });
 
     logger.info("Sender reply history check final result", {
       senderEmail,
