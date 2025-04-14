@@ -19,10 +19,7 @@ export function hasExampleParams(rule: {
 
 const commonPrompts = [
   "Label urgent emails as 'Urgent'",
-  "Label newsletters as 'Newsletter' and archive them",
-  "Label marketing emails as 'Marketing' and archive them",
   "Label emails from @mycompany.com addresses as 'Team'",
-  "Label receipts as 'Receipt' and archive them",
 ];
 
 const common = `${commonPrompts.map((prompt) => `* ${prompt}`).join(".\n")}.`;
@@ -53,9 +50,7 @@ const founderPrompt = `* If someone asks to set up a call, draft a reply with my
 * Label emails from investors as "Investor".
 * Label legal documents as "Legal".
 * Label emails about travel as "Travel".
-* Label recruitment related emails as "Hiring".
-* Label marketing and newsletter emails as "Marketing" and archive them.
-* Label receipts as 'Receipt' and archive them.`;
+* Label recruitment related emails as "Hiring".`;
 
 export const personas = {
   founder: {
@@ -76,8 +71,7 @@ I've attached my media kit and pricing.
 * Label emails about affiliate programs as "Affiliate" and archive them.
 * Label collaboration requests as "Collab" and draft a reply asking about their audience size and engagement rates.
 * Label brand partnership emails as "Brand Deal" and forward to manager@example.com
-* Label media inquiries as "Press" and draft a reply a polite reply.
-* Label marketing and newsletter emails as "Marketing" and archive them.`,
+* Label media inquiries as "Press" and draft a reply a polite reply.`,
   },
   investor: {
     label: "💰 Investor",
@@ -94,8 +88,7 @@ I've attached my media kit and pricing.
 * Forward emails about industry research reports to research@vc.com
 * If someone asks for a warm intro to a portfolio company, draft a reply asking for more context about why they want to connect.
 * Label emails about fund administration as "Fund Admin".
-* Label emails about speaking at investment conferences as "Speaking Opportunity".
-* Label marketing and newsletter emails as "Marketing" and archive them.`,
+* Label emails about speaking at investment conferences as "Speaking Opportunity".`,
   },
   assistant: {
     label: "📋 Assistant",
@@ -197,10 +190,7 @@ I've attached my media kit and pricing.
 * Label emails about exam schedules as "Exam".
 * Label emails about campus events as "Event" and archive them.
 * If someone asks for class notes, draft a reply with our shared Google Drive folder link: https://drive.google.com/drive/u/0/folders/1234567890.
-* Label emails about tutoring opportunities as "Tutoring" and draft a reply with that my rate is $70/hour or $40/hour for group tutoring.
-
-* Label newsletters as 'Newsletter' and archive them
-* Label marketing emails as 'Marketing' and archive them`,
+* Label emails about tutoring opportunities as "Tutoring" and draft a reply with that my rate is $70/hour or $40/hour for group tutoring.`,
   },
   reachout: {
     label: "💬 Reachout",
