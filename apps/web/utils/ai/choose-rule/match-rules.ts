@@ -13,7 +13,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
   type User,
-  PresetType,
+  SystemType,
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
@@ -57,7 +57,7 @@ async function findPotentialMatchingRules({
   const isCalendarEvent = hasIcsAttachment(message);
   if (isCalendarEvent) {
     const calendarRule = rules.find(
-      (r) => r.presetType === PresetType.CALENDAR,
+      (r) => r.systemType === SystemType.CALENDAR,
     );
     if (calendarRule) {
       logger.info("Found matching calendar rule", {
@@ -67,7 +67,7 @@ async function findPotentialMatchingRules({
       return {
         match: calendarRule,
         matchReasons: [
-          { type: ConditionType.PRESET, presetType: PresetType.CALENDAR },
+          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
         ],
       };
     }
@@ -322,7 +322,7 @@ async function filterToReplyPreset(
   gmail: gmail_v1.Gmail,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
   const toReplyRuleIndex = potentialMatches.findIndex(
-    (r) => r.presetType === PresetType.TO_REPLY,
+    (r) => r.systemType === SystemType.TO_REPLY,
   );
 
   if (toReplyRuleIndex === -1) {

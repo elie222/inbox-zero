@@ -2,9 +2,13 @@ import { Card } from "@/components/ui/card";
 import { CategoriesSetup } from "./CategoriesSetup";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { ActionType, ColdEmailSetting, type Prisma } from "@prisma/client";
+import {
+  ActionType,
+  ColdEmailSetting,
+  SystemType,
+  type Prisma,
+} from "@prisma/client";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
-import { RuleName } from "@/utils/rule/consts";
 
 export default async function OnboardingPage() {
   const session = await auth();
@@ -23,7 +27,7 @@ type UserPreferences = Prisma.UserGetPayload<{
   select: {
     rules: {
       select: {
-        name: true;
+        systemType: true;
         actions: {
           select: { type: true };
         };
@@ -39,7 +43,7 @@ async function getUserPreferences(userId: string) {
     select: {
       rules: {
         select: {
-          name: true,
+          systemType: true,
           actions: {
             select: {
               type: true,
@@ -55,11 +59,11 @@ async function getUserPreferences(userId: string) {
   return {
     toReply: getToReplySetting(user.rules),
     coldEmails: getColdEmailSetting(user.coldEmailBlocker),
-    newsletter: getRuleSetting(RuleName.Newsletter, user.rules),
-    marketing: getRuleSetting(RuleName.Marketing, user.rules),
-    calendar: getRuleSetting(RuleName.Calendar, user.rules),
-    receipt: getRuleSetting(RuleName.Receipt, user.rules),
-    notification: getRuleSetting(RuleName.Notification, user.rules),
+    newsletter: getRuleSetting(SystemType.NEWSLETTER, user.rules),
+    marketing: getRuleSetting(SystemType.MARKETING, user.rules),
+    calendar: getRuleSetting(SystemType.CALENDAR, user.rules),
+    receipt: getRuleSetting(SystemType.RECEIPT, user.rules),
+    notification: getRuleSetting(SystemType.NOTIFICATION, user.rules),
   };
 }
 
@@ -75,10 +79,10 @@ function getToReplySetting(
 }
 
 function getRuleSetting(
-  name: string,
+  systemType: SystemType,
   rules?: UserPreferences["rules"],
 ): CategoryAction | undefined {
-  const rule = rules?.find((rule) => rule.name === name);
+  const rule = rules?.find((rule) => rule.systemType === systemType);
   if (!rule) return undefined;
 
   if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))

@@ -206,10 +206,10 @@ model Rule {
   categoryFilterType CategoryFilterType?
   categoryFilters    Category[]
 
-  // Allows for special conditional logic
-  presetType PresetType?
+  systemType SystemType?
 
   @@unique([name, userId])
+  @@unique([userId, systemType])
 }
 
 model Action {
@@ -605,7 +605,12 @@ enum CleanAction {
   MARK_READ
 }
 
-enum PresetType {
-  CALENDAR
+enum SystemType {
   TO_REPLY
+  NEWSLETTER
+  MARKETING
+  CALENDAR
+  RECEIPT
+  NOTIFICATION
+  // COLD_EMAIL // handled separately. we may unify in the future
 }

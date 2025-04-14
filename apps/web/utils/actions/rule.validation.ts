@@ -3,7 +3,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  PresetType,
+  SystemType,
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 
@@ -121,7 +121,7 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
-  presetType: z.enum([PresetType.CALENDAR, PresetType.TO_REPLY]).nullish(),
+  systemType: z.enum([SystemType.CALENDAR, SystemType.TO_REPLY]).nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 

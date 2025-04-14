@@ -1,7 +1,6 @@
 import prisma from "@/utils/prisma";
-import { aiFindReplyTrackingRule } from "@/utils/ai/reply/check-reply-tracking";
 import { safeCreateRule } from "@/utils/rule/rule";
-import { ActionType, type Prisma } from "@prisma/client";
+import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import {
   defaultReplyTrackerInstructions,
   NEEDS_REPLY_LABEL_NAME,
@@ -31,9 +30,12 @@ export async function enableReplyTracker(userId: string) {
       about: true,
       rulesPrompt: true,
       rules: {
+        where: {
+          systemType: SystemType.TO_REPLY,
+        },
         select: {
           id: true,
-          instructions: true,
+          systemType: true,
           actions: {
             select: {
               id: true,
@@ -48,14 +50,7 @@ export async function enableReplyTracker(userId: string) {
 
   if (!user) return { error: "User not found" };
 
-  const result = user.rules.length
-    ? await aiFindReplyTrackingRule({
-        rules: user.rules,
-        user,
-      })
-    : null;
-
-  const rule = user.rules.find((r) => r.id === result?.replyTrackingRuleId);
+  const rule = user.rules.find((r) => r.systemType === SystemType.TO_REPLY);
 
   let ruleId: string | null = rule?.id || null;
 
@@ -103,6 +98,8 @@ export async function enableReplyTracker(userId: string) {
         ],
       },
       userId,
+      null,
+      SystemType.TO_REPLY,
     );
 
     if ("error" in newRule) {

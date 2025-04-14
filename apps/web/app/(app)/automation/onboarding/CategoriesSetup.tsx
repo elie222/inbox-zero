@@ -32,8 +32,10 @@ import {
   type CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
-import { markOnboardingAsCompleted } from "@/utils/cookies";
+import {
+  ASSISTANT_ONBOARDING_COOKIE,
+  markOnboardingAsCompleted,
+} from "@/utils/cookies";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 

@@ -31,7 +31,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  PresetType,
+  SystemType,
 } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
@@ -118,11 +118,6 @@ export function RuleForm({
   const router = useRouter();
 
   const posthog = usePostHog();
-
-  // Get display info for preset type
-  const presetDisplay = rule.presetType
-    ? getPresetTypeDisplay(rule.presetType)
-    : null;
 
   const onSubmit: SubmitHandler<CreateRuleBody> = useCallback(
     async (data) => {
@@ -269,16 +264,19 @@ export function RuleForm({
           error={errors.name}
           placeholder="e.g. Label receipts"
         />
-        {presetDisplay && (
-          <div className="mt-2 flex items-center gap-2">
-            <Badge color="gray">{presetDisplay.name}</Badge>
-            <TooltipExplanation text={presetDisplay.description} />
-          </div>
-        )}
       </div>
+
+      {showSystemTypeBadge(rule.systemType) && (
+        <div className="mt-2 flex items-center gap-2">
+          <Badge color="green">
+            This rule has special preset logic that may impact your conditions
+          </Badge>
+        </div>
+      )}
 
       <div className="mt-6 flex items-end justify-between">
         <TypographyH3>Conditions</TypographyH3>
+
         <div className="flex items-center gap-1.5">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -813,9 +811,10 @@ function ReplyTrackerAction() {
   return (
     <div className="h-full flex items-center justify-center">
       <div className="text-center text-sm text-muted-foreground max-w-sm">
-        Tracks conversations this rule applies to.{" "}
-        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> will be
-        automatically removed after you reply.
+        Used for reply tracking (Reply Zero). This action tracks emails this
+        rule is applied to and removes the{" "}
+        <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
+        reply to the email.
       </div>
     </div>
   );
@@ -976,21 +975,8 @@ function ActionField({
   );
 }
 
-function getPresetTypeDisplay(presetType: PresetType) {
-  switch (presetType) {
-    case PresetType.CALENDAR:
-      return {
-        name: "Calendar",
-        description:
-          "This rule has special logic for calendar invitations (.ics files or event-related emails).",
-      };
-    case PresetType.TO_REPLY:
-      return {
-        name: "Needs Reply",
-        description:
-          "This rule applies special logic based on whether you have replied to the sender before.",
-      };
-    default:
-      return { name: capitalCase(presetType), description: "" };
-  }
+function showSystemTypeBadge(systemType?: SystemType | null): boolean {
+  if (systemType === SystemType.TO_REPLY) return true;
+  if (systemType === SystemType.CALENDAR) return true;
+  return false;
 }

@@ -23,7 +23,12 @@ import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
-import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
+import {
+  ActionType,
+  ColdEmailSetting,
+  LogicalOperator,
+  SystemType,
+} from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,
@@ -85,7 +90,7 @@ export const createRuleAction = withActionInstrumentation(
             : undefined,
           userId: session.user.id,
           conditionalOperator: body.conditionalOperator || LogicalOperator.AND,
-          presetType: body.presetType || undefined,
+          systemType: body.systemType || undefined,
           // conditions
           instructions: conditions.instructions || null,
           from: conditions.from || null,
@@ -160,7 +165,7 @@ export const updateRuleAction = withActionInstrumentation(
             name: body.name || undefined,
             conditionalOperator:
               body.conditionalOperator || LogicalOperator.AND,
-            presetType: body.presetType || undefined,
+            systemType: body.systemType || undefined,
             // conditions
             instructions: conditions.instructions || null,
             from: conditions.from || null,
@@ -421,13 +426,14 @@ export const createRulesOnboardingAction = withActionInstrumentation(
   "createRulesOnboarding",
   async (options: CreateRulesOnboardingBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const userId = session?.user.id;
+    if (!userId) return { error: "Not logged in" };
 
     const { data, error } = createRulesOnboardingBody.safeParse(options);
     if (error) return { error: error.message };
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: userId },
       select: { rulesPrompt: true },
     });
     if (!user) return { error: "User not found" };
@@ -440,7 +446,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
     // cold email blocker
     if (isSet(data.coldEmail)) {
       const promise = prisma.user.update({
-        where: { id: session.user.id },
+        where: { id: userId },
         data: {
           coldEmailBlocker:
             data.coldEmail === "label"
@@ -485,9 +491,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       runOnThreads: boolean,
       categoryAction: "label" | "label_archive",
       label: string,
+      systemType: SystemType,
+      userId: string,
     ) {
       const existingRule = await prisma.rule.findUnique({
-        where: { name_userId: { name, userId: session?.user.id! } },
+        where: { userId_systemType: { userId, systemType } },
       });
 
       if (existingRule) {
@@ -522,9 +530,10 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         const promise = prisma.rule
           .create({
             data: {
-              userId: session?.user.id!,
+              userId,
               name,
               instructions,
+              systemType,
               automate: true,
               runOnThreads,
               actions: {
@@ -555,10 +564,10 @@ export const createRulesOnboardingAction = withActionInstrumentation(
       }
     }
 
-    async function deleteRule(name: string) {
+    async function deleteRule(systemType: SystemType, userId: string) {
       const promise = async () => {
         const rule = await prisma.rule.findUnique({
-          where: { name_userId: { name, userId: session?.user.id! } },
+          where: { userId_systemType: { userId, systemType } },
         });
         if (!rule) return;
         await prisma.rule.delete({ where: { id: rule.id } });
@@ -575,9 +584,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.newsletter,
         "Newsletter",
+        SystemType.NEWSLETTER,
+        userId,
       );
     } else {
-      deleteRule(RuleName.Newsletter);
+      deleteRule(SystemType.NEWSLETTER, userId);
     }
 
     // marketing
@@ -589,9 +600,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.marketing,
         "Marketing",
+        SystemType.MARKETING,
+        userId,
       );
     } else {
-      deleteRule(RuleName.Marketing);
+      deleteRule(SystemType.MARKETING, userId);
     }
 
     // calendar
@@ -603,9 +616,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.calendar,
         "Calendar",
+        SystemType.CALENDAR,
+        userId,
       );
     } else {
-      deleteRule(RuleName.Calendar);
+      deleteRule(SystemType.CALENDAR, userId);
     }
 
     // receipt
@@ -617,9 +632,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.receipt,
         "Receipt",
+        SystemType.RECEIPT,
+        userId,
       );
     } else {
-      deleteRule(RuleName.Receipt);
+      deleteRule(SystemType.RECEIPT, userId);
     }
 
     // notification
@@ -631,9 +648,11 @@ export const createRulesOnboardingAction = withActionInstrumentation(
         false,
         data.notification,
         "Notification",
+        SystemType.NOTIFICATION,
+        userId,
       );
     } else {
-      deleteRule(RuleName.Notification);
+      deleteRule(SystemType.NOTIFICATION, userId);
     }
 
     await Promise.allSettled(promises);

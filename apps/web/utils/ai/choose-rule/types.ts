@@ -1,10 +1,4 @@
-import type {
-  ActionType,
-  Category,
-  Group,
-  GroupItem,
-  PresetType,
-} from "@prisma/client";
+import type { Category, Group, GroupItem, SystemType } from "@prisma/client";
 import type { ConditionType } from "@/utils/config";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 
@@ -29,7 +23,7 @@ export type AiMatch = {
 
 export type PresetMatch = {
   type: Extract<ConditionType, "PRESET">;
-  presetType: PresetType;
+  systemType: SystemType;
 };
 
 export type MatchReason =
