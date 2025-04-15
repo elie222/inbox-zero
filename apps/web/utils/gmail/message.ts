@@ -77,7 +77,7 @@ export async function getMessagesBatch(
       if (isBatchError(message)) {
         logger.error("Error fetching message", {
           code: message.error.code,
-          error: message.error,
+          error: message.error.message,
         });
         missingMessageIds.add(messageIds[i]);
         return;
