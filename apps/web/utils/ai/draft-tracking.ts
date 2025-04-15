@@ -173,7 +173,7 @@ export async function cleanupThreadAIDrafts({
     );
 
     for (const action of potentialDraftsToClean) {
-      if (!action.draftId) continue; // Should not happen due to query, but belts and suspenders
+      if (!action.draftId) continue; // Not expected to happen, but to fix TS error
 
       const actionLoggerOptions = {
         ...loggerOptions,
@@ -203,12 +203,14 @@ export async function cleanupThreadAIDrafts({
               "Draft is unmodified, deleting...",
               actionLoggerOptions,
             );
-            await deleteDraft(gmail, action.draftId);
-            // Mark as not sent (cleaned up because ignored/superseded)
-            await prisma.executedAction.update({
-              where: { id: action.id },
-              data: { wasDraftSent: false },
-            });
+            await Promise.all([
+              deleteDraft(gmail, action.draftId),
+              // Mark as not sent (cleaned up because ignored/superseded)
+              prisma.executedAction.update({
+                where: { id: action.id },
+                data: { wasDraftSent: false },
+              }),
+            ]);
             logger.info(
               "Deleted unmodified draft and updated action status.",
               actionLoggerOptions,

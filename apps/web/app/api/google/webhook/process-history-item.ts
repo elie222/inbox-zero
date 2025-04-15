@@ -232,6 +232,7 @@ async function handleOutbound(
   }
 
   // Run cleanup for any other old/unmodified drafts in the thread
+  // Must happen after previous steps
   try {
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
