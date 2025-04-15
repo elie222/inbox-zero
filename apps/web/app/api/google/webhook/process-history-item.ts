@@ -20,7 +20,7 @@ import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import {
   trackSentDraftStatus,
   cleanupThreadAIDrafts,
-} from "@/utils/ai/draft-tracking";
+} from "@/utils/reply-tracker/draft-tracking";
 import type { ParsedMessage } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 

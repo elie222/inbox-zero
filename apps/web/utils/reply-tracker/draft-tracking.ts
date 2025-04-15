@@ -243,9 +243,8 @@ export async function cleanupThreadAIDrafts({
       } catch (error) {
         logger.error("Error processing individual draft during cleanup", {
           ...actionLoggerOptions,
-          error,
+          error: (error as any)?.data?.error,
         });
-        // Continue to next draft even if one fails
       }
     }
     logger.info("Finished cleanup check for old AI drafts", loggerOptions);
