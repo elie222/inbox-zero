@@ -3,7 +3,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus } from "@/generated/prisma";
 import { getLabel, labelThread } from "@/utils/gmail/label";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getGmailClient } from "@/utils/gmail/client";

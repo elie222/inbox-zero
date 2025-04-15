@@ -4,7 +4,7 @@ import { extractEmailAddress } from "@/utils/email";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 

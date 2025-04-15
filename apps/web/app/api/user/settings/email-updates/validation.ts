@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma";
 
 export const saveEmailUpdateSettingsBody = z.object({
   statsEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),

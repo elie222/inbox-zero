@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus } from "@/generated/prisma";
 
 const LIMIT = 50;
 

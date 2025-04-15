@@ -3,7 +3,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-} from "@prisma/client";
+} from "@/generated/prisma";
 
 const conditionSchema = z
   .object({

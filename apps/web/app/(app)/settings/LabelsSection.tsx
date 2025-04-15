@@ -24,7 +24,7 @@ import {
   useGmail,
 } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabelsAction } from "@/utils/actions/mail";
-import type { Label } from "@prisma/client";
+import type { Label } from "@/generated/prisma";
 import { postRequest } from "@/utils/api";
 import type {
   CreateLabelBody,

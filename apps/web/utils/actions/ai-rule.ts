@@ -3,7 +3,7 @@
 import { setUser } from "@sentry/nextjs";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isNotFoundError } from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {

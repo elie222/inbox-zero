@@ -20,7 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { Category } from "@prisma/client";
+import type { Category } from "@/generated/prisma";
 import { MessageText } from "@/components/Typography";
 
 type ExampleCategory = {

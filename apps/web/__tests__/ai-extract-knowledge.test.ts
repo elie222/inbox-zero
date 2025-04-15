@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
-import type { Knowledge } from "@prisma/client";
+import type { Knowledge } from "@/generated/prisma";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 
 // pnpm test-ai ai-extract-knowledge

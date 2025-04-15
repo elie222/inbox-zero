@@ -13,7 +13,7 @@ import {
   isStaticRule,
   isCategoryRule,
 } from "@/utils/condition";
-import { LogicalOperator } from "@prisma/client";
+import { LogicalOperator } from "@/generated/prisma";
 
 export async function fetchExampleMessages(
   rule: RuleWithGroup,

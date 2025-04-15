@@ -4,7 +4,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import { ConditionType } from "@/utils/config";
 
 const zodActionType = z.enum([

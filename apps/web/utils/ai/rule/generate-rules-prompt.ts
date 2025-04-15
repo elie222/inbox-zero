@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { User } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-generate-rules-prompt");

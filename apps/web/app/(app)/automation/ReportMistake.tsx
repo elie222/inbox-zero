@@ -39,7 +39,7 @@ import {
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Input } from "@/components/Input";
-import { GroupItemType, type Rule } from "@prisma/client";
+import { GroupItemType, type Rule } from "@/generated/prisma";
 import { updateRuleInstructionsAction } from "@/utils/actions/rule";
 import { Separator } from "@/components/ui/separator";
 import { SectionDescription } from "@/components/Typography";

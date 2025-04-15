@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { FeatureAccess, PremiumTier } from "@prisma/client";
+import { FeatureAccess, PremiumTier } from "@/generated/prisma";
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 

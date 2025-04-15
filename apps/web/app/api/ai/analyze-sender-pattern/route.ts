@@ -8,7 +8,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { GroupItemType } from "@prisma/client";
+import { GroupItemType } from "@/generated/prisma";
 import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";

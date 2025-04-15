@@ -1,6 +1,6 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 const RISK_LEVELS = {
   VERY_HIGH: "very-high",

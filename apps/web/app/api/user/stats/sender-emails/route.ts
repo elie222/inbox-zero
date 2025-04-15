@@ -5,7 +5,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { zodPeriod } from "@inboxzero/tinybird";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 
 const senderEmailsQuery = z.object({
   fromEmail: z.string(),

@@ -5,7 +5,7 @@ import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("api/user/planned/get-executed-rules");

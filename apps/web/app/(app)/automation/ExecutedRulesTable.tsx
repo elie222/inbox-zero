@@ -15,7 +15,7 @@ import { MessageText } from "@/components/Typography";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 
 export function EmailCell({
   from,

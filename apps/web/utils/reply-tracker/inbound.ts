@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { ActionType, ThreadTrackerType } from "@prisma/client";
+import { ActionType, ThreadTrackerType } from "@/generated/prisma";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
 import { removeThreadLabel } from "@/utils/gmail/label";

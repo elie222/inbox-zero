@@ -12,7 +12,7 @@ import {
 } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import { useUser } from "@/hooks/useUser";
 import { businessTierName } from "@/app/(app)/premium/config";
 

@@ -3,7 +3,7 @@ import {
   ActionType,
   type ExecutedAction,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 
 export const actionInputs: Record<
   ActionType,

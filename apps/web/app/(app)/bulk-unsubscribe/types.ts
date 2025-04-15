@@ -1,5 +1,5 @@
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import type { NewsletterStatus } from "@prisma/client";
+import type { NewsletterStatus } from "@/generated/prisma";
 import type { UserLabel } from "@/hooks/useLabels";
 
 export type Row = {

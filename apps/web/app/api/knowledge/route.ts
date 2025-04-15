@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import type { Knowledge } from "@prisma/client";
+import type { Knowledge } from "@/generated/prisma";
 
 export type GetKnowledgeResponse = {
   items: Knowledge[];

@@ -28,7 +28,7 @@ import {
   ColdEmailSetting,
   LogicalOperator,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,

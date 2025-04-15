@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { getRiskLevel, getActionRiskLevel } from "./risk";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
 // Run with:

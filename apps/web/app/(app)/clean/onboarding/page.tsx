@@ -8,7 +8,7 @@ import { getGmailClient } from "@/utils/gmail/client";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/clean/types";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma";
 
 export default async function CleanPage(props: {
   searchParams: Promise<{

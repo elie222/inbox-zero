@@ -6,7 +6,7 @@ import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
 import { getThreadsFromSenderWithSubject } from "@/utils/gmail/thread";
-import type { Category } from "@prisma/client";
+import type { Category } from "@/generated/prisma";
 import { getUserCategories } from "@/utils/category.server";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

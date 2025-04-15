@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { User } from "@/generated/prisma";
 
 export type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];

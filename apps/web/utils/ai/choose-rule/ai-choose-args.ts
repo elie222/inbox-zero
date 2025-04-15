@@ -5,7 +5,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
-import type { ActionType } from "@prisma/client";
+import type { ActionType } from "@/generated/prisma";
 
 /**
  * AI Argument Generator for Email Actions

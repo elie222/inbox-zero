@@ -11,7 +11,7 @@ import {
   type ChangePremiumStatusOptions,
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import { handleActionResult } from "@/utils/server-action";
 
 export const AdminUpgradeUserForm = () => {
