@@ -41,15 +41,12 @@ export default function DebugDraftsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Sent Message ID</TableHead>
+                  <TableHead>Message</TableHead>
                   <TableHead>Similarity Score</TableHead>
+                  <TableHead>Date</TableHead>
                 </TableRow>
                 {data?.draftLogs?.map((draftLog) => (
                   <TableRow key={draftLog.id}>
-                    <TableCell>
-                      {formatShortDate(new Date(draftLog.createdAt))}
-                    </TableCell>
                     <TableCell>
                       <Link
                         href={getGmailUrl(draftLog.sentMessageId, userEmail)}
@@ -59,7 +56,10 @@ export default function DebugDraftsPage() {
                         Message
                       </Link>
                     </TableCell>
-                    <TableCell>{draftLog.similarityScore}</TableCell>
+                    <TableCell>{draftLog.similarityScore.toFixed(2)}</TableCell>
+                    <TableCell>
+                      {formatShortDate(new Date(draftLog.createdAt))}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableHeader>
