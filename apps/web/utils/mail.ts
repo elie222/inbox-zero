@@ -15,8 +15,7 @@ export function parseMessage(message: MessageWithPayload): ParsedMessage {
   return parse(message);
 }
 
-// if the email content contains a lot of replies this parses it and finds the content from the last message
-function parseReply(plainText: string) {
+export function parseReply(plainText: string) {
   const parser = new EmailReplyParser().read(plainText);
   const result = parser.getVisibleText();
   return result;

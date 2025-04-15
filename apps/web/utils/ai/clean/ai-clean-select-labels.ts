@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { User } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -11,7 +10,7 @@ export async function aiCleanSelectLabels({
   user,
   instructions,
 }: {
-  user: Pick<User, "about"> & UserEmailWithAI;
+  user: UserEmailWithAI;
   instructions: string;
 }) {
   const system = `You are an AI assistant helping users organize their emails efficiently.

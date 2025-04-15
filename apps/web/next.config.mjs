@@ -16,13 +16,11 @@ const withMDX = nextMdx();
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
-  experimental: {
-    turbo: {
-      rules: {
-        "*.svg": {
-          loaders: ["@svgr/webpack"],
-          as: "*.js",
-        },
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
       },
     },
   },

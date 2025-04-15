@@ -7,9 +7,12 @@ export default function DebugPage() {
     <div className="container mx-auto p-4">
       <PageHeading>Debug</PageHeading>
 
-      <div className="space-y-2 mt-2">
+      <div className="flex gap-2 mt-4">
         <Button variant="outline" asChild>
           <Link href="/debug/learned">Learned Patterns</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <Link href="/debug/drafts">Drafts</Link>
         </Button>
       </div>
     </div>
