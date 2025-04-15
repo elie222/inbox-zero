@@ -43,7 +43,7 @@ export default function DebugDraftsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>Link/ID</TableHead>
+                  <TableHead>Link</TableHead>
                   <TableHead>Message</TableHead>
                   <TableHead>Similarity Score</TableHead>
                   <TableHead>Date</TableHead>
