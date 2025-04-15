@@ -27,11 +27,17 @@ export async function getDraftDetails(draftId: string, gmail: gmail_v1.Gmail) {
     };
 
     if (!messageToParse.payload) {
-      logger.warn("Draft message has no payload, cannot parse content.", { draftId });
+      logger.warn("Draft message has no payload, cannot parse content.", {
+        draftId,
+      });
       return null;
     }
 
-    const parsed = parseMessage(messageToParse as gmail_v1.Schema$Message & { payload: gmail_v1.Schema$MessagePart });
+    const parsed = parseMessage(
+      messageToParse as gmail_v1.Schema$Message & {
+        payload: gmail_v1.Schema$MessagePart;
+      },
+    );
 
     logger.info("Successfully parsed draft details", { draftId });
     return {
@@ -50,19 +56,19 @@ export async function getDraftDetails(draftId: string, gmail: gmail_v1.Gmail) {
   }
 }
 
-export async function deleteDraft(
-  gmail: gmail_v1.Gmail,
-  draftId: string,
-) {
+export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
   try {
     logger.info("Deleting draft", { draftId });
-    await gmail.users.drafts.delete({
+    const response = await gmail.users.drafts.delete({
       userId: "me",
       id: draftId,
     });
+    if (response.status !== 200) {
+      logger.error("Failed to delete draft", { draftId, response });
+    }
     logger.info("Successfully deleted draft", { draftId });
-  } catch (error: any) {
-    if (error.code === 404) {
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === 404) {
       logger.warn("Draft not found or already deleted, skipping deletion.", {
         draftId,
       });

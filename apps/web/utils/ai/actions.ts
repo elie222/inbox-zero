@@ -117,7 +117,7 @@ const draft: ActionFunction<any> = async (
   },
 ) => {
   const result = await draftEmail(gmail, email, args);
-  return { draftId: result.data.id };
+  return { draftId: result.data.message?.id };
 };
 
 const send_email: ActionFunction<any> = async (
