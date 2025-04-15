@@ -20,7 +20,7 @@ export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 export const GET = withError(async () => {
   const session = await auth();
   if (!session?.user.id)
-    return NextResponse.json({ error: "Not authenticated" });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
   const result = getData(session.user.id);
   return NextResponse.json(result);

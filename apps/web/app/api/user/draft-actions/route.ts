@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
+import { ActionType } from "@prisma/client";
 
-export type DraftLogsResponse = Awaited<ReturnType<typeof getData>>;
+export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withError(async () => {
   const session = await auth();
-  const userId = session?.user?.id;
+  const userId = session?.user.id;
   if (!userId)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
@@ -17,24 +18,29 @@ export const GET = withError(async () => {
 });
 
 async function getData(userId: string) {
-  const draftLogs = await prisma.draftSendLog.findMany({
-    where: { executedAction: { executedRule: { userId } } },
+  const executedActions = await prisma.executedAction.findMany({
+    where: {
+      executedRule: { userId },
+      type: ActionType.DRAFT_EMAIL,
+    },
     select: {
       id: true,
       createdAt: true,
-      similarityScore: true,
-      sentMessageId: true,
-      executedAction: {
+      content: true,
+      draftId: true,
+      wasDraftSent: true,
+      draftSendLog: {
         select: {
-          content: true,
+          sentMessageId: true,
+          similarityScore: true,
         },
       },
     },
     orderBy: {
       createdAt: "desc",
     },
-    take: 50,
+    take: 100,
   });
 
-  return { draftLogs };
+  return { executedActions };
 }
