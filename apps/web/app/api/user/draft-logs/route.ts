@@ -23,6 +23,7 @@ async function getData(userId: string) {
       id: true,
       createdAt: true,
       similarityScore: true,
+      sentMessageId: true,
     },
     orderBy: {
       createdAt: "desc",
