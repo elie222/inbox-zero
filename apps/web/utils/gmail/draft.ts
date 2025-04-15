@@ -6,31 +6,13 @@ import type { MessageWithPayload } from "@/utils/types";
 const logger = createScopedLogger("gmail/draft");
 
 export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
-  try {
-    logger.info("Fetching draft details", { draftId });
-    const response = await gmail.users.drafts.get({
-      userId: "me",
-      id: draftId,
-      format: "full",
-    });
-
-    if (!response.data.message) {
-      logger.warn("Draft contains no message data", { draftId });
-      return null;
-    }
-
-    const message = parseMessage(response.data.message as MessageWithPayload);
-
-    logger.info("Successfully parsed draft details", { draftId });
-    return message;
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === 404) {
-      logger.warn("Draft not found when fetching details.", { draftId });
-      return null;
-    }
-    logger.error("Failed to get draft details", { draftId, error });
-    throw error;
-  }
+  const response = await gmail.users.drafts.get({
+    userId: "me",
+    id: draftId,
+    format: "full",
+  });
+  const message = parseMessage(response.data.message as MessageWithPayload);
+  return message;
 }
 
 export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
