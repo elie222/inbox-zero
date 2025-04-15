@@ -7,7 +7,7 @@ import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
 
 const messagesBatchQuery = z.object({
-  messageIds: z
+  ids: z
     .array(z.string())
     .max(100)
     .transform((arr) => uniq(arr)),
@@ -23,16 +23,15 @@ export const GET = withError(async (request) => {
     return NextResponse.json({ error: "Not authenticated" });
 
   const { searchParams } = new URL(request.url);
-  const query = messagesBatchQuery.parse({
-    messageIds: searchParams.getAll("messageIds"),
-  });
+  const ids = searchParams.get("ids");
+  const query = messagesBatchQuery.parse({ ids: ids ? ids.split(",") : [] });
 
   const accessToken = await getGmailAccessToken(session);
 
   if (!accessToken.token)
     return NextResponse.json({ error: "Invalid access token" });
 
-  const messages = await getMessagesBatch(query.messageIds, accessToken.token);
+  const messages = await getMessagesBatch(query.ids, accessToken.token);
 
   return NextResponse.json({ messages });
 });

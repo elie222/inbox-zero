@@ -17,11 +17,25 @@ import {
 import { formatShortDate } from "@/utils/date";
 import { getGmailUrl } from "@/utils/url";
 import { Badge } from "@/components/ui/badge";
+import { useMessagesBatch } from "@/hooks/useMessagesBatch";
+import { LoadingMiniSpinner } from "@/components/Loading";
+import { isDefined } from "@/utils/types";
 
 export default function DebugDraftsPage() {
   const { data, isLoading, error } = useSWR<DraftActionsResponse>(
     "/api/user/draft-actions",
   );
+
+  const {
+    data: messagesData,
+    isLoading: isMessagesLoading,
+    error: messagesError,
+  } = useMessagesBatch({
+    ids: data?.executedActions
+      .map((executedAction) => executedAction.draftSendLog?.sentMessageId)
+      .filter(isDefined),
+  });
+  console.log("🚀 ~ DebugDraftsPage ~ messages:", messagesData);
 
   const session = useSession();
   const userEmail = session.data?.user?.email || "";
@@ -43,8 +57,9 @@ export default function DebugDraftsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Status</TableHead>
-                  <TableHead>Link</TableHead>
-                  <TableHead>Message</TableHead>
+                  <TableHead>View</TableHead>
+                  <TableHead>Drafted</TableHead>
+                  <TableHead>Sent</TableHead>
                   <TableHead>Similarity Score</TableHead>
                   <TableHead>Date</TableHead>
                 </TableRow>
@@ -70,7 +85,7 @@ export default function DebugDraftsPage() {
                           target="_blank"
                           className="text-blue-500 hover:text-blue-600"
                         >
-                          View Sent Email
+                          Sent Email
                         </Link>
                       ) : executedAction.draftId ? (
                         <Link
@@ -78,7 +93,7 @@ export default function DebugDraftsPage() {
                           target="_blank"
                           className="text-blue-500 hover:text-blue-600"
                         >
-                          View Draft
+                          Draft
                         </Link>
                       ) : (
                         <span className="text-gray-500">N/A</span>
@@ -86,6 +101,21 @@ export default function DebugDraftsPage() {
                     </TableCell>
                     <TableCell>
                       <TypographyP>{executedAction.content}</TypographyP>
+                    </TableCell>
+                    <TableCell>
+                      <LoadingContent
+                        loading={isMessagesLoading}
+                        error={messagesError}
+                        loadingComponent={<LoadingMiniSpinner />}
+                      >
+                        <TypographyP>
+                          {messagesData?.messages.find(
+                            (message) =>
+                              message.id ===
+                              executedAction.draftSendLog?.sentMessageId,
+                          )?.textPlain || "-"}
+                        </TypographyP>
+                      </LoadingContent>
                     </TableCell>
                     <TableCell>
                       {executedAction.draftSendLog?.similarityScore !== null

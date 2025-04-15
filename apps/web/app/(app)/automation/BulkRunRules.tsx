@@ -13,7 +13,6 @@ import { sleep } from "@/utils/sleep";
 import { PremiumAlertWithData, usePremium } from "@/components/PremiumAlert";
 import { SetDateDropdown } from "@/app/(app)/automation/SetDateDropdown";
 import { dateToSeconds } from "@/utils/date";
-import { Tooltip } from "@/components/Tooltip";
 import { useThreads } from "@/hooks/useThreads";
 import { useAiQueueState } from "@/store/ai-queue";
 import {
