@@ -11,7 +11,7 @@ import {
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import type { ThreadsQuery } from "@/app/api/google/threads/validation";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 import { SafeError } from "@/utils/error";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;

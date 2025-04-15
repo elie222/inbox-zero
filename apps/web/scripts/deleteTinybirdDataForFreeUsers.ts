@@ -1,7 +1,7 @@
 // Run with: `npx tsx scripts/deleteTinybirdDataForFreeUsers.ts`
 // This script deletes all Tinybird data for users who are on the free plan.
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma";
 import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { sleep } from "@/utils/sleep";
 

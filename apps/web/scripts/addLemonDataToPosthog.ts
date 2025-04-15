@@ -1,7 +1,7 @@
 // Run with: `npx tsx scripts/addLemonDataToPosthog.ts`
 // uncomment sections to run
 
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma";
 import { PostHog } from "posthog-node";
 
 // eslint-disable-next-line no-process-env

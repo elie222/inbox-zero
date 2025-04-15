@@ -43,7 +43,7 @@ import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/utils";
 import { type RiskLevel, getRiskLevel } from "@/utils/risk";
 import { useRules } from "@/hooks/useRules";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 import { ThreadsExplanation } from "@/app/(app)/automation/RuleForm";
 
 export function Rules() {

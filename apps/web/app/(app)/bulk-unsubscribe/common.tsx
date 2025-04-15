@@ -40,7 +40,7 @@ import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
-import { GroupItemType, NewsletterStatus } from "@prisma/client";
+import { GroupItemType, NewsletterStatus } from "@/generated/prisma";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { addGroupItemAction } from "@/utils/actions/group";
 import { toastError, toastSuccess } from "@/components/Toast";

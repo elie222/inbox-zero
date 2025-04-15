@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import { ActionType, type Action } from "@prisma/client";
+import { ActionType, type Action } from "@/generated/prisma";
 import {
   type RuleWithActions,
   isDefined,

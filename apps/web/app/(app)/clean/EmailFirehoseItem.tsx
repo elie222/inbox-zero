@@ -19,7 +19,7 @@ import {
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma";
 
 type Status = "markedDone" | "markingDone" | "keep" | "labelled" | "processing";
 

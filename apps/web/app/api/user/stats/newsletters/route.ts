@@ -9,7 +9,7 @@ import {
   getAutoArchiveFilters,
 } from "@/app/api/user/stats/newsletters/helpers";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 import { extractEmailAddress } from "@/utils/email";
 
 // not sure why this is slow sometimes

@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { postRequest } from "@/utils/api";
 import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { Select } from "@/components/Select";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma";
 import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,

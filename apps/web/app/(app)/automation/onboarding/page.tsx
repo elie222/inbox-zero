@@ -7,7 +7,7 @@ import {
   ColdEmailSetting,
   SystemType,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
 
 export default async function OnboardingPage() {

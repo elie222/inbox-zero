@@ -2,8 +2,8 @@
 // Run with: `npx tsx scripts/migrateRedisPlansToPostgres.ts`
 
 import { z } from "zod";
-import { ActionType, Prisma, PrismaClient } from "@prisma/client";
 import { Redis } from "@upstash/redis";
+import { ActionType, Prisma, PrismaClient } from "@/generated/prisma";
 
 const processedUserIds: string[] = [];
 

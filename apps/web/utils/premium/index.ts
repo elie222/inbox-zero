@@ -1,4 +1,4 @@
-import { FeatureAccess, type Premium, PremiumTier } from "@prisma/client";
+import { FeatureAccess, type Premium, PremiumTier } from "@/generated/prisma";
 
 export const isPremium = (lemonSqueezyRenewsAt: Date | null): boolean => {
   return !!lemonSqueezyRenewsAt && new Date(lemonSqueezyRenewsAt) > new Date();

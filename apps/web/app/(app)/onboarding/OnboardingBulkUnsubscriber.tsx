@@ -23,7 +23,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { ProgressBar } from "@tremor/react";
 import { ONE_MONTH_MS } from "@/utils/date";
 import { useUnsubscribe } from "@/app/(app)/bulk-unsubscribe/hooks";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma";
 import { EmailCell } from "@/components/EmailCell";
 
 const useNewsletterStats = () => {

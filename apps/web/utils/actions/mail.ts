@@ -3,7 +3,7 @@
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import type { Label } from "@prisma/client";
+import type { Label } from "@/generated/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
 import { trashMessage, trashThread } from "@/utils/gmail/trash";
 import {

@@ -4,7 +4,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
 import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
-import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
+import { ColdEmailSetting, ColdEmailStatus, type User } from "@/generated/prisma";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";

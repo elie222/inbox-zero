@@ -29,7 +29,7 @@ import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
 // import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
 // import { getAiUser } from "@/utils/user/get";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 

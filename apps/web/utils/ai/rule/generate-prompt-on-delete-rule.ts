@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { User } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";

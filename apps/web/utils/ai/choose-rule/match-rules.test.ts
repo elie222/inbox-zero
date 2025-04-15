@@ -9,7 +9,7 @@ import {
   LogicalOperator,
   type Newsletter,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import type {
   RuleWithActionsAndCategories,
   ParsedMessage,

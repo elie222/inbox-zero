@@ -25,7 +25,7 @@ import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import { usePricingVariant, useSkipUpgrade } from "@/hooks/useFeatureFlags";
 
 export function Pricing(props: {

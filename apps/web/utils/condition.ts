@@ -3,7 +3,7 @@ import {
   LogicalOperator,
   type Category,
   type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
   CreateRuleBody,

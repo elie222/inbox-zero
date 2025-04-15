@@ -7,7 +7,7 @@ import {
   type ExecutedRule,
   type ExecutedAction,
   type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import { truncate } from "@/utils/string";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {

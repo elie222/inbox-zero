@@ -19,7 +19,7 @@ import {
 import { toastError, toastSuccess } from "@/components/Toast";
 import { isActionError } from "@/utils/error";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
-import type { Knowledge } from "@prisma/client";
+import type { Knowledge } from "@/generated/prisma";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";

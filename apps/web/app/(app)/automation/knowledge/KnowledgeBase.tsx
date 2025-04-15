@@ -26,7 +26,7 @@ import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import { formatDateSimple } from "@/utils/date";
-import type { Knowledge } from "@prisma/client";
+import type { Knowledge } from "@/generated/prisma";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { KnowledgeForm } from "@/app/(app)/automation/knowledge/KnowledgeForm";
 

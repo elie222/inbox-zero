@@ -17,7 +17,7 @@ import {
   updateSubscriptionItemQuantity,
 } from "@/app/api/lemon-squeezy/api";
 import { isAdmin } from "@/utils/admin";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getVariantId } from "@/app/(app)/premium/config";

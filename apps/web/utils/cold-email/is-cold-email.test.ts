@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailSetting, ColdEmailStatus } from "@/generated/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as labelUtils from "@/utils/gmail/label";
 import { blockColdEmail } from "./is-cold-email";

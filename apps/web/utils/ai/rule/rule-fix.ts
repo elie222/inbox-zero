@@ -3,7 +3,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { Rule } from "@prisma/client";
+import type { Rule } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("AI Rule Fix");

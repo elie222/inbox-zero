@@ -5,7 +5,7 @@ import {
   replyToEmail,
   sendEmailWithPlainText,
 } from "@/utils/gmail/mail";
-import { ActionType, type ExecutedRule } from "@prisma/client";
+import { ActionType, type ExecutedRule } from "@/generated/prisma";
 import {
   archiveThread,
   getOrCreateLabel,

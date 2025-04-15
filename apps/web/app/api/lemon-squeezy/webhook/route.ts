@@ -11,7 +11,7 @@ import {
   upgradeToPremium,
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import {
   cancelledPremium,
   switchedPremiumPlan,

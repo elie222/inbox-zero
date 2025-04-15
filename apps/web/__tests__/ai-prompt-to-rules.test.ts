@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 // pnpm test-ai ai-prompt-to-rules
 

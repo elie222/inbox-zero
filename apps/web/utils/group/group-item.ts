@@ -1,5 +1,5 @@
 import prisma, { isDuplicateError } from "@/utils/prisma";
-import type { GroupItemType } from "@prisma/client";
+import type { GroupItemType } from "@/generated/prisma";
 import { captureException } from "@/utils/error";
 
 export async function addGroupItem(data: {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/Badge";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 

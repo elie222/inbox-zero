@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
-import type { Group, User } from "@prisma/client";
+import type { Group, User } from "@/generated/prisma";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

@@ -1,8 +1,8 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 import { deleteDraft, getDraftDetails } from "@/utils/gmail/draft";
-import type { ExecutedRule } from "@prisma/client";
+import type { ExecutedRule } from "@/generated/prisma";
 import type { Logger } from "@/utils/logger";
 
 /**

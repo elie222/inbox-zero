@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { isActionError } from "@/utils/error";
-import { CleanAction, type CleanupJob } from "@prisma/client";
+import { CleanAction, type CleanupJob } from "@/generated/prisma";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 
 export function PreviewBatch({ job }: { job: CleanupJob }) {

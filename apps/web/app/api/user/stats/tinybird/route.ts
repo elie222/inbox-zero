@@ -6,7 +6,7 @@ import { zodPeriod } from "@inboxzero/tinybird";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 
 const statsByWeekParams = z.object({
   period: zodPeriod,

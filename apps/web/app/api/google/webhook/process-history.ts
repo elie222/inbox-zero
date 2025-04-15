@@ -4,7 +4,7 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
 import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting } from "@/generated/prisma";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";

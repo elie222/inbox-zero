@@ -24,7 +24,7 @@ import {
   CreateCategoryButton,
   CreateCategoryDialog,
 } from "@/app/(app)/smart-categories/CreateCategoryButton";
-import type { Category } from "@prisma/client";
+import type { Category } from "@/generated/prisma";
 
 type CardCategory = Pick<Category, "name" | "description"> & {
   id?: string;
