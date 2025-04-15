@@ -55,6 +55,9 @@ export default function DebugDraftsPage() {
                       >
                         Message
                       </Link>
+                      <TypographyP>
+                        {draftLog.executedAction.content}
+                      </TypographyP>
                     </TableCell>
                     <TableCell>{draftLog.similarityScore.toFixed(2)}</TableCell>
                     <TableCell>

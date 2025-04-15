@@ -24,6 +24,11 @@ async function getData(userId: string) {
       createdAt: true,
       similarityScore: true,
       sentMessageId: true,
+      executedAction: {
+        select: {
+          content: true,
+        },
+      },
     },
     orderBy: {
       createdAt: "desc",
