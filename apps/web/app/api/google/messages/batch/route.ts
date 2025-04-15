@@ -5,12 +5,14 @@ import { withError } from "@/utils/middleware";
 import { getGmailAccessToken } from "@/utils/gmail/client";
 import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
+import { parseReply } from "@/utils/mail";
 
 const messagesBatchQuery = z.object({
   ids: z
     .array(z.string())
     .max(100)
     .transform((arr) => uniq(arr)),
+  parseReplies: z.coerce.boolean().optional(),
 });
 export type MessagesBatchQuery = z.infer<typeof messagesBatchQuery>;
 export type MessagesBatchResponse = {
@@ -24,7 +26,11 @@ export const GET = withError(async (request) => {
 
   const { searchParams } = new URL(request.url);
   const ids = searchParams.get("ids");
-  const query = messagesBatchQuery.parse({ ids: ids ? ids.split(",") : [] });
+  const parseReplies = searchParams.get("parseReplies");
+  const query = messagesBatchQuery.parse({
+    ids: ids ? ids.split(",") : [],
+    parseReplies: parseReplies === "true",
+  });
 
   const accessToken = await getGmailAccessToken(session);
 
@@ -33,5 +39,13 @@ export const GET = withError(async (request) => {
 
   const messages = await getMessagesBatch(query.ids, accessToken.token);
 
-  return NextResponse.json({ messages });
+  const result = query.parseReplies
+    ? messages.map((message) => ({
+        ...message,
+        textPlain: parseReply(message.textPlain || ""),
+        textHtml: parseReply(message.textHtml || ""),
+      }))
+    : messages;
+
+  return NextResponse.json({ messages: result });
 });

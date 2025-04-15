@@ -34,8 +34,8 @@ export default function DebugDraftsPage() {
     ids: data?.executedActions
       .map((executedAction) => executedAction.draftSendLog?.sentMessageId)
       .filter(isDefined),
+    parseReplies: true,
   });
-  console.log("🚀 ~ DebugDraftsPage ~ messages:", messagesData);
 
   const session = useSession();
   const userEmail = session.data?.user?.email || "";

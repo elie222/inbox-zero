@@ -11,15 +11,15 @@ import { parseReply } from "@/utils/mail";
  * @returns A similarity score between 0.0 and 1.0.
  */
 export function calculateSimilarity(
-  text1: string | null | undefined,
-  text2: string | null | undefined,
+  text1?: string | null,
+  text2?: string | null,
 ): number {
   if (!text1 || !text2) {
     return 0.0; // If either text is missing, similarity is 0
   }
 
-  const reply1 = extractReplyContent(text1);
-  const reply2 = extractReplyContent(text2);
+  const reply1 = parseReply(text1 || "");
+  const reply2 = parseReply(text2 || "");
 
   const normalized1 = reply1.toLowerCase().trim();
   const normalized2 = reply2.toLowerCase().trim();
@@ -30,9 +30,4 @@ export function calculateSimilarity(
 
   // Calculate and return similarity score
   return stringSimilarity.compareTwoStrings(normalized1, normalized2);
-}
-
-function extractReplyContent(text: string): string {
-  if (!text) return "";
-  return parseReply(text);
 }
