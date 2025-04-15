@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@prisma/client";
-import { deleteDraft, getDraftDetails } from "@/utils/gmail/draft";
+import { deleteDraft, getDraft } from "@/utils/gmail/draft";
 import type { ExecutedRule } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
 
@@ -45,7 +45,7 @@ export async function handlePreviousDraftDeletion({
       });
 
       // Fetch the current state of the draft
-      const currentDraftDetails = await getDraftDetails(
+      const currentDraftDetails = await getDraft(
         previousDraftAction.draftId,
         gmail,
       );

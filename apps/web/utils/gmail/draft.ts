@@ -1,53 +1,30 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
-import { withGmailRetry } from "@/utils/gmail/retry";
 import { parseMessage } from "@/utils/mail";
+import type { MessageWithPayload } from "@/utils/types";
 
 const logger = createScopedLogger("gmail/draft");
 
-export async function getDraftDetails(draftId: string, gmail: gmail_v1.Gmail) {
+export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
   try {
     logger.info("Fetching draft details", { draftId });
-    const response = await withGmailRetry(() =>
-      gmail.users.drafts.get({
-        userId: "me",
-        id: draftId,
-        format: "full", // Get the full message payload
-      }),
-    );
+    const response = await gmail.users.drafts.get({
+      userId: "me",
+      id: draftId,
+      format: "full",
+    });
 
     if (!response.data.message) {
       logger.warn("Draft contains no message data", { draftId });
       return null;
     }
 
-    const messageToParse = {
-      ...response.data.message,
-      id: response.data.message.id ?? draftId,
-    };
-
-    if (!messageToParse.payload) {
-      logger.warn("Draft message has no payload, cannot parse content.", {
-        draftId,
-      });
-      return null;
-    }
-
-    const parsed = parseMessage(
-      messageToParse as gmail_v1.Schema$Message & {
-        payload: gmail_v1.Schema$MessagePart;
-      },
-    );
+    const message = parseMessage(response.data.message as MessageWithPayload);
 
     logger.info("Successfully parsed draft details", { draftId });
-    return {
-      id: draftId,
-      messageId: response.data.message.id,
-      threadId: parsed.threadId,
-      textPlain: parsed.textPlain,
-    };
-  } catch (error: any) {
-    if (error.code === 404) {
+    return message;
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === 404) {
       logger.warn("Draft not found when fetching details.", { draftId });
       return null;
     }

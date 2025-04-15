@@ -4,7 +4,7 @@ import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { calculateSimilarity } from "@/utils/similarity-score";
-import { getDraftDetails, deleteDraft } from "@/utils/gmail/draft";
+import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 
 const logger = createScopedLogger("draft-tracking");
 
@@ -59,7 +59,7 @@ export async function trackSentDraftStatus({
     },
   });
 
-  if (!executedAction || !executedAction.draftId) {
+  if (!executedAction?.draftId) {
     logger.info(
       "No corresponding AI draft action with draftId found",
       loggerOptions,
@@ -67,7 +67,7 @@ export async function trackSentDraftStatus({
     return;
   }
 
-  const draftExists = await getDraftDetails(executedAction.draftId, gmail);
+  const draftExists = await getDraft(executedAction.draftId, gmail);
 
   if (draftExists) {
     logger.info("Original AI draft still exists, sent message was different.", {
@@ -181,7 +181,7 @@ export async function cleanupThreadAIDrafts({
         draftId: action.draftId,
       };
       try {
-        const draftDetails = await getDraftDetails(action.draftId, gmail);
+        const draftDetails = await getDraft(action.draftId, gmail);
 
         if (draftDetails?.textPlain) {
           // Draft exists, check if modified
