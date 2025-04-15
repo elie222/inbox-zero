@@ -2,17 +2,23 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import { parseMessage } from "@/utils/mail";
 import type { MessageWithPayload } from "@/utils/types";
+import { isGmailError } from "@/utils/error";
 
 const logger = createScopedLogger("gmail/draft");
 
 export async function getDraft(draftId: string, gmail: gmail_v1.Gmail) {
-  const response = await gmail.users.drafts.get({
-    userId: "me",
-    id: draftId,
-    format: "full",
-  });
-  const message = parseMessage(response.data.message as MessageWithPayload);
-  return message;
+  try {
+    const response = await gmail.users.drafts.get({
+      userId: "me",
+      id: draftId,
+      format: "full",
+    });
+    const message = parseMessage(response.data.message as MessageWithPayload);
+    return message;
+  } catch (error) {
+    if (isGmailError(error) && error.code === 404) return null;
+    throw error;
+  }
 }
 
 export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {

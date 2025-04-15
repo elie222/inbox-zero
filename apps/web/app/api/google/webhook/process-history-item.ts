@@ -23,6 +23,7 @@ import {
 } from "@/utils/reply-tracker/draft-tracking";
 import type { ParsedMessage } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
+import { formatError } from "@/utils/error";
 
 export async function processHistoryItem(
   {
@@ -206,6 +207,8 @@ async function handleOutbound(
     threadId: message.threadId,
   };
 
+  logger.info("Handling outbound reply", loggerOptions);
+
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
@@ -220,14 +223,14 @@ async function handleOutbound(
   if (trackingResult.status === "rejected") {
     logger.error("Error tracking sent draft status", {
       ...loggerOptions,
-      error: trackingResult.reason,
+      error: formatError(trackingResult.reason),
     });
   }
 
   if (outboundResult.status === "rejected") {
     logger.error("Error handling outbound reply", {
       ...loggerOptions,
-      error: outboundResult.reason,
+      error: formatError(outboundResult.reason),
     });
   }
 

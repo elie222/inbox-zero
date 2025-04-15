@@ -23,6 +23,13 @@ export async function trackSentDraftStatus({
   const { id: userId, email: userEmail } = user;
   const { threadId, id: sentMessageId, textPlain: sentTextPlain } = message;
 
+  const loggerOptions = { userId, userEmail, threadId, sentMessageId };
+
+  logger.info(
+    "Checking if sent message corresponds to an AI draft",
+    loggerOptions,
+  );
+
   if (!sentMessageId) {
     logger.warn("Sent message missing ID, cannot track draft status", {
       userId,
@@ -30,13 +37,6 @@ export async function trackSentDraftStatus({
     });
     return;
   }
-
-  const loggerOptions = { userId, userEmail, threadId, sentMessageId };
-
-  logger.info(
-    "Checking if sent message corresponds to an AI draft",
-    loggerOptions,
-  );
 
   // Find the most recently created draft for this thread
   const executedAction = await prisma.executedAction.findFirst({
