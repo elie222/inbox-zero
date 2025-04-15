@@ -5,6 +5,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
+import { formatError } from "@/utils/error";
 
 const logger = createScopedLogger("draft-tracking");
 
@@ -243,7 +244,7 @@ export async function cleanupThreadAIDrafts({
       } catch (error) {
         logger.error("Error processing individual draft during cleanup", {
           ...actionLoggerOptions,
-          error: (error as any)?.data?.error,
+          error: formatError(error),
         });
       }
     }
