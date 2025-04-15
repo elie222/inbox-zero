@@ -3,7 +3,7 @@ import { ActionType, type User } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { calculateSimilarity } from "@/utils/text";
+import { calculateSimilarity } from "@/utils/similarity-score";
 import { getDraftDetails, deleteDraft } from "@/utils/gmail/draft";
 
 const logger = createScopedLogger("draft-tracking");
