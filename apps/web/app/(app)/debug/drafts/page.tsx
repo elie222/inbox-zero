@@ -41,6 +41,7 @@ export default function DebugDraftsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead>Link</TableHead>
                   <TableHead>Message</TableHead>
                   <TableHead>Similarity Score</TableHead>
                   <TableHead>Date</TableHead>
@@ -53,8 +54,10 @@ export default function DebugDraftsPage() {
                         target="_blank"
                         className="text-blue-500 hover:text-blue-600"
                       >
-                        Message
+                        Link
                       </Link>
+                    </TableCell>
+                    <TableCell>
                       <TypographyP>
                         {draftLog.executedAction.content}
                       </TypographyP>
