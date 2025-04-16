@@ -20,8 +20,7 @@ export default function CompletedPage() {
           <div className="mt-6 space-y-4">
             <TypographyP>
               We've configured your inbox with smart defaults to help you stay
-              organized. Your emails will be automatically categorized, and
-              we'll draft replies that match your writing style.
+              organized. Your emails will be automatically categorized.
             </TypographyP>
 
             <TypographyP>
@@ -34,16 +33,6 @@ export default function CompletedPage() {
             <Button size="lg" asChild>
               <Link href="/automation">Go to AI Assistant</Link>
             </Button>
-
-            {/* <Button variant="outline" size="lg" asChild>
-              <Link
-                href="/automation/rules"
-                className="flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4" />
-                Customize Rules
-              </Link>
-            </Button> */}
           </div>
         </div>
       </Card>
