@@ -313,10 +313,12 @@ export const enableDraftRepliesAction = withActionInstrumentation(
     const { data, error } = enableDraftRepliesBody.safeParse(options);
     if (error) return { error: error.message };
 
-    const rule = await prisma.rule.findFirst({
+    const rule = await prisma.rule.findUnique({
       where: {
-        userId: session.user.id,
-        actions: { some: { type: ActionType.TRACK_THREAD } },
+        userId_systemType: {
+          userId: session.user.id,
+          systemType: SystemType.TO_REPLY,
+        },
       },
       select: { id: true, actions: true },
     });
