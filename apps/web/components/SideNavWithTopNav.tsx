@@ -22,6 +22,8 @@ export function SideNavWithTopNav({
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
         <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}
+        {/* space for Crisp so it doesn't cover content */}
+        <div className="h-16" />
         <div
           className="md:hidden md:pt-0"
           style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
