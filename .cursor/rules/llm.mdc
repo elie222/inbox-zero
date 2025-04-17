@@ -13,76 +13,125 @@ LLM-related code is organized in specific directories:
 - `apps/web/utils/llms/` - Core LLM utilities and configurations
 - `apps/web/__tests__/` - LLM-specific tests
 
-
 ## Key Files
+
 - `utils/llms/index.ts` - Core LLM functionality
 - `utils/llms/model.ts` - Model definitions and configurations
 - `utils/usage.ts` - Usage tracking and monitoring
 
-## Implementation Guidelines
+## Implementation Pattern
 
-1. Use type-safe LLM responses with `chatCompletionObject` or `chatCompletionTools`:
-
-```typescript
-const aiResponse = await chatCompletionObject({
-  userAi: user,
-  messages: [
-    { role: "system", content: systemPrompt },
-    { role: "user", content: userPrompt },
-  ],
-  schema: z.object({
-    // Define expected response shape
-    field: z.string(),
-  }),
-  userEmail: user.email,
-  usageLabel: "Operation Name",
-});
-```
-
-2. Always implement logging:
+Follow this standard structure for LLM-related functions:
 
 ```typescript
+import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-const logger = createScopedLogger("scope-name");
+import { chatCompletionObject } from "@/utils/llms";
+import type { UserEmailWithAI } from "@/utils/llms/types";
+// Import other necessary types and utilities
 
-logger.trace("Input", { system, prompt });
-logger.warn("Warning message");
-```
+// 1. Create a scoped logger
+const logger = createScopedLogger("feature-name");
 
-3. Structure AI functions with clear types:
+// 2. Define output schema with zod
+export const schema = z.object({
+  // Define expected response fields
+  field1: z.string(),
+  field2: z.number(),
+  nested: z.object({
+    subfield: z.string(),
+  }),
+  array_field: z.array(z.string()),
+});
 
-```typescript
-type Options = {
-  input: InputType;
+// 3. Create main function with typed options
+export async function featureFunction(options: {
+  inputData: InputType;
   user: UserEmailWithAI;
-};
+}) {
+  const { inputData, user } = options;
 
-export async function aiFunction(options: Options) {
-  const { input, user } = options;
-  // Implementation
+  // 4. Add early validation/returns
+  if (!inputData || [other validation conditions]) {
+    logger.warn("Invalid input for feature function");
+    return null;
+  }
+
+  // 5. Define system prompt
+  const system = `[Detailed system prompt that defines the LLM's role and task]`;
+
+  // 6. Construct user prompt
+  const prompt = `[User prompt with context and specific instructions]
+
+<data>
+...
+</data>
+
+${user.about ? `<user_info>${user.about}</user_info>` : ""}`;
+
+  // 7. Log inputs
+  logger.trace("Input", { system, prompt });
+
+  // 8. Call LLM with proper configuration
+  const result = await chatCompletionObject({
+    userAi: user,
+    system,
+    prompt,
+    schema,
+    userEmail: user.email,
+    usageLabel: "Feature Name",
+  });
+
+  // 9. Log outputs
+  logger.trace("Output", { result });
+
+  // 10. Return validated result
+  return result.object;
 }
 ```
 
 ## Best Practices
 
-1. Keep system prompts and user prompts separate
-2. Use Zod schemas for response validation
-3. Implement proper error handling with fallbacks
-4. Keep prompts concise and well-structured
-5. Use descriptive logging scopes
-6. Add retry logic for unreliable operations using `withRetry`
-7. Document complex AI logic with clear comments
-8. Place AI-specific tests in `apps/web/__tests__/`
+1. **System and User Prompts**:
 
-## Error Handling
+   - Keep system prompts and user prompts separate
+   - System prompt should define the LLM's role and task specifications
+   - User prompt should contain the actual data and context
 
-1. Use proper error types and logging
-2. Implement fallbacks for AI failures
-3. Return structured error responses
-4. Add retry logic for transient failures
+2. **Schema Validation**:
+
+   - Always define a Zod schema for response validation
+   - Make schemas as specific as possible to guide the LLM output
+
+3. **Logging**:
+
+   - Use descriptive scoped loggers for each feature
+   - Log inputs and outputs with appropriate log levels
+   - Include relevant context in log messages
+
+4. **Error Handling**:
+
+   - Implement early returns for invalid inputs
+   - Use proper error types and logging
+   - Implement fallbacks for AI failures
+   - Add retry logic for transient failures using `withRetry`
+
+5. **Input Formatting**:
+
+   - Use XML-like tags to structure data in prompts
+   - Remove excessive whitespace and truncate long inputs
+   - Format data consistently across similar functions
+
+6. **Type Safety**:
+
+   - Use TypeScript types for all parameters and return values
+   - Define clear interfaces for complex input/output structures
+
+7. **Code Organization**:
+   - Keep related AI functions in the same file or directory
+   - Extract common patterns into utility functions
+   - Document complex AI logic with clear comments
 
 ## Testing
 
-1. Place AI-specific tests in `apps/web/__tests__/`
-2. Test both success and failure cases
-3. Use mock data for development testing
+See [llm-test.mdc](mdc:.cursor/rules/llm-test.mdc)
