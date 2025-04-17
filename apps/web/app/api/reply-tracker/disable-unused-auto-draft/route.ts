@@ -4,13 +4,14 @@ import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ActionType, SystemType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
+import { hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("auto-draft/disable-unused");
 
 // Force dynamic to ensure fresh data on each request
 export const dynamic = "force-dynamic";
+export const maxDuration = 300;
 
 const MAX_DRAFTS_TO_CHECK = 10;
 
@@ -136,17 +137,18 @@ async function disableUnusedAutoDrafts() {
   return results;
 }
 
-export const GET = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    captureException(
-      new Error("Unauthorized request: api/auto-draft/disable-unused"),
-    );
-    return new Response("Unauthorized", { status: 401 });
-  }
+// For easier local testing
+// export const GET = withError(async (request) => {
+//   if (!hasCronSecret(request)) {
+//     captureException(
+//       new Error("Unauthorized request: api/auto-draft/disable-unused"),
+//     );
+//     return new Response("Unauthorized", { status: 401 });
+//   }
 
-  const results = await disableUnusedAutoDrafts();
-  return NextResponse.json(results);
-});
+//   const results = await disableUnusedAutoDrafts();
+//   return NextResponse.json(results);
+// });
 
 export const POST = withError(async (request: Request) => {
   if (!(await hasPostCronSecret(request))) {
