@@ -32,13 +32,13 @@ const verifyGroupItemsSchema = z.object({
   reason: z.string(),
 });
 
-const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
+const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
   description: "List email messages. Returns max 20 results.",
   parameters: z.object({
     query: z.string().optional().describe("Optional Gmail search query."),
   }),
   execute: async ({ query }: { query: string | undefined }) => {
-    const { messages } = await queryBatchMessages(gmail, accessToken, {
+    const { messages } = await queryBatchMessages(gmail, {
       query: `${query || ""} -label:sent`.trim(),
       maxResults: 20,
     });
@@ -56,7 +56,6 @@ const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
 export async function aiGenerateGroupItems(
   user: Pick<User, "email"> & UserAIFields,
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
   logger.info("aiGenerateGroupItems", {
@@ -95,7 +94,7 @@ Key guidelines:
     prompt,
     maxSteps: 10,
     tools: {
-      listEmails: listEmailsTool(gmail, accessToken),
+      listEmails: listEmailsTool(gmail),
       [GENERATE_GROUP_ITEMS]: {
         description: "Create a group",
         parameters: generateGroupItemsSchema,
@@ -124,13 +123,12 @@ Key guidelines:
     { senders: [], subjects: [] },
   );
 
-  return await verifyGroupItems(user, gmail, accessToken, group, combinedArgs);
+  return await verifyGroupItems(user, gmail, group, combinedArgs);
 }
 
 async function verifyGroupItems(
   user: Pick<User, "email"> & UserAIFields,
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
@@ -167,7 +165,7 @@ Guidelines:
     prompt,
     maxSteps: 10,
     tools: {
-      listEmails: listEmailsTool(gmail, accessToken),
+      listEmails: listEmailsTool(gmail),
       [VERIFY_GROUP_ITEMS]: {
         description: "Remove incorrect or overly broad group criteria",
         parameters: verifyGroupItemsSchema,

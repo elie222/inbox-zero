@@ -60,7 +60,7 @@ describe.runIf(isAiTest)("aiGenerateGroupItems", () => {
       nextPageToken: null,
     });
 
-    const result = await aiGenerateGroupItems(user, gmail, accessToken, group);
+    const result = await aiGenerateGroupItems(user, gmail, group);
 
     expect(result).toEqual({
       senders: expect.arrayContaining(["@mycompany.com"]),

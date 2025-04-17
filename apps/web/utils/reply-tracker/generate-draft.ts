@@ -5,7 +5,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getAiUser } from "@/utils/user/get";
+import { getAiUser, getWritingStyle } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -175,12 +175,15 @@ async function generateDraftContent(
       })
     : null;
 
+  const writingStyle = await getWritingStyle(user.email);
+
   // 3. Draft with extracted knowledge
   const text = await aiDraftWithKnowledge({
     messages,
     user,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
+    writingStyle,
   });
 
   if (typeof text === "string") {

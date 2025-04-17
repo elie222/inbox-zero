@@ -29,7 +29,6 @@ export const findExampleMatchesSchema = z.object({
 export async function aiFindExampleMatches(
   user: Pick<User, "email"> & UserAIFields,
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   rulesPrompt: string,
 ) {
   console.log(`findExampleMatches. rulesPrompt: ${rulesPrompt}`);
@@ -68,13 +67,13 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     { emailId: string; from: string; subject: string; snippet: string }
   > = {};
 
-  const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
+  const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
     description: "List email messages. Returns max 20 results.",
     parameters: z.object({
       query: z.string().optional().describe("Optional Gmail search query."),
     }),
     execute: async ({ query }: { query: string | undefined }) => {
-      const { messages } = await queryBatchMessages(gmail, accessToken, {
+      const { messages } = await queryBatchMessages(gmail, {
         query: `${query || ""} -label:sent`.trim(),
         maxResults: 20,
       });
@@ -100,7 +99,7 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     prompt,
     maxSteps: 10,
     tools: {
-      listEmails: listEmailsTool(gmail, accessToken),
+      listEmails: listEmailsTool(gmail),
       [FIND_EXAMPLE_MATCHES]: {
         description: "Find example matches",
         parameters: findExampleMatchesSchema,

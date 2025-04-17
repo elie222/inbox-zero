@@ -1,4 +1,4 @@
-import { describe, expect, test, vi, beforeEach } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
@@ -24,6 +24,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         user,
         knowledgeBaseContent,
         emailHistorySummary,
+        writingStyle: null,
       });
 
       // Check that the result is a non-empty string
@@ -47,6 +48,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         user,
         knowledgeBaseContent: null,
         emailHistorySummary: null,
+        writingStyle: null,
       });
 
       // Check that the result is a non-empty string

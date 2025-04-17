@@ -11,6 +11,7 @@ import { getBatch } from "@/utils/gmail/batch";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
+import { getAccessTokenFromClient } from "@/utils/gmail/client";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -188,6 +189,10 @@ export async function hasPreviousCommunicationsWithSenderOrDomain(
   });
 }
 
+// List of messages.
+// Note that each message resource contains only an id and a threadId.
+// Additional message details can be fetched using the messages.get method.
+// https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list
 export async function getMessages(
   gmail: gmail_v1.Gmail,
   options: {
@@ -210,7 +215,6 @@ export async function getMessages(
 
 export async function queryBatchMessages(
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   {
     query,
     maxResults = 20,
@@ -227,6 +231,8 @@ export async function queryBatchMessages(
     );
   }
 
+  const accessToken = getAccessTokenFromClient(gmail);
+
   const messages = await getMessages(gmail, { query, maxResults, pageToken });
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
@@ -239,7 +245,6 @@ export async function queryBatchMessages(
 // loops through multiple pages of messages
 export async function queryBatchMessagesPages(
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   {
     query,
     maxResults,
@@ -252,7 +257,7 @@ export async function queryBatchMessagesPages(
   let nextPageToken: string | undefined;
   do {
     const { messages: pageMessages, nextPageToken: nextToken } =
-      await queryBatchMessages(gmail, accessToken, {
+      await queryBatchMessages(gmail, {
         query,
         pageToken: nextPageToken,
       });
@@ -261,4 +266,12 @@ export async function queryBatchMessagesPages(
   } while (nextPageToken && messages.length < maxResults);
 
   return messages;
+}
+
+export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
+  const messages = await queryBatchMessages(gmail, {
+    query: "label:sent",
+    maxResults,
+  });
+  return messages.messages;
 }

@@ -41,3 +41,12 @@ export async function getAiUserWithTokens({ id }: { id: string }) {
     tokens: user?.accounts[0],
   };
 }
+
+export async function getWritingStyle(email: string) {
+  const writingStyle = await prisma.emailAccount.findUnique({
+    where: { email },
+    select: { writingStyle: true },
+  });
+
+  return writingStyle?.writingStyle || null;
+}

@@ -8,7 +8,7 @@ import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
-const SYSTEM_PROMPT = `You are an expert assistant that drafts email replies using knowledge base information.
+const system = `You are an expert assistant that drafts email replies using knowledge base information.
 Write a polite and professional email that follows up on the previous conversation.
 Keep it concise and friendly.
 IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
@@ -29,11 +29,13 @@ const getUserPrompt = ({
   user,
   knowledgeBaseContent,
   emailHistorySummary,
+  writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   user: UserEmailWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  writingStyle: string | null;
 }) => {
   const userAbout = user.about
     ? `Context about the user:
@@ -62,9 +64,19 @@ ${emailHistorySummary}
 `
     : "";
 
+  const writingStylePrompt = writingStyle
+    ? `Writing style:
+    
+<writing_style>
+${writingStyle}
+</writing_style>
+`
+    : "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
+${writingStylePrompt}
 
 Here is the context of the email thread (from oldest to newest):
 ${messages
@@ -93,11 +105,13 @@ export async function aiDraftWithKnowledge({
   user,
   knowledgeBaseContent,
   emailHistorySummary,
+  writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   user: UserEmailWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  writingStyle: string | null;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
@@ -106,12 +120,12 @@ export async function aiDraftWithKnowledge({
       hasHistory: !!emailHistorySummary,
     });
 
-    const system = SYSTEM_PROMPT;
     const prompt = getUserPrompt({
       messages,
       user,
       knowledgeBaseContent,
       emailHistorySummary,
+      writingStyle,
     });
 
     logger.trace("Input", { system, prompt });
