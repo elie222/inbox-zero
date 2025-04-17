@@ -11,14 +11,13 @@ const ignoreList = ["@github.com", "@google.com", "@gmail.com", "@slack.com"];
 
 export async function findNewsletters(
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   userEmail: string,
 ) {
-  const messages = await queryBatchMessagesPages(gmail, accessToken, {
+  const messages = await queryBatchMessagesPages(gmail, {
     query: "newsletter",
     maxResults: 100,
   });
-  const messages2 = await queryBatchMessagesPages(gmail, accessToken, {
+  const messages2 = await queryBatchMessagesPages(gmail, {
     query: `from:(${newsletterSenders.join(" OR ")})`,
     maxResults: 100,
   });

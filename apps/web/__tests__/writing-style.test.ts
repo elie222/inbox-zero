@@ -1,5 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
-import { analyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
+import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
 
 // Run with: pnpm test-ai writing-style
 
@@ -16,7 +16,7 @@ describe.runIf(isAiTest)(
     });
 
     test("successfully analyzes writing style from emails", async () => {
-      const result = await analyzeWritingStyle({
+      const result = await aiAnalyzeWritingStyle({
         emails: getTestEmails(),
         user: getUser(),
       });
@@ -29,7 +29,7 @@ describe.runIf(isAiTest)(
     });
 
     test("handles empty emails array gracefully", async () => {
-      const result = await analyzeWritingStyle({
+      const result = await aiAnalyzeWritingStyle({
         emails: [],
         user: getUser(),
       });

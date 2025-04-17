@@ -22,20 +22,15 @@ async function getMessages({
 }) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not authenticated");
-  if (!session.accessToken) throw new SafeError("Missing access token");
 
   try {
     const gmail = getGmailClient(session);
 
-    const { messages, nextPageToken } = await queryBatchMessages(
-      gmail,
-      session.accessToken,
-      {
-        query: query?.trim(),
-        maxResults: 20,
-        pageToken: pageToken ?? undefined,
-      },
-    );
+    const { messages, nextPageToken } = await queryBatchMessages(gmail, {
+      query: query?.trim(),
+      maxResults: 20,
+      pageToken: pageToken ?? undefined,
+    });
 
     const email = session.user.email;
 

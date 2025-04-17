@@ -66,12 +66,7 @@ describe.runIf(isAiTest)("aiFindExampleMatches", () => {
       nextPageToken: null,
     });
 
-    const result = await aiFindExampleMatches(
-      user,
-      gmail,
-      accessToken,
-      rulesPrompt,
-    );
+    const result = await aiFindExampleMatches(user, gmail, rulesPrompt);
 
     expect(result).toEqual(
       expect.objectContaining({

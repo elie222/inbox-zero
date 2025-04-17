@@ -16,7 +16,7 @@ export const schema = z.object({
   examples: z.array(z.string()),
 });
 
-export async function analyzeWritingStyle(options: {
+export async function aiAnalyzeWritingStyle(options: {
   emails: EmailForLLM[];
   user: UserEmailWithAI;
 }) {

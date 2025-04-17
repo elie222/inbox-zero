@@ -406,9 +406,6 @@ export const getRuleExamplesAction = withActionInstrumentation(
     if (!success) return { error: error.message };
 
     const gmail = getGmailClient(session);
-    const token = await getGmailAccessToken(session);
-
-    if (!token.token) return { error: "No access token" };
 
     const user = await getAiUser({ id: session.user.id });
     if (!user) return { error: "User not found" };
@@ -416,7 +413,6 @@ export const getRuleExamplesAction = withActionInstrumentation(
     const { matches } = await aiFindExampleMatches(
       user,
       gmail,
-      token.token,
       data.rulesPrompt,
     );
 
