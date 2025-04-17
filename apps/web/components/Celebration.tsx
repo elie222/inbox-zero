@@ -6,32 +6,28 @@ import Image from "next/image";
 import { getCelebrationImage } from "@/utils/celebration";
 import { Button } from "@/components/Button";
 
-export function Celebration(props: { message: string; confetti?: boolean }) {
+export function Celebration(props: { message: string }) {
   const [active, setActive] = useState(false);
 
   useEffect(() => {
     setActive(true);
   }, []);
 
-  const isConfettiEnabled = props.confetti === true || props.confetti === undefined;
-
   return (
     <>
       <div className="flex items-center justify-center font-cal text-2xl text-primary">
-      {(isConfettiEnabled ? "Congrats! " : "") + props.message}
+        Congrats! {props.message}
       </div>
-      {isConfettiEnabled && (
-        <div className="flex items-center justify-center">
-          <Confetti
-            active={active}
-            config={{
-              duration: 3_000,
-              elementCount: 500,
-              spread: 200,
-            }}
-          />
-        </div>
-      )}
+      <div className="flex items-center justify-center">
+        <Confetti
+          active={active}
+          config={{
+            duration: 3_000,
+            elementCount: 500,
+            spread: 200,
+          }}
+        />
+      </div>
 
       <div className="mt-8 flex justify-center">
         <Button
@@ -57,7 +53,7 @@ export function Celebration(props: { message: string; confetti?: boolean }) {
           src={getCelebrationImage()}
           width={400}
           height={400}
-          alt={isConfettiEnabled ? "Congrats!" : "All done!"}
+          alt="Congrats!"
           unoptimized
         />
       </div>
