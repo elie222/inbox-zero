@@ -211,7 +211,7 @@ To start watching emails visit: `/api/google/watch/all`
 ### Watching for email updates
 
 Set a cron job to run these:
-The Google watch is necessary. The Resend one is optional.
+The Google watch is necessary. Others are optional.
 
 ```json
   "crons": [
@@ -222,6 +222,10 @@ The Google watch is necessary. The Resend one is optional.
     {
       "path": "/api/resend/summary/all",
       "schedule": "0 16 * * 1"
+    },
+    {
+      "path": "/api/reply-tracker/disable-unused-auto-draft",
+      "schedule": "0 3 * * *"
     }
   ]
 ```
