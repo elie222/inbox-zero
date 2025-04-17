@@ -24,6 +24,7 @@ async function disableUnusedAutoDrafts() {
 
   const oneDayAgo = subDays(new Date(), 1);
 
+  // TODO: may need to make this more efficient
   // Find all users who have the auto-draft feature enabled (have an Action of type DRAFT_EMAIL)
   const usersWithAutoDraft = await prisma.user.findMany({
     where: {
