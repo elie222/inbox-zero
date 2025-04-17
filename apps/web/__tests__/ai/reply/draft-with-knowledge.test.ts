@@ -24,6 +24,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         user,
         knowledgeBaseContent,
         emailHistorySummary,
+        writingStyle: null,
       });
 
       // Check that the result is a non-empty string
@@ -47,6 +48,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
         user,
         knowledgeBaseContent: null,
         emailHistorySummary: null,
+        writingStyle: null,
       });
 
       // Check that the result is a non-empty string
