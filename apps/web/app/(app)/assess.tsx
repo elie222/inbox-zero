@@ -2,7 +2,10 @@
 
 import { useEffect } from "react";
 import { whitelistInboxZeroAction } from "@/utils/actions/whitelist";
-import { assessUserAction } from "@/utils/actions/assess";
+import {
+  analyzeWritingStyleAction,
+  assessUserAction,
+} from "@/utils/actions/assess";
 
 async function assessUser() {
   const result = await assessUserAction();
@@ -15,6 +18,7 @@ async function assessUser() {
 export function AssessUser() {
   useEffect(() => {
     assessUser();
+    analyzeWritingStyleAction();
   }, []);
 
   return null;
