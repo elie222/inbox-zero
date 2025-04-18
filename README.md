@@ -96,7 +96,8 @@ You also need to set an LLM, but you can use a local one too:
 - [OpenAI](https://platform.openai.com/api-keys)
 - AWS Bedrock Anthropic
 - Google Gemini
-- Groq Llama 3.3 70B
+- OpenRouter (any model)
+- Groq (Llama 3.3 70B)
 - Ollama (local)
 
 We use Postgres for the database.
@@ -114,6 +115,12 @@ Create your own `.env` file:
 cp apps/web/.env.example apps/web/.env
 cd apps/web
 pnpm install
+```
+
+For self-hosting, you may also need to copy the `.env` file to both the root directory AND the apps/web directory (PRs welcome to improve this):
+
+```bash
+cp apps/web/.env .env
 ```
 
 Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
@@ -165,8 +172,9 @@ Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/ad
 For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can also use Ollama by setting the following enviroment variables:
 
 ```sh
+DEFAULT_LLM_PROVIDER=ollama
 OLLAMA_BASE_URL=http://localhost:11434/api
-NEXT_PUBLIC_OLLAMA_MODEL=phi3
+NEXT_PUBLIC_OLLAMA_MODEL=gemma3  # or whatever available model you want to use
 ```
 
 Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
@@ -175,15 +183,51 @@ You can select the model you wish to use in the app on the `/settings` page of t
 
 ### Setting up Google OAuth and Gmail API
 
-You need to enable these scopes in the Google Cloud Console:
+1. **Create a Project in Google Cloud Console**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project
 
-```plaintext
-https://www.googleapis.com/auth/userinfo.profile
-https://www.googleapis.com/auth/userinfo.email
-https://www.googleapis.com/auth/gmail.modify
-https://www.googleapis.com/auth/gmail.settings.basic
-https://www.googleapis.com/auth/contacts
-```
+2. **Enable Required APIs**
+   - Enable the [Gmail API](https://console.developers.google.com/apis/api/gmail.googleapis.com/overview)
+   - Enable the [People API](https://console.developers.google.com/apis/api/people.googleapis.com/overview)
+
+3. **Configure the OAuth Consent Screen**
+   - Go to 'APIs & Services' > 'OAuth consent screen'
+   - Choose 'External' user type (or 'Internal' if you have Google Workspace)
+   - Fill in required app information
+   - Add the following scopes:
+     ```plaintext
+     https://www.googleapis.com/auth/userinfo.profile
+     https://www.googleapis.com/auth/userinfo.email
+     https://www.googleapis.com/auth/gmail.modify
+     https://www.googleapis.com/auth/gmail.settings.basic
+     https://www.googleapis.com/auth/contacts
+     ```
+   - Add yourself as a test user under 'Test users' section
+
+4. **Create OAuth 2.0 Credentials**
+   - Go to 'APIs & Services' > 'Credentials'
+   - Click 'Create Credentials' > 'OAuth client ID'
+   - Select 'Web application' type
+   - Add authorized JavaScript origins:
+     - Development: `http://localhost:3000`
+     - Production: `https://your-production-url.com`
+   - Add authorized redirect URIs:
+     - Development:
+       ```
+       http://localhost:3000/api/auth/callback/google
+       ```
+     - Production:
+       ```
+       https://your-production-url.com/api/auth/callback/google
+       ```
+
+5. **Configure Environment Variables**
+   - Add to your `.env` file:
+     ```
+     GOOGLE_CLIENT_ID=your_client_id
+     GOOGLE_CLIENT_SECRET=your_client_secret
+     ```
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 
