@@ -22,7 +22,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <div className="flex justify-center px-4 sm:px-16">
+    <div className="flex flex-col gap-4 justify-center px-4 sm:px-16">
       <Dialog>
         <DialogTrigger asChild>
           <Button size="2xl">
@@ -74,6 +74,14 @@ export function LoginForm() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <Button
+        color="white"
+        size="2xl"
+        link={{ href: "/waitlist-other", target: "_blank" }}
+      >
+        Sign in with Other
+      </Button>
     </div>
   );
 }
