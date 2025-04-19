@@ -19,13 +19,14 @@ export const saveAboutAction = withActionInstrumentation(
   "saveAbout",
   async (unsafeBody: SaveAboutBody) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { success, data, error } = saveAboutBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
 
-    await prisma.user.update({
-      where: { email: session.user.email },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { about: data.about },
     });
 
@@ -40,13 +41,14 @@ export const saveSignatureAction = withActionInstrumentation(
   "saveSignature",
   async (unsafeBody: SaveSignatureBody) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { success, data, error } = saveSignatureBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
 
-    await prisma.user.update({
-      where: { email: session.user.email },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { signature: data.signature },
     });
   },

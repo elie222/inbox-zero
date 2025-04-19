@@ -24,7 +24,7 @@ import type { ParsedMessage } from "@/utils/types";
 const logger = createScopedLogger("api/clean");
 
 const cleanThreadBody = z.object({
-  userId: z.string(),
+  email: z.string(),
   threadId: z.string(),
   markedDoneLabelId: z.string(),
   processedLabelId: z.string(),
@@ -44,7 +44,7 @@ const cleanThreadBody = z.object({
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
 async function cleanThread({
-  userId,
+  email,
   threadId,
   markedDoneLabelId,
   processedLabelId,
@@ -58,7 +58,7 @@ async function cleanThread({
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
 
-  const user = await getAiUserWithTokens({ id: userId });
+  const user = await getAiUserWithTokens({ email });
 
   if (!user) throw new SafeError("User not found", 404);
 
@@ -74,7 +74,7 @@ async function cleanThread({
   const messages = await getThreadMessages(threadId, gmail);
 
   logger.info("Fetched messages", {
-    userId,
+    email,
     threadId,
     messageCount: messages.length,
   });
@@ -82,7 +82,7 @@ async function cleanThread({
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage) return;
 
-  await saveThread(userId, {
+  await saveThread(email, {
     threadId,
     jobId,
     subject: lastMessage.headers.subject,
@@ -92,7 +92,7 @@ async function cleanThread({
   });
 
   const publish = getPublish({
-    userId,
+    email,
     threadId,
     markedDoneLabelId,
     processedLabelId,
@@ -214,14 +214,14 @@ async function cleanThread({
 }
 
 function getPublish({
-  userId,
+  email,
   threadId,
   markedDoneLabelId,
   processedLabelId,
   jobId,
   action,
 }: {
-  userId: string;
+  email: string;
   threadId: string;
   markedDoneLabelId: string;
   processedLabelId: string;
@@ -239,7 +239,7 @@ function getPublish({
     const maxRatePerSecond = Math.ceil(12 / actionCount);
 
     const cleanGmailBody: CleanGmailBody = {
-      userId,
+      email,
       threadId,
       markDone,
       action,
@@ -250,7 +250,7 @@ function getPublish({
     };
 
     logger.info("Publishing to Qstash", {
-      userId,
+      email,
       threadId,
       maxRatePerSecond,
       markDone,
@@ -258,17 +258,22 @@ function getPublish({
 
     await Promise.all([
       publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${userId}`,
+        key: `gmail-action-${email}`,
         ratePerSecond: maxRatePerSecond,
       }),
-      updateThread(userId, jobId, threadId, {
-        archive: markDone,
-        status: "applying",
-        // label: "",
+      updateThread({
+        email,
+        jobId,
+        threadId,
+        update: {
+          archive: markDone,
+          status: "applying",
+          // label: "",
+        },
       }),
     ]);
 
-    logger.info("Published to Qstash", { userId, threadId });
+    logger.info("Published to Qstash", { email, threadId });
   };
 }
 

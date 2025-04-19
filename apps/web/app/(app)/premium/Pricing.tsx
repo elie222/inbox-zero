@@ -38,7 +38,7 @@ export function Pricing(props: {
   const [frequency, setFrequency] = useState(frequencies[1]);
 
   const affiliateCode = useAffiliateCode();
-  const premiumTier = getUserTier(data?.premium);
+  const premiumTier = getUserTier(data?.user.premium);
 
   const skipVariant = useSkipUpgrade();
 

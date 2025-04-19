@@ -8,39 +8,36 @@ import {
 import { createScopedLogger } from "@/utils/logger";
 import { RuleName } from "@/utils/rule/consts";
 
-export async function enableReplyTracker(userId: string) {
-  const logger = createScopedLogger("reply-tracker/enable").with({ userId });
-
-  // If enabled already skip
-  const existingRuleAction = await prisma.rule.findFirst({
-    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
-  });
-
-  if (existingRuleAction) return { success: true, alreadyEnabled: true };
+export async function enableReplyTracker({ email }: { email: string }) {
+  const logger = createScopedLogger("reply-tracker/enable").with({ email });
 
   // Find existing reply required rule, make it track replies
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
       about: true,
       rulesPrompt: true,
-      rules: {
-        where: {
-          systemType: SystemType.TO_REPLY,
-        },
+      user: {
         select: {
-          id: true,
-          systemType: true,
-          actions: {
+          rules: {
+            where: {
+              systemType: SystemType.TO_REPLY,
+            },
             select: {
               id: true,
-              type: true,
-              label: true,
+              systemType: true,
+              actions: {
+                select: {
+                  id: true,
+                  type: true,
+                  label: true,
+                },
+              },
             },
           },
         },
@@ -48,9 +45,16 @@ export async function enableReplyTracker(userId: string) {
     },
   });
 
-  if (!user) return { error: "User not found" };
+  // If enabled already skip
+  if (!emailAccount) return { error: "Email account not found" };
 
-  const rule = user.rules.find((r) => r.systemType === SystemType.TO_REPLY);
+  const rule = emailAccount.user.rules.find(
+    (r) => r.systemType === SystemType.TO_REPLY,
+  );
+
+  if (rule?.actions.find((a) => a.type === ActionType.TRACK_THREAD)) {
+    return { success: true, alreadyEnabled: true };
+  }
 
   let ruleId: string | null = rule?.id || null;
 
@@ -76,8 +80,8 @@ export async function enableReplyTracker(userId: string) {
 
   // If not found, create a reply required rule
   if (!ruleId) {
-    const newRule = await safeCreateRule(
-      {
+    const newRule = await safeCreateRule({
+      result: {
         name: RuleName.ToReply,
         condition: {
           aiInstructions: defaultReplyTrackerInstructions,
@@ -97,10 +101,9 @@ export async function enableReplyTracker(userId: string) {
           },
         ],
       },
-      userId,
-      null,
-      SystemType.TO_REPLY,
-    );
+      userId: emailAccount.userId,
+      systemType: SystemType.TO_REPLY,
+    });
 
     if ("error" in newRule) {
       logger.error("Error enabling Reply Zero", { error: newRule.error });
@@ -115,11 +118,11 @@ export async function enableReplyTracker(userId: string) {
     }
 
     // Add rule to prompt file
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.emailAccount.update({
+      where: { email },
       data: {
         rulesPrompt:
-          `${user.rulesPrompt || ""}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
+          `${emailAccount.rulesPrompt || ""}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
       },
     });
   }
@@ -139,7 +142,7 @@ export async function enableReplyTracker(userId: string) {
   await Promise.allSettled([
     enableReplyTracking(updatedRule),
     enableDraftReplies(updatedRule),
-    enableOutboundReplyTracking(userId),
+    enableOutboundReplyTracking({ email }),
   ]);
 }
 
@@ -172,9 +175,9 @@ export async function enableDraftReplies(
   });
 }
 
-async function enableOutboundReplyTracking(userId: string) {
-  await prisma.user.update({
-    where: { id: userId },
+async function enableOutboundReplyTracking({ email }: { email: string }) {
+  await prisma.emailAccount.update({
+    where: { email },
     data: { outboundReplyTracking: true },
   });
 }

@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
 import type { Group, User } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 // no longer in use. delete?
@@ -54,7 +54,7 @@ const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
 });
 
 export async function aiGenerateGroupItems(
-  user: Pick<User, "email"> & UserAIFields,
+  user: UserEmailWithAI,
   gmail: gmail_v1.Gmail,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
@@ -127,7 +127,7 @@ Key guidelines:
 }
 
 async function verifyGroupItems(
-  user: Pick<User, "email"> & UserAIFields,
+  user: UserEmailWithAI,
   gmail: gmail_v1.Gmail,
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,

@@ -8,8 +8,8 @@ const logger = createScopedLogger("upstash");
 
 const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
-const getCategorizeSendersQueueName = (userId: string) =>
-  `${CATEGORIZE_SENDERS_PREFIX}-${userId}`;
+const getCategorizeSendersQueueName = ({ email }: { email: string }) =>
+  `${CATEGORIZE_SENDERS_PREFIX}-${email}`;
 
 /**
  * Publishes sender categorization tasks to QStash queue in batches
@@ -25,7 +25,7 @@ export async function publishToAiCategorizeSendersQueue(
   const chunks = chunk(body.senders, BATCH_SIZE);
 
   // Create new queue for each user so we can run multiple users in parallel
-  const queueName = getCategorizeSendersQueueName(body.userId);
+  const queueName = getCategorizeSendersQueueName({ email: body.email });
 
   logger.info("Publishing to AI categorize senders queue in chunks", {
     url,
@@ -41,26 +41,41 @@ export async function publishToAiCategorizeSendersQueue(
         queueName,
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: { userId: body.userId, senders: senderChunk },
+        body: {
+          email: body.email,
+          senders: senderChunk,
+        } satisfies AiCategorizeSenders,
       }),
     ),
   );
 }
 
 export async function deleteEmptyCategorizeSendersQueues({
-  skipUserId,
+  skipEmail,
 }: {
-  skipUserId: string;
+  skipEmail: string;
 }) {
-  return deleteEmptyQueues(CATEGORIZE_SENDERS_PREFIX, skipUserId);
+  return deleteEmptyQueues({
+    prefix: CATEGORIZE_SENDERS_PREFIX,
+    skipEmail,
+  });
 }
 
-async function deleteEmptyQueues(prefix: string, skipUserId: string) {
+async function deleteEmptyQueues({
+  prefix,
+  skipEmail,
+}: {
+  prefix: string;
+  skipEmail: string;
+}) {
   const queues = await listQueues();
   logger.info("Found queues", { count: queues.length });
   for (const queue of queues) {
     if (!queue.name.startsWith(prefix)) continue;
-    if (skipUserId && queue.name === getCategorizeSendersQueueName(skipUserId))
+    if (
+      skipEmail &&
+      queue.name === getCategorizeSendersQueueName({ email: skipEmail })
+    )
       continue;
 
     if (!queue.lag) {

@@ -43,7 +43,7 @@ export function MultiAccountSection() {
     error: errorPremium,
   } = usePremium();
 
-  const premiumTier = getUserTier(dataPremium?.premium);
+  const premiumTier = getUserTier(dataPremium?.user.premium);
 
   const { openModal, PremiumModal } = usePremiumModal();
 
@@ -83,7 +83,7 @@ export function MultiAccountSection() {
                   <ExtraSeatsAlert
                     premiumTier={premiumTier}
                     emailAccountsAccess={
-                      dataPremium?.premium?.emailAccountsAccess || 0
+                      dataPremium?.user.premium?.emailAccountsAccess || 0
                     }
                     seatsUsed={data.users.length}
                   />
@@ -93,12 +93,14 @@ export function MultiAccountSection() {
                   <MultiAccountForm
                     emailAddresses={data.users as { email: string }[]}
                     isLifetime={
-                      dataPremium?.premium?.tier === PremiumTier.LIFETIME
+                      dataPremium?.user.premium?.tier === PremiumTier.LIFETIME
                     }
                     emailAccountsAccess={
-                      dataPremium?.premium?.emailAccountsAccess || 0
+                      dataPremium?.user.premium?.emailAccountsAccess || 0
                     }
-                    pendingInvites={dataPremium?.premium?.pendingInvites || []}
+                    pendingInvites={
+                      dataPremium?.user.premium?.pendingInvites || []
+                    }
                   />
                 </div>
               </div>

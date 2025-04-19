@@ -4,11 +4,11 @@ import { isDefined } from "@/utils/types";
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
-const threadKey = (userId: string, jobId: string, threadId: string) =>
-  `thread:${userId}:${jobId}:${threadId}`;
+const threadKey = (email: string, jobId: string, threadId: string) =>
+  `thread:${email}:${jobId}:${threadId}`;
 
 export async function saveThread(
-  userId: string,
+  email: string,
   thread: {
     threadId: string;
     jobId: string;
@@ -22,33 +22,44 @@ export async function saveThread(
 ): Promise<CleanThread> {
   const cleanThread: CleanThread = {
     ...thread,
-    userId,
+    email,
     status: "processing",
     createdAt: new Date().toISOString(),
   };
 
-  await publishThread(userId, cleanThread);
+  await publishThread({ email, thread: cleanThread });
   return cleanThread;
 }
 
-export async function updateThread(
-  userId: string,
-  jobId: string,
-  threadId: string,
-  update: Partial<CleanThread>,
-) {
-  const thread = await getThread(userId, jobId, threadId);
+export async function updateThread({
+  email,
+  jobId,
+  threadId,
+  update,
+}: {
+  email: string;
+  jobId: string;
+  threadId: string;
+  update: Partial<CleanThread>;
+}) {
+  const thread = await getThread(email, jobId, threadId);
   if (!thread) {
     console.warn("thread not found:", threadId);
     return;
   }
 
   const updatedThread = { ...thread, ...update };
-  await publishThread(userId, updatedThread);
+  await publishThread({ email, thread: updatedThread });
 }
 
-export async function publishThread(userId: string, thread: CleanThread) {
-  const key = threadKey(userId, thread.jobId, thread.threadId);
+export async function publishThread({
+  email,
+  thread,
+}: {
+  email: string;
+  thread: CleanThread;
+}) {
+  const key = threadKey(email, thread.jobId, thread.threadId);
 
   // Store the data with expiration
   await redis.set(key, thread, { ex: EXPIRATION });
@@ -56,8 +67,8 @@ export async function publishThread(userId: string, thread: CleanThread) {
   await redis.publish(key, JSON.stringify(thread));
 }
 
-async function getThread(userId: string, jobId: string, threadId: string) {
-  const key = threadKey(userId, jobId, threadId);
+async function getThread(email: string, jobId: string, threadId: string) {
+  const key = threadKey(email, jobId, threadId);
   return redis.get<CleanThread>(key);
 }
 

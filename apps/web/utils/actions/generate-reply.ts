@@ -15,9 +15,10 @@ export const generateNudgeReplyAction = withActionInstrumentation(
   "generateNudgeReply",
   async (unsafeData: GenerateReplySchema) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not authenticated" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not authenticated" };
 
-    const user = await getAiUser({ id: session.user.id });
+    const user = await getAiUser({ email });
 
     if (!user) return { error: "User not found" };
 
@@ -29,7 +30,7 @@ export const generateNudgeReplyAction = withActionInstrumentation(
     if (!lastMessage) return { error: "No message provided" };
 
     const reply = await getReply({
-      userId: user.id,
+      email,
       messageId: lastMessage.id,
     });
 
@@ -47,7 +48,7 @@ export const generateNudgeReplyAction = withActionInstrumentation(
 
     const text = await aiGenerateNudge({ messages, user });
     await saveReply({
-      userId: user.id,
+      email,
       messageId: lastMessage.id,
       reply: text,
     });

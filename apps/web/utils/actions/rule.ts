@@ -55,7 +55,8 @@ export const createRuleAction = withActionInstrumentation(
   "createRule",
   async (options: CreateRuleBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data: body, error } = createRuleBody.safeParse(options);
     if (error) return { error: error.message };
@@ -108,7 +109,7 @@ export const createRuleAction = withActionInstrumentation(
         include: { actions: true, categoryFilters: true, group: true },
       });
 
-      await updatePromptFileOnRuleCreated(session.user.id, rule);
+      await updatePromptFileOnRuleCreated({ email, rule });
 
       revalidatePath("/automation");
 
@@ -133,7 +134,8 @@ export const updateRuleAction = withActionInstrumentation(
   "updateRule",
   async (options: UpdateRuleBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data: body, error } = updateRuleBody.safeParse(options);
     if (error) return { error: error.message };
@@ -231,11 +233,11 @@ export const updateRuleAction = withActionInstrumentation(
       ]);
 
       // update prompt file
-      await updatePromptFileOnRuleUpdated(
-        session.user.id,
+      await updatePromptFileOnRuleUpdated({
+        email,
         currentRule,
         updatedRule,
-      );
+      });
 
       revalidatePath(`/automation/rule/${body.id}`);
       revalidatePath("/automation");
@@ -261,7 +263,8 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
   "updateRuleInstructions",
   async (options: UpdateRuleInstructionsBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
     if (error) return { error: error.message };
@@ -273,6 +276,7 @@ export const updateRuleInstructionsAction = withActionInstrumentation(
     if (!currentRule) return { error: "Rule not found" };
 
     await updateRuleInstructionsAndPromptFile({
+      email,
       userId: session.user.id,
       ruleId: body.id,
       instructions: body.instructions,
@@ -345,7 +349,8 @@ export const deleteRuleAction = withActionInstrumentation(
   "deleteRule",
   async ({ ruleId }: { ruleId: string }) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const rule = await prisma.rule.findUnique({
       where: { id: ruleId },
@@ -362,28 +367,30 @@ export const deleteRuleAction = withActionInstrumentation(
         groupId: rule.groupId,
       });
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email },
         select: {
+          userId: true,
           email: true,
+          about: true,
           aiModel: true,
           aiProvider: true,
           aiApiKey: true,
           rulesPrompt: true,
         },
       });
-      if (!user) return { error: "User not found" };
+      if (!emailAccount) return { error: "User not found" };
 
-      if (!user.rulesPrompt) return;
+      if (!emailAccount.rulesPrompt) return;
 
       const updatedPrompt = await generatePromptOnDeleteRule({
-        user,
-        existingPrompt: user.rulesPrompt,
+        user: emailAccount,
+        existingPrompt: emailAccount.rulesPrompt,
         deletedRule: rule,
       });
 
-      await prisma.user.update({
-        where: { id: session.user.id },
+      await prisma.emailAccount.update({
+        where: { email },
         data: { rulesPrompt: updatedPrompt },
       });
 
@@ -400,14 +407,14 @@ export const getRuleExamplesAction = withActionInstrumentation(
   "getRuleExamples",
   async (unsafeData: RulesExamplesBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    if (!session?.user.email) return { error: "Not logged in" };
 
     const { success, error, data } = rulesExamplesBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
     const gmail = getGmailClient(session);
 
-    const user = await getAiUser({ id: session.user.id });
+    const user = await getAiUser({ email: session.user.email });
     if (!user) return { error: "User not found" };
 
     const { matches } = await aiFindExampleMatches(
@@ -424,14 +431,15 @@ export const createRulesOnboardingAction = withActionInstrumentation(
   "createRulesOnboarding",
   async (options: CreateRulesOnboardingBody) => {
     const session = await auth();
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
     const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
 
     const { data, error } = createRulesOnboardingBody.safeParse(options);
     if (error) return { error: error.message };
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const user = await prisma.emailAccount.findUnique({
+      where: { email },
       select: { rulesPrompt: true },
     });
     if (!user) return { error: "User not found" };
@@ -443,8 +451,8 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     // cold email blocker
     if (isSet(data.coldEmail)) {
-      const promise = prisma.user.update({
-        where: { id: userId },
+      const promise = prisma.emailAccount.update({
+        where: { email },
         data: {
           coldEmailBlocker:
             data.coldEmail === "label"
@@ -459,7 +467,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     // reply tracker
     if (isSet(data.toReply)) {
-      const promise = enableReplyTracker(session.user.id).then((res) => {
+      const promise = enableReplyTracker({ email }).then((res) => {
         if (res?.alreadyEnabled) return;
 
         // Load previous emails needing replies in background
@@ -472,9 +480,7 @@ export const createRulesOnboardingAction = withActionInstrumentation(
               "Content-Type": "application/json",
               [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
             },
-            body: JSON.stringify({
-              userId: session.user.id,
-            } satisfies ProcessPreviousBody),
+            body: JSON.stringify({ email } satisfies ProcessPreviousBody),
           },
         );
       });
@@ -655,8 +661,8 @@ export const createRulesOnboardingAction = withActionInstrumentation(
 
     await Promise.allSettled(promises);
 
-    await prisma.user.update({
-      where: { id: session.user.id },
+    await prisma.emailAccount.update({
+      where: { email },
       data: {
         rulesPrompt:
           `${user.rulesPrompt || ""}\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),

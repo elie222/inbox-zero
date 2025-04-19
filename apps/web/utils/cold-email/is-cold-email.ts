@@ -1,10 +1,14 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
-import { ColdEmailSetting, ColdEmailStatus, type User } from "@prisma/client";
+import {
+  ColdEmailSetting,
+  ColdEmailStatus,
+  type EmailAccount,
+} from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
@@ -22,7 +26,7 @@ export async function isColdEmail({
   gmail,
 }: {
   email: EmailForLLM & { threadId?: string };
-  user: Pick<User, "id" | "email" | "coldEmailPrompt"> & UserAIFields;
+  user: Pick<EmailAccount, "coldEmailPrompt"> & UserEmailWithAI;
   gmail: gmail_v1.Gmail;
 }): Promise<{
   isColdEmail: boolean;
@@ -30,7 +34,7 @@ export async function isColdEmail({
   aiReason?: string | null;
 }> {
   const loggerOptions = {
-    userId: user.id,
+    userId: user.userId,
     email: user.email,
     threadId: email.threadId,
     messageId: email.id,
@@ -41,7 +45,7 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
     from: email.from,
-    userId: user.id,
+    userId: user.userId,
   });
 
   if (isColdEmailer) {
@@ -100,7 +104,7 @@ async function isKnownColdEmailSender({
 
 async function aiIsColdEmail(
   email: EmailForLLM,
-  user: Pick<User, "email" | "coldEmailPrompt"> & UserAIFields,
+  user: Pick<EmailAccount, "coldEmailPrompt"> & UserEmailWithAI,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
@@ -149,8 +153,8 @@ ${stringifyEmail(email, 500)}
 export async function runColdEmailBlocker(options: {
   email: EmailForLLM & { threadId: string };
   gmail: gmail_v1.Gmail;
-  user: Pick<User, "id" | "email" | "coldEmailPrompt" | "coldEmailBlocker"> &
-    UserAIFields;
+  user: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
+    UserEmailWithAI;
 }) {
   const response = await isColdEmail(options);
   if (response.isColdEmail)
@@ -161,18 +165,18 @@ export async function runColdEmailBlocker(options: {
 export async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
   email: { from: string; id: string; threadId: string };
-  user: Pick<User, "id" | "email" | "coldEmailBlocker">;
+  user: Pick<EmailAccount, "coldEmailBlocker"> & UserEmailWithAI;
   aiReason: string | null;
 }) {
   const { gmail, email, user, aiReason } = options;
 
   await prisma.coldEmail.upsert({
-    where: { userId_fromEmail: { userId: user.id, fromEmail: email.from } },
+    where: { userId_fromEmail: { userId: user.userId, fromEmail: email.from } },
     update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
       status: ColdEmailStatus.AI_LABELED_COLD,
       fromEmail: email.from,
-      userId: user.id,
+      userId: user.userId,
       reason: aiReason,
       messageId: email.id,
       threadId: email.threadId,
@@ -190,7 +194,7 @@ export async function blockColdEmail(options: {
       key: "cold_email",
     });
     if (!coldEmailLabel?.id)
-      logger.error("No gmail label id", { userId: user.id });
+      logger.error("No gmail label id", { userId: user.userId });
 
     const shouldArchive =
       user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||

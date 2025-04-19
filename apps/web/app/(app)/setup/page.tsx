@@ -17,25 +17,29 @@ import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 
 export default async function SetupPage() {
   const session = await auth();
-  const userId = session?.user.id;
-  if (!userId) throw new Error("Not authenticated");
+  const email = session?.user.email;
+  if (!email) throw new Error("Not authenticated");
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
       coldEmailBlocker: true,
-      rules: { select: { id: true }, take: 1 },
-      newsletters: {
-        where: { status: { not: null } },
-        take: 1,
+      user: {
+        select: {
+          rules: { select: { id: true }, take: 1 },
+          newsletters: {
+            where: { status: { not: null } },
+            take: 1,
+          },
+        },
       },
     },
   });
 
-  if (!user) throw new Error("User not found");
+  if (!emailAccount) throw new Error("User not found");
 
-  const isAiAssistantConfigured = user.rules.length > 0;
-  const isBulkUnsubscribeConfigured = user.newsletters.length > 0;
+  const isAiAssistantConfigured = emailAccount.user.rules.length > 0;
+  const isBulkUnsubscribeConfigured = emailAccount.user.newsletters.length > 0;
   const cookieStore = await cookies();
   const isReplyTrackerConfigured =
     cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";

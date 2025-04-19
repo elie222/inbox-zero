@@ -14,7 +14,7 @@ import { updateThread } from "@/utils/redis/clean";
 const logger = createScopedLogger("api/clean/gmail");
 
 const cleanGmailSchema = z.object({
-  userId: z.string(),
+  email: z.string(),
   threadId: z.string(),
   markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
@@ -26,7 +26,7 @@ const cleanGmailSchema = z.object({
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
 async function performGmailAction({
-  userId,
+  email,
   threadId,
   markDone,
   // labelId,
@@ -35,18 +35,20 @@ async function performGmailAction({
   jobId,
   action,
 }: CleanGmailBody) {
-  const account = await prisma.account.findUnique({
-    where: { userId },
-    select: { access_token: true, refresh_token: true },
+  const account = await prisma.emailAccount.findUnique({
+    where: { email },
+    select: {
+      account: { select: { access_token: true, refresh_token: true } },
+    },
   });
 
   if (!account) throw new SafeError("User not found", 404);
-  if (!account.access_token || !account.refresh_token)
+  if (!account.account?.access_token || !account.account?.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
   const gmail = getGmailClient({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
+    accessToken: account.account.access_token,
+    refreshToken: account.account.refresh_token,
   });
 
   const shouldArchive = markDone && action === CleanAction.ARCHIVE;
@@ -72,7 +74,7 @@ async function performGmailAction({
   });
 
   await saveCleanResult({
-    userId,
+    email,
     threadId,
     markDone,
     jobId,
@@ -80,20 +82,20 @@ async function performGmailAction({
 }
 
 async function saveCleanResult({
-  userId,
+  email,
   threadId,
   markDone,
   jobId,
 }: {
-  userId: string;
+  email: string;
   threadId: string;
   markDone: boolean;
   jobId: string;
 }) {
   await Promise.all([
-    updateThread(userId, jobId, threadId, { status: "completed" }),
+    updateThread({ email, jobId, threadId, update: { status: "completed" } }),
     saveToDatabase({
-      userId,
+      email,
       threadId,
       archive: markDone,
       jobId,
@@ -102,22 +104,22 @@ async function saveCleanResult({
 }
 
 async function saveToDatabase({
-  userId,
+  email,
   threadId,
   archive,
   jobId,
 }: {
-  userId: string;
+  email: string;
   threadId: string;
   archive: boolean;
   jobId: string;
 }) {
   await prisma.cleanupThread.create({
     data: {
-      userId,
+      user: { connect: { email } },
       threadId,
       archived: archive,
-      jobId,
+      job: { connect: { id: jobId } },
     },
   });
 }

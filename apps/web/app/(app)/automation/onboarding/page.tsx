@@ -12,9 +12,10 @@ import type { CategoryAction } from "@/utils/actions/rule.validation";
 
 export default async function OnboardingPage() {
   const session = await auth();
-  if (!session?.user.id) return <div>Not authenticated</div>;
+  const email = session?.user.email;
+  if (!email) return <div>Not authenticated</div>;
 
-  const defaultValues = await getUserPreferences(session.user.id);
+  const defaultValues = await getUserPreferences({ email });
 
   return (
     <Card className="my-4 w-full max-w-2xl p-6 sm:mx-4 md:mx-auto">
@@ -37,16 +38,24 @@ type UserPreferences = Prisma.UserGetPayload<{
   };
 }>;
 
-async function getUserPreferences(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+async function getUserPreferences({
+  email,
+}: {
+  email: string;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      rules: {
+      user: {
         select: {
-          systemType: true,
-          actions: {
+          rules: {
             select: {
-              type: true,
+              systemType: true,
+              actions: {
+                select: {
+                  type: true,
+                },
+              },
             },
           },
         },
@@ -54,16 +63,19 @@ async function getUserPreferences(userId: string) {
       coldEmailBlocker: true,
     },
   });
-  if (!user) return undefined;
+  if (!emailAccount) return undefined;
 
   return {
-    toReply: getToReplySetting(user.rules),
-    coldEmails: getColdEmailSetting(user.coldEmailBlocker),
-    newsletter: getRuleSetting(SystemType.NEWSLETTER, user.rules),
-    marketing: getRuleSetting(SystemType.MARKETING, user.rules),
-    calendar: getRuleSetting(SystemType.CALENDAR, user.rules),
-    receipt: getRuleSetting(SystemType.RECEIPT, user.rules),
-    notification: getRuleSetting(SystemType.NOTIFICATION, user.rules),
+    toReply: getToReplySetting(emailAccount.user.rules),
+    coldEmails: getColdEmailSetting(emailAccount.coldEmailBlocker),
+    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.user.rules),
+    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.user.rules),
+    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.user.rules),
+    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.user.rules),
+    notification: getRuleSetting(
+      SystemType.NOTIFICATION,
+      emailAccount.user.rules,
+    ),
   };
 }
 

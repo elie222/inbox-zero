@@ -21,7 +21,7 @@ export async function categorizeSender(
   accessToken: string,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
 ) {
-  const categories = userCategories || (await getUserCategories(user.id));
+  const categories = userCategories || (await getUserCategories(user.userId));
   if (categories.length === 0) return { categoryId: undefined };
 
   const previousEmails = await getThreadsFromSenderWithSubject(
@@ -43,7 +43,7 @@ export async function categorizeSender(
       sender: senderAddress,
       categories,
       categoryName: aiResult.category,
-      userId: user.id,
+      userId: user.userId,
     });
 
     return { categoryId: newsletter.categoryId };

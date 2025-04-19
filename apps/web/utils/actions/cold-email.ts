@@ -28,13 +28,14 @@ export const updateColdEmailSettingsAction = withActionInstrumentation(
   "updateColdEmailSettings",
   async (body: UpdateColdEmailSettingsBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, error } = updateColdEmailSettingsBody.safeParse(body);
     if (error) return { error: error.message };
 
-    await prisma.user.update({
-      where: { id: session.user.id },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { coldEmailBlocker: data.coldEmailBlocker },
     });
   },
@@ -44,13 +45,14 @@ export const updateColdEmailPromptAction = withActionInstrumentation(
   "updateColdEmailPrompt",
   async (body: UpdateColdEmailPromptBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, error } = updateColdEmailPromptBody.safeParse(body);
     if (error) return { error: error.message };
 
-    await prisma.user.update({
-      where: { id: session.user.id },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { coldEmailPrompt: data.coldEmailPrompt },
     });
   },
@@ -133,17 +135,18 @@ export const testColdEmailAction = withActionInstrumentation(
 async function checkColdEmail(
   body: ColdEmailBlockerBody,
   gmail: gmail_v1.Gmail,
-  userEmail: string,
+  email: string,
 ) {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { email: userEmail },
+  const emailAccount = await prisma.emailAccount.findUniqueOrThrow({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       coldEmailPrompt: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
+      about: true,
     },
   });
 
@@ -162,7 +165,7 @@ async function checkColdEmail(
       threadId: body.threadId || undefined,
       id: body.messageId || "",
     },
-    user,
+    user: emailAccount,
     gmail,
   });
 

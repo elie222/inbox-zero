@@ -18,13 +18,12 @@ export async function handleOutboundReply(
 ) {
   const logger = createScopedLogger("reply-tracker/outbound").with({
     email: user.email,
-    userId: user.id,
     messageId: message.id,
     threadId: message.threadId,
   });
 
   // 1. Check if feature enabled
-  const isEnabled = await isOutboundTrackingEnabled(user.id);
+  const isEnabled = await isOutboundTrackingEnabled({ email: user.email });
   if (!isEnabled) {
     logger.info("Outbound reply tracking disabled, skipping.");
     return;
@@ -39,7 +38,7 @@ export async function handleOutboundReply(
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackers(
     gmail,
-    user.id,
+    user.userId,
     message.threadId,
     needsReplyLabelId,
   );
@@ -80,7 +79,7 @@ export async function handleOutboundReply(
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
-      userId: user.id,
+      userId: user.userId,
       threadId: message.threadId,
       messageId: message.id,
       awaitingReplyLabelId,
@@ -176,9 +175,11 @@ async function resolveReplyTrackers(
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }
 
-async function isOutboundTrackingEnabled(userId: string): Promise<boolean> {
-  const userSettings = await prisma.user.findUnique({
-    where: { id: userId },
+async function isOutboundTrackingEnabled({
+  email,
+}: { email: string }): Promise<boolean> {
+  const userSettings = await prisma.emailAccount.findUnique({
+    where: { email },
     select: { outboundReplyTracking: true },
   });
   return !!userSettings?.outboundReplyTracking;

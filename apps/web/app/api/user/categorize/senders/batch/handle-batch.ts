@@ -36,23 +36,20 @@ export async function handleBatchRequest(
 async function handleBatchInternal(request: Request) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
-  const { userId, senders } = body;
+  const { email, senders } = body;
 
-  logger.trace("Handle batch request", {
-    userId,
-    senders: senders.length,
-  });
+  logger.trace("Handle batch request", { email, senders: senders.length });
 
-  const userResult = await validateUserAndAiAccess(userId);
+  const userResult = await validateUserAndAiAccess({ email });
   if (isActionError(userResult)) return userResult;
-  const { user } = userResult;
+  const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories(userId);
+  const categoriesResult = await getCategories(emailAccount.userId);
   if (isActionError(categoriesResult)) return categoriesResult;
   const { categories } = categoriesResult;
 
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "google" },
+  const account = await prisma.account.findUnique({
+    where: { email },
     select: {
       access_token: true,
       refresh_token: true,
@@ -91,7 +88,7 @@ async function handleBatchInternal(request: Request) {
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
-    user,
+    user: emailAccount,
     sendersWithEmails,
     categories,
   });
@@ -102,7 +99,7 @@ async function handleBatchInternal(request: Request) {
       sender: result.sender,
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
-      userId,
+      userId: emailAccount.userId,
     });
   }
 
@@ -132,7 +129,7 @@ async function handleBatchInternal(request: Request) {
   // }
 
   await saveCategorizationProgress({
-    userId,
+    email,
     incrementCompleted: senders.length,
   });
 

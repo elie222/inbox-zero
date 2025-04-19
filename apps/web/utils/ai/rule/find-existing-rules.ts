@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
 
 const parameters = z.object({
@@ -22,7 +22,7 @@ export async function aiFindExistingRules({
   promptRulesToRemove,
   databaseRules,
 }: {
-  user: UserAIFields & { email: string };
+  user: UserEmailWithAI;
   promptRulesToEdit: { oldRule: string; newRule: string }[];
   promptRulesToRemove: string[];
   databaseRules: (Rule & { actions: Action[] })[];

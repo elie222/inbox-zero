@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createPatch } from "diff";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 
 const parameters = z.object({
   addedRules: z.array(z.string()).describe("The added rules"),
@@ -21,7 +21,7 @@ export async function aiDiffRules({
   oldPromptFile,
   newPromptFile,
 }: {
-  user: UserAIFields & { email: string };
+  user: UserEmailWithAI;
   oldPromptFile: string;
   newPromptFile: string;
 }) {

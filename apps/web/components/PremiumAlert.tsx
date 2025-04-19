@@ -20,7 +20,7 @@ export function usePremium() {
   const swrResponse = useUser();
   const { data } = swrResponse;
 
-  const premium = data?.premium;
+  const premium = data?.user.premium;
   const aiApiKey = data?.aiApiKey;
 
   const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));

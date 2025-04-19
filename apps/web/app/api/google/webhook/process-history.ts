@@ -25,28 +25,33 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const account = await prisma.account.findFirst({
-    where: { user: { email }, provider: "google" },
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: { email },
     select: {
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
+      email: true,
       userId: true,
+      about: true,
+      lastSyncedHistoryId: true,
+      coldEmailBlocker: true,
+      coldEmailPrompt: true,
+      aiProvider: true,
+      aiModel: true,
+      aiApiKey: true,
+      autoCategorizeSenders: true,
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+          providerAccountId: true,
+        },
+      },
       user: {
         select: {
-          email: true,
-          about: true,
-          lastSyncedHistoryId: true,
           rules: {
             where: { enabled: true },
             include: { actions: true, categoryFilters: true },
           },
-          coldEmailBlocker: true,
-          coldEmailPrompt: true,
-          aiProvider: true,
-          aiModel: true,
-          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -54,73 +59,79 @@ export async function processHistoryForUser(
               aiAutomationAccess: true,
             },
           },
-          autoCategorizeSenders: true,
         },
       },
     },
   });
 
-  if (!account) {
+  if (!emailAccount) {
     logger.error("Account not found", { email });
     return NextResponse.json({ ok: true });
   }
 
-  const premium = isPremium(account.user.premium?.lemonSqueezyRenewsAt || null)
-    ? account.user.premium
+  const premium = isPremium(
+    emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+  )
+    ? emailAccount.user.premium
     : undefined;
 
   if (!premium) {
     logger.info("Account not premium", {
       email,
-      lemonSqueezyRenewsAt: account.user.premium?.lemonSqueezyRenewsAt,
+      lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
     });
-    await unwatchEmails(account);
+    await unwatchEmails({
+      email: emailAccount.email,
+      access_token: emailAccount.account?.access_token ?? null,
+      refresh_token: emailAccount.account?.refresh_token ?? null,
+    });
     return NextResponse.json({ ok: true });
   }
 
   const userHasAiAccess = hasAiAccess(
     premium.aiAutomationAccess,
-    account.user.aiApiKey,
+    emailAccount.aiApiKey,
   );
   const userHasColdEmailAccess = hasColdEmailAccess(
     premium.coldEmailBlockerAccess,
-    account.user.aiApiKey,
+    emailAccount.aiApiKey,
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
     logger.trace("Does not have hasAiOrColdEmailAccess", { email });
-    await unwatchEmails(account);
+    await unwatchEmails({
+      email: emailAccount.email,
+      access_token: emailAccount.account?.access_token ?? null,
+      refresh_token: emailAccount.account?.refresh_token ?? null,
+    });
     return NextResponse.json({ ok: true });
   }
 
-  const hasAutomationRules = account.user.rules.length > 0;
+  const hasAutomationRules = emailAccount.user.rules.length > 0;
   const shouldBlockColdEmails =
-    account.user.coldEmailBlocker &&
-    account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
+    emailAccount.coldEmailBlocker &&
+    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     logger.trace("Has no rules set and cold email blocker disabled", { email });
     return NextResponse.json({ ok: true });
   }
 
-  if (!account.access_token || !account.refresh_token) {
+  if (
+    !emailAccount.account?.access_token ||
+    !emailAccount.account?.refresh_token
+  ) {
     logger.error("Missing access or refresh token", { email });
-    return NextResponse.json({ ok: true });
-  }
-
-  if (!account.user.email) {
-    // shouldn't ever happen
-    logger.error("Missing user email", { email });
     return NextResponse.json({ ok: true });
   }
 
   try {
     const gmail = await getGmailClientWithRefresh(
       {
-        accessToken: account.access_token,
-        refreshToken: account.refresh_token,
-        expiryDate: account.expires_at,
+        accessToken: emailAccount.account?.access_token,
+        refreshToken: emailAccount.account?.refresh_token,
+        expiryDate: emailAccount.account?.expires_at,
       },
-      account.providerAccountId,
+      emailAccount.account?.providerAccountId,
     );
 
     // couldn't refresh the token
@@ -132,13 +143,13 @@ export async function processHistoryForUser(
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(
-        Number.parseInt(account.user.lastSyncedHistoryId || "0"),
+        Number.parseInt(emailAccount.lastSyncedHistoryId || "0"),
         historyId - 500, // avoid going too far back
       ).toString();
 
     logger.info("Listing history", {
       startHistoryId,
-      lastSyncedHistoryId: account.user.lastSyncedHistoryId,
+      lastSyncedHistoryId: emailAccount.lastSyncedHistoryId,
       gmailHistoryId: startHistoryId,
       email,
     });
@@ -162,22 +173,12 @@ export async function processHistoryForUser(
         history: history.history,
         email,
         gmail,
-        accessToken: account.access_token,
+        accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
-        rules: account.user.rules,
+        rules: emailAccount.user.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
         hasAiAutomationAccess: userHasAiAccess,
-        user: {
-          id: account.userId,
-          email: account.user.email,
-          about: account.user.about || "",
-          aiProvider: account.user.aiProvider,
-          aiModel: account.user.aiModel,
-          aiApiKey: account.user.aiApiKey,
-          coldEmailPrompt: account.user.coldEmailPrompt,
-          coldEmailBlocker: account.user.coldEmailBlocker,
-          autoCategorizeSenders: account.user.autoCategorizeSenders,
-        },
+        user: emailAccount,
       });
     } else {
       logger.info("No history", {
@@ -186,7 +187,7 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId(account.user.email, historyId.toString());
+      await updateLastSyncedHistoryId(emailAccount.email, historyId.toString());
     }
 
     logger.info("Completed processing history", { decodedData });
@@ -264,7 +265,7 @@ async function updateLastSyncedHistoryId(
   lastSyncedHistoryId?: string | null,
 ) {
   if (!lastSyncedHistoryId) return;
-  await prisma.user.update({
+  await prisma.emailAccount.update({
     where: { email },
     data: { lastSyncedHistoryId },
   });

@@ -9,13 +9,13 @@ export const regenerateWebhookSecretAction = withActionInstrumentation(
   "regenerateWebhookSecret",
   async () => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const webhookSecret = generateWebhookSecret();
 
-    await prisma.user.update({
-      where: { id: userId },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { webhookSecret },
     });
 

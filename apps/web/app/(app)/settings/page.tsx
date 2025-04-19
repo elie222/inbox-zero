@@ -17,7 +17,7 @@ export default async function SettingsPage() {
 
   if (!session?.user.email) return <NotLoggedIn />;
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.emailAccount.findUnique({
     where: { email: session.user.email },
     select: {
       about: true,

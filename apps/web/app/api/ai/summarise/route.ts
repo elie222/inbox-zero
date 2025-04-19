@@ -12,8 +12,8 @@ import { getAiUser } from "@/utils/user/get";
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = summariseBody.parse(json);
@@ -30,12 +30,12 @@ export const POST = withError(async (request: Request) => {
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
-  const userAi = await getAiUser({ id: session.user.id });
+  const userAi = await getAiUser({ email });
 
   if (!userAi)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const stream = await summarise(prompt, session.user.email, userAi);
+  const stream = await summarise(prompt, email, userAi);
 
   return stream.toTextStreamResponse();
 });

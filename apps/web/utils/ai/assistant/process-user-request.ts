@@ -47,7 +47,7 @@ export async function processUserRequest({
   categories,
   senderCategory,
 }: {
-  user: Pick<User, "id" | "about"> & UserEmailWithAI;
+  user: UserEmailWithAI;
   rules: RuleWithRelations[];
   originalEmail: ParsedMessage | null;
   messages: { role: "assistant" | "user"; content: string }[];
@@ -160,7 +160,7 @@ ${senderCategory || "No category"}
   const updatedRules = new Map<string, RuleWithRelations>();
 
   const loggerOptions = {
-    userId: user.id,
+    userId: user.userId,
     email: user.email,
     messageId: originalEmail?.id,
     threadId: originalEmail?.threadId,
@@ -352,7 +352,10 @@ ${senderCategory || "No category"}
                 }
 
                 try {
-                  await deleteGroupItem({ id: groupItem.id, userId: user.id });
+                  await deleteGroupItem({
+                    id: groupItem.id,
+                    userId: user.userId,
+                  });
                 } catch (error) {
                   const message =
                     error instanceof Error ? error.message : String(error);
@@ -379,7 +382,7 @@ ${senderCategory || "No category"}
       ...(categories
         ? {
             update_sender_category: getUpdateCategoryTool(
-              user.id,
+              user.userId,
               categories,
               loggerOptions,
               user.email,
@@ -518,13 +521,13 @@ ${senderCategory || "No category"}
 
           try {
             const categoryIds = await getUserCategoriesForNames(
-              user.id,
+              user.userId,
               conditions.categories?.categoryFilters || [],
             );
 
             const rule = await createRule({
               result: { name, condition, actions },
-              userId: user.id,
+              userId: user.userId,
               categoryIds,
             });
 
@@ -588,12 +591,17 @@ ${senderCategory || "No category"}
 
   // Update prompt file for newly created rules
   for (const rule of createdRules.values()) {
-    await updatePromptFileOnRuleCreated(user.id, rule);
+    await updatePromptFileOnRuleCreated({ email: user.email, rule });
   }
 
   // Update prompt file for modified rules
   for (const rule of updatedRules.values()) {
-    await updatePromptFileOnRuleUpdated(user.id, rule, rule);
+    // TODO: should current and updated be the same?
+    await updatePromptFileOnRuleUpdated({
+      email: user.email,
+      currentRule: rule,
+      updatedRule: rule,
+    });
   }
 
   posthogCaptureEvent(user.email, "AI Assistant Process Completed", {

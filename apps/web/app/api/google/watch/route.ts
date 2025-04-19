@@ -11,15 +11,16 @@ const logger = createScopedLogger("api/google/watch");
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
   const gmail = getGmailClient(session);
 
-  const expirationDate = await watchEmails(session.user.id, gmail);
-  if (expirationDate) {
-    return NextResponse.json({ expirationDate });
-  }
-  logger.error("Error watching inbox", { userId: session.user.id });
+  const expirationDate = await watchEmails({ email, gmail });
+  
+  if (expirationDate) return NextResponse.json({ expirationDate });
+  
+  logger.error("Error watching inbox", { email });
+  
   return NextResponse.json({ error: "Error watching inbox" });
 });

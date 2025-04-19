@@ -12,7 +12,6 @@ import type {
 import {
   CategoryFilterType,
   LogicalOperator,
-  type User,
   SystemType,
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
@@ -20,7 +19,7 @@ import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type {
   MatchReason,
@@ -207,7 +206,7 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
 export async function findMatchingRule(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  user: UserEmailWithAI,
   gmail: gmail_v1.Gmail,
 ) {
   const result = await findMatchingRuleWithReasons(rules, message, user, gmail);
@@ -220,7 +219,7 @@ export async function findMatchingRule(
 async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  user: UserEmailWithAI,
   gmail: gmail_v1.Gmail,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
