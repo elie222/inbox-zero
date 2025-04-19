@@ -62,7 +62,7 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 
 ## Star History
 
-<iframe style="width:100%;height:auto;min-width:600px;min-height:400px;" src="https://www.star-history.com/embed?secret=Z2l0aHViX3BhdF8xMUFBWFNRWFkwd2RNcHBlOENSY0xvX0xZSkN4UmpiWnNXbGlQM01uWnJsWHZyVWRPNEtLcTdMR1RFNk1oak02M2pCVTRGT1dZU3VoRzE3Z1ZH#elie222/inbox-zero&Date" frameBorder="0"></iframe>
+[![Star History Chart](https://api.star-history.com/svg?repos=elie222/inbox-zero&type=Date)](https://www.star-history.com/#elie222/inbox-zero&Date)
 
 ## Feature Requests
 
