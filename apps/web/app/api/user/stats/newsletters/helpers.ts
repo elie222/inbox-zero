@@ -29,9 +29,13 @@ export function findAutoArchiveFilter(
   });
 }
 
-export async function findNewsletterStatus(userId: string) {
+export async function findNewsletterStatus({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   const userNewsletters = await prisma.newsletter.findMany({
-    where: { userId },
+    where: { emailAccountId },
     select: { email: true, status: true },
   });
   return userNewsletters;

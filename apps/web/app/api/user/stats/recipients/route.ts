@@ -52,7 +52,7 @@ async function getRecipients({
 }
 
 async function getRecipientStatistics(
-  options: RecipientStatsQuery & { userId: string },
+  options: RecipientStatsQuery & { emailAccountId: string },
 ): Promise<RecipientsResponse> {
   const [mostReceived] = await Promise.all([getMostSentTo(options)]);
 
@@ -70,14 +70,14 @@ async function getRecipientStatistics(
  * Get most sent to recipients by email address
  */
 async function getMostSentTo({
-  userId,
+  emailAccountId,
   fromDate,
   toDate,
 }: RecipientStatsQuery & {
-  userId: string;
+  emailAccountId: string;
 }) {
   return getEmailFieldStats({
-    userId,
+    emailAccountId,
     fromDate,
     toDate,
     field: "to",
@@ -87,8 +87,8 @@ async function getMostSentTo({
 
 export const GET = withError(async (request) => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
 
   const { searchParams } = new URL(request.url);
   const query = recipientStatsQuery.parse({
@@ -98,7 +98,7 @@ export const GET = withError(async (request) => {
 
   const result = await getRecipientStatistics({
     ...query,
-    userId: session.user.id,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

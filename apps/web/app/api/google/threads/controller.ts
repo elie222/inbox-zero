@@ -55,7 +55,7 @@ export async function getThreads(query: ThreadsQuery) {
     getThreadsBatch(threadIds, accessToken), // may have been faster not using batch method, but doing 50 getMessages in parallel
     prisma.executedRule.findMany({
       where: {
-        userId: session.user.id,
+        emailAccountId: email,
         threadId: { in: threadIds },
         status: {
           // TODO probably want to show applied rules here in the future too

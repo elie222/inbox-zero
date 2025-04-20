@@ -45,7 +45,7 @@ export async function runRules({
   user: UserEmailWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  const result = await findMatchingRule(rules, message, user, gmail);
+  const result = await findMatchingRule({ rules, message, user, gmail });
 
   analyzeSenderPatternIfAiMatch({
     isTest,
@@ -68,7 +68,7 @@ export async function runRules({
     );
   } else {
     await saveSkippedExecutedRule({
-      userId: user.userId,
+      emailAccountId: user.email,
       threadId: message.threadId,
       messageId: message.id,
       reason: result.reason,
@@ -99,7 +99,7 @@ async function executeMatchedRule(
     ? undefined
     : await saveExecutedRule(
         {
-          userId: user.userId,
+          emailAccountId: user.email,
           threadId: message.threadId,
           messageId: message.id,
         },
@@ -115,7 +115,7 @@ async function executeMatchedRule(
   if (shouldExecute) {
     await executeAct({
       gmail,
-      userEmail: user.email || "",
+      userEmail: user.email,
       executedRule,
       message,
     });
@@ -131,12 +131,12 @@ async function executeMatchedRule(
 }
 
 async function saveSkippedExecutedRule({
-  userId,
+  emailAccountId,
   threadId,
   messageId,
   reason,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   reason?: string;
@@ -147,11 +147,11 @@ async function saveSkippedExecutedRule({
     automated: true,
     reason,
     status: ExecutedRuleStatus.SKIPPED,
-    user: { connect: { id: userId } },
+    emailAccount: { connect: { email: emailAccountId } },
   };
 
   await upsertExecutedRule({
-    userId,
+    emailAccountId,
     threadId,
     messageId,
     data,
@@ -160,11 +160,11 @@ async function saveSkippedExecutedRule({
 
 async function saveExecutedRule(
   {
-    userId,
+    emailAccountId,
     threadId,
     messageId,
   }: {
-    userId: string;
+    emailAccountId: string;
     threadId: string;
     messageId: string;
   },
@@ -190,19 +190,24 @@ async function saveExecutedRule(
     status: ExecutedRuleStatus.PENDING,
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-    user: { connect: { id: userId } },
+    emailAccount: { connect: { email: emailAccountId } },
   };
 
-  return await upsertExecutedRule({ userId, threadId, messageId, data });
+  return await upsertExecutedRule({
+    emailAccountId,
+    threadId,
+    messageId,
+    data,
+  });
 }
 
 async function upsertExecutedRule({
-  userId,
+  emailAccountId,
   threadId,
   messageId,
   data,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   data: Prisma.ExecutedRuleCreateInput;
@@ -210,8 +215,8 @@ async function upsertExecutedRule({
   try {
     return await prisma.executedRule.upsert({
       where: {
-        unique_user_thread_message: {
-          userId,
+        unique_emailAccount_thread_message: {
+          emailAccountId,
           threadId,
           messageId,
         },
@@ -228,14 +233,14 @@ async function upsertExecutedRule({
       // Unique constraint violation, ignore the error
       // May be due to a race condition?
       logger.info("Ignored duplicate entry for ExecutedRule", {
-        userId,
+        email: emailAccountId,
         threadId,
         messageId,
       });
       return await prisma.executedRule.findUnique({
         where: {
-          unique_user_thread_message: {
-            userId,
+          unique_emailAccount_thread_message: {
+            emailAccountId,
             threadId,
             messageId,
           },

@@ -75,20 +75,20 @@ async function findPotentialMatchingRules({
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
-  async function getGroups(userId: string) {
-    if (!groups) groups = await getGroupsWithRules(userId);
+  async function getGroups({ email }: { email: string }) {
+    if (!groups) groups = await getGroupsWithRules({ email });
     return groups;
   }
 
   // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
-  async function getSender(userId: string) {
+  async function getSender({ email }: { email: string }) {
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
-          email_userId: {
+          email_emailAccountId: {
             email: extractEmailAddress(message.headers.from),
-            userId,
+            emailAccountId: email,
           },
         },
         select: { categoryId: true },
@@ -112,7 +112,7 @@ async function findPotentialMatchingRules({
     if (rule.groupId) {
       const { matchingItem, group } = await matchesGroupRule(
         rule,
-        await getGroups(rule.userId),
+        await getGroups({ email: rule.emailAccountId }),
         message,
       );
       if (matchingItem) {
@@ -149,7 +149,7 @@ async function findPotentialMatchingRules({
     if (conditionTypes.CATEGORY) {
       const matchedCategory = await matchesCategoryRule(
         rule,
-        await getSender(rule.userId),
+        await getSender({ email: rule.emailAccountId }),
       );
       if (matchedCategory) {
         unmatchedConditions.delete(ConditionType.CATEGORY);
@@ -203,12 +203,17 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
     .join(", ");
 }
 
-export async function findMatchingRule(
-  rules: RuleWithActionsAndCategories[],
-  message: ParsedMessage,
-  user: UserEmailWithAI,
-  gmail: gmail_v1.Gmail,
-) {
+export async function findMatchingRule({
+  rules,
+  message,
+  user,
+  gmail,
+}: {
+  rules: RuleWithActionsAndCategories[];
+  message: ParsedMessage;
+  user: UserEmailWithAI;
+  gmail: gmail_v1.Gmail;
+}) {
   const result = await findMatchingRuleWithReasons(rules, message, user, gmail);
   return {
     ...result,

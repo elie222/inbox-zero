@@ -78,7 +78,7 @@ async function getNewslettersTinybird(
         ...types,
       }),
       getAutoArchiveFilters(),
-      findNewsletterStatus(options.userId),
+      findNewsletterStatus({ emailAccountId: options.ownerEmail }),
     ]);
 
   const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {

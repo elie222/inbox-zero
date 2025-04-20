@@ -19,7 +19,7 @@ export const GET = withError(async (request) => {
   const offset = Number.parseInt(url.searchParams.get("offset") || "0");
 
   const result = await getUncategorizedSenders({
-    userId: user.id,
+    emailAccountId: user.email,
     offset,
   });
 

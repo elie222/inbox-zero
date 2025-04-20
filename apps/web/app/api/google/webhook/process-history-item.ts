@@ -65,8 +65,8 @@ export async function processHistoryItem(
       getMessage(messageId, gmail, "full"),
       prisma.executedRule.findUnique({
         where: {
-          unique_user_thread_message: {
-            userId: user.userId,
+          unique_emailAccount_thread_message: {
+            emailAccountId: userEmail,
             threadId,
             messageId,
           },
@@ -167,7 +167,9 @@ export async function processHistoryItem(
     if (user.autoCategorizeSenders) {
       const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
-        where: { email_userId: { email: sender, userId: user.userId } },
+        where: {
+          email_emailAccountId: { email: sender, emailAccountId: userEmail },
+        },
         select: { category: true },
       });
       if (!existingSender?.category) {
@@ -243,7 +245,7 @@ async function handleOutbound(
   try {
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
-      userId: user.userId,
+      email: user.email,
       gmail,
     });
   } catch (cleanupError) {

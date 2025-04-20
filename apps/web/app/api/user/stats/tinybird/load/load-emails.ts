@@ -17,11 +17,11 @@ const logger = createScopedLogger("Load Emails");
 
 export async function loadEmails(
   {
-    userId,
+    emailAccountId,
     gmail,
     accessToken,
   }: {
-    userId: string;
+    emailAccountId: string;
     gmail: gmail_v1.Gmail;
     accessToken: string;
   },
@@ -31,7 +31,7 @@ export async function loadEmails(
   let pages = 0;
 
   const newestEmailSaved = await prisma.emailMessage.findFirst({
-    where: { userId },
+    where: { emailAccountId },
     orderBy: { date: "desc" },
   });
 
@@ -41,7 +41,7 @@ export async function loadEmails(
   while (pages < MAX_PAGES) {
     logger.info("After Page", { pages });
     const res = await saveBatch({
-      userId,
+      emailAccountId,
       gmail,
       accessToken,
       nextPageToken,
@@ -60,7 +60,7 @@ export async function loadEmails(
   if (!body.loadBefore || !newestEmailSaved) return { pages };
 
   const oldestEmailSaved = await prisma.emailMessage.findFirst({
-    where: { userId },
+    where: { emailAccountId },
     orderBy: { date: "asc" },
   });
 
@@ -73,7 +73,7 @@ export async function loadEmails(
   while (pages < MAX_PAGES) {
     logger.info("Before Page", { pages });
     const res = await saveBatch({
-      userId,
+      emailAccountId,
       gmail,
       accessToken,
       nextPageToken,
@@ -93,14 +93,14 @@ export async function loadEmails(
 }
 
 async function saveBatch({
-  userId,
+  emailAccountId,
   gmail,
   accessToken,
   nextPageToken,
   before,
   after,
 }: {
-  userId: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   accessToken: string;
   nextPageToken?: string;
@@ -140,7 +140,7 @@ async function saveBatch({
       const date = internalDateToDate(m.internalDate);
       if (!date) {
         logger.error("No date for email", {
-          userId,
+          email: emailAccountId,
           messageId: m.id,
           date: m.internalDate,
         });
@@ -159,7 +159,7 @@ async function saveBatch({
         sent: !!m.labelIds?.includes(GmailLabel.SENT),
         draft: !!m.labelIds?.includes(GmailLabel.DRAFT),
         inbox: !!m.labelIds?.includes(GmailLabel.INBOX),
-        userId,
+        emailAccountId,
       };
     })
     .filter(isDefined);

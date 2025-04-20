@@ -11,8 +11,8 @@ export type LoadTinybirdEmailsResponse = Awaited<ReturnType<typeof loadEmails>>;
 
 export const POST = withError(async (request: Request) => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
   const json = await request.json();
   const body = loadTinybirdEmailsBody.parse(json);
@@ -24,7 +24,7 @@ export const POST = withError(async (request: Request) => {
 
   const result = await loadEmails(
     {
-      userId: session.user.id,
+      emailAccountId: email,
       gmail,
       accessToken: token.token,
     },

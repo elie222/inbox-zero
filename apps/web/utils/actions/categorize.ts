@@ -49,7 +49,7 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
 
     async function getUncategorizedSenders(offset: number) {
       const result = await getSenders({
-        userId: user.id,
+        emailAccountId: user.email,
         limit: LIMIT,
         offset,
       });
