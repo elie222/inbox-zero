@@ -13,7 +13,8 @@ export const setNewsletterStatusAction = withActionInstrumentation(
   "setNewsletterStatus",
   async (unsafeData: SetNewsletterStatusBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const userEmail = session?.user.email;
+    if (!userEmail) return { error: "Not logged in" };
 
     const { data, success, error } =
       setNewsletterStatusBody.safeParse(unsafeData);
@@ -21,17 +22,16 @@ export const setNewsletterStatusAction = withActionInstrumentation(
 
     const { newsletterEmail, status } = data;
 
-    const userId = session.user.id;
     const email = extractEmailAddress(newsletterEmail);
 
     return await prisma.newsletter.upsert({
       where: {
-        email_userId: { email, userId },
+        email_emailAccountId: { email, emailAccountId: userEmail },
       },
       create: {
         status,
         email,
-        user: { connect: { id: userId } },
+        emailAccountId: userEmail,
       },
       update: { status },
     });

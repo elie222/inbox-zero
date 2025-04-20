@@ -70,9 +70,10 @@ export const deleteGroupItemAction = withActionInstrumentation(
   "deleteGroupItem",
   async (id: string) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
-    await deleteGroupItem({ id, userId: session.user.id });
+    await deleteGroupItem({ id, email });
 
     revalidatePath("/automation");
   },

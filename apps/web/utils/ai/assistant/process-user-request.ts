@@ -354,7 +354,7 @@ ${senderCategory || "No category"}
                 try {
                   await deleteGroupItem({
                     id: groupItem.id,
-                    userId: user.userId,
+                    email: user.email,
                   });
                 } catch (error) {
                   const message =
