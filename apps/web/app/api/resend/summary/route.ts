@@ -53,10 +53,9 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     }
   }
 
-  const user = await prisma.user.findUnique({
+  const user = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
-      id: true,
       coldEmails: { where: { createdAt: { gt: cutOffDate } } },
       _count: {
         select: {
@@ -68,7 +67,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
           },
         },
       },
-      accounts: {
+      account: {
         select: {
           access_token: true,
         },
@@ -98,7 +97,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     prisma.threadTracker.groupBy({
       by: ["type"],
       where: {
-        userId: user.id,
+        emailAccountId: email,
         resolved: false,
       },
       _count: true,
@@ -106,7 +105,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     // needs reply
     prisma.threadTracker.findMany({
       where: {
-        userId: user.id,
+        emailAccountId: email,
         type: ThreadTrackerType.NEEDS_REPLY,
         resolved: false,
       },
@@ -117,7 +116,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     // awaiting reply
     prisma.threadTracker.findMany({
       where: {
-        userId: user.id,
+        emailAccountId: email,
         type: ThreadTrackerType.AWAITING,
         resolved: false,
         // only show emails that are more than 3 days overdue
@@ -163,8 +162,8 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     messagesCount: messageIds.length,
   });
 
-  const messages = user.accounts?.[0]?.access_token
-    ? await getMessagesBatch(messageIds, user.accounts[0].access_token)
+  const messages = user.account.access_token
+    ? await getMessagesBatch(messageIds, user.account.access_token)
     : [];
 
   const messageMap = Object.fromEntries(
@@ -216,8 +215,8 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
   });
 
-  async function sendEmail(userId: string) {
-    const token = await createUnsubscribeToken(userId);
+  async function sendEmail({ email }: { email: string }) {
+    const token = await createUnsubscribeToken({ email });
 
     return sendSummaryEmail({
       to: email,
@@ -237,7 +236,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   }
 
   await Promise.all([
-    shouldSendEmail ? sendEmail(user.id) : Promise.resolve(),
+    shouldSendEmail ? sendEmail({ email }) : Promise.resolve(),
     prisma.emailAccount.update({
       where: { email },
       data: { lastSummaryEmailAt: new Date() },

@@ -72,12 +72,16 @@ async function getThread(email: string, jobId: string, threadId: string) {
   return redis.get<CleanThread>(key);
 }
 
-export async function getThreadsByJobId(
-  userId: string,
-  jobId: string,
+export async function getThreadsByJobId({
+  emailAccountId,
+  jobId,
   limit = 1000,
-) {
-  const pattern = `thread:${userId}:${jobId}:*`;
+}: {
+  emailAccountId: string;
+  jobId: string;
+  limit?: number;
+}) {
+  const pattern = `thread:${emailAccountId}:${jobId}:*`;
   const keys = [];
   let cursor = 0;
 

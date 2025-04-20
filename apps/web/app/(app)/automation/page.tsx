@@ -23,7 +23,8 @@ export const maxDuration = 300; // Applies to the actions
 
 export default async function AutomationPage() {
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  const email = session?.user.email;
+  if (!email) redirect("/login");
 
   // onboarding redirect
   const cookieStore = await cookies();
@@ -32,7 +33,7 @@ export default async function AutomationPage() {
 
   if (!viewedOnboarding) {
     const hasRule = await prisma.rule.findFirst({
-      where: { userId: session.user.id },
+      where: { emailAccountId: email },
       select: { id: true },
     });
 

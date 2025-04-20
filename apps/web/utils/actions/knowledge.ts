@@ -17,8 +17,8 @@ export const createKnowledgeAction = withActionInstrumentation(
   "createKnowledge",
   async (unsafeData: CreateKnowledgeBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } = createKnowledgeBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
@@ -26,7 +26,7 @@ export const createKnowledgeAction = withActionInstrumentation(
     await prisma.knowledge.create({
       data: {
         ...data,
-        userId,
+        emailAccountId: email,
       },
     });
 
@@ -38,14 +38,14 @@ export const updateKnowledgeAction = withActionInstrumentation(
   "updateKnowledge",
   async (unsafeData: UpdateKnowledgeBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } = updateKnowledgeBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
     await prisma.knowledge.update({
-      where: { id: data.id, userId },
+      where: { id: data.id, emailAccountId: email },
       data: {
         title: data.title,
         content: data.content,
@@ -60,14 +60,14 @@ export const deleteKnowledgeAction = withActionInstrumentation(
   "deleteKnowledge",
   async (unsafeData: DeleteKnowledgeBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } = deleteKnowledgeBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
     await prisma.knowledge.delete({
-      where: { id: data.id, userId },
+      where: { id: data.id, emailAccountId: email },
     });
 
     revalidatePath("/automation");

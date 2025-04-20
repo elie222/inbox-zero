@@ -15,7 +15,8 @@ export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
 export async function createLabel(body: CreateLabelBody) {
   const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not authenticated");
+  const email = session?.user.email;
+  if (!email) throw new SafeError("Not authenticated");
   const gmail = getGmailClient(session);
   const label = await getOrCreateLabel({ gmail, name: body.name });
 
@@ -23,9 +24,9 @@ export async function createLabel(body: CreateLabelBody) {
 
   const dbPromise = prisma.label.upsert({
     where: {
-      gmailLabelId_userId: {
+      gmailLabelId_emailAccountId: {
         gmailLabelId: label.id,
-        userId: session.user.id,
+        emailAccountId: email,
       },
     },
     update: {},
@@ -34,12 +35,12 @@ export async function createLabel(body: CreateLabelBody) {
       description: body.description,
       gmailLabelId: label.id,
       enabled: true,
-      userId: session.user.id,
+      emailAccountId: email,
     },
   });
 
   const redisPromise = saveUserLabel({
-    email: session.user.email,
+    email,
     label: { id: label.id, name: body.name, description: body.description },
   });
 

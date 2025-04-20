@@ -17,23 +17,20 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
  * 2. Managing Gmail labels
  */
 export async function coordinateReplyProcess({
-  userId,
-  email,
+  emailAccountId,
   threadId,
   messageId,
   sentAt,
   gmail,
 }: {
-  userId: string;
-  email: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   sentAt: Date;
   gmail: gmail_v1.Gmail;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
-    userId,
-    email,
+    email: emailAccountId,
     threadId,
     messageId,
   });
@@ -43,7 +40,12 @@ export async function coordinateReplyProcess({
   const awaitingReplyLabelId = await getAwaitingReplyLabel(gmail);
 
   // Process in parallel for better performance
-  const dbPromise = updateThreadTrackers(userId, threadId, messageId, sentAt);
+  const dbPromise = updateThreadTrackers({
+    emailAccountId,
+    threadId,
+    messageId,
+    sentAt,
+  });
   const labelsPromise = removeThreadLabel(
     gmail,
     threadId,
@@ -69,17 +71,22 @@ export async function coordinateReplyProcess({
 /**
  * Updates thread trackers in the database - resolves AWAITING trackers and creates a NEEDS_REPLY tracker
  */
-async function updateThreadTrackers(
-  userId: string,
-  threadId: string,
-  messageId: string,
-  sentAt: Date,
-) {
+async function updateThreadTrackers({
+  emailAccountId,
+  threadId,
+  messageId,
+  sentAt,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  sentAt: Date;
+}) {
   return prisma.$transaction([
     // Resolve existing AWAITING trackers
     prisma.threadTracker.updateMany({
       where: {
-        userId,
+        emailAccountId,
         threadId,
         type: ThreadTrackerType.AWAITING,
       },
@@ -90,15 +97,15 @@ async function updateThreadTrackers(
     // Create new NEEDS_REPLY tracker
     prisma.threadTracker.upsert({
       where: {
-        userId_threadId_messageId: {
-          userId,
+        emailAccountId_threadId_messageId: {
+          emailAccountId,
           threadId,
           messageId,
         },
       },
       update: {},
       create: {
-        userId,
+        emailAccountId,
         threadId,
         messageId,
         type: ThreadTrackerType.NEEDS_REPLY,
@@ -120,7 +127,7 @@ export async function handleInboundReply(
 
   const replyTrackingRules = await prisma.rule.findMany({
     where: {
-      userId: user.userId,
+      emailAccountId: user.email,
       instructions: { not: null },
       actions: {
         some: {
@@ -144,8 +151,7 @@ export async function handleInboundReply(
 
   if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
     await coordinateReplyProcess({
-      userId: user.userId,
-      email: user.email,
+      emailAccountId: user.email,
       threadId: message.threadId,
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),

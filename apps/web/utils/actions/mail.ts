@@ -181,9 +181,8 @@ export const updateLabelsAction = withActionInstrumentation(
     labels: Pick<Label, "name" | "description" | "enabled" | "gmailLabelId">[],
   ) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
-    const userId = session.user.id;
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const enabledLabels = labels.filter((label) => label.enabled);
     const disabledLabels = labels.filter((label) => !label.enabled);
@@ -193,13 +192,13 @@ export const updateLabelsAction = withActionInstrumentation(
         const { name, description, enabled, gmailLabelId } = label;
 
         return prisma.label.upsert({
-          where: { name_userId: { name, userId } },
+          where: { name_emailAccountId: { name, emailAccountId: email } },
           create: {
             gmailLabelId,
             name,
             description,
             enabled,
-            user: { connect: { id: userId } },
+            emailAccount: { connect: { email } },
           },
           update: {
             name,
@@ -210,14 +209,14 @@ export const updateLabelsAction = withActionInstrumentation(
       }),
       prisma.label.deleteMany({
         where: {
-          userId,
+          emailAccountId: email,
           name: { in: disabledLabels.map((label) => label.name) },
         },
       }),
     ]);
 
     await saveUserLabels({
-      email: session.user.email,
+      email,
       labels: enabledLabels.map((l) => ({
         ...l,
         id: l.gmailLabelId,

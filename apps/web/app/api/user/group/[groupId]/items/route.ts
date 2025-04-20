@@ -6,14 +6,14 @@ import { withError } from "@/utils/middleware";
 export type GroupItemsResponse = Awaited<ReturnType<typeof getGroupItems>>;
 
 async function getGroupItems({
-  userId,
+  email,
   groupId,
 }: {
-  userId: string;
+  email: string;
   groupId: string;
 }) {
   const group = await prisma.group.findUnique({
-    where: { id: groupId, userId },
+    where: { id: groupId, emailAccountId: email },
     select: {
       name: true,
       prompt: true,
@@ -26,16 +26,13 @@ async function getGroupItems({
 
 export const GET = withError(async (_request: Request, { params }) => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Group id required" });
 
-  const result = await getGroupItems({
-    userId: session.user.id,
-    groupId,
-  });
+  const result = await getGroupItems({ email, groupId });
 
   return NextResponse.json(result);
 });

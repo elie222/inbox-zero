@@ -37,14 +37,14 @@ export default async function CategoriesPage() {
 
   const [senders, categories, emailAccount, progress] = await Promise.all([
     prisma.newsletter.findMany({
-      where: { userId: session.user.id, categoryId: { not: null } },
+      where: { emailAccountId: email, categoryId: { not: null } },
       select: {
         id: true,
         email: true,
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategoriesWithRules(session.user.id),
+    getUserCategoriesWithRules(email),
     prisma.emailAccount.findUnique({
       where: { email },
       select: { autoCategorizeSenders: true },

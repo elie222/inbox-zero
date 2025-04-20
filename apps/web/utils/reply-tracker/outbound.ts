@@ -79,7 +79,7 @@ export async function handleOutboundReply(
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
-      userId: user.userId,
+      email: user.email,
       threadId: message.threadId,
       messageId: message.id,
       awaitingReplyLabelId,
@@ -93,7 +93,7 @@ export async function handleOutboundReply(
 
 async function createReplyTrackerOutbound({
   gmail,
-  userId,
+  email,
   threadId,
   messageId,
   awaitingReplyLabelId,
@@ -101,7 +101,7 @@ async function createReplyTrackerOutbound({
   logger,
 }: {
   gmail: gmail_v1.Gmail;
-  userId: string;
+  email: string;
   threadId: string;
   messageId: string;
   awaitingReplyLabelId: string;
@@ -112,15 +112,15 @@ async function createReplyTrackerOutbound({
 
   const upsertPromise = prisma.threadTracker.upsert({
     where: {
-      userId_threadId_messageId: {
-        userId,
+      emailAccountId_threadId_messageId: {
+        emailAccountId: email,
         threadId,
         messageId,
       },
     },
     update: {},
     create: {
-      userId,
+      emailAccountId: email,
       threadId,
       messageId,
       type: ThreadTrackerType.AWAITING,
@@ -154,13 +154,13 @@ async function createReplyTrackerOutbound({
 
 async function resolveReplyTrackers(
   gmail: gmail_v1.Gmail,
-  userId: string,
+  email: string,
   threadId: string,
   needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
-      userId,
+      emailAccountId: email,
       threadId,
       resolved: false,
       type: ThreadTrackerType.NEEDS_REPLY,

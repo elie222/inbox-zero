@@ -215,11 +215,9 @@ const track_thread: ActionFunction<any> = async (
   email,
   _args,
   userEmail,
-  executedRule,
 ) => {
   await coordinateReplyProcess({
-    userId: executedRule.userId,
-    email: userEmail,
+    emailAccountId: userEmail,
     threadId: email.threadId,
     messageId: email.id,
     sentAt: internalDateToDate(email.internalDate),

@@ -87,9 +87,7 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  apiKeys           ApiKey[]
-  unsubscribeTokens EmailToken[]
-  knowledges        Knowledge[]
+  apiKeys ApiKey[]
 
   emailAccounts EmailAccount[]
 
@@ -138,6 +136,8 @@ model EmailAccount {
   cleanupJobs    CleanupJob[]
   cleanupThreads CleanupThread[]
   emailMessages  EmailMessage[]
+  emailTokens    EmailToken[]
+  knowledge      Knowledge[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -487,10 +487,10 @@ model Knowledge {
   title     String
   content   String
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [email])
+  emailAccountId String?
 
-  @@unique([userId, title])
+  @@unique([emailAccountId, title])
 }
 
 model ApiKey {
@@ -508,12 +508,12 @@ model ApiKey {
 }
 
 model EmailToken {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  expiresAt DateTime
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  token          String       @unique
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  expiresAt      DateTime
   // action    EmailTokenAction @default(UNSUBSCRIBE)
 }
 

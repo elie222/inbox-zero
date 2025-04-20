@@ -15,20 +15,21 @@ export default async function CleanRunPage(props: {
   const session = await auth();
   if (!session?.user.email) return <div>Not authenticated</div>;
 
-  const userId = session.user.id;
   const userEmail = session.user.email;
 
-  const threads = await getThreadsByJobId(userId, jobId);
+  const threads = await getThreadsByJobId({ emailAccountId: userEmail, jobId });
 
   const job = jobId
-    ? await getJobById({ userId, jobId })
-    : await getLastJob(userId);
+    ? await getJobById({ email: userEmail, jobId })
+    : await getLastJob({ email: userEmail });
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
   const [total, done] = await Promise.all([
-    prisma.cleanupThread.count({ where: { jobId, userId } }),
-    prisma.cleanupThread.count({ where: { jobId, userId, archived: true } }),
+    prisma.cleanupThread.count({ where: { jobId, emailAccountId: userEmail } }),
+    prisma.cleanupThread.count({
+      where: { jobId, emailAccountId: userEmail, archived: true },
+    }),
   ]);
 
   return (

@@ -92,7 +92,7 @@ export const resetAnalyticsAction = withActionInstrumentation(
     if (!session?.user.email) return { error: "Not logged in" };
 
     await prisma.emailMessage.deleteMany({
-      where: { userId: session.user.id },
+      where: { emailAccountId: session.user.email },
     });
   },
 );

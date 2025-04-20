@@ -13,10 +13,11 @@ export default async function RulePage(props: {
   const searchParams = await props.searchParams;
   const params = await props.params;
   const session = await auth();
-  if (!session?.user) redirect("/login");
+  const email = session?.user.email;
+  if (!email) redirect("/login");
 
   const rule = await prisma.rule.findUnique({
-    where: { id: params.ruleId, userId: session.user.id },
+    where: { id: params.ruleId, emailAccountId: email },
     include: {
       actions: true,
       categoryFilters: true,

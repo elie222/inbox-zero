@@ -5,9 +5,9 @@ import { withError } from "@/utils/middleware";
 
 export type GroupsResponse = Awaited<ReturnType<typeof getGroups>>;
 
-async function getGroups({ userId }: { userId: string }) {
+async function getGroups({ email }: { email: string }) {
   const groups = await prisma.group.findMany({
-    where: { userId },
+    where: { emailAccountId: email },
     select: {
       id: true,
       name: true,
@@ -20,10 +20,10 @@ async function getGroups({ userId }: { userId: string }) {
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  const result = await getGroups({ userId: session.user.id });
+  const result = await getGroups({ email });
 
   return NextResponse.json(result);
 });

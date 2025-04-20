@@ -116,7 +116,7 @@ async function saveToDatabase({
 }) {
   await prisma.cleanupThread.create({
     data: {
-      user: { connect: { email } },
+      emailAccount: { connect: { email } },
       threadId,
       archived: archive,
       job: { connect: { id: jobId } },
