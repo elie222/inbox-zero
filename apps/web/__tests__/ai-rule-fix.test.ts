@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import type { EmailForLLM } from "@/utils/types";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-rule-fix
 
@@ -175,15 +176,5 @@ function getEmail({
     content,
     ...(replyTo && { replyTo }),
     ...(cc && { cc }),
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }

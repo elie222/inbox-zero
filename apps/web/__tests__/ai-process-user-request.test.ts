@@ -5,6 +5,7 @@ import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import type { Category, GroupItem, Prisma } from "@prisma/client";
 import { GroupItemType, LogicalOperator } from "@prisma/client";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-process-user-request
 
@@ -474,17 +475,6 @@ function getParsedMessage(
       "message-id": "message-id",
       ...message.headers,
     },
-  };
-}
-
-function getUser() {
-  return {
-    id: "user1",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }
 

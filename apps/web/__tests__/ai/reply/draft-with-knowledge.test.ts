@@ -64,7 +64,7 @@ describe.runIf(isAiTest)("aiDraftWithKnowledge", () => {
 
 function getUser(overrides: Partial<UserEmailWithAI> = {}): UserEmailWithAI {
   return {
-    id: "user-123",
+    userId: "user-123",
     email: "user@example.com",
     aiModel: null,
     aiProvider: null,

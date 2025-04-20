@@ -13,10 +13,12 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 vi.mock("server-only", () => ({}));
 
 const testUser = {
+  userId: "user1",
   email: "user@test.com",
   aiProvider: null,
   aiModel: null,
   aiApiKey: null,
+  about: null,
 };
 
 const testSenders = [

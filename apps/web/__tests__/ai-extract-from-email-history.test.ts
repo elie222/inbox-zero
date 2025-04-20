@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailForLLM } from "@/utils/types";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai extract-from-email-history
 
@@ -8,17 +9,6 @@ vi.mock("server-only", () => ({}));
 
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
-
-function getUser() {
-  return {
-    id: "test-user-id",
-    email: "user@test.com",
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
-    about: null,
-  };
-}
 
 function getMockMessage(overrides = {}): EmailForLLM {
   return {

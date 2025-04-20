@@ -47,7 +47,12 @@ export async function runRules({
 }): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user, gmail);
 
-  analyzeSenderPatternIfAiMatch(isTest, result, message, user.userId);
+  analyzeSenderPatternIfAiMatch({
+    isTest,
+    result,
+    message,
+    email: user.email,
+  });
 
   logger.trace("Matching rule", { result });
 
@@ -243,12 +248,17 @@ async function upsertExecutedRule({
   }
 }
 
-async function analyzeSenderPatternIfAiMatch(
-  isTest: boolean,
-  result: { rule?: Rule | null; matchReasons?: MatchReason[] },
-  message: ParsedMessage,
-  userId: string,
-) {
+async function analyzeSenderPatternIfAiMatch({
+  isTest,
+  result,
+  message,
+  email,
+}: {
+  isTest: boolean;
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  message: ParsedMessage;
+  email: string;
+}) {
   if (
     !isTest &&
     result.rule &&
@@ -265,7 +275,7 @@ async function analyzeSenderPatternIfAiMatch(
     if (fromAddress) {
       after(() =>
         analyzeSenderPattern({
-          userId,
+          email,
           from: fromAddress,
         }),
       );

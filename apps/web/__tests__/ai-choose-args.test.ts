@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-args
 
@@ -226,16 +227,5 @@ function getParsedMessage({
       "message-id": "message-id",
       // ...message.headers,
     },
-  };
-}
-
-function getUser() {
-  return {
-    id: "userId",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }

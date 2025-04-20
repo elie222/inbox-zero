@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-rule
 
@@ -358,15 +359,5 @@ function getEmail({
     from,
     subject,
     content,
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }
