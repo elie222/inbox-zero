@@ -4,20 +4,18 @@ import { getPaginatedThreadTrackers } from "./fetch-trackers";
 import type { TimeRange } from "./date-filter";
 
 export async function AwaitingReply({
-  userId,
-  userEmail,
+  email,
   page,
   timeRange,
   isAnalyzing,
 }: {
-  userId: string;
-  userEmail: string;
+  email: string;
   page: number;
   timeRange: TimeRange;
   isAnalyzing: boolean;
 }) {
   const { trackers, totalPages } = await getPaginatedThreadTrackers({
-    userId,
+    email,
     type: ThreadTrackerType.AWAITING,
     page,
     timeRange,
@@ -26,7 +24,7 @@ export async function AwaitingReply({
   return (
     <ReplyTrackerEmails
       trackers={trackers}
-      userEmail={userEmail}
+      email={email}
       type={ThreadTrackerType.AWAITING}
       totalPages={totalPages}
       isAnalyzing={isAnalyzing}

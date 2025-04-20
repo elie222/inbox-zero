@@ -5,12 +5,12 @@ import { getDateFilter, type TimeRange } from "./date-filter";
 const PAGE_SIZE = 20;
 
 export async function getPaginatedThreadTrackers({
-  userId,
+  email,
   type,
   page,
   timeRange = "all",
 }: {
-  userId: string;
+  email: string;
   type: ThreadTrackerType;
   page: number;
   timeRange?: TimeRange;
@@ -21,7 +21,7 @@ export async function getPaginatedThreadTrackers({
   const [trackers, total] = await Promise.all([
     prisma.threadTracker.findMany({
       where: {
-        userId,
+        emailAccountId: email,
         resolved: false,
         type,
         sentAt: dateFilter,
@@ -37,7 +37,7 @@ export async function getPaginatedThreadTrackers({
       ? prisma.$queryRaw<[{ count: bigint }]>`
           SELECT COUNT(DISTINCT "threadId") as count
           FROM "ThreadTracker"
-          WHERE "userId" = ${userId}
+          WHERE "emailAccountId" = ${email}
             AND "resolved" = false
             AND "type" = ${type}::text::"ThreadTrackerType"
             AND "sentAt" <= ${dateFilter.lte}
@@ -45,7 +45,7 @@ export async function getPaginatedThreadTrackers({
       : prisma.$queryRaw<[{ count: bigint }]>`
           SELECT COUNT(DISTINCT "threadId") as count
           FROM "ThreadTracker"
-          WHERE "userId" = ${userId}
+          WHERE "emailAccountId" = ${email}
             AND "resolved" = false
             AND "type" = ${type}::text::"ThreadTrackerType"
         `,

@@ -35,14 +35,14 @@ import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 
 export function ReplyTrackerEmails({
   trackers,
-  userEmail,
+  email,
   type,
   isResolved,
   totalPages,
   isAnalyzing,
 }: {
   trackers: ThreadTracker[];
-  userEmail: string;
+  email: string;
   type?: ThreadTrackerType;
   isResolved?: boolean;
   totalPages: number;
@@ -179,7 +179,7 @@ export function ReplyTrackerEmails({
             <Row
               key={thread.id}
               message={thread.messages.at(-1)!}
-              userEmail={userEmail}
+              email={email}
               isResolved={isResolved}
               type={type}
               setSelectedEmail={setSelectedEmail}
@@ -257,7 +257,7 @@ export function ReplyTrackerEmails({
 
 function Row({
   message,
-  userEmail,
+  email,
   isResolved,
   type,
   setSelectedEmail,
@@ -269,7 +269,7 @@ function Row({
   rowRef,
 }: {
   message: ParsedMessage;
-  userEmail: string;
+  email: string;
   isResolved?: boolean;
   type?: ThreadTrackerType;
   setSelectedEmail: (email: { threadId: string; messageId: string }) => void;
@@ -307,7 +307,7 @@ function Row({
             }
             subject={message.headers.subject}
             snippet={message.snippet}
-            userEmail={userEmail}
+            userEmail={email}
             threadId={message.threadId}
             messageId={message.id}
             hideViewEmailButton

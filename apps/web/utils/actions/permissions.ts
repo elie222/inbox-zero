@@ -60,10 +60,13 @@ export const adminCheckPermissionsAction = withActionInstrumentation(
     if (!isAdmin(session.user.email)) return { error: "Not admin" };
 
     try {
-      const account = await prisma.account.findFirst({
-        where: { user: { email }, provider: "google" },
-        select: { access_token: true, refresh_token: true },
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email },
+        select: {
+          account: { select: { access_token: true, refresh_token: true } },
+        },
       });
+      const account = emailAccount?.account;
       if (!account) return { error: "No account found" };
 
       const token = await getGmailAccessToken({

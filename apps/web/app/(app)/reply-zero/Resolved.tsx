@@ -6,13 +6,11 @@ import { Prisma } from "@prisma/client";
 const PAGE_SIZE = 20;
 
 export async function Resolved({
-  userId,
-  userEmail,
+  email,
   page,
   timeRange,
 }: {
-  userId: string;
-  userEmail: string;
+  email: string;
   page: number;
   timeRange: TimeRange;
 }) {
@@ -24,7 +22,7 @@ export async function Resolved({
     prisma.$queryRaw<Array<{ id: string }>>`
       SELECT MAX(id) as id
       FROM "ThreadTracker"
-      WHERE "userId" = ${userId}
+      WHERE "emailAccountId" = ${email}
       ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
@@ -35,7 +33,7 @@ export async function Resolved({
     prisma.$queryRaw<[{ count: bigint }]>`
       SELECT COUNT(DISTINCT "threadId") as count
       FROM "ThreadTracker"
-      WHERE "userId" = ${userId}
+      WHERE "emailAccountId" = ${email}
       ${dateFilter ? Prisma.sql`AND "sentAt" <= (${dateFilter}->>'lte')::timestamp` : Prisma.empty}
       GROUP BY "threadId"
       HAVING bool_and(resolved) = true
@@ -54,7 +52,7 @@ export async function Resolved({
   return (
     <ReplyTrackerEmails
       trackers={trackers}
-      userEmail={userEmail}
+      email={email}
       totalPages={totalPages}
       isResolved
       isAnalyzing={false}

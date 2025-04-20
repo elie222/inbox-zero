@@ -60,26 +60,26 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
   "resolveThreadTracker",
   async (unsafeData: ResolveThreadTrackerBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } =
       resolveThreadTrackerSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    await startAnalyzingReplyTracker(userId).catch((error) => {
+    await startAnalyzingReplyTracker({ email }).catch((error) => {
       logger.error("Error starting Reply Zero analysis", { error });
     });
 
     await prisma.threadTracker.updateMany({
       where: {
         threadId: data.threadId,
-        userId,
+        emailAccountId: email,
       },
       data: { resolved: data.resolved },
     });
 
-    await stopAnalyzingReplyTracker(userId).catch((error) => {
+    await stopAnalyzingReplyTracker({ email }).catch((error) => {
       logger.error("Error stopping Reply Zero analysis", { error });
     });
 

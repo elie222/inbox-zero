@@ -26,10 +26,8 @@ export default async function ReplyTrackerPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const session = await auth();
-  if (!session?.user.email) redirect("/login");
-
-  const userId = session.user.id;
-  const userEmail = session.user.email;
+  const email = session?.user.email;
+  if (!email) redirect("/login");
 
   const cookieStore = await cookies();
   const viewedOnboarding =
@@ -38,13 +36,16 @@ export default async function ReplyTrackerPage(props: {
   if (!viewedOnboarding) redirect("/reply-zero/onboarding");
 
   const trackerRule = await prisma.rule.findFirst({
-    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
+    where: {
+      emailAccountId: email,
+      actions: { some: { type: ActionType.TRACK_THREAD } },
+    },
     select: { id: true },
   });
 
   if (!trackerRule) redirect("/reply-zero/onboarding");
 
-  const isAnalyzing = await isAnalyzingReplyTracker(userId);
+  const isAnalyzing = await isAnalyzingReplyTracker({ email });
 
   const page = Number(searchParams.page || "1");
   const timeRange = searchParams.timeRange || "all";
@@ -96,8 +97,7 @@ export default async function ReplyTrackerPage(props: {
 
         <TabsContent value="needsReply" className="mt-0 flex-1">
           <NeedsReply
-            userId={userId}
-            userEmail={userEmail}
+            email={email}
             page={page}
             timeRange={timeRange}
             isAnalyzing={isAnalyzing}
@@ -106,8 +106,7 @@ export default async function ReplyTrackerPage(props: {
 
         <TabsContent value="awaitingReply" className="mt-0 flex-1">
           <AwaitingReply
-            userId={userId}
-            userEmail={userEmail}
+            email={email}
             page={page}
             timeRange={timeRange}
             isAnalyzing={isAnalyzing}
@@ -120,8 +119,7 @@ export default async function ReplyTrackerPage(props: {
 
         <TabsContent value="resolved" className="mt-0 flex-1">
           <Resolved
-            userId={userId}
-            userEmail={userEmail}
+            email={email}
             page={page}
             timeRange={timeRange}
           />

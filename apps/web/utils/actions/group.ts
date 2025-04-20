@@ -16,13 +16,14 @@ export const createGroupAction = withActionInstrumentation(
   "createGroup",
   async (unsafeData: CreateGroupBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { error, data } = createGroupBody.safeParse(unsafeData);
     if (error) return { error: error.message };
 
     const rule = await prisma.rule.findUnique({
-      where: { id: data.ruleId, userId: session.user.id },
+      where: { id: data.ruleId, emailAccountId: email },
       select: { name: true, groupId: true },
     });
     if (rule?.groupId) return { groupId: rule.groupId };
@@ -31,7 +32,7 @@ export const createGroupAction = withActionInstrumentation(
     const group = await prisma.group.create({
       data: {
         name: rule.name,
-        userId: session.user.id,
+        emailAccountId: email,
         rule: {
           connect: { id: data.ruleId },
         },
@@ -46,7 +47,8 @@ export const addGroupItemAction = withActionInstrumentation(
   "addGroupItem",
   async (unsafeData: AddGroupItemBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { error, data } = addGroupItemBody.safeParse(unsafeData);
     if (error) return { error: error.message };
@@ -55,7 +57,7 @@ export const addGroupItemAction = withActionInstrumentation(
       where: { id: data.groupId },
     });
     if (!group) return { error: "Group not found" };
-    if (group.userId !== session.user.id)
+    if (group.emailAccountId !== email)
       return { error: "You don't have permission to add items to this group" };
 
     await addGroupItem(data);

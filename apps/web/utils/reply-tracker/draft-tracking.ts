@@ -43,7 +43,7 @@ export async function trackSentDraftStatus({
   const executedAction = await prisma.executedAction.findFirst({
     where: {
       executedRule: {
-        userId: userId,
+        emailAccountId: user.email,
         threadId: threadId,
       },
       type: ActionType.DRAFT_EMAIL,
@@ -134,14 +134,14 @@ export async function trackSentDraftStatus({
  */
 export async function cleanupThreadAIDrafts({
   threadId,
-  userId,
+  email,
   gmail,
 }: {
   threadId: string;
-  userId: string;
+  email: string;
   gmail: gmail_v1.Gmail;
 }) {
-  const loggerOptions = { userId, threadId };
+  const loggerOptions = { email, threadId };
   logger.info("Starting cleanup of old AI drafts for thread", loggerOptions);
 
   try {
@@ -149,7 +149,7 @@ export async function cleanupThreadAIDrafts({
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
         executedRule: {
-          userId: userId,
+          emailAccountId: email,
           threadId: threadId,
         },
         type: ActionType.DRAFT_EMAIL,

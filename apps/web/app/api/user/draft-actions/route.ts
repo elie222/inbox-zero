@@ -8,19 +8,19 @@ export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withError(async () => {
   const session = await auth();
-  const userId = session?.user.id;
-  if (!userId)
+  const email = session?.user.email;
+  if (!email)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const response = await getData(userId);
+  const response = await getData({ email });
 
   return NextResponse.json(response);
 });
 
-async function getData(userId: string) {
+async function getData({ email }: { email: string }) {
   const executedActions = await prisma.executedAction.findMany({
     where: {
-      executedRule: { userId },
+      executedRule: { emailAccountId: email },
       type: ActionType.DRAFT_EMAIL,
     },
     select: {

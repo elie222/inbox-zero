@@ -6,9 +6,10 @@ import { Card } from "@/components/ui/card";
 
 export default async function CleanPage() {
   const session = await auth();
-  if (!session?.user.id) return <div>Not authenticated</div>;
+  const email = session?.user.email;
+  if (!email) return <div>Not authenticated</div>;
 
-  const lastJob = await getLastJob(session.user.id);
+  const lastJob = await getLastJob({ email });
   if (!lastJob) redirect("/clean/onboarding");
 
   return (
