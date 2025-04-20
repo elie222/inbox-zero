@@ -16,14 +16,21 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
  * 1. Updating thread trackers in the database
  * 2. Managing Gmail labels
  */
-export async function coordinateReplyProcess(
-  userId: string,
-  email: string,
-  threadId: string,
-  messageId: string,
-  sentAt: Date,
-  gmail: gmail_v1.Gmail,
-) {
+export async function coordinateReplyProcess({
+  userId,
+  email,
+  threadId,
+  messageId,
+  sentAt,
+  gmail,
+}: {
+  userId: string;
+  email: string;
+  threadId: string;
+  messageId: string;
+  sentAt: Date;
+  gmail: gmail_v1.Gmail;
+}) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     userId,
     email,
@@ -113,7 +120,7 @@ export async function handleInboundReply(
 
   const replyTrackingRules = await prisma.rule.findMany({
     where: {
-      userId: user.id,
+      userId: user.userId,
       instructions: { not: null },
       actions: {
         some: {
@@ -136,13 +143,13 @@ export async function handleInboundReply(
   });
 
   if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
-    await coordinateReplyProcess(
-      user.id,
-      user.email,
-      message.threadId,
-      message.id,
-      internalDateToDate(message.internalDate),
+    await coordinateReplyProcess({
+      userId: user.userId,
+      email: user.email,
+      threadId: message.threadId,
+      messageId: message.id,
+      sentAt: internalDateToDate(message.internalDate),
       gmail,
-    );
+    });
   }
 }

@@ -28,11 +28,11 @@ export const callWebhook = async (
 ) => {
   if (!url) throw new Error("Webhook URL is required");
 
-  const user = await prisma.user.findUnique({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { email: userEmail },
     select: { webhookSecret: true },
   });
-  if (!user) throw new Error("User not found");
+  if (!emailAccount) throw new Error("Email account not found");
 
   try {
     await Promise.race([
@@ -40,7 +40,7 @@ export const callWebhook = async (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Webhook-Secret": user?.webhookSecret || "",
+          "X-Webhook-Secret": emailAccount.webhookSecret || "",
         },
         body: JSON.stringify(payload),
       }),

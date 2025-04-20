@@ -119,7 +119,7 @@ async function generateDraftContent(
   if (!lastMessage) throw new Error("No message provided");
 
   const reply = await getReply({
-    userId: user.userId,
+    email: user.email,
     messageId: lastMessage.id,
   });
 
@@ -191,7 +191,7 @@ async function generateDraftContent(
 
   if (typeof text === "string") {
     await saveReply({
-      userId: user.userId,
+      email: user.email,
       messageId: lastMessage.id,
       reply: text,
     });

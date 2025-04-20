@@ -38,7 +38,7 @@ export async function deleteUser({
     deleteResendContact({ email }),
     account
       ? unwatchEmails({
-          userId: userId,
+          email,
           access_token: account.access_token ?? null,
           refresh_token: null,
         })

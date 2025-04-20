@@ -50,8 +50,8 @@ async function unsubscribe(request: Request) {
   // Update user preferences
 
   const [userUpdate, tokenDelete] = await Promise.allSettled([
-    prisma.user.update({
-      where: { id: emailToken.userId },
+    prisma.emailAccount.update({
+      where: { email: emailToken.user.email },
       data: {
         summaryEmailFrequency: Frequency.NEVER,
         statsEmailFrequency: Frequency.NEVER,
