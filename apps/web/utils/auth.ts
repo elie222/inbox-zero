@@ -1,6 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { NextAuthConfig, DefaultSession, Account } from "next-auth";
+import type { AdapterAccount } from "@auth/core/adapters";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
@@ -45,7 +46,43 @@ export const getAuthOptions: (options?: {
       },
     }),
   ],
-  adapter: PrismaAdapter(prisma),
+  adapter: {
+    ...PrismaAdapter(prisma),
+    linkAccount: async (account: AdapterAccount): Promise<void> => {
+      try {
+        // --- Step 1: Fetch the user to get their email ---
+        const user = await prisma.user.findUniqueOrThrow({
+          where: { id: account.userId },
+          select: { email: true },
+        });
+
+        // --- Step 2: Create the Account record ---
+        const createdAccount = await prisma.account.create({
+          data: {
+            ...account,
+            email: user.email,
+          },
+          select: { id: true },
+        });
+
+        // --- Step 3: Create the corresponding EmailAccount record ---
+        await prisma.emailAccount.create({
+          data: {
+            email: user.email,
+            userId: account.userId,
+            accountId: createdAccount.id,
+          },
+        });
+      } catch (error) {
+        logger.error("Error linking account", {
+          userId: account.userId,
+          error,
+        });
+        captureException(error, { extra: { userId: account.userId } });
+        throw error;
+      }
+    },
+  },
   session: { strategy: "jwt" },
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js

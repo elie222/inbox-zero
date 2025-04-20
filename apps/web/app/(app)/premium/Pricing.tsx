@@ -36,7 +36,7 @@ export function Pricing(props: {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
 }) {
-  const { isPremium, data, isLoading, error } = usePremium();
+  const { isPremium, premium, isLoading, error } = usePremium();
   const session = useSession();
 
   const defaultFrequency = usePricingFrequencyDefault();
@@ -45,7 +45,7 @@ export function Pricing(props: {
   );
 
   const affiliateCode = useAffiliateCode();
-  const premiumTier = getUserTier(data?.user.premium);
+  const premiumTier = getUserTier(premium);
 
   const skipVariant = useSkipUpgrade();
 

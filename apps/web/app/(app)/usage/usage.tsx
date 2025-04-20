@@ -14,7 +14,7 @@ export function Usage(props: {
     openaiTokensUsed: number;
   } | null;
 }) {
-  const { data, isLoading, error } = usePremium();
+  const { premium, isLoading, error } = usePremium();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -22,10 +22,10 @@ export function Usage(props: {
         stats={[
           {
             name: "Unsubscribe Credits",
-            value: isPremium(data?.user.premium?.lemonSqueezyRenewsAt || null)
+            value: isPremium(premium?.lemonSqueezyRenewsAt || null)
               ? "Unlimited"
               : formatStat(
-                  data?.user.premium?.unsubscribeCredits ??
+                  premium?.unsubscribeCredits ??
                     env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,
                 ),
             subvalue: "credits",
