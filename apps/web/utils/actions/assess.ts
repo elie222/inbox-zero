@@ -93,31 +93,10 @@ export const analyzeWritingStyleAction = withActionInstrumentation(
       .filter(Boolean)
       .join("\n");
 
-    if (emailAccount) {
-      await prisma.emailAccount.update({
-        where: { email },
-        data: { writingStyle },
-      });
-    } else {
-      const account = await prisma.account.findFirst({
-        where: { email },
-        select: { id: true },
-      });
-
-      if (!account) {
-        logger.error("Account not found", { email });
-        return { error: "Account not found" };
-      }
-
-      await prisma.emailAccount.create({
-        data: {
-          email,
-          userId: session.user.id,
-          accountId: account.id,
-          writingStyle,
-        },
-      });
-    }
+    await prisma.emailAccount.update({
+      where: { email },
+      data: { writingStyle },
+    });
 
     return { success: true };
   },
