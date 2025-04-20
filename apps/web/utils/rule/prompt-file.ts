@@ -95,10 +95,9 @@ async function appendRulePrompt({
     select: { rulesPrompt: true },
   });
 
-  if (!emailAccount?.rulesPrompt) return;
+  const existingPrompt = emailAccount?.rulesPrompt ?? "";
 
-  const updatedPrompt =
-    `${emailAccount.rulesPrompt || ""}\n\n* ${rulePrompt}.`.trim();
+  const updatedPrompt = `${existingPrompt}\n\n* ${rulePrompt}.`.trim();
 
   await prisma.emailAccount.update({
     where: { email },
