@@ -27,7 +27,7 @@ export const SCOPES = [
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthConfig = (options) => ({
-  // debug: true,
+  debug: true,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
@@ -46,6 +46,17 @@ export const getAuthOptions: (options?: {
       },
     }),
   ],
+  logger: {
+    error: (error) => {
+      logger.error(error.message, { error });
+    },
+    warn: (message) => {
+      logger.warn(message);
+    },
+    debug: (message, metadata) => {
+      logger.info(message, { metadata });
+    },
+  },
   adapter: {
     ...PrismaAdapter(prisma),
     linkAccount: async (data: AdapterAccount): Promise<void> => {
@@ -191,11 +202,17 @@ export const getAuthOptions: (options?: {
         ]);
 
         if (loopsResult.status === "rejected") {
-          logger.error("Error creating Loops contact", {
-            email: user.email,
-            error: loopsResult.reason,
-          });
-          captureException(loopsResult.reason, undefined, user.email);
+          const alreadyExists =
+            loopsResult.reason instanceof Error &&
+            loopsResult.reason.message.includes("409");
+
+          if (!alreadyExists) {
+            logger.error("Error creating Loops contact", {
+              email: user.email,
+              error: loopsResult.reason,
+            });
+            captureException(loopsResult.reason, undefined, user.email);
+          }
         }
 
         if (resendResult.status === "rejected") {
