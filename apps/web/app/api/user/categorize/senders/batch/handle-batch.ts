@@ -48,15 +48,21 @@ async function handleBatchInternal(request: Request) {
   if (isActionError(categoriesResult)) return categoriesResult;
   const { categories } = categoriesResult;
 
-  const account = await prisma.account.findUnique({
+  const emailAccountWithAccount = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+          providerAccountId: true,
+        },
+      },
     },
   });
+
+  const account = emailAccountWithAccount?.account;
 
   if (!account) return { error: "No account found" };
   if (!account.access_token || !account.refresh_token)
