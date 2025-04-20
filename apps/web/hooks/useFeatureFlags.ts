@@ -36,3 +36,13 @@ export function useSkipUpgrade() {
     "control"
   );
 }
+
+export type PricingFrequencyDefault = "control" | "monthly";
+
+export function usePricingFrequencyDefault() {
+  return (
+    (useFeatureFlagVariantKey(
+      "pricing-frequency-default",
+    ) as PricingFrequencyDefault) || "control"
+  );
+}

@@ -26,7 +26,11 @@ import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PremiumTier } from "@prisma/client";
-import { usePricingVariant, useSkipUpgrade } from "@/hooks/useFeatureFlags";
+import {
+  usePricingFrequencyDefault,
+  usePricingVariant,
+  useSkipUpgrade,
+} from "@/hooks/useFeatureFlags";
 
 export function Pricing(props: {
   header?: React.ReactNode;
@@ -35,7 +39,10 @@ export function Pricing(props: {
   const { isPremium, data, isLoading, error } = usePremium();
   const session = useSession();
 
-  const [frequency, setFrequency] = useState(frequencies[1]);
+  const defaultFrequency = usePricingFrequencyDefault();
+  const [frequency, setFrequency] = useState(
+    defaultFrequency === "monthly" ? frequencies[0] : frequencies[1],
+  );
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(data?.user.premium);

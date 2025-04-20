@@ -141,6 +141,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/waitlist-other",
+        destination: "https://airtable.com/applHl6PVBOa0Q8gD/pagRqrxRK1TChsAMp/form",
+        permanent: false,
+      },
+      {
         source: "/affiliates",
         destination: "https://inboxzero.lemonsqueezy.com/affiliates",
         permanent: true,
