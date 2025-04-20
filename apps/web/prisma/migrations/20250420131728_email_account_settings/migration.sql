@@ -115,20 +115,9 @@ ON CONFLICT ("email") DO UPDATE SET
     "autoCategorizeSenders" = EXCLUDED."autoCategorizeSenders", -- Non-nullable boolean
     "updatedAt" = NOW(); -- Update the timestamp
 
--- Step 2: Update the Account table to link to EmailAccount via email
--- This assumes the previous ALTER TABLE added the 'email' column
-UPDATE "Account" acc
-SET email = u.email
-FROM "User" u
-WHERE acc."userId" = u.id AND u.email IS NOT NULL AND u.email <> '';
-
--- Step 3: Update the CleanupJob table to link to EmailAccount via email
+-- Step 2: Update the CleanupJob table to link to EmailAccount via email
 -- This assumes the previous ALTER TABLE added the 'email' column
 UPDATE "CleanupJob" cj
 SET email = u.email
 FROM "User" u
 WHERE cj."userId" = u.id AND u.email IS NOT NULL AND u.email <> '';
-
--- Note: The corresponding foreign key constraints (`Account_email_fkey`, `CleanupJob_email_fkey`)
--- should already be added by the schema migration part above this data migration script.
--- Also, the old `Account.emailAccountId` column should have been dropped.

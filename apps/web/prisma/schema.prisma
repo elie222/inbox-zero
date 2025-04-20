@@ -137,9 +137,9 @@ model EmailAccount {
   // ...
 
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accountId String   @unique
-  account   Account? @relation(fields: [accountId], references: [id])
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String  @unique
+  account   Account @relation(fields: [accountId], references: [id])
 
   cleanupJobs CleanupJob[]
 
