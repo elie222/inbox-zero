@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import type { EmailForLLM } from "@/utils/types";
+import { getEmail, getUser } from "@/__tests__/helpers";
 // pnpm test-ai ai-find-snippets
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
@@ -63,30 +64,3 @@ describe.runIf(isAiTest)("aiFindSnippets", () => {
     expect(result.snippets).toHaveLength(0);
   });
 });
-
-// helpers
-function getEmail({
-  from = "user@test.com",
-  subject = "Test Subject",
-  content = "Test content",
-  replyTo,
-  cc,
-}: Partial<EmailForLLM> = {}): EmailForLLM {
-  return {
-    from,
-    subject,
-    content,
-    ...(replyTo && { replyTo }),
-    ...(cc && { cc }),
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
-}

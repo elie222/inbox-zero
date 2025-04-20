@@ -1,5 +1,8 @@
-import type { User } from "@prisma/client";
+import type { EmailAccount } from "@prisma/client";
 
-export type UserAIFields = Pick<User, "aiProvider" | "aiModel" | "aiApiKey">;
-export type UserEmailWithAI = Pick<User, "id" | "email" | "about"> &
+export type UserAIFields = Pick<
+  EmailAccount,
+  "aiProvider" | "aiModel" | "aiApiKey"
+>;
+export type UserEmailWithAI = Pick<EmailAccount, "userId" | "email" | "about"> &
   UserAIFields;

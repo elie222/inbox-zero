@@ -7,30 +7,30 @@ const categorizationProgressSchema = z.object({
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
-function getKey(userId: string) {
-  return `categorization-progress:${userId}`;
+function getKey({ email }: { email: string }) {
+  return `categorization-progress:${email}`;
 }
 
 export async function getCategorizationProgress({
-  userId,
+  email,
 }: {
-  userId: string;
+  email: string;
 }) {
-  const key = getKey(userId);
+  const key = getKey({ email });
   const progress = await redis.get<RedisCategorizationProgress>(key);
   if (!progress) return null;
   return progress;
 }
 
 export async function saveCategorizationTotalItems({
-  userId,
+  email,
   totalItems,
 }: {
-  userId: string;
+  email: string;
   totalItems: number;
 }) {
-  const key = getKey(userId);
-  const existingProgress = await getCategorizationProgress({ userId });
+  const key = getKey({ email });
+  const existingProgress = await getCategorizationProgress({ email });
   await redis.set(
     key,
     {
@@ -42,16 +42,16 @@ export async function saveCategorizationTotalItems({
 }
 
 export async function saveCategorizationProgress({
-  userId,
+  email,
   incrementCompleted,
 }: {
-  userId: string;
+  email: string;
   incrementCompleted: number;
 }) {
-  const existingProgress = await getCategorizationProgress({ userId });
+  const existingProgress = await getCategorizationProgress({ email });
   if (!existingProgress) return null;
 
-  const key = getKey(userId);
+  const key = getKey({ email });
   const updatedProgress: RedisCategorizationProgress = {
     ...existingProgress,
     completedItems: (existingProgress.completedItems || 0) + incrementCompleted,
@@ -60,13 +60,4 @@ export async function saveCategorizationProgress({
   // Store progress for 2 minutes
   await redis.set(key, updatedProgress, { ex: 2 * 60 });
   return updatedProgress;
-}
-
-export async function deleteCategorizationProgress({
-  userId,
-}: {
-  userId: string;
-}) {
-  const key = getKey(userId);
-  await redis.del(key);
 }

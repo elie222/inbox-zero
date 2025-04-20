@@ -21,7 +21,7 @@ const MAX_RESULTS = 10;
 const logger = createScopedLogger("api/ai/pattern-match");
 
 const schema = z.object({
-  userId: z.string(),
+  email: z.string(),
   from: z.string(),
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
@@ -34,13 +34,13 @@ export const POST = withError(async (request) => {
 
   const json = await request.json();
   const data = schema.parse(json);
-  const { userId } = data;
+  const { email } = data;
   const from = extractEmailAddress(data.from);
 
-  logger.trace("Analyzing sender pattern", { userId, from });
+  logger.trace("Analyzing sender pattern", { email, from });
 
   // return immediately and process in background
-  after(() => process({ userId, from }));
+  after(() => process({ email, from }));
   return NextResponse.json({ processing: true });
 });
 
@@ -52,29 +52,34 @@ export const POST = withError(async (request) => {
  * 4. Detects patterns using AI
  * 5. Stores patterns in DB for future categorization
  */
-async function process({ userId, from }: { userId: string; from: string }) {
+async function process({ email, from }: { email: string; from: string }) {
   try {
-    // Check if we've already analyzed this sender
-    const existingCheck = await prisma.newsletter.findUnique({
-      where: { email_userId: { email: extractEmailAddress(from), userId } },
-    });
+    const emailAccount = await getEmailAccountWithRules({ email });
 
-    if (existingCheck?.patternAnalyzed) {
-      logger.info("Sender has already been analyzed", { from, userId });
-      return NextResponse.json({ success: true });
-    }
-
-    const user = await getUserWithRules(userId);
-
-    if (!user) {
-      logger.error("User not found", { userId });
+    if (!emailAccount) {
+      logger.error("Email account not found", { email });
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const account = user.accounts[0];
+    // Check if we've already analyzed this sender
+    const existingCheck = await prisma.newsletter.findUnique({
+      where: {
+        email_userId: {
+          email: extractEmailAddress(from),
+          userId: emailAccount.userId,
+        },
+      },
+    });
 
-    if (!account.access_token || !account.refresh_token) {
-      logger.error("No Gmail account found", { userId });
+    if (existingCheck?.patternAnalyzed) {
+      logger.info("Sender has already been analyzed", { from, email });
+      return NextResponse.json({ success: true });
+    }
+
+    const account = emailAccount.account;
+
+    if (!account?.access_token || !account?.refresh_token) {
+      logger.error("No Gmail account found", { email });
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
@@ -94,7 +99,7 @@ async function process({ userId, from }: { userId: string; from: string }) {
     if (threadsWithMessages.length === 0) {
       logger.info("No threads found from this sender", {
         from,
-        userId,
+        email,
       });
 
       // Don't record a check since we didn't run the AI analysis
@@ -109,7 +114,7 @@ async function process({ userId, from }: { userId: string; from: string }) {
     if (allMessages.length < THRESHOLD_EMAILS) {
       logger.info("Not enough emails found from this sender", {
         from,
-        userId,
+        email,
         count: allMessages.length,
       });
 
@@ -123,15 +128,8 @@ async function process({ userId, from }: { userId: string; from: string }) {
     // Detect pattern using AI
     const patternResult = await aiDetectRecurringPattern({
       emails,
-      user: {
-        id: user.id,
-        email: user.email || "",
-        about: user.about,
-        aiProvider: user.aiProvider,
-        aiModel: user.aiModel,
-        aiApiKey: user.aiApiKey,
-      },
-      rules: user.rules.map((rule) => ({
+      user: emailAccount,
+      rules: emailAccount.user.rules.map((rule) => ({
         name: rule.name,
         instructions: rule.instructions || "",
       })),
@@ -140,20 +138,20 @@ async function process({ userId, from }: { userId: string; from: string }) {
     if (patternResult?.matchedRule) {
       // Save pattern to DB (adds sender to rule's group)
       await saveLearnedPattern({
-        userId,
+        userId: emailAccount.userId,
         from,
         ruleName: patternResult.matchedRule,
       });
     }
 
     // Record the pattern analysis result
-    await savePatternCheck(userId, from);
+    await savePatternCheck({ userId: emailAccount.userId, from });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error("Error in pattern match API", {
       from,
-      userId,
+      email,
       error,
     });
 
@@ -167,7 +165,10 @@ async function process({ userId, from }: { userId: string; from: string }) {
 /**
  * Record that we've analyzed a sender for patterns
  */
-async function savePatternCheck(userId: string, from: string) {
+async function savePatternCheck({
+  userId,
+  from,
+}: { userId: string; from: string }) {
   await prisma.newsletter.upsert({
     where: {
       email_userId: {
@@ -292,29 +293,32 @@ async function saveLearnedPattern({
   });
 }
 
-async function getUserWithRules(userId: string) {
-  return await prisma.user.findUnique({
-    where: { id: userId },
+async function getEmailAccountWithRules({ email }: { email: string }) {
+  return await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       about: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      accounts: {
-        take: 1,
+      account: {
         select: {
           access_token: true,
           refresh_token: true,
         },
       },
-      rules: {
-        where: { enabled: true, instructions: { not: null } },
+      user: {
         select: {
-          id: true,
-          name: true,
-          instructions: true,
+          rules: {
+            where: { enabled: true, instructions: { not: null } },
+            select: {
+              id: true,
+              name: true,
+              instructions: true,
+            },
+          },
         },
       },
     },

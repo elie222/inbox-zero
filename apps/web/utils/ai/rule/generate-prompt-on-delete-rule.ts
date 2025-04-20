@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
@@ -19,7 +18,7 @@ export async function generatePromptOnDeleteRule({
   existingPrompt,
   deletedRule,
 }: {
-  user: UserAIFields & Pick<User, "email">;
+  user: UserEmailWithAI;
   existingPrompt: string;
   deletedRule: RuleWithRelations;
 }): Promise<string> {

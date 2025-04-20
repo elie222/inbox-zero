@@ -99,35 +99,39 @@ async function processAssistantEmailInternal({
   const originalMessage = await getOriginalMessage(originalMessageId, gmail);
 
   const [user, executedRule, senderCategory] = await Promise.all([
-    prisma.user.findUnique({
+    prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
-        id: true,
+        userId: true,
         email: true,
         about: true,
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
-        rules: {
-          include: {
-            actions: true,
-            categoryFilters: true,
-            group: {
-              select: {
-                id: true,
-                name: true,
-                items: {
+        user: {
+          select: {
+            rules: {
+              include: {
+                actions: true,
+                categoryFilters: true,
+                group: {
                   select: {
                     id: true,
-                    type: true,
-                    value: true,
+                    name: true,
+                    items: {
+                      select: {
+                        id: true,
+                        type: true,
+                        value: true,
+                      },
+                    },
                   },
                 },
               },
             },
+            categories: true,
           },
         },
-        categories: true,
       },
     }),
     originalMessage
@@ -210,11 +214,11 @@ async function processAssistantEmailInternal({
 
   const result = await processUserRequest({
     user,
-    rules: user.rules,
+    rules: user.user.rules,
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRule?.rule || null,
-    categories: user.categories.length ? user.categories : null,
+    categories: user.user.categories.length ? user.user.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
   });
 

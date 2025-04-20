@@ -16,7 +16,7 @@ async function saveEmailUpdateSettings(options: SaveEmailUpdateSettingsBody) {
   const session = await auth();
   if (!session?.user.email) throw new SafeError("Not logged in");
 
-  return await prisma.user.update({
+  return await prisma.emailAccount.update({
     where: { email: session.user.email },
     data: {
       statsEmailFrequency: options.statsEmailFrequency,

@@ -30,18 +30,31 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   const days = 7;
   const cutOffDate = subHours(new Date(), days * 24 + 1);
 
+  if (!force) {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { email },
+      select: { lastSummaryEmailAt: true },
+    });
+
+    if (!emailAccount) {
+      logger.error("Email account not found", loggerOptions);
+      return { success: true };
+    }
+
+    const lastSummaryEmailAt = emailAccount.lastSummaryEmailAt;
+
+    if (lastSummaryEmailAt && lastSummaryEmailAt > cutOffDate) {
+      logger.info("Last summary email was recent", {
+        ...loggerOptions,
+        lastSummaryEmailAt,
+        cutOffDate,
+      });
+      return { success: true };
+    }
+  }
+
   const user = await prisma.user.findUnique({
-    where: {
-      email,
-      ...(force
-        ? {}
-        : {
-            OR: [
-              { lastSummaryEmailAt: { lt: cutOffDate } },
-              { lastSummaryEmailAt: null },
-            ],
-          }),
-    },
+    where: { email },
     select: {
       id: true,
       coldEmails: { where: { createdAt: { gt: cutOffDate } } },
@@ -225,7 +238,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
 
   await Promise.all([
     shouldSendEmail ? sendEmail(user.id) : Promise.resolve(),
-    prisma.user.update({
+    prisma.emailAccount.update({
       where: { email },
       data: { lastSummaryEmailAt: new Date() },
     }),

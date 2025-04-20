@@ -1,5 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
+import { getUser } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai writing-style
 
@@ -39,17 +40,6 @@ describe.runIf(isAiTest)(
   },
   15_000,
 ); // 15 second timeout
-
-function getUser() {
-  return {
-    id: "test-user-id",
-    email: "user@test.com",
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
-    about: null,
-  };
-}
 
 function getTestEmails() {
   return [

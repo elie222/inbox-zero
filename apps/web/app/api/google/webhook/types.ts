@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { EmailAccount, User } from "@prisma/client";
 
 export type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
@@ -13,8 +13,8 @@ export type ProcessHistoryOptions = {
   hasColdEmailAccess: boolean;
   hasAiAutomationAccess: boolean;
   user: Pick<
-    User,
-    "about" | "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
+    EmailAccount,
+    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
   > &
     UserEmailWithAI;
 };

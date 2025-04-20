@@ -6,11 +6,11 @@ import { SafeError } from "@/utils/error";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>>;
 
-async function getUser(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+async function getUser({ email }: { email: string }) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
@@ -18,35 +18,39 @@ async function getUser(userId: string) {
       summaryEmailFrequency: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
-      premium: {
+      user: {
         select: {
-          lemonSqueezyCustomerId: true,
-          lemonSqueezySubscriptionId: true,
-          lemonSqueezyRenewsAt: true,
-          unsubscribeCredits: true,
-          bulkUnsubscribeAccess: true,
-          aiAutomationAccess: true,
-          coldEmailBlockerAccess: true,
-          tier: true,
-          emailAccountsAccess: true,
-          lemonLicenseKey: true,
-          pendingInvites: true,
+          premium: {
+            select: {
+              lemonSqueezyCustomerId: true,
+              lemonSqueezySubscriptionId: true,
+              lemonSqueezyRenewsAt: true,
+              unsubscribeCredits: true,
+              bulkUnsubscribeAccess: true,
+              aiAutomationAccess: true,
+              coldEmailBlockerAccess: true,
+              tier: true,
+              emailAccountsAccess: true,
+              lemonLicenseKey: true,
+              pendingInvites: true,
+            },
+          },
         },
       },
     },
   });
 
-  if (!user) throw new SafeError("User not found");
+  if (!emailAccount) throw new SafeError("User not found");
 
-  return user;
+  return emailAccount;
 }
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  const user = await getUser(session.user.id);
+  const user = await getUser({ email });
 
   return NextResponse.json(user);
 });

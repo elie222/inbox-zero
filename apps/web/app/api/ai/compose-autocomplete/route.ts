@@ -1,23 +1,16 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
-import prisma from "@/utils/prisma";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 import { chatCompletionStream } from "@/utils/llms";
+import { getAiUser } from "@/utils/user/get";
 
 export const POST = withError(async (request: Request): Promise<Response> => {
   const session = await auth();
-  const userEmail = session?.user.email;
-  if (!userEmail) return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-    },
-  });
+  const user = await getAiUser({ email });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
 
@@ -32,7 +25,7 @@ Limit your response to no more than 200 characters, but make sure to construct c
     userAi: user,
     system,
     prompt,
-    userEmail,
+    userEmail: email,
     usageLabel: "Compose auto complete",
   });
 

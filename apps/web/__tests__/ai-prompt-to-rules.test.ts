@@ -16,6 +16,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiModel: null,
       aiProvider: null,
       aiApiKey: null,
+      userId: "user123",
+      about: null,
     };
 
     const prompts = [
@@ -114,6 +116,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiProvider: null,
       aiModel: null,
       aiApiKey: "invalid-api-key",
+      about: null,
+      userId: "user123",
     };
     const promptFile = "Some prompt";
 
@@ -132,6 +136,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiModel: null,
       aiProvider: null,
       aiApiKey: null,
+      about: null,
+      userId: "user123",
     };
 
     const promptFile = `
@@ -207,6 +213,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiModel: null,
       aiProvider: null,
       aiApiKey: null,
+      about: null,
+      userId: "user123",
     };
 
     const promptFile = `
@@ -249,6 +257,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiModel: null,
       aiProvider: null,
       aiApiKey: null,
+      about: null,
+      userId: "user123",
     };
 
     const promptFile = `
@@ -291,6 +301,8 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       aiModel: null,
       aiProvider: null,
       aiApiKey: null,
+      about: null,
+      userId: "user123",
     };
 
     const promptFile = `
@@ -329,6 +341,6 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     const replyAction = result[0].actions.find(
       (a) => a.type === ActionType.REPLY,
     );
-    expect(replyAction?.content).toContain("{{firstName}}");
+    expect(replyAction?.fields?.content).toContain("{{firstName}}");
   }, 15_000);
 });

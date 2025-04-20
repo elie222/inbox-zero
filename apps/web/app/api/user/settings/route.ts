@@ -13,12 +13,11 @@ export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
 async function saveAISettings(options: SaveSettingsBody) {
   const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not logged in");
-
-  const aiProvider = options.aiProvider || Provider.ANTHROPIC;
+  const email = session?.user.email;
+  if (!email) throw new SafeError("Not logged in");
 
   function getModel() {
-    switch (aiProvider) {
+    switch (options.aiProvider) {
       case Provider.OPEN_AI:
         if (!options.aiApiKey)
           throw new SafeError("OpenAI API key is required");
@@ -46,10 +45,10 @@ async function saveAISettings(options: SaveSettingsBody) {
     }
   }
 
-  return await prisma.user.update({
-    where: { email: session.user.email },
+  return await prisma.emailAccount.update({
+    where: { email },
     data: {
-      aiProvider,
+      aiProvider: options.aiProvider,
       aiModel: getModel(),
       aiApiKey: options.aiApiKey || null,
     },

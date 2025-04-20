@@ -21,10 +21,10 @@ export const enableReplyTrackerAction = withActionInstrumentation(
   "enableReplyTracker",
   async () => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
-    await enableReplyTracker(userId);
+    await enableReplyTracker({ email });
 
     revalidatePath("/reply-zero");
 
@@ -36,10 +36,10 @@ export const processPreviousSentEmailsAction = withActionInstrumentation(
   "processPreviousSentEmails",
   async () => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
-    const user = await getAiUser({ id: userId });
+    const user = await getAiUser({ email });
     if (!user) return { error: "User not found" };
 
     const gmail = getGmailClient({ accessToken: session.accessToken });

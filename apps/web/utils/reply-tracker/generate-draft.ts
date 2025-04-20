@@ -38,7 +38,7 @@ export async function generateDraft({
 
   logger.info("Generating draft");
 
-  const user = await getAiUser({ id: userId });
+  const user = await getAiUser({ email: userEmail });
   if (!user) throw new Error("User not found");
 
   // 1. Draft with AI
@@ -118,7 +118,10 @@ async function generateDraftContent(
 
   if (!lastMessage) throw new Error("No message provided");
 
-  const reply = await getReply({ userId: user.id, messageId: lastMessage.id });
+  const reply = await getReply({
+    email: user.email,
+    messageId: lastMessage.id,
+  });
 
   if (reply) return reply;
 
@@ -135,7 +138,7 @@ async function generateDraftContent(
 
   // 1. Get knowledge base entries
   const knowledgeBase = await prisma.knowledge.findMany({
-    where: { userId: user.id },
+    where: { userId: user.userId },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -188,7 +191,7 @@ async function generateDraftContent(
 
   if (typeof text === "string") {
     await saveReply({
-      userId: user.id,
+      email: user.email,
       messageId: lastMessage.id,
       reply: text,
     });

@@ -32,6 +32,7 @@ import prisma from "@/utils/prisma";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
+import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -39,8 +40,8 @@ export const cleanInboxAction = withActionInstrumentation(
   "cleanInbox",
   async (unsafeData: CleanInboxBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } = cleanInboxSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
@@ -67,7 +68,8 @@ export const cleanInboxAction = withActionInstrumentation(
     // create a cleanup job
     const job = await prisma.cleanupJob.create({
       data: {
-        userId,
+        userId: session?.user.id,
+        email,
         action: data.action,
         instructions: data.instructions,
         daysOld: data.daysOld,
@@ -137,7 +139,7 @@ export const cleanInboxAction = withActionInstrumentation(
           });
 
         logger.info("Fetched threads", {
-          userId,
+          email,
           threadCount: threads.length,
           nextPageToken,
         });
@@ -149,7 +151,7 @@ export const cleanInboxAction = withActionInstrumentation(
         const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
         logger.info("Pushing to Qstash", {
-          userId,
+          email,
           threadCount: threads.length,
           nextPageToken,
         });
@@ -160,7 +162,7 @@ export const cleanInboxAction = withActionInstrumentation(
             return {
               url,
               body: {
-                userId,
+                email,
                 threadId: thread.id,
                 markedDoneLabelId,
                 processedLabelId,
@@ -174,7 +176,7 @@ export const cleanInboxAction = withActionInstrumentation(
               // api keys or a global queue
               // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
               flowControl: {
-                key: `ai-clean-${userId}`,
+                key: `ai-clean-${hash(email)}`,
                 parallelism: 3,
               },
             };
@@ -205,8 +207,8 @@ export const undoCleanInboxAction = withActionInstrumentation(
   "undoCleanInbox",
   async (unsafeData: UndoCleanInboxBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } = undoCleanInboxSchema.safeParse(unsafeData);
     if (!success) return { error: error.message };
@@ -243,14 +245,19 @@ export const undoCleanInboxAction = withActionInstrumentation(
     try {
       // We need to get the thread first to get the jobId
       const thread = await prisma.cleanupThread.findFirst({
-        where: { userId, threadId },
+        where: { userId: session?.user.id, threadId },
         orderBy: { createdAt: "desc" },
       });
 
       if (thread) {
-        await updateThread(userId, thread.jobId, threadId, {
-          undone: true,
-          archive: false, // Reset the archive status since we've undone it
+        await updateThread({
+          email,
+          jobId: thread.jobId,
+          threadId,
+          update: {
+            undone: true,
+            archive: false, // Reset the archive status since we've undone it
+          },
         });
       }
     } catch (error) {
@@ -269,8 +276,8 @@ export const changeKeepToDoneAction = withActionInstrumentation(
   "changeKeepToDone",
   async (unsafeData: ChangeKeepToDoneBody) => {
     const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, success, error } =
       changeKeepToDoneSchema.safeParse(unsafeData);
@@ -301,15 +308,26 @@ export const changeKeepToDoneAction = withActionInstrumentation(
     try {
       // We need to get the thread first to get the jobId
       const thread = await prisma.cleanupThread.findFirst({
-        where: { userId, threadId },
+        where: { userId: session?.user.id, threadId },
         orderBy: { createdAt: "desc" },
       });
 
       if (thread) {
-        await updateThread(userId, thread.jobId, threadId, {
-          archive: action === CleanAction.ARCHIVE,
-          status: "completed",
-          undone: true,
+        // await updateThread(userId, thread.jobId, threadId, {
+        //   archive: action === CleanAction.ARCHIVE,
+        //   status: "completed",
+        //   undone: true,
+        // });
+
+        await updateThread({
+          email,
+          jobId: thread.jobId,
+          threadId,
+          update: {
+            archive: action === CleanAction.ARCHIVE,
+            status: "completed",
+            undone: true,
+          },
         });
       }
     } catch (error) {

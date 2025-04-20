@@ -27,12 +27,17 @@ export function partialUpdateRule({
   });
 }
 
-export async function safeCreateRule(
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  categoryNames?: string[] | null,
-  systemType?: SystemType | null,
-) {
+export async function safeCreateRule({
+  result,
+  userId,
+  categoryNames,
+  systemType,
+}: {
+  result: CreateOrUpdateRuleSchemaWithCategories;
+  userId: string;
+  categoryNames?: string[] | null;
+  systemType?: SystemType | null;
+}) {
   const categoryIds = await getUserCategoriesForNames(
     userId,
     categoryNames || [],

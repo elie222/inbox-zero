@@ -65,7 +65,11 @@ export async function processHistoryItem(
       getMessage(messageId, gmail, "full"),
       prisma.executedRule.findUnique({
         where: {
-          unique_user_thread_message: { userId: user.id, threadId, messageId },
+          unique_user_thread_message: {
+            userId: user.userId,
+            threadId,
+            messageId,
+          },
         },
         select: { id: true },
       }),
@@ -94,7 +98,7 @@ export async function processHistoryItem(
       return processAssistantEmail({
         message,
         userEmail,
-        userId: user.id,
+        userId: user.userId,
         gmail,
       });
     }
@@ -119,7 +123,7 @@ export async function processHistoryItem(
     // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
-      userId: user.id,
+      userId: user.userId,
       gmail,
       messageId,
     });
@@ -163,7 +167,7 @@ export async function processHistoryItem(
     if (user.autoCategorizeSenders) {
       const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
-        where: { email_userId: { email: sender, userId: user.id } },
+        where: { email_userId: { email: sender, userId: user.userId } },
         select: { category: true },
       });
       if (!existingSender?.category) {
@@ -213,7 +217,7 @@ async function handleOutbound(
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
     trackSentDraftStatus({
-      user: { id: user.id, email: user.email },
+      user: { id: user.userId, email: user.email },
       message,
       gmail,
     }),
@@ -239,7 +243,7 @@ async function handleOutbound(
   try {
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
-      userId: user.id,
+      userId: user.userId,
       gmail,
     });
   } catch (cleanupError) {

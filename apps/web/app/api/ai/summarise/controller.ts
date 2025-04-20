@@ -1,12 +1,12 @@
 import { chatCompletionStream } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { expire } from "@/utils/redis";
 import { saveSummary } from "@/utils/redis/summary";
 
 export async function summarise(
   text: string,
   userEmail: string,
-  userAi: UserAIFields,
+  userAi: UserEmailWithAI,
 ) {
   const system = `You are an email assistant. You summarise emails.
   Summarise each email in a short ~5 word sentence.

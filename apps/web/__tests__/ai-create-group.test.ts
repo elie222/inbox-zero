@@ -3,6 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { aiGenerateGroupItems } from "@/utils/ai/group/create-group";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-create-group
 
@@ -15,15 +16,8 @@ vi.mock("@/utils/gmail/message", () => ({
 
 describe.runIf(isAiTest)("aiGenerateGroupItems", () => {
   it("should generate group items based on user prompt", async () => {
-    const user = {
-      email: "user@test.com",
-      aiProvider: null,
-      aiModel: null,
-      aiApiKey: null,
-    };
-
+    const user = getUser();
     const gmail = {} as gmail_v1.Gmail;
-    const accessToken = "fake-access-token";
     const group = {
       name: "Work Emails",
       prompt:

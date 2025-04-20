@@ -1,10 +1,13 @@
 import prisma from "@/utils/prisma";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 
-export async function getAiUser({ id }: { id: string }) {
-  return prisma.user.findUnique({
-    where: { id },
+export async function getAiUser({
+  email,
+}: { email: string }): Promise<UserEmailWithAI | null> {
+  return prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       about: true,
       aiProvider: true,
@@ -14,18 +17,17 @@ export async function getAiUser({ id }: { id: string }) {
   });
 }
 
-export async function getAiUserWithTokens({ id }: { id: string }) {
-  const user = await prisma.user.findUnique({
-    where: { id },
+export async function getAiUserWithTokens({ email }: { email: string }) {
+  const user = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       about: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      accounts: {
-        take: 1,
+      account: {
         select: {
           access_token: true,
           refresh_token: true,
@@ -38,7 +40,7 @@ export async function getAiUserWithTokens({ id }: { id: string }) {
 
   return {
     ...user,
-    tokens: user?.accounts[0],
+    tokens: user?.account,
   };
 }
 

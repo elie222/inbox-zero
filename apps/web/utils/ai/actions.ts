@@ -217,14 +217,14 @@ const track_thread: ActionFunction<any> = async (
   userEmail,
   executedRule,
 ) => {
-  await coordinateReplyProcess(
-    executedRule.userId,
-    userEmail,
-    email.threadId,
-    email.id,
-    internalDateToDate(email.internalDate),
+  await coordinateReplyProcess({
+    userId: executedRule.userId,
+    email: userEmail,
+    threadId: email.threadId,
+    messageId: email.id,
+    sentAt: internalDateToDate(email.internalDate),
     gmail,
-  ).catch((error) => {
+  }).catch((error) => {
     logger.error("Failed to create reply tracker", { error });
   });
 };

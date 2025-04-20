@@ -35,7 +35,7 @@ export default async function CategoriesPage() {
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
 
-  const [senders, categories, user, progress] = await Promise.all([
+  const [senders, categories, emailAccount, progress] = await Promise.all([
     prisma.newsletter.findMany({
       where: { userId: session.user.id, categoryId: { not: null } },
       select: {
@@ -45,11 +45,11 @@ export default async function CategoriesPage() {
       },
     }),
     getUserCategoriesWithRules(session.user.id),
-    prisma.user.findUnique({
-      where: { id: session.user.id },
+    prisma.emailAccount.findUnique({
+      where: { email },
       select: { autoCategorizeSenders: true },
     }),
-    getCategorizationProgress({ userId: session.user.id }),
+    getCategorizationProgress({ email }),
   ]);
 
   if (!(senders.length > 0 || categories.length > 0))
@@ -132,7 +132,9 @@ export default async function CategoriesPage() {
           <TabsContent value="uncategorized" className="m-0">
             <Uncategorized
               categories={categories}
-              autoCategorizeSenders={user?.autoCategorizeSenders || false}
+              autoCategorizeSenders={
+                emailAccount?.autoCategorizeSenders || false
+              }
             />
           </TabsContent>
         </Tabs>

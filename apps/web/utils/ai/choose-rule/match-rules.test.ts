@@ -17,6 +17,7 @@ import type {
 } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { getUser } from "@/__tests__/helpers";
 
 // Run with:
 // pnpm test match-rules.test.ts
@@ -490,17 +491,6 @@ function getHeaders(
   return {
     ...overrides,
   } as ParsedMessageHeaders;
-}
-
-function getUser() {
-  return {
-    id: "user1",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
 }
 
 function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {

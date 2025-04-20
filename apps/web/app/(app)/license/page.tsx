@@ -8,7 +8,7 @@ import { TopSection } from "@/components/TopSection";
 import { activateLicenseKeyAction } from "@/utils/actions/premium";
 import { AlertBasic } from "@/components/Alert";
 import { handleActionResult } from "@/utils/server-action";
-import { useUser } from "@/hooks/useUser";
+import { usePremium } from "@/components/PremiumAlert";
 
 type Inputs = { licenseKey: string };
 
@@ -18,14 +18,14 @@ export default function LicensePage(props: {
   const searchParams = use(props.searchParams);
   const licenseKey = searchParams["license-key"];
 
-  const { data } = useUser();
+  const { premium } = usePremium();
 
   return (
     <div>
       <TopSection title="Activate your license" />
 
       <div className="content-container max-w-2xl py-6">
-        {data?.premium?.lemonLicenseKey && (
+        {premium?.lemonLicenseKey && (
           <AlertBasic
             variant="success"
             title="Your license is activated"

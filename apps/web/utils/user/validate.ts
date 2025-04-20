@@ -1,26 +1,30 @@
 import { hasAiAccess } from "@/utils/premium";
 import prisma from "@/utils/prisma";
 
-export async function validateUserAndAiAccess(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
+export async function validateUserAndAiAccess({
+  email,
+}: {
+  email: string;
+}) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      id: true,
+      userId: true,
       email: true,
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
       about: true,
-      premium: { select: { aiAutomationAccess: true } },
+      user: { select: { premium: { select: { aiAutomationAccess: true } } } },
     },
   });
-  if (!user) return { error: "User not found" };
+  if (!emailAccount) return { error: "User not found" };
 
   const userHasAiAccess = hasAiAccess(
-    user.premium?.aiAutomationAccess,
-    user.aiApiKey,
+    emailAccount.user.premium?.aiAutomationAccess,
+    emailAccount.aiApiKey,
   );
   if (!userHasAiAccess) return { error: "Please upgrade for AI access" };
 
-  return { user };
+  return { emailAccount };
 }

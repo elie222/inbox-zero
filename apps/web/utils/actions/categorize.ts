@@ -34,12 +34,12 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
     if (isActionError(sessionResult)) return sessionResult;
     const { user } = sessionResult;
 
-    const userResult = await validateUserAndAiAccess(user.id);
+    const userResult = await validateUserAndAiAccess({ email: user.email });
     if (isActionError(userResult)) return userResult;
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
-    deleteEmptyCategorizeSendersQueues({ skipUserId: user.id }).catch(
+    deleteEmptyCategorizeSendersQueues({ skipEmail: user.email }).catch(
       (error) => {
         logger.error("Error deleting empty queues", { error });
       },
@@ -87,13 +87,13 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       totalUncategorizedSenders += newUncategorizedSenders.length;
 
       await saveCategorizationTotalItems({
-        userId: user.id,
+        email: user.email,
         totalItems: totalUncategorizedSenders,
       });
 
       // publish to qstash
       await publishToAiCategorizeSendersQueue({
-        userId: user.id,
+        email: user.email,
         senders: uncategorizedSenders,
       });
 
@@ -118,13 +118,13 @@ export const categorizeSenderAction = withActionInstrumentation(
 
     if (!session.accessToken) return { error: "No access token" };
 
-    const userResult = await validateUserAndAiAccess(u.id);
+    const userResult = await validateUserAndAiAccess({ email: u.email });
     if (isActionError(userResult)) return userResult;
-    const { user } = userResult;
+    const { emailAccount } = userResult;
 
     const result = await categorizeSender(
       senderAddress,
-      user,
+      emailAccount,
       gmail,
       session.accessToken,
     );
@@ -244,10 +244,11 @@ export const setAutoCategorizeAction = withActionInstrumentation(
   "setAutoCategorize",
   async (autoCategorizeSenders: boolean) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not authenticated" };
 
-    await prisma.user.update({
-      where: { id: session.user.id },
+    await prisma.emailAccount.update({
+      where: { email },
       data: { autoCategorizeSenders },
     });
 

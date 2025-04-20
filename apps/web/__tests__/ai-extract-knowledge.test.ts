@@ -2,6 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import type { Knowledge } from "@prisma/client";
 import type { UserEmailWithAI } from "@/utils/llms/types";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-extract-knowledge
 
@@ -9,17 +10,6 @@ vi.mock("server-only", () => ({}));
 
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
-
-function getUser(): UserEmailWithAI {
-  return {
-    id: "test-user-id",
-    email: "influencer@test.com",
-    about: null,
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
-  };
-}
 
 function getKnowledgeBase(): Knowledge[] {
   return [

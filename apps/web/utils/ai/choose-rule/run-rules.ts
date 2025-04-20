@@ -4,7 +4,7 @@ import type {
   ParsedMessage,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
   Prisma,
@@ -42,12 +42,17 @@ export async function runRules({
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
+  user: UserEmailWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
   const result = await findMatchingRule(rules, message, user, gmail);
 
-  analyzeSenderPatternIfAiMatch(isTest, result, message, user);
+  analyzeSenderPatternIfAiMatch({
+    isTest,
+    result,
+    message,
+    email: user.email,
+  });
 
   logger.trace("Matching rule", { result });
 
@@ -63,7 +68,7 @@ export async function runRules({
     );
   } else {
     await saveSkippedExecutedRule({
-      userId: user.id,
+      userId: user.userId,
       threadId: message.threadId,
       messageId: message.id,
       reason: result.reason,
@@ -75,7 +80,7 @@ export async function runRules({
 async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  user: UserEmailWithAI,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
@@ -94,7 +99,7 @@ async function executeMatchedRule(
     ? undefined
     : await saveExecutedRule(
         {
-          userId: user.id,
+          userId: user.userId,
           threadId: message.threadId,
           messageId: message.id,
         },
@@ -243,12 +248,17 @@ async function upsertExecutedRule({
   }
 }
 
-async function analyzeSenderPatternIfAiMatch(
-  isTest: boolean,
-  result: { rule?: Rule | null; matchReasons?: MatchReason[] },
-  message: ParsedMessage,
-  user: Pick<User, "id">,
-) {
+async function analyzeSenderPatternIfAiMatch({
+  isTest,
+  result,
+  message,
+  email,
+}: {
+  isTest: boolean;
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  message: ParsedMessage;
+  email: string;
+}) {
   if (
     !isTest &&
     result.rule &&
@@ -265,7 +275,7 @@ async function analyzeSenderPatternIfAiMatch(
     if (fromAddress) {
       after(() =>
         analyzeSenderPattern({
-          userId: user.id,
+          email,
           from: fromAddress,
         }),
       );

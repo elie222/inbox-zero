@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { UserEmailWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-generate-rules-prompt");
@@ -34,7 +33,7 @@ export async function aiGenerateRulesPrompt({
   snippets,
   userLabels,
 }: {
-  user: UserAIFields & Pick<User, "email" | "about">;
+  user: UserEmailWithAI;
   lastSentEmails: string[];
   userLabels: string[];
   snippets: string[];

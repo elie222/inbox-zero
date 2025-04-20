@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
@@ -6,13 +7,12 @@ import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { headers } from "next/headers";
 
 const logger = createScopedLogger("api/reply-tracker/process-previous");
 
 export const maxDuration = 300;
 
-const processPreviousSchema = z.object({ userId: z.string() });
+const processPreviousSchema = z.object({ email: z.string() });
 export type ProcessPreviousBody = z.infer<typeof processPreviousSchema>;
 
 export const POST = withError(async (request: Request) => {
@@ -23,31 +23,29 @@ export const POST = withError(async (request: Request) => {
 
   const json = await request.json();
   const body = processPreviousSchema.parse(json);
+  const email = body.email;
 
-  const user = await prisma.user.findUnique({
-    where: { id: body.userId },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     include: {
-      accounts: {
-        where: { provider: "google" },
+      account: {
         select: { access_token: true, refresh_token: true },
       },
     },
   });
-  if (!user) return NextResponse.json({ error: "User not found" });
+  if (!emailAccount) return NextResponse.json({ error: "User not found" });
 
-  logger.info("Processing previous emails for user", { userId: user.id });
+  logger.info("Processing previous emails for user", { email });
 
-  const account = user.accounts[0];
-  if (!account) return NextResponse.json({ error: "No Google account found" });
-  if (!account.access_token)
+  if (!emailAccount.account?.access_token)
     return NextResponse.json({ error: "No access token or refresh token" });
 
   const gmail = getGmailClient({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token ?? undefined,
+    accessToken: emailAccount.account.access_token,
+    refreshToken: emailAccount.account.refresh_token ?? undefined,
   });
 
-  await processPreviousSentEmails(gmail, user);
+  await processPreviousSentEmails(gmail, emailAccount);
 
   return NextResponse.json({ success: true });
 });

@@ -34,9 +34,13 @@ describe("blockColdEmail", () => {
     threadId: "thread123",
   };
   const mockUser = {
-    id: "user123",
+    userId: "user123",
+    about: "",
     email: "user@example.com",
     coldEmailBlocker: ColdEmailSetting.LABEL,
+    aiProvider: null,
+    aiModel: null,
+    aiApiKey: null,
   };
   const mockAiReason = "This is a cold email";
 
@@ -54,13 +58,16 @@ describe("blockColdEmail", () => {
 
     expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
       where: {
-        userId_fromEmail: { userId: mockUser.id, fromEmail: mockEmail.from },
+        userId_fromEmail: {
+          userId: mockUser.userId,
+          fromEmail: mockEmail.from,
+        },
       },
       update: { status: ColdEmailStatus.AI_LABELED_COLD },
       create: {
         status: ColdEmailStatus.AI_LABELED_COLD,
         fromEmail: mockEmail.from,
-        userId: mockUser.id,
+        userId: mockUser.userId,
         reason: mockAiReason,
         messageId: mockEmail.id,
         threadId: mockEmail.threadId,

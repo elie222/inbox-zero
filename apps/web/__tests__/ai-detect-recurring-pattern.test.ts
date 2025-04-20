@@ -2,6 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
 import { RuleName } from "@/utils/rule/consts";
+import { getUser } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
 
@@ -27,17 +28,6 @@ describe.runIf(isAiTest)(
     beforeEach(() => {
       vi.clearAllMocks();
     });
-
-    function getUser() {
-      return {
-        id: "user-1",
-        email: "user@test.com",
-        aiModel: null,
-        aiProvider: null,
-        aiApiKey: null,
-        about: null,
-      };
-    }
 
     function getRealisticRules() {
       return [

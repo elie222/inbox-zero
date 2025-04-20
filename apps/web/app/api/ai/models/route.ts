@@ -20,19 +20,23 @@ async function getOpenAiModels({ apiKey }: { apiKey: string }) {
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  const user = await prisma.user.findUnique({
-    where: { email: session.user.email },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: { aiApiKey: true, aiProvider: true },
   });
 
-  if (!user || !user.aiApiKey || user.aiProvider !== Provider.OPEN_AI)
+  if (
+    !emailAccount ||
+    !emailAccount.aiApiKey ||
+    emailAccount.aiProvider !== Provider.OPEN_AI
+  )
     return NextResponse.json([]);
 
   try {
-    const result = await getOpenAiModels({ apiKey: user.aiApiKey });
+    const result = await getOpenAiModels({ apiKey: emailAccount.aiApiKey });
     return NextResponse.json(result);
   } catch (error) {
     logger.error("Failed to get OpenAI models", { error });

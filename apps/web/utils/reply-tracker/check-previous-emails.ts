@@ -47,7 +47,7 @@ export async function processPreviousSentEmails(
     const isProcessed = await prisma.executedRule.findUnique({
       where: {
         unique_user_thread_message: {
-          userId: user.id,
+          userId: user.userId,
           threadId: latestMessage.threadId,
           messageId: latestMessage.id,
         },

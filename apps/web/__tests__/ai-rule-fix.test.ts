@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import type { EmailForLLM } from "@/utils/types";
+import { getEmail, getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-rule-fix
 
@@ -161,29 +162,3 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
     );
   });
 });
-
-function getEmail({
-  from = "user@test.com",
-  subject = "Test Subject",
-  content = "Test content",
-  replyTo,
-  cc,
-}: Partial<EmailForLLM> = {}): EmailForLLM {
-  return {
-    from,
-    subject,
-    content,
-    ...(replyTo && { replyTo }),
-    ...(cc && { cc }),
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
-}
