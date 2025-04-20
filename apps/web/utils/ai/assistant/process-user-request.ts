@@ -595,12 +595,25 @@ ${senderCategory || "No category"}
   }
 
   // Update prompt file for modified rules
-  for (const rule of updatedRules.values()) {
-    // TODO: should current and updated be the same?
+  for (const updatedRule of updatedRules.values()) {
+    // Find the original rule state from the initial rules array
+    const originalRule = rules.find((r) => r.id === updatedRule.id);
+
+    if (!originalRule) {
+      logger.error(
+        "Original rule not found when updating prompt file for modified rule",
+        {
+          ...loggerOptions,
+          updatedRuleId: updatedRule.id,
+        },
+      );
+      continue; // Skip if original rule not found (should not happen ideally)
+    }
+
     await updatePromptFileOnRuleUpdated({
       email: user.email,
-      currentRule: rule,
-      updatedRule: rule,
+      currentRule: originalRule,
+      updatedRule: updatedRule,
     });
   }
 
