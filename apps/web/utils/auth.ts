@@ -57,8 +57,13 @@ export const getAuthOptions: (options?: {
         });
 
         // --- Step 2: Create the corresponding EmailAccount record ---
-        await prisma.emailAccount.create({
-          data: {
+        await prisma.emailAccount.upsert({
+          where: { email: createdAccount.user.email },
+          update: {
+            userId: data.userId,
+            accountId: createdAccount.id,
+          },
+          create: {
             email: createdAccount.user.email,
             userId: data.userId,
             accountId: createdAccount.id,
