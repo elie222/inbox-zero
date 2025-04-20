@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: ./docker/Dockerfile.web
     env_file:
-      - ./.env
+      - ./apps/web/.env
     depends_on:
       - db
       - redis
