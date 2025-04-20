@@ -48,37 +48,28 @@ export const getAuthOptions: (options?: {
   ],
   adapter: {
     ...PrismaAdapter(prisma),
-    linkAccount: async (account: AdapterAccount): Promise<void> => {
+    linkAccount: async (data: AdapterAccount): Promise<void> => {
       try {
-        // --- Step 1: Fetch the user to get their email ---
-        const user = await prisma.user.findUniqueOrThrow({
-          where: { id: account.userId },
-          select: { email: true },
-        });
-
-        // --- Step 2: Create the Account record ---
+        // --- Step 1: Create the Account record ---
         const createdAccount = await prisma.account.create({
-          data: {
-            ...account,
-            email: user.email,
-          },
-          select: { id: true },
+          data,
+          select: { id: true, user: { select: { email: true } } },
         });
 
-        // --- Step 3: Create the corresponding EmailAccount record ---
+        // --- Step 2: Create the corresponding EmailAccount record ---
         await prisma.emailAccount.create({
           data: {
-            email: user.email,
-            userId: account.userId,
+            email: createdAccount.user.email,
+            userId: data.userId,
             accountId: createdAccount.id,
           },
         });
       } catch (error) {
         logger.error("Error linking account", {
-          userId: account.userId,
+          userId: data.userId,
           error,
         });
-        captureException(error, { extra: { userId: account.userId } });
+        captureException(error, { extra: { userId: data.userId } });
         throw error;
       }
     },

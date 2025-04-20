@@ -26,8 +26,7 @@ model Account {
   session_state     String?
 
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  email        String?       @unique
-  emailAccount EmailAccount? @relation(fields: [email], references: [email])
+  emailAccount EmailAccount?
 
   @@unique([provider, providerAccountId])
 }
@@ -109,7 +108,7 @@ model User {
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
-  email        String   @id 
+  email        String   @id
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   writingStyle String?
@@ -140,7 +139,7 @@ model EmailAccount {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId String   @unique
-  account   Account?
+  account   Account? @relation(fields: [accountId], references: [id])
 
   cleanupJobs CleanupJob[]
 

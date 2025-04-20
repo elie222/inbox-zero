@@ -3,7 +3,7 @@
 
   - You are about to drop the column `emailAccountId` on the `Account` table. All the data in the column will be lost.
   - The primary key for the `EmailAccount` table will be changed. If it partially fails, the table could be left without primary key constraint.
-  - A unique constraint covering the columns `[email]` on the table `Account` will be added. If there are existing duplicate values, this will fail.
+  - You are about to drop the column `id` on the `EmailAccount` table. All the data in the column will be lost.
   - Added the required column `email` to the `CleanupJob` table without a default value. This is not possible if the table is not empty.
 
 */
@@ -17,14 +17,14 @@ DROP INDEX "Account_emailAccountId_key";
 DROP INDEX "EmailAccount_email_key";
 
 -- AlterTable
-ALTER TABLE "Account" DROP COLUMN "emailAccountId",
-ADD COLUMN     "email" TEXT;
+ALTER TABLE "Account" DROP COLUMN "emailAccountId";
 
 -- AlterTable
 ALTER TABLE "CleanupJob" ADD COLUMN     "email" TEXT NOT NULL;
 
 -- AlterTable
 ALTER TABLE "EmailAccount" DROP CONSTRAINT "EmailAccount_pkey",
+DROP COLUMN "id",
 ADD COLUMN     "about" TEXT,
 ADD COLUMN     "aiApiKey" TEXT,
 ADD COLUMN     "aiModel" TEXT,
@@ -44,17 +44,11 @@ ADD COLUMN     "watchEmailsExpirationDate" TIMESTAMP(3),
 ADD COLUMN     "webhookSecret" TEXT,
 ADD CONSTRAINT "EmailAccount_pkey" PRIMARY KEY ("email");
 
--- Drop the deprecated id column BEFORE the data migration insert
-ALTER TABLE "EmailAccount" DROP COLUMN "id";
-
--- CreateIndex
-CREATE UNIQUE INDEX "Account_email_key" ON "Account"("email");
-
 -- CreateIndex
 CREATE INDEX "EmailAccount_lastSummaryEmailAt_idx" ON "EmailAccount"("lastSummaryEmailAt");
 
 -- AddForeignKey
-ALTER TABLE "Account" ADD CONSTRAINT "Account_email_fkey" FOREIGN KEY ("email") REFERENCES "EmailAccount"("email") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "EmailAccount" ADD CONSTRAINT "EmailAccount_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "CleanupJob" ADD CONSTRAINT "CleanupJob_email_fkey" FOREIGN KEY ("email") REFERENCES "EmailAccount"("email") ON DELETE CASCADE ON UPDATE CASCADE;
