@@ -5,9 +5,9 @@ import prisma from "@/utils/prisma";
 
 export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
-async function getRules({ userId }: { userId: string }) {
+async function getRules({ email }: { email: string }) {
   return await prisma.rule.findMany({
-    where: { userId },
+    where: { emailAccountId: email },
     include: {
       actions: true,
       group: { select: { name: true } },
@@ -19,10 +19,10 @@ async function getRules({ userId }: { userId: string }) {
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const email = session?.user.email;
+  if (!email) return NextResponse.json({ error: "Not authenticated" });
 
-  const result = await getRules({ userId: session.user.id });
+  const result = await getRules({ email });
 
   return NextResponse.json(result);
 });

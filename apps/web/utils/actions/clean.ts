@@ -68,7 +68,6 @@ export const cleanInboxAction = withActionInstrumentation(
     // create a cleanup job
     const job = await prisma.cleanupJob.create({
       data: {
-        userId: session?.user.id,
         email,
         action: data.action,
         instructions: data.instructions,
@@ -245,7 +244,7 @@ export const undoCleanInboxAction = withActionInstrumentation(
     try {
       // We need to get the thread first to get the jobId
       const thread = await prisma.cleanupThread.findFirst({
-        where: { userId: session?.user.id, threadId },
+        where: { emailAccountId: email, threadId },
         orderBy: { createdAt: "desc" },
       });
 
@@ -308,7 +307,7 @@ export const changeKeepToDoneAction = withActionInstrumentation(
     try {
       // We need to get the thread first to get the jobId
       const thread = await prisma.cleanupThread.findFirst({
-        where: { userId: session?.user.id, threadId },
+        where: { emailAccountId: email, threadId },
         orderBy: { createdAt: "desc" },
       });
 

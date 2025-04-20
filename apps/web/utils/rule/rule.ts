@@ -29,24 +29,24 @@ export function partialUpdateRule({
 
 export async function safeCreateRule({
   result,
-  userId,
+  email,
   categoryNames,
   systemType,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
-  userId: string;
+  email: string;
   categoryNames?: string[] | null;
   systemType?: SystemType | null;
 }) {
-  const categoryIds = await getUserCategoriesForNames(
-    userId,
-    categoryNames || [],
-  );
+  const categoryIds = await getUserCategoriesForNames({
+    email,
+    names: categoryNames || [],
+  });
 
   try {
     const rule = await createRule({
       result,
-      userId,
+      email,
       categoryIds,
       systemType,
     });
@@ -56,14 +56,14 @@ export async function safeCreateRule({
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
-        userId,
+        email,
         categoryIds,
       });
       return rule;
     }
 
     logger.error("Error creating rule", {
-      userId,
+      email,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -74,28 +74,38 @@ export async function safeCreateRule({
   }
 }
 
-export async function safeUpdateRule(
-  ruleId: string,
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  categoryIds?: string[] | null,
-) {
+export async function safeUpdateRule({
+  ruleId,
+  result,
+  email,
+  categoryIds,
+}: {
+  ruleId: string;
+  result: CreateOrUpdateRuleSchemaWithCategories;
+  email: string;
+  categoryIds?: string[] | null;
+}) {
   try {
-    const rule = await updateRule(ruleId, result, userId, categoryIds);
+    const rule = await updateRule({
+      ruleId,
+      result,
+      emailAccountId: email,
+      categoryIds,
+    });
     return { id: rule.id };
   } catch (error) {
     if (isDuplicateError(error, "name")) {
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
-        userId,
+        email,
         categoryIds,
       });
       return { id: rule.id };
     }
 
     logger.error("Error updating rule", {
-      userId,
+      email,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -108,12 +118,12 @@ export async function safeUpdateRule(
 
 export async function createRule({
   result,
-  userId,
+  email,
   categoryIds,
   systemType,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
-  userId: string;
+  email: string;
   categoryIds?: string[] | null;
   systemType?: SystemType | null;
 }) {
@@ -122,7 +132,7 @@ export async function createRule({
   return prisma.rule.create({
     data: {
       name: result.name,
-      userId,
+      emailAccountId: email,
       systemType,
       actions: { createMany: { data: mappedActions } },
       automate: shouldAutomate(
@@ -155,17 +165,22 @@ export async function createRule({
   });
 }
 
-async function updateRule(
-  ruleId: string,
-  result: CreateOrUpdateRuleSchemaWithCategories,
-  userId: string,
-  categoryIds?: string[] | null,
-) {
+async function updateRule({
+  ruleId,
+  result,
+  emailAccountId,
+  categoryIds,
+}: {
+  ruleId: string;
+  result: CreateOrUpdateRuleSchemaWithCategories;
+  emailAccountId: string;
+  categoryIds?: string[] | null;
+}) {
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
       name: result.name,
-      userId,
+      emailAccountId,
       // NOTE: this is safe for now as `Action` doesn't have relations
       // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
@@ -190,18 +205,20 @@ async function updateRule(
 }
 
 export async function deleteRule({
-  userId,
+  email,
   ruleId,
   groupId,
 }: {
+  email: string;
   ruleId: string;
-  userId: string;
   groupId?: string | null;
 }) {
   return Promise.all([
-    prisma.rule.delete({ where: { id: ruleId, userId } }),
+    prisma.rule.delete({ where: { id: ruleId, emailAccountId: email } }),
     // in the future, we can make this a cascade delete, but we need to change the schema for this to happen
-    groupId ? prisma.group.delete({ where: { id: groupId, userId } }) : null,
+    groupId
+      ? prisma.group.delete({ where: { id: groupId, emailAccountId: email } })
+      : null,
   ]);
 }
 

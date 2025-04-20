@@ -520,14 +520,14 @@ ${senderCategory || "No category"}
             condition as CreateRuleSchemaWithCategories["condition"];
 
           try {
-            const categoryIds = await getUserCategoriesForNames(
-              user.userId,
-              conditions.categories?.categoryFilters || [],
-            );
+            const categoryIds = await getUserCategoriesForNames({
+              email: user.email,
+              names: conditions.categories?.categoryFilters || [],
+            });
 
             const rule = await createRule({
               result: { name, condition, actions },
-              userId: user.userId,
+              email: user.email,
               categoryIds,
             });
 
@@ -653,7 +653,7 @@ const getUpdateCategoryTool = (
       trackToolCall("update_sender_category", userEmail);
 
       const existingSender = await findSenderByEmail({
-        userId,
+        emailAccountId: userEmail,
         email: sender,
       });
 
@@ -669,7 +669,7 @@ const getUpdateCategoryTool = (
 
       try {
         await updateCategoryForSender({
-          userId,
+          userEmail,
           sender: existingSender?.email || sender,
           categoryId: cat.id,
         });

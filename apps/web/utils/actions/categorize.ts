@@ -59,7 +59,7 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       const existingSenders = await prisma.newsletter.findMany({
         where: {
           email: { in: allSenders },
-          userId: user.id,
+          emailAccountId: user.email,
           category: { isNot: null },
         },
         select: { email: true },
@@ -139,15 +139,15 @@ export const changeSenderCategoryAction = withActionInstrumentation(
   "changeSenderCategory",
   async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    if (!session?.user?.email) return { error: "Not authenticated" };
 
     const category = await prisma.category.findUnique({
-      where: { id: categoryId, userId: session.user.id },
+      where: { id: categoryId, emailAccountId: session.user.email },
     });
     if (!category) return { error: "Category not found" };
 
     await updateCategoryForSender({
-      userId: session.user.id,
+      userEmail: session.user.email,
       sender,
       categoryId,
     });
@@ -160,7 +160,7 @@ export const upsertDefaultCategoriesAction = withActionInstrumentation(
   "upsertDefaultCategories",
   async (categories: { id?: string; name: string; enabled: boolean }[]) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    if (!session?.user?.email) return { error: "Not authenticated" };
 
     for (const { id, name, enabled } of categories) {
       const description = Object.values(defaultCategory).find(
@@ -168,9 +168,9 @@ export const upsertDefaultCategoriesAction = withActionInstrumentation(
       )?.description;
 
       if (enabled) {
-        await upsertCategory(session.user.id, { name, description });
+        await upsertCategory(session.user.email, { name, description });
       } else {
-        if (id) await deleteCategory(session.user.id, id);
+        if (id) await deleteCategory(session.user.email, id);
       }
     }
 
@@ -182,12 +182,12 @@ export const createCategoryAction = withActionInstrumentation(
   "createCategory",
   async (unsafeData: CreateCategoryBody) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    if (!session?.user?.email) return { error: "Not authenticated" };
 
     const { success, data, error } = createCategoryBody.safeParse(unsafeData);
     if (!success) return { error: error.message };
 
-    await upsertCategory(session.user.id, data);
+    await upsertCategory(session.user.email, data);
 
     revalidatePath("/smart-categories");
   },
@@ -197,23 +197,25 @@ export const deleteCategoryAction = withActionInstrumentation(
   "deleteCategory",
   async (categoryId: string) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    if (!session?.user?.email) return { error: "Not authenticated" };
 
-    await deleteCategory(session.user.id, categoryId);
+    await deleteCategory(session.user.email, categoryId);
 
     revalidatePath("/smart-categories");
   },
 );
 
-async function deleteCategory(userId: string, categoryId: string) {
-  await prisma.category.delete({ where: { id: categoryId, userId } });
+async function deleteCategory(email: string, categoryId: string) {
+  await prisma.category.delete({
+    where: { id: categoryId, emailAccountId: email },
+  });
 }
 
-async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
+async function upsertCategory(email: string, newCategory: CreateCategoryBody) {
   try {
     if (newCategory.id) {
       const category = await prisma.category.update({
-        where: { id: newCategory.id, userId },
+        where: { id: newCategory.id, emailAccountId: email },
         data: {
           name: newCategory.name,
           description: newCategory.description,
@@ -224,7 +226,7 @@ async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
     } else {
       const category = await prisma.category.create({
         data: {
-          userId,
+          emailAccountId: email,
           name: newCategory.name,
           description: newCategory.description,
         },
@@ -260,12 +262,12 @@ export const removeAllFromCategoryAction = withActionInstrumentation(
   "removeAllFromCategory",
   async (categoryName: string) => {
     const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+    if (!session?.user?.email) return { error: "Not authenticated" };
 
     await prisma.newsletter.updateMany({
       where: {
         category: { name: categoryName },
-        userId: session.user.id,
+        emailAccountId: session.user.email,
       },
       data: { categoryId: null },
     });

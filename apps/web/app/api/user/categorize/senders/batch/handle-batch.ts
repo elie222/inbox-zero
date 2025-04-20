@@ -44,7 +44,7 @@ async function handleBatchInternal(request: Request) {
   if (isActionError(userResult)) return userResult;
   const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories(emailAccount.userId);
+  const categoriesResult = await getCategories({ email });
   if (isActionError(categoriesResult)) return categoriesResult;
   const { categories } = categoriesResult;
 
@@ -105,7 +105,7 @@ async function handleBatchInternal(request: Request) {
       sender: result.sender,
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
-      userId: emailAccount.userId,
+      userEmail: emailAccount.email,
     });
   }
 

@@ -67,8 +67,8 @@ export const runRulesAction = withActionInstrumentation(
       fetchExecutedRule
         ? prisma.executedRule.findUnique({
             where: {
-              unique_user_thread_message: {
-                userId: emailAccount.userId,
+              unique_emailAccount_thread_message: {
+                emailAccountId: emailAccount.email,
                 threadId,
                 messageId,
               },
@@ -105,7 +105,7 @@ export const runRulesAction = withActionInstrumentation(
       isTest,
       gmail,
       message,
-      rules: emailAccount.user.rules,
+      rules: emailAccount.rules,
       user: emailAccount,
     });
 
@@ -148,7 +148,7 @@ export const testAiCustomContentAction = withActionInstrumentation(
         inline: [],
         internalDate: new Date().toISOString(),
       },
-      rules: emailAccount.user.rules,
+      rules: emailAccount.rules,
       user: emailAccount,
     });
 
@@ -182,7 +182,7 @@ export const createAutomationAction = withActionInstrumentation<
 
   return await safeCreateRule({
     result,
-    userId: emailAccount.userId,
+    email: emailAccount.email,
   });
 });
 
@@ -196,10 +196,11 @@ export const setRuleRunOnThreadsAction = withActionInstrumentation(
     runOnThreads: boolean;
   }) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     await prisma.rule.update({
-      where: { id: ruleId, userId: session.user.id },
+      where: { id: ruleId, emailAccountId: email },
       data: { runOnThreads },
     });
   },
@@ -238,10 +239,11 @@ export const rejectPlanAction = withActionInstrumentation(
   "rejectPlan",
   async ({ executedRuleId }: { executedRuleId: string }) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     await prisma.executedRule.updateMany({
-      where: { id: executedRuleId, userId: session.user.id },
+      where: { id: executedRuleId, emailAccountId: email },
       data: { status: ExecutedRuleStatus.REJECTED },
     });
   },
@@ -293,11 +295,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         email: true,
         userId: true,
         about: true,
-        user: {
-          select: {
-            categories: { select: { id: true, name: true } },
-          },
-        },
+        categories: { select: { id: true, name: true } },
       },
     });
 
@@ -352,7 +350,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
           user: emailAccount,
           promptFile: diff.addedRules.join("\n\n"),
           isEditing: false,
-          availableCategories: emailAccount.user.categories.map((c) => c.name),
+          availableCategories: emailAccount.categories.map((c) => c.name),
         });
         logger.info("Added rules", {
           email,
@@ -362,7 +360,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
       // find existing rules
       const userRules = await prisma.rule.findMany({
-        where: { userId: session.user.id, enabled: true },
+        where: { emailAccountId: email, enabled: true },
         include: { actions: true },
       });
       logger.info("Found existing user rules", {
@@ -389,7 +387,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         }
 
         const executedRule = await prisma.executedRule.findFirst({
-          where: { userId: session.user.id, ruleId: rule.rule.id },
+          where: { emailAccountId: email, ruleId: rule.rule.id },
         });
 
         logger.info("Removing rule", {
@@ -401,14 +399,14 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
         if (executedRule) {
           await prisma.rule.update({
-            where: { id: rule.rule.id, userId: session.user.id },
+            where: { id: rule.rule.id, emailAccountId: email },
             data: { enabled: false },
           });
         } else {
           try {
             await deleteRule({
               ruleId: rule.rule.id,
-              userId: session.user.id,
+              email,
               groupId: rule.rule.groupId,
             });
           } catch (error) {
@@ -435,7 +433,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
             )
             .join("\n\n"),
           isEditing: true,
-          availableCategories: emailAccount.user.categories.map((c) => c.name),
+          availableCategories: emailAccount.categories.map((c) => c.name),
         });
 
         for (const rule of editedRules) {
@@ -453,14 +451,19 @@ export const saveRulesPromptAction = withActionInstrumentation(
             ruleId: rule.ruleId,
           });
 
-          const categoryIds = await getUserCategoriesForNames(
-            session.user.id,
-            rule.condition.categories?.categoryFilters || [],
-          );
+          const categoryIds = await getUserCategoriesForNames({
+            email,
+            names: rule.condition.categories?.categoryFilters || [],
+          });
 
           editRulesCount++;
 
-          await safeUpdateRule(rule.ruleId, rule, session.user.id, categoryIds);
+          await safeUpdateRule({
+            ruleId: rule.ruleId,
+            result: rule,
+            email,
+            categoryIds,
+          });
         }
       }
     } else {
@@ -469,7 +472,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
         user: emailAccount,
         promptFile: data.rulesPrompt,
         isEditing: false,
-        availableCategories: emailAccount.user.categories.map((c) => c.name),
+        availableCategories: emailAccount.categories.map((c) => c.name),
       });
       logger.info("Rules to be added", {
         email,
@@ -487,7 +490,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
 
       await safeCreateRule({
         result: rule,
-        userId: emailAccount.userId,
+        email,
         categoryNames: rule.condition.categories?.categoryFilters || [],
       });
     }
@@ -597,10 +600,11 @@ export const setRuleEnabledAction = withActionInstrumentation(
   "setRuleEnabled",
   async ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const emailAccountId = session?.user.email;
+    if (!emailAccountId) return { error: "Not logged in" };
 
     await prisma.rule.update({
-      where: { id: ruleId, userId: session.user.id },
+      where: { id: ruleId, emailAccountId },
       data: { enabled },
     });
   },
@@ -610,7 +614,8 @@ export const reportAiMistakeAction = withActionInstrumentation(
   "reportAiMistake",
   async (unsafeBody: ReportAiMistakeBody) => {
     const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+    const emailAccountId = session?.user.email;
+    if (!emailAccountId) return { error: "Not logged in" };
 
     const { success, data, error } = reportAiMistakeBody.safeParse(unsafeBody);
     if (!success) return { error: error.message };
@@ -622,15 +627,15 @@ export const reportAiMistakeAction = withActionInstrumentation(
     const [expectedRule, actualRule, user] = await Promise.all([
       expectedRuleId
         ? prisma.rule.findUnique({
-            where: { id: expectedRuleId, userId: session.user.id },
+            where: { id: expectedRuleId, emailAccountId },
           })
         : null,
       actualRuleId
         ? prisma.rule.findUnique({
-            where: { id: actualRuleId, userId: session.user.id },
+            where: { id: actualRuleId, emailAccountId },
           })
         : null,
-      getAiUser({ email: session.user.email }),
+      getAiUser({ email: emailAccountId }),
     ]);
 
     if (expectedRuleId && !expectedRule)
@@ -679,13 +684,9 @@ async function getEmailAccountWithRules({ email }: { email: string }) {
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      user: {
-        select: {
-          rules: {
-            where: { enabled: true },
-            include: { actions: true, categoryFilters: true },
-          },
-        },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true, categoryFilters: true },
       },
     },
   });

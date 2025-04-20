@@ -21,7 +21,8 @@ export async function categorizeSender(
   accessToken: string,
   userCategories?: Pick<Category, "id" | "name" | "description">[],
 ) {
-  const categories = userCategories || (await getUserCategories(user.userId));
+  const categories =
+    userCategories || (await getUserCategories({ email: user.email }));
   if (categories.length === 0) return { categoryId: undefined };
 
   const previousEmails = await getThreadsFromSenderWithSubject(
@@ -43,7 +44,7 @@ export async function categorizeSender(
       sender: senderAddress,
       categories,
       categoryName: aiResult.category,
-      userId: user.userId,
+      userEmail: user.email,
     });
 
     return { categoryId: newsletter.categoryId };
@@ -58,12 +59,12 @@ export async function categorizeSender(
 }
 
 export async function updateSenderCategory({
-  userId,
+  userEmail,
   sender,
   categories,
   categoryName,
 }: {
-  userId: string;
+  userEmail: string;
   sender: string;
   categories: Pick<Category, "id" | "name">[];
   categoryName: string;
@@ -76,7 +77,7 @@ export async function updateSenderCategory({
     newCategory = await prisma.category.create({
       data: {
         name: categoryName,
-        userId,
+        emailAccountId: userEmail,
         // color: getRandomColor(),
       },
     });
@@ -85,11 +86,13 @@ export async function updateSenderCategory({
 
   // save category
   const newsletter = await prisma.newsletter.upsert({
-    where: { email_userId: { email: sender, userId } },
+    where: {
+      email_emailAccountId: { email: sender, emailAccountId: userEmail },
+    },
     update: { categoryId: category.id },
     create: {
       email: sender,
-      userId,
+      emailAccountId: userEmail,
       categoryId: category.id,
     },
   });
@@ -101,21 +104,21 @@ export async function updateSenderCategory({
 }
 
 export async function updateCategoryForSender({
-  userId,
+  userEmail,
   sender,
   categoryId,
 }: {
-  userId: string;
+  userEmail: string;
   sender: string;
   categoryId: string;
 }) {
   const email = extractEmailAddress(sender);
   await prisma.newsletter.upsert({
-    where: { email_userId: { email, userId } },
+    where: { email_emailAccountId: { email, emailAccountId: userEmail } },
     update: { categoryId },
     create: {
       email,
-      userId,
+      emailAccountId: userEmail,
       categoryId,
     },
   });
@@ -137,8 +140,8 @@ function preCategorizeSendersWithStaticRules(
   });
 }
 
-export async function getCategories(userId: string) {
-  const categories = await getUserCategories(userId);
+export async function getCategories({ email }: { email: string }) {
+  const categories = await getUserCategories({ email });
   if (categories.length === 0) return { error: "No categories found" };
   return { categories };
 }

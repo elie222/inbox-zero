@@ -5,17 +5,17 @@ import { getUserCategories } from "@/utils/category.server";
 
 export type UserCategoriesResponse = Awaited<ReturnType<typeof getCategories>>;
 
-async function getCategories({ userId }: { userId: string }) {
-  const result = await getUserCategories(userId);
+async function getCategories({ email }: { email: string }) {
+  const result = await getUserCategories({ email });
   return { result };
 }
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.id)
-    return NextResponse.json({ error: "Not authenticated" });
+  if (!session?.user.email)
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const result = await getCategories({ userId: session.user.id });
+  const result = await getCategories({ email: session.user.email });
 
   return NextResponse.json(result);
 });

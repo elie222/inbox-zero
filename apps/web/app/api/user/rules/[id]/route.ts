@@ -6,8 +6,10 @@ import { withError } from "@/utils/middleware";
 
 export type RuleResponse = Awaited<ReturnType<typeof getRule>>;
 
-async function getRule({ ruleId, userId }: { ruleId: string; userId: string }) {
-  const rule = await prisma.rule.findUnique({ where: { id: ruleId, userId } });
+async function getRule({ ruleId, email }: { ruleId: string; email: string }) {
+  const rule = await prisma.rule.findUnique({
+    where: { id: ruleId, emailAccountId: email },
+  });
   return { rule };
 }
 
@@ -21,7 +23,7 @@ export const GET = withError(async (_request, { params }) => {
 
   const result = await getRule({
     ruleId: id,
-    userId: session.user.id,
+    email: session.user.email,
   });
 
   return NextResponse.json(result);

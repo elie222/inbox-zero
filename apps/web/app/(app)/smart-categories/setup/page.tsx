@@ -9,7 +9,7 @@ export default async function SetupCategoriesPage() {
   const email = session?.user.email;
   if (!email) throw new Error("Not authenticated");
 
-  const categories = await getUserCategories(session.user.id);
+  const categories = await getUserCategories({ email });
 
   return (
     <>

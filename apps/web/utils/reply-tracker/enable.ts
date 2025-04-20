@@ -97,7 +97,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
           },
         ],
       },
-      userId: emailAccount.userId,
+      email: emailAccount.email,
       systemType: SystemType.TO_REPLY,
     });
 
