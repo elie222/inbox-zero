@@ -74,12 +74,12 @@ async function migratePlansFromRedis() {
 }
 
 async function migrateUserPlans(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true },
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: { userId },
+    select: { email: true, userId: true },
   });
-  if (!user) {
-    console.error(`User not found for user ${userId}`);
+  if (!emailAccount) {
+    console.error(`Email account not found for user ${userId}`);
     processedUserIds.push(userId);
     console.log("Processed user IDs:", processedUserIds);
     return;
@@ -97,14 +97,14 @@ async function migrateUserPlans(userId: string) {
   }
 
   const userRules = await prisma.rule.findMany({
-    where: { userId },
+    where: { emailAccountId: emailAccount.email },
     select: { id: true },
   });
 
   const threadIds = plans.map((plan) => plan.threadId);
   const existingPlans = await prisma.executedRule.findMany({
     where: {
-      userId,
+      emailAccountId: emailAccount.email,
       threadId: { in: threadIds },
     },
     select: { messageId: true, threadId: true },
@@ -155,7 +155,7 @@ async function migrateUserPlans(userId: string) {
             messageId: plan.messageId,
             reason: plan.reason,
             ruleId: plan.rule?.id,
-            userId,
+            emailAccountId: emailAccount.email,
             status: plan.executed ? "APPLIED" : "PENDING",
             automated: false,
             actionItems: {
@@ -205,7 +205,7 @@ async function migrateUserPlans(userId: string) {
         messageId: plan.messageId,
         status: "SKIPPED" as const,
         automated: false,
-        userId,
+        emailAccountId: emailAccount.email,
       };
       await prisma.executedRule.create({ data });
     }

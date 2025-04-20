@@ -46,12 +46,12 @@ export async function processHistoryForUser(
           providerAccountId: true,
         },
       },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true, categoryFilters: true },
+      },
       user: {
         select: {
-          rules: {
-            where: { enabled: true },
-            include: { actions: true, categoryFilters: true },
-          },
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -107,7 +107,7 @@ export async function processHistoryForUser(
     return NextResponse.json({ ok: true });
   }
 
-  const hasAutomationRules = emailAccount.user.rules.length > 0;
+  const hasAutomationRules = emailAccount.rules.length > 0;
   const shouldBlockColdEmails =
     emailAccount.coldEmailBlocker &&
     emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
@@ -175,7 +175,7 @@ export async function processHistoryForUser(
         gmail,
         accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
-        rules: emailAccount.user.rules,
+        rules: emailAccount.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
         hasAiAutomationAccess: userHasAiAccess,
         user: emailAccount,

@@ -24,22 +24,18 @@ export default async function SetupPage() {
     where: { email },
     select: {
       coldEmailBlocker: true,
-      user: {
-        select: {
-          rules: { select: { id: true }, take: 1 },
-          newsletters: {
-            where: { status: { not: null } },
-            take: 1,
-          },
-        },
+      rules: { select: { id: true }, take: 1 },
+      newsletters: {
+        where: { status: { not: null } },
+        take: 1,
       },
     },
   });
 
   if (!emailAccount) throw new Error("User not found");
 
-  const isAiAssistantConfigured = emailAccount.user.rules.length > 0;
-  const isBulkUnsubscribeConfigured = emailAccount.user.newsletters.length > 0;
+  const isAiAssistantConfigured = emailAccount.rules.length > 0;
+  const isBulkUnsubscribeConfigured = emailAccount.newsletters.length > 0;
   const cookieStore = await cookies();
   const isReplyTrackerConfigured =
     cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";

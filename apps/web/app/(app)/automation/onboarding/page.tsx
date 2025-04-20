@@ -24,7 +24,7 @@ export default async function OnboardingPage() {
   );
 }
 
-type UserPreferences = Prisma.UserGetPayload<{
+type UserPreferences = Prisma.EmailAccountGetPayload<{
   select: {
     rules: {
       select: {
@@ -46,16 +46,12 @@ async function getUserPreferences({
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
-      user: {
+      rules: {
         select: {
-          rules: {
+          systemType: true,
+          actions: {
             select: {
-              systemType: true,
-              actions: {
-                select: {
-                  type: true,
-                },
-              },
+              type: true,
             },
           },
         },
@@ -66,16 +62,13 @@ async function getUserPreferences({
   if (!emailAccount) return undefined;
 
   return {
-    toReply: getToReplySetting(emailAccount.user.rules),
+    toReply: getToReplySetting(emailAccount.rules),
     coldEmails: getColdEmailSetting(emailAccount.coldEmailBlocker),
-    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.user.rules),
-    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.user.rules),
-    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.user.rules),
-    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.user.rules),
-    notification: getRuleSetting(
-      SystemType.NOTIFICATION,
-      emailAccount.user.rules,
-    ),
+    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
+    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
+    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
+    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
+    notification: getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
   };
 }
 

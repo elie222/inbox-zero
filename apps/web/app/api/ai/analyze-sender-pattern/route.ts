@@ -64,9 +64,9 @@ async function process({ email, from }: { email: string; from: string }) {
     // Check if we've already analyzed this sender
     const existingCheck = await prisma.newsletter.findUnique({
       where: {
-        email_userId: {
+        email_emailAccountId: {
           email: extractEmailAddress(from),
-          userId: emailAccount.userId,
+          emailAccountId: emailAccount.email,
         },
       },
     });
@@ -129,7 +129,7 @@ async function process({ email, from }: { email: string; from: string }) {
     const patternResult = await aiDetectRecurringPattern({
       emails,
       user: emailAccount,
-      rules: emailAccount.user.rules.map((rule) => ({
+      rules: emailAccount.rules.map((rule) => ({
         name: rule.name,
         instructions: rule.instructions || "",
       })),
@@ -138,14 +138,14 @@ async function process({ email, from }: { email: string; from: string }) {
     if (patternResult?.matchedRule) {
       // Save pattern to DB (adds sender to rule's group)
       await saveLearnedPattern({
-        userId: emailAccount.userId,
+        email: emailAccount.email,
         from,
         ruleName: patternResult.matchedRule,
       });
     }
 
     // Record the pattern analysis result
-    await savePatternCheck({ userId: emailAccount.userId, from });
+    await savePatternCheck({ emailAccountId: emailAccount.email, from });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -166,14 +166,14 @@ async function process({ email, from }: { email: string; from: string }) {
  * Record that we've analyzed a sender for patterns
  */
 async function savePatternCheck({
-  userId,
+  emailAccountId,
   from,
-}: { userId: string; from: string }) {
+}: { emailAccountId: string; from: string }) {
   await prisma.newsletter.upsert({
     where: {
-      email_userId: {
+      email_emailAccountId: {
         email: from,
-        userId,
+        emailAccountId,
       },
     },
     update: {
@@ -182,7 +182,7 @@ async function savePatternCheck({
     },
     create: {
       email: from,
-      userId,
+      emailAccountId,
       patternAnalyzed: true,
       lastAnalyzedAt: new Date(),
     },
@@ -238,26 +238,26 @@ async function getThreadsFromSender(
 }
 
 async function saveLearnedPattern({
-  userId,
+  email,
   from,
   ruleName,
 }: {
-  userId: string;
+  email: string;
   from: string;
   ruleName: string;
 }) {
   const rule = await prisma.rule.findUnique({
     where: {
-      name_userId: {
+      name_emailAccountId: {
         name: ruleName,
-        userId,
+        emailAccountId: email,
       },
     },
     select: { id: true, groupId: true },
   });
 
   if (!rule) {
-    logger.error("Rule not found", { userId, ruleName });
+    logger.error("Rule not found", { email, ruleName });
     return;
   }
 
@@ -267,7 +267,7 @@ async function saveLearnedPattern({
     // Create a new group for this rule if one doesn't exist
     const newGroup = await prisma.group.create({
       data: {
-        userId,
+        emailAccountId: email,
         name: ruleName,
         rule: { connect: { id: rule.id } },
       },
@@ -309,16 +309,12 @@ async function getEmailAccountWithRules({ email }: { email: string }) {
           refresh_token: true,
         },
       },
-      user: {
+      rules: {
+        where: { enabled: true, instructions: { not: null } },
         select: {
-          rules: {
-            where: { enabled: true, instructions: { not: null } },
-            select: {
-              id: true,
-              name: true,
-              instructions: true,
-            },
-          },
+          id: true,
+          name: true,
+          instructions: true,
         },
       },
     },

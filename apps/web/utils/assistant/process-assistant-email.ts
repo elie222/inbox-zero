@@ -98,7 +98,7 @@ async function processAssistantEmailInternal({
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
   const originalMessage = await getOriginalMessage(originalMessageId, gmail);
 
-  const [user, executedRule, senderCategory] = await Promise.all([
+  const [emailAccount, executedRule, senderCategory] = await Promise.all([
     prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
@@ -108,37 +108,33 @@ async function processAssistantEmailInternal({
         aiProvider: true,
         aiModel: true,
         aiApiKey: true,
-        user: {
-          select: {
-            rules: {
-              include: {
-                actions: true,
-                categoryFilters: true,
-                group: {
+        rules: {
+          include: {
+            actions: true,
+            categoryFilters: true,
+            group: {
+              select: {
+                id: true,
+                name: true,
+                items: {
                   select: {
                     id: true,
-                    name: true,
-                    items: {
-                      select: {
-                        id: true,
-                        type: true,
-                        value: true,
-                      },
-                    },
+                    type: true,
+                    value: true,
                   },
                 },
               },
             },
-            categories: true,
           },
         },
+        categories: true,
       },
     }),
     originalMessage
       ? prisma.executedRule.findUnique({
           where: {
-            unique_user_thread_message: {
-              userId,
+            unique_emailAccount_thread_message: {
+              emailAccountId: userEmail,
               threadId: originalMessage.threadId,
               messageId: originalMessage.id,
             },
@@ -157,9 +153,9 @@ async function processAssistantEmailInternal({
     originalMessage
       ? prisma.newsletter.findUnique({
           where: {
-            email_userId: {
-              userId,
+            email_emailAccountId: {
               email: extractEmailAddress(originalMessage.headers.from),
+              emailAccountId: userEmail,
             },
           },
           select: {
@@ -169,7 +165,7 @@ async function processAssistantEmailInternal({
       : null,
   ]);
 
-  if (!user) {
+  if (!emailAccount) {
     logger.error("User not found", loggerOptions);
     return;
   }
@@ -213,12 +209,12 @@ async function processAssistantEmailInternal({
   }
 
   const result = await processUserRequest({
-    user,
-    rules: user.user.rules,
+    user: emailAccount,
+    rules: emailAccount.rules,
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRule?.rule || null,
-    categories: user.user.categories.length ? user.user.categories : null,
+    categories: emailAccount.categories.length ? emailAccount.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
   });
 

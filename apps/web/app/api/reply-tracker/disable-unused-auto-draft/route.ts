@@ -26,7 +26,7 @@ async function disableUnusedAutoDrafts() {
 
   // TODO: may need to make this more efficient
   // Find all users who have the auto-draft feature enabled (have an Action of type DRAFT_EMAIL)
-  const usersWithAutoDraft = await prisma.user.findMany({
+  const usersWithAutoDraft = await prisma.emailAccount.findMany({
     where: {
       rules: {
         some: {
@@ -40,7 +40,7 @@ async function disableUnusedAutoDrafts() {
       },
     },
     select: {
-      id: true,
+      email: true,
       rules: {
         where: {
           systemType: SystemType.TO_REPLY,
@@ -69,7 +69,7 @@ async function disableUnusedAutoDrafts() {
       const lastTenDrafts = await prisma.executedAction.findMany({
         where: {
           executedRule: {
-            userId: user.id,
+            emailAccountId: user.email,
             rule: {
               systemType: SystemType.TO_REPLY,
             },
@@ -96,7 +96,7 @@ async function disableUnusedAutoDrafts() {
       // Skip if user has fewer than 10 drafts (not enough data to make a decision)
       if (lastTenDrafts.length < MAX_DRAFTS_TO_CHECK) {
         logger.info("Skipping user - only has few drafts", {
-          userId: user.id,
+          email: user.email,
           numDrafts: lastTenDrafts.length,
         });
         continue;
@@ -110,14 +110,14 @@ async function disableUnusedAutoDrafts() {
       // If none of the drafts were sent, disable auto-draft
       if (!anyDraftsSent) {
         logger.info("Disabling auto-draft for user - last 10 drafts not used", {
-          userId: user.id,
+          email: user.email,
         });
 
         // Delete the DRAFT_EMAIL actions from all TO_REPLY rules
         await prisma.action.deleteMany({
           where: {
             rule: {
-              userId: user.id,
+              emailAccountId: user.email,
               systemType: SystemType.TO_REPLY,
             },
             type: ActionType.DRAFT_EMAIL,
@@ -128,7 +128,7 @@ async function disableUnusedAutoDrafts() {
         results.usersDisabled++;
       }
     } catch (error) {
-      logger.error("Error processing user", { userId: user.id, error });
+      logger.error("Error processing user", { email: user.email, error });
       captureException(error);
       results.errors++;
     }

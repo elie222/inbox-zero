@@ -62,7 +62,8 @@ export const markNotColdEmailAction = withActionInstrumentation(
   "markNotColdEmail",
   async (body: MarkNotColdEmailBody) => {
     const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+    const email = session?.user.email;
+    if (!email) return { error: "Not logged in" };
 
     const { data, error } = markNotColdEmailBody.safeParse(body);
     if (error) return { error: error.message };
@@ -74,7 +75,10 @@ export const markNotColdEmailAction = withActionInstrumentation(
     await Promise.all([
       prisma.coldEmail.update({
         where: {
-          userId_fromEmail: { userId: session.user.id, fromEmail: sender },
+          emailAccountId_fromEmail: {
+            emailAccountId: email,
+            fromEmail: sender,
+          },
         },
         data: {
           status: ColdEmailStatus.USER_REJECTED_COLD,
