@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
+import { getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-diff-rules
 
@@ -9,12 +10,7 @@ vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiDiffRules", () => {
   it("should correctly identify added, edited, and removed rules", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-    };
+    const user = getUser();
 
     const oldPromptFile = `
 * Label receipts as "Receipt"
@@ -45,12 +41,7 @@ describe.runIf(isAiTest)("aiDiffRules", () => {
   }, 15_000);
 
   it("should handle errors gracefully", async () => {
-    const user = {
-      email: "test@example.com",
-      aiProvider: null,
-      aiModel: null,
-      aiApiKey: "invalid-api-key",
-    };
+    const user = { ...getUser(), aiApiKey: "invalid-api-key" };
     const oldPromptFile = "Some old prompt";
     const newPromptFile = "Some new prompt";
 

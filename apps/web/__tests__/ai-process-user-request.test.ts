@@ -446,6 +446,7 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     enabled: true,
     createdAt: new Date(),
     updatedAt: new Date(),
+    systemType: null,
     ...rule,
   };
 }
