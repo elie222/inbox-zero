@@ -109,8 +109,7 @@ model User {
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
-  // id           String   @id @default(cuid())
-  email        String   @unique
+  email        String   @id 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   writingStyle String?
