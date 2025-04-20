@@ -580,7 +580,7 @@ ${senderCategory || "No category"}
     },
     maxSteps: 5,
     label: "Fix Rule",
-    userEmail: user.email || "",
+    userEmail: user.email,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);

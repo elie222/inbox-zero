@@ -62,7 +62,7 @@ ${formatCategoriesForPrompt(categories)}
     system,
     prompt,
     schema: categorizeSenderSchema,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Categorize sender",
   });
 

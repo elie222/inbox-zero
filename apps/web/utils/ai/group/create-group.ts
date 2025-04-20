@@ -100,7 +100,7 @@ Key guidelines:
         parameters: generateGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: user.email,
     label: "Create group",
   });
 
@@ -171,7 +171,7 @@ Guidelines:
         parameters: verifyGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: user.email,
     label: "Verify group criteria",
   });
 

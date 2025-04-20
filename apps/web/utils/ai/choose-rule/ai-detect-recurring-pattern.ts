@@ -103,7 +103,7 @@ ${stringifyEmail(email, 500)}
       system,
       prompt,
       schema,
-      userEmail: user.email || "",
+      userEmail: user.email,
       usageLabel: "Detect recurring pattern",
     });
 

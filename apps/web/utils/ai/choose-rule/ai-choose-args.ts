@@ -91,7 +91,7 @@ export async function aiGenerateArgs({
           },
         },
         label: "Args for rule",
-        userEmail: user.email || "",
+        userEmail: user.email,
       }),
     {
       retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),

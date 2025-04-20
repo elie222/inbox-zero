@@ -94,7 +94,7 @@ ${formatCategoriesForPrompt(categories)}
     system,
     prompt,
     schema: categorizeSendersSchema,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Categorize senders bulk",
   });
 

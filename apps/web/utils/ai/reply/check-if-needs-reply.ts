@@ -70,7 +70,7 @@ Decide if the message we are sending needs a reply.
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Check if needs reply",
   });
 

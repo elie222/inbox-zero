@@ -34,7 +34,6 @@ export async function isColdEmail({
   aiReason?: string | null;
 }> {
   const loggerOptions = {
-    userId: user.userId,
     email: user.email,
     threadId: email.threadId,
     messageId: email.id,
@@ -45,7 +44,7 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
     from: email.from,
-    userId: user.userId,
+    emailAccountId: user.email,
   });
 
   if (isColdEmailer) {
@@ -87,14 +86,17 @@ export async function isColdEmail({
 
 async function isKnownColdEmailSender({
   from,
-  userId,
+  emailAccountId,
 }: {
   from: string;
-  userId: string;
+  emailAccountId: string;
 }) {
   const coldEmail = await prisma.coldEmail.findUnique({
     where: {
-      userId_fromEmail: { userId, fromEmail: from },
+      emailAccountId_fromEmail: {
+        emailAccountId,
+        fromEmail: from,
+      },
       status: ColdEmailStatus.AI_LABELED_COLD,
     },
     select: { id: true },
@@ -141,7 +143,7 @@ ${stringifyEmail(email, 500)}
       coldEmail: z.boolean(),
       reason: z.string(),
     }),
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Cold email check",
   });
 
@@ -171,12 +173,17 @@ export async function blockColdEmail(options: {
   const { gmail, email, user, aiReason } = options;
 
   await prisma.coldEmail.upsert({
-    where: { userId_fromEmail: { userId: user.userId, fromEmail: email.from } },
+    where: {
+      emailAccountId_fromEmail: {
+        emailAccountId: user.email,
+        fromEmail: email.from,
+      },
+    },
     update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
       status: ColdEmailStatus.AI_LABELED_COLD,
       fromEmail: email.from,
-      userId: user.userId,
+      emailAccountId: user.email,
       reason: aiReason,
       messageId: email.id,
       threadId: email.threadId,
@@ -194,7 +201,7 @@ export async function blockColdEmail(options: {
       key: "cold_email",
     });
     if (!coldEmailLabel?.id)
-      logger.error("No gmail label id", { userId: user.userId });
+      logger.error("No gmail label id", { emailAccountId: user.email });
 
     const shouldArchive =
       user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||

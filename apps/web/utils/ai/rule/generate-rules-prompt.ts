@@ -118,7 +118,7 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
         parameters: hasSnippets ? parametersSnippets : parameters,
       },
     },
-    userEmail: user.email || "",
+    userEmail: user.email,
     label: "Generate rules prompt",
   });
 

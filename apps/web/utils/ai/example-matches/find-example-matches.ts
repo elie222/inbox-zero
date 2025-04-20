@@ -105,7 +105,7 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
         parameters: findExampleMatchesSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: user.email,
     label: "Find example matches",
   });
 

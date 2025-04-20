@@ -101,7 +101,7 @@ ${emailSection}
       ruleName: z.string(),
       noMatchFound: z.boolean().optional(),
     }),
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Choose rule",
   });
 

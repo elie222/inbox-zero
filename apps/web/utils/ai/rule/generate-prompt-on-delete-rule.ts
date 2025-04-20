@@ -57,7 +57,7 @@ ${deletedRulePrompt}
     prompt,
     system,
     schema: parameters,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Update prompt on delete rule",
   });
 

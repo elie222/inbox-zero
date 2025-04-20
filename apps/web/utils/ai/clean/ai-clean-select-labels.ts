@@ -35,7 +35,7 @@ ${instructions}
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Clean - Select Labels",
   });
 

@@ -97,7 +97,7 @@ The current date is ${currentDate}.
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: user.email,
     usageLabel: "Clean",
   });
 
