@@ -45,29 +45,16 @@ async function watchAllEmails() {
         },
       },
     },
+    orderBy: {
+      watchEmailsExpirationDate: { sort: "asc", nulls: "first" },
+    },
   });
 
   logger.info("Watching emails for users", {
     count: emailAccounts.length,
   });
 
-  const sortedEmailAccounts = emailAccounts.sort((a, b) => {
-    // Prioritize null dates first
-    if (!a.watchEmailsExpirationDate && b.watchEmailsExpirationDate) return -1;
-    if (a.watchEmailsExpirationDate && !b.watchEmailsExpirationDate) return 1;
-
-    // If both have dates, sort by earliest date first
-    if (a.watchEmailsExpirationDate && b.watchEmailsExpirationDate) {
-      return (
-        new Date(a.watchEmailsExpirationDate).getTime() -
-        new Date(b.watchEmailsExpirationDate).getTime()
-      );
-    }
-
-    return 0;
-  });
-
-  for (const emailAccount of sortedEmailAccounts) {
+  for (const emailAccount of emailAccounts) {
     try {
       logger.info("Watching emails for user", { email: emailAccount.email });
 
