@@ -53,33 +53,33 @@ model User {
   sessions      Session[]
 
   // additional fields
-  // about                     String?
-  // signature                 String?
-  // watchEmailsExpirationDate DateTime?
-  // lastSyncedHistoryId      String?
+  about                     String? // deprecated
+  signature                 String? // deprecated
+  watchEmailsExpirationDate DateTime? // deprecated
+  lastSyncedHistoryId      String? // deprecated
   completedOnboardingAt    DateTime? // questions about the user. e.g. their role
   completedAppOnboardingAt DateTime? // how to use the app
   onboardingAnswers        Json?
-  // behaviorProfile          Json?
+  behaviorProfile          Json? // deprecated
   lastLogin                DateTime?
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
 
   // settings
-  // aiProvider            String?
-  // aiModel               String?
-  // aiApiKey              String?
-  // statsEmailFrequency   Frequency @default(WEEKLY)
-  // summaryEmailFrequency Frequency @default(WEEKLY)
-  // lastSummaryEmailAt    DateTime?
-  // coldEmailBlocker      ColdEmailSetting?
-  // coldEmailPrompt       String?
-  // rulesPrompt           String?
-  // webhookSecret         String?
-  // outboundReplyTracking Boolean   @default(false)
+  aiProvider            String? // deprecated
+  aiModel               String? // deprecated
+  aiApiKey              String? // deprecated
+  statsEmailFrequency   Frequency @default(WEEKLY) // deprecated
+  summaryEmailFrequency Frequency @default(WEEKLY) // deprecated
+  lastSummaryEmailAt    DateTime? // deprecated
+  coldEmailBlocker      ColdEmailSetting? // deprecated
+  coldEmailPrompt       String? // deprecated
+  rulesPrompt           String? // deprecated
+  webhookSecret         String? // deprecated
+  outboundReplyTracking Boolean   @default(false) // deprecated
 
   // categorization
-  // autoCategorizeSenders Boolean @default(false)
+  autoCategorizeSenders Boolean @default(false) // deprecated
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -104,7 +104,7 @@ model User {
   knowledges        Knowledge[]
   emailAccounts     EmailAccount[]
 
-  // @@index([lastSummaryEmailAt])
+  @@index([lastSummaryEmailAt])
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
