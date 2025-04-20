@@ -56,27 +56,27 @@ model User {
   about                     String? // deprecated
   signature                 String? // deprecated
   watchEmailsExpirationDate DateTime? // deprecated
-  lastSyncedHistoryId      String? // deprecated
-  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
-  completedAppOnboardingAt DateTime? // how to use the app
-  onboardingAnswers        Json?
-  behaviorProfile          Json? // deprecated
-  lastLogin                DateTime?
-  utms                     Json?
-  errorMessages            Json? // eg. user set incorrect AI API key
+  lastSyncedHistoryId       String? // deprecated
+  completedOnboardingAt     DateTime? // questions about the user. e.g. their role
+  completedAppOnboardingAt  DateTime? // how to use the app
+  onboardingAnswers         Json?
+  behaviorProfile           Json? // deprecated
+  lastLogin                 DateTime?
+  utms                      Json?
+  errorMessages             Json? // eg. user set incorrect AI API key
 
   // settings
   aiProvider            String? // deprecated
   aiModel               String? // deprecated
   aiApiKey              String? // deprecated
-  statsEmailFrequency   Frequency @default(WEEKLY) // deprecated
-  summaryEmailFrequency Frequency @default(WEEKLY) // deprecated
+  statsEmailFrequency   Frequency         @default(WEEKLY) // deprecated
+  summaryEmailFrequency Frequency         @default(WEEKLY) // deprecated
   lastSummaryEmailAt    DateTime? // deprecated
   coldEmailBlocker      ColdEmailSetting? // deprecated
   coldEmailPrompt       String? // deprecated
   rulesPrompt           String? // deprecated
   webhookSecret         String? // deprecated
-  outboundReplyTracking Boolean   @default(false) // deprecated
+  outboundReplyTracking Boolean           @default(false) // deprecated
 
   // categorization
   autoCategorizeSenders Boolean @default(false) // deprecated
