@@ -20,6 +20,7 @@ import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
+import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("api/clean");
 
@@ -258,7 +259,7 @@ function getPublish({
 
     await Promise.all([
       publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${email}`,
+        key: `gmail-action-${hash(email)}`,
         ratePerSecond: maxRatePerSecond,
       }),
       updateThread({

@@ -2,6 +2,7 @@ import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
 import { env } from "@/env";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
+import { hash } from "@/utils/hash";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
@@ -9,7 +10,7 @@ const logger = createScopedLogger("upstash");
 const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
 const getCategorizeSendersQueueName = ({ email }: { email: string }) =>
-  `${CATEGORIZE_SENDERS_PREFIX}-${email}`;
+  `${CATEGORIZE_SENDERS_PREFIX}-${hash(email)}`;
 
 /**
  * Publishes sender categorization tasks to QStash queue in batches

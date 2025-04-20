@@ -32,6 +32,7 @@ import prisma from "@/utils/prisma";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
+import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -175,7 +176,7 @@ export const cleanInboxAction = withActionInstrumentation(
               // api keys or a global queue
               // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
               flowControl: {
-                key: `ai-clean-${email}`,
+                key: `ai-clean-${hash(email)}`,
                 parallelism: 3,
               },
             };
