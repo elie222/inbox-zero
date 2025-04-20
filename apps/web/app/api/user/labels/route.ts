@@ -5,20 +5,18 @@ import { withError } from "@/utils/middleware";
 
 export type UserLabelsResponse = Awaited<ReturnType<typeof getLabels>>;
 
-async function getLabels(options: { userId: string }) {
+async function getLabels(options: { emailAccountId: string }) {
   return await prisma.label.findMany({
-    where: {
-      userId: options.userId,
-    },
+    where: { emailAccountId: options.emailAccountId },
   });
 }
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
 
-  const labels = await getLabels({ userId: session.user.id });
+  const labels = await getLabels({ emailAccountId });
 
   return NextResponse.json(labels);
 });

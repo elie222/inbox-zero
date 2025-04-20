@@ -10,10 +10,11 @@ export type ExamplesResponse = Awaited<ReturnType<typeof getExamples>>;
 
 async function getExamples(options: { ruleId: string }) {
   const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not logged in");
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) throw new SafeError("Not logged in");
 
   const rule = await prisma.rule.findUnique({
-    where: { id: options.ruleId, userId: session.user.id },
+    where: { id: options.ruleId, emailAccountId },
     include: { group: { include: { items: true } } },
   });
 

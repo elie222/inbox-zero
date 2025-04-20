@@ -123,7 +123,7 @@ export async function processHistoryItem(
     // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
-      userId: user.userId,
+      emailAccountId: userEmail,
       gmail,
       messageId,
     });

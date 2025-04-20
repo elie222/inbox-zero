@@ -7,9 +7,11 @@ export type NewsletterSummaryResponse = Awaited<
   ReturnType<typeof getNewsletterSummary>
 >;
 
-async function getNewsletterSummary({ userId }: { userId: string }) {
+async function getNewsletterSummary({
+  emailAccountId,
+}: { emailAccountId: string }) {
   const result = await prisma.newsletter.groupBy({
-    where: { userId },
+    where: { emailAccountId },
     by: ["status"],
     _count: true,
   });
@@ -23,10 +25,10 @@ async function getNewsletterSummary({ userId }: { userId: string }) {
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
 
-  const result = await getNewsletterSummary({ userId: session.user.id });
+  const result = await getNewsletterSummary({ emailAccountId });
 
   return NextResponse.json(result);
 });

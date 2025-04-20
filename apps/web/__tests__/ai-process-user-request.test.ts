@@ -421,7 +421,7 @@ describe(
 function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
   return {
     id: "1",
-    userId: "user1",
+    emailAccountId: "user1",
     name: "Rule name",
 
     conditionalOperator: LogicalOperator.AND,
@@ -515,7 +515,7 @@ function getCategory(category: Partial<Category>): Category {
     description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    userId: "user1",
+    emailAccountId: "user1",
     ...category,
   };
 }

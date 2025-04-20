@@ -10,16 +10,12 @@ export type GetKnowledgeResponse = {
 
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
 
   const items = await prisma.knowledge.findMany({
-    where: {
-      userId: session.user.id,
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
+    where: { emailAccountId },
+    orderBy: { updatedAt: "desc" },
   });
 
   const result: GetKnowledgeResponse = { items };

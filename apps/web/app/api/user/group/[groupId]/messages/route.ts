@@ -6,8 +6,8 @@ import { getGmailClient } from "@/utils/gmail/client";
 
 export const GET = withError(async (_request, { params }) => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Missing group id" });
@@ -16,7 +16,7 @@ export const GET = withError(async (_request, { params }) => {
 
   const { messages } = await getGroupEmails({
     groupId,
-    userId: session.user.id,
+    emailAccountId,
     gmail,
     from: undefined,
     to: undefined,

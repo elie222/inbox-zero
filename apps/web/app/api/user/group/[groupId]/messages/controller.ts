@@ -23,21 +23,21 @@ export type GroupEmailsResponse = Awaited<ReturnType<typeof getGroupEmails>>;
 
 export async function getGroupEmails({
   groupId,
-  userId,
+  emailAccountId,
   gmail,
   from,
   to,
   pageToken,
 }: {
   groupId: string;
-  userId: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   from?: Date;
   to?: Date;
   pageToken?: string;
 }) {
   const group = await prisma.group.findUnique({
-    where: { id: groupId, userId },
+    where: { id: groupId, emailAccountId },
     include: { items: true },
   });
 

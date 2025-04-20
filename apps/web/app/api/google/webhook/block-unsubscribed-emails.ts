@@ -13,19 +13,19 @@ const logger = createScopedLogger("google/webhook/block-unsubscribed-emails");
 
 export async function blockUnsubscribedEmails({
   from,
-  userId,
+  emailAccountId,
   gmail,
   messageId,
 }: {
   from: string;
-  userId: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   messageId: string;
 }): Promise<boolean> {
   const email = extractEmailAddress(from);
   const sender = await prisma.newsletter.findFirst({
     where: {
-      userId,
+      emailAccountId,
       email,
       status: NewsletterStatus.UNSUBSCRIBED,
     },
@@ -37,7 +37,8 @@ export async function blockUnsubscribedEmails({
     gmail,
     key: "unsubscribed",
   });
-  if (!unsubscribeLabel?.id) logger.error("No gmail label id", { userId });
+  if (!unsubscribeLabel?.id)
+    logger.error("No gmail label id", { emailAccountId });
 
   await labelMessage({
     gmail,

@@ -6,12 +6,14 @@ import { ActionType } from "@prisma/client";
 
 export default async function OnboardingReplyTracker() {
   const session = await auth();
-  if (!session?.user.email) redirect("/login");
-
-  const userId = session.user.id;
+  const emailAccountId = session?.user.email;
+  if (!emailAccountId) redirect("/login");
 
   const trackerRule = await prisma.rule.findFirst({
-    where: { userId, actions: { some: { type: ActionType.TRACK_THREAD } } },
+    where: {
+      emailAccountId,
+      actions: { some: { type: ActionType.TRACK_THREAD } },
+    },
     select: { id: true },
   });
 

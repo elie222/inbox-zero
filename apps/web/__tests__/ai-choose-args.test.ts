@@ -185,7 +185,7 @@ function getRule(
     name: "Test Rule",
     actions,
     id: "r123",
-    userId: "userId",
+    emailAccountId: "emailAccountId",
     createdAt: new Date(),
     updatedAt: new Date(),
     automate: false,
