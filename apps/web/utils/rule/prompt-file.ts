@@ -53,20 +53,18 @@ export async function updatePromptFileOnRuleUpdated({
 }
 
 export async function updateRuleInstructionsAndPromptFile({
-  userId,
   email,
   ruleId,
   instructions,
   currentRule,
 }: {
-  userId: string;
   email: string;
   ruleId: string;
   instructions: string;
   currentRule: RuleWithRelations | null;
 }) {
   const updatedRule = await prisma.rule.update({
-    where: { id: ruleId, userId },
+    where: { id: ruleId, emailAccountId: email },
     data: { instructions },
     include: { actions: true, categoryFilters: true, group: true },
   });

@@ -49,7 +49,7 @@ export async function deleteUser({
     // First delete ExecutedRules and their associated ExecutedActions in batches
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");
-    await deleteExecutedRulesInBatches(userId);
+    await deleteExecutedRulesInBatches({ email });
     logger.info("Deleting user");
     await prisma.user.delete({ where: { email } });
   } catch (error) {
@@ -100,13 +100,19 @@ export async function deleteUser({
 /**
  * Delete ExecutedRules and their associated ExecutedActions in batches
  */
-async function deleteExecutedRulesInBatches(userId: string, batchSize = 100) {
+async function deleteExecutedRulesInBatches({
+  email,
+  batchSize = 100,
+}: {
+  email: string;
+  batchSize?: number;
+}) {
   let deletedTotal = 0;
 
   while (true) {
     // 1. Get a batch of ExecutedRule IDs
     const executedRules = await prisma.executedRule.findMany({
-      where: { userId },
+      where: { emailAccountId: email },
       select: { id: true },
       take: batchSize,
     });

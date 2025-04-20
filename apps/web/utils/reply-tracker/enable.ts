@@ -22,22 +22,18 @@ export async function enableReplyTracker({ email }: { email: string }) {
       aiApiKey: true,
       about: true,
       rulesPrompt: true,
-      user: {
+      rules: {
+        where: {
+          systemType: SystemType.TO_REPLY,
+        },
         select: {
-          rules: {
-            where: {
-              systemType: SystemType.TO_REPLY,
-            },
+          id: true,
+          systemType: true,
+          actions: {
             select: {
               id: true,
-              systemType: true,
-              actions: {
-                select: {
-                  id: true,
-                  type: true,
-                  label: true,
-                },
-              },
+              type: true,
+              label: true,
             },
           },
         },
@@ -48,7 +44,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
   // If enabled already skip
   if (!emailAccount) return { error: "Email account not found" };
 
-  const rule = emailAccount.user.rules.find(
+  const rule = emailAccount.rules.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
