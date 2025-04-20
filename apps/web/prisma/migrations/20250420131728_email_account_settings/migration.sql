@@ -20,7 +20,8 @@ DROP INDEX "EmailAccount_email_key";
 ALTER TABLE "Account" DROP COLUMN "emailAccountId";
 
 -- AlterTable
-ALTER TABLE "CleanupJob" ADD COLUMN     "email" TEXT NOT NULL;
+-- Step 1: Add the email column, allowing NULLs for now
+ALTER TABLE "CleanupJob" ADD COLUMN     "email" TEXT;
 
 -- AlterTable
 ALTER TABLE "EmailAccount" DROP CONSTRAINT "EmailAccount_pkey",
@@ -49,9 +50,6 @@ CREATE INDEX "EmailAccount_lastSummaryEmailAt_idx" ON "EmailAccount"("lastSummar
 
 -- AddForeignKey
 ALTER TABLE "EmailAccount" ADD CONSTRAINT "EmailAccount_accountId_fkey" FOREIGN KEY ("accountId") REFERENCES "Account"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "CleanupJob" ADD CONSTRAINT "CleanupJob_email_fkey" FOREIGN KEY ("email") REFERENCES "EmailAccount"("email") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- Data migration: Ensure every User with an Account has a corresponding EmailAccount
 -- and populate it with settings from the User model.
@@ -116,8 +114,13 @@ ON CONFLICT ("email") DO UPDATE SET
     "updatedAt" = NOW(); -- Update the timestamp
 
 -- Step 2: Update the CleanupJob table to link to EmailAccount via email
--- This assumes the previous ALTER TABLE added the 'email' column
 UPDATE "CleanupJob" cj
 SET email = u.email
 FROM "User" u
 WHERE cj."userId" = u.id AND u.email IS NOT NULL AND u.email <> '';
+
+-- Step 3: Now that all rows have a non-null email, enforce the NOT NULL constraint
+ALTER TABLE "CleanupJob" ALTER COLUMN "email" SET NOT NULL;
+
+-- Step 4: Add the foreign key constraint (moved from earlier)
+ALTER TABLE "CleanupJob" ADD CONSTRAINT "CleanupJob_email_fkey" FOREIGN KEY ("email") REFERENCES "EmailAccount"("email") ON DELETE CASCADE ON UPDATE CASCADE;
