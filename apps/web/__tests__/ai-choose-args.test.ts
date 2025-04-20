@@ -198,7 +198,7 @@ function getRule(
     enabled: true,
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
-    type: null,
+    systemType: null,
   };
 }
 

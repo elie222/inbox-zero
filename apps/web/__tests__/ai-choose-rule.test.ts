@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
-import { getUser } from "@/__tests__/helpers";
+import { getEmail, getUser } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-rule
 
@@ -346,18 +346,5 @@ function getRule(instructions: string, actions: Action[] = []) {
     enabled: true,
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
-  };
-}
-
-function getEmail({
-  from = "from@test.com",
-  subject = "subject",
-  content = "content",
-}: { from?: string; subject?: string; content?: string } = {}) {
-  return {
-    id: "id",
-    from,
-    subject,
-    content,
   };
 }
