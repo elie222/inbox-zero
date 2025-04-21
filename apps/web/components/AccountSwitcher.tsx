@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import Image from "next/image";
 import { useQueryState } from "nuqs";
 import { ChevronsUpDown, Plus } from "lucide-react";
@@ -22,6 +22,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
+import { useHotkeys } from "react-hotkeys-hook";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -47,6 +48,8 @@ export function AccountSwitcherInternal({
 }) {
   const { isMobile } = useSidebar();
   const { symbol: modifierSymbol } = useModifierKey();
+
+  useAccountHotkeys(accounts, setAccountId);
 
   const activeAccount = useMemo(
     () =>
@@ -130,5 +133,47 @@ function ProfileImage({
       src={image}
       alt=""
     />
+  );
+}
+
+function useAccountHotkeys(
+  accounts: GetAccountsResponse["accounts"],
+  setAccountId: (accountId: string) => void,
+) {
+  const { isMac } = useModifierKey();
+  const modifierKey = isMac ? "meta" : "ctrl";
+
+  const accountShortcuts = useMemo(() => {
+    return accounts.slice(0, 9).map((account, index) => ({
+      hotkey: `${modifierKey}+${index + 1}`,
+      accountId: account.accountId,
+    }));
+  }, [accounts, modifierKey]);
+
+  const hotkeyHandler = useCallback(
+    (event: KeyboardEvent) => {
+      const pressedDigit = Number.parseInt(event.key, 10);
+      if (
+        !Number.isNaN(pressedDigit) &&
+        pressedDigit >= 1 &&
+        pressedDigit <= 9
+      ) {
+        const accountIndex = pressedDigit - 1;
+        if (accounts[accountIndex]) {
+          setAccountId(accounts[accountIndex].accountId);
+          event.preventDefault(); // Prevent browser default behavior
+        }
+      }
+    },
+    [accounts, setAccountId],
+  );
+
+  useHotkeys(
+    accountShortcuts.map((s) => s.hotkey).join(","),
+    hotkeyHandler,
+    {
+      preventDefault: true, // Keep for good measure, though handled in callback
+    },
+    [accountShortcuts, hotkeyHandler], // Dependencies for useHotkeys
   );
 }
