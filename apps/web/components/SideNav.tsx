@@ -50,6 +50,7 @@ import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
 
 type NavItem = {
   name: string;
@@ -227,7 +228,7 @@ const bottomMailLinks: NavItem[] = [
   },
 ];
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
   const showMailNav = path === "/mail" || path === "/compose";
@@ -251,15 +252,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {state === "expanded" ? (
-        <SidebarHeader>
+      <SidebarHeader>
+        {state === "expanded" ? (
           <Link href="/setup">
-            <div className="flex h-12 items-center p-4 text-white">
-              <Logo className="h-4" />
+            <div className="flex items-center rounded-md p-3 text-white">
+              <Logo className="h-3.5" />
             </div>
           </Link>
-        </SidebarHeader>
-      ) : null}
+        ) : null}
+        <AccountSwitcher />
+      </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroupContent>
@@ -290,7 +292,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
-        {/* <NavUser user={data.user} /> */}
       </SidebarFooter>
     </Sidebar>
   );
