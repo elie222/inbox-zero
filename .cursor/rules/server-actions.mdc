@@ -60,6 +60,8 @@ export const deactivateApiKeyAction = withActionInstrumentation(
 ```
 
 ## Implementation Guidelines
+- **Mutations Only:** Server Actions are **strictly for mutations** (operations that change data, e.g., creating, updating, deleting). **Do NOT use Server Actions for data fetching (GET operations).**
+    - For data fetching, use dedicated [GET API Routes](mdc:.cursor/rules/get-api-route.mdc) combined with [SWR Hooks](mdc:.cursor/rules/custom-hooks.mdc).
 - Implement type-safe server actions with proper validation
 - Define input schemas using Zod for robust type checking and validation
 - Handle errors gracefully and return appropriate responses

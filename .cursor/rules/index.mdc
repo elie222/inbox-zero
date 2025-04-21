@@ -28,9 +28,10 @@ Guidelines for building user interfaces and handling frontend logic.
 | Rule File                          | Description                                                 |
 | :--------------------------------- | :---------------------------------------------------------- |
 | @page-structure.mdc                | Page structure guidelines                                   |
-| @ui-components.mdc                 | UI component and styling guidelines (Shadcn, Radix, Tailwind) |
+| @ui-components.mdc                 | UI component and styling guidelines (Shadcn, Tailwind)      |
 | @form-handling.mdc                 | Form handling using React Hook Form and Zod                 |
 | @data-fetching.mdc                 | Fetching data from the API using SWR                        |
+| @hooks.mdc                         | Guidelines for creating custom React hooks                  |
 
 ## Backend & API
 
