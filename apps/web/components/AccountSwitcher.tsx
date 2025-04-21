@@ -24,40 +24,26 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
+import { useAccount } from "@/hooks/useAccount";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
-  const [accountId, setAccountId] = useQueryState("accountId");
 
-  return (
-    <AccountSwitcherInternal
-      accounts={accountsData?.accounts ?? []}
-      accountId={accountId}
-      setAccountId={setAccountId}
-    />
-  );
+  return <AccountSwitcherInternal accounts={accountsData?.accounts ?? []} />;
 }
 
 export function AccountSwitcherInternal({
   accounts,
-  accountId,
-  setAccountId,
 }: {
   accounts: GetAccountsResponse["accounts"];
-  accountId: string | null;
-  setAccountId: (accountId: string) => void;
 }) {
   const { isMobile } = useSidebar();
   const { symbol: modifierSymbol } = useModifierKey();
 
-  useAccountHotkeys(accounts, setAccountId);
+  const [, setAccountId] = useQueryState("accountId");
+  const activeAccount = useAccount();
 
-  const activeAccount = useMemo(
-    () =>
-      accounts.find((account) => account.accountId === accountId) ||
-      accounts?.[0],
-    [accounts, accountId],
-  );
+  useAccountHotkeys(accounts, setAccountId);
 
   if (!activeAccount) return null;
 
