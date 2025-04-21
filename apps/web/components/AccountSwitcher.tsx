@@ -1,8 +1,9 @@
 "use client";
 
-import * as React from "react";
+import { useMemo } from "react";
+import Image from "next/image";
+import { useQueryState } from "nuqs";
 import { ChevronsUpDown, Plus } from "lucide-react";
-
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,36 +19,41 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Avatar } from "@/components/ui/avatar";
+import { useAccounts } from "@/hooks/useAccounts";
+import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 
-const emailAccounts = [
-  {
-    email: "elie@example.com",
-    avatar: "/avatars/01.png",
-    name: "Elie",
-  },
-  {
-    email: "support@example.com",
-    avatar: "/avatars/02.png",
-    name: "Support",
-  },
-];
+export function AccountSwitcher() {
+  const { data: accountsData } = useAccounts();
+  const [accountId, setAccountId] = useQueryState("accountId");
 
-export function AccountSwitcher({
-  accounts = emailAccounts,
+  return (
+    <AccountSwitcherInternal
+      accounts={accountsData?.accounts ?? []}
+      accountId={accountId}
+      setAccountId={setAccountId}
+    />
+  );
+}
+
+export function AccountSwitcherInternal({
+  accounts,
+  accountId,
+  setAccountId,
 }: {
-  accounts?: {
-    name: string;
-    avatar: string;
-    email: string;
-  }[];
+  accounts: GetAccountsResponse["accounts"];
+  accountId: string | null;
+  setAccountId: (accountId: string) => void;
 }) {
   const { isMobile } = useSidebar();
-  const [activeAccount, setActiveAccount] = React.useState(accounts[0]);
 
-  if (!activeAccount) {
-    return null;
-  }
+  const activeAccount = useMemo(
+    () =>
+      accounts.find((account) => account.accountId === accountId) ||
+      accounts?.[0],
+    [accounts, accountId],
+  );
+
+  if (!activeAccount) return null;
 
   return (
     <SidebarMenu>
@@ -58,14 +64,11 @@ export function AccountSwitcher({
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <Avatar className="size-4" />
-              </div>
+              <ProfileImage image={activeAccount.user.image} />
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {activeAccount.name}
+                  {activeAccount.user.name}
                 </span>
-                <span className="truncate text-xs">{activeAccount.email}</span>
               </div>
               <ChevronsUpDown className="ml-auto" />
             </SidebarMenuButton>
@@ -81,12 +84,12 @@ export function AccountSwitcher({
             </DropdownMenuLabel>
             {accounts.map((account, index) => (
               <DropdownMenuItem
-                key={account.name}
-                onClick={() => setActiveAccount(account)}
+                key={account.accountId}
+                onClick={() => setAccountId(account.accountId)}
                 className="gap-2 p-2"
               >
-                <Avatar className="size-4 shrink-0" />
-                {account.name}
+                <ProfileImage image={account.user.image} />
+                <span className="truncate">{account.user.name}</span>
                 <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
@@ -103,5 +106,22 @@ export function AccountSwitcher({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
+  );
+}
+
+function ProfileImage({
+  image,
+  size = 24,
+}: { image: string | null; size?: number }) {
+  if (!image) return null;
+
+  return (
+    <Image
+      width={size}
+      height={size}
+      className="rounded-full"
+      src={image}
+      alt=""
+    />
   );
 }

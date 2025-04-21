@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("api/accounts");
 
 export type GetAccountsResponse = Awaited<ReturnType<typeof getAccounts>>;
 
