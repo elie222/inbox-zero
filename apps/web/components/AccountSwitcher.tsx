@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
+import Link from "next/link";
 import Image from "next/image";
+import { useHotkeys } from "react-hotkeys-hook";
 import { useQueryState } from "nuqs";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -22,7 +24,6 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
-import { useHotkeys } from "react-hotkeys-hook";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -104,14 +105,16 @@ export function AccountSwitcherInternal({
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="gap-2 p-2">
-              <div className="flex size-6 items-center justify-center rounded-md border bg-background">
-                <Plus className="size-4" />
-              </div>
-              <div className="font-medium text-muted-foreground">
-                Add account
-              </div>
-            </DropdownMenuItem>
+            <Link href="/add-account">
+              <DropdownMenuItem className="gap-2 p-2">
+                <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                  <Plus className="size-4" />
+                </div>
+                <div className="font-medium text-muted-foreground">
+                  Add account
+                </div>
+              </DropdownMenuItem>
+            </Link>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>
