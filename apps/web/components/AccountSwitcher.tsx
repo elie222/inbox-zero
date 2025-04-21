@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
+import { useModifierKey } from "@/hooks/useModifierKey";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -45,6 +46,7 @@ export function AccountSwitcherInternal({
   setAccountId: (accountId: string) => void;
 }) {
   const { isMobile } = useSidebar();
+  const { symbol: modifierSymbol } = useModifierKey();
 
   const activeAccount = useMemo(
     () =>
@@ -92,7 +94,10 @@ export function AccountSwitcherInternal({
               >
                 <ProfileImage image={account.user.image} />
                 <span className="truncate">{account.user.name}</span>
-                <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                <DropdownMenuShortcut>
+                  {modifierSymbol}
+                  {index + 1}
+                </DropdownMenuShortcut>
               </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
