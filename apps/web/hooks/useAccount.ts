@@ -1,3 +1,5 @@
+"use client";
+
 import { useMemo } from "react";
 import { useQueryState } from "nuqs";
 import { useAccounts } from "@/hooks/useAccounts";
