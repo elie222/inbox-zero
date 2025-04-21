@@ -40,6 +40,7 @@ export async function getUserFromApiKey(secretKey: string) {
           id: true,
           accounts: {
             select: {
+              id: true,
               access_token: true,
               refresh_token: true,
               expires_at: true,
@@ -84,5 +85,10 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
 
   if (!gmail) throw new SafeError("Error refreshing Gmail access token", 401);
 
-  return { gmail, accessToken: account.access_token, userId: user.id };
+  return {
+    gmail,
+    accessToken: account.access_token,
+    userId: user.id,
+    accountId: account.id,
+  };
 }
