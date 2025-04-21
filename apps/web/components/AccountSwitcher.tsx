@@ -4,7 +4,6 @@ import { useMemo, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useQueryState } from "nuqs";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,8 +39,7 @@ export function AccountSwitcherInternal({
   const { isMobile } = useSidebar();
   const { symbol: modifierSymbol } = useModifierKey();
 
-  const [, setAccountId] = useQueryState("accountId");
-  const { account: activeAccount, isLoading } = useAccount();
+  const { account: activeAccount, isLoading, setAccountId } = useAccount();
 
   useAccountHotkeys(accounts, setAccountId);
 

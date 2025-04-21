@@ -4,7 +4,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 
 export function useAccount() {
   const { data, isLoading } = useAccounts();
-  const [accountId] = useQueryState("accountId");
+  const [accountId, setAccountId] = useQueryState("accountId");
 
   const account = useMemo(() => {
     return (
@@ -13,5 +13,5 @@ export function useAccount() {
     );
   }, [data, accountId]);
 
-  return { account, isLoading };
+  return { account, isLoading, setAccountId };
 }
