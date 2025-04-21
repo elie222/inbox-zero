@@ -41,10 +41,11 @@ export function AccountSwitcherInternal({
   const { symbol: modifierSymbol } = useModifierKey();
 
   const [, setAccountId] = useQueryState("accountId");
-  const activeAccount = useAccount();
+  const { account: activeAccount, isLoading } = useAccount();
 
   useAccountHotkeys(accounts, setAccountId);
 
+  if (isLoading) return null;
   if (!activeAccount) return null;
 
   return (

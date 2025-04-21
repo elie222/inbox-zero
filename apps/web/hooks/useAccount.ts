@@ -3,7 +3,7 @@ import { useQueryState } from "nuqs";
 import { useAccounts } from "@/hooks/useAccounts";
 
 export function useAccount() {
-  const { data } = useAccounts();
+  const { data, isLoading } = useAccounts();
   const [accountId] = useQueryState("accountId");
 
   const account = useMemo(() => {
@@ -13,5 +13,5 @@ export function useAccount() {
     );
   }, [data, accountId]);
 
-  return account;
+  return { account, isLoading };
 }
