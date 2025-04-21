@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
 import { type MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { getThread } from "@/utils/gmail/thread";
 import { getMessages } from "@/utils/gmail/message";
+import { getTokens } from "@/utils/account";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
@@ -45,13 +45,11 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
   return sentEmailsWithThreads;
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
-
-  const gmail = getGmailClient(session);
-  const result = await getNoReply({ email: session.user.email, gmail });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
+  const tokens = await getTokens({ email });
+  const gmail = getGmailClient(tokens);
+  const result = await getNoReply({ email, gmail });
 
   return NextResponse.json(result);
 });

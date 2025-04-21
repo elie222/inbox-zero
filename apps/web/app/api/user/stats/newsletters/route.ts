@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import {
   filterNewsletters,
   findAutoArchiveFilter,
@@ -67,8 +66,9 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
 }
 
 async function getNewslettersTinybird(
-  options: { ownerEmail: string; userId: string } & NewsletterStatsQuery,
+  options: { emailAccountId: string } & NewsletterStatsQuery,
 ) {
+  const emailAccountId = options.emailAccountId;
   const types = getTypeFilters(options.types);
 
   const [newsletterCounts, autoArchiveFilters, userNewsletters] =
@@ -78,7 +78,7 @@ async function getNewslettersTinybird(
         ...types,
       }),
       getAutoArchiveFilters(),
-      findNewsletterStatus({ emailAccountId: options.ownerEmail }),
+      findNewsletterStatus({ emailAccountId }),
     ]);
 
   const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {
@@ -119,7 +119,7 @@ type NewsletterCountRawResult = {
 
 async function getNewsletterCounts(
   options: NewsletterStatsQuery & {
-    userId: string;
+    emailAccountId: string;
     read?: boolean;
     unread?: boolean;
     archived?: boolean;
@@ -162,8 +162,8 @@ async function getNewsletterCounts(
   }
 
   // Always filter by userId
-  whereConditions.push(`"userId" = $${queryParams.length + 1}`);
-  queryParams.push(options.userId);
+  whereConditions.push(`"emailAccountId" = $${queryParams.length + 1}`);
+  queryParams.push(options.emailAccountId);
 
   // Create WHERE clause
   const whereClause = whereConditions.length
@@ -230,10 +230,8 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({
@@ -249,8 +247,7 @@ export const GET = withError(async (request) => {
 
   const result = await getNewslettersTinybird({
     ...params,
-    ownerEmail: session.user.email,
-    userId: session.user.id,
+    emailAccountId: email,
   });
 
   return NextResponse.json(result);

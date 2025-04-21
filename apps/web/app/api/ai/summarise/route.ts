@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
 import { summarise } from "@/app/api/ai/summarise/controller";
-import { withError } from "@/utils/middleware";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { withAuth } from "@/utils/middleware";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary } from "@/utils/redis/summary";
 import { emailToContent } from "@/utils/mail";
 import { getAiUser } from "@/utils/user/get";
 
-// doesn't work with parsing email packages we use
-// export const runtime = "edge";
-
-export const POST = withError(async (request: Request) => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const POST = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const json = await request.json();
   const body = summariseBody.parse(json);

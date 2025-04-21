@@ -1,39 +1,32 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,
 } from "@/app/api/user/settings/email-updates/validation";
-import { SafeError } from "@/utils/error";
 
 export type SaveEmailUpdateSettingsResponse = Awaited<
   ReturnType<typeof saveEmailUpdateSettings>
 >;
 
-async function saveEmailUpdateSettings(options: SaveEmailUpdateSettingsBody) {
-  const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not logged in");
-
+async function saveEmailUpdateSettings(
+  { email }: { email: string },
+  { statsEmailFrequency, summaryEmailFrequency }: SaveEmailUpdateSettingsBody,
+) {
   return await prisma.emailAccount.update({
-    where: { email: session.user.email },
-    data: {
-      statsEmailFrequency: options.statsEmailFrequency,
-      summaryEmailFrequency: options.summaryEmailFrequency,
-    },
+    where: { email },
+    data: { statsEmailFrequency, summaryEmailFrequency },
   });
 }
 
-export const POST = withError(async (request: Request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const POST = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const json = await request.json();
   const body = saveEmailUpdateSettingsBody.parse(json);
 
-  const result = await saveEmailUpdateSettings(body);
+  const result = await saveEmailUpdateSettings({ email }, body);
 
   return NextResponse.json(result);
 });

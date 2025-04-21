@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 import { chatCompletionStream } from "@/utils/llms";
 import { getAiUser } from "@/utils/user/get";
 
-export const POST = withError(async (request: Request): Promise<Response> => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const POST = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const user = await getAiUser({ email });
 

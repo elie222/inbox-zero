@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -18,10 +17,8 @@ async function getOpenAiModels({ apiKey }: { apiKey: string }) {
   return models.data.filter((m) => m.id.startsWith("gpt-"));
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (req) => {
+  const email = req.auth.userEmail;
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { email },

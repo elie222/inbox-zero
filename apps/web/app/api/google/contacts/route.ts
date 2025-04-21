@@ -1,11 +1,12 @@
 import type { people_v1 } from "@googleapis/people";
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { getContactsClient } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
 import { env } from "@/env";
+import prisma from "@/utils/prisma";
+import { getTokens } from "@/utils/account";
 
 const contactsQuery = z.object({ query: z.string() });
 export type ContactsQuery = z.infer<typeof contactsQuery>;
@@ -16,15 +17,14 @@ async function getContacts(client: people_v1.People, query: string) {
   return { result };
 }
 
-export const GET = withError(async (request) => {
+export const GET = withAuth(async (request) => {
   if (!env.NEXT_PUBLIC_CONTACTS_ENABLED)
     return NextResponse.json({ error: "Contacts API not enabled" });
 
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const tokens = await getTokens({ email: request.auth.userEmail });
+  if (!tokens) return NextResponse.json({ error: "Account not found" });
 
-  const client = getContactsClient(session);
+  const client = getContactsClient(tokens);
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query");

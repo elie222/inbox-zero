@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
 export type RulesPromptResponse = Awaited<ReturnType<typeof getRulesPrompt>>;
@@ -12,10 +11,8 @@ async function getRulesPrompt(options: { email: string }) {
   });
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const result = await getRulesPrompt({ email });
 

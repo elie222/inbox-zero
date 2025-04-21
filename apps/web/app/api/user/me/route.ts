@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>>;
@@ -45,10 +44,8 @@ async function getUser({ email }: { email: string }) {
   return emailAccount;
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const user = await getUser({ email });
 

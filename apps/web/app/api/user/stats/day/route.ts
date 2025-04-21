@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getGmailClient } from "@/utils/gmail/client";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
+import { getTokens } from "@/utils/account";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -81,20 +81,19 @@ function getQuery(type: StatsByDayQuery["type"], date: Date) {
   }
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json<{ error: string }>({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
   const query = statsByDayQuery.parse({ type });
 
-  const gmail = getGmailClient(session);
+  const tokens = await getTokens({ email });
+  const gmail = getGmailClient(tokens);
 
   const result = await getPastSevenDayStats({
     ...query,
-    email: session.user.email,
+    email,
     gmail,
   });
 
