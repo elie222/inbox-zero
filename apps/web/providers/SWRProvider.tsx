@@ -3,6 +3,7 @@
 import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
+import { useAccount } from "@/hooks/useAccount";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (url: string, init?: RequestInit | undefined) => {
@@ -56,6 +57,7 @@ const SWRContext = createContext<Context>(defaultContextValue);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
+  const { account } = useAccount();
 
   const resetCache = useCallback(() => {
     // based on: https://swr.vercel.app/docs/mutation#mutate-multiple-items
@@ -65,13 +67,30 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     setProvider(new Map());
   }, []);
 
+  const enhancedFetcher = useCallback(
+    async (url: string, init?: RequestInit) => {
+      const headers = new Headers(init?.headers);
+
+      if (account?.accountId) {
+        headers.set("X-Account-ID", account.accountId);
+      }
+
+      const newInit = { ...init, headers };
+
+      return fetcher(url, newInit);
+    },
+    [account?.accountId],
+  );
+
   const value = useMemo(() => ({ resetCache }), [resetCache]);
 
   return (
     <SWRContext.Provider value={value}>
-      <SWRConfig value={{ fetcher, provider: () => provider }}>
+      <SWRConfig value={{ fetcher: enhancedFetcher, provider: () => provider }}>
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>
   );
 };
+
+export { SWRContext };
