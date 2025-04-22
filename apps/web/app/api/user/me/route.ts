@@ -4,7 +4,7 @@ import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
-export type UserResponse = Awaited<ReturnType<typeof getUser>>;
+export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
 async function getUser({ email }: { email: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
@@ -48,7 +48,7 @@ async function getUser({ email }: { email: string }) {
 export const GET = withError(async () => {
   const session = await auth();
   const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+  if (!email) return NextResponse.json(null);
 
   const user = await getUser({ email });
 
