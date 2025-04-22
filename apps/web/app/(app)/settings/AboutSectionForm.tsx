@@ -11,7 +11,7 @@ import {
   FormSectionRight,
   SubmitButtonWrapper,
 } from "@/components/Form";
-import { useAccount } from "@/hooks/useAccount";
+import { useAccount } from "@/providers/AccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AboutSectionForm = ({ about }: { about: string | null }) => {
@@ -24,6 +24,7 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
   });
 
   const { account } = useAccount();
+  
   const { execute, isExecuting } = useAction(
     saveAboutAction.bind(null, account?.email || ""),
     {

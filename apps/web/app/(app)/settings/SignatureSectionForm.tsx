@@ -19,7 +19,7 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { isActionError } from "@/utils/error";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { ClientOnly } from "@/components/ClientOnly";
-import { useAccount } from "@/hooks/useAccount";
+import { useAccount } from "@/providers/AccountProvider";
 
 export const SignatureSectionForm = ({
   signature,

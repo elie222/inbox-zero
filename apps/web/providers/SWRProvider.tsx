@@ -3,7 +3,7 @@
 import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
-import { useAccount } from "@/hooks/useAccount";
+import { useAccount } from "@/providers/AccountProvider";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (url: string, init?: RequestInit | undefined) => {

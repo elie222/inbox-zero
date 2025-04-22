@@ -11,7 +11,7 @@ import {
 import { logOut } from "@/utils/user";
 import { isActionError } from "@/utils/error";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
-import { useAccount } from "@/hooks/useAccount";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();

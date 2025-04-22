@@ -23,7 +23,7 @@ import {
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
-import { useAccount } from "@/hooks/useAccount";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
