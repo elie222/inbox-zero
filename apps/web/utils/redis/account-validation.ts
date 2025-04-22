@@ -38,12 +38,10 @@ export async function validateUserAccount(
     select: { email: true },
   });
 
-  const isValid = !!emailAccount;
-
   // Cache the result
-  await redis.set(key, isValid ? "true" : "false", { ex: EXPIRATION });
+  await redis.set(key, emailAccount?.email ?? null, { ex: EXPIRATION });
 
-  return isValid ? emailAccount?.email : null;
+  return emailAccount?.email ?? null;
 }
 
 /**
