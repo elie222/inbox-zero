@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { type SubmitHandler, useForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/Button";
 import {
   saveSignatureAction,
@@ -18,6 +19,7 @@ import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { isActionError } from "@/utils/error";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { ClientOnly } from "@/components/ClientOnly";
+import { useAccount } from "@/hooks/useAccount";
 
 export const SignatureSectionForm = ({
   signature,
@@ -26,23 +28,28 @@ export const SignatureSectionForm = ({
 }) => {
   const defaultSignature = signature ?? "";
 
-  const {
-    handleSubmit,
-    setValue,
-    formState: { isSubmitting },
-  } = useForm<SaveSignatureBody>({
+  const { handleSubmit, setValue } = useForm<SaveSignatureBody>({
     defaultValues: { signature: defaultSignature },
   });
 
   const editorRef = useRef<TiptapHandle>(null);
 
-  const onSubmit: SubmitHandler<SaveSignatureBody> = useCallback(
-    async (data) => {
-      const res = await saveSignatureAction(data);
-      if (isActionError(res)) toastError({ description: res.error });
-      else toastSuccess({ description: "Signature saved" });
+  const { account } = useAccount();
+  const { execute, isExecuting } = useAction(
+    saveSignatureAction.bind(null, account?.email || ""),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Signature saved" });
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error.serverError ?? "An unknown error occurred",
+        });
+      },
     },
-    [],
+  );
+  const { executeAsync: executeLoadSignatureFromGmail } = useAction(
+    loadSignatureFromGmailAction.bind(null, account?.email || ""),
   );
 
   const handleEditorChange = useCallback(
@@ -53,7 +60,7 @@ export const SignatureSectionForm = ({
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(execute)}>
       <FormSection>
         <FormSectionLeft
           title="Signature"
@@ -74,7 +81,7 @@ export const SignatureSectionForm = ({
           </FormSectionRight>
           <SubmitButtonWrapper>
             <div className="flex gap-2">
-              <Button type="submit" size="lg" loading={isSubmitting}>
+              <Button type="submit" size="lg" loading={isExecuting}>
                 Save
               </Button>
               <Button
@@ -82,7 +89,7 @@ export const SignatureSectionForm = ({
                 size="lg"
                 color="white"
                 onClick={async () => {
-                  const result = await loadSignatureFromGmailAction();
+                  const result = await executeLoadSignatureFromGmail();
 
                   if (isActionError(result)) {
                     toastError({
@@ -90,8 +97,8 @@ export const SignatureSectionForm = ({
                       description: result.error,
                     });
                     return;
-                  } else if (result.signature) {
-                    editorRef.current?.appendContent(result.signature);
+                  } else if (result?.data?.signature) {
+                    editorRef.current?.appendContent(result.data.signature);
                   } else {
                     toastInfo({
                       title: "Load completed",

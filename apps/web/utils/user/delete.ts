@@ -15,31 +15,80 @@ const logger = createScopedLogger("user/delete");
 
 export async function deleteUser({
   userId,
-  email,
 }: {
   userId: string;
-  email: string;
 }) {
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "google" },
-    select: { access_token: true },
+  const accounts = await prisma.account.findMany({
+    where: { userId },
+    select: { access_token: true, emailAccount: { select: { email: true } } },
+  });
+
+  const resourcesPromise = accounts.map((account) => {
+    if (!account.emailAccount) return Promise.resolve();
+    return deleteResources({
+      email: account.emailAccount.email,
+      accessToken: account.access_token,
+    });
   });
 
   logger.info("Deleting user resources");
 
+  try {
+    deleteTinybirdAiCalls({ userId }).catch((error) => {
+      logger.error("Error deleting Tinybird AI calls", {
+        error,
+        userId,
+      });
+      captureException(error, { extra: { userId } }, userId);
+    });
+
+    // Then proceed with the regular deletion process
+    const results = await Promise.allSettled(resourcesPromise);
+
+    logger.info("User resources deleted");
+
+    // Log any failures
+    const failures = results.filter((r) => r.status === "rejected");
+    if (failures.length > 0) {
+      logger.error("Some deletion operations failed", {
+        userId,
+        failures: failures.map((f) => (f as PromiseRejectedResult).reason),
+      });
+
+      const originalError = (failures[0] as PromiseRejectedResult)?.reason;
+      const customError = new Error("User deletion error");
+      customError.cause = originalError;
+
+      captureException(customError, { extra: { failures, userId } });
+    }
+  } catch (error) {
+    logger.error("Error during user resources deletion process", {
+      error,
+      userId,
+    });
+    captureException(error, { extra: { userId } }, userId);
+  }
+}
+
+async function deleteResources({
+  email,
+  accessToken,
+}: {
+  email: string;
+  accessToken: string | null;
+}) {
   const resourcesPromise = Promise.allSettled([
     deleteUserLabels({ email }),
     deleteInboxZeroLabels({ email }),
     deleteUserStats({ email }),
     deleteTinybirdEmails({ email }),
-    deleteTinybirdAiCalls({ userId }),
     deletePosthogUser({ email }),
     deleteLoopsContact(email),
     deleteResendContact({ email }),
-    account
+    accessToken
       ? unwatchEmails({
           email,
-          access_token: account.access_token ?? null,
+          access_token: accessToken,
           refresh_token: null,
         })
       : Promise.resolve(),
@@ -55,46 +104,13 @@ export async function deleteUser({
   } catch (error) {
     logger.error("Error during database user deletion process", {
       error,
-      userId,
       email,
     });
-    captureException(error, { extra: { userId, email } }, email);
+    captureException(error, { extra: { email } }, email);
     throw error;
   }
 
-  try {
-    // Then proceed with the regular deletion process
-    const results = await resourcesPromise;
-
-    logger.info("User resources deleted");
-
-    // Log any failures
-    const failures = results.filter((r) => r.status === "rejected");
-    if (failures.length > 0) {
-      logger.error("Some deletion operations failed", {
-        email,
-        userId,
-        failures: failures.map((f) => (f as PromiseRejectedResult).reason),
-      });
-
-      const originalError = (failures[0] as PromiseRejectedResult)?.reason;
-      const customError = new Error("User deletion error");
-      customError.cause = originalError;
-
-      captureException(
-        customError,
-        { extra: { failures, userId, email } },
-        email,
-      );
-    }
-  } catch (error) {
-    logger.error("Error during user resources deletion process", {
-      error,
-      userId,
-      email,
-    });
-    captureException(error, { extra: { userId, email } }, email);
-  }
+  return resourcesPromise;
 }
 
 /**

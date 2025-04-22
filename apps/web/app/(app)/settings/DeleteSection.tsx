@@ -1,5 +1,6 @@
 "use client";
 
+import { useAction } from "next-safe-action/hooks";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
@@ -10,9 +11,18 @@ import {
 import { logOut } from "@/utils/user";
 import { isActionError } from "@/utils/error";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
+import { useAccount } from "@/hooks/useAccount";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
+
+  const { account } = useAccount();
+  const { executeAsync: executeResetAnalytics } = useAction(
+    resetAnalyticsAction.bind(null, account?.email || ""),
+  );
+  const { executeAsync: executeDeleteAccount } = useAction(
+    deleteAccountAction.bind(null, ""),
+  );
 
   return (
     <FormSection>
@@ -25,7 +35,7 @@ export function DeleteSection() {
         <Button
           variant="outline"
           onClick={async () => {
-            toast.promise(() => resetAnalyticsAction(), {
+            toast.promise(() => executeResetAnalytics(), {
               loading: "Resetting analytics...",
               success: () => {
                 return "Analytics reset! Visit the Unsubscriber or Analytics page and click the 'Load More' button to reload your data.";
@@ -51,7 +61,7 @@ export function DeleteSection() {
 
             toast.promise(
               async () => {
-                const result = await deleteAccountAction();
+                const result = await executeDeleteAccount();
                 await logOut("/");
                 if (isActionError(result)) throw new Error(result.error);
               },

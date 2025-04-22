@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { saveAboutAction, type SaveAboutBody } from "@/utils/actions/user";
@@ -10,24 +11,39 @@ import {
   FormSectionRight,
   SubmitButtonWrapper,
 } from "@/components/Form";
-import { handleActionResult } from "@/utils/server-action";
+import { useAccount } from "@/hooks/useAccount";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AboutSectionForm = ({ about }: { about: string | null }) => {
   const {
     register,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     handleSubmit,
   } = useForm<SaveAboutBody>({
     defaultValues: { about: about ?? "" },
   });
 
-  const onSubmit = async (data: SaveAboutBody) => {
-    const result = await saveAboutAction(data);
-    handleActionResult(result, "Updated profile!");
-  };
+  const { account } = useAccount();
+  const { execute, isExecuting } = useAction(
+    saveAboutAction.bind(null, account?.email || ""),
+    {
+      onSuccess: () => {
+        toastSuccess({
+          description: "Your profile has been updated!",
+        });
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            error.error.serverError ??
+            "An unknown error occurred while updating your profile",
+        });
+      },
+    },
+  );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form onSubmit={handleSubmit(execute)}>
       <FormSection>
         <FormSectionLeft
           title="About you"
@@ -52,7 +68,7 @@ Some rules to follow:
             </div>
           </FormSectionRight>
           <SubmitButtonWrapper>
-            <Button type="submit" loading={isSubmitting}>
+            <Button type="submit" loading={isExecuting}>
               Save
             </Button>
           </SubmitButtonWrapper>

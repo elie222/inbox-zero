@@ -18,9 +18,9 @@ export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
   .schema(saveAboutBody)
-  .action(async ({ parsedInput: { about }, ctx: { userEmail } }) => {
+  .action(async ({ parsedInput: { about }, ctx: { email } }) => {
     await prisma.emailAccount.update({
-      where: { email: userEmail },
+      where: { email },
       data: { about },
     });
 
@@ -33,9 +33,9 @@ export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })
   .schema(saveSignatureBody)
-  .action(async ({ parsedInput: { signature }, ctx: { userEmail } }) => {
+  .action(async ({ parsedInput: { signature }, ctx: { email } }) => {
     await prisma.emailAccount.update({
-      where: { email: userEmail },
+      where: { email },
       data: { signature },
     });
 
@@ -71,20 +71,20 @@ export const loadSignatureFromGmailAction = actionClient
 
 export const resetAnalyticsAction = actionClient
   .metadata({ name: "resetAnalytics" })
-  .action(async ({ ctx: { userEmail } }) => {
+  .action(async ({ ctx: { email } }) => {
     await prisma.emailMessage.deleteMany({
-      where: { emailAccount: { email: userEmail } },
+      where: { emailAccountId: email },
     });
   });
 
 export const deleteAccountAction = actionClient
   .metadata({ name: "deleteAccount" })
-  .action(async ({ ctx: { userId, userEmail } }) => {
+  .action(async ({ ctx: { userId } }) => {
     try {
       await signOut();
     } catch (error) {}
 
-    await deleteUser({ userId, email: userEmail });
+    await deleteUser({ userId });
   });
 
 export const completedOnboardingAction = actionClient
