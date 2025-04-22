@@ -2,64 +2,49 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { auth, signOut } from "@/app/api/auth/[...nextauth]/auth";
+import { signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
 import { getGmailClient } from "@/utils/gmail/client";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
+import { actionClient } from "@/utils/actions/safe-action";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
-export const saveAboutAction = withActionInstrumentation(
-  "saveAbout",
-  async (unsafeBody: SaveAboutBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
-    const { success, data, error } = saveAboutBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
+export const saveAboutAction = actionClient
+  .metadata({ name: "saveAbout" })
+  .schema(saveAboutBody)
+  .action(async ({ parsedInput: { about }, ctx: { userEmail } }) => {
     await prisma.emailAccount.update({
-      where: { email },
-      data: { about: data.about },
+      where: { email: userEmail },
+      data: { about },
     });
 
     revalidatePath("/settings");
-  },
-);
+  });
 
 const saveSignatureBody = z.object({ signature: z.string().max(2_000) });
 export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
-export const saveSignatureAction = withActionInstrumentation(
-  "saveSignature",
-  async (unsafeBody: SaveSignatureBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
-    const { success, data, error } = saveSignatureBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
+export const saveSignatureAction = actionClient
+  .metadata({ name: "saveSignature" })
+  .schema(saveSignatureBody)
+  .action(async ({ parsedInput: { signature }, ctx: { userEmail } }) => {
     await prisma.emailAccount.update({
-      where: { email },
-      data: { signature: data.signature },
+      where: { email: userEmail },
+      data: { signature },
     });
-  },
-);
 
-export const loadSignatureFromGmailAction = withActionInstrumentation(
-  "loadSignatureFromGmail",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+    revalidatePath("/settings");
+  });
 
+export const loadSignatureFromGmailAction = actionClient
+  .metadata({ name: "loadSignatureFromGmail" })
+  .action(async ({ ctx: { session } }) => {
     // 1. find last 5 sent emails
     const gmail = getGmailClient(session);
     const messages = await getMessages(gmail, {
@@ -82,81 +67,61 @@ export const loadSignatureFromGmailAction = withActionInstrumentation(
     }
 
     return { signature: "" };
-  },
-);
+  });
 
-export const resetAnalyticsAction = withActionInstrumentation(
-  "resetAnalytics",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const resetAnalyticsAction = actionClient
+  .metadata({ name: "resetAnalytics" })
+  .action(async ({ ctx: { userEmail } }) => {
     await prisma.emailMessage.deleteMany({
-      where: { emailAccountId: session.user.email },
+      where: { emailAccount: { email: userEmail } },
     });
-  },
-);
+  });
 
-export const deleteAccountAction = withActionInstrumentation(
-  "deleteAccount",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const deleteAccountAction = actionClient
+  .metadata({ name: "deleteAccount" })
+  .action(async ({ ctx: { userId, userEmail } }) => {
     try {
       await signOut();
     } catch (error) {}
 
-    await deleteUser({ userId: session.user.id, email: session.user.email });
-  },
-);
+    await deleteUser({ userId, email: userEmail });
+  });
 
-export const completedOnboardingAction = withActionInstrumentation(
-  "completedOnboarding",
-  async () => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
+export const completedOnboardingAction = actionClient
+  .metadata({ name: "completedOnboarding" })
+  .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
-      where: { id: session.user.id, completedOnboardingAt: null },
+      where: { id: userId, completedOnboardingAt: null },
       data: { completedOnboardingAt: new Date() },
     });
-  },
-);
+  });
 
-export const completedAppOnboardingAction = withActionInstrumentation(
-  "completedAppOnboarding",
-  async () => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
+export const completedAppOnboardingAction = actionClient
+  .metadata({ name: "completedAppOnboarding" })
+  .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
-      where: { id: session.user.id, completedAppOnboardingAt: null },
+      where: { id: userId, completedAppOnboardingAt: null },
       data: { completedAppOnboardingAt: new Date() },
     });
-  },
-);
+  });
 
 const saveOnboardingAnswersBody = z.object({
   surveyId: z.string().optional(),
   questions: z.any(),
   answers: z.any(),
 });
-type SaveOnboardingAnswersBody = z.infer<typeof saveOnboardingAnswersBody>;
 
-export const saveOnboardingAnswersAction = withActionInstrumentation(
-  "saveOnboardingAnswers",
-  async (unsafeBody: SaveOnboardingAnswersBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { success, data, error } =
-      saveOnboardingAnswersBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { onboardingAnswers: data },
-    });
-  },
-);
+export const saveOnboardingAnswersAction = actionClient
+  .metadata({ name: "saveOnboardingAnswers" })
+  .schema(saveOnboardingAnswersBody)
+  .action(
+    async ({
+      parsedInput: { surveyId, questions, answers },
+      ctx: { userId },
+    }) => {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { onboardingAnswers: { surveyId, questions, answers } },
+      });
+    },
+  );
