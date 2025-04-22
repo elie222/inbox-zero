@@ -116,44 +116,45 @@ When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=30
 - `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
 
-1. Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if necessary.
-2. Create [new credentials](https://console.cloud.google.com/apis/credentials):
-   1. If the banner shows up, configure **consent screen** (if not, you can do this later)
-      1. Click the banner, then Click `Get Started`. 
-      2. Choose a name for your app, and enter your email.
-      3. In Audience, choose `External`
-      4. Enter your contact information
-      5. Agree to the User Data policy and then click `Create`.
-      6. Return to APIs and Services using the left sidebar.
-   2. Create new [credentials](https://console.cloud.google.com/apis/credentials):
-      1. Click the  `+Create Credentials` button. Choose OAuth Client ID.
-      2. In `Application Type`, Choose `Web application`
-      3. Choose a name for your web client
-      4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-      5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
-      6. Click `Create`. 
-      7. A popup will show up with the new credentials, including the Client ID and secret.
-   3. Update .env file:
-      1. Copy the Client ID to `GOOGLE_CLIENT_ID`
-      2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
-   4. Update [scopes](https://console.cloud.google.com/auth/scopes)
-      1. Go to `Data Access` in the left sidebar (or click link above)
-      2. Click `Add or remove scopes`
-      3. Copy paste the below into the `Manually add scopes` box:
+Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if necessary.
 
-        ```plaintext
-        https://www.googleapis.com/auth/userinfo.profile
-        https://www.googleapis.com/auth/userinfo.email
-        https://www.googleapis.com/auth/gmail.modify
-        https://www.googleapis.com/auth/gmail.settings.basic
-        https://www.googleapis.com/auth/contacts
-        ```
-      4. Click `Update`
-      5. Click `Save` in the Data Access page.
-   5. Add yourself as a test user
-      1. Go to [Audience](https://console.cloud.google.com/auth/audience)
-      2. In the `Test users` section, click `+Add users`
-      3. Enter your email and press `Save`
+Create [new credentials](https://console.cloud.google.com/apis/credentials):
+ 1. If the banner shows up, configure **consent screen** (if not, you can do this later)
+    1. Click the banner, then Click `Get Started`. 
+    2. Choose a name for your app, and enter your email.
+    3. In Audience, choose `External`
+    4. Enter your contact information
+    5. Agree to the User Data policy and then click `Create`.
+    6. Return to APIs and Services using the left sidebar.
+ 2. Create new [credentials](https://console.cloud.google.com/apis/credentials):
+    1. Click the  `+Create Credentials` button. Choose OAuth Client ID.
+    2. In `Application Type`, Choose `Web application`
+    3. Choose a name for your web client
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
+    5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
+    6. Click `Create`. 
+    7. A popup will show up with the new credentials, including the Client ID and secret.
+ 3. Update .env file:
+    1. Copy the Client ID to `GOOGLE_CLIENT_ID`
+    2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
+ 4. Update [scopes](https://console.cloud.google.com/auth/scopes)
+    1. Go to `Data Access` in the left sidebar (or click link above)
+    2. Click `Add or remove scopes`
+    3. Copy paste the below into the `Manually add scopes` box:
+
+      ```plaintext
+      https://www.googleapis.com/auth/userinfo.profile
+      https://www.googleapis.com/auth/userinfo.email
+      https://www.googleapis.com/auth/gmail.modify
+      https://www.googleapis.com/auth/gmail.settings.basic
+      https://www.googleapis.com/auth/contacts
+      ```
+    4. Click `Update`
+    5. Click `Save` in the Data Access page.
+ 5. Add yourself as a test user
+    1. Go to [Audience](https://console.cloud.google.com/auth/audience)
+    2. In the `Test users` section, click `+Add users`
+    3. Enter your email and press `Save`
 
 ### Updating .env file with LLM parameters
 
