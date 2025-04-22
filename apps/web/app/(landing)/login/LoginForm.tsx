@@ -80,14 +80,6 @@ export function LoginForm() {
         size="2xl"
         link={{ href: "/waitlist-other", target: "_blank" }}
       >
-        Sign in with Outlook
-      </Button>
-
-      <Button
-        color="white"
-        size="2xl"
-        link={{ href: "/waitlist-other", target: "_blank" }}
-      >
         Other
       </Button>
     </div>
