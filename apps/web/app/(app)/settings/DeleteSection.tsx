@@ -16,12 +16,12 @@ import { useAccount } from "@/providers/AccountProvider";
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync: executeResetAnalytics } = useAction(
-    resetAnalyticsAction.bind(null, account?.email || ""),
+    resetAnalyticsAction.bind(null, email),
   );
   const { executeAsync: executeDeleteAccount } = useAction(
-    deleteAccountAction.bind(null, ""),
+    deleteAccountAction.bind(null),
   );
 
   return (

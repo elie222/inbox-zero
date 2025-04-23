@@ -34,9 +34,9 @@ export const SignatureSectionForm = ({
 
   const editorRef = useRef<TiptapHandle>(null);
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { execute, isExecuting } = useAction(
-    saveSignatureAction.bind(null, account?.email || ""),
+    saveSignatureAction.bind(null, email),
     {
       onSuccess: () => {
         toastSuccess({ description: "Signature saved" });
@@ -49,7 +49,7 @@ export const SignatureSectionForm = ({
     },
   );
   const { executeAsync: executeLoadSignatureFromGmail } = useAction(
-    loadSignatureFromGmailAction.bind(null, account?.email || ""),
+    loadSignatureFromGmailAction.bind(null, email),
   );
 
   const handleEditorChange = useCallback(

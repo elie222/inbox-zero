@@ -37,15 +37,12 @@ export function ColdEmailList() {
     `/api/user/cold-email?page=${page}`,
   );
 
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
-
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync: markNotColdEmail, isExecuting } = useAction(
-    markNotColdEmailAction.bind(null, account?.email || ""),
+    markNotColdEmailAction.bind(null, email),
     {
       onSuccess: () => {
         toastSuccess({ description: "Marked not cold email!" });
@@ -105,7 +102,7 @@ export function ColdEmailList() {
                 <Row
                   key={coldEmail.id}
                   row={coldEmail}
-                  userEmail={userEmail}
+                  userEmail={email}
                   mutate={mutate}
                   selected={selected}
                   onToggleSelect={onToggleSelect}

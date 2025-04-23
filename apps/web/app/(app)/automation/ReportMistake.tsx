@@ -160,9 +160,9 @@ function Content({
     });
   }, []);
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    reportAiMistakeAction.bind(null, account?.email || ""),
+    reportAiMistakeAction.bind(null, email),
   );
 
   const onSelectExpectedRule = useCallback(
@@ -455,9 +455,9 @@ function GroupMismatchAdd({
   onBack: () => void;
   onClose: () => void;
 }) {
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    addGroupItemAction.bind(null, account?.email || ""),
+    addGroupItemAction.bind(null, email),
   );
 
   return (
@@ -524,9 +524,9 @@ function GroupMismatchRemove({
   onBack: () => void;
   onClose: () => void;
 }) {
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    deleteGroupItemAction.bind(null, account?.email || ""),
+    deleteGroupItemAction.bind(null, email),
   );
 
   return (
@@ -726,9 +726,9 @@ function RuleForm({
 }: {
   rule: Pick<Rule, "id" | "instructions"> & { instructions: string };
 }) {
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    updateRuleInstructionsAction.bind(null, account?.email || ""),
+    updateRuleInstructionsAction.bind(null, email),
   );
 
   const {
@@ -794,9 +794,9 @@ function AIFixForm({
     fixedInstructions: string;
   }>();
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    reportAiMistakeAction.bind(null, account?.email || ""),
+    reportAiMistakeAction.bind(null, email),
   );
 
   const {
@@ -903,9 +903,9 @@ function SuggestedFix({
 }) {
   const [accepted, setAccepted] = useState(false);
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    updateRuleInstructionsAction.bind(null, account?.email || ""),
+    updateRuleInstructionsAction.bind(null, email),
     {
       onSuccess: () => {
         toastSuccess({ description: "Rule updated!" });
@@ -979,21 +979,18 @@ function RerunButton({
 }) {
   const [result, setResult] = useState<RunRulesResult>();
 
-  const { account } = useAccount();
-  const { execute, isExecuting } = useAction(
-    runRulesAction.bind(null, account?.email || ""),
-    {
-      onSuccess: (result) => {
-        setResult(result?.data);
-      },
-      onError: (error) => {
-        toastError({
-          title: "There was an error testing the email",
-          description: error.error.serverError ?? "An error occurred",
-        });
-      },
+  const { email } = useAccount();
+  const { execute, isExecuting } = useAction(runRulesAction.bind(null, email), {
+    onSuccess: (result) => {
+      setResult(result?.data);
     },
-  );
+    onError: (error) => {
+      toastError({
+        title: "There was an error testing the email",
+        description: error.error.serverError ?? "An error occurred",
+      });
+    },
+  });
 
   return (
     <>

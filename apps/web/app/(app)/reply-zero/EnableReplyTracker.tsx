@@ -21,6 +21,7 @@ import {
   REPLY_ZERO_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
 import { useAccount } from "@/providers/AccountProvider";
+
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
   const { email } = useAccount();

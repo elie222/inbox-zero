@@ -10,15 +10,15 @@ import {
 import { useAccount } from "@/providers/AccountProvider";
 
 export function AssessUser() {
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync: executeAssessAsync } = useAction(
-    assessAction.bind(null, account?.email || ""),
+    assessAction.bind(null, email),
   );
   const { execute: executeWhitelistInboxZero } = useAction(
-    whitelistInboxZeroAction.bind(null, account?.email || ""),
+    whitelistInboxZeroAction.bind(null, email),
   );
   const { execute: executeAnalyzeWritingStyle } = useAction(
-    analyzeWritingStyleAction.bind(null, account?.email || ""),
+    analyzeWritingStyleAction.bind(null, email),
   );
 
   useEffect(() => {

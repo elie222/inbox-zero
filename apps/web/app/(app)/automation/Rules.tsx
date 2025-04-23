@@ -51,15 +51,15 @@ export function Rules() {
 
   const hasRules = !!data?.length;
 
-  const { account } = useAccount();
+  const { email } = useAccount();
   const { executeAsync: setRuleRunOnThreads } = useAction(
-    setRuleRunOnThreadsAction.bind(null, account?.email || ""),
+    setRuleRunOnThreadsAction.bind(null, email),
   );
   const { executeAsync: setRuleEnabled } = useAction(
-    setRuleEnabledAction.bind(null, account?.email || ""),
+    setRuleEnabledAction.bind(null, email),
   );
   const { executeAsync: deleteRule } = useAction(
-    deleteRuleAction.bind(null, account?.email || ""),
+    deleteRuleAction.bind(null, email),
   );
 
   return (
