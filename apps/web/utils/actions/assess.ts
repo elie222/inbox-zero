@@ -1,28 +1,19 @@
 "use server";
 
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { assessUser } from "@/utils/assess";
 import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
-import { getAiUser } from "@/utils/user/get";
-import { createScopedLogger } from "@/utils/logger";
 import { formatBulletList } from "@/utils/string";
 import { getSentMessages } from "@/utils/gmail/message";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-
-const logger = createScopedLogger("assess-user");
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
 
 // to help with onboarding and provide the best flow to new users
-export const assessUserAction = withActionInstrumentation(
-  "assessUser",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not authenticated" };
-
-    const gmail = getGmailClient(session);
+export const assessUserAction = actionClient
+  .metadata({ name: "assessUser" })
+  .action(async ({ ctx: { email } }) => {
+    const gmail = await getGmailClientForEmail({ email });
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { email },
@@ -32,40 +23,23 @@ export const assessUserAction = withActionInstrumentation(
     if (emailAccount?.behaviorProfile) return { success: true, skipped: true };
 
     const result = await assessUser({ gmail });
-    await saveBehaviorProfile(email, result);
+    await prisma.emailAccount.update({
+      where: { email },
+      data: { behaviorProfile: result },
+    });
 
     return { success: true };
-  },
-);
-
-async function saveBehaviorProfile(
-  email: string,
-  assessment: Awaited<ReturnType<typeof assessUser>>,
-) {
-  await prisma.emailAccount.update({
-    where: { email },
-    data: { behaviorProfile: assessment },
   });
-}
 
-export const analyzeWritingStyleAction = withActionInstrumentation(
-  "analyzeWritingStyle",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not authenticated" };
+export const analyzeWritingStyleAction = actionClient
+  .metadata({ name: "analyzeWritingStyle" })
+  .action(async ({ ctx: { email, emailAccount } }) => {
+    if (!emailAccount) return { error: "Email account not found" };
 
-    const user = await getAiUser({ email });
-    if (!user) return { error: "User not found" };
-
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { email },
-      select: { writingStyle: true },
-    });
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
     // fetch last 20 sent emails
-    const gmail = getGmailClient(session);
+    const gmail = await getGmailClientForEmail({ email });
     const sentMessages = await getSentMessages(gmail, 20);
 
     // analyze writing style
@@ -73,7 +47,7 @@ export const analyzeWritingStyleAction = withActionInstrumentation(
       emails: sentMessages.map((email) =>
         getEmailForLLM(email, { extractReply: true }),
       ),
-      user,
+      user: emailAccount,
     });
 
     if (!style) return;
@@ -99,5 +73,4 @@ export const analyzeWritingStyleAction = withActionInstrumentation(
     });
 
     return { success: true };
-  },
-);
+  });
