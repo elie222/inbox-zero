@@ -97,6 +97,7 @@ describe("processHistoryItem", () => {
 
   interface TestUser {
     id: string;
+    userId: string;
     email: string | null;
     about: string | null;
     coldEmailBlocker: ColdEmailSetting | null;
@@ -109,6 +110,7 @@ describe("processHistoryItem", () => {
 
   const defaultUser: TestUser = {
     id: "user-123",
+    userId: "user-123",
     email: "user@example.com",
     about: null,
     coldEmailBlocker: ColdEmailSetting.DISABLED,
