@@ -2,8 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getGmailClient } from "@/utils/gmail/client";
@@ -14,69 +12,53 @@ import {
 } from "@/utils/redis/reply-tracker-analyzing";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { getAiUser } from "@/utils/user/get";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getTokens } from "@/utils/account";
 
 const logger = createScopedLogger("enableReplyTracker");
 
-export const enableReplyTrackerAction = withActionInstrumentation(
-  "enableReplyTracker",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
+export const enableReplyTrackerAction = actionClient
+  .metadata({ name: "enableReplyTracker" })
+  .action(async ({ ctx: { email } }) => {
     await enableReplyTracker({ email });
 
     revalidatePath("/reply-zero");
 
     return { success: true };
-  },
-);
+  });
 
-export const processPreviousSentEmailsAction = withActionInstrumentation(
-  "processPreviousSentEmails",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
+export const processPreviousSentEmailsAction = actionClient
+  .metadata({ name: "processPreviousSentEmails" })
+  .action(async ({ ctx: { email } }) => {
     const user = await getAiUser({ email });
     if (!user) return { error: "User not found" };
 
-    const gmail = getGmailClient({ accessToken: session.accessToken });
+    const tokens = await getTokens({ email });
+    const gmail = getGmailClient(tokens);
     await processPreviousSentEmails(gmail, user);
 
     return { success: true };
-  },
-);
+  });
 
 const resolveThreadTrackerSchema = z.object({
   threadId: z.string(),
   resolved: z.boolean(),
 });
 
-type ResolveThreadTrackerBody = z.infer<typeof resolveThreadTrackerSchema>;
-
-export const resolveThreadTrackerAction = withActionInstrumentation(
-  "resolveThreadTracker",
-  async (unsafeData: ResolveThreadTrackerBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
-    const { data, success, error } =
-      resolveThreadTrackerSchema.safeParse(unsafeData);
-    if (!success) return { error: error.message };
-
+export const resolveThreadTrackerAction = actionClient
+  .metadata({ name: "resolveThreadTracker" })
+  .schema(resolveThreadTrackerSchema)
+  .action(async ({ ctx: { email }, parsedInput: { threadId, resolved } }) => {
     await startAnalyzingReplyTracker({ email }).catch((error) => {
       logger.error("Error starting Reply Zero analysis", { error });
     });
 
     await prisma.threadTracker.updateMany({
       where: {
-        threadId: data.threadId,
+        threadId,
         emailAccountId: email,
       },
-      data: { resolved: data.resolved },
+      data: { resolved },
     });
 
     await stopAnalyzingReplyTracker({ email }).catch((error) => {
@@ -86,5 +68,4 @@ export const resolveThreadTrackerAction = withActionInstrumentation(
     revalidatePath("/reply-zero");
 
     return { success: true };
-  },
-);
+  });
