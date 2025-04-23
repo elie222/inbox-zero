@@ -210,13 +210,11 @@ export const updateLabelsAction = actionClient
 
 export const sendEmailAction = actionClient
   .metadata({ name: "sendEmail" })
-  .schema(z.object({ unsafeData: sendEmailBody }))
-  .action(async ({ ctx: { email }, parsedInput: { unsafeData } }) => {
+  .schema(sendEmailBody)
+  .action(async ({ ctx: { email }, parsedInput }) => {
     const gmail = await getGmailClientForEmail({ email });
 
-    const body = sendEmailBody.parse(unsafeData);
-
-    const result = await sendEmailWithHtml(gmail, body);
+    const result = await sendEmailWithHtml(gmail, parsedInput);
 
     return {
       success: true,

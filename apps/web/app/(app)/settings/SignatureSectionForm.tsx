@@ -16,7 +16,6 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
-import { isActionError } from "@/utils/error";
 import { toastError, toastInfo, toastSuccess } from "@/components/Toast";
 import { ClientOnly } from "@/components/ClientOnly";
 import { useAccount } from "@/providers/AccountProvider";
@@ -91,10 +90,10 @@ export const SignatureSectionForm = ({
                 onClick={async () => {
                   const result = await executeLoadSignatureFromGmail();
 
-                  if (isActionError(result)) {
+                  if (result?.serverError) {
                     toastError({
                       title: "Error loading signature from Gmail",
-                      description: result.error,
+                      description: result.serverError,
                     });
                     return;
                   } else if (result?.data?.signature) {

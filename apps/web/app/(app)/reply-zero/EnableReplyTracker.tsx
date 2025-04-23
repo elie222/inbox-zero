@@ -11,7 +11,6 @@ import {
   enableReplyTrackerAction,
   processPreviousSentEmailsAction,
 } from "@/utils/actions/reply-tracking";
-import { isActionError } from "@/utils/error";
 import {
   NEEDS_REPLY_LABEL_NAME,
   AWAITING_REPLY_LABEL_NAME,
@@ -70,10 +69,10 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
 
         const result = await enableReplyTrackerAction(email);
 
-        if (isActionError(result)) {
+        if (result?.serverError) {
           toastError({
             title: "Error enabling Reply Zero",
-            description: result.error,
+            description: result.serverError,
           });
         } else {
           toastSuccess({

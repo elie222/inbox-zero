@@ -10,9 +10,9 @@ import {
   stopAnalyzingReplyTracker,
 } from "@/utils/redis/reply-tracker-analyzing";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
-import { getAiUser } from "@/utils/user/get";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -28,12 +28,11 @@ export const enableReplyTrackerAction = actionClient
 
 export const processPreviousSentEmailsAction = actionClient
   .metadata({ name: "processPreviousSentEmails" })
-  .action(async ({ ctx: { email } }) => {
-    const user = await getAiUser({ email });
-    if (!user) return { error: "User not found" };
+  .action(async ({ ctx: { email, emailAccount } }) => {
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     const gmail = await getGmailClientForEmail({ email });
-    await processPreviousSentEmails(gmail, user);
+    await processPreviousSentEmails(gmail, emailAccount);
 
     return { success: true };
   });

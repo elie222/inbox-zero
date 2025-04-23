@@ -80,9 +80,6 @@ export const cleanInboxAction = actionClient
 
       //   let labels: { id: string; name: string }[] | undefined;
 
-      //   const user = await getAiUser({ id: userId });
-      //   if (!user) throw new Error("User not found");
-
       //   const labelNames = await aiCleanSelectLabels({ user, instructions });
 
       //   if (labelNames) {

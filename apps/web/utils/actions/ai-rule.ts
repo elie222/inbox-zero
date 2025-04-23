@@ -32,7 +32,6 @@ import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
-import { getAiUser } from "@/utils/user/get";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 
@@ -567,7 +566,7 @@ export const reportAiMistakeAction = actionClient
       if (!expectedRuleId && !actualRuleId)
         throw new SafeError("Either correct or incorrect rule ID is required");
 
-      const [expectedRule, actualRule, user] = await Promise.all([
+      const [expectedRule, actualRule] = await Promise.all([
         expectedRuleId
           ? prisma.rule.findUnique({
               where: { id: expectedRuleId, emailAccountId: email },
@@ -578,7 +577,6 @@ export const reportAiMistakeAction = actionClient
               where: { id: actualRuleId, emailAccountId: email },
             })
           : null,
-        getAiUser({ email }),
       ]);
 
       if (expectedRuleId && !expectedRule)
@@ -587,8 +585,6 @@ export const reportAiMistakeAction = actionClient
       if (actualRuleId && !actualRule)
         throw new SafeError("Actual rule not found");
 
-      if (!user) throw new SafeError("User not found");
-
       const content = emailToContent({
         textHtml: message.textHtml || undefined,
         textPlain: message.textPlain || undefined,
@@ -596,7 +592,7 @@ export const reportAiMistakeAction = actionClient
       });
 
       const result = await aiRuleFix({
-        user,
+        user: emailAccount,
         actualRule,
         expectedRule,
         email: {

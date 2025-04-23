@@ -18,7 +18,6 @@ import {
 } from "lucide-react";
 import { useThreadsByIds } from "@/hooks/useThreadsByIds";
 import { resolveThreadTrackerAction } from "@/utils/actions/reply-tracking";
-import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Loading } from "@/components/Loading";
 import { TablePagination } from "@/components/TablePagination";
@@ -83,15 +82,15 @@ export function ReplyTrackerEmails({
         return next;
       });
 
-      const result = await resolveThreadTrackerAction({
+      const result = await resolveThreadTrackerAction(email, {
         threadId,
         resolved,
       });
 
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
           title: "Error",
-          description: result.error,
+          description: result.serverError,
         });
       } else {
         toastSuccess({
@@ -110,7 +109,7 @@ export function ReplyTrackerEmails({
         setSelectedEmail(null);
       }
     },
-    [resolvingThreads, selectedEmail],
+    [resolvingThreads, selectedEmail, email],
   );
 
   const handleAction = useCallback(

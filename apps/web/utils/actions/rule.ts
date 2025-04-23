@@ -38,7 +38,6 @@ import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName } from "@/utils/rule/consts";
-import { getAiUser } from "@/utils/user/get";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 
@@ -392,16 +391,21 @@ export const deleteRuleAction = actionClient
 export const getRuleExamplesAction = actionClient
   .metadata({ name: "getRuleExamples" })
   .schema(rulesExamplesBody)
-  .action(async ({ ctx: { email }, parsedInput: { rulesPrompt } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({ ctx: { email, emailAccount }, parsedInput: { rulesPrompt } }) => {
+      if (!emailAccount) throw new SafeError("Email account not found");
 
-    const user = await getAiUser({ email });
-    if (!user) return { error: "User not found" };
+      const gmail = await getGmailClientForEmail({ email });
 
-    const { matches } = await aiFindExampleMatches(user, gmail, rulesPrompt);
+      const { matches } = await aiFindExampleMatches(
+        emailAccount,
+        gmail,
+        rulesPrompt,
+      );
 
-    return { matches };
-  });
+      return { matches };
+    },
+  );
 
 export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
