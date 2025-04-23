@@ -9,13 +9,14 @@ import {
 } from "@/utils/actions/cold-email.validation";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { updateColdEmailPromptAction } from "@/utils/actions/cold-email";
-
+import { useAccount } from "@/providers/AccountProvider";
 export function ColdEmailPromptForm(props: {
   coldEmailPrompt?: string | null;
   onSuccess: () => void;
 }) {
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -31,7 +32,7 @@ export function ColdEmailPromptForm(props: {
 
   const onSubmit: SubmitHandler<UpdateColdEmailPromptBody> = useCallback(
     async (data) => {
-      const result = await updateColdEmailPromptAction({
+      const result = await updateColdEmailPromptAction(email, {
         // if user hasn't changed the prompt, unset their custom prompt
         coldEmailPrompt:
           !data.coldEmailPrompt ||
@@ -40,14 +41,14 @@ export function ColdEmailPromptForm(props: {
             : data.coldEmailPrompt,
       });
 
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({ description: "Error updating cold email prompt." });
       } else {
         toastSuccess({ description: "Prompt updated!" });
         onSuccess();
       }
     },
-    [onSuccess],
+    [onSuccess, email],
   );
 
   return (

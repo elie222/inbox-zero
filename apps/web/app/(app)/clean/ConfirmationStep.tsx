@@ -7,11 +7,11 @@ import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { cleanInboxAction } from "@/utils/actions/clean";
-import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { CleanAction } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function ConfirmationStep({
   showFooter,
@@ -35,9 +35,10 @@ export function ConfirmationStep({
   reuseSettings: boolean;
 }) {
   const router = useRouter();
+  const { email } = useAccount();
 
   const handleStartCleaning = async () => {
-    const result = await cleanInboxAction({
+    const result = await cleanInboxAction(email, {
       daysOld: timeRange ?? 7,
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,
@@ -45,12 +46,12 @@ export function ConfirmationStep({
       skips,
     });
 
-    if (isActionError(result)) {
-      toastError({ description: result.error });
+    if (result?.serverError) {
+      toastError({ description: result.serverError });
       return;
     }
 
-    router.push(`/clean/run?jobId=${result.jobId}&isPreviewBatch=true`);
+    router.push(`/clean/run?jobId=${result?.data?.jobId}&isPreviewBatch=true`);
   };
 
   return (

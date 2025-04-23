@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { testAiCustomContentAction } from "@/utils/actions/ai-rule";
-import { isActionError } from "@/utils/error";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
 import {
@@ -15,9 +14,11 @@ import {
   type TestAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useAccount } from "@/providers/AccountProvider";
 
 export const TestCustomEmailForm = () => {
   const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
+  const { email } = useAccount();
 
   const {
     register,
@@ -29,17 +30,17 @@ export const TestCustomEmailForm = () => {
 
   const onSubmit: SubmitHandler<TestAiCustomContentBody> = useCallback(
     async (data) => {
-      const result = await testAiCustomContentAction(data);
-      if (isActionError(result)) {
+      const result = await testAiCustomContentAction(email, data);
+      if (result?.serverError) {
         toastError({
           title: "Error testing email",
-          description: result.error,
+          description: result.serverError,
         });
       } else {
-        setTestResult(result);
+        setTestResult(result?.data);
       }
     },
-    [],
+    [email],
   );
 
   return (

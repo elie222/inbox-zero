@@ -38,10 +38,10 @@ import {
   type AddGroupItemBody,
   addGroupItemBody,
 } from "@/utils/actions/group.validation";
-import { isActionError } from "@/utils/error";
 import { Badge } from "@/components/ui/badge";
 import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
@@ -127,6 +127,8 @@ const AddGroupItemForm = ({
   mutate: KeyedMutator<GroupItemsResponse>;
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -142,10 +144,10 @@ const AddGroupItemForm = ({
 
   const onSubmit: SubmitHandler<AddGroupItemBody> = useCallback(
     async (data) => {
-      const result = await addGroupItemAction(data);
-      if (isActionError(result)) {
+      const result = await addGroupItemAction(email, data);
+      if (result?.serverError) {
         toastError({
-          description: `Failed to add pattern. ${result.error}`,
+          description: `Failed to add pattern. ${result.serverError || ""}`,
         });
       } else {
         toastSuccess({ description: "Pattern added!" });
@@ -153,7 +155,7 @@ const AddGroupItemForm = ({
       mutate();
       onClose();
     },
-    [mutate, onClose],
+    [mutate, onClose, email],
   );
 
   const handleKeyDown = useCallback(
@@ -259,6 +261,8 @@ function GroupItemList({
   items: GroupItem[];
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
+  const { email } = useAccount();
+
   return (
     <Table>
       {title && (
@@ -302,10 +306,12 @@ function GroupItemList({
                   variant="outline"
                   size="icon"
                   onClick={async () => {
-                    const result = await deleteGroupItemAction(item.id);
-                    if (isActionError(result)) {
+                    const result = await deleteGroupItemAction(email, {
+                      id: item.id,
+                    });
+                    if (result?.serverError) {
                       toastError({
-                        description: `Failed to remove ${item.value}. ${result.error}`,
+                        description: `Failed to remove ${item.value}. ${result.serverError || ""}`,
                       });
                     } else {
                       toastSuccess({

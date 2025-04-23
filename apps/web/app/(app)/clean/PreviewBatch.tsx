@@ -12,18 +12,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { cleanInboxAction } from "@/utils/actions/clean";
-import { isActionError } from "@/utils/error";
 import { CleanAction, type CleanupJob } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
-
+import { useAccount } from "@/providers/AccountProvider";
 export function PreviewBatch({ job }: { job: CleanupJob }) {
+  const { email } = useAccount();
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
   const [isLoading, setIsLoading] = useState(false);
 
   const handleRunOnFullInbox = async () => {
     setIsLoading(true);
     setIsPreviewBatch(false);
-    const result = await cleanInboxAction({
+    const result = await cleanInboxAction(email, {
       daysOld: job.daysOld,
       instructions: job.instructions || "",
       action: job.action,
@@ -39,8 +39,8 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
 
     setIsLoading(false);
 
-    if (isActionError(result)) {
-      toastError({ description: result.error });
+    if (result?.serverError) {
+      toastError({ description: result.serverError });
       return;
     }
   };

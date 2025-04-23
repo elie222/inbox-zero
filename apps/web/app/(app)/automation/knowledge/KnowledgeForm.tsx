@@ -17,12 +17,12 @@ import {
   updateKnowledgeAction,
 } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import type { Knowledge } from "@prisma/client";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function KnowledgeForm({
   closeDialog,
@@ -33,6 +33,8 @@ export function KnowledgeForm({
   refetch: KeyedMutator<GetKnowledgeResponse>;
   editingItem: Knowledge | null;
 }) {
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -65,13 +67,13 @@ export function KnowledgeForm({
     };
 
     const result = editingItem
-      ? await updateKnowledgeAction(submitData as UpdateKnowledgeBody)
-      : await createKnowledgeAction(submitData);
+      ? await updateKnowledgeAction(email, submitData as UpdateKnowledgeBody)
+      : await createKnowledgeAction(email, submitData);
 
-    if (isActionError(result)) {
+    if (result?.serverError) {
       toastError({
         title: `Error ${editingItem ? "updating" : "creating"} knowledge base entry`,
-        description: result.error,
+        description: result.serverError || "",
       });
       return;
     }

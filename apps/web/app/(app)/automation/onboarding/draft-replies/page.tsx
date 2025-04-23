@@ -6,25 +6,25 @@ import { Card } from "@/components/ui/card";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
-import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import {
   ASSISTANT_ONBOARDING_COOKIE,
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
+import { useAccount } from "@/providers/AccountProvider";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
-
+  const { email } = useAccount();
   const onSetDraftReplies = useCallback(
     async (value: string) => {
-      const result = await enableDraftRepliesAction({
+      const result = await enableDraftRepliesAction(email, {
         enable: value === "yes",
       });
 
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
-          description: `There was an error: ${result.error}`,
+          description: `There was an error: ${result.serverError || ""}`,
         });
       }
 
@@ -32,7 +32,7 @@ export default function DraftRepliesPage() {
 
       router.push("/automation/onboarding/completed");
     },
-    [router],
+    [router, email],
   );
 
   return (

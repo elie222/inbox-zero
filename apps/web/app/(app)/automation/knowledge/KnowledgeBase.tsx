@@ -22,15 +22,16 @@ import {
 } from "@/components/ui/dialog";
 import { deleteKnowledgeAction } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import { formatDateSimple } from "@/utils/date";
 import type { Knowledge } from "@prisma/client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { KnowledgeForm } from "@/app/(app)/automation/knowledge/KnowledgeForm";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function KnowledgeBase() {
+  const { email } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
   const { data, isLoading, error, mutate } =
@@ -121,6 +122,7 @@ export function KnowledgeBase() {
                     item={item}
                     onEdit={() => setEditingItem(item)}
                     onDelete={mutate}
+                    email={email}
                   />
                 ))
               )}
@@ -136,10 +138,12 @@ function KnowledgeTableRow({
   item,
   onEdit,
   onDelete,
+  email,
 }: {
   item: Knowledge;
   onEdit: () => void;
   onDelete: () => void;
+  email: string;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -164,13 +168,13 @@ function KnowledgeTableRow({
             onConfirm={async () => {
               try {
                 setIsDeleting(true);
-                const result = await deleteKnowledgeAction({
+                const result = await deleteKnowledgeAction(email, {
                   id: item.id,
                 });
-                if (isActionError(result)) {
+                if (result?.serverError) {
                   toastError({
                     title: "Error deleting knowledge base entry",
-                    description: result.error,
+                    description: result.serverError || "",
                   });
                   return;
                 }

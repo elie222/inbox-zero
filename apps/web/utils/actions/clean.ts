@@ -26,6 +26,7 @@ import { getUnhandledCount } from "@/utils/assess";
 import { hash } from "@/utils/hash";
 import { getGmailClientForEmail } from "@/utils/account";
 import { actionClient } from "@/utils/actions/safe-action";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -52,11 +53,11 @@ export const cleanInboxAction = actionClient
 
       const markedDoneLabelId = markedDoneLabel?.id;
       if (!markedDoneLabelId)
-        return { error: "Failed to create archived label" };
+        throw new SafeError("Failed to create archived label");
 
       const processedLabelId = processedLabel?.id;
       if (!processedLabelId)
-        return { error: "Failed to create processed label" };
+        throw new SafeError("Failed to create processed label");
 
       // create a cleanup job
       const job = await prisma.cleanupJob.create({

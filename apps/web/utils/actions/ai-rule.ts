@@ -116,7 +116,7 @@ export const testAiCustomContentAction = actionClient
   .schema(testAiCustomContentBody)
   .action(
     async ({ ctx: { email, emailAccount }, parsedInput: { content } }) => {
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new SafeError("Email account not found");
 
       const gmail = await getGmailClientForEmail({ email });
 
@@ -175,7 +175,7 @@ export const createAutomationAction = actionClient
     if (!result) throw new SafeError("AI error creating rule.");
 
     const createdRule = await safeCreateRule({ result, email });
-    return { ruleId: createdRule?.id };
+    return createdRule;
   });
 
 export const setRuleRunOnThreadsAction = actionClient

@@ -7,8 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deleteGroupItemAction } from "@/utils/actions/group";
 import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
-import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function ExampleList({
   groupedBySenders,
@@ -16,6 +16,7 @@ export function ExampleList({
   groupedBySenders: Dictionary<MessageWithGroupItem[][]>;
 }) {
   const [removed, setRemoved] = useState<string[]>([]);
+  const { email } = useAccount();
 
   return (
     <div className="mx-auto my-2 grid max-w-4xl gap-2 px-2 sm:my-4 sm:gap-4 sm:px-4">
@@ -49,11 +50,13 @@ export function ExampleList({
                   type="submit"
                   size="sm"
                   className="mt-4 text-wrap"
-                  onClick={() => {
-                    const result = deleteGroupItemAction(matchingGroupItem.id);
-                    if (isActionError(result)) {
+                  onClick={async () => {
+                    const result = await deleteGroupItemAction(email, {
+                      id: matchingGroupItem.id,
+                    });
+                    if (result?.serverError) {
                       toastError({
-                        description: `Failed to remove ${matchingGroupItem.value} from group. ${result.error}`,
+                        description: `Failed to remove ${matchingGroupItem.value} from group. ${result.serverError || ""}`,
                       });
                     } else {
                       setRemoved([...removed, firstThreadId]);

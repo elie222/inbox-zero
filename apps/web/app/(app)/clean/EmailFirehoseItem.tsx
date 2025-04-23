@@ -16,7 +16,6 @@ import {
   undoCleanInboxAction,
   changeKeepToDoneAction,
 } from "@/utils/actions/clean";
-import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
 import { CleanAction } from "@prisma/client";
@@ -77,6 +76,7 @@ export function EmailItem({
           undoState={undoState}
           setUndoing={setUndoing}
           setUndone={setUndone}
+          userEmail={userEmail}
         />
       </div>
     </div>
@@ -103,6 +103,7 @@ function StatusBadge({
   undoState,
   setUndoing,
   setUndone,
+  userEmail,
 }: {
   status: Status;
   email: CleanThread;
@@ -110,6 +111,7 @@ function StatusBadge({
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
+  userEmail: string;
 }) {
   if (status === "processing") {
     return <Badge color="purple">Processing...</Badge>;
@@ -151,14 +153,14 @@ function StatusBadge({
 
               setUndoing(email.threadId);
 
-              const result = await undoCleanInboxAction({
+              const result = await undoCleanInboxAction(userEmail, {
                 threadId: email.threadId,
                 markedDone: !!email.archive,
                 action,
               });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 setUndone(email.threadId);
               }
@@ -187,13 +189,13 @@ function StatusBadge({
 
               setUndoing(email.threadId);
 
-              const result = await changeKeepToDoneAction({
+              const result = await changeKeepToDoneAction(userEmail, {
                 threadId: email.threadId,
                 action,
               });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 setUndone(email.threadId);
               }
