@@ -7,7 +7,6 @@ import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { SparklesIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
@@ -22,6 +21,7 @@ import { TableCell, TableRow } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { testColdEmailAction } from "@/utils/actions/cold-email";
 import type { ColdEmailBlockerBody } from "@/utils/actions/cold-email.validation";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,8 +33,7 @@ export function TestRulesContent() {
     },
   );
 
-  const session = useSession();
-  const email = session.data?.user.email;
+  const { email: userEmail } = useAccount();
 
   return (
     <div>
@@ -59,7 +58,7 @@ export function TestRulesContent() {
                 <TestRulesContentRow
                   key={message.id}
                   message={message}
-                  userEmail={email || ""}
+                  userEmail={userEmail}
                 />
               );
             })}
@@ -217,11 +216,12 @@ function useColdEmailTest() {
   const [response, setResponse] = useState<ColdEmailBlockerResponse | null>(
     null,
   );
+  const { email: userEmail } = useAccount();
 
   const testEmail = async (data: ColdEmailBlockerBody) => {
     setTesting(true);
     try {
-      const res = await testColdEmailAction(data);
+      const res = await testColdEmailAction(userEmail, data);
       if (isActionError(res)) {
         toastError({
           title: "Error checking whether it's a cold email.",

@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";
 import {
@@ -19,6 +18,7 @@ import { useSearchParams } from "next/navigation";
 import { ColdEmailStatus } from "@prisma/client";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function ColdEmailRejected() {
   const searchParams = useSearchParams();
@@ -27,8 +27,7 @@ export function ColdEmailRejected() {
     `/api/user/cold-email?page=${page}&status=${ColdEmailStatus.USER_REJECTED_COLD}`,
   );
 
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
+  const { email: userEmail } = useAccount();
 
   return (
     <LoadingContent loading={isLoading} error={error}>

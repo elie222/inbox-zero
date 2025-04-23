@@ -254,9 +254,9 @@ export function Pricing(props: {
                     if (premiumTier) {
                       toast.promise(
                         async () => {
-                          const result = await switchPremiumPlanAction(
-                            tier.tiers[frequency.value],
-                          );
+                          const result = await switchPremiumPlanAction({
+                            premiumTier: tier.tiers[frequency.value],
+                          });
                           if (isActionError(result))
                             throw new Error(result.error);
                         },

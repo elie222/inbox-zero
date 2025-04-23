@@ -3,7 +3,6 @@
 import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
-import { useSession } from "next-auth/react";
 import { parseAsBoolean, useQueryState } from "nuqs";
 import {
   BookOpenCheckIcon,
@@ -39,6 +38,7 @@ import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/automation/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/automation/ProcessResultDisplay";
 import { Tooltip } from "@/components/Tooltip";
+import { useAccount } from "@/providers/AccountProvider";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -77,8 +77,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   }, [data]);
 
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
-  const session = useSession();
-  const email = session.data?.user.email;
+  const { email: userEmail } = useAccount();
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
@@ -100,7 +99,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     async (message: Message, rerun?: boolean) => {
       setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
-      const result = await runRulesAction({
+      const result = await runRulesAction(userEmail, {
         messageId: message.id,
         threadId: message.threadId,
         isTest: testMode,
@@ -116,7 +115,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
-    [testMode],
+    [testMode, userEmail],
   );
 
   const handleRunAll = async () => {
@@ -219,7 +218,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                   <ProcessRulesRow
                     key={message.id}
                     message={message}
-                    userEmail={email!}
+                    userEmail={userEmail}
                     isRunning={isRunning[message.id]}
                     result={results[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}

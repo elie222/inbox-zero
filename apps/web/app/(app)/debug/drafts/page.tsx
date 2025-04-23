@@ -20,6 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { useMessagesBatch } from "@/hooks/useMessagesBatch";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { isDefined } from "@/utils/types";
+import { useAccount } from "@/providers/AccountProvider";
 
 export default function DebugDraftsPage() {
   const { data, isLoading, error } = useSWR<DraftActionsResponse>(
@@ -37,8 +38,7 @@ export default function DebugDraftsPage() {
     parseReplies: true,
   });
 
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
+  const { email: userEmail } = useAccount();
 
   return (
     <div className="container mx-auto py-6">

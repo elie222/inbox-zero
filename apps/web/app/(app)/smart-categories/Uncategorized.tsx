@@ -3,7 +3,6 @@
 import useSWRInfinite from "swr/infinite";
 import { useMemo, useCallback } from "react";
 import { ChevronsDownIcon, SparklesIcon, StopCircleIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { SendersTable } from "@/components/GroupedTable";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -24,6 +23,7 @@ import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import type { CategoryWithRules } from "@/utils/category.server";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function Uncategorized({
   categories,
@@ -46,8 +46,7 @@ export function Uncategorized({
     [senderAddresses],
   );
 
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
+  const { email: userEmail } = useAccount();
 
   return (
     <LoadingContent loading={!senderAddresses && isLoading}>
@@ -94,7 +93,10 @@ export function Uncategorized({
               text="Automatically categorize new senders when they email you"
             />
           </div>
-          <AutoCategorizeToggle autoCategorizeSenders={autoCategorizeSenders} />
+          <AutoCategorizeToggle
+            autoCategorizeSenders={autoCategorizeSenders}
+            userEmail={userEmail}
+          />
         </div>
       </TopBar>
       <ClientOnly>
@@ -135,8 +137,10 @@ export function Uncategorized({
 
 function AutoCategorizeToggle({
   autoCategorizeSenders,
+  userEmail,
 }: {
   autoCategorizeSenders: boolean;
+  userEmail: string;
 }) {
   return (
     <Toggle
@@ -144,7 +148,9 @@ function AutoCategorizeToggle({
       label="Auto categorize"
       enabled={autoCategorizeSenders}
       onChange={async (enabled) => {
-        await setAutoCategorizeAction({ autoCategorizeSenders: enabled });
+        await setAutoCategorizeAction(userEmail, {
+          autoCategorizeSenders: enabled,
+        });
       }}
     />
   );

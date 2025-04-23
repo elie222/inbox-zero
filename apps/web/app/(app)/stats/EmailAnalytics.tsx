@@ -11,13 +11,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { BarList } from "@/components/charts/BarList";
 import { getDateRangeParams } from "@/app/(app)/stats/params";
 import { getGmailSearchUrl } from "@/utils/url";
-
+import { useAccount } from "@/providers/AccountProvider";
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
-  const session = useSession();
-  const email = session.data?.user.email;
+  const { email } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
 

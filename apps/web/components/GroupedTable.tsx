@@ -59,6 +59,7 @@ import {
 import type { CategoryWithRules } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { CategorySelect } from "@/components/CategorySelect";
+import { useAccount } from "@/providers/AccountProvider";
 
 const COLUMNS = 4;
 
@@ -75,8 +76,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
+  const { email: userEmail } = useAccount();
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -161,7 +161,7 @@ export function GroupedTable({
           <Select
             defaultValue={row.original.category?.id || ""}
             onValueChange={async (value) => {
-              const result = await changeSenderCategoryAction({
+              const result = await changeSenderCategoryAction(userEmail, {
                 sender: row.original.address,
                 categoryId: value,
               });
@@ -223,7 +223,9 @@ export function GroupedTable({
                 "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
               );
               if (!yes) return;
-              const result = await removeAllFromCategoryAction(categoryName);
+              const result = await removeAllFromCategoryAction(userEmail, {
+                categoryName,
+              });
 
               if (isActionError(result)) {
                 toastError({ description: result.error });

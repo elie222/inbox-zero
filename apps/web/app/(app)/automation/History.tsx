@@ -2,7 +2,6 @@
 
 import useSWR from "swr";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
-import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { PlanHistoryResponse } from "@/app/api/user/planned/history/route";
 import { AlertBasic } from "@/components/Alert";
@@ -24,6 +23,7 @@ import {
 import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -35,7 +35,7 @@ export function History() {
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
     `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
   );
-  const session = useSession();
+  const { email } = useAccount();
 
   return (
     <>
@@ -48,7 +48,7 @@ export function History() {
             <HistoryTable
               data={data.executedRules}
               totalPages={data.totalPages}
-              userEmail={session.data?.user?.email || ""}
+              userEmail={email}
             />
           ) : (
             <AlertBasic
