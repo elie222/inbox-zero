@@ -13,7 +13,7 @@ import {
   updateCategoryForSender,
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { isActionError } from "@/utils/error";
+import { isActionError, SafeError } from "@/utils/error";
 import {
   deleteEmptyCategorizeSendersQueues,
   publishToAiCategorizeSendersQueue,
@@ -113,7 +113,7 @@ export const categorizeSenderAction = actionClient
       if (isActionError(userResult)) return userResult;
       const { emailAccount } = userResult;
 
-      if (!session.accessToken) return { error: "No access token" };
+      if (!session.accessToken) throw new SafeError("No access token");
 
       const result = await categorizeSender(
         senderAddress,

@@ -15,6 +15,7 @@ import { cleanInboxAction } from "@/utils/actions/clean";
 import { CleanAction, type CleanupJob } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/clean/consts";
 import { useAccount } from "@/providers/AccountProvider";
+
 export function PreviewBatch({ job }: { job: CleanupJob }) {
   const { email } = useAccount();
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
