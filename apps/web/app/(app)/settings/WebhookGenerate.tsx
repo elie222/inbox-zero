@@ -2,21 +2,32 @@
 
 import { Button } from "@/components/ui/button";
 import { regenerateWebhookSecretAction } from "@/utils/actions/webhook";
-import { isActionError } from "@/utils/error";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { useAccount } from "@/providers/AccountProvider";
+import { useAction } from "next-safe-action/hooks";
 
 export function RegenerateSecretButton({ hasSecret }: { hasSecret: boolean }) {
-  const handleRegenerateSecret = async () => {
-    const result = await regenerateWebhookSecretAction();
-    if (isActionError(result)) {
-      toastError({ title: "Error", description: result.error });
-    } else {
-      toastSuccess({ description: "Webhook secret regenerated" });
-    }
-  };
+  const { account } = useAccount();
+  const { execute, isExecuting } = useAction(
+    regenerateWebhookSecretAction.bind(null, account?.email || ""),
+    {
+      onSuccess: () => {
+        toastSuccess({
+          description: "Webhook secret regenerated",
+        });
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            error.error.serverError ??
+            "An unknown error occurred while regenerating the webhook secret",
+        });
+      },
+    },
+  );
 
   return (
-    <Button variant="outline" type="button" onClick={handleRegenerateSecret}>
+    <Button variant="outline" loading={isExecuting} onClick={() => execute()}>
       {hasSecret ? "Regenerate Secret" : "Generate Secret"}
     </Button>
   );
