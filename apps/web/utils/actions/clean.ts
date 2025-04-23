@@ -1,24 +1,17 @@
 "use server";
 
 import { after } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import {
   cleanInboxSchema,
-  type CleanInboxBody,
   undoCleanInboxSchema,
-  type UndoCleanInboxBody,
   changeKeepToDoneSchema,
-  type ChangeKeepToDoneBody,
 } from "@/utils/actions/clean.validation";
 import { getThreadsWithNextPageToken } from "@/utils/gmail/thread";
-import { getGmailClient } from "@/utils/gmail/client";
 import { bulkPublishToQstash } from "@/utils/upstash";
 import { env } from "@/env";
 import {
   getLabel,
   getOrCreateInboxZeroLabel,
-  // getOrCreateLabels,
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
@@ -27,264 +20,251 @@ import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
-// import { aiCleanSelectLabels } from "@/utils/ai/clean/ai-clean-select-labels";
-// import { getAiUser } from "@/utils/user/get";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 import { hash } from "@/utils/hash";
+import { getGmailClientForEmail } from "@/utils/account";
+import { actionClient } from "@/utils/actions/safe-action";
 
 const logger = createScopedLogger("actions/clean");
 
-export const cleanInboxAction = withActionInstrumentation(
-  "cleanInbox",
-  async (unsafeData: CleanInboxBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+export const cleanInboxAction = actionClient
+  .metadata({ name: "cleanInbox" })
+  .schema(cleanInboxSchema)
+  .action(
+    async ({
+      ctx: { email },
+      parsedInput: { action, instructions, daysOld, skips, maxEmails },
+    }) => {
+      const gmail = await getGmailClientForEmail({ email });
 
-    const { data, success, error } = cleanInboxSchema.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+      const [markedDoneLabel, processedLabel] = await Promise.all([
+        getOrCreateInboxZeroLabel({
+          key: action === CleanAction.ARCHIVE ? "archived" : "marked_read",
+          gmail,
+        }),
+        getOrCreateInboxZeroLabel({
+          key: "processed",
+          gmail,
+        }),
+      ]);
 
-    const gmail = getGmailClient(session);
+      const markedDoneLabelId = markedDoneLabel?.id;
+      if (!markedDoneLabelId)
+        return { error: "Failed to create archived label" };
 
-    const [markedDoneLabel, processedLabel] = await Promise.all([
-      getOrCreateInboxZeroLabel({
-        key: data.action === CleanAction.ARCHIVE ? "archived" : "marked_read",
-        gmail,
-      }),
-      getOrCreateInboxZeroLabel({
-        key: "processed",
-        gmail,
-      }),
-    ]);
+      const processedLabelId = processedLabel?.id;
+      if (!processedLabelId)
+        return { error: "Failed to create processed label" };
 
-    const markedDoneLabelId = markedDoneLabel?.id;
-    if (!markedDoneLabelId) return { error: "Failed to create archived label" };
+      // create a cleanup job
+      const job = await prisma.cleanupJob.create({
+        data: {
+          email,
+          action,
+          instructions,
+          daysOld,
+          skipReply: skips.reply,
+          skipStarred: skips.starred,
+          skipCalendar: skips.calendar,
+          skipReceipt: skips.receipt,
+          skipAttachment: skips.attachment,
+          skipConversation: skips.conversation,
+        },
+      });
 
-    const processedLabelId = processedLabel?.id;
-    if (!processedLabelId) return { error: "Failed to create processed label" };
+      // const getLabels = async (instructions?: string) => {
+      //   if (!instructions) return [];
 
-    // create a cleanup job
-    const job = await prisma.cleanupJob.create({
-      data: {
-        email,
-        action: data.action,
-        instructions: data.instructions,
-        daysOld: data.daysOld,
-        skipReply: data.skips.reply,
-        skipStarred: data.skips.starred,
-        skipCalendar: data.skips.calendar,
-        skipReceipt: data.skips.receipt,
-        skipAttachment: data.skips.attachment,
-        skipConversation: data.skips.conversation,
-      },
-    });
+      //   let labels: { id: string; name: string }[] | undefined;
 
-    // const getLabels = async (instructions?: string) => {
-    //   if (!instructions) return [];
+      //   const user = await getAiUser({ id: userId });
+      //   if (!user) throw new Error("User not found");
 
-    //   let labels: { id: string; name: string }[] | undefined;
+      //   const labelNames = await aiCleanSelectLabels({ user, instructions });
 
-    //   const user = await getAiUser({ id: userId });
-    //   if (!user) throw new Error("User not found");
+      //   if (labelNames) {
+      //     const gmailLabels = await getOrCreateLabels({
+      //       names: labelNames,
+      //       gmail,
+      //     });
 
-    //   const labelNames = await aiCleanSelectLabels({ user, instructions });
+      //     labels = gmailLabels
+      //       .map((label) => ({
+      //         id: label.id || "",
+      //         name: label.name || "",
+      //       }))
+      //       .filter((label) => label.id && label.name);
 
-    //   if (labelNames) {
-    //     const gmailLabels = await getOrCreateLabels({
-    //       names: labelNames,
-    //       gmail,
-    //     });
+      //     logger.info("Selected labels", {
+      //       email: session?.user.email,
+      //       labels,
+      //     });
+      //   }
 
-    //     labels = gmailLabels
-    //       .map((label) => ({
-    //         id: label.id || "",
-    //         name: label.name || "",
-    //       }))
-    //       .filter((label) => label.id && label.name);
+      //   return labels;
+      // };
 
-    //     logger.info("Selected labels", {
-    //       email: session?.user.email,
-    //       labels,
-    //     });
-    //   }
+      const process = async () => {
+        const { type } = await getUnhandledCount(gmail);
 
-    //   return labels;
-    // };
+        // const labels = await getLabels(data.instructions);
 
-    const process = async () => {
-      const { type } = await getUnhandledCount(gmail);
+        let nextPageToken: string | undefined | null;
 
-      // const labels = await getLabels(data.instructions);
+        let totalEmailsProcessed = 0;
 
-      let nextPageToken: string | undefined | null;
+        const query = `${daysOld ? `older_than:${daysOld}d ` : ""}-in:"${inboxZeroLabels.processed.name}"`;
 
-      let totalEmailsProcessed = 0;
+        do {
+          // fetch all emails from the user's inbox
+          const { threads, nextPageToken: pageToken } =
+            await getThreadsWithNextPageToken({
+              gmail,
+              q: query,
+              labelIds:
+                type === "inbox"
+                  ? [GmailLabel.INBOX]
+                  : [GmailLabel.INBOX, GmailLabel.UNREAD],
+              maxResults: Math.min(maxEmails || 100, 100),
+            });
 
-      const query = `${data.daysOld ? `older_than:${data.daysOld}d ` : ""}-in:"${inboxZeroLabels.processed.name}"`;
-
-      do {
-        // fetch all emails from the user's inbox
-        const { threads, nextPageToken: pageToken } =
-          await getThreadsWithNextPageToken({
-            gmail,
-            q: query,
-            labelIds:
-              type === "inbox"
-                ? [GmailLabel.INBOX]
-                : [GmailLabel.INBOX, GmailLabel.UNREAD],
-            maxResults: Math.min(data.maxEmails || 100, 100),
+          logger.info("Fetched threads", {
+            email,
+            threadCount: threads.length,
+            nextPageToken,
           });
 
-        logger.info("Fetched threads", {
-          email,
-          threadCount: threads.length,
-          nextPageToken,
-        });
+          nextPageToken = pageToken;
 
-        nextPageToken = pageToken;
+          if (threads.length === 0) break;
 
-        if (threads.length === 0) break;
+          const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
-        const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
+          logger.info("Pushing to Qstash", {
+            email,
+            threadCount: threads.length,
+            nextPageToken,
+          });
 
-        logger.info("Pushing to Qstash", {
-          email,
-          threadCount: threads.length,
-          nextPageToken,
-        });
+          const items = threads
+            .map((thread) => {
+              if (!thread.id) return;
+              return {
+                url,
+                body: {
+                  email,
+                  threadId: thread.id,
+                  markedDoneLabelId,
+                  processedLabelId,
+                  jobId: job.id,
+                  action,
+                  instructions,
+                  skips,
+                  labels: [],
+                } satisfies CleanThreadBody,
+                // give every user their own queue for ai processing. if we get too many parallel users we may need more
+                // api keys or a global queue
+                // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
+                flowControl: {
+                  key: `ai-clean-${hash(email)}`,
+                  parallelism: 3,
+                },
+              };
+            })
+            .filter(isDefined);
 
-        const items = threads
-          .map((thread) => {
-            if (!thread.id) return;
-            return {
-              url,
-              body: {
-                email,
-                threadId: thread.id,
-                markedDoneLabelId,
-                processedLabelId,
-                jobId: job.id,
-                action: data.action,
-                instructions: data.instructions,
-                skips: data.skips,
-                labels: [],
-              } satisfies CleanThreadBody,
-              // give every user their own queue for ai processing. if we get too many parallel users we may need more
-              // api keys or a global queue
-              // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
-              flowControl: {
-                key: `ai-clean-${hash(email)}`,
-                parallelism: 3,
-              },
-            };
-          })
-          .filter(isDefined);
+          await bulkPublishToQstash({ items });
 
-        await bulkPublishToQstash({ items });
+          totalEmailsProcessed += items.length;
+        } while (
+          nextPageToken &&
+          !isMaxEmailsReached(totalEmailsProcessed, maxEmails)
+        );
+      };
 
-        totalEmailsProcessed += items.length;
-      } while (
-        nextPageToken &&
-        !isMaxEmailsReached(totalEmailsProcessed, data.maxEmails)
-      );
-    };
+      after(() => process());
 
-    after(() => process());
-
-    return { jobId: job.id };
-  },
-);
+      return { jobId: job.id };
+    },
+  );
 
 function isMaxEmailsReached(totalEmailsProcessed: number, maxEmails?: number) {
   if (!maxEmails) return false;
   return totalEmailsProcessed >= maxEmails;
 }
 
-export const undoCleanInboxAction = withActionInstrumentation(
-  "undoCleanInbox",
-  async (unsafeData: UndoCleanInboxBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+export const undoCleanInboxAction = actionClient
+  .metadata({ name: "undoCleanInbox" })
+  .schema(undoCleanInboxSchema)
+  .action(
+    async ({
+      ctx: { email },
+      parsedInput: { threadId, markedDone, action },
+    }) => {
+      const gmail = await getGmailClientForEmail({ email });
 
-    const { data, success, error } = undoCleanInboxSchema.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+      // nothing to do atm if wasn't marked done
+      if (!markedDone) return { success: true };
 
-    const { threadId, markedDone, action } = data;
-
-    // nothing to do atm if wasn't marked done
-    if (!markedDone) return { success: true };
-
-    const gmail = getGmailClient(session);
-
-    // get the label to remove
-    const markedDoneLabel = await getLabel({
-      name:
-        action === CleanAction.ARCHIVE
-          ? inboxZeroLabels.archived.name
-          : inboxZeroLabels.marked_read.name,
-      gmail,
-    });
-
-    await labelThread({
-      gmail,
-      threadId,
-      // undo core action
-      addLabelIds:
-        action === CleanAction.ARCHIVE
-          ? [GmailLabel.INBOX]
-          : [GmailLabel.UNREAD],
-      // undo our own labelling
-      removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
-    });
-
-    // Update Redis to mark this thread as undone
-    try {
-      // We need to get the thread first to get the jobId
-      const thread = await prisma.cleanupThread.findFirst({
-        where: { emailAccountId: email, threadId },
-        orderBy: { createdAt: "desc" },
+      // get the label to remove
+      const markedDoneLabel = await getLabel({
+        name:
+          action === CleanAction.ARCHIVE
+            ? inboxZeroLabels.archived.name
+            : inboxZeroLabels.marked_read.name,
+        gmail,
       });
 
-      if (thread) {
-        await updateThread({
-          email,
-          jobId: thread.jobId,
-          threadId,
-          update: {
-            undone: true,
-            archive: false, // Reset the archive status since we've undone it
-          },
-        });
-      }
-    } catch (error) {
-      logger.error("Failed to update Redis for undone thread", {
-        error,
+      await labelThread({
+        gmail,
         threadId,
+        // undo core action
+        addLabelIds:
+          action === CleanAction.ARCHIVE
+            ? [GmailLabel.INBOX]
+            : [GmailLabel.UNREAD],
+        // undo our own labelling
+        removeLabelIds: markedDoneLabel?.id ? [markedDoneLabel.id] : undefined,
       });
-      // Continue even if Redis update fails
-    }
 
-    return { success: true };
-  },
-);
+      // Update Redis to mark this thread as undone
+      try {
+        // We need to get the thread first to get the jobId
+        const thread = await prisma.cleanupThread.findFirst({
+          where: { emailAccountId: email, threadId },
+          orderBy: { createdAt: "desc" },
+        });
 
-export const changeKeepToDoneAction = withActionInstrumentation(
-  "changeKeepToDone",
-  async (unsafeData: ChangeKeepToDoneBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+        if (thread) {
+          await updateThread({
+            email,
+            jobId: thread.jobId,
+            threadId,
+            update: {
+              undone: true,
+              archive: false, // Reset the archive status since we've undone it
+            },
+          });
+        }
+      } catch (error) {
+        logger.error("Failed to update Redis for undone thread", {
+          error,
+          threadId,
+        });
+        // Continue even if Redis update fails
+      }
 
-    const { data, success, error } =
-      changeKeepToDoneSchema.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+      return { success: true };
+    },
+  );
 
-    const { threadId, action } = data;
-
-    const gmail = getGmailClient(session);
+export const changeKeepToDoneAction = actionClient
+  .metadata({ name: "changeKeepToDone" })
+  .schema(changeKeepToDoneSchema)
+  .action(async ({ ctx: { email }, parsedInput: { threadId, action } }) => {
+    const gmail = await getGmailClientForEmail({ email });
 
     // Get the label to add (archived or marked_read)
     const actionLabel = await getOrCreateInboxZeroLabel({
@@ -338,5 +318,4 @@ export const changeKeepToDoneAction = withActionInstrumentation(
     }
 
     return { success: true };
-  },
-);
+  });
