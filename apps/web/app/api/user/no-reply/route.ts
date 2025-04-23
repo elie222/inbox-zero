@@ -6,7 +6,7 @@ import { parseMessage } from "@/utils/mail";
 import { withAuth } from "@/utils/middleware";
 import { getThread } from "@/utils/gmail/thread";
 import { getMessages } from "@/utils/gmail/message";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
@@ -47,8 +47,7 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
 
 export const GET = withAuth(async (request) => {
   const email = request.auth.userEmail;
-  const tokens = await getTokens({ email });
-  const gmail = getGmailClient(tokens);
+  const gmail = await getGmailClientForEmail({ email });
   const result = await getNoReply({ email, gmail });
 
   return NextResponse.json(result);

@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getGmailClient } from "@/utils/gmail/client";
 import { withAuth } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const statsByDayQuery = z.object({
   type: z.enum(["inbox", "sent", "archived"]),
@@ -88,8 +87,7 @@ export const GET = withAuth(async (request) => {
   const type = searchParams.get("type");
   const query = statsByDayQuery.parse({ type });
 
-  const tokens = await getTokens({ email });
-  const gmail = getGmailClient(tokens);
+  const gmail = await getGmailClientForEmail({ email });
 
   const result = await getPastSevenDayStats({
     ...query,

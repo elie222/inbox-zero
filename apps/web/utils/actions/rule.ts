@@ -12,7 +12,6 @@ import {
   deleteRuleBody,
 } from "@/utils/actions/rule.validation";
 import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
-import { getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { flattenConditions } from "@/utils/condition";
 import {
@@ -41,7 +40,7 @@ import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previo
 import { RuleName } from "@/utils/rule/consts";
 import { getAiUser } from "@/utils/user/get";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -394,8 +393,7 @@ export const getRuleExamplesAction = actionClient
   .metadata({ name: "getRuleExamples" })
   .schema(rulesExamplesBody)
   .action(async ({ ctx: { email }, parsedInput: { rulesPrompt } }) => {
-    const tokens = await getTokens({ email });
-    const gmail = getGmailClient(tokens);
+    const gmail = await getGmailClientForEmail({ email });
 
     const user = await getAiUser({ email });
     if (!user) return { error: "User not found" };

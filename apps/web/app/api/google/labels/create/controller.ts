@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { getGmailClient } from "@/utils/gmail/client";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { saveUserLabel } from "@/utils/redis/label";
 import { SafeError } from "@/utils/error";
@@ -13,12 +12,18 @@ export const createLabelBody = z.object({
 export type CreateLabelBody = z.infer<typeof createLabelBody>;
 export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
-export async function createLabel(body: CreateLabelBody) {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new SafeError("Not authenticated");
-  const gmail = getGmailClient(session);
-  const label = await getOrCreateLabel({ gmail, name: body.name });
+export async function createLabel({
+  gmail,
+  email,
+  name,
+  description,
+}: {
+  gmail: gmail_v1.Gmail;
+  email: string;
+  name: string;
+  description?: string;
+}) {
+  const label = await getOrCreateLabel({ gmail, name });
 
   if (!label.id) throw new SafeError("Failed to create label");
 
@@ -31,8 +36,8 @@ export async function createLabel(body: CreateLabelBody) {
     },
     update: {},
     create: {
-      name: body.name,
-      description: body.description,
+      name,
+      description,
       gmailLabelId: label.id,
       enabled: true,
       emailAccountId: email,
@@ -41,7 +46,7 @@ export async function createLabel(body: CreateLabelBody) {
 
   const redisPromise = saveUserLabel({
     email,
-    label: { id: label.id, name: body.name, description: body.description },
+    label: { id: label.id, name, description },
   });
 
   await Promise.all([dbPromise, redisPromise]);

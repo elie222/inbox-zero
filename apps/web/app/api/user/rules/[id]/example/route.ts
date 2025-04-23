@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
-import { getGmailClient } from "@/utils/gmail/client";
 import { fetchExampleMessages } from "@/app/api/user/rules/[id]/example/controller";
 import { SafeError } from "@/utils/error";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 export type ExamplesResponse = Awaited<ReturnType<typeof getExamples>>;
 
@@ -22,8 +21,7 @@ async function getExamples({
 
   if (!rule) throw new SafeError("Rule not found");
 
-  const tokens = await getTokens({ email });
-  const gmail = getGmailClient(tokens);
+  const gmail = await getGmailClientForEmail({ email });
 
   const exampleMessages = await fetchExampleMessages(rule, gmail);
 

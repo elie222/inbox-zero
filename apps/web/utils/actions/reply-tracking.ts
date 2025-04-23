@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
 import {
   startAnalyzingReplyTracker,
@@ -13,7 +12,7 @@ import {
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { getAiUser } from "@/utils/user/get";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -33,8 +32,7 @@ export const processPreviousSentEmailsAction = actionClient
     const user = await getAiUser({ email });
     if (!user) return { error: "User not found" };
 
-    const tokens = await getTokens({ email });
-    const gmail = getGmailClient(tokens);
+    const gmail = await getGmailClientForEmail({ email });
     await processPreviousSentEmails(gmail, user);
 
     return { success: true };

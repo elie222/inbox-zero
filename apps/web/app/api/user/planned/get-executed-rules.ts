@@ -1,11 +1,10 @@
-import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { getTokens } from "@/utils/account";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("api/user/planned/get-executed-rules");
 
@@ -29,7 +28,7 @@ export async function getExecutedRules({
     ruleId: ruleId === "all" || ruleId === "skipped" ? undefined : ruleId,
   };
 
-  const [executedRules, total, tokens] = await Promise.all([
+  const [executedRules, total, gmail] = await Promise.all([
     prisma.executedRule.findMany({
       where,
       take: LIMIT,
@@ -53,10 +52,8 @@ export async function getExecutedRules({
       },
     }),
     prisma.executedRule.count({ where }),
-    getTokens({ email: emailAccountId }),
+    getGmailClientForEmail({ email: emailAccountId }),
   ]);
-
-  const gmail = getGmailClient(tokens);
 
   const executedRulesWithMessages = await Promise.all(
     executedRules.map(async (p) => {

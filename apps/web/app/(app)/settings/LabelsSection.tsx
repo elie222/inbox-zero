@@ -25,11 +25,6 @@ import {
 } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabelsAction } from "@/utils/actions/mail";
 import type { Label } from "@prisma/client";
-import { postRequest } from "@/utils/api";
-import type {
-  CreateLabelBody,
-  CreateLabelResponse,
-} from "@/app/api/google/labels/create/controller";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { PlusIcon } from "lucide-react";
 import { isErrorMessage } from "@/utils/error";
@@ -161,7 +156,7 @@ function LabelsSectionFormInner(props: {
                 });
 
                 try {
-                  await updateLabelsAction(formLabels);
+                  await updateLabelsAction({ labels: formLabels });
                   toastSuccess({ description: "Updated labels!" });
                 } catch (error) {
                   console.error(error);
@@ -316,13 +311,7 @@ function AddLabelModal() {
       async (data) => {
         const { name, description } = data;
         try {
-          await postRequest<CreateLabelResponse, CreateLabelBody>(
-            "/api/google/labels/create",
-            {
-              name,
-              description,
-            },
-          );
+          await createLabelAction({ name, description });
 
           toastSuccess({
             description: `Label "${name}" created!`,

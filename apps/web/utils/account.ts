@@ -1,3 +1,4 @@
+import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 
 export async function getTokens({ email }: { email: string }) {
@@ -12,4 +13,10 @@ export async function getTokens({ email }: { email: string }) {
     accessToken: emailAccount?.account.access_token ?? undefined,
     refreshToken: emailAccount?.account.refresh_token ?? undefined,
   };
+}
+
+export async function getGmailClientForEmail({ email }: { email: string }) {
+  const tokens = await getTokens({ email });
+  const gmail = getGmailClient(tokens);
+  return gmail;
 }

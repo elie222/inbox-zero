@@ -5,7 +5,6 @@ import { withAuth } from "@/utils/middleware";
 import { getContactsClient } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
 import { env } from "@/env";
-import prisma from "@/utils/prisma";
 import { getTokens } from "@/utils/account";
 
 const contactsQuery = z.object({ query: z.string() });
