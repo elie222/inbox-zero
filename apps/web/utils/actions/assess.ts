@@ -10,7 +10,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 
 // to help with onboarding and provide the best flow to new users
-export const assessUserAction = actionClient
+export const assessAction = actionClient
   .metadata({ name: "assessUser" })
   .action(async ({ ctx: { email } }) => {
     const gmail = await getGmailClientForEmail({ email });

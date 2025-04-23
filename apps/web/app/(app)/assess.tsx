@@ -1,25 +1,42 @@
 "use client";
 
+import { useAction } from "next-safe-action/hooks";
 import { useEffect } from "react";
 import { whitelistInboxZeroAction } from "@/utils/actions/whitelist";
 import {
   analyzeWritingStyleAction,
-  assessUserAction,
+  assessAction,
 } from "@/utils/actions/assess";
-
-async function assessUser() {
-  const result = await assessUserAction();
-  // no need to run this over and over after the first time
-  if (!result.skipped) {
-    await whitelistInboxZeroAction();
-  }
-}
+import { useAccount } from "@/providers/AccountProvider";
 
 export function AssessUser() {
+  const { account } = useAccount();
+  const { executeAsync: executeAssessAsync } = useAction(
+    assessAction.bind(null, account?.email || ""),
+  );
+  const { execute: executeWhitelistInboxZero } = useAction(
+    whitelistInboxZeroAction.bind(null, account?.email || ""),
+  );
+  const { execute: executeAnalyzeWritingStyle } = useAction(
+    analyzeWritingStyleAction.bind(null, account?.email || ""),
+  );
+
   useEffect(() => {
-    assessUser();
-    analyzeWritingStyleAction();
-  }, []);
+    async function assess() {
+      const result = await executeAssessAsync();
+      // no need to run this over and over after the first time
+      if (!result?.data?.skipped) {
+        executeWhitelistInboxZero();
+      }
+    }
+
+    assess();
+    executeAnalyzeWritingStyle();
+  }, [
+    executeAssessAsync,
+    executeWhitelistInboxZero,
+    executeAnalyzeWritingStyle,
+  ]);
 
   return null;
 }
