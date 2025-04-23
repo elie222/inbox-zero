@@ -144,7 +144,7 @@ function AutoCategorizeToggle({
       label="Auto categorize"
       enabled={autoCategorizeSenders}
       onChange={async (enabled) => {
-        await setAutoCategorizeAction(enabled);
+        await setAutoCategorizeAction({ autoCategorizeSenders: enabled });
       }}
     />
   );

@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
-import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { isActionError } from "@/utils/error";
+import { withAuth } from "@/utils/middleware";
 import { getUncategorizedSenders } from "@/app/api/user/categorize/senders/uncategorized/get-uncategorized-senders";
 
 export type UncategorizedSendersResponse = {
@@ -9,17 +7,14 @@ export type UncategorizedSendersResponse = {
   nextOffset?: number;
 };
 
-export const GET = withError(async (request) => {
-  const sessionResult = await getSessionAndGmailClient();
-  if (isActionError(sessionResult))
-    return NextResponse.json({ error: sessionResult.error });
-  const { user } = sessionResult;
+export const GET = withAuth(async (request) => {
+  const { userEmail } = request.auth;
 
   const url = new URL(request.url);
   const offset = Number.parseInt(url.searchParams.get("offset") || "0");
 
   const result = await getUncategorizedSenders({
-    emailAccountId: user.email,
+    emailAccountId: userEmail,
     offset,
   });
 

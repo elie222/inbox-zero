@@ -1,39 +1,26 @@
 "use server";
 
-import { setUser } from "@sentry/nextjs";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { z } from "zod";
 import prisma, { isNotFoundError } from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
-import { getGmailClient } from "@/utils/gmail/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
-import {
-  runRules,
-  type RunRulesResult,
-} from "@/utils/ai/choose-rule/run-rules";
+import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
-import { isDefined, type ParsedMessage } from "@/utils/types";
-import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { type ActionError, isActionError } from "@/utils/error";
+import { isDefined } from "@/utils/types";
+import { isActionError } from "@/utils/error";
 import {
   reportAiMistakeBody,
-  type ReportAiMistakeBody,
   runRulesBody,
-  type RunRulesBody,
   testAiCustomContentBody,
-  type TestAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
-import {
-  saveRulesPromptBody,
-  type SaveRulesPromptBody,
-} from "@/utils/actions/rule.validation";
+import { saveRulesPromptBody } from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { getLabelById, getLabels } from "@/utils/gmail/label";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
@@ -42,212 +29,192 @@ import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/cre
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getAiUser } from "@/utils/user/get";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("ai-rule");
 
-export const runRulesAction = withActionInstrumentation(
-  "runRules",
-  async (unsafeBody: RunRulesBody): Promise<RunRulesResult | ActionError> => {
-    const { success, data, error } = runRulesBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
+export const runRulesAction = actionClient
+  .metadata({ name: "runRules" })
+  .schema(runRulesBody)
+  .action(
+    async ({
+      ctx: { email, emailAccount },
+      parsedInput: { messageId, threadId, rerun, isTest },
+    }) => {
+      const gmail = await getGmailClientForEmail({ email });
 
-    const { messageId, threadId, rerun, isTest } = data;
+      if (!emailAccount) return { error: "Email account not found" };
 
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-    const { gmail, user: u } = sessionResult;
+      const fetchExecutedRule = !isTest && !rerun;
 
-    const emailAccount = await getEmailAccountWithRules({ email: u.email });
-    if (!emailAccount) return { error: "Email account not found" };
-
-    const fetchExecutedRule = !isTest && !rerun;
-
-    const [gmailMessage, executedRule] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
-      fetchExecutedRule
-        ? prisma.executedRule.findUnique({
-            where: {
-              unique_emailAccount_thread_message: {
-                emailAccountId: emailAccount.email,
-                threadId,
-                messageId,
+      const [gmailMessage, executedRule] = await Promise.all([
+        getMessage(messageId, gmail, "full"),
+        fetchExecutedRule
+          ? prisma.executedRule.findUnique({
+              where: {
+                unique_emailAccount_thread_message: {
+                  emailAccountId: emailAccount.email,
+                  threadId,
+                  messageId,
+                },
               },
-            },
-            select: {
-              id: true,
-              reason: true,
-              actionItems: true,
-              rule: true,
-            },
-          })
-        : null,
-    ]);
+              select: {
+                id: true,
+                reason: true,
+                actionItems: true,
+                rule: true,
+              },
+            })
+          : null,
+      ]);
 
-    if (executedRule) {
-      logger.info("Skipping. Rule already exists.", {
-        email: emailAccount.email,
-        messageId,
-        threadId,
+      if (executedRule) {
+        logger.info("Skipping. Rule already exists.", {
+          email: emailAccount.email,
+          messageId,
+          threadId,
+        });
+
+        return {
+          rule: executedRule.rule,
+          actionItems: executedRule.actionItems,
+          reason: executedRule.reason,
+          existing: true,
+          error: undefined,
+        };
+      }
+
+      const message = parseMessage(gmailMessage);
+
+      const rules = await prisma.rule.findMany({
+        where: {
+          emailAccountId: email,
+          enabled: true,
+          instructions: { not: null },
+        },
+        include: { actions: true, categoryFilters: true },
       });
 
-      return {
-        rule: executedRule.rule,
-        actionItems: executedRule.actionItems,
-        reason: executedRule.reason,
-        existing: true,
-        error: undefined,
-      };
-    }
+      const result = await runRules({
+        isTest,
+        gmail,
+        message,
+        rules,
+        user: emailAccount,
+      });
 
-    const message = parseMessage(gmailMessage);
+      return result;
+    },
+  );
 
-    const result = await runRules({
-      isTest,
-      gmail,
-      message,
-      rules: emailAccount.rules,
-      user: emailAccount,
-    });
+export const testAiCustomContentAction = actionClient
+  .metadata({ name: "testAiCustomContent" })
+  .schema(testAiCustomContentBody)
+  .action(
+    async ({ ctx: { email, emailAccount }, parsedInput: { content } }) => {
+      if (!emailAccount) return { error: "Email account not found" };
 
-    return result;
-  },
-);
+      const gmail = await getGmailClientForEmail({ email });
 
-export const testAiCustomContentAction = withActionInstrumentation(
-  "testAiCustomContent",
-  async (unsafeBody: TestAiCustomContentBody) => {
-    const { data, error } = testAiCustomContentBody.safeParse(unsafeBody);
-    if (error) return { error: error.message };
+      const rules = await prisma.rule.findMany({
+        where: {
+          emailAccountId: email,
+          enabled: true,
+          instructions: { not: null },
+        },
+        include: { actions: true, categoryFilters: true },
+      });
 
-    const { content } = data;
+      const result = await runRules({
+        isTest: true,
+        gmail,
+        message: {
+          id: "testMessageId",
+          threadId: "testThreadId",
+          snippet: content,
+          textPlain: content,
+          headers: {
+            date: new Date().toISOString(),
+            from: "",
+            to: "",
+            subject: "",
+          },
+          historyId: "",
+          inline: [],
+          internalDate: new Date().toISOString(),
+        },
+        rules,
+        user: emailAccount,
+      });
 
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-    const gmail = getGmailClient(session);
+      return result;
+    },
+  );
 
-    const emailAccount = await getEmailAccountWithRules({
-      email: session.user.email,
-    });
+export const createAutomationAction = actionClient
+  .metadata({ name: "createAutomation" })
+  .schema(z.object({ prompt: z.string() }))
+  .action(async ({ ctx: { email, emailAccount }, parsedInput: { prompt } }) => {
     if (!emailAccount) return { error: "Email account not found" };
 
-    const result = await runRules({
-      isTest: true,
-      gmail,
-      message: {
-        id: "testMessageId",
-        threadId: "testThreadId",
-        snippet: content,
-        textPlain: content,
-        headers: {
-          date: new Date().toISOString(),
-          from: "",
-          to: "",
-          subject: "",
-        },
-        historyId: "",
-        inline: [],
-        internalDate: new Date().toISOString(),
-      },
-      rules: emailAccount.rules,
-      user: emailAccount,
-    });
+    let result: CreateOrUpdateRuleSchemaWithCategories;
 
-    return result;
-  },
-);
+    try {
+      result = await aiCreateRule(prompt, emailAccount);
+    } catch (error) {
+      if (error instanceof Error) {
+        return { error: `AI error creating rule. ${error.message}` };
+      }
+      return { error: "AI error creating rule." };
+    }
 
-export const createAutomationAction = withActionInstrumentation<
-  [{ prompt: string }],
-  { id: string },
-  { existingRuleId?: string }
->("createAutomation", async ({ prompt }: { prompt: string }) => {
-  const session = await auth();
-  if (!session?.user.email) return { error: "Not logged in" };
-  if (!session.accessToken) return { error: "No access token" };
+    if (!result) return { error: "AI error creating rule." };
 
-  const emailAccount = await getEmailAccountWithRules({
-    email: session.user.email,
+    return await safeCreateRule({ result, email });
   });
-  if (!emailAccount) return { error: "Email account not found" };
 
-  let result: CreateOrUpdateRuleSchemaWithCategories;
-
-  try {
-    result = await aiCreateRule(prompt, emailAccount);
-  } catch (error: any) {
-    return { error: `AI error creating rule. ${error.message}` };
-  }
-
-  if (!result) return { error: "AI error creating rule." };
-
-  return await safeCreateRule({
-    result,
-    email: emailAccount.email,
-  });
-});
-
-export const setRuleRunOnThreadsAction = withActionInstrumentation(
-  "setRuleRunOnThreads",
-  async ({
-    ruleId,
-    runOnThreads,
-  }: {
-    ruleId: string;
-    runOnThreads: boolean;
-  }) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
+export const setRuleRunOnThreadsAction = actionClient
+  .metadata({ name: "setRuleRunOnThreads" })
+  .schema(z.object({ ruleId: z.string(), runOnThreads: z.boolean() }))
+  .action(async ({ ctx: { email }, parsedInput: { ruleId, runOnThreads } }) => {
     await prisma.rule.update({
       where: { id: ruleId, emailAccountId: email },
       data: { runOnThreads },
     });
-  },
-);
+  });
 
-export const approvePlanAction = withActionInstrumentation(
-  "approvePlan",
-  async ({
-    executedRuleId,
-    message,
-  }: {
-    executedRuleId: string;
-    message: ParsedMessage;
-  }) => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+export const approvePlanAction = actionClient
+  .metadata({ name: "approvePlan" })
+  .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
+  .action(
+    async ({ ctx: { email }, parsedInput: { executedRuleId, message } }) => {
+      const gmail = await getGmailClientForEmail({ email });
 
-    const gmail = getGmailClient(session);
+      const executedRule = await prisma.executedRule.findUnique({
+        where: { id: executedRuleId },
+        include: { actionItems: true },
+      });
+      if (!executedRule) return { error: "Item not found" };
 
-    const executedRule = await prisma.executedRule.findUnique({
-      where: { id: executedRuleId },
-      include: { actionItems: true },
-    });
-    if (!executedRule) return { error: "Item not found" };
+      await executeAct({
+        gmail,
+        message,
+        executedRule,
+        userEmail: email,
+      });
+    },
+  );
 
-    await executeAct({
-      gmail,
-      message,
-      executedRule,
-      userEmail: session.user.email,
-    });
-  },
-);
-
-export const rejectPlanAction = withActionInstrumentation(
-  "rejectPlan",
-  async ({ executedRuleId }: { executedRuleId: string }) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
+export const rejectPlanAction = actionClient
+  .metadata({ name: "rejectPlan" })
+  .schema(z.object({ executedRuleId: z.string() }))
+  .action(async ({ ctx: { email }, parsedInput: { executedRuleId } }) => {
     await prisma.executedRule.updateMany({
       where: { id: executedRuleId, emailAccountId: email },
       data: { status: ExecutedRuleStatus.REJECTED },
     });
-  },
-);
+  });
 
 /**
  * Saves the user's rules prompt and updates the rules accordingly.
@@ -263,27 +230,11 @@ export const rejectPlanAction = withActionInstrumentation(
  * 7. Update user's rules prompt in the database
  * 8. Return counts of created, edited, and removed rules
  */
-export const saveRulesPromptAction = withActionInstrumentation(
-  "saveRulesPrompt",
-  async (unsafeData: SaveRulesPromptBody) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-    if (!session.accessToken) return { error: "No access token" };
-    setUser({ email });
-
-    logger.info("Starting saveRulesPromptAction", {
-      email: session.user.email,
-    });
-
-    const { data, success, error } = saveRulesPromptBody.safeParse(unsafeData);
-    if (!success) {
-      logger.error("Input validation failed", {
-        email: session.user.email,
-        error: error.message,
-      });
-      return { error: error.message };
-    }
+export const saveRulesPromptAction = actionClient
+  .metadata({ name: "saveRulesPrompt" })
+  .schema(saveRulesPromptBody)
+  .action(async ({ ctx: { email }, parsedInput: { rulesPrompt } }) => {
+    logger.info("Starting saveRulesPromptAction", { email });
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { email },
@@ -310,7 +261,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       exists: oldPromptFile ? "exists" : "does not exist",
     });
 
-    if (oldPromptFile === data.rulesPrompt) {
+    if (oldPromptFile === rulesPrompt) {
       logger.info("No changes in rules prompt, returning early", { email });
       return { createdRules: 0, editedRules: 0, removedRules: 0 };
     }
@@ -325,7 +276,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       const diff = await aiDiffRules({
         user: emailAccount,
         oldPromptFile,
-        newPromptFile: data.rulesPrompt,
+        newPromptFile: rulesPrompt,
       });
 
       logger.info("Diff results", {
@@ -470,7 +421,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       logger.info("Processing new rules prompt with AI", { email });
       addedRules = await aiPromptToRules({
         user: emailAccount,
-        promptFile: data.rulesPrompt,
+        promptFile: rulesPrompt,
         isEditing: false,
         availableCategories: emailAccount.categories.map((c) => c.name),
       });
@@ -498,7 +449,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
     // update rules prompt for user
     await prisma.emailAccount.update({
       where: { email },
-      data: { rulesPrompt: data.rulesPrompt },
+      data: { rulesPrompt },
     });
 
     logger.info("Completed", {
@@ -513,8 +464,7 @@ export const saveRulesPromptAction = withActionInstrumentation(
       editedRules: editRulesCount,
       removedRules: removeRulesCount,
     };
-  },
-);
+  });
 
 /**
  * Generates a rules prompt based on the user's recent email activity and labels.
@@ -524,18 +474,13 @@ export const saveRulesPromptAction = withActionInstrumentation(
  * 3. Calls an AI function to generate rule suggestions based on this data
  * 4. Returns the generated rules prompt as a string
  */
-export const generateRulesPromptAction = withActionInstrumentation(
-  "generateRulesPrompt",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+export const generateRulesPromptAction = actionClient
+  .metadata({ name: "generateRulesPrompt" })
+  .schema(z.object({}))
+  .action(async ({ ctx: { email, emailAccount } }) => {
+    if (!emailAccount) return { error: "Email account not found" };
 
-    const user = await getAiUser({ email });
-
-    if (!user) return { error: "User not found" };
-
-    const gmail = getGmailClient(session);
+    const gmail = await getGmailClientForEmail({ email });
     const lastSent = await getMessages(gmail, {
       query: "in:sent",
       maxResults: 50,
@@ -571,7 +516,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
     });
 
     const snippetsResult = await aiFindSnippets({
-      user,
+      user: emailAccount,
       sentEmails: lastSentMessages.map((message) => ({
         id: message.id,
         from: message.headers.from,
@@ -583,7 +528,7 @@ export const generateRulesPromptAction = withActionInstrumentation(
     });
 
     const result = await aiGenerateRulesPrompt({
-      user,
+      user: emailAccount,
       lastSentEmails,
       snippets: snippetsResult.snippets.map((snippet) => snippet.text),
       userLabels: labelsWithCounts.map((label) => label.label),
@@ -593,101 +538,78 @@ export const generateRulesPromptAction = withActionInstrumentation(
     if (!result) return { error: "Error generating rules prompt" };
 
     return { rulesPrompt: result.join("\n\n") };
-  },
-);
+  });
 
-export const setRuleEnabledAction = withActionInstrumentation(
-  "setRuleEnabled",
-  async ({ ruleId, enabled }: { ruleId: string; enabled: boolean }) => {
-    const session = await auth();
-    const emailAccountId = session?.user.email;
-    if (!emailAccountId) return { error: "Not logged in" };
-
+export const setRuleEnabledAction = actionClient
+  .metadata({ name: "setRuleEnabled" })
+  .schema(z.object({ ruleId: z.string(), enabled: z.boolean() }))
+  .action(async ({ ctx: { email }, parsedInput: { ruleId, enabled } }) => {
     await prisma.rule.update({
-      where: { id: ruleId, emailAccountId },
+      where: { id: ruleId, emailAccountId: email },
       data: { enabled },
     });
-  },
-);
-
-export const reportAiMistakeAction = withActionInstrumentation(
-  "reportAiMistake",
-  async (unsafeBody: ReportAiMistakeBody) => {
-    const session = await auth();
-    const emailAccountId = session?.user.email;
-    if (!emailAccountId) return { error: "Not logged in" };
-
-    const { success, data, error } = reportAiMistakeBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-    const { expectedRuleId, actualRuleId, email, explanation } = data;
-
-    if (!expectedRuleId && !actualRuleId)
-      return { error: "Either correct or incorrect rule ID is required" };
-
-    const [expectedRule, actualRule, user] = await Promise.all([
-      expectedRuleId
-        ? prisma.rule.findUnique({
-            where: { id: expectedRuleId, emailAccountId },
-          })
-        : null,
-      actualRuleId
-        ? prisma.rule.findUnique({
-            where: { id: actualRuleId, emailAccountId },
-          })
-        : null,
-      getAiUser({ email: emailAccountId }),
-    ]);
-
-    if (expectedRuleId && !expectedRule)
-      return { error: "Expected rule not found" };
-
-    if (actualRuleId && !actualRule) return { error: "Actual rule not found" };
-
-    if (!user) return { error: "User not found" };
-
-    const content = emailToContent({
-      textHtml: email.textHtml || undefined,
-      textPlain: email.textPlain || undefined,
-      snippet: email.snippet || "",
-    });
-
-    const result = await aiRuleFix({
-      user,
-      actualRule,
-      expectedRule,
-      email: {
-        id: "",
-        ...email,
-        content,
-      },
-      explanation: explanation?.trim() || undefined,
-    });
-
-    if (isActionError(result)) return { error: result.error };
-    if (!result) return { error: "Error fixing rule" };
-
-    return {
-      ruleId:
-        result.ruleToFix === "actual_rule" ? actualRuleId : expectedRuleId,
-      fixedInstructions: result.fixedInstructions,
-    };
-  },
-);
-
-async function getEmailAccountWithRules({ email }: { email: string }) {
-  return prisma.emailAccount.findUnique({
-    where: { email },
-    select: {
-      userId: true,
-      email: true,
-      about: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
-      rules: {
-        where: { enabled: true },
-        include: { actions: true, categoryFilters: true },
-      },
-    },
   });
-}
+
+export const reportAiMistakeAction = actionClient
+  .metadata({ name: "reportAiMistake" })
+  .schema(reportAiMistakeBody)
+  .action(
+    async ({
+      ctx: { email, emailAccount },
+      parsedInput: { expectedRuleId, actualRuleId, explanation, message },
+    }) => {
+      if (!emailAccount) return { error: "Email account not found" };
+
+      if (!expectedRuleId && !actualRuleId)
+        return { error: "Either correct or incorrect rule ID is required" };
+
+      const [expectedRule, actualRule, user] = await Promise.all([
+        expectedRuleId
+          ? prisma.rule.findUnique({
+              where: { id: expectedRuleId, emailAccountId: email },
+            })
+          : null,
+        actualRuleId
+          ? prisma.rule.findUnique({
+              where: { id: actualRuleId, emailAccountId: email },
+            })
+          : null,
+        getAiUser({ email }),
+      ]);
+
+      if (expectedRuleId && !expectedRule)
+        return { error: "Expected rule not found" };
+
+      if (actualRuleId && !actualRule)
+        return { error: "Actual rule not found" };
+
+      if (!user) return { error: "User not found" };
+
+      const content = emailToContent({
+        textHtml: message.textHtml || undefined,
+        textPlain: message.textPlain || undefined,
+        snippet: message.snippet || "",
+      });
+
+      const result = await aiRuleFix({
+        user,
+        actualRule,
+        expectedRule,
+        email: {
+          id: "",
+          ...message,
+          content,
+        },
+        explanation: explanation?.trim() || undefined,
+      });
+
+      if (isActionError(result)) return { error: result.error };
+      if (!result) return { error: "Error fixing rule" };
+
+      return {
+        ruleId:
+          result.ruleToFix === "actual_rule" ? actualRuleId : expectedRuleId,
+        fixedInstructions: result.fixedInstructions,
+      };
+    },
+  );

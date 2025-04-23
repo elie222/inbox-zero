@@ -787,7 +787,7 @@ function AIFixForm({
       actualRuleId: result?.rule?.id,
       expectedRuleId:
         expectedRuleId === NONE_RULE_ID ? undefined : expectedRuleId,
-      email: {
+      message: {
         from: message.headers.from,
         subject: message.headers.subject,
         snippet: message.snippet,

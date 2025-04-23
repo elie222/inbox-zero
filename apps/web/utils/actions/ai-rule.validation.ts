@@ -15,7 +15,7 @@ export type RunRulesBody = z.infer<typeof runRulesBody>;
 
 export const reportAiMistakeBody = z
   .object({
-    email: z.object({
+    message: z.object({
       from: z.string(),
       subject: z.string(),
       snippet: z.string(),
