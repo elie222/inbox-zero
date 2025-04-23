@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
 import {
   ArchiveIcon,
   Trash2Icon,

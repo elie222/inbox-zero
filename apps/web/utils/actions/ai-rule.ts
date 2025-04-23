@@ -538,8 +538,8 @@ export const generateRulesPromptAction = actionClient
       userLabels: labelsWithCounts.map((label) => label.label),
     });
 
-    if (isActionError(result)) return { error: result.error };
-    if (!result) return { error: "Error generating rules prompt" };
+    if (isActionError(result)) throw new SafeError(result.error);
+    if (!result) throw new SafeError("Error generating rules prompt");
 
     return { rulesPrompt: result.join("\n\n") };
   });
@@ -562,10 +562,10 @@ export const reportAiMistakeAction = actionClient
       ctx: { email, emailAccount },
       parsedInput: { expectedRuleId, actualRuleId, explanation, message },
     }) => {
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new SafeError("Email account not found");
 
       if (!expectedRuleId && !actualRuleId)
-        return { error: "Either correct or incorrect rule ID is required" };
+        throw new SafeError("Either correct or incorrect rule ID is required");
 
       const [expectedRule, actualRule, user] = await Promise.all([
         expectedRuleId
@@ -582,12 +582,12 @@ export const reportAiMistakeAction = actionClient
       ]);
 
       if (expectedRuleId && !expectedRule)
-        return { error: "Expected rule not found" };
+        throw new SafeError("Expected rule not found");
 
       if (actualRuleId && !actualRule)
-        return { error: "Actual rule not found" };
+        throw new SafeError("Actual rule not found");
 
-      if (!user) return { error: "User not found" };
+      if (!user) throw new SafeError("User not found");
 
       const content = emailToContent({
         textHtml: message.textHtml || undefined,
@@ -607,8 +607,8 @@ export const reportAiMistakeAction = actionClient
         explanation: explanation?.trim() || undefined,
       });
 
-      if (isActionError(result)) return { error: result.error };
-      if (!result) return { error: "Error fixing rule" };
+      if (isActionError(result)) throw new SafeError(result.error);
+      if (!result) throw new SafeError("Error fixing rule");
 
       return {
         ruleId:

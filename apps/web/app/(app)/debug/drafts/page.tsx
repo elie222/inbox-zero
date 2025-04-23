@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";

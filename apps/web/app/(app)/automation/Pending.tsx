@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 import { useQueryState, parseAsInteger, parseAsString } from "nuqs";
 import useSWR from "swr";
 import { Loader2Icon } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import {
@@ -29,7 +28,6 @@ import {
 import { TablePagination } from "@/components/TablePagination";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
-import { isActionError } from "@/utils/error";
 import { RulesSelect } from "@/app/(app)/automation/RulesSelect";
 import { useAccount } from "@/providers/AccountProvider";
 
@@ -95,9 +93,9 @@ function PendingTable({
         executedRuleId: id,
         message: p.message,
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
-          description: `Unable to execute plan. ${result.error}` || "",
+          description: `Unable to execute plan. ${result.serverError}` || "",
         });
       }
       mutate();
@@ -112,9 +110,9 @@ function PendingTable({
       const result = await rejectPlanAction(userEmail, {
         executedRuleId: id,
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
-          description: `Error rejecting action. ${result.error}` || "",
+          description: `Error rejecting action. ${result.serverError}` || "",
         });
       }
       mutate();
@@ -238,9 +236,10 @@ function ExecuteButtons({
             executedRuleId: id,
             message,
           });
-          if (isActionError(result)) {
+          if (result?.serverError) {
             toastError({
-              description: `Error approving action. ${result.error}` || "",
+              description:
+                `Error approving action. ${result.serverError}` || "",
             });
           }
           mutate();
@@ -259,9 +258,10 @@ function ExecuteButtons({
           const result = await rejectPlanAction(email, {
             executedRuleId: id,
           });
-          if (isActionError(result)) {
+          if (result?.serverError) {
             toastError({
-              description: `Error rejecting action. ${result.error}` || "",
+              description:
+                `Error rejecting action. ${result.serverError}` || "",
             });
           }
           mutate();

@@ -31,8 +31,8 @@ export const ExampleForm = () => {
     async (data) => {
       const result = await createExampleAction(data.email);
       
-      if (isActionError(result)) {
-        toastError({ title: "Error", description: result.error });
+      if (result?.serverError) {
+        toastError({ title: "Error", description: result.serverError });
       } else {
         toastSuccess({ description: "Created example!" });
       }

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
-import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
 import {
   useReactTable,
@@ -41,7 +40,6 @@ import {
   removeAllFromCategoryAction,
 } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { Button } from "@/components/ui/button";
 import {
   addToArchiveSenderQueue,
@@ -166,8 +164,8 @@ export function GroupedTable({
                 categoryId: value,
               });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 toastSuccess({ description: "Category changed" });
               }
@@ -227,8 +225,8 @@ export function GroupedTable({
                 categoryName,
               });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 toastSuccess({
                   description: "All emails removed from category",

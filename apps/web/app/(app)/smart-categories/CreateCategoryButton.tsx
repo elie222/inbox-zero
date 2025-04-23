@@ -12,7 +12,6 @@ import {
   createCategoryBody,
   type CreateCategoryBody,
 } from "@/utils/actions/categorize.validation";
-import { isActionError } from "@/utils/error";
 import { createCategoryAction } from "@/utils/actions/categorize";
 import {
   Dialog,
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import type { Category } from "@prisma/client";
 import { MessageText } from "@/components/Typography";
+import { useAccount } from "@/providers/AccountProvider";
 
 type ExampleCategory = {
   name: string;
@@ -143,6 +143,8 @@ function CreateCategoryForm({
   category?: Pick<Category, "name" | "description"> & { id?: string };
   closeModal: () => void;
 }) {
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -167,18 +169,18 @@ function CreateCategoryForm({
 
   const onSubmit: SubmitHandler<CreateCategoryBody> = useCallback(
     async (data) => {
-      const result = await createCategoryAction(data);
+      const result = await createCategoryAction(email, data);
 
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
-          description: `There was an error creating the category. ${result.error}`,
+          description: `There was an error creating the category. ${result.serverError || ""}`,
         });
       } else {
         toastSuccess({ description: "Category created!" });
         closeModal();
       }
     },
-    [closeModal],
+    [closeModal, email],
   );
 
   return (

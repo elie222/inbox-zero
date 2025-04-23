@@ -30,8 +30,6 @@ const logger = createScopedLogger("actions/categorize");
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
   .action(async ({ ctx: { email } }) => {
-    const gmail = await getGmailClientForEmail({ email });
-
     const userResult = await validateUserAndAiAccess({ email });
     if (isActionError(userResult)) return userResult;
 

@@ -44,7 +44,6 @@ import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { isActionError } from "@/utils/error";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
@@ -147,9 +146,9 @@ export function RuleForm({
       if (data.id) {
         const res = await updateRuleAction(email, { ...data, id: data.id });
 
-        if (isActionError(res)) {
+        if (res?.serverError) {
           console.error(res);
-          toastError({ description: res.error });
+          toastError({ description: res.serverError });
         } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error updating the rule.",
@@ -167,9 +166,9 @@ export function RuleForm({
       } else {
         const res = await createRuleAction(email, data);
 
-        if (isActionError(res)) {
+        if (res?.serverError) {
           console.error(res);
-          toastError({ description: res.error });
+          toastError({ description: res.serverError });
         } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error creating the rule.",
@@ -321,8 +320,8 @@ export function RuleForm({
                     ruleId: rule.id,
                   });
 
-                  if (isActionError(result)) {
-                    toastError({ description: result.error });
+                  if (result?.serverError) {
+                    toastError({ description: result.serverError });
                   } else if (!result?.data?.groupId) {
                     toastError({
                       description:
@@ -792,7 +791,7 @@ function LabelCombobox({
                       name: search,
                     });
                     mutate();
-                    if (isActionError(res)) throw new Error(res.error);
+                    if (res?.serverError) throw new Error(res.serverError);
                   },
                   {
                     loading: `Creating label "${search}"...`,

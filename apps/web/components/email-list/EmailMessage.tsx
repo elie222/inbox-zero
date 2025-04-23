@@ -22,9 +22,9 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
-import { isActionError } from "@/utils/error";
 import { Loading } from "@/components/Loading";
 import { MessageText } from "@/components/Typography";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function EmailMessage({
   message,
@@ -204,6 +204,8 @@ function ReplyPanel({
   draftMessage?: ThreadMessage;
   generateNudge?: boolean;
 }) {
+  const { email } = useAccount();
+
   const replyRef = useRef<HTMLDivElement>(null);
 
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
@@ -227,7 +229,7 @@ function ReplyPanel({
 
       setIsGeneratingReply(true);
 
-      const result = await generateNudgeReplyAction({
+      const result = await generateNudgeReplyAction(email, {
         messages: [
           {
             id: message.id,
@@ -240,18 +242,18 @@ function ReplyPanel({
           },
         ],
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         console.error(result);
         setReply("");
       } else {
-        setReply(result.text);
+        setReply(result?.data?.text || "");
       }
       setIsGeneratingReply(false);
     }
 
     // Only generate a nudge if there's no draft message and generateNudge is true
     if (generateNudge && !draftMessage) generateReply();
-  }, [generateNudge, message, draftMessage]);
+  }, [generateNudge, message, draftMessage, email]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {

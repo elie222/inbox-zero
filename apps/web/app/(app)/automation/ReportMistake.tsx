@@ -18,7 +18,6 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/Input";
 import { ButtonList } from "@/components/ButtonList";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import {
   Dialog,
@@ -190,10 +189,10 @@ function Content({
           },
         });
 
-        if (isActionError(response)) {
+        if (response?.serverError) {
           toastError({
             title: "Error reporting mistake",
-            description: response.error,
+            description: response.serverError,
           });
         } else {
           if (response?.data?.ruleId) {
@@ -490,7 +489,7 @@ function GroupMismatchAdd({
                   value: message.headers.from,
                 });
 
-                if (isActionError(result)) throw new Error(result.error);
+                if (result?.serverError) throw new Error(result.serverError);
                 onClose();
               },
               {
@@ -560,7 +559,7 @@ function GroupMismatchRemove({
               const result = await executeAsync({
                 id: groupItemId,
               });
-              if (isActionError(result)) throw new Error(result.error);
+              if (result?.serverError) throw new Error(result.serverError);
               onClose();
             },
             {
@@ -729,6 +728,16 @@ function RuleForm({
   const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     updateRuleInstructionsAction.bind(null, email),
+    {
+      onSuccess() {
+        toastSuccess({ description: "Rule updated!" });
+      },
+      onError(result) {
+        toastError({
+          description: `Error updating rule. ${result.error.serverError || ""}`,
+        });
+      },
+    },
   );
 
   const {
@@ -746,15 +755,6 @@ function RuleForm({
   const updateRule: SubmitHandler<UpdateRuleInstructionsBody> = useCallback(
     async (data) => {
       const response = await executeAsync(data);
-
-      if (isActionError(response)) {
-        toastError({
-          title: "Error updating rule",
-          description: response.error,
-        });
-      } else {
-        toastSuccess({ description: "Rule updated!" });
-      }
     },
     [executeAsync],
   );
@@ -797,6 +797,31 @@ function AIFixForm({
   const { email } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     reportAiMistakeAction.bind(null, email),
+    {
+      onSuccess(result) {
+        toastSuccess({
+          description: `This is the updated rule: ${result?.data?.fixedInstructions}`,
+        });
+
+        if (result?.data?.ruleId) {
+          setFixedInstructions({
+            ruleId: result.data.ruleId,
+            fixedInstructions: result.data.fixedInstructions,
+          });
+        } else {
+          toastError({
+            title: "Error reporting mistake",
+            description:
+              "No rule ID returned. Please contact support if this persists.",
+          });
+        }
+      },
+      onError(result) {
+        toastError({
+          description: `Error reporting mistake. ${result.error.serverError || ""}`,
+        });
+      },
+    },
   );
 
   const {
@@ -823,40 +848,9 @@ function AIFixForm({
     console.error("Errors:", errors);
   }
 
-  const reportMistake: SubmitHandler<ReportAiMistakeBody> = useCallback(
-    async (data) => {
-      const response = await executeAsync(data);
-
-      if (isActionError(response)) {
-        toastError({
-          title: "Error reporting mistake",
-          description: response.error,
-        });
-      } else {
-        toastSuccess({
-          description: `This is the updated rule: ${response?.data?.fixedInstructions}`,
-        });
-
-        if (response?.data?.ruleId) {
-          setFixedInstructions({
-            ruleId: response.data.ruleId,
-            fixedInstructions: response.data.fixedInstructions,
-          });
-        } else {
-          toastError({
-            title: "Error reporting mistake",
-            description:
-              "No rule ID returned. Please contact support if this persists.",
-          });
-        }
-      }
-    },
-    [executeAsync],
-  );
-
   return (
     <div>
-      <form onSubmit={handleSubmit(reportMistake)} className="space-y-2">
+      <form onSubmit={handleSubmit(executeAsync)} className="space-y-2">
         <Input
           type="text"
           autosizeTextarea

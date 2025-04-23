@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/select";
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { useAiCategorizationQueueItem } from "@/store/ai-categorize-sender-queue";
 import { LoadingMiniSpinner } from "@/components/Loading";
 
@@ -45,7 +44,7 @@ export function CategorySelect({
           categoryId: value,
         });
 
-        if (isActionError(result)) {
+        if (result?.serverError) {
           toastError({ description: result.error });
         } else {
           toastSuccess({ description: "Category changed" });

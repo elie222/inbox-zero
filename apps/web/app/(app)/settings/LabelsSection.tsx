@@ -35,6 +35,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useAccount } from "@/providers/AccountProvider";
 
 const recommendedLabels = ["Newsletter", "Receipt", "Calendar"];
 
@@ -120,6 +121,8 @@ function LabelsSectionFormInner(props: {
         .find((l) => l.indexOf(label.toLowerCase()) > -1),
   );
 
+  const { email } = useAccount();
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -156,7 +159,7 @@ function LabelsSectionFormInner(props: {
                 });
 
                 try {
-                  await updateLabelsAction({ labels: formLabels });
+                  await updateLabelsAction(email, { labels: formLabels });
                   toastSuccess({ description: "Updated labels!" });
                 } catch (error) {
                   console.error(error);
@@ -221,7 +224,9 @@ function LabelsSectionFormInner(props: {
                       type="button"
                       className="group"
                       onClick={async () => {
-                        const res = await createLabelAction({ name: label });
+                        const res = await createLabelAction(email, {
+                          name: label,
+                        });
                         if (isErrorMessage(res)) {
                           toastError({
                             title: `Failed to create label "${label}"`,
@@ -298,6 +303,8 @@ export function LabelItem(props: {
 function AddLabelModal() {
   const [isOpen, setIsOpen] = useState(false);
 
+  const { email } = useAccount();
+
   const { mutate } = useSWRConfig();
 
   const {
@@ -311,7 +318,7 @@ function AddLabelModal() {
       async (data) => {
         const { name, description } = data;
         try {
-          await createLabelAction({ name, description });
+          await createLabelAction(email, { name, description });
 
           toastSuccess({
             description: `Label "${name}" created!`,
@@ -331,7 +338,7 @@ function AddLabelModal() {
           });
         }
       },
-      [mutate],
+      [mutate, email],
     );
 
   return (

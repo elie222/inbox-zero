@@ -9,7 +9,6 @@ import {
   resetAnalyticsAction,
 } from "@/utils/actions/user";
 import { logOut } from "@/utils/user";
-import { isActionError } from "@/utils/error";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { useAccount } from "@/providers/AccountProvider";
 
@@ -63,7 +62,7 @@ export function DeleteSection() {
               async () => {
                 const result = await executeDeleteAccount();
                 await logOut("/");
-                if (isActionError(result)) throw new Error(result.error);
+                if (result?.serverError) throw new Error(result.serverError);
               },
               {
                 loading: "Deleting account...",

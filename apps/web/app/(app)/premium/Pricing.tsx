@@ -257,8 +257,8 @@ export function Pricing(props: {
                           const result = await switchPremiumPlanAction({
                             premiumTier: tier.tiers[frequency.value],
                           });
-                          if (isActionError(result))
-                            throw new Error(result.error);
+                          if (result?.serverError)
+                            throw new Error(result.serverError);
                         },
                         {
                           loading: "Switching to plan...",

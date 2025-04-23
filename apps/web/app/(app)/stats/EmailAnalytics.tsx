@@ -1,7 +1,6 @@
 "use client";
 
 import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import type { DateRange } from "react-day-picker";
 import { useExpanded } from "@/app/(app)/stats/useExpanded";
 import type { RecipientsResponse } from "@/app/api/user/stats/recipients/route";

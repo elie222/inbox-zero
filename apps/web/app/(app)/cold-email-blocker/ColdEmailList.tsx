@@ -3,7 +3,6 @@
 import { useAction } from "next-safe-action/hooks";
 import { useCallback } from "react";
 import useSWR from "swr";
-import { useSession } from "next-auth/react";
 import { CircleXIcon } from "lucide-react";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { ColdEmailsResponse } from "@/app/api/user/cold-email/route";

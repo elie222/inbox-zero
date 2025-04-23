@@ -54,7 +54,7 @@ export const actionClient = baseClient
         ctx: {
           userId,
           userEmail,
-          // session,
+          session,
           email,
           emailAccount,
         },

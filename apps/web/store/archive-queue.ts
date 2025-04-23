@@ -7,7 +7,6 @@ import {
   trashThreadAction,
   markReadThreadAction,
 } from "@/utils/actions/mail";
-import { isActionError } from "@/utils/error";
 import { exponentialBackoff, sleep } from "@/utils/sleep";
 import { useAtomValue } from "jotai";
 
@@ -208,7 +207,7 @@ export function processQueue({
                 });
 
                 // when Gmail API returns a rate limit error, throw an error so it can be retried
-                if (isActionError(result)) {
+                if (result?.serverError) {
                   await sleep(exponentialBackoff(attemptCount, 1_000));
                   throw new Error(result.error);
                 }

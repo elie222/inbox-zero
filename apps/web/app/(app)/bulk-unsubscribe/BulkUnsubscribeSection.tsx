@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
@@ -43,6 +42,7 @@ import { BulkActions } from "@/app/(app)/bulk-unsubscribe/BulkActions";
 import { ArchiveProgress } from "@/app/(app)/bulk-unsubscribe/ArchiveProgress";
 import { ClientOnly } from "@/components/ClientOnly";
 import { Toggle } from "@/components/Toggle";
+import { useAccount } from "@/providers/AccountProvider";
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
@@ -55,8 +55,7 @@ export function BulkUnsubscribeSection({
   refreshInterval: number;
   isMobile: boolean;
 }) {
-  const { data: session } = useSession();
-  const userEmail = session?.user?.email || "";
+  const { email: userEmail } = useAccount();
 
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
@@ -105,6 +104,7 @@ export function BulkUnsubscribeSection({
     refetchPremium,
     hasUnsubscribeAccess,
     mutate,
+    userEmail,
   });
 
   const [search, setSearch] = useState("");

@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
-import { useSession } from "next-auth/react";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import type { Thread } from "@/components/email-list/types";
 import { useExecutePlan } from "@/components/email-list/PlanActions";

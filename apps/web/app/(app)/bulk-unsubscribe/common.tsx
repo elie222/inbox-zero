@@ -40,7 +40,6 @@ import {
 import { NewsletterStatus } from "@prisma/client";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
-import { isActionError } from "@/utils/error";
 import { getGmailSearchUrl } from "@/utils/url";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
 import {
@@ -383,6 +382,7 @@ export function MoreDropdown<T extends Row>({
   const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
     item,
     posthog,
+    userEmail,
   });
 
   return (
@@ -430,10 +430,10 @@ export function MoreDropdown<T extends Row>({
                   from: item.name,
                   gmailLabelId: label.id,
                 });
-                if (isActionError(res)) {
+                if (res?.serverError) {
                   toastError({
                     title: "Error",
-                    description: `Failed to add ${item.name} to ${label.name}. ${res.error}`,
+                    description: `Failed to add ${item.name} to ${label.name}. ${res.serverError || ""}`,
                   });
                 } else {
                   toastSuccess({
@@ -516,7 +516,7 @@ export function HeaderButton(props: {
 //                     value: sender,
 //                   });
 
-//                   if (isActionError(result)) {
+//                   if (result?.serverError) {
 //                     toastError({
 //                       description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
 //                     });
