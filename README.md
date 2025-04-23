@@ -104,15 +104,6 @@ You also need to set an LLM, but you can use a local one too:
 - Groq (Llama 3.3 70B)
 - Ollama (local)
 
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
-
-You can run Postgres & Redis locally using `docker-compose`
-
-```bash
-docker-compose up -d # -d will run the services in the background
-```
-
 Create your own `.env` file:
 
 ```bash
@@ -138,6 +129,15 @@ The required environment variables:
 - `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
+
+We use Postgres for the database.
+For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
+
+You can run Postgres & Redis locally using `docker-compose`
+
+```bash
+docker-compose up -d # -d will run the services in the background
+```
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
 
