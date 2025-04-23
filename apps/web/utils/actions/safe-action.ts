@@ -6,6 +6,8 @@ import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
 
+// TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
+
 const logger = createScopedLogger("safe-action");
 
 export const actionClient = createSafeActionClient({
