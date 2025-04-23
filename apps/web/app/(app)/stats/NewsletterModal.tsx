@@ -3,7 +3,7 @@ import { BarChart } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
 import Link from "next/link";
 import { ExternalLinkIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
+import { usePostHog } from "posthog-js/react";
 import {
   Dialog,
   DialogContent,
@@ -19,18 +19,17 @@ import type { ZodPeriod } from "@inboxzero/tinybird";
 import { LoadingContent } from "@/components/LoadingContent";
 import { SectionHeader } from "@/components/Typography";
 import { EmailList } from "@/components/email-list/EmailList";
-import type { ThreadsResponse } from "@/app/api/google/threads/controller";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { getGmailFilterSettingsUrl } from "@/utils/url";
 import { Tooltip } from "@/components/Tooltip";
 import { AlertBasic } from "@/components/Alert";
-import { onAutoArchive } from "@/utils/actions/client";
 import { MoreDropdown } from "@/app/(app)/bulk-unsubscribe/common";
 import { useLabels } from "@/hooks/useLabels";
 import type { Row } from "@/app/(app)/bulk-unsubscribe/types";
-import { usePostHog } from "posthog-js/react";
 import { useThreads } from "@/hooks/useThreads";
+import { useAccount } from "@/providers/AccountProvider";
+import { onAutoArchive } from "@/utils/actions/client";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
@@ -39,8 +38,7 @@ export function NewsletterModal(props: {
 }) {
   const { newsletter, refreshInterval, onClose } = props;
 
-  const session = useSession();
-  const email = session.data?.user.email;
+  const { email } = useAccount();
 
   const { userLabels } = useLabels();
 
@@ -69,7 +67,9 @@ export function NewsletterModal(props: {
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => onAutoArchive(newsletter.name)}
+                  onClick={() => {
+                    onAutoArchive({ email, from: newsletter.name });
+                  }}
                 >
                   Auto archive
                 </Button>

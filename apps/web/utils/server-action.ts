@@ -1,23 +1,11 @@
 "use client";
 
-import { toastError, toastSuccess } from "@/components/Toast";
 import {
   type ActionError,
   type ServerActionResponse,
   captureException,
   isActionError,
 } from "@/utils/error";
-
-export function handleActionResult<T>(
-  result: ServerActionResponse<T>,
-  successMessage: string,
-) {
-  if (isActionError(result)) {
-    toastError({ description: result.error });
-  } else {
-    toastSuccess({ description: successMessage });
-  }
-}
 
 // NOTE: not in love with the indirection here
 // Not sure I'll use across the app

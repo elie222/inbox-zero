@@ -8,6 +8,7 @@ type Account = GetAccountsResponse["accounts"][number];
 
 type AccountContext = {
   account: Account | undefined;
+  email: string;
   isLoading: boolean;
   setAccountId: (newId: string) => Promise<URLSearchParams>;
 };
@@ -51,7 +52,9 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
   }, [data, accountId]);
 
   return (
-    <AccountContext.Provider value={{ account, isLoading, setAccountId }}>
+    <AccountContext.Provider
+      value={{ account, isLoading, setAccountId, email: account?.email || "" }}
+    >
       {children}
     </AccountContext.Provider>
   );

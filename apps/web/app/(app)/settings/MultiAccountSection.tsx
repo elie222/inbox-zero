@@ -29,7 +29,8 @@ import { PremiumTier } from "@prisma/client";
 import { env } from "@/env";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { handleActionResult } from "@/utils/server-action";
+import { useAction } from "next-safe-action/hooks";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 export function MultiAccountSection() {
   const { data: session } = useSession();
@@ -46,6 +47,20 @@ export function MultiAccountSection() {
   const premiumTier = getUserTier(premium);
 
   const { openModal, PremiumModal } = usePremiumModal();
+
+  const { execute: claimPremiumAdmin, isExecuting: isClaimingPremiumAdmin } =
+    useAction(claimPremiumAdminAction, {
+      onSuccess: () => {
+        toastSuccess({ description: "Admin claimed!" });
+        mutate();
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
+        });
+      },
+    });
 
   if (
     isPremium &&
@@ -67,13 +82,7 @@ export function MultiAccountSection() {
               <div>
                 {!data?.admins.length && (
                   <div className="mb-4">
-                    <Button
-                      onClick={async () => {
-                        const result = await claimPremiumAdminAction();
-                        handleActionResult(result, "Admin claimed!");
-                        mutate();
-                      }}
-                    >
+                    <Button onClick={() => claimPremiumAdmin()}>
                       Claim Admin
                     </Button>
                   </div>
@@ -128,7 +137,7 @@ function MultiAccountForm({
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     control,
   } = useForm<SaveMultiAccountPremiumBody>({
     resolver: zodResolver(saveMultiAccountPremiumBody),
@@ -148,17 +157,30 @@ function MultiAccountForm({
   const extraSeats = fields.length - emailAccountsAccess - 1;
   const needsToPurchaseMoreSeats = isLifetime && extraSeats > 0;
 
+  const { execute: updateMultiAccountPremium, isExecuting } = useAction(
+    updateMultiAccountPremiumAction,
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Users updated!" });
+      },
+      onError: (error) => {
+        toastError({
+          description:
+            `Failed to update users. ${error.error.serverError || ""}`.trim(),
+        });
+      },
+    },
+  );
+
   const onSubmit: SubmitHandler<SaveMultiAccountPremiumBody> = useCallback(
     async (data) => {
       if (!data.emailAddresses) return;
       if (needsToPurchaseMoreSeats) return;
 
       const emails = data.emailAddresses.map((e) => e.email);
-      const result = await updateMultiAccountPremiumAction(emails);
-
-      handleActionResult(result, "Users updated!");
+      updateMultiAccountPremium({ emails });
     },
-    [needsToPurchaseMoreSeats],
+    [needsToPurchaseMoreSeats, updateMultiAccountPremium],
   );
 
   return (
@@ -191,7 +213,7 @@ function MultiAccountForm({
       </div>
 
       {needsToPurchaseMoreSeats ? (
-        <Button type="button" loading={isSubmitting} asChild>
+        <Button type="button" loading={isExecuting} asChild>
           <Link
             href={`${env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK}?quantity=${extraSeats}`}
             target="_blank"
@@ -200,7 +222,7 @@ function MultiAccountForm({
           </Link>
         </Button>
       ) : (
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isExecuting}>
           Save
         </Button>
       )}

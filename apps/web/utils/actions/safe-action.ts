@@ -10,15 +10,16 @@ import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("safe-action");
 
-export const actionClient = createSafeActionClient({
+const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
   },
-})
-  .use(async ({ next, metadata }) => {
-    logger.info("Calling action", { name: metadata?.name });
-    return next();
-  })
+}).use(async ({ next, metadata }) => {
+  logger.info("Calling action", { name: metadata?.name });
+  return next();
+});
+
+export const actionClient = baseClient
   .bindArgsSchemas<[activeEmail: z.ZodString]>([z.string()])
   .use(async ({ next, metadata, bindArgsClientInputs }) => {
     const session = await auth();
@@ -44,7 +45,7 @@ export const actionClient = createSafeActionClient({
         ctx: {
           userId,
           userEmail,
-          session,
+          // session,
           email,
           emailAccount,
         },
@@ -52,22 +53,29 @@ export const actionClient = createSafeActionClient({
     });
   });
 
-export const adminActionClient = createSafeActionClient({
-  defineMetadataSchema() {
-    return z.object({ name: z.string() });
-  },
-})
-  .use(async ({ next, metadata }) => {
-    logger.info("Calling action", { name: metadata?.name });
-    return next();
-  })
-  .use(async ({ next, metadata }) => {
-    const session = await auth();
-    if (!session?.user) throw new Error("Unauthorized");
-    if (!isAdmin({ email: session.user.email }))
-      throw new Error("Unauthorized");
+// doesn't bind to a specific email
+export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
+  const session = await auth();
 
-    return withServerActionInstrumentation(metadata?.name, async () => {
-      return next({ ctx: {} });
+  if (!session?.user) throw new Error("Unauthorized");
+  const userEmail = session.user.email;
+  if (!userEmail) throw new Error("Unauthorized");
+
+  const userId = session.user.id;
+
+  return withServerActionInstrumentation(metadata?.name, async () => {
+    return next({
+      ctx: { userId },
     });
   });
+});
+
+export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
+  const session = await auth();
+  if (!session?.user) throw new Error("Unauthorized");
+  if (!isAdmin({ email: session.user.email })) throw new Error("Unauthorized");
+
+  return withServerActionInstrumentation(metadata?.name, async () => {
+    return next({ ctx: {} });
+  });
+});

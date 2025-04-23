@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useAction } from "next-safe-action/hooks";
+import { useCallback } from "react";
 import useSWR from "swr";
 import { useSession } from "next-auth/react";
 import { CircleXIcon } from "lucide-react";
@@ -22,11 +23,12 @@ import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
-import { handleActionResult } from "@/utils/server-action";
 import { useUser } from "@/hooks/useUser";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
+import { toastError, toastSuccess } from "@/components/Toast";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -41,34 +43,27 @@ export function ColdEmailList() {
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  // const [isApproving, setIsApproving] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const { account } = useAccount();
+  const { executeAsync: markNotColdEmail, isExecuting } = useAction(
+    markNotColdEmailAction.bind(null, account?.email || ""),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Marked not cold email!" });
+      },
+      onError: () => {
+        toastError({ description: "Error marking not cold email!" });
+      },
+    },
+  );
 
-  // const approveSelected = useCallback(async () => {
-  //   setIsApproving(true);
-  //   for (const id of Array.from(selected.keys())) {
-  //     const p = pending.find((p) => p.id === id);
-  //     if (!p) continue;
-  //     try {
-  //       await approvePlanAction(id, p.message);
-  //     } catch (error) {
-  //       console.error(error);
-  //     }
-  //     mutate();
-  //   }
-  //   setIsApproving(false);
-  // }, [selected, pending]);
   const markNotColdEmailSelected = useCallback(async () => {
-    setIsRejecting(true);
     for (const id of Array.from(selected.keys())) {
       const c = data?.coldEmails.find((c) => c.id === id);
       if (!c) continue;
-      const result = await markNotColdEmailAction({ sender: c.fromEmail });
-      handleActionResult(result, "Marked not cold email!");
+      await markNotColdEmail({ sender: c.fromEmail });
       mutate();
     }
-    setIsRejecting(false);
-  }, [selected, data?.coldEmails, mutate]);
+  }, [selected, data?.coldEmails, mutate, markNotColdEmail]);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -76,23 +71,11 @@ export function ColdEmailList() {
         <div>
           {Array.from(selected.values()).filter(Boolean).length > 0 && (
             <div className="m-2 flex items-center space-x-1.5">
-              {/* <div>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={approveSelected}
-                  disabled={isApproving || isRejecting}
-                >
-                  {isApproving && <ButtonLoader />}
-                  Approve
-                </Button>
-              </div> */}
               <div>
                 <Button
                   size="sm"
                   onClick={markNotColdEmailSelected}
-                  // disabled={isApproving || isRejecting}
-                  loading={isRejecting}
+                  loading={isExecuting}
                 >
                   Mark Not Cold Email
                 </Button>
@@ -126,6 +109,8 @@ export function ColdEmailList() {
                   mutate={mutate}
                   selected={selected}
                   onToggleSelect={onToggleSelect}
+                  markNotColdEmail={markNotColdEmail}
+                  isExecuting={isExecuting}
                 />
               ))}
             </TableBody>
@@ -146,15 +131,17 @@ function Row({
   mutate,
   selected,
   onToggleSelect,
+  markNotColdEmail,
+  isExecuting,
 }: {
   row: ColdEmailsResponse["coldEmails"][number];
   userEmail: string;
   mutate: () => void;
   selected: Map<string, boolean>;
   onToggleSelect: (id: string) => void;
+  markNotColdEmail: (input: { sender: string }) => Promise<any>;
+  isExecuting: boolean;
 }) {
-  const [isMarkingColdEmail, setIsMarkingColdEmail] = useState(false);
-
   return (
     <TableRow key={row.id}>
       <TableCell className="text-center">
@@ -186,12 +173,10 @@ function Row({
           <Button
             Icon={CircleXIcon}
             onClick={async () => {
-              setIsMarkingColdEmail(true);
-              await markNotColdEmailAction({ sender: row.fromEmail });
+              await markNotColdEmail({ sender: row.fromEmail });
               mutate();
-              setIsMarkingColdEmail(false);
             }}
-            loading={isMarkingColdEmail}
+            loading={isExecuting}
           >
             Not cold email
           </Button>

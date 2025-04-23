@@ -6,11 +6,11 @@ import { signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
-import { getGmailClient } from "@/utils/gmail/client";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -44,9 +44,9 @@ export const saveSignatureAction = actionClient
 
 export const loadSignatureFromGmailAction = actionClient
   .metadata({ name: "loadSignatureFromGmail" })
-  .action(async ({ ctx: { session } }) => {
+  .action(async ({ ctx: { email } }) => {
     // 1. find last 5 sent emails
-    const gmail = getGmailClient(session);
+    const gmail = await getGmailClientForEmail({ email });
     const messages = await getMessages(gmail, {
       query: "from:me",
       maxResults: 5,
@@ -77,7 +77,7 @@ export const resetAnalyticsAction = actionClient
     });
   });
 
-export const deleteAccountAction = actionClient
+export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
     try {
@@ -87,7 +87,7 @@ export const deleteAccountAction = actionClient
     await deleteUser({ userId });
   });
 
-export const completedOnboardingAction = actionClient
+export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
   .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
@@ -96,7 +96,7 @@ export const completedOnboardingAction = actionClient
     });
   });
 
-export const completedAppOnboardingAction = actionClient
+export const completedAppOnboardingAction = actionClientUser
   .metadata({ name: "completedAppOnboarding" })
   .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
@@ -111,7 +111,7 @@ const saveOnboardingAnswersBody = z.object({
   answers: z.any(),
 });
 
-export const saveOnboardingAnswersAction = actionClient
+export const saveOnboardingAnswersAction = actionClientUser
   .metadata({ name: "saveOnboardingAnswers" })
   .schema(saveOnboardingAnswersBody)
   .action(

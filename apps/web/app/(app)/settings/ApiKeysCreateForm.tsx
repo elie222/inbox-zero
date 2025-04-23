@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { type SubmitHandler, useForm } from "react-hook-form";
+import { useAction } from "next-safe-action/hooks";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { isActionError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Dialog,
@@ -22,8 +22,7 @@ import {
   createApiKeyAction,
   deactivateApiKeyAction,
 } from "@/utils/actions/api-key";
-import { handleActionResult } from "@/utils/server-action";
-import { toastError } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { CopyInput } from "@/components/CopyInput";
 import { SectionDescription } from "@/components/Typography";
 
@@ -49,33 +48,37 @@ export function ApiKeysCreateButtonModal() {
 }
 
 function ApiKeysForm() {
+  const [secretKey, setSecretKey] = useState("");
+
+  const { execute, isExecuting } = useAction(createApiKeyAction, {
+    onSuccess: (result) => {
+      if (!result?.data?.secretKey) {
+        toastError({ description: "Failed to create API key" });
+        return;
+      }
+
+      setSecretKey(result.data.secretKey);
+      toastSuccess({ description: "API key created!" });
+    },
+    onError: (error) => {
+      toastError({
+        description:
+          `Failed to create API key. ${error.error.serverError || ""}`.trim(),
+      });
+    },
+  });
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<CreateApiKeyBody>({
     resolver: zodResolver(createApiKeyBody),
     defaultValues: {},
   });
 
-  const [secretKey, setSecretKey] = useState("");
-
-  const onSubmit: SubmitHandler<CreateApiKeyBody> = useCallback(
-    async (data) => {
-      const result = await createApiKeyAction(data);
-      handleActionResult(result, "API key created!");
-
-      if (!isActionError(result) && result?.secretKey) {
-        setSecretKey(result.secretKey);
-      } else {
-        toastError({ description: "Failed to create API key" });
-      }
-    },
-    [],
-  );
-
   return !secretKey ? (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(execute)} className="space-y-4">
       <Input
         type="text"
         name="name"
@@ -85,7 +88,7 @@ function ApiKeysForm() {
         error={errors.name}
       />
 
-      <Button type="submit" loading={isSubmitting}>
+      <Button type="submit" loading={isExecuting}>
         Create
       </Button>
     </form>
@@ -100,15 +103,20 @@ function ApiKeysForm() {
 }
 
 export function ApiKeysDeactivateButton({ id }: { id: string }) {
+  const { execute, isExecuting } = useAction(deactivateApiKeyAction, {
+    onSuccess: () => {
+      toastSuccess({ description: "API key deactivated!" });
+    },
+    onError: (error) => {
+      toastError({
+        description:
+          `Failed to deactivate API key. ${error.error.serverError || ""}`.trim(),
+      });
+    },
+  });
+
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={async () => {
-        const result = await deactivateApiKeyAction({ id });
-        handleActionResult(result, "API key deactivated!");
-      }}
-    >
+    <Button variant="outline" size="sm" onClick={() => execute({ id })}>
       Revoke
     </Button>
   );

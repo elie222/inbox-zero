@@ -7,9 +7,9 @@ import {
 } from "@/utils/actions/api-key.validation";
 import prisma from "@/utils/prisma";
 import { generateSecureToken, hashApiKey } from "@/utils/api-key";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClientUser } from "@/utils/actions/safe-action";
 
-export const createApiKeyAction = actionClient
+export const createApiKeyAction = actionClientUser
   .metadata({ name: "createApiKey" })
   .schema(createApiKeyBody)
   .action(async ({ ctx: { userId }, parsedInput: { name } }) => {
@@ -30,7 +30,7 @@ export const createApiKeyAction = actionClient
     return { secretKey };
   });
 
-export const deactivateApiKeyAction = actionClient
+export const deactivateApiKeyAction = actionClientUser
   .metadata({ name: "deactivateApiKey" })
   .schema(deactivateApiKeyBody)
   .action(async ({ ctx: { userId }, parsedInput: { id } }) => {

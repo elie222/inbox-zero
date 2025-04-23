@@ -3,7 +3,6 @@
 import type React from "react";
 import clsx from "clsx";
 import Link from "next/link";
-import useSWR from "swr";
 import {
   ArchiveIcon,
   ArchiveXIcon,
@@ -15,7 +14,6 @@ import {
   ExternalLinkIcon,
   MailMinusIcon,
   MoreHorizontalIcon,
-  PlusCircle,
   TagIcon,
   TrashIcon,
 } from "lucide-react";
@@ -32,7 +30,6 @@ import {
   DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuSub,
-  DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -40,9 +37,7 @@ import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
-import { GroupItemType, NewsletterStatus } from "@prisma/client";
-import type { GroupsResponse } from "@/app/api/user/group/route";
-import { addGroupItemAction } from "@/utils/actions/group";
+import { NewsletterStatus } from "@prisma/client";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { isActionError } from "@/utils/error";
@@ -92,6 +87,7 @@ export function ActionCell<T extends Row>({
           mutate={mutate}
           posthog={posthog}
           refetchPremium={refetchPremium}
+          userEmail={userEmail}
         />
       </PremiumTooltip>
       <Tooltip
@@ -113,6 +109,7 @@ export function ActionCell<T extends Row>({
           posthog={posthog}
           refetchPremium={refetchPremium}
           labels={labels}
+          userEmail={userEmail}
         />
       </Tooltip>
       <Tooltip
@@ -132,6 +129,7 @@ export function ActionCell<T extends Row>({
           hasUnsubscribeAccess={hasUnsubscribeAccess}
           mutate={mutate}
           posthog={posthog}
+          userEmail={userEmail}
         />
       </Tooltip>
       <MoreDropdown
@@ -151,12 +149,14 @@ function UnsubscribeButton<T extends Row>({
   mutate,
   posthog,
   refetchPremium,
+  userEmail,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -165,6 +165,7 @@ function UnsubscribeButton<T extends Row>({
       mutate,
       posthog,
       refetchPremium,
+      userEmail,
     },
   );
 
@@ -205,6 +206,7 @@ function AutoArchiveButton<T extends Row>({
   posthog,
   refetchPremium,
   labels,
+  userEmail,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
@@ -212,6 +214,7 @@ function AutoArchiveButton<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
   labels: UserLabel[];
+  userEmail: string;
 }) {
   const {
     autoArchiveLoading,
@@ -224,6 +227,7 @@ function AutoArchiveButton<T extends Row>({
     mutate,
     posthog,
     refetchPremium,
+    userEmail,
   });
 
   return (
@@ -324,16 +328,19 @@ function ApproveButton<T extends Row>({
   hasUnsubscribeAccess,
   mutate,
   posthog,
+  userEmail,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const { approveLoading, onApprove } = useApproveButton({
     item,
     mutate,
     posthog,
+    userEmail,
   });
 
   return (
@@ -419,7 +426,10 @@ export function MoreDropdown<T extends Row>({
             <LabelsSubMenu
               labels={labels}
               onClick={async (label) => {
-                const res = await createFilterAction(item.name, label.id);
+                const res = await createFilterAction(userEmail, {
+                  from: item.name,
+                  gmailLabelId: label.id,
+                });
                 if (isActionError(res)) {
                   toastError({
                     title: "Error",
@@ -488,52 +498,52 @@ export function HeaderButton(props: {
   );
 }
 
-function GroupsSubMenu({ sender }: { sender: string }) {
-  const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
+// function GroupsSubMenu({ sender }: { sender: string }) {
+//   const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
 
-  return (
-    <DropdownMenuSubContent>
-      {data &&
-        (data.groups.length ? (
-          data?.groups.map((group) => {
-            return (
-              <DropdownMenuItem
-                key={group.id}
-                onClick={async () => {
-                  const result = await addGroupItemAction({
-                    groupId: group.id,
-                    type: GroupItemType.FROM,
-                    value: sender,
-                  });
+//   return (
+//     <DropdownMenuSubContent>
+//       {data &&
+//         (data.groups.length ? (
+//           data?.groups.map((group) => {
+//             return (
+//               <DropdownMenuItem
+//                 key={group.id}
+//                 onClick={async () => {
+//                   const result = await addGroupItemAction(userEmail, {
+//                     groupId: group.id,
+//                     type: GroupItemType.FROM,
+//                     value: sender,
+//                   });
 
-                  if (isActionError(result)) {
-                    toastError({
-                      description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
-                    });
-                  } else {
-                    toastSuccess({
-                      title: "Success!",
-                      description: `Added ${sender} to ${group.name}`,
-                    });
-                  }
-                }}
-              >
-                {group.name}
-              </DropdownMenuItem>
-            );
-          })
-        ) : (
-          <DropdownMenuItem>{`You don't have any groups yet.`}</DropdownMenuItem>
-        ))}
-      {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
-      {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
-      <DropdownMenuSeparator />
-      <DropdownMenuItem asChild>
-        <Link href="/automation?tab=groups" target="_blank">
-          <PlusCircle className="mr-2 size-4" />
-          <span>New Group</span>
-        </Link>
-      </DropdownMenuItem>
-    </DropdownMenuSubContent>
-  );
-}
+//                   if (isActionError(result)) {
+//                     toastError({
+//                       description: `Failed to add ${sender} to ${group.name}. ${result.error}`,
+//                     });
+//                   } else {
+//                     toastSuccess({
+//                       title: "Success!",
+//                       description: `Added ${sender} to ${group.name}`,
+//                     });
+//                   }
+//                 }}
+//               >
+//                 {group.name}
+//               </DropdownMenuItem>
+//             );
+//           })
+//         ) : (
+//           <DropdownMenuItem>{`You don't have any groups yet.`}</DropdownMenuItem>
+//         ))}
+//       {isLoading && <DropdownMenuItem>Loading...</DropdownMenuItem>}
+//       {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
+//       <DropdownMenuSeparator />
+//       <DropdownMenuItem asChild>
+//         <Link href="/automation?tab=groups" target="_blank">
+//           <PlusCircle className="mr-2 size-4" />
+//           <span>New Group</span>
+//         </Link>
+//       </DropdownMenuItem>
+//     </DropdownMenuSubContent>
+//   );
+// }

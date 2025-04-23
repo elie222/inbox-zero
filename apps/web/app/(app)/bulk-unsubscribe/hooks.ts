@@ -19,8 +19,9 @@ async function unsubscribeAndArchive(
   newsletterEmail: string,
   mutate: () => Promise<void>,
   refetchPremium: () => Promise<any>,
+  userEmail: string,
 ) {
-  await setNewsletterStatusAction({
+  await setNewsletterStatusAction(userEmail, {
     newsletterEmail,
     status: NewsletterStatus.UNSUBSCRIBED,
   });
@@ -32,12 +33,14 @@ async function unsubscribeAndArchive(
 
 export function useUnsubscribe<T extends Row>({
   item,
+  userEmail,
   hasUnsubscribeAccess,
   mutate,
   posthog,
   refetchPremium,
 }: {
   item: T;
+  userEmail: string;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
@@ -54,13 +57,18 @@ export function useUnsubscribe<T extends Row>({
       posthog.capture("Clicked Unsubscribe");
 
       if (item.status === NewsletterStatus.UNSUBSCRIBED) {
-        await setNewsletterStatusAction({
+        await setNewsletterStatusAction(userEmail, {
           newsletterEmail: item.name,
           status: null,
         });
         await mutate();
       } else {
-        await unsubscribeAndArchive(item.name, mutate, refetchPremium);
+        await unsubscribeAndArchive(
+          item.name,
+          mutate,
+          refetchPremium,
+          userEmail,
+        );
       }
     } catch (error) {
       captureException(error);
@@ -75,6 +83,7 @@ export function useUnsubscribe<T extends Row>({
     mutate,
     refetchPremium,
     posthog,
+    userEmail,
   ]);
 
   return {
@@ -92,11 +101,13 @@ export function useBulkUnsubscribe<T extends Row>({
   mutate,
   posthog,
   refetchPremium,
+  userEmail,
 }: {
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
+  userEmail: string;
 }) {
   const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] =
     React.useState(false);
@@ -112,7 +123,12 @@ export function useBulkUnsubscribe<T extends Row>({
 
         for (const item of items) {
           try {
-            await unsubscribeAndArchive(item.name, mutate, refetchPremium);
+            await unsubscribeAndArchive(
+              item.name,
+              mutate,
+              refetchPremium,
+              userEmail,
+            );
           } catch (error) {
             captureException(error);
             console.error(error);
@@ -125,7 +141,7 @@ export function useBulkUnsubscribe<T extends Row>({
 
       setBulkUnsubscribeLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, posthog, refetchPremium],
+    [hasUnsubscribeAccess, mutate, posthog, refetchPremium, userEmail],
   );
 
   return {
@@ -139,9 +155,14 @@ async function autoArchive(
   labelId: string | undefined,
   mutate: () => Promise<void>,
   refetchPremium: () => Promise<any>,
+  userEmail: string,
 ) {
-  await onAutoArchive(name, labelId);
-  await setNewsletterStatusAction({
+  await onAutoArchive({
+    email: userEmail,
+    from: name,
+    gmailLabelId: labelId,
+  });
+  await setNewsletterStatusAction(userEmail, {
     newsletterEmail: name,
     status: NewsletterStatus.AUTO_ARCHIVED,
   });
@@ -157,12 +178,14 @@ export function useAutoArchive<T extends Row>({
   mutate,
   posthog,
   refetchPremium,
+  userEmail,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
+  userEmail: string;
 }) {
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
 
@@ -171,27 +194,37 @@ export function useAutoArchive<T extends Row>({
 
     setAutoArchiveLoading(true);
 
-    await autoArchive(item.name, undefined, mutate, refetchPremium);
+    await autoArchive(item.name, undefined, mutate, refetchPremium, userEmail);
 
     posthog.capture("Clicked Auto Archive");
 
     setAutoArchiveLoading(false);
-  }, [item.name, mutate, refetchPremium, hasUnsubscribeAccess, posthog]);
+  }, [
+    item.name,
+    mutate,
+    refetchPremium,
+    hasUnsubscribeAccess,
+    posthog,
+    userEmail,
+  ]);
 
   const onDisableAutoArchive = useCallback(async () => {
     setAutoArchiveLoading(true);
 
     if (item.autoArchived?.id) {
-      await onDeleteFilter(item.autoArchived?.id);
+      await onDeleteFilter({
+        email: userEmail,
+        filterId: item.autoArchived.id,
+      });
     }
-    await setNewsletterStatusAction({
+    await setNewsletterStatusAction(userEmail, {
       newsletterEmail: item.name,
       status: null,
     });
     await mutate();
 
     setAutoArchiveLoading(false);
-  }, [item.name, item.autoArchived?.id, mutate]);
+  }, [item.name, item.autoArchived?.id, mutate, userEmail]);
 
   const onAutoArchiveAndLabel = useCallback(
     async (labelId: string) => {
@@ -199,11 +232,11 @@ export function useAutoArchive<T extends Row>({
 
       setAutoArchiveLoading(true);
 
-      await autoArchive(item.name, labelId, mutate, refetchPremium);
+      await autoArchive(item.name, labelId, mutate, refetchPremium, userEmail);
 
       setAutoArchiveLoading(false);
     },
-    [item.name, mutate, refetchPremium, hasUnsubscribeAccess],
+    [item.name, mutate, refetchPremium, hasUnsubscribeAccess, userEmail],
   );
 
   return {
@@ -218,10 +251,12 @@ export function useBulkAutoArchive<T extends Row>({
   hasUnsubscribeAccess,
   mutate,
   refetchPremium,
+  userEmail,
 }: {
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
   refetchPremium: () => Promise<any>;
+  userEmail: string;
 }) {
   const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] =
     React.useState(false);
@@ -233,12 +268,18 @@ export function useBulkAutoArchive<T extends Row>({
       setBulkAutoArchiveLoading(true);
 
       for (const item of items) {
-        await autoArchive(item.name, undefined, mutate, refetchPremium);
+        await autoArchive(
+          item.name,
+          undefined,
+          mutate,
+          refetchPremium,
+          userEmail,
+        );
       }
 
       setBulkAutoArchiveLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, refetchPremium],
+    [hasUnsubscribeAccess, mutate, refetchPremium, userEmail],
   );
 
   return {
@@ -251,10 +292,12 @@ export function useApproveButton<T extends Row>({
   item,
   mutate,
   posthog,
+  userEmail,
 }: {
   item: T;
   mutate: () => Promise<void>;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const [approveLoading, setApproveLoading] = React.useState(false);
   const { onDisableAutoArchive } = useAutoArchive({
@@ -263,13 +306,14 @@ export function useApproveButton<T extends Row>({
     mutate,
     posthog,
     refetchPremium: () => Promise.resolve(),
+    userEmail,
   });
 
   const onApprove = async () => {
     setApproveLoading(true);
 
     await onDisableAutoArchive();
-    await setNewsletterStatusAction({
+    await setNewsletterStatusAction(userEmail, {
       newsletterEmail: item.name,
       status: NewsletterStatus.APPROVED,
     });
@@ -289,9 +333,11 @@ export function useApproveButton<T extends Row>({
 export function useBulkApprove<T extends Row>({
   mutate,
   posthog,
+  userEmail,
 }: {
   mutate: () => Promise<any>;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const [bulkApproveLoading, setBulkApproveLoading] = React.useState(false);
 
@@ -301,7 +347,7 @@ export function useBulkApprove<T extends Row>({
     posthog.capture("Clicked Bulk Approve");
 
     for (const item of items) {
-      await setNewsletterStatusAction({
+      await setNewsletterStatusAction(userEmail, {
         newsletterEmail: item.name,
         status: NewsletterStatus.APPROVED,
       });
@@ -471,6 +517,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   refetchPremium,
   hasUnsubscribeAccess,
   mutate,
+  userEmail,
 }: {
   newsletters?: T[];
   selectedRow?: T;
@@ -479,6 +526,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   refetchPremium: () => Promise<any>;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
+  userEmail: string;
 }) {
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
@@ -513,8 +561,11 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "e") {
         // auto archive
         e.preventDefault();
-        onAutoArchive(item.name);
-        await setNewsletterStatusAction({
+        onAutoArchive({
+          email: userEmail,
+          from: item.name,
+        });
+        await setNewsletterStatusAction(userEmail, {
           newsletterEmail: item.name,
           status: NewsletterStatus.AUTO_ARCHIVED,
         });
@@ -528,7 +579,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
         window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
-        await setNewsletterStatusAction({
+        await setNewsletterStatusAction(userEmail, {
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,
         });
@@ -540,7 +591,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "a") {
         // approve
         e.preventDefault();
-        await setNewsletterStatusAction({
+        await setNewsletterStatusAction(userEmail, {
           newsletterEmail: item.name,
           status: NewsletterStatus.APPROVED,
         });
@@ -558,6 +609,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     refetchPremium,
     setSelectedRow,
     onOpenNewsletter,
+    userEmail,
   ]);
 }
 

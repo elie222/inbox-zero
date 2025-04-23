@@ -1,25 +1,72 @@
+import { toastSuccess, toastError } from "@/components/Toast";
 import {
   createAutoArchiveFilterAction,
   deleteFilterAction,
+  trashThreadAction,
 } from "@/utils/actions/mail";
-import { trashMessageAction, trashThreadAction } from "@/utils/actions/mail";
-import { handleActionResult } from "@/utils/server-action";
 
-export async function onAutoArchive(from: string, gmailLabelId?: string) {
-  const result = await createAutoArchiveFilterAction(from, gmailLabelId);
-  handleActionResult(result, "Auto archive enabled!");
+export async function onAutoArchive({
+  email,
+  from,
+  gmailLabelId,
+}: {
+  email: string;
+  from: string;
+  gmailLabelId?: string;
+}) {
+  const result = await createAutoArchiveFilterAction(email, {
+    from,
+    gmailLabelId,
+  });
+
+  if (result?.serverError) {
+    toastError({
+      description:
+        `There was an error enabling auto archive. ${result.serverError || ""}`.trim(),
+    });
+  } else {
+    toastSuccess({
+      description: "Auto archive enabled!",
+    });
+  }
 }
 
-export async function onDeleteFilter(filterId: string) {
-  const result = await deleteFilterAction(filterId);
-  handleActionResult(result, "Auto archive disabled!");
+export async function onDeleteFilter({
+  email,
+  filterId,
+}: {
+  email: string;
+  filterId: string;
+}) {
+  const result = await deleteFilterAction(email, { id: filterId });
+  if (result?.serverError) {
+    toastError({
+      description:
+        `There was an error disabling auto archive. ${result.serverError || ""}`.trim(),
+    });
+  } else {
+    toastSuccess({
+      description: "Auto archive disabled!",
+    });
+  }
 }
 
-export async function onTrashThread(threadId: string) {
-  const result = await trashThreadAction(threadId);
-  handleActionResult(result, "Thread deleted!");
-}
-export async function onTrashMessage(messageId: string) {
-  const result = await trashMessageAction(messageId);
-  handleActionResult(result, "Message deleted!");
+export async function onTrashThread({
+  email,
+  threadId,
+}: {
+  email: string;
+  threadId: string;
+}) {
+  const result = await trashThreadAction(email, { threadId });
+  if (result?.serverError) {
+    toastError({
+      description:
+        `There was an error deleting the thread. ${result.serverError || ""}`.trim(),
+    });
+  } else {
+    toastSuccess({
+      description: "Thread deleted!",
+    });
+  }
 }

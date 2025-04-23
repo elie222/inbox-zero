@@ -16,13 +16,17 @@ import {
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getVariantId } from "@/app/(app)/premium/config";
-import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
+import {
+  actionClientUser,
+  adminActionClient,
+} from "@/utils/actions/safe-action";
+import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
 
-export const decrementUnsubscribeCreditAction = actionClient
+export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
-  .action(async ({ ctx: { email, userId } }) => {
+  .action(async ({ ctx: { userId } }) => {
     const user = await prisma.user.findUnique({
-      where: { email },
+      where: { id: userId },
       select: {
         premium: {
           select: {
@@ -74,7 +78,7 @@ const updateMultiAccountPremiumSchema = z.object({
   emails: z.array(z.string()),
 });
 
-export const updateMultiAccountPremiumAction = actionClient
+export const updateMultiAccountPremiumAction = actionClientUser
   .metadata({ name: "updateMultiAccountPremium" })
   .schema(updateMultiAccountPremiumSchema)
   .action(async ({ ctx: { userId }, parsedInput: { emails } }) => {
@@ -165,7 +169,7 @@ export const updateMultiAccountPremiumAction = actionClient
     });
   });
 
-export const switchPremiumPlanAction = actionClient
+export const switchPremiumPlanAction = actionClientUser
   .metadata({ name: "switchPremiumPlan" })
   .schema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
   .action(async ({ ctx: { userId }, parsedInput: { premiumTier } }) => {
@@ -196,9 +200,9 @@ async function createPremiumForUser(userId: string) {
   });
 }
 
-export const activateLicenseKeyAction = actionClient
+export const activateLicenseKeyAction = actionClientUser
   .metadata({ name: "activateLicenseKey" })
-  .schema(z.object({ licenseKey: z.string() }))
+  .schema(activateLicenseKeySchema)
   .action(async ({ ctx: { userId }, parsedInput: { licenseKey } }) => {
     const lemonSqueezyLicense = await activateLemonLicenseKey(
       licenseKey,
@@ -327,7 +331,7 @@ export const changePremiumStatusAction = adminActionClient
     },
   );
 
-export const claimPremiumAdminAction = actionClient
+export const claimPremiumAdminAction = actionClientUser
   .metadata({ name: "claimPremiumAdmin" })
   .action(async ({ ctx: { userId } }) => {
     const user = await prisma.user.findUnique({

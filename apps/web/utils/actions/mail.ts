@@ -56,16 +56,16 @@ export const trashThreadAction = actionClient
     if (!isStatusOk(res.status)) return { error: "Failed to delete thread" };
   });
 
-export const trashMessageAction = actionClient
-  .metadata({ name: "trashMessage" })
-  .schema(z.object({ messageId: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { messageId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+// export const trashMessageAction = actionClient
+//   .metadata({ name: "trashMessage" })
+//   .schema(z.object({ messageId: z.string() }))
+//   .action(async ({ ctx: { email }, parsedInput: { messageId } }) => {
+//     const gmail = await getGmailClientForEmail({ email });
 
-    const res = await trashMessage({ gmail, messageId });
+//     const res = await trashMessage({ gmail, messageId });
 
-    if (!isStatusOk(res.status)) return { error: "Failed to delete message" };
-  });
+//     if (!isStatusOk(res.status)) return { error: "Failed to delete message" };
+//   });
 
 export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
