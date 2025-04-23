@@ -22,7 +22,6 @@ import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
-import { isActionError } from "@/utils/error";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { ReportMistake } from "@/app/(app)/automation/ReportMistake";
@@ -105,13 +104,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         isTest: testMode,
         rerun,
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
           title: "There was an error processing the email",
-          description: result.error,
+          description: result.serverError,
         });
-      } else {
-        setResults((prev) => ({ ...prev, [message.id]: result }));
+      } else if (result?.data) {
+        setResults((prev) => ({ ...prev, [message.id]: result.data! }));
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },

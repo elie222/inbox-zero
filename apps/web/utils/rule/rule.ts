@@ -69,8 +69,7 @@ export async function safeCreateRule({
           ? { message: error.message, stack: error.stack, name: error.name }
           : error,
     });
-
-    return { error: "Error creating rule." };
+    // return { error: "Error creating rule." };
   }
 }
 

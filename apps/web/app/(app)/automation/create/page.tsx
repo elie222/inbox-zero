@@ -17,24 +17,28 @@ import { createAutomationAction } from "@/utils/actions/ai-rule";
 import { isActionError } from "@/utils/error";
 import { toastError, toastInfo } from "@/components/Toast";
 import { examples } from "@/app/(app)/automation/create/examples";
-
-type Inputs = { prompt?: string };
+import { useAccount } from "@/providers/AccountProvider";
+import type { CreateAutomationBody } from "@/utils/actions/ai-rule.validation";
 
 // not in use anymore
 export default function AutomationSettingsPage() {
   const router = useRouter();
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setValue,
     watch,
-  } = useForm<Inputs>();
+  } = useForm<CreateAutomationBody>();
 
-  const onSubmit: SubmitHandler<Inputs> = useCallback(
+  const onSubmit: SubmitHandler<CreateAutomationBody> = useCallback(
     async (data) => {
       if (data.prompt) {
-        const result = await createAutomationAction({ prompt: data.prompt });
+        const result = await createAutomationAction(email, {
+          prompt: data.prompt,
+        });
 
         if (isActionError(result)) {
           const existingRuleId = result.existingRuleId;
@@ -54,11 +58,11 @@ export default function AutomationSettingsPage() {
             description: "There was an error creating your automation.",
           });
         } else {
-          router.push(`/automation/rule/${result.id}?new=true`);
+          router.push(`/automation/rule/${result.data?.ruleId}?new=true`);
         }
       }
     },
-    [router],
+    [email, router],
   );
 
   const prompt = watch("prompt");
@@ -96,7 +100,7 @@ export default function AutomationSettingsPage() {
                   variant="ghost"
                   size="icon"
                   onClick={() => {
-                    setValue("prompt", undefined);
+                    setValue("prompt", "");
                   }}
                 >
                   <ArrowLeftIcon className="h-4 w-4" />

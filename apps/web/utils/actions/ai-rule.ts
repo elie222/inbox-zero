@@ -4,13 +4,17 @@ import { z } from "zod";
 import prisma, { isNotFoundError } from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
-import { runRules } from "@/utils/ai/choose-rule/run-rules";
+import {
+  runRules,
+  type RunRulesResult,
+} from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined } from "@/utils/types";
-import { isActionError } from "@/utils/error";
+import { isActionError, SafeError } from "@/utils/error";
 import {
+  createAutomationBody,
   reportAiMistakeBody,
   runRulesBody,
   testAiCustomContentBody,
@@ -41,10 +45,10 @@ export const runRulesAction = actionClient
     async ({
       ctx: { email, emailAccount },
       parsedInput: { messageId, threadId, rerun, isTest },
-    }) => {
+    }): Promise<RunRulesResult> => {
       const gmail = await getGmailClientForEmail({ email });
 
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new SafeError("Email account not found");
 
       const fetchExecutedRule = !isTest && !rerun;
 
@@ -81,7 +85,6 @@ export const runRulesAction = actionClient
           actionItems: executedRule.actionItems,
           reason: executedRule.reason,
           existing: true,
-          error: undefined,
         };
       }
 
@@ -154,9 +157,9 @@ export const testAiCustomContentAction = actionClient
 
 export const createAutomationAction = actionClient
   .metadata({ name: "createAutomation" })
-  .schema(z.object({ prompt: z.string() }))
+  .schema(createAutomationBody)
   .action(async ({ ctx: { email, emailAccount }, parsedInput: { prompt } }) => {
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     let result: CreateOrUpdateRuleSchemaWithCategories;
 
@@ -164,14 +167,15 @@ export const createAutomationAction = actionClient
       result = await aiCreateRule(prompt, emailAccount);
     } catch (error) {
       if (error instanceof Error) {
-        return { error: `AI error creating rule. ${error.message}` };
+        throw new SafeError(`AI error creating rule. ${error.message}`);
       }
-      return { error: "AI error creating rule." };
+      throw new SafeError("AI error creating rule.");
     }
 
-    if (!result) return { error: "AI error creating rule." };
+    if (!result) throw new SafeError("AI error creating rule.");
 
-    return await safeCreateRule({ result, email });
+    const createdRule = await safeCreateRule({ result, email });
+    return { ruleId: createdRule?.id };
   });
 
 export const setRuleRunOnThreadsAction = actionClient

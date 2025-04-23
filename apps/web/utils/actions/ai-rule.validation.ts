@@ -31,3 +31,6 @@ export const reportAiMistakeBody = z
     path: ["expectedRuleId"], // This will show the error on the expectedRuleId field
   });
 export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
+
+export const createAutomationBody = z.object({ prompt: z.string() });
+export type CreateAutomationBody = z.infer<typeof createAutomationBody>;
