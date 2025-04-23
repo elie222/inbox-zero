@@ -1,5 +1,6 @@
 "use client";
 
+import { useAction } from "next-safe-action/hooks";
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import {
@@ -61,6 +62,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { CategorySelect } from "@/components/CategorySelect";
 import { useModal } from "@/hooks/useModal";
 import { ConditionType } from "@/utils/config";
+import { useAccount } from "@/providers/AccountProvider";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -126,7 +128,6 @@ function Content({
   isTest: boolean;
   onClose: () => void;
 }) {
-  const [loadingAiFix, setLoadingAiFix] = useState(false);
   const [fixedInstructions, setFixedInstructions] = useState<{
     ruleId: string;
     fixedInstructions: string;
@@ -159,6 +160,11 @@ function Content({
     });
   }, []);
 
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    reportAiMistakeAction.bind(null, account?.email || ""),
+  );
+
   const onSelectExpectedRule = useCallback(
     async (expectedRuleId: string | null) => {
       setExpectedRuleId(expectedRuleId);
@@ -172,11 +178,10 @@ function Content({
 
       if (isEitherAIRule) {
         onSetView("ai-fix");
-        setLoadingAiFix(true);
-        const response = await reportAiMistakeAction({
+        const response = await executeAsync({
           actualRuleId: result?.rule?.id,
           expectedRuleId: expectedRule?.id,
-          email: {
+          message: {
             from: message.headers.from,
             subject: message.headers.subject,
             snippet: message.snippet,
@@ -185,17 +190,16 @@ function Content({
           },
         });
 
-        setLoadingAiFix(false);
         if (isActionError(response)) {
           toastError({
             title: "Error reporting mistake",
             description: response.error,
           });
         } else {
-          if (response.ruleId) {
+          if (response?.data?.ruleId) {
             setFixedInstructions({
-              ruleId: response.ruleId,
-              fixedInstructions: response.fixedInstructions,
+              ruleId: response.data.ruleId,
+              fixedInstructions: response.data.fixedInstructions,
             });
           } else {
             toastError({
@@ -210,7 +214,7 @@ function Content({
         onSetView("manual-fix");
       }
     },
-    [message, result?.rule?.id, onSetView, actualRule, rules],
+    [message, result?.rule?.id, onSetView, actualRule, rules, executeAsync],
   );
 
   if (view === "select-expected-rule") {
@@ -295,7 +299,7 @@ function Content({
   if (view === "ai-fix") {
     return (
       <AIFixView
-        loadingAiFix={loadingAiFix}
+        loadingAiFix={isExecuting}
         fixedInstructions={fixedInstructions ?? null}
         fixedInstructionsRule={fixedInstructionsRule ?? null}
         message={message}
@@ -451,6 +455,11 @@ function GroupMismatchAdd({
   onBack: () => void;
   onClose: () => void;
 }) {
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    addGroupItemAction.bind(null, account?.email || ""),
+  );
+
   return (
     <div>
       <SectionDescription>
@@ -471,10 +480,11 @@ function GroupMismatchAdd({
 
         <Button
           className="mt-2"
+          loading={isExecuting}
           onClick={() => {
             toast.promise(
               async () => {
-                const result = await addGroupItemAction({
+                const result = await executeAsync({
                   groupId,
                   type: GroupItemType.FROM,
                   value: message.headers.from,
@@ -514,7 +524,10 @@ function GroupMismatchRemove({
   onBack: () => void;
   onClose: () => void;
 }) {
-  const [isRemoving, setIsRemoving] = useState(false);
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    deleteGroupItemAction.bind(null, account?.email || ""),
+  );
 
   return (
     <div>
@@ -535,19 +548,18 @@ function GroupMismatchRemove({
 
       <Button
         className="mt-2"
-        loading={isRemoving}
+        loading={isExecuting}
         Icon={TrashIcon}
         onClick={async () => {
           toast.promise(
             async () => {
-              setIsRemoving(true);
               const groupItemId = groupMatch.groupItem.id;
               if (!groupItemId) {
-                setIsRemoving(false);
                 throw new Error("No group item ID found");
               }
-              const result = await deleteGroupItemAction(groupItemId);
-              setIsRemoving(false);
+              const result = await executeAsync({
+                id: groupItemId,
+              });
               if (isActionError(result)) throw new Error(result.error);
               onClose();
             },
@@ -714,10 +726,15 @@ function RuleForm({
 }: {
   rule: Pick<Rule, "id" | "instructions"> & { instructions: string };
 }) {
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    updateRuleInstructionsAction.bind(null, account?.email || ""),
+  );
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<UpdateRuleInstructionsBody>({
     resolver: zodResolver(updateRuleInstructionsBody),
     defaultValues: {
@@ -728,7 +745,7 @@ function RuleForm({
 
   const updateRule: SubmitHandler<UpdateRuleInstructionsBody> = useCallback(
     async (data) => {
-      const response = await updateRuleInstructionsAction(data);
+      const response = await executeAsync(data);
 
       if (isActionError(response)) {
         toastError({
@@ -739,7 +756,7 @@ function RuleForm({
         toastSuccess({ description: "Rule updated!" });
       }
     },
-    [],
+    [executeAsync],
   );
 
   return (
@@ -754,7 +771,7 @@ function RuleForm({
         registerProps={register("instructions")}
         error={errors.instructions}
       />
-      <Button type="submit" loading={isSubmitting}>
+      <Button type="submit" loading={isExecuting}>
         Save
       </Button>
     </form>
@@ -777,10 +794,15 @@ function AIFixForm({
     fixedInstructions: string;
   }>();
 
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    reportAiMistakeAction.bind(null, account?.email || ""),
+  );
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<ReportAiMistakeBody>({
     resolver: zodResolver(reportAiMistakeBody),
     defaultValues: {
@@ -803,7 +825,7 @@ function AIFixForm({
 
   const reportMistake: SubmitHandler<ReportAiMistakeBody> = useCallback(
     async (data) => {
-      const response = await reportAiMistakeAction(data);
+      const response = await executeAsync(data);
 
       if (isActionError(response)) {
         toastError({
@@ -812,13 +834,13 @@ function AIFixForm({
         });
       } else {
         toastSuccess({
-          description: `This is the updated rule: ${response.fixedInstructions}`,
+          description: `This is the updated rule: ${response?.data?.fixedInstructions}`,
         });
 
-        if (response.ruleId) {
+        if (response?.data?.ruleId) {
           setFixedInstructions({
-            ruleId: response.ruleId,
-            fixedInstructions: response.fixedInstructions,
+            ruleId: response.data.ruleId,
+            fixedInstructions: response.data.fixedInstructions,
           });
         } else {
           toastError({
@@ -829,7 +851,7 @@ function AIFixForm({
         }
       }
     },
-    [],
+    [executeAsync],
   );
 
   return (
@@ -845,7 +867,7 @@ function AIFixForm({
           registerProps={register("explanation")}
           error={errors.explanation}
         />
-        <Button type="submit" loading={isSubmitting}>
+        <Button type="submit" loading={isExecuting}>
           Fix with AI
         </Button>
       </form>
@@ -879,8 +901,22 @@ function SuggestedFix({
   showRerunButton: boolean;
   isTest: boolean;
 }) {
-  const [isSaving, setIsSaving] = useState(false);
   const [accepted, setAccepted] = useState(false);
+
+  const { account } = useAccount();
+  const { executeAsync, isExecuting } = useAction(
+    updateRuleInstructionsAction.bind(null, account?.email || ""),
+    {
+      onSuccess: () => {
+        toastSuccess({ description: "Rule updated!" });
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error.serverError ?? "An error occurred",
+        });
+      },
+    },
+  );
 
   return (
     <div className="mt-4">
@@ -895,27 +931,19 @@ function SuggestedFix({
       ) : (
         <div className="mt-2 flex gap-2">
           <Button
-            loading={isSaving}
+            loading={isExecuting}
             onClick={async () => {
-              setIsSaving(true);
-              const res = await updateRuleInstructionsAction({
+              await executeAsync({
                 id: ruleId,
                 instructions: fixedInstructions,
               });
-
-              if (isActionError(res)) {
-                toastError({ description: res.error });
-              } else {
-                toastSuccess({ description: "Rule updated!" });
-              }
-              setIsSaving(false);
               setAccepted(true);
             }}
           >
             <CheckIcon className="mr-2 size-4" />
             Accept
           </Button>
-          <Button variant="outline" loading={isSaving} onClick={onReject}>
+          <Button variant="outline" loading={isExecuting} onClick={onReject}>
             <XIcon className="mr-2 size-4" />
             Reject
           </Button>
@@ -949,30 +977,34 @@ function RerunButton({
   message: ParsedMessage;
   isTest: boolean;
 }) {
-  const [checking, setChecking] = useState(false);
   const [result, setResult] = useState<RunRulesResult>();
+
+  const { account } = useAccount();
+  const { execute, isExecuting } = useAction(
+    runRulesAction.bind(null, account?.email || ""),
+    {
+      onSuccess: (result) => {
+        setResult(result?.data);
+      },
+      onError: (error) => {
+        toastError({
+          title: "There was an error testing the email",
+          description: error.error.serverError ?? "An error occurred",
+        });
+      },
+    },
+  );
 
   return (
     <>
       <Button
-        loading={checking}
-        onClick={async () => {
-          setChecking(true);
-
-          const result = await runRulesAction({
+        loading={isExecuting}
+        onClick={() => {
+          execute({
             messageId: message.id,
             threadId: message.threadId,
             isTest,
           });
-          if (isActionError(result)) {
-            toastError({
-              title: "There was an error testing the email",
-              description: result.error,
-            });
-          } else {
-            setResult(result);
-          }
-          setChecking(false);
         }}
       >
         <SparklesIcon className="mr-2 size-4" />
