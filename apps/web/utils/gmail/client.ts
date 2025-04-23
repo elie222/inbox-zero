@@ -3,6 +3,7 @@ import { people } from "@googleapis/people";
 import { saveRefreshToken } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
+import type { Account } from "@prisma/client";
 
 const logger = createScopedLogger("gmail/client");
 
@@ -30,6 +31,15 @@ export const getGmailClient = (session: ClientOptions) => {
   const g = gmail({ version: "v1", auth });
 
   return g;
+};
+
+export const getGmailClientFromAccount = (
+  account: Pick<Account, "access_token" | "refresh_token">,
+) => {
+  return getGmailClient({
+    accessToken: account.access_token ?? undefined,
+    refreshToken: account.refresh_token ?? undefined,
+  });
 };
 
 export const getContactsClient = (session: ClientOptions) => {

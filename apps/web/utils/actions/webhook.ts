@@ -1,17 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { actionClient } from "@/utils/actions/safe-action";
 
-export const regenerateWebhookSecretAction = withActionInstrumentation(
-  "regenerateWebhookSecret",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
-
+export const regenerateWebhookSecretAction = actionClient
+  .metadata({ name: "regenerateWebhookSecret" })
+  .action(async ({ ctx: { email } }) => {
     const webhookSecret = generateWebhookSecret();
 
     await prisma.emailAccount.update({
@@ -20,8 +15,7 @@ export const regenerateWebhookSecretAction = withActionInstrumentation(
     });
 
     revalidatePath("/settings");
-  },
-);
+  });
 
 function generateWebhookSecret(length = 32) {
   const chars =

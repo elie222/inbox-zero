@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientFromAccount } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
@@ -42,10 +42,7 @@ export async function unwatchEmails({
   refresh_token: string | null;
 }) {
   try {
-    const gmail = getGmailClient({
-      accessToken: access_token ?? undefined,
-      refreshToken: refresh_token ?? undefined,
-    });
+    const gmail = getGmailClientFromAccount({ access_token, refresh_token });
     await unwatch(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
