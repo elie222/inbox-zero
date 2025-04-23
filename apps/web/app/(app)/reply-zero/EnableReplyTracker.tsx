@@ -20,9 +20,10 @@ import {
   markOnboardingAsCompleted,
   REPLY_ZERO_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
-
+import { useAccount } from "@/providers/AccountProvider";
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
+  const { email } = useAccount();
 
   return (
     <EnableFeatureCard
@@ -66,7 +67,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           return;
         }
 
-        const result = await enableReplyTrackerAction();
+        const result = await enableReplyTrackerAction(email);
 
         if (isActionError(result)) {
           toastError({
@@ -82,7 +83,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
 
         toast.promise(
           async () => {
-            processPreviousSentEmailsAction();
+            processPreviousSentEmailsAction(email);
 
             router.push("/reply-zero?enabled=true");
           },
