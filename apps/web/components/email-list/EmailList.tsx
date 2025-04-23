@@ -32,6 +32,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function List({
   emails,
@@ -175,7 +176,7 @@ export function EmailList({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const session = useSession();
+  const { email } = useAccount();
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
   const closePanel = useCallback(
@@ -220,15 +221,15 @@ export function EmailList({
       toast.promise(
         async () => {
           await new Promise<void>((resolve, reject) => {
-            archiveEmails(
+            archiveEmails({
               threadIds,
-              undefined,
-              (threadId) => {
-                refetch({ removedThreadIds: [threadId] });
+              onSuccess: () => {
+                refetch({ removedThreadIds: [thread.id] });
                 resolve();
               },
-              reject,
-            );
+              onError: reject,
+              email,
+            });
           });
         },
         {
@@ -238,7 +239,7 @@ export function EmailList({
         },
       );
     },
-    [refetch],
+    [refetch, email],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -319,15 +320,15 @@ export function EmailList({
           .map(([id]) => id);
 
         await new Promise<void>((resolve, reject) => {
-          archiveEmails(
+          archiveEmails({
             threadIds,
-            undefined,
-            () => {
+            onSuccess: () => {
               refetch({ removedThreadIds: threadIds });
               resolve();
             },
-            reject,
-          );
+            onError: reject,
+            email,
+          });
         });
       },
       {
@@ -336,7 +337,7 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [selectedRows, refetch]);
+  }, [selectedRows, refetch, email]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
@@ -346,14 +347,15 @@ export function EmailList({
           .map(([id]) => id);
 
         await new Promise<void>((resolve, reject) => {
-          deleteEmails(
+          deleteEmails({
             threadIds,
-            () => {
+            onSuccess: () => {
               refetch({ removedThreadIds: threadIds });
               resolve();
             },
-            reject,
-          );
+            onError: reject,
+            email,
+          });
         });
       },
       {
@@ -362,7 +364,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, refetch]);
+  }, [selectedRows, refetch, email]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -450,7 +452,11 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id], () => refetch());
+                  markReadThreads({
+                    threadIds: [thread.id],
+                    onSuccess: () => refetch(),
+                    email,
+                  });
                 };
 
                 return (
@@ -464,7 +470,7 @@ export function EmailList({
                         map.delete(thread.id);
                       }
                     }}
-                    userEmailAddress={session.data?.user.email || ""}
+                    userEmailAddress={email}
                     thread={thread}
                     opened={openThreadId === thread.id}
                     closePanel={closePanel}

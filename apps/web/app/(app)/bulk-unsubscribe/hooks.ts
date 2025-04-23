@@ -434,7 +434,11 @@ export function useBulkArchive<T extends Row>({
   return { onBulkArchive };
 }
 
-async function deleteAllFromSender(name: string, onFinish: () => void) {
+async function deleteAllFromSender(
+  name: string,
+  onFinish: () => void,
+  userEmail: string,
+) {
   toast.promise(
     async () => {
       // 1. search gmail for messages from sender
@@ -444,14 +448,15 @@ async function deleteAllFromSender(name: string, onFinish: () => void) {
       // 2. delete messages
       if (data?.length) {
         await new Promise<void>((resolve, reject) => {
-          deleteEmails(
-            data.map((t) => t.id).filter(isDefined),
-            () => {
+          deleteEmails({
+            threadIds: data.map((t) => t.id).filter(isDefined),
+            onSuccess: () => {
               onFinish();
               resolve();
             },
-            reject,
-          );
+            onError: reject,
+            email: userEmail,
+          });
         });
       }
 
@@ -471,9 +476,11 @@ async function deleteAllFromSender(name: string, onFinish: () => void) {
 export function useDeleteAllFromSender<T extends Row>({
   item,
   posthog,
+  userEmail,
 }: {
   item: T;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const [deleteAllLoading, setDeleteAllLoading] = React.useState(false);
 
@@ -482,7 +489,11 @@ export function useDeleteAllFromSender<T extends Row>({
 
     posthog.capture("Clicked Delete All");
 
-    await deleteAllFromSender(item.name, () => setDeleteAllLoading(false));
+    await deleteAllFromSender(
+      item.name,
+      () => setDeleteAllLoading(false),
+      userEmail,
+    );
   };
 
   return {
@@ -494,15 +505,17 @@ export function useDeleteAllFromSender<T extends Row>({
 export function useBulkDelete<T extends Row>({
   mutate,
   posthog,
+  userEmail,
 }: {
   mutate: () => Promise<any>;
   posthog: PostHog;
+  userEmail: string;
 }) {
   const onBulkDelete = async (items: T[]) => {
     posthog.capture("Clicked Bulk Delete");
 
     for (const item of items) {
-      await deleteAllFromSender(item.name, mutate);
+      await deleteAllFromSender(item.name, mutate, userEmail);
     }
   };
 
