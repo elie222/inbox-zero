@@ -38,18 +38,29 @@ import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { Tooltip } from "@/components/Tooltip";
-import { cn } from "@/utils";
-import { type RiskLevel, getRiskLevel } from "@/utils/risk";
+import type { RiskLevel } from "@/utils/risk";
 import { useRules } from "@/hooks/useRules";
 import { ActionType } from "@prisma/client";
 import { ThreadsExplanation } from "@/app/(app)/automation/RuleForm";
+import { useAction } from "next-safe-action/hooks";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function Rules() {
   const { data, isLoading, error, mutate } = useRules();
 
   const hasRules = !!data?.length;
+
+  const { account } = useAccount();
+  const { executeAsync: setRuleRunOnThreads } = useAction(
+    setRuleRunOnThreadsAction.bind(null, account?.email || ""),
+  );
+  const { executeAsync: setRuleEnabled } = useAction(
+    setRuleEnabledAction.bind(null, account?.email || ""),
+  );
+  const { executeAsync: deleteRule } = useAction(
+    deleteRuleAction.bind(null, account?.email || ""),
+  );
 
   return (
     <div>
@@ -112,13 +123,14 @@ export function Rules() {
                             enabled={rule.runOnThreads}
                             name="runOnThreads"
                             onChange={async () => {
-                              const result = await setRuleRunOnThreadsAction({
+                              const result = await setRuleRunOnThreads({
                                 ruleId: rule.id,
                                 runOnThreads: !rule.runOnThreads,
                               });
-                              if (isActionError(result)) {
+
+                              if (result?.serverError) {
                                 toastError({
-                                  description: `There was an error updating your rule. ${result.error}`,
+                                  description: `There was an error updating your rule. ${result.serverError || ""}`,
                                 });
                               }
                               mutate();
@@ -146,16 +158,16 @@ export function Rules() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={async () => {
-                                const result = await setRuleEnabledAction({
+                                const result = await setRuleEnabled({
                                   ruleId: rule.id,
                                   enabled: !rule.enabled,
                                 });
 
-                                if (isActionError(result)) {
+                                if (result?.serverError) {
                                   toastError({
                                     description: `There was an error ${
                                       rule.enabled ? "disabling" : "enabling"
-                                    } your rule. ${result.error}`,
+                                    } your rule. ${result.serverError || ""}`,
                                   });
                                 } else {
                                   toastSuccess({
@@ -176,13 +188,13 @@ export function Rules() {
                                   "Are you sure you want to delete this rule?",
                                 );
                                 if (yes) {
-                                  const result = await deleteRuleAction({
+                                  const result = await deleteRule({
                                     id: rule.id,
                                   });
 
-                                  if (isActionError(result)) {
+                                  if (result?.serverError) {
                                     toastError({
-                                      description: `There was an error deleting your rule. ${result.error}`,
+                                      description: `There was an error deleting your rule. ${result.serverError || ""}`,
                                     });
                                   }
 
