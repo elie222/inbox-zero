@@ -4,6 +4,7 @@ import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("safe-action");
 
@@ -46,5 +47,25 @@ export const actionClient = createSafeActionClient({
           emailAccount,
         },
       });
+    });
+  });
+
+export const adminActionClient = createSafeActionClient({
+  defineMetadataSchema() {
+    return z.object({ name: z.string() });
+  },
+})
+  .use(async ({ next, metadata }) => {
+    logger.info("Calling action", { name: metadata?.name });
+    return next();
+  })
+  .use(async ({ next, metadata }) => {
+    const session = await auth();
+    if (!session?.user) throw new Error("Unauthorized");
+    if (!isAdmin({ email: session.user.email }))
+      throw new Error("Unauthorized");
+
+    return withServerActionInstrumentation(metadata?.name, async () => {
+      return next({ ctx: {} });
     });
   });

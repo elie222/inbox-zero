@@ -1,11 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import { isAdmin } from "@/utils/admin";
 import { getGmailAccessToken } from "@/utils/gmail/client";
 import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
 import { createScopedLogger } from "@/utils/logger";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import { getTokens } from "@/utils/account";
 
 const logger = createScopedLogger("actions/permissions");
@@ -39,12 +38,10 @@ export const checkPermissionsAction = actionClient
     }
   });
 
-export const adminCheckPermissionsAction = actionClient
+export const adminCheckPermissionsAction = adminActionClient
   .metadata({ name: "adminCheckPermissions" })
   .schema(z.object({ email: z.string().email() }))
-  .action(async ({ ctx: { userId }, parsedInput: { email } }) => {
-    if (!isAdmin(userId)) return { error: "Not admin" };
-
+  .action(async ({ parsedInput: { email } }) => {
     try {
       const tokens = await getTokens({ email });
       if (!tokens?.accessToken) return { error: "No access token" };

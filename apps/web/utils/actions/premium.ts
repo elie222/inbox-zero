@@ -13,11 +13,10 @@ import {
   switchPremiumPlan,
   updateSubscriptionItemQuantity,
 } from "@/app/api/lemon-squeezy/api";
-import { isAdmin } from "@/utils/admin";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getVariantId } from "@/app/(app)/premium/config";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 
 export const decrementUnsubscribeCreditAction = actionClient
   .metadata({ name: "decrementUnsubscribeCredit" })
@@ -238,12 +237,11 @@ export const activateLicenseKeyAction = actionClient
     });
   });
 
-export const changePremiumStatusAction = actionClient
+export const changePremiumStatusAction = adminActionClient
   .metadata({ name: "changePremiumStatus" })
   .schema(changePremiumStatusSchema)
   .action(
     async ({
-      ctx: { userId },
       parsedInput: {
         email,
         period,
@@ -253,13 +251,6 @@ export const changePremiumStatusAction = actionClient
         upgrade,
       },
     }) => {
-      const user = await prisma.user.findUnique({
-        where: { id: userId },
-      });
-
-      if (!user) return { error: "User not found" };
-      if (!isAdmin(user.email)) return { error: "Not admin" };
-
       const userToUpgrade = await prisma.user.findUnique({
         where: { email },
         select: { id: true, premiumId: true },
