@@ -67,12 +67,14 @@ import { Tooltip } from "@/components/Tooltip";
 import { createGroupAction } from "@/utils/actions/group";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
-
+import { useAccount } from "@/providers/AccountProvider";
 export function RuleForm({
   rule,
 }: {
   rule: CreateRuleBody & { id?: string };
 }) {
+  const { email } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -128,7 +130,7 @@ export function RuleForm({
             (label) => label.name === action.label,
           );
           if (!hasLabel && action.label?.value && !action.label?.ai) {
-            await createLabelAction({ name: action.label.value });
+            await createLabelAction(email, { name: action.label.value });
           }
         }
       }
@@ -143,12 +145,12 @@ export function RuleForm({
       }
 
       if (data.id) {
-        const res = await updateRuleAction({ ...data, id: data.id });
+        const res = await updateRuleAction(email, { ...data, id: data.id });
 
         if (isActionError(res)) {
           console.error(res);
           toastError({ description: res.error });
-        } else if (!res.rule) {
+        } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error updating the rule.",
           });
@@ -163,12 +165,12 @@ export function RuleForm({
           router.push("/automation?tab=rules");
         }
       } else {
-        const res = await createRuleAction(data);
+        const res = await createRuleAction(email, data);
 
         if (isActionError(res)) {
           console.error(res);
           toastError({ description: res.error });
-        } else if (!res.rule) {
+        } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error creating the rule.",
           });
@@ -180,12 +182,12 @@ export function RuleForm({
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.replace(`/automation/rule/${res.rule.id}`);
+          router.replace(`/automation/rule/${res.data.rule.id}`);
           router.push("/automation?tab=rules");
         }
       }
     },
-    [userLabels, router, posthog],
+    [userLabels, router, posthog, email],
   );
 
   const conditions = watch("conditions");
@@ -315,17 +317,19 @@ export function RuleForm({
                 onClick={async () => {
                   if (!rule.id) return;
 
-                  const result = await createGroupAction({ ruleId: rule.id });
+                  const result = await createGroupAction(email, {
+                    ruleId: rule.id,
+                  });
 
                   if (isActionError(result)) {
                     toastError({ description: result.error });
-                  } else if (!result.groupId) {
+                  } else if (!result?.data?.groupId) {
                     toastError({
                       description:
                         "There was an error setting up learned patterns.",
                     });
                   } else {
-                    setLearnedPatternGroupId(result.groupId);
+                    setLearnedPatternGroupId(result.data.groupId);
                   }
                 }}
               >
@@ -662,6 +666,7 @@ export function RuleForm({
                         userLabels={userLabels}
                         isLoading={isLoading}
                         mutate={mutate}
+                        userEmail={email}
                       />
                     );
                   })}
@@ -751,12 +756,14 @@ function LabelCombobox({
   userLabels,
   isLoading,
   mutate,
+  userEmail,
 }: {
   value: string;
   onChangeValue: (value: string) => void;
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
   mutate: () => void;
+  userEmail: string;
 }) {
   const [search, setSearch] = useState("");
 
@@ -781,7 +788,9 @@ function LabelCombobox({
               onClick={() => {
                 toast.promise(
                   async () => {
-                    const res = await createLabelAction({ name: search });
+                    const res = await createLabelAction(userEmail, {
+                      name: search,
+                    });
                     mutate();
                     if (isActionError(res)) throw new Error(res.error);
                   },
@@ -830,6 +839,7 @@ function ActionField({
   userLabels,
   isLoading,
   mutate,
+  userEmail,
 }: {
   field: {
     name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
@@ -847,6 +857,7 @@ function ActionField({
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
   mutate: () => void;
+  userEmail: string;
 }) {
   // Get the typed field value safely
   const getFieldValue = (fieldName: string): string => {
@@ -896,6 +907,7 @@ function ActionField({
             onChangeValue={(newValue: string) => {
               setValue(`actions.${i}.${field.name}.value`, newValue);
             }}
+            userEmail={userEmail}
           />
         </div>
       ) : isDraftContent && !setManually ? (
