@@ -63,7 +63,7 @@ export const AdminUserControls = () => {
             handleActionResult(
               result,
               `Checked permissions for ${email}. ${
-                result?.hasAllPermissions
+                result?.data?.hasAllPermissions
                   ? "Has all permissions"
                   : "Missing permissions"
               }`,
@@ -79,7 +79,7 @@ export const AdminUserControls = () => {
           onClick={async () => {
             setIsDeleting(true);
             const email = getValues("email");
-            const result = await adminDeleteAccountAction(email);
+            const result = await adminDeleteAccountAction({ email });
             handleActionResult(result, "Deleted user");
             setIsDeleting(false);
           }}
