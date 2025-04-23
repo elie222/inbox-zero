@@ -177,7 +177,7 @@ export function Rules() {
                                 );
                                 if (yes) {
                                   const result = await deleteRuleAction({
-                                    ruleId: rule.id,
+                                    id: rule.id,
                                   });
 
                                   if (isActionError(result)) {

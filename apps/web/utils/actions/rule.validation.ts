@@ -137,6 +137,8 @@ export type CreateRuleBody = z.infer<typeof createRuleBody>;
 export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
 
+export const deleteRuleBody = z.object({ id: z.string() });
+
 export const updateRuleInstructionsBody = z.object({
   id: z.string(),
   instructions: z.string(),
