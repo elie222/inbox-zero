@@ -37,7 +37,6 @@ export function processSWRResponse<
      } as SWRResponse<TData | null, NormalizedError>;
   }
 
-
   // Handle API error returned within data
   if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
     return {

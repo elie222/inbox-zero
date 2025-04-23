@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export type UserResponse = Awaited<ReturnType<typeof getUser>>;
+export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
 async function getUser({ email }: { email: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
@@ -44,8 +45,11 @@ async function getUser({ email }: { email: string }) {
   return emailAccount;
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+// Intentionally not using withAuth because we want to return null if the user is not authenticated
+export const GET = withError(async () => {
+  const session = await auth();
+  const email = session?.user.email;
+  if (!email) return NextResponse.json(null);
 
   const user = await getUser({ email });
 
