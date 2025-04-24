@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
 import { CategoriesSetup } from "./CategoriesSetup";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import {
   ActionType,
@@ -10,12 +9,12 @@ import {
 } from "@prisma/client";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
 
-export default async function OnboardingPage() {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return <div>Not authenticated</div>;
-
-  const defaultValues = await getUserPreferences({ email });
+export default async function OnboardingPage({
+  params,
+}: {
+  params: { account: string };
+}) {
+  const defaultValues = await getUserPreferences({ accountId: params.account });
 
   return (
     <Card className="my-4 w-full max-w-2xl p-6 sm:mx-4 md:mx-auto">
@@ -39,12 +38,12 @@ type UserPreferences = Prisma.EmailAccountGetPayload<{
 }>;
 
 async function getUserPreferences({
-  email,
+  accountId,
 }: {
-  email: string;
+  accountId: string;
 }) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { accountId },
     select: {
       rules: {
         select: {

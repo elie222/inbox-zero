@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
 export type GroupRulesResponse = Awaited<ReturnType<typeof getGroupRules>>;
@@ -29,15 +28,13 @@ async function getGroupRules({
   return { rule: groupWithRules.rule };
 }
 
-export const GET = withError(async (_request: Request, { params }) => {
-  const session = await auth();
-  const emailAccountId = session?.user.email;
-  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request, { params }) => {
+  const email = request.auth.userEmail;
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Group id required" });
 
-  const result = await getGroupRules({ emailAccountId, groupId });
+  const result = await getGroupRules({ emailAccountId: email, groupId });
 
   return NextResponse.json(result);
 });

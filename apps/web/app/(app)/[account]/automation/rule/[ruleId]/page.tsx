@@ -1,23 +1,18 @@
-import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { RuleForm } from "@/app/(app)/[account]/automation/RuleForm";
 import { TopSection } from "@/components/TopSection";
 import { hasVariables } from "@/utils/template";
 import { getConditions } from "@/utils/condition";
 
 export default async function RulePage(props: {
-  params: Promise<{ ruleId: string }>;
+  params: Promise<{ ruleId: string; account: string }>;
   searchParams: Promise<{ new: string }>;
 }) {
   const searchParams = await props.searchParams;
   const params = await props.params;
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) redirect("/login");
 
   const rule = await prisma.rule.findUnique({
-    where: { id: params.ruleId, emailAccountId: email },
+    where: { id: params.ruleId, emailAccount: { accountId: params.account } },
     include: {
       actions: true,
       categoryFilters: true,
