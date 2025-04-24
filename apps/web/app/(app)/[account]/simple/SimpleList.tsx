@@ -45,13 +45,14 @@ import {
 } from "@/utils/parse/parseHtml.client";
 import { ViewMoreButton } from "@/app/(app)/[account]/simple/ViewMoreButton";
 import { HtmlEmail } from "@/components/email-list/EmailContents";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
   nextPageToken?: string | null;
-  userEmail: string;
   type: string;
 }) {
+  const { email } = useAccount();
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
@@ -84,7 +85,7 @@ export function SimpleList(props: {
             <SimpleListRow
               key={message.id}
               message={message}
-              userEmail={props.userEmail}
+              userEmail={email}
               toHandleLater={toHandleLater}
               onSetToHandleLater={onSetToHandleLater}
               handleUnsubscribe={() => handleUnsubscribe(message.id)}

@@ -12,7 +12,7 @@ import {
 import {
   ApiKeysCreateButtonModal,
   ApiKeysDeactivateButton,
-} from "@/app/(app)/settings/ApiKeysCreateForm";
+} from "@/app/(app)/[account]/settings/ApiKeysCreateForm";
 import { Card } from "@/components/ui/card";
 
 export async function ApiKeysSection() {

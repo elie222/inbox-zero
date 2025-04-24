@@ -4,13 +4,13 @@ import { ActionSelectionStep } from "@/app/(app)/[account]/clean/ActionSelection
 import { CleanInstructionsStep } from "@/app/(app)/[account]/clean/CleanInstructionsStep";
 import { TimeRangeStep } from "@/app/(app)/[account]/clean/TimeRangeStep";
 import { ConfirmationStep } from "@/app/(app)/[account]/clean/ConfirmationStep";
-import { getGmailClient } from "@/utils/gmail/client";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/[account]/clean/types";
 import { CleanAction } from "@prisma/client";
+import { getGmailClientForAccountId } from "@/utils/account";
 
 export default async function CleanPage(props: {
+  params: Promise<{ account: string }>;
   searchParams: Promise<{
     step: string;
     action?: CleanAction;
@@ -23,10 +23,10 @@ export default async function CleanPage(props: {
     skipAttachment?: string;
   }>;
 }) {
-  const session = await auth();
-  if (!session?.user.email) return <div>Not authenticated</div>;
+  const params = await props.params;
+  const accountId = params.account;
 
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForAccountId({ accountId });
   const { unhandledCount } = await getUnhandledCount(gmail);
 
   const searchParams = await props.searchParams;

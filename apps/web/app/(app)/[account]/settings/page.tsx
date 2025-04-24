@@ -1,24 +1,23 @@
 import { FormWrapper } from "@/components/Form";
-import { AboutSection } from "@/app/(app)/settings/AboutSection";
+import { AboutSection } from "@/app/(app)/[account]/settings/AboutSection";
 // import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
 // import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
-import { DeleteSection } from "@/app/(app)/settings/DeleteSection";
-import { ModelSection } from "@/app/(app)/settings/ModelSection";
-import { EmailUpdatesSection } from "@/app/(app)/settings/EmailUpdatesSection";
-import { MultiAccountSection } from "@/app/(app)/settings/MultiAccountSection";
-import { ApiKeysSection } from "@/app/(app)/settings/ApiKeysSection";
-import { WebhookSection } from "@/app/(app)/settings/WebhookSection";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { DeleteSection } from "@/app/(app)/[account]/settings/DeleteSection";
+import { ModelSection } from "@/app/(app)/[account]/settings/ModelSection";
+import { EmailUpdatesSection } from "@/app/(app)/[account]/settings/EmailUpdatesSection";
+import { MultiAccountSection } from "@/app/(app)/[account]/settings/MultiAccountSection";
+import { ApiKeysSection } from "@/app/(app)/[account]/settings/ApiKeysSection";
+import { WebhookSection } from "@/app/(app)/[account]/settings/WebhookSection";
 import prisma from "@/utils/prisma";
-import { NotLoggedIn } from "@/components/ErrorDisplay";
 
-export default async function SettingsPage() {
-  const session = await auth();
-
-  if (!session?.user.email) return <NotLoggedIn />;
+export default async function SettingsPage(props: {
+  params: Promise<{ account: string }>;
+}) {
+  const params = await props.params;
+  const accountId = params.account;
 
   const user = await prisma.emailAccount.findUnique({
-    where: { email: session.user.email },
+    where: { accountId },
     select: {
       about: true,
       signature: true,
@@ -27,7 +26,7 @@ export default async function SettingsPage() {
     },
   });
 
-  if (!user) return <NotLoggedIn />;
+  if (!user) return <p>Email account not found</p>;
 
   return (
     <FormWrapper>

@@ -5,28 +5,27 @@ import {
   simpleEmailCategories,
   simpleEmailCategoriesArray,
 } from "@/app/(app)/[account]/simple/categories";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PageHeading } from "@/components/Typography";
-import { getGmailClient } from "@/utils/gmail/client";
 import { parseMessage } from "@/utils/mail";
 import { SimpleModeOnboarding } from "@/app/(app)/[account]/simple/SimpleModeOnboarding";
 import { ClientOnly } from "@/components/ClientOnly";
 import { getMessage, getMessages } from "@/utils/gmail/message";
+import { getGmailClientForAccountId } from "@/utils/account";
 
 export const dynamic = "force-dynamic";
 
 export default async function SimplePage(props: {
+  params: Promise<{ account: string }>;
   searchParams: Promise<{ pageToken?: string; type?: string }>;
 }) {
+  const params = await props.params;
+  const accountId = params.account;
+
   const searchParams = await props.searchParams;
 
   const { pageToken, type = "IMPORTANT" } = searchParams;
 
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new Error("Not authenticated");
-
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForAccountId({ accountId });
 
   const categoryTitle = simpleEmailCategories.get(type);
 
@@ -68,7 +67,6 @@ export default async function SimplePage(props: {
         <SimpleList
           messages={messages}
           nextPageToken={response.nextPageToken}
-          userEmail={email}
           type={type}
         />
         <ClientOnly>

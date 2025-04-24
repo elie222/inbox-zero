@@ -1,7 +1,7 @@
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { Card } from "@/components/ui/card";
 import { CopyInput } from "@/components/CopyInput";
-import { RegenerateSecretButton } from "@/app/(app)/settings/WebhookGenerate";
+import { RegenerateSecretButton } from "@/app/(app)/[account]/settings/WebhookGenerate";
 
 export async function WebhookSection({
   webhookSecret,

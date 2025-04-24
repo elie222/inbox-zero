@@ -1,34 +1,43 @@
 import { getThreadsByJobId } from "@/utils/redis/clean";
 import prisma from "@/utils/prisma";
 import { CardTitle } from "@/components/ui/card";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getJobById, getLastJob } from "@/app/(app)/[account]/clean/helpers";
 import { CleanRun } from "@/app/(app)/[account]/clean/CleanRun";
 
 export default async function CleanRunPage(props: {
+  params: Promise<{ account: string }>;
   searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
 }) {
+  const params = await props.params;
+  const accountId = params.account;
+
   const searchParams = await props.searchParams;
 
   const { jobId, isPreviewBatch } = searchParams;
 
-  const session = await auth();
-  if (!session?.user.email) return <div>Not authenticated</div>;
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { accountId },
+    select: { email: true },
+  });
 
-  const userEmail = session.user.email;
+  if (!emailAccount) return <CardTitle>Email account not found</CardTitle>;
 
-  const threads = await getThreadsByJobId({ emailAccountId: userEmail, jobId });
+  const email = emailAccount.email;
+
+  const threads = await getThreadsByJobId({ emailAccountId: email, jobId });
 
   const job = jobId
-    ? await getJobById({ email: userEmail, jobId })
-    : await getLastJob({ email: userEmail });
+    ? await getJobById({ email, jobId })
+    : await getLastJob({ email });
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
   const [total, done] = await Promise.all([
-    prisma.cleanupThread.count({ where: { jobId, emailAccountId: userEmail } }),
     prisma.cleanupThread.count({
-      where: { jobId, emailAccountId: userEmail, archived: true },
+      where: { jobId, emailAccountId: email },
+    }),
+    prisma.cleanupThread.count({
+      where: { jobId, emailAccountId: email, archived: true },
     }),
   ]);
 
@@ -39,7 +48,7 @@ export default async function CleanRunPage(props: {
       threads={threads}
       total={total}
       done={done}
-      userEmail={userEmail}
+      userEmail={email}
     />
   );
 }

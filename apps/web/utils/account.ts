@@ -20,3 +20,22 @@ export async function getGmailClientForEmail({ email }: { email: string }) {
   const gmail = getGmailClient(tokens);
   return gmail;
 }
+
+export async function getGmailClientForAccountId({
+  accountId,
+}: {
+  accountId: string;
+}) {
+  const account = await prisma.account.findUnique({
+    where: { id: accountId },
+    select: {
+      access_token: true,
+      refresh_token: true,
+    },
+  });
+  const gmail = getGmailClient({
+    accessToken: account?.access_token ?? undefined,
+    refreshToken: account?.refresh_token ?? undefined,
+  });
+  return gmail;
+}
