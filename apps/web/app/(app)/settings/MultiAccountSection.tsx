@@ -24,11 +24,11 @@ import {
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
-import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
+import { pricingAdditonalEmail } from "@/app/(app)/[account]/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { env } from "@/env";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
-import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
+import { usePremiumModal } from "@/app/(app)/[account]/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";
 import { toastError, toastSuccess } from "@/components/Toast";
 

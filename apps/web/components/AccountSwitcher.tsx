@@ -24,6 +24,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/AccountProvider";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -39,9 +40,26 @@ export function AccountSwitcherInternal({
   const { isMobile } = useSidebar();
   const { symbol: modifierSymbol } = useModifierKey();
 
-  const { account: activeAccount, isLoading, setAccountId } = useAccount();
+  const { account: activeAccount, isLoading } = useAccount();
 
-  useAccountHotkeys(accounts, setAccountId);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const getHref = useCallback(
+    (accountId: string) => {
+      if (!activeAccount?.accountId) return `/${accountId}`;
+
+      const basePath = pathname.split("?")[0] || "/";
+      const newBasePath = basePath.replace(activeAccount.accountId, accountId);
+
+      const tab = searchParams.get("tab");
+
+      return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
+    },
+    [pathname, activeAccount?.accountId, searchParams],
+  );
+
+  useAccountHotkeys(accounts, getHref);
 
   if (isLoading) return null;
   if (!activeAccount) return null;
@@ -76,18 +94,16 @@ export function AccountSwitcherInternal({
               Accounts
             </DropdownMenuLabel>
             {accounts.map((account, index) => (
-              <DropdownMenuItem
-                key={account.accountId}
-                onClick={() => setAccountId(account.accountId)}
-                className="gap-2 p-2"
-              >
-                <ProfileImage image={account.user.image} />
-                <span className="truncate">{account.user.name}</span>
-                <DropdownMenuShortcut>
-                  {modifierSymbol}
-                  {index + 1}
-                </DropdownMenuShortcut>
-              </DropdownMenuItem>
+              <Link href={getHref(account.accountId)} key={account.accountId}>
+                <DropdownMenuItem key={account.accountId} className="gap-2 p-2">
+                  <ProfileImage image={account.user.image} />
+                  <span className="truncate">{account.user.name}</span>
+                  <DropdownMenuShortcut>
+                    {modifierSymbol}
+                    {index + 1}
+                  </DropdownMenuShortcut>
+                </DropdownMenuItem>
+              </Link>
             ))}
             <DropdownMenuSeparator />
             <Link href="/add-account">
@@ -126,8 +142,9 @@ function ProfileImage({
 
 function useAccountHotkeys(
   accounts: GetAccountsResponse["accounts"],
-  setAccountId: (accountId: string) => void,
+  getHref: (accountId: string) => string,
 ) {
+  const router = useRouter();
   const { isMac } = useModifierKey();
   const modifierKey = isMac ? "meta" : "ctrl";
 
@@ -148,12 +165,12 @@ function useAccountHotkeys(
       ) {
         const accountIndex = pressedDigit - 1;
         if (accounts[accountIndex]) {
-          setAccountId(accounts[accountIndex].accountId);
+          router.push(getHref(accounts[accountIndex].accountId));
           event.preventDefault(); // Prevent browser default behavior
         }
       }
     },
-    [accounts, setAccountId],
+    [accounts, getHref, router],
   );
 
   useHotkeys(

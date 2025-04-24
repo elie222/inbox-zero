@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
-import { Pricing } from "@/app/(app)/premium/Pricing";
+import { Pricing } from "@/app/(app)/[account]/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { FeaturesStats } from "@/app/(landing)/home/Features";

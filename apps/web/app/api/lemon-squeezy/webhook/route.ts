@@ -18,7 +18,7 @@ import {
   upgradedToPremium,
 } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
-import { getSubscriptionTier } from "@/app/(app)/premium/config";
+import { getSubscriptionTier } from "@/app/(app)/[account]/premium/config";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("Lemon Squeezy Webhook");

@@ -8,13 +8,13 @@ import {
 import { Tooltip } from "@/components/Tooltip";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
-import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
+import { ComposeEmailFormLazy } from "@/app/(app)/[account]/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
-import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
+import type { ReplyingToEmail } from "@/app/(app)/[account]/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";

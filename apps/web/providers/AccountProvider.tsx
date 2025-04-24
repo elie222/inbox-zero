@@ -1,25 +1,25 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
-import { useQueryState } from "nuqs";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 import type { GetAccountsResponse } from "@/app/api/user/accounts/route";
 
 type Account = GetAccountsResponse["accounts"][number];
 
-type AccountContext = {
+type Context = {
   account: Account | undefined;
   email: string;
   isLoading: boolean;
-  setAccountId: (newId: string) => Promise<URLSearchParams>;
 };
 
-const AccountContext = createContext<AccountContext | undefined>(undefined);
+const AccountContext = createContext<Context | undefined>(undefined);
 
 export function AccountProvider({ children }: { children: React.ReactNode }) {
+  const params = useParams<{ account: string | undefined }>();
+  // TODO: throw an error if account is not defined?
+  const accountId = params.account;
   const [data, setData] = useState<GetAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [accountId, setAccountId] = useQueryState("accountId");
-  const [account, setAccount] = useState<Account | undefined>(undefined);
 
   useEffect(() => {
     async function fetchAccounts() {
@@ -41,19 +41,19 @@ export function AccountProvider({ children }: { children: React.ReactNode }) {
     fetchAccounts();
   }, []);
 
-  useEffect(() => {
+  const account = useMemo(() => {
     if (data?.accounts) {
       const currentAccount =
         data.accounts.find((acc) => acc.accountId === accountId) ??
         data.accounts[0];
 
-      setAccount(currentAccount);
+      return currentAccount;
     }
   }, [data, accountId]);
 
   return (
     <AccountContext.Provider
-      value={{ account, isLoading, setAccountId, email: account?.email || "" }}
+      value={{ account, isLoading, email: account?.email || "" }}
     >
       {children}
     </AccountContext.Provider>

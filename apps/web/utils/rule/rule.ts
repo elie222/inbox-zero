@@ -9,7 +9,7 @@ import {
 } from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
-import { hasExampleParams } from "@/app/(app)/automation/examples";
+import { hasExampleParams } from "@/app/(app)/[account]/automation/examples";
 
 const logger = createScopedLogger("rule");
 

@@ -4,7 +4,7 @@ import { HeroHome } from "@/app/(landing)/home/Hero";
 import { FeaturesHome } from "@/app/(landing)/home/Features";
 import { Privacy } from "@/app/(landing)/home/Privacy";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
-import { Pricing } from "@/app/(app)/premium/Pricing";
+import { Pricing } from "@/app/(app)/[account]/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";
