@@ -39,7 +39,6 @@ Guidelines for implementing backend logic, APIs, and data persistence.
 
 | Rule File                          | Description                                                 |
 | :--------------------------------- | :---------------------------------------------------------- |
-| @api-routes.mdc                    | Guidelines for implementing Next.js API routes (general)    |
 | @get-api-route.mdc                 | Guidelines for implementing GET API routes in Next.js       |
 | @server-actions.mdc                | Guidelines for implementing Next.js server actions          |
 | @prisma.mdc                        | How to use Prisma                                           |
