@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
+import { getTokens } from "@/utils/account";
+import { getGmailAccessToken } from "@/utils/gmail/client";
 
 const requestSchema = z.object({
   threadIds: z.array(z.string()),
@@ -13,10 +14,8 @@ export type ThreadsBatchResponse = Awaited<
   ReturnType<typeof getThreadsBatchAndParse>
 >;
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const { searchParams } = new URL(request.url);
   const { threadIds, includeDrafts } = requestSchema.parse({
@@ -28,8 +27,12 @@ export const GET = withError(async (request) => {
     return NextResponse.json({ threads: [] } satisfies ThreadsBatchResponse);
   }
 
-  const accessToken = session.accessToken;
-  if (!accessToken)
+  const tokens = await getTokens({ email });
+  if (!tokens) return NextResponse.json({ error: "Account not found" });
+
+  const token = await getGmailAccessToken(tokens);
+
+  if (!token.token)
     return NextResponse.json(
       { error: "Missing access token" },
       { status: 401 },
@@ -37,7 +40,7 @@ export const GET = withError(async (request) => {
 
   const response = await getThreadsBatchAndParse(
     threadIds,
-    accessToken,
+    token.token,
     includeDrafts,
   );
 

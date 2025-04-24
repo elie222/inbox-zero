@@ -1,6 +1,5 @@
 import { parseMessages } from "@/utils/mail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
+import type { gmail_v1 } from "@googleapis/gmail";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
@@ -16,15 +15,17 @@ import { SafeError } from "@/utils/error";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
-export async function getThreads(query: ThreadsQuery) {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new SafeError("Not authenticated");
-
-  const gmail = getGmailClient(session);
-  const token = await getGmailAccessToken(session);
-  const accessToken = token?.token;
-
+export async function getThreads({
+  query,
+  gmail,
+  accessToken,
+  email,
+}: {
+  query: ThreadsQuery;
+  gmail: gmail_v1.Gmail;
+  accessToken: string;
+  email: string;
+}) {
   if (!accessToken) throw new SafeError("Missing access token");
 
   function getQuery() {

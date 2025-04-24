@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 
 export type GroupItemsResponse = Awaited<ReturnType<typeof getGroupItems>>;
 
@@ -24,10 +23,8 @@ async function getGroupItems({
   return { group };
 }
 
-export const GET = withError(async (_request: Request, { params }) => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request, { params }) => {
+  const email = request.auth.userEmail;
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Group id required" });

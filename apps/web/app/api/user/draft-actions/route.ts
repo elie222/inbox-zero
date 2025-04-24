@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { ActionType } from "@prisma/client";
 
 export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email)
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const response = await getData({ email });
 

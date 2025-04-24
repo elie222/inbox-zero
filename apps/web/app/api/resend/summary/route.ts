@@ -2,13 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import subHours from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
-import { withError } from "@/utils/middleware";
+import { withAuth, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
@@ -246,12 +245,9 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   return { success: true };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-
+export const GET = withAuth(async (request) => {
   // send to self
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+  const email = request.auth.userEmail;
 
   logger.info("Sending summary email to user GET", { email });
 
