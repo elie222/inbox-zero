@@ -13,7 +13,6 @@ import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { isActionError } from "@/utils/error";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/Input";
@@ -25,7 +24,6 @@ import { SectionHeader } from "@/components/Typography";
 import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { handleActionCall } from "@/utils/server-action";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { AutomationOnboarding } from "@/app/(app)/automation/AutomationOnboarding";
 import { examplePrompts, personas } from "@/app/(app)/automation/examples";
@@ -33,6 +31,7 @@ import { PersonaDialog } from "@/app/(app)/automation/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/automation/ProcessingPromptFileDialog";
 import { AlertBasic } from "@/components/Alert";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -86,6 +85,7 @@ function RulesPromptForm({
   mutate: () => void;
   onOpenPersonaDialog: () => void;
 }) {
+  const { email } = useAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -135,13 +135,11 @@ function RulesPromptForm({
 
       const saveRulesPromise = async (data: SaveRulesPromptBody) => {
         setIsSubmitting(true);
-        const result = await handleActionCall("saveRulesPromptAction", () =>
-          saveRulesPromptAction(data),
-        );
+        const result = await saveRulesPromptAction(email, data);
 
-        if (isActionError(result)) {
+        if (result?.serverError) {
           setIsSubmitting(false);
-          throw new Error(result.error);
+          throw new Error(result.serverError);
         }
 
         if (viewedProcessingPromptFileDialog) {
@@ -162,8 +160,12 @@ function RulesPromptForm({
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
-          setResult(result);
-          const { createdRules, editedRules, removedRules } = result || {};
+          const {
+            createdRules = 0,
+            editedRules = 0,
+            removedRules = 0,
+          } = result?.data || {};
+          setResult({ createdRules, editedRules, removedRules });
 
           const message = [
             createdRules ? `${createdRules} rules created.` : "",
@@ -180,7 +182,7 @@ function RulesPromptForm({
         },
       });
     },
-    [mutate, router, viewedProcessingPromptFileDialog],
+    [mutate, router, viewedProcessingPromptFileDialog, email],
   );
 
   const addExamplePrompt = useCallback(
@@ -272,21 +274,24 @@ Let me know if you're interested!
                         toast.promise(
                           async () => {
                             setIsGenerating(true);
-                            const result = await handleActionCall(
-                              "generateRulesPromptAction",
-                              generateRulesPromptAction,
+                            const result = await generateRulesPromptAction(
+                              email,
+                              {},
                             );
 
-                            if (isActionError(result)) {
+                            if (result?.serverError) {
                               setIsGenerating(false);
-                              throw new Error(result.error);
+                              throw new Error(result.serverError);
                             }
 
                             const currentPrompt = getValues("rulesPrompt");
                             const updatedPrompt = currentPrompt
-                              ? `${currentPrompt}\n\n${result.rulesPrompt}`
-                              : result.rulesPrompt;
-                            setValue("rulesPrompt", updatedPrompt.trim());
+                              ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
+                              : result?.data?.rulesPrompt;
+                            setValue(
+                              "rulesPrompt",
+                              updatedPrompt?.trim() || "",
+                            );
 
                             setIsGenerating(false);
 

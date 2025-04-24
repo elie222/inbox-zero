@@ -1,7 +1,4 @@
-import {
-  createSafeActionClient,
-  DEFAULT_SERVER_ERROR_MESSAGE,
-} from "next-safe-action";
+import { createSafeActionClient } from "next-safe-action";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { z } from "zod";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
@@ -18,24 +15,28 @@ const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
   },
-  handleServerError(e) {
-    if (e instanceof SafeError) return e.message;
-
-    return DEFAULT_SERVER_ERROR_MESSAGE;
+  handleServerError(error) {
+    logger.error("Server action error:", { error });
+    if (error instanceof SafeError) return error.message;
+    return "An unknown error occurred.";
   },
 }).use(async ({ next, metadata }) => {
   logger.info("Calling action", { name: metadata?.name });
   return next();
 });
+// .schema(z.object({}), {
+//   handleValidationErrorsShape: async (ve) =>
+//     flattenValidationErrors(ve).fieldErrors,
+// });
 
 export const actionClient = baseClient
   .bindArgsSchemas<[activeEmail: z.ZodString]>([z.string()])
   .use(async ({ next, metadata, bindArgsClientInputs }) => {
     const session = await auth();
 
-    if (!session?.user) throw new Error("Unauthorized");
+    if (!session?.user) throw new SafeError("Unauthorized");
     const userEmail = session.user.email;
-    if (!userEmail) throw new Error("Unauthorized");
+    if (!userEmail) throw new SafeError("Unauthorized");
 
     const userId = session.user.id;
     const email = bindArgsClientInputs[0] as string;
@@ -47,7 +48,7 @@ export const actionClient = baseClient
         })
       : null;
     if (email && emailAccount?.userId !== userId)
-      throw new Error("Unauthorized");
+      throw new SafeError("Unauthorized");
 
     return withServerActionInstrumentation(metadata?.name, async () => {
       return next({
@@ -66,9 +67,9 @@ export const actionClient = baseClient
 export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();
 
-  if (!session?.user) throw new Error("Unauthorized");
+  if (!session?.user) throw new SafeError("Unauthorized");
   const userEmail = session.user.email;
-  if (!userEmail) throw new Error("Unauthorized");
+  if (!userEmail) throw new SafeError("Unauthorized");
 
   const userId = session.user.id;
 
@@ -81,8 +82,9 @@ export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
 
 export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();
-  if (!session?.user) throw new Error("Unauthorized");
-  if (!isAdmin({ email: session.user.email })) throw new Error("Unauthorized");
+  if (!session?.user) throw new SafeError("Unauthorized");
+  if (!isAdmin({ email: session.user.email }))
+    throw new SafeError("Unauthorized");
 
   return withServerActionInstrumentation(metadata?.name, async () => {
     return next({ ctx: {} });
