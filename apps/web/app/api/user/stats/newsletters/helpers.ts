@@ -1,18 +1,11 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { extractEmailAddress } from "@/utils/email";
-import { getGmailClient } from "@/utils/gmail/client";
 import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 import { GmailLabel } from "@/utils/gmail/label";
-import { SafeError } from "@/utils/error";
 
-export async function getAutoArchiveFilters() {
-  const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not logged in");
-  const gmail = getGmailClient(session);
-
+export async function getAutoArchiveFilters(gmail: gmail_v1.Gmail) {
   const filters = await getFiltersList({ gmail });
   const autoArchiveFilters = filters.data.filter?.filter(isAutoArchiveFilter);
 

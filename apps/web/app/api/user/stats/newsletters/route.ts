@@ -10,6 +10,7 @@ import {
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
+import { getGmailClientForEmail } from "@/utils/account";
 
 // not sure why this is slow sometimes
 export const maxDuration = 30;
@@ -71,13 +72,15 @@ async function getNewslettersTinybird(
   const emailAccountId = options.emailAccountId;
   const types = getTypeFilters(options.types);
 
+  const gmail = await getGmailClientForEmail({ email: emailAccountId });
+
   const [newsletterCounts, autoArchiveFilters, userNewsletters] =
     await Promise.all([
       getNewsletterCounts({
         ...options,
         ...types,
       }),
-      getAutoArchiveFilters(),
+      getAutoArchiveFilters(gmail),
       findNewsletterStatus({ emailAccountId }),
     ]);
 

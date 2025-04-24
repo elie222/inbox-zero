@@ -3,8 +3,7 @@ import format from "date-fns/format";
 import { z } from "zod";
 import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -139,10 +138,8 @@ async function getStatsByPeriod(
   };
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const { searchParams } = new URL(request.url);
   const params = statsByWeekParams.parse({
@@ -152,7 +149,7 @@ export const GET = withError(async (request) => {
   });
 
   const result = await getStatsByPeriod({
-    ownerEmail: session.user.email,
+    ownerEmail: email,
     ...params,
   });
 

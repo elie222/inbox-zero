@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
 
 const senderStatsQuery = z.object({
@@ -80,10 +79,8 @@ async function getDomainsMostReceivedFrom({
   });
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const email = request.auth.userEmail;
 
   const { searchParams } = new URL(request.url);
   const query = senderStatsQuery.parse({
@@ -93,7 +90,7 @@ export const GET = withError(async (request) => {
 
   const result = await getSenderStatistics({
     ...query,
-    emailAccountId: session.user.email,
+    emailAccountId: email,
   });
 
   return NextResponse.json(result);
