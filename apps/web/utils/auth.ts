@@ -27,7 +27,7 @@ export const SCOPES = [
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthConfig = (options) => ({
-  // debug: true,
+  debug: false,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
@@ -46,17 +46,17 @@ export const getAuthOptions: (options?: {
       },
     }),
   ],
-  logger: {
-    error: (error) => {
-      logger.error(error.message, { error });
-    },
-    warn: (message) => {
-      logger.warn(message);
-    },
-    debug: (message, metadata) => {
-      logger.info(message, { metadata });
-    },
-  },
+  // logger: {
+  //   error: (error) => {
+  //     logger.error(error.message, { error });
+  //   },
+  //   warn: (message) => {
+  //     logger.warn(message);
+  //   },
+  //   debug: (message, metadata) => {
+  //     logger.info(message, { metadata });
+  //   },
+  // },
   adapter: {
     ...PrismaAdapter(prisma),
     linkAccount: async (data: AdapterAccount): Promise<void> => {

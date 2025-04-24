@@ -21,6 +21,7 @@ export function AssessUser() {
     analyzeWritingStyleAction.bind(null, email),
   );
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: only run once
   useEffect(() => {
     async function assess() {
       const result = await executeAssessAsync();
@@ -32,11 +33,7 @@ export function AssessUser() {
 
     assess();
     executeAnalyzeWritingStyle();
-  }, [
-    executeAssessAsync,
-    executeWhitelistInboxZero,
-    executeAnalyzeWritingStyle,
-  ]);
+  }, []);
 
   return null;
 }
