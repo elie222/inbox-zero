@@ -38,17 +38,10 @@ import {
   type DeactivateApiKeyBody,
 } from "@/utils/actions/api-key.validation";
 
+// TODO: use next-safe-action
 export const deactivateApiKeyAction = withActionInstrumentation(
   "deactivateApiKey",
   async (unsafeData: DeactivateApiKeyBody) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
-
-    const { data, success, error } =
-      deactivateApiKeyBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
-
     await prisma.apiKey.update({
       where: { id: data.id, userId },
       data: { isActive: false },

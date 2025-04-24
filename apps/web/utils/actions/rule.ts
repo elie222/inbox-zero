@@ -114,12 +114,12 @@ export const createRuleAction = actionClient
         return { rule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
-          return { error: "Rule name already exists" };
+          throw new SafeError("Rule name already exists");
         }
         if (isDuplicateError(error, "groupId")) {
-          return {
-            error: "Group already has a rule. Please use the existing rule.",
-          };
+          throw new SafeError(
+            "Group already has a rule. Please use the existing rule.",
+          );
         }
 
         logger.error("Error creating rule", { error });

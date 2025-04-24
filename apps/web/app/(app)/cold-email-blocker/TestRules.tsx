@@ -10,7 +10,6 @@ import { SparklesIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +21,12 @@ import { CardContent } from "@/components/ui/card";
 import { testColdEmailAction } from "@/utils/actions/cold-email";
 import type { ColdEmailBlockerBody } from "@/utils/actions/cold-email.validation";
 import { useAccount } from "@/providers/AccountProvider";
+
+type ColdEmailBlockerResponse = {
+  isColdEmail: boolean;
+  aiReason?: string | null;
+  reason?: string | null;
+};
 
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -221,14 +226,14 @@ function useColdEmailTest() {
   const testEmail = async (data: ColdEmailBlockerBody) => {
     setTesting(true);
     try {
-      const res = await testColdEmailAction(userEmail, data);
-      if (isActionError(res)) {
+      const result = await testColdEmailAction(userEmail, data);
+      if (result?.serverError) {
         toastError({
           title: "Error checking whether it's a cold email.",
-          description: res.error,
+          description: result.serverError,
         });
-      } else {
-        setResponse(res);
+      } else if (result?.data) {
+        setResponse(result.data);
       }
     } finally {
       setTesting(false);

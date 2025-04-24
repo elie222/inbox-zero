@@ -21,6 +21,7 @@ import {
   adminActionClient,
 } from "@/utils/actions/safe-action";
 import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
+import { SafeError } from "@/utils/error";
 
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
@@ -260,7 +261,7 @@ export const changePremiumStatusAction = adminActionClient
         select: { id: true, premiumId: true },
       });
 
-      if (!userToUpgrade) return { error: "User not found" };
+      if (!userToUpgrade) throw new SafeError("User not found");
 
       let lemonSqueezySubscriptionId: number | null = null;
       let lemonSqueezySubscriptionItemId: number | null = null;
@@ -273,11 +274,12 @@ export const changePremiumStatusAction = adminActionClient
           const lemonCustomer = await getLemonCustomer(
             lemonSqueezyCustomerId.toString(),
           );
-          if (!lemonCustomer.data) return { error: "Lemon customer not found" };
+          if (!lemonCustomer.data)
+            throw new SafeError("Lemon customer not found");
           const subscription = lemonCustomer.data.included?.find(
             (i) => i.type === "subscriptions",
           );
-          if (!subscription) return { error: "Subscription not found" };
+          if (!subscription) throw new SafeError("Subscription not found");
           lemonSqueezySubscriptionId = Number.parseInt(subscription.id);
           const attributes = subscription.attributes as any;
           lemonSqueezyOrderId = Number.parseInt(attributes.order_id);
@@ -325,7 +327,7 @@ export const changePremiumStatusAction = adminActionClient
             expired: true,
           });
         } else {
-          return { error: "User not premium." };
+          throw new SafeError("User not premium.");
         }
       }
     },
@@ -339,9 +341,9 @@ export const claimPremiumAdminAction = actionClientUser
       select: { premium: { select: { id: true, admins: true } } },
     });
 
-    if (!user) return { error: "User not found" };
-    if (!user.premium?.id) return { error: "User does not have a premium" };
-    if (user.premium?.admins.length) return { error: "Already has admin" };
+    if (!user) throw new SafeError("User not found");
+    if (!user.premium?.id) throw new SafeError("User does not have a premium");
+    if (user.premium?.admins.length) throw new SafeError("Already has admin");
 
     await prisma.premium.update({
       where: { id: user.premium.id },

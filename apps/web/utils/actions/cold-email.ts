@@ -17,6 +17,7 @@ import {
 } from "@/utils/actions/cold-email.validation";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
 export const updateColdEmailSettingsAction = actionClient
   .metadata({ name: "updateColdEmailSettings" })
@@ -104,7 +105,7 @@ export const testColdEmailAction = actionClient
         date,
       },
     }) => {
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new SafeError("Email account not found");
 
       const gmail = await getGmailClientForEmail({ email });
 

@@ -20,13 +20,13 @@ import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { env } from "@/env";
 import { extractNameFromEmail } from "@/utils/email";
-import { isActionError } from "@/utils/error";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { sendEmailAction } from "@/utils/actions/mail";
 import type { ContactsResponse } from "@/app/api/google/contacts/route";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import { CommandShortcut } from "@/components/ui/command";
 import { useModifierKey } from "@/hooks/useModifierKey";
+import { useAccount } from "@/providers/AccountProvider";
 
 export type ReplyingToEmail = {
   threadId: string;
@@ -52,6 +52,7 @@ export const ComposeEmailForm = ({
   onSuccess?: (messageId: string, threadId: string) => void;
   onDiscard?: () => void;
 }) => {
+  const { email } = useAccount();
   const [showFullContent, setShowFullContent] = React.useState(false);
   const { symbol } = useModifierKey();
   const formRef = useRef<HTMLFormElement>(null);
@@ -82,14 +83,14 @@ export const ComposeEmailForm = ({
       };
 
       try {
-        const res = await sendEmailAction(enrichedData);
-        if (isActionError(res)) {
+        const res = await sendEmailAction(email, enrichedData);
+        if (res?.serverError) {
           toastError({
             description: "There was an error sending the email :(",
           });
-        } else {
+        } else if (res?.data) {
           toastSuccess({ description: "Email sent!" });
-          onSuccess?.(res.messageId ?? "", res.threadId ?? "");
+          onSuccess?.(res.data.messageId ?? "", res.data.threadId ?? "");
         }
       } catch (error) {
         console.error(error);
@@ -98,7 +99,7 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [refetch, onSuccess, showFullContent, replyingToEmail],
+    [refetch, onSuccess, showFullContent, replyingToEmail, email],
   );
 
   useHotkeys(

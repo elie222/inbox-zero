@@ -65,7 +65,10 @@ export function Uncategorized({
                   return;
                 }
 
-                pushToAiCategorizeSenderQueueAtom(senderAddresses);
+                pushToAiCategorizeSenderQueueAtom({
+                  pushIds: senderAddresses,
+                  email: userEmail,
+                });
               }}
             >
               <SparklesIcon className="mr-2 size-4" />

@@ -13,7 +13,7 @@ import {
   updateCategoryForSender,
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { isActionError, SafeError } from "@/utils/error";
+import { SafeError } from "@/utils/error";
 import {
   deleteEmptyCategorizeSendersQueues,
   publishToAiCategorizeSendersQueue,
@@ -30,8 +30,7 @@ const logger = createScopedLogger("actions/categorize");
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
   .action(async ({ ctx: { email } }) => {
-    const userResult = await validateUserAndAiAccess({ email });
-    if (isActionError(userResult)) return userResult;
+    await validateUserAndAiAccess({ email });
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
@@ -110,7 +109,6 @@ export const categorizeSenderAction = actionClient
       const gmail = await getGmailClientForEmail({ email });
 
       const userResult = await validateUserAndAiAccess({ email });
-      if (isActionError(userResult)) return userResult;
       const { emailAccount } = userResult;
 
       if (!session.accessToken) throw new SafeError("No access token");

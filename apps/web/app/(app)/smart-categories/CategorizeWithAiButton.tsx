@@ -5,19 +5,19 @@ import { SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { bulkCategorizeSendersAction } from "@/utils/actions/categorize";
-import { handleActionCall } from "@/utils/server-action";
-import { isActionError } from "@/utils/error";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import type { ButtonProps } from "@/components/ui/button";
 import { useCategorizeProgress } from "@/app/(app)/smart-categories/CategorizeProgress";
 import { Tooltip } from "@/components/Tooltip";
+import { useAccount } from "@/providers/AccountProvider";
 
 export function CategorizeWithAiButton({
   buttonProps,
 }: {
   buttonProps?: ButtonProps;
 }) {
+  const { email } = useAccount();
   const [isCategorizing, setIsCategorizing] = useState(false);
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();
@@ -40,23 +40,20 @@ export function CategorizeWithAiButton({
               async () => {
                 setIsCategorizing(true);
                 setIsBulkCategorizing(true);
-                const result = await handleActionCall(
-                  "bulkCategorizeSendersAction",
-                  bulkCategorizeSendersAction,
-                );
+                const result = await bulkCategorizeSendersAction(email);
 
-                if (isActionError(result)) {
+                if (result?.serverError) {
                   setIsCategorizing(false);
-                  throw new Error(result.error);
+                  throw new Error(result.serverError);
                 }
 
                 setIsCategorizing(false);
 
-                return result;
+                return result?.data?.totalUncategorizedSenders || 0;
               },
               {
                 loading: "Categorizing senders... This might take a while.",
-                success: ({ totalUncategorizedSenders }) => {
+                success: (totalUncategorizedSenders) => {
                   return totalUncategorizedSenders
                     ? `Categorizing ${totalUncategorizedSenders} senders...`
                     : "There are no more senders to categorize.";

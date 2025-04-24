@@ -8,6 +8,7 @@ import { getSentMessages } from "@/utils/gmail/message";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
@@ -34,7 +35,7 @@ export const assessAction = actionClient
 export const analyzeWritingStyleAction = actionClient
   .metadata({ name: "analyzeWritingStyle" })
   .action(async ({ ctx: { email, emailAccount } }) => {
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 

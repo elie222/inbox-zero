@@ -12,7 +12,7 @@ import { emailToContent, parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined } from "@/utils/types";
-import { isActionError, SafeError } from "@/utils/error";
+import { SafeError } from "@/utils/error";
 import {
   createAutomationBody,
   reportAiMistakeBody,
@@ -481,7 +481,7 @@ export const generateRulesPromptAction = actionClient
   .metadata({ name: "generateRulesPrompt" })
   .schema(z.object({}))
   .action(async ({ ctx: { email, emailAccount } }) => {
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     const gmail = await getGmailClientForEmail({ email });
     const lastSent = await getMessages(gmail, {
@@ -537,7 +537,6 @@ export const generateRulesPromptAction = actionClient
       userLabels: labelsWithCounts.map((label) => label.label),
     });
 
-    if (isActionError(result)) throw new SafeError(result.error);
     if (!result) throw new SafeError("Error generating rules prompt");
 
     return { rulesPrompt: result.join("\n\n") };
@@ -603,7 +602,6 @@ export const reportAiMistakeAction = actionClient
         explanation: explanation?.trim() || undefined,
       });
 
-      if (isActionError(result)) throw new SafeError(result.error);
       if (!result) throw new SafeError("Error fixing rule");
 
       return {

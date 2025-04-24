@@ -6,13 +6,13 @@ import {
   getCategories,
   updateSenderCategory,
 } from "@/utils/categorize/senders/categorize";
-import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("api/user/categorize/senders/batch");
 
@@ -20,9 +20,7 @@ export async function handleBatchRequest(
   request: Request,
 ): Promise<NextResponse> {
   try {
-    const handleBatchResult = await handleBatchInternal(request);
-    if (isActionError(handleBatchResult))
-      return NextResponse.json({ error: handleBatchResult.error });
+    await handleBatchInternal(request);
     return NextResponse.json({ ok: true });
   } catch (error) {
     logger.error("Handle batch request error", { error });
@@ -41,11 +39,9 @@ async function handleBatchInternal(request: Request) {
   logger.trace("Handle batch request", { email, senders: senders.length });
 
   const userResult = await validateUserAndAiAccess({ email });
-  if (isActionError(userResult)) return userResult;
   const { emailAccount } = userResult;
 
   const categoriesResult = await getCategories({ email });
-  if (isActionError(categoriesResult)) return categoriesResult;
   const { categories } = categoriesResult;
 
   const emailAccountWithAccount = await prisma.emailAccount.findUnique({
@@ -64,9 +60,9 @@ async function handleBatchInternal(request: Request) {
 
   const account = emailAccountWithAccount?.account;
 
-  if (!account) return { error: "No account found" };
+  if (!account) throw new SafeError("No account found");
   if (!account.access_token || !account.refresh_token)
-    return { error: "No access or refresh token" };
+    throw new SafeError("No access or refresh token");
 
   const gmail = await getGmailClientWithRefresh(
     {
