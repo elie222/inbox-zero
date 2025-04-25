@@ -12,9 +12,10 @@ import type { CategoryAction } from "@/utils/actions/rule.validation";
 export default async function OnboardingPage({
   params,
 }: {
-  params: { account: string };
+  params: Promise<{ account: string }>;
 }) {
-  const defaultValues = await getUserPreferences({ accountId: params.account });
+  const { account } = await params;
+  const defaultValues = await getUserPreferences({ accountId: account });
 
   return (
     <Card className="my-4 w-full max-w-2xl p-6 sm:mx-4 md:mx-auto">
