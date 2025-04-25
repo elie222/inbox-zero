@@ -13,11 +13,11 @@ import { SafeError } from "@/utils/error";
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
   .metadata({ name: "assessUser" })
-  .action(async ({ ctx: { email } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const emailAccount = await prisma.emailAccount.findUnique({
-      where: { email },
+      where: { id: emailAccountId },
       select: { behaviorProfile: true },
     });
 
@@ -25,7 +25,7 @@ export const assessAction = actionClient
 
     const result = await assessUser({ gmail });
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { behaviorProfile: result },
     });
 
@@ -34,13 +34,25 @@ export const assessAction = actionClient
 
 export const analyzeWritingStyleAction = actionClient
   .metadata({ name: "analyzeWritingStyle" })
-  .action(async ({ ctx: { email, emailAccount } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        writingStyle: true,
+        id: true,
+        userId: true,
+        email: true,
+        about: true,
+        user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+      },
+    });
+
     if (!emailAccount) throw new SafeError("Email account not found");
 
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
     // fetch last 20 sent emails
-    const gmail = await getGmailClientForEmail({ email });
+    const gmail = await getGmailClientForEmail({ emailAccountId });
     const sentMessages = await getSentMessages(gmail, 20);
 
     // analyze writing style
@@ -48,7 +60,7 @@ export const analyzeWritingStyleAction = actionClient
       emails: sentMessages.map((email) =>
         getEmailForLLM(email, { extractReply: true }),
       ),
-      user: emailAccount,
+      emailAccount,
     });
 
     if (!style) return;
@@ -69,7 +81,7 @@ export const analyzeWritingStyleAction = actionClient
       .join("\n");
 
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { writingStyle },
     });
 

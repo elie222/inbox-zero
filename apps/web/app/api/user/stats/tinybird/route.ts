@@ -3,7 +3,7 @@ import format from "date-fns/format";
 import { z } from "zod";
 import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";
-import { withAuth } from "@/utils/middleware";
+import { withAuth, withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -16,9 +16,9 @@ export type StatsByWeekParams = z.infer<typeof statsByWeekParams>;
 export type StatsByWeekResponse = Awaited<ReturnType<typeof getStatsByPeriod>>;
 
 async function getEmailStatsByPeriod(
-  options: StatsByWeekParams & { userId: string },
+  options: StatsByWeekParams & { emailAccountId: string },
 ) {
-  const { period, fromDate, toDate, userId } = options;
+  const { period, fromDate, toDate, emailAccountId } = options;
 
   // Build date conditions without starting with AND
   const dateConditions: Prisma.Sql[] = [];
@@ -51,7 +51,7 @@ async function getEmailStatsByPeriod(
   };
 
   // Create WHERE clause properly
-  const whereClause = Prisma.sql`WHERE "userId" = ${userId}`;
+  const whereClause = Prisma.sql`WHERE "emailAccountId" = ${emailAccountId}`;
   const dateClause =
     dateConditions.length > 0
       ? Prisma.sql` AND ${Prisma.join(dateConditions, " AND ")}`
@@ -89,24 +89,11 @@ async function getEmailStatsByPeriod(
 
 async function getStatsByPeriod(
   options: StatsByWeekParams & {
-    ownerEmail: string;
+    emailAccountId: string;
   },
 ) {
-  // Get the userId from the ownerEmail
-  const user = await prisma.user.findUnique({
-    where: { email: options.ownerEmail },
-    select: { id: true },
-  });
-
-  if (!user) {
-    throw new Error("User not found");
-  }
-
   // Get all stats in a single query
-  const stats = await getEmailStatsByPeriod({
-    ...options,
-    userId: user.id,
-  });
+  const stats = await getEmailStatsByPeriod(options);
 
   // Transform stats to match the expected format
   const formattedStats = stats.map((stat) => {
@@ -138,8 +125,8 @@ async function getStatsByPeriod(
   };
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
   const params = statsByWeekParams.parse({
@@ -149,8 +136,8 @@ export const GET = withAuth(async (request) => {
   });
 
   const result = await getStatsByPeriod({
-    ownerEmail: email,
     ...params,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

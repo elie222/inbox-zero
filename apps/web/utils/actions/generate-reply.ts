@@ -5,15 +5,18 @@ import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { actionClient } from "@/utils/actions/safe-action";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const generateNudgeReplyAction = actionClient
   .metadata({ name: "generateNudgeReply" })
   .schema(generateReplySchema)
   .action(
     async ({
-      ctx: { email, emailAccount },
+      ctx: { emailAccountId },
       parsedInput: { messages: inputMessages },
     }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+
       if (!emailAccount) return { error: "User not found" };
 
       const lastMessage = inputMessages.at(-1);
@@ -21,7 +24,7 @@ export const generateNudgeReplyAction = actionClient
       if (!lastMessage) return { error: "No message provided" };
 
       const reply = await getReply({
-        email,
+        emailAccountId,
         messageId: lastMessage.id,
       });
 
@@ -37,9 +40,9 @@ export const generateNudgeReplyAction = actionClient
         }),
       }));
 
-      const text = await aiGenerateNudge({ messages, user: emailAccount });
+      const text = await aiGenerateNudge({ messages, emailAccount });
       await saveReply({
-        email,
+        emailAccountId,
         messageId: lastMessage.id,
         reply: text,
       });

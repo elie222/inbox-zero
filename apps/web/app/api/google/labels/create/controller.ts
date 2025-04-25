@@ -14,12 +14,12 @@ export type CreateLabelResponse = Awaited<ReturnType<typeof createLabel>>;
 
 export async function createLabel({
   gmail,
-  email,
+  emailAccountId,
   name,
   description,
 }: {
   gmail: gmail_v1.Gmail;
-  email: string;
+  emailAccountId: string;
   name: string;
   description?: string;
 }) {
@@ -31,7 +31,7 @@ export async function createLabel({
     where: {
       gmailLabelId_emailAccountId: {
         gmailLabelId: label.id,
-        emailAccountId: email,
+        emailAccountId,
       },
     },
     update: {},
@@ -40,12 +40,12 @@ export async function createLabel({
       description,
       gmailLabelId: label.id,
       enabled: true,
-      emailAccountId: email,
+      emailAccountId,
     },
   });
 
   const redisPromise = saveUserLabel({
-    email,
+    emailAccountId,
     label: { id: label.id, name, description },
   });
 

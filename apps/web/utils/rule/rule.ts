@@ -29,24 +29,24 @@ export function partialUpdateRule({
 
 export async function safeCreateRule({
   result,
-  email,
+  emailAccountId,
   categoryNames,
   systemType,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
-  email: string;
+  emailAccountId: string;
   categoryNames?: string[] | null;
   systemType?: SystemType | null;
 }) {
   const categoryIds = await getUserCategoriesForNames({
-    email,
+    emailAccountId,
     names: categoryNames || [],
   });
 
   try {
     const rule = await createRule({
       result,
-      email,
+      emailAccountId,
       categoryIds,
       systemType,
     });
@@ -56,14 +56,14 @@ export async function safeCreateRule({
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
-        email,
+        emailAccountId,
         categoryIds,
       });
       return rule;
     }
 
     logger.error("Error creating rule", {
-      email,
+      emailAccountId,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -76,19 +76,19 @@ export async function safeCreateRule({
 export async function safeUpdateRule({
   ruleId,
   result,
-  email,
+  emailAccountId,
   categoryIds,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchemaWithCategories;
-  email: string;
+  emailAccountId: string;
   categoryIds?: string[] | null;
 }) {
   try {
     const rule = await updateRule({
       ruleId,
       result,
-      emailAccountId: email,
+      emailAccountId,
       categoryIds,
     });
     return { id: rule.id };
@@ -97,14 +97,14 @@ export async function safeUpdateRule({
       // if rule name already exists, create a new rule with a unique name
       const rule = await createRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
-        email,
+        emailAccountId,
         categoryIds,
       });
       return { id: rule.id };
     }
 
     logger.error("Error updating rule", {
-      email,
+      emailAccountId,
       error:
         error instanceof Error
           ? { message: error.message, stack: error.stack, name: error.name }
@@ -117,12 +117,12 @@ export async function safeUpdateRule({
 
 export async function createRule({
   result,
-  email,
+  emailAccountId,
   categoryIds,
   systemType,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
-  email: string;
+  emailAccountId: string;
   categoryIds?: string[] | null;
   systemType?: SystemType | null;
 }) {
@@ -131,7 +131,7 @@ export async function createRule({
   return prisma.rule.create({
     data: {
       name: result.name,
-      emailAccountId: email,
+      emailAccountId,
       systemType,
       actions: { createMany: { data: mappedActions } },
       automate: shouldAutomate(
@@ -204,19 +204,19 @@ async function updateRule({
 }
 
 export async function deleteRule({
-  email,
+  emailAccountId,
   ruleId,
   groupId,
 }: {
-  email: string;
+  emailAccountId: string;
   ruleId: string;
   groupId?: string | null;
 }) {
   return Promise.all([
-    prisma.rule.delete({ where: { id: ruleId, emailAccountId: email } }),
+    prisma.rule.delete({ where: { id: ruleId, emailAccountId } }),
     // in the future, we can make this a cascade delete, but we need to change the schema for this to happen
     groupId
-      ? prisma.group.delete({ where: { id: groupId, emailAccountId: email } })
+      ? prisma.group.delete({ where: { id: groupId, emailAccountId } })
       : null,
   ]);
 }

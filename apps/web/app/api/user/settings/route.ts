@@ -11,7 +11,7 @@ import { withAuth } from "@/utils/middleware";
 export type SaveSettingsResponse = Awaited<ReturnType<typeof saveAISettings>>;
 
 async function saveAISettings(
-  { email }: { email: string },
+  { userId }: { userId: string },
   { aiProvider, aiModel, aiApiKey }: SaveSettingsBody,
 ) {
   function getModel() {
@@ -41,8 +41,8 @@ async function saveAISettings(
     }
   }
 
-  return await prisma.emailAccount.update({
-    where: { email },
+  return await prisma.user.update({
+    where: { id: userId },
     data: {
       aiProvider,
       aiModel: getModel(),
@@ -52,12 +52,12 @@ async function saveAISettings(
 }
 
 export const POST = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+  const userId = request.auth.userId;
 
   const json = await request.json();
   const body = saveSettingsBody.parse(json);
 
-  const result = await saveAISettings({ email }, body);
+  const result = await saveAISettings({ userId }, body);
 
   return NextResponse.json(result);
 });

@@ -19,7 +19,7 @@ export default async function CleanRunPage(props: {
   const { jobId, isPreviewBatch } = searchParams;
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { accountId },
+    where: { id: emailAccountId },
     select: { email: true },
   });
 
@@ -27,11 +27,11 @@ export default async function CleanRunPage(props: {
 
   const email = emailAccount.email;
 
-  const threads = await getThreadsByJobId({ emailAccountId: email, jobId });
+  const threads = await getThreadsByJobId({ emailAccountId, jobId });
 
   const job = jobId
-    ? await getJobById({ email, jobId })
-    : await getLastJob({ accountId });
+    ? await getJobById({ emailAccountId, jobId })
+    : await getLastJob({ emailAccountId });
 
   if (!job) return <CardTitle>Job not found</CardTitle>;
 
@@ -40,7 +40,7 @@ export default async function CleanRunPage(props: {
       where: { jobId, emailAccountId: email },
     }),
     prisma.cleanupThread.count({
-      where: { jobId, emailAccountId: email, archived: true },
+      where: { jobId, emailAccountId, archived: true },
     }),
   ]);
 

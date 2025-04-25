@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
 
 const senderStatsQuery = z.object({
@@ -79,8 +79,8 @@ async function getDomainsMostReceivedFrom({
   });
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
   const query = senderStatsQuery.parse({
@@ -90,7 +90,7 @@ export const GET = withAuth(async (request) => {
 
   const result = await getSenderStatistics({
     ...query,
-    emailAccountId: email,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

@@ -18,9 +18,9 @@ export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 export const saveAboutAction = actionClient
   .metadata({ name: "saveAbout" })
   .schema(saveAboutBody)
-  .action(async ({ parsedInput: { about }, ctx: { email } }) => {
+  .action(async ({ parsedInput: { about }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { about },
     });
 
@@ -33,9 +33,9 @@ export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 export const saveSignatureAction = actionClient
   .metadata({ name: "saveSignature" })
   .schema(saveSignatureBody)
-  .action(async ({ parsedInput: { signature }, ctx: { email } }) => {
+  .action(async ({ parsedInput: { signature }, ctx: { emailAccountId } }) => {
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { signature },
     });
 
@@ -44,9 +44,9 @@ export const saveSignatureAction = actionClient
 
 export const loadSignatureFromGmailAction = actionClient
   .metadata({ name: "loadSignatureFromGmail" })
-  .action(async ({ ctx: { email } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     // 1. find last 5 sent emails
-    const gmail = await getGmailClientForEmail({ email });
+    const gmail = await getGmailClientForEmail({ emailAccountId });
     const messages = await getMessages(gmail, {
       query: "from:me",
       maxResults: 5,
@@ -71,9 +71,9 @@ export const loadSignatureFromGmailAction = actionClient
 
 export const resetAnalyticsAction = actionClient
   .metadata({ name: "resetAnalytics" })
-  .action(async ({ ctx: { email } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     await prisma.emailMessage.deleteMany({
-      where: { emailAccountId: email },
+      where: { emailAccountId },
     });
   });
 

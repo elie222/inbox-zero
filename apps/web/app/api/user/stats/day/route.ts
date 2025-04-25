@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { withAuth } from "@/utils/middleware";
+import { withAuth, withEmailAccount } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
 import { getGmailClientForEmail } from "@/utils/account";
@@ -18,12 +18,10 @@ const DAYS = 7;
 
 async function getPastSevenDayStats(
   options: {
-    email: string;
+    emailAccountId: string;
     gmail: gmail_v1.Gmail;
   } & StatsByDayQuery,
 ) {
-  // const { email } = options;
-
   const today = new Date();
   const sevenDaysAgo = new Date(
     today.getFullYear(),
@@ -80,19 +78,19 @@ function getQuery(type: StatsByDayQuery["type"], date: Date) {
   }
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type");
   const query = statsByDayQuery.parse({ type });
 
-  const gmail = await getGmailClientForEmail({ email });
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const result = await getPastSevenDayStats({
     ...query,
-    email,
     gmail,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

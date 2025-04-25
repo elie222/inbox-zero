@@ -6,11 +6,11 @@ import { actionClient } from "@/utils/actions/safe-action";
 
 export const regenerateWebhookSecretAction = actionClient
   .metadata({ name: "regenerateWebhookSecret" })
-  .action(async ({ ctx: { email } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     const webhookSecret = generateWebhookSecret();
 
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { webhookSecret },
     });
 

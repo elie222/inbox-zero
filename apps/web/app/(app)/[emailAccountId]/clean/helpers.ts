@@ -1,20 +1,22 @@
 import prisma from "utils/prisma";
 
 export async function getJobById({
-  email,
+  emailAccountId,
   jobId,
 }: {
-  email: string;
+  emailAccountId: string;
   jobId: string;
 }) {
   return await prisma.cleanupJob.findUnique({
-    where: { id: jobId, email },
+    where: { id: jobId, emailAccountId },
   });
 }
 
-export async function getLastJob({ accountId }: { accountId: string }) {
+export async function getLastJob({
+  emailAccountId,
+}: { emailAccountId: string }) {
   return await prisma.cleanupJob.findFirst({
-    where: { emailAccount: { accountId } },
+    where: { emailAccountId },
     orderBy: { createdAt: "desc" },
   });
 }

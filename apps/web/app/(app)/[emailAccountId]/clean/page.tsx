@@ -8,9 +8,9 @@ export default async function CleanPage({
 }: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const { account } = await params;
+  const { emailAccountId } = await params;
 
-  const lastJob = await getLastJob({ accountId: account });
+  const lastJob = await getLastJob({ emailAccountId });
   if (!lastJob) redirect("/clean/onboarding");
 
   return (

@@ -5,7 +5,8 @@ import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { validateUserAccount } from "@/utils/redis/account-validation";
+import { getEmailAccount } from "@/utils/redis/account-validation";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 const logger = createScopedLogger("middleware");
 
@@ -18,7 +19,14 @@ export type NextHandler<T extends NextRequest = NextRequest> = (
 export interface RequestWithAuth extends NextRequest {
   auth: {
     userId: string;
-    userEmail: string;
+  };
+}
+
+export interface RequestWithEmailAccount extends NextRequest {
+  auth: {
+    userId: string;
+    emailAccountId: string;
+    email: string;
   };
 }
 
@@ -108,28 +116,47 @@ async function authMiddleware(
   }
 
   const userId = session.user.id;
-  let userEmail = session.user.email;
 
-  // Check for X-Account-ID header
-  const accountId = req.headers.get("X-Account-ID");
+  // Create a new request with auth info
+  const authReq = req.clone() as RequestWithAuth;
+  authReq.auth = { userId };
 
-  // If account ID is provided, validate and get the email account ID
-  if (accountId) {
-    userEmail = await validateUserAccount(userId, accountId);
+  return authReq;
+}
+
+async function emailAccountMiddleware(
+  req: NextRequest,
+): Promise<RequestWithEmailAccount | Response> {
+  const authReq = await authMiddleware(req);
+  if (authReq instanceof Response) return authReq;
+
+  const userId = authReq.auth.userId;
+
+  // Check for X-Email-Account-ID header
+  const emailAccountId = req.headers.get(EMAIL_ACCOUNT_HEADER);
+
+  if (!emailAccountId) {
+    return NextResponse.json(
+      { error: "Email account ID is required", isKnownError: true },
+      { status: 403 },
+    );
   }
 
-  if (!userEmail) {
+  // If account ID is provided, validate and get the email account ID
+  const email = await getEmailAccount({ userId, emailAccountId });
+
+  if (!email) {
     return NextResponse.json(
       { error: "Invalid account ID", isKnownError: true },
       { status: 403 },
     );
   }
 
-  // Create a new request with auth info
-  const authReq = req.clone() as RequestWithAuth;
-  authReq.auth = { userId, userEmail };
+  // Create a new request with email account info
+  const emailAccountReq = req.clone() as RequestWithEmailAccount;
+  emailAccountReq.auth = { userId, emailAccountId, email };
 
-  return authReq;
+  return emailAccountReq;
 }
 
 // Public middlewares that build on the common infrastructure
@@ -139,6 +166,12 @@ export function withError(handler: NextHandler): NextHandler {
 
 export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
   return withMiddleware(handler, authMiddleware);
+}
+
+export function withEmailAccount(
+  handler: NextHandler<RequestWithEmailAccount>,
+): NextHandler {
+  return withMiddleware(handler, emailAccountMiddleware);
 }
 
 function isErrorWithConfigAndHeaders(

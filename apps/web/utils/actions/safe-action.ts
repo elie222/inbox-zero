@@ -30,7 +30,7 @@ const baseClient = createSafeActionClient({
 // });
 
 export const actionClient = baseClient
-  .bindArgsSchemas<[activeEmail: z.ZodString]>([z.string()])
+  .bindArgsSchemas<[emailAccountId: z.ZodString]>([z.string()])
   .use(async ({ next, metadata, bindArgsClientInputs }) => {
     const session = await auth();
 
@@ -39,15 +39,13 @@ export const actionClient = baseClient
     if (!userEmail) throw new SafeError("Unauthorized");
 
     const userId = session.user.id;
-    const email = bindArgsClientInputs[0] as string;
+    const emailAccountId = bindArgsClientInputs[0] as string;
 
     // validate user owns this email
-    const emailAccount = email
-      ? await prisma.emailAccount.findUnique({
-          where: { email },
-        })
-      : null;
-    if (email && emailAccount?.userId !== userId)
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+    });
+    if (!emailAccount || emailAccount?.userId !== userId)
       throw new SafeError("Unauthorized");
 
     return withServerActionInstrumentation(metadata?.name, async () => {
@@ -56,7 +54,7 @@ export const actionClient = baseClient
           userId,
           userEmail,
           session,
-          email,
+          emailAccountId,
           emailAccount,
         },
       });
@@ -68,8 +66,6 @@ export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();
 
   if (!session?.user) throw new SafeError("Unauthorized");
-  const userEmail = session.user.email;
-  if (!userEmail) throw new SafeError("Unauthorized");
 
   const userId = session.user.id;
 

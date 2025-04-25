@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import format from "date-fns/format";
 import { zodPeriod } from "@inboxzero/tinybird";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -69,8 +69,8 @@ async function getSenderEmails(
   };
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
 
@@ -83,7 +83,7 @@ export const GET = withAuth(async (request) => {
 
   const result = await getSenderEmails({
     ...query,
-    emailAccountId: email,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

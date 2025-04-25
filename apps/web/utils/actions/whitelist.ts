@@ -8,10 +8,10 @@ import { getGmailClientForEmail } from "@/utils/account";
 
 export const whitelistInboxZeroAction = actionClient
   .metadata({ name: "whitelistInboxZero" })
-  .action(async ({ ctx: { email } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     if (!env.WHITELIST_FROM) return;
 
-    const gmail = await getGmailClientForEmail({ email });
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     await createFilter({
       gmail,

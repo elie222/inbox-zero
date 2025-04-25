@@ -3,16 +3,16 @@ import prisma from "./prisma";
 import { generateSecureToken } from "./api-key";
 
 export async function createUnsubscribeToken({
-  email,
+  emailAccountId,
 }: {
-  email: string;
+  emailAccountId: string;
 }) {
   const token = generateSecureToken();
 
   await prisma.emailToken.create({
     data: {
       token,
-      emailAccountId: email,
+      emailAccountId,
       expiresAt: addDays(new Date(), 30),
     },
   });

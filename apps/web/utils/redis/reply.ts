@@ -1,35 +1,35 @@
 import { redis } from "@/utils/redis";
 
 function getReplyKey({
-  email,
+  emailAccountId,
   messageId,
 }: {
-  email: string;
+  emailAccountId: string;
   messageId: string;
 }) {
-  return `reply:${email}:${messageId}`;
+  return `reply:${emailAccountId}:${messageId}`;
 }
 
 export async function getReply({
-  email,
+  emailAccountId,
   messageId,
 }: {
-  email: string;
+  emailAccountId: string;
   messageId: string;
 }): Promise<string | null> {
-  return redis.get(getReplyKey({ email, messageId }));
+  return redis.get(getReplyKey({ emailAccountId, messageId }));
 }
 
 export async function saveReply({
-  email,
+  emailAccountId,
   messageId,
   reply,
 }: {
-  email: string;
+  emailAccountId: string;
   messageId: string;
   reply: string;
 }) {
-  return redis.set(getReplyKey({ email, messageId }), reply, {
+  return redis.set(getReplyKey({ emailAccountId, messageId }), reply, {
     ex: 60 * 60 * 24, // 1 day
   });
 }

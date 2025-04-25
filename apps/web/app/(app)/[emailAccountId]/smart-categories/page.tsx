@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { PenIcon, SparklesIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ClientOnly } from "@/components/ClientOnly";
 import { GroupedTable } from "@/components/GroupedTable";
@@ -30,26 +29,28 @@ import { getCategorizationProgress } from "@/utils/redis/categorization-progress
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
-export default async function CategoriesPage() {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new Error("Not authenticated");
+export default async function CategoriesPage({
+  params,
+}: {
+  params: Promise<{ emailAccountId: string }>;
+}) {
+  const { emailAccountId } = await params;
 
   const [senders, categories, emailAccount, progress] = await Promise.all([
     prisma.newsletter.findMany({
-      where: { emailAccountId: email, categoryId: { not: null } },
+      where: { emailAccountId, categoryId: { not: null } },
       select: {
         id: true,
         email: true,
         category: { select: { id: true, description: true, name: true } },
       },
     }),
-    getUserCategoriesWithRules(email),
+    getUserCategoriesWithRules({ emailAccountId }),
     prisma.emailAccount.findUnique({
-      where: { email },
+      where: { id: emailAccountId },
       select: { autoCategorizeSenders: true },
     }),
-    getCategorizationProgress({ email }),
+    getCategorizationProgress({ emailAccountId }),
   ]);
 
   if (!(senders.length > 0 || categories.length > 0))

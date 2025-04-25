@@ -11,11 +11,15 @@ import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
 import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 
-export async function handleOutboundReply(
-  emailAccount: EmailAccountWithAI,
-  message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
-) {
+export async function handleOutboundReply({
+  emailAccount,
+  message,
+  gmail,
+}: {
+  emailAccount: EmailAccountWithAI;
+  message: ParsedMessage;
+  gmail: gmail_v1.Gmail;
+}) {
   const logger = createScopedLogger("reply-tracker/outbound").with({
     email: emailAccount.email,
     messageId: message.id,
@@ -156,13 +160,13 @@ async function createReplyTrackerOutbound({
 
 async function resolveReplyTrackers(
   gmail: gmail_v1.Gmail,
-  email: string,
+  emailAccountId: string,
   threadId: string,
   needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
-      emailAccountId: email,
+      emailAccountId,
       threadId,
       resolved: false,
       type: ThreadTrackerType.NEEDS_REPLY,

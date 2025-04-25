@@ -116,18 +116,22 @@ async function updateThreadTrackers({
 }
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
-export async function handleInboundReply(
-  user: EmailAccountWithAI,
-  message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
-) {
+export async function handleInboundReply({
+  emailAccount,
+  message,
+  gmail,
+}: {
+  emailAccount: EmailAccountWithAI;
+  message: ParsedMessage;
+  gmail: gmail_v1.Gmail;
+}) {
   // 1. Run rules check
   // 2. If the reply tracking rule is selected then mark as needs reply
   // We ignore the rest of the actions for this rule here as this could lead to double handling of emails for the user
 
   const replyTrackingRules = await prisma.rule.findMany({
     where: {
-      emailAccountId: user.email,
+      emailAccountId: emailAccount.id,
       instructions: { not: null },
       actions: {
         some: {
@@ -146,12 +150,12 @@ export async function handleInboundReply(
       name: rule.name,
       instructions: rule.instructions || "",
     })),
-    user,
+    emailAccount,
   });
 
   if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
     await coordinateReplyProcess({
-      emailAccountId: user.email,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),

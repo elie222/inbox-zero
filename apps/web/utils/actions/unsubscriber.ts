@@ -11,18 +11,18 @@ export const setNewsletterStatusAction = actionClient
   .action(
     async ({
       parsedInput: { newsletterEmail, status },
-      ctx: { email: userEmail },
+      ctx: { emailAccountId },
     }) => {
       const email = extractEmailAddress(newsletterEmail);
 
       return await prisma.newsletter.upsert({
         where: {
-          email_emailAccountId: { email, emailAccountId: userEmail },
+          email_emailAccountId: { email, emailAccountId },
         },
         create: {
           status,
           email,
-          emailAccountId: userEmail,
+          emailAccountId,
         },
         update: { status },
       });

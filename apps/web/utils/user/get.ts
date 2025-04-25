@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
-export async function getAiUser({
+export async function getEmailAccountWithAi({
   emailAccountId,
 }: { emailAccountId: string }): Promise<EmailAccountWithAI | null> {
   return prisma.emailAccount.findUnique({
@@ -56,9 +56,11 @@ export async function getEmailAccountWithAiAndTokens({
   };
 }
 
-export async function getWritingStyle(email: string) {
+export async function getWritingStyle({
+  emailAccountId,
+}: { emailAccountId: string }) {
   const writingStyle = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: { writingStyle: true },
   });
 

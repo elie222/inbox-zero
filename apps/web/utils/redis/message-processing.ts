@@ -1,15 +1,24 @@
 import { redis } from "@/utils/redis";
 
-function getProcessingKey(userEmail: string, messageId: string) {
+function getProcessingKey({
+  userEmail,
+  messageId,
+}: {
+  userEmail: string;
+  messageId: string;
+}) {
   return `processing-message:${userEmail}:${messageId}`;
 }
 
-export async function markMessageAsProcessing(options: {
+export async function markMessageAsProcessing({
+  userEmail,
+  messageId,
+}: {
   userEmail: string;
   messageId: string;
 }): Promise<boolean> {
   const result = await redis.set(
-    getProcessingKey(options.userEmail, options.messageId),
+    getProcessingKey({ userEmail, messageId }),
     "true",
     {
       ex: 60 * 5, // 5 minutes

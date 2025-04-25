@@ -10,16 +10,20 @@ export type CategoryWithRules = Prisma.CategoryGetPayload<{
   };
 }>;
 
-export const getUserCategories = async ({ email }: { email: string }) => {
+export const getUserCategories = async ({
+  emailAccountId,
+}: { emailAccountId: string }) => {
   const categories = await prisma.category.findMany({
-    where: { emailAccountId: email },
+    where: { emailAccountId },
   });
   return categories;
 };
 
-export const getUserCategoriesWithRules = async (email: string) => {
+export const getUserCategoriesWithRules = async ({
+  emailAccountId,
+}: { emailAccountId: string }) => {
   const categories = await prisma.category.findMany({
-    where: { emailAccountId: email },
+    where: { emailAccountId },
     select: {
       id: true,
       name: true,
@@ -31,16 +35,16 @@ export const getUserCategoriesWithRules = async (email: string) => {
 };
 
 export const getUserCategoriesForNames = async ({
-  email,
+  emailAccountId,
   names,
 }: {
-  email: string;
+  emailAccountId: string;
   names: string[];
 }) => {
   if (!names.length) return [];
 
   const categories = await prisma.category.findMany({
-    where: { emailAccountId: email, name: { in: names } },
+    where: { emailAccountId, name: { in: names } },
     select: { id: true },
   });
   if (categories.length !== names.length) {

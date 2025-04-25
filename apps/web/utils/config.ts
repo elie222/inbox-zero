@@ -1,5 +1,7 @@
 export const AI_GENERATED_FIELD_VALUE = "___AI_GENERATE___";
 
+export const EMAIL_ACCOUNT_HEADER = "X-Email-Account-ID";
+
 export const userCount = "10,000+";
 
 export const ConditionType = {

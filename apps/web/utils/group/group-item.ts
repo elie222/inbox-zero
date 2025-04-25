@@ -20,12 +20,12 @@ export async function addGroupItem(data: {
 
 export async function deleteGroupItem({
   id,
-  email,
+  emailAccountId,
 }: {
   id: string;
-  email: string;
+  emailAccountId: string;
 }) {
   await prisma.groupItem.delete({
-    where: { id, group: { emailAccountId: email } },
+    where: { id, group: { emailAccountId } },
   });
 }

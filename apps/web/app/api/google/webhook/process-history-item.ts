@@ -31,7 +31,7 @@ export async function processHistoryItem(
   }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
-    email: userEmail,
+    userEmail,
     emailAccount,
     accessToken,
     hasColdEmailAccess,
@@ -42,6 +42,7 @@ export async function processHistoryItem(
 ) {
   const messageId = message?.id;
   const threadId = message?.threadId;
+  const emailAccountId = emailAccount.id;
 
   if (!messageId || !threadId) return;
 
@@ -66,7 +67,7 @@ export async function processHistoryItem(
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
-            emailAccountId: userEmail,
+            emailAccountId,
             threadId,
             messageId,
           },
@@ -123,7 +124,7 @@ export async function processHistoryItem(
     // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
-      emailAccountId: userEmail,
+      emailAccountId,
       gmail,
       messageId,
     });
@@ -168,7 +169,7 @@ export async function processHistoryItem(
       const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
-          email_emailAccountId: { email: sender, emailAccountId: userEmail },
+          email_emailAccountId: { email: sender, emailAccountId },
         },
         select: { category: true },
       });
@@ -203,12 +204,12 @@ export async function processHistoryItem(
 }
 
 async function handleOutbound(
-  user: EmailAccountWithAI,
+  emailAccount: EmailAccountWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
   const loggerOptions = {
-    email: user.email,
+    email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,
   };
@@ -219,11 +220,11 @@ async function handleOutbound(
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
     trackSentDraftStatus({
-      user: { id: user.userId, email: user.email },
+      emailAccountId: emailAccount.id,
       message,
       gmail,
     }),
-    handleOutboundReply(user, message, gmail),
+    handleOutboundReply({ emailAccount, message, gmail }),
   ]);
 
   if (trackingResult.status === "rejected") {
@@ -245,7 +246,7 @@ async function handleOutbound(
   try {
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
-      email: user.email,
+      emailAccountId: emailAccount.id,
       gmail,
     });
   } catch (cleanupError) {

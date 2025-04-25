@@ -21,7 +21,7 @@ const MAX_RESULTS = 10;
 const logger = createScopedLogger("api/ai/pattern-match");
 
 const schema = z.object({
-  email: z.string(),
+  emailAccountId: z.string(),
   from: z.string(),
 });
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
@@ -34,13 +34,13 @@ export const POST = withError(async (request) => {
 
   const json = await request.json();
   const data = schema.parse(json);
-  const { email } = data;
+  const { emailAccountId } = data;
   const from = extractEmailAddress(data.from);
 
-  logger.trace("Analyzing sender pattern", { email, from });
+  logger.trace("Analyzing sender pattern", { emailAccountId, from });
 
   // return immediately and process in background
-  after(() => process({ email, from }));
+  after(() => process({ emailAccountId, from }));
   return NextResponse.json({ processing: true });
 });
 
@@ -52,12 +52,15 @@ export const POST = withError(async (request) => {
  * 4. Detects patterns using AI
  * 5. Stores patterns in DB for future categorization
  */
-async function process({ email, from }: { email: string; from: string }) {
+async function process({
+  emailAccountId,
+  from,
+}: { emailAccountId: string; from: string }) {
   try {
-    const emailAccount = await getEmailAccountWithRules({ email });
+    const emailAccount = await getEmailAccountWithRules({ emailAccountId });
 
     if (!emailAccount) {
-      logger.error("Email account not found", { email });
+      logger.error("Email account not found", { emailAccountId });
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
@@ -66,20 +69,20 @@ async function process({ email, from }: { email: string; from: string }) {
       where: {
         email_emailAccountId: {
           email: extractEmailAddress(from),
-          emailAccountId: emailAccount.email,
+          emailAccountId: emailAccount.id,
         },
       },
     });
 
     if (existingCheck?.patternAnalyzed) {
-      logger.info("Sender has already been analyzed", { from, email });
+      logger.info("Sender has already been analyzed", { from, emailAccountId });
       return NextResponse.json({ success: true });
     }
 
     const account = emailAccount.account;
 
     if (!account?.access_token || !account?.refresh_token) {
-      logger.error("No Gmail account found", { email });
+      logger.error("No Gmail account found", { emailAccountId });
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
@@ -99,7 +102,7 @@ async function process({ email, from }: { email: string; from: string }) {
     if (threadsWithMessages.length === 0) {
       logger.info("No threads found from this sender", {
         from,
-        email,
+        emailAccountId,
       });
 
       // Don't record a check since we didn't run the AI analysis
@@ -114,7 +117,7 @@ async function process({ email, from }: { email: string; from: string }) {
     if (allMessages.length < THRESHOLD_EMAILS) {
       logger.info("Not enough emails found from this sender", {
         from,
-        email,
+        emailAccountId,
         count: allMessages.length,
       });
 
@@ -138,7 +141,7 @@ async function process({ email, from }: { email: string; from: string }) {
     if (patternResult?.matchedRule) {
       // Save pattern to DB (adds sender to rule's group)
       await saveLearnedPattern({
-        email: emailAccount.email,
+        emailAccountId,
         from,
         ruleName: patternResult.matchedRule,
       });
@@ -151,7 +154,7 @@ async function process({ email, from }: { email: string; from: string }) {
   } catch (error) {
     logger.error("Error in pattern match API", {
       from,
-      email,
+      emailAccountId,
       error,
     });
 
@@ -238,11 +241,11 @@ async function getThreadsFromSender(
 }
 
 async function saveLearnedPattern({
-  email,
+  emailAccountId,
   from,
   ruleName,
 }: {
-  email: string;
+  emailAccountId: string;
   from: string;
   ruleName: string;
 }) {
@@ -250,14 +253,14 @@ async function saveLearnedPattern({
     where: {
       name_emailAccountId: {
         name: ruleName,
-        emailAccountId: email,
+        emailAccountId,
       },
     },
     select: { id: true, groupId: true },
   });
 
   if (!rule) {
-    logger.error("Rule not found", { email, ruleName });
+    logger.error("Rule not found", { emailAccountId, ruleName });
     return;
   }
 
@@ -267,7 +270,7 @@ async function saveLearnedPattern({
     // Create a new group for this rule if one doesn't exist
     const newGroup = await prisma.group.create({
       data: {
-        emailAccountId: email,
+        emailAccountId,
         name: ruleName,
         rule: { connect: { id: rule.id } },
       },
@@ -293,9 +296,11 @@ async function saveLearnedPattern({
   });
 }
 
-async function getEmailAccountWithRules({ email }: { email: string }) {
+async function getEmailAccountWithRules({
+  emailAccountId,
+}: { emailAccountId: string }) {
   return await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       id: true,
       userId: true,

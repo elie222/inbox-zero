@@ -13,9 +13,9 @@ import { actionClient } from "@/utils/actions/safe-action";
 export const createGroupAction = actionClient
   .metadata({ name: "createGroup" })
   .schema(createGroupBody)
-  .action(async ({ ctx: { email }, parsedInput: { ruleId } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { ruleId } }) => {
     const rule = await prisma.rule.findUnique({
-      where: { id: ruleId, emailAccountId: email },
+      where: { id: ruleId, emailAccountId },
       select: { name: true, groupId: true },
     });
     if (rule?.groupId) return { groupId: rule.groupId };
@@ -24,7 +24,7 @@ export const createGroupAction = actionClient
     const group = await prisma.group.create({
       data: {
         name: rule.name,
-        emailAccountId: email,
+        emailAccountId,
         rule: {
           connect: { id: ruleId },
         },
@@ -37,27 +37,31 @@ export const createGroupAction = actionClient
 export const addGroupItemAction = actionClient
   .metadata({ name: "addGroupItem" })
   .schema(addGroupItemBody)
-  .action(async ({ ctx: { email }, parsedInput: { groupId, type, value } }) => {
-    const group = await prisma.group.findUnique({
-      where: { id: groupId },
-    });
-    if (!group) return { error: "Group not found" };
-    if (group.emailAccountId !== email)
-      return { error: "You don't have permission to add items to this group" };
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { groupId, type, value },
+    }) => {
+      const group = await prisma.group.findUnique({
+        where: { id: groupId },
+      });
+      if (!group) return { error: "Group not found" };
+      if (group.emailAccountId !== emailAccountId)
+        return {
+          error: "You don't have permission to add items to this group",
+        };
 
-    await addGroupItem({ groupId, type, value });
+      await addGroupItem({ groupId, type, value });
 
-    revalidatePath("/automation");
-  });
+      revalidatePath("/automation");
+    },
+  );
 
 export const deleteGroupItemAction = actionClient
   .metadata({ name: "deleteGroupItem" })
   .schema(z.object({ id: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { id } }) => {
-    await deleteGroupItem({ id, email });
-    if (!email) return { error: "Not logged in" };
-
-    await deleteGroupItem({ id, email });
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    await deleteGroupItem({ id, emailAccountId });
 
     revalidatePath("/automation");
   });

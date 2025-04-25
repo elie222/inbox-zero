@@ -9,44 +9,56 @@ const redisLabelSchema = z.object({
 });
 export type RedisLabel = z.infer<typeof redisLabelSchema>;
 
-function getUserLabelsKey(email: string) {
-  return `labels:user:${email}`;
+function getUserLabelsKey({ emailAccountId }: { emailAccountId: string }) {
+  return `labels:user:${emailAccountId}`;
 }
 
 // user labels
-async function getUserLabels(options: { email: string }) {
-  const key = getUserLabelsKey(options.email);
+async function getUserLabels({ emailAccountId }: { emailAccountId: string }) {
+  const key = getUserLabelsKey({ emailAccountId });
   return redis.get<RedisLabel[]>(key);
 }
 
 export async function saveUserLabel(options: {
-  email: string;
+  emailAccountId: string;
   label: RedisLabel;
 }) {
   const existingLabels = await getUserLabels(options);
   const newLabels = [...(existingLabels ?? []), options.label];
-  return saveUserLabels({ email: options.email, labels: newLabels });
+  return saveUserLabels({
+    emailAccountId: options.emailAccountId,
+    labels: newLabels,
+  });
 }
 
-export async function saveUserLabels(options: {
-  email: string;
+export async function saveUserLabels({
+  emailAccountId,
+  labels,
+}: {
+  emailAccountId: string;
   labels: RedisLabel[];
 }) {
-  const key = getUserLabelsKey(options.email);
-  return redis.set(key, options.labels);
+  const key = getUserLabelsKey({ emailAccountId });
+  return redis.set(key, labels);
 }
 
-export async function deleteUserLabels(options: { email: string }) {
-  const key = getUserLabelsKey(options.email);
+export async function deleteUserLabels({
+  emailAccountId,
+}: { emailAccountId: string }) {
+  const key = getUserLabelsKey({ emailAccountId });
   return redis.del(key);
 }
 
 // inbox zero labels
-function getInboxZeroLabelsKey(email: string) {
-  return `labels:inboxzero:${email}`;
+function getInboxZeroLabelsKey({ emailAccountId }: { emailAccountId: string }) {
+  return `labels:inboxzero:${emailAccountId}`;
 }
 
-export async function deleteInboxZeroLabels(options: { email: string }) {
-  const key = getInboxZeroLabelsKey(options.email);
+export async function deleteInboxZeroLabels({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const key = getInboxZeroLabelsKey({ emailAccountId });
   return redis.del(key);
 }

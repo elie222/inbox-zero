@@ -1,9 +1,11 @@
 import { getGmailClient } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 
-export async function getTokens({ email }: { email: string }) {
+export async function getTokens({
+  emailAccountId,
+}: { emailAccountId: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       account: { select: { access_token: true, refresh_token: true } },
     },
@@ -15,27 +17,28 @@ export async function getTokens({ email }: { email: string }) {
   };
 }
 
-export async function getGmailClientForEmail({ email }: { email: string }) {
-  const tokens = await getTokens({ email });
+export async function getGmailClientForEmail({
+  emailAccountId,
+}: { emailAccountId: string }) {
+  const tokens = await getTokens({ emailAccountId });
   const gmail = getGmailClient(tokens);
   return gmail;
 }
 
-export async function getGmailClientForAccountId({
-  accountId,
+export async function getGmailClientForEmailId({
+  emailAccountId,
 }: {
-  accountId: string;
+  emailAccountId: string;
 }) {
-  const account = await prisma.account.findUnique({
-    where: { id: accountId },
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
     select: {
-      access_token: true,
-      refresh_token: true,
+      account: { select: { access_token: true, refresh_token: true } },
     },
   });
   const gmail = getGmailClient({
-    accessToken: account?.access_token ?? undefined,
-    refreshToken: account?.refresh_token ?? undefined,
+    accessToken: account?.account.access_token ?? undefined,
+    refreshToken: account?.account.refresh_token ?? undefined,
   });
   return gmail;
 }

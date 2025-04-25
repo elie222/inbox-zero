@@ -68,11 +68,19 @@ export async function processPreviousSentEmails(
       if (latestMessage.labelIds?.includes(GmailLabel.SENT)) {
         // outbound
         logger.info("Processing outbound reply", loggerOptions);
-        await handleOutboundReply(emailAccount, latestMessage, gmail);
+        await handleOutboundReply({
+          emailAccount,
+          message: latestMessage,
+          gmail,
+        });
       } else {
         // inbound
         logger.info("Processing inbound reply", loggerOptions);
-        await handleInboundReply(emailAccount, latestMessage, gmail);
+        await handleInboundReply({
+          emailAccount,
+          message: latestMessage,
+          gmail,
+        });
       }
 
       revalidatePath("/reply-zero");

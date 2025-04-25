@@ -23,7 +23,6 @@ import prisma from "@/utils/prisma";
 import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
-import { hash } from "@/utils/hash";
 import { getGmailClientForEmail } from "@/utils/account";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
@@ -35,10 +34,10 @@ export const cleanInboxAction = actionClient
   .schema(cleanInboxSchema)
   .action(
     async ({
-      ctx: { email },
+      ctx: { emailAccountId },
       parsedInput: { action, instructions, daysOld, skips, maxEmails },
     }) => {
-      const gmail = await getGmailClientForEmail({ email });
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
       const [markedDoneLabel, processedLabel] = await Promise.all([
         getOrCreateInboxZeroLabel({
@@ -62,7 +61,7 @@ export const cleanInboxAction = actionClient
       // create a cleanup job
       const job = await prisma.cleanupJob.create({
         data: {
-          email,
+          emailAccountId,
           action,
           instructions,
           daysOld,
@@ -129,7 +128,7 @@ export const cleanInboxAction = actionClient
             });
 
           logger.info("Fetched threads", {
-            email,
+            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -141,7 +140,7 @@ export const cleanInboxAction = actionClient
           const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
           logger.info("Pushing to Qstash", {
-            email,
+            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -152,7 +151,7 @@ export const cleanInboxAction = actionClient
               return {
                 url,
                 body: {
-                  email,
+                  emailAccountId,
                   threadId: thread.id,
                   markedDoneLabelId,
                   processedLabelId,
@@ -160,13 +159,12 @@ export const cleanInboxAction = actionClient
                   action,
                   instructions,
                   skips,
-                  labels: [],
                 } satisfies CleanThreadBody,
                 // give every user their own queue for ai processing. if we get too many parallel users we may need more
                 // api keys or a global queue
                 // problem with a global queue is that if there's a backlog users will have to wait for others to finish first
                 flowControl: {
-                  key: `ai-clean-${hash(email)}`,
+                  key: `ai-clean-${emailAccountId}`,
                   parallelism: 3,
                 },
               };
@@ -198,10 +196,10 @@ export const undoCleanInboxAction = actionClient
   .schema(undoCleanInboxSchema)
   .action(
     async ({
-      ctx: { email },
+      ctx: { emailAccountId },
       parsedInput: { threadId, markedDone, action },
     }) => {
-      const gmail = await getGmailClientForEmail({ email });
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
       // nothing to do atm if wasn't marked done
       if (!markedDone) return { success: true };
@@ -231,13 +229,13 @@ export const undoCleanInboxAction = actionClient
       try {
         // We need to get the thread first to get the jobId
         const thread = await prisma.cleanupThread.findFirst({
-          where: { emailAccountId: email, threadId },
+          where: { emailAccountId, threadId },
           orderBy: { createdAt: "desc" },
         });
 
         if (thread) {
           await updateThread({
-            email,
+            emailAccountId,
             jobId: thread.jobId,
             threadId,
             update: {
@@ -261,59 +259,61 @@ export const undoCleanInboxAction = actionClient
 export const changeKeepToDoneAction = actionClient
   .metadata({ name: "changeKeepToDone" })
   .schema(changeKeepToDoneSchema)
-  .action(async ({ ctx: { email }, parsedInput: { threadId, action } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { threadId, action } }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    // Get the label to add (archived or marked_read)
-    const actionLabel = await getOrCreateInboxZeroLabel({
-      key: action === CleanAction.ARCHIVE ? "archived" : "marked_read",
-      gmail,
-    });
-
-    await labelThread({
-      gmail,
-      threadId,
-      // Apply the action (archive or mark as read)
-      removeLabelIds: [
-        ...(action === CleanAction.ARCHIVE ? [GmailLabel.INBOX] : []),
-        ...(action === CleanAction.MARK_READ ? [GmailLabel.UNREAD] : []),
-      ],
-      addLabelIds: [...(actionLabel?.id ? [actionLabel.id] : [])],
-    });
-
-    // Update Redis to mark this thread with the new status
-    try {
-      // We need to get the thread first to get the jobId
-      const thread = await prisma.cleanupThread.findFirst({
-        where: { emailAccountId: email, threadId },
-        orderBy: { createdAt: "desc" },
+      // Get the label to add (archived or marked_read)
+      const actionLabel = await getOrCreateInboxZeroLabel({
+        key: action === CleanAction.ARCHIVE ? "archived" : "marked_read",
+        gmail,
       });
 
-      if (thread) {
-        // await updateThread(userId, thread.jobId, threadId, {
-        //   archive: action === CleanAction.ARCHIVE,
-        //   status: "completed",
-        //   undone: true,
-        // });
-
-        await updateThread({
-          email,
-          jobId: thread.jobId,
-          threadId,
-          update: {
-            archive: action === CleanAction.ARCHIVE,
-            status: "completed",
-            undone: true,
-          },
-        });
-      }
-    } catch (error) {
-      logger.error("Failed to update Redis for changed thread:", {
-        error,
+      await labelThread({
+        gmail,
         threadId,
+        // Apply the action (archive or mark as read)
+        removeLabelIds: [
+          ...(action === CleanAction.ARCHIVE ? [GmailLabel.INBOX] : []),
+          ...(action === CleanAction.MARK_READ ? [GmailLabel.UNREAD] : []),
+        ],
+        addLabelIds: [...(actionLabel?.id ? [actionLabel.id] : [])],
       });
-      // Continue even if Redis update fails
-    }
 
-    return { success: true };
-  });
+      // Update Redis to mark this thread with the new status
+      try {
+        // We need to get the thread first to get the jobId
+        const thread = await prisma.cleanupThread.findFirst({
+          where: { emailAccountId, threadId },
+          orderBy: { createdAt: "desc" },
+        });
+
+        if (thread) {
+          // await updateThread(userId, thread.jobId, threadId, {
+          //   archive: action === CleanAction.ARCHIVE,
+          //   status: "completed",
+          //   undone: true,
+          // });
+
+          await updateThread({
+            emailAccountId,
+            jobId: thread.jobId,
+            threadId,
+            update: {
+              archive: action === CleanAction.ARCHIVE,
+              status: "completed",
+              undone: true,
+            },
+          });
+        }
+      } catch (error) {
+        logger.error("Failed to update Redis for changed thread:", {
+          error,
+          threadId,
+        });
+        // Continue even if Redis update fails
+      }
+
+      return { success: true };
+    },
+  );

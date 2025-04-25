@@ -4,7 +4,7 @@ import { z } from "zod";
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
-import { trashMessage, trashThread } from "@/utils/gmail/trash";
+import { trashThread } from "@/utils/gmail/trash";
 import {
   archiveThread,
   markImportantMessage,
@@ -26,41 +26,51 @@ const isStatusOk = (status: number) => status >= 200 && status < 300;
 export const archiveThreadAction = actionClient
   .metadata({ name: "archiveThread" })
   .schema(z.object({ threadId: z.string(), labelId: z.string().optional() }))
-  .action(async ({ ctx: { email }, parsedInput: { threadId, labelId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({
+      ctx: { emailAccountId, emailAccount },
+      parsedInput: { threadId, labelId },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await archiveThread({
-      gmail,
-      threadId,
-      ownerEmail: email,
-      actionSource: "user",
-      labelId,
-    });
+      const res = await archiveThread({
+        gmail,
+        threadId,
+        ownerEmail: emailAccount.email,
+        actionSource: "user",
+        labelId,
+      });
 
-    if (!isStatusOk(res.status)) return { error: "Failed to archive thread" };
-  });
+      if (!isStatusOk(res.status)) return { error: "Failed to archive thread" };
+    },
+  );
 
 export const trashThreadAction = actionClient
   .metadata({ name: "trashThread" })
   .schema(z.object({ threadId: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { threadId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({
+      ctx: { emailAccountId, emailAccount },
+      parsedInput: { threadId },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await trashThread({
-      gmail,
-      threadId,
-      ownerEmail: email,
-      actionSource: "user",
-    });
+      const res = await trashThread({
+        gmail,
+        threadId,
+        ownerEmail: emailAccount.email,
+        actionSource: "user",
+      });
 
-    if (!isStatusOk(res.status)) return { error: "Failed to delete thread" };
-  });
+      if (!isStatusOk(res.status)) return { error: "Failed to delete thread" };
+    },
+  );
 
 // export const trashMessageAction = actionClient
 //   .metadata({ name: "trashMessage" })
 //   .schema(z.object({ messageId: z.string() }))
-//   .action(async ({ ctx: { email }, parsedInput: { messageId } }) => {
-//     const gmail = await getGmailClientForEmail({ email });
+//   .action(async ({ ctx: { emailAccountId }, parsedInput: { messageId } }) => {
+//     const gmail = await getGmailClientForEmail({ emailAccountId });
 
 //     const res = await trashMessage({ gmail, messageId });
 
@@ -70,32 +80,39 @@ export const trashThreadAction = actionClient
 export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
   .schema(z.object({ threadId: z.string(), read: z.boolean() }))
-  .action(async ({ ctx: { email }, parsedInput: { threadId, read } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { threadId, read } }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await markReadThread({ gmail, threadId, read });
+      const res = await markReadThread({ gmail, threadId, read });
 
-    if (!isStatusOk(res.status))
-      return { error: "Failed to mark thread as read" };
-  });
+      if (!isStatusOk(res.status))
+        return { error: "Failed to mark thread as read" };
+    },
+  );
 
 export const markImportantMessageAction = actionClient
   .metadata({ name: "markImportantMessage" })
   .schema(z.object({ messageId: z.string(), important: z.boolean() }))
-  .action(async ({ ctx: { email }, parsedInput: { messageId, important } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { messageId, important },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await markImportantMessage({ gmail, messageId, important });
+      const res = await markImportantMessage({ gmail, messageId, important });
 
-    if (!isStatusOk(res.status))
-      return { error: "Failed to mark message as important" };
-  });
+      if (!isStatusOk(res.status))
+        return { error: "Failed to mark message as important" };
+    },
+  );
 
 export const markSpamThreadAction = actionClient
   .metadata({ name: "markSpamThread" })
   .schema(z.object({ threadId: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { threadId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { threadId } }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const res = await markSpam({ gmail, threadId });
 
@@ -106,37 +123,47 @@ export const markSpamThreadAction = actionClient
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
   .schema(z.object({ from: z.string(), gmailLabelId: z.string().optional() }))
-  .action(async ({ ctx: { email }, parsedInput: { from, gmailLabelId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { from, gmailLabelId },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
+      const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
 
-    if (!isStatusOk(res.status))
-      return { error: "Failed to create auto archive filter" };
-  });
+      if (!isStatusOk(res.status))
+        return { error: "Failed to create auto archive filter" };
+    },
+  );
 
 export const createFilterAction = actionClient
   .metadata({ name: "createFilter" })
   .schema(z.object({ from: z.string(), gmailLabelId: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { from, gmailLabelId } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { from, gmailLabelId },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const res = await createFilter({
-      gmail,
-      from,
-      addLabelIds: [gmailLabelId],
-    });
+      const res = await createFilter({
+        gmail,
+        from,
+        addLabelIds: [gmailLabelId],
+      });
 
-    if (!isStatusOk(res.status)) return { error: "Failed to create filter" };
+      if (!isStatusOk(res.status)) return { error: "Failed to create filter" };
 
-    return res;
-  });
+      return res;
+    },
+  );
 
 export const deleteFilterAction = actionClient
   .metadata({ name: "deleteFilter" })
   .schema(z.object({ id: z.string() }))
-  .action(async ({ ctx: { email }, parsedInput: { id } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const res = await deleteFilter({ gmail, id });
 
@@ -146,12 +173,19 @@ export const deleteFilterAction = actionClient
 export const createLabelAction = actionClient
   .metadata({ name: "createLabel" })
   .schema(z.object({ name: z.string(), description: z.string().optional() }))
-  .action(async ({ ctx: { email }, parsedInput: { name, description } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const label = await createLabel({ gmail, email, name, description });
-    return label;
-  });
+      const label = await createLabel({
+        gmail,
+        emailAccountId,
+        name,
+        description,
+      });
+      return label;
+    },
+  );
 
 export const updateLabelsAction = actionClient
   .metadata({ name: "updateLabels" })
@@ -167,7 +201,7 @@ export const updateLabelsAction = actionClient
       ),
     }),
   )
-  .action(async ({ ctx: { email }, parsedInput: { labels } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { labels } }) => {
     const enabledLabels = labels.filter((label) => label.enabled);
     const disabledLabels = labels.filter((label) => !label.enabled);
 
@@ -176,13 +210,13 @@ export const updateLabelsAction = actionClient
         const { name, description, enabled, gmailLabelId } = label;
 
         return prisma.label.upsert({
-          where: { name_emailAccountId: { name, emailAccountId: email } },
+          where: { name_emailAccountId: { name, emailAccountId } },
           create: {
             gmailLabelId,
             name,
             description,
             enabled,
-            emailAccount: { connect: { email } },
+            emailAccountId,
           },
           update: {
             name,
@@ -193,14 +227,14 @@ export const updateLabelsAction = actionClient
       }),
       prisma.label.deleteMany({
         where: {
-          emailAccountId: email,
+          emailAccountId,
           name: { in: disabledLabels.map((label) => label.name) },
         },
       }),
     ]);
 
     await saveUserLabels({
-      email,
+      emailAccountId,
       labels: enabledLabels.map((l) => ({
         ...l,
         id: l.gmailLabelId,
@@ -211,8 +245,8 @@ export const updateLabelsAction = actionClient
 export const sendEmailAction = actionClient
   .metadata({ name: "sendEmail" })
   .schema(sendEmailBody)
-  .action(async ({ ctx: { email }, parsedInput }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const result = await sendEmailWithHtml(gmail, parsedInput);
 

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
 export type RulesResponse = Awaited<ReturnType<typeof getRules>>;
 
-async function getRules({ email }: { email: string }) {
+async function getRules({ emailAccountId }: { emailAccountId: string }) {
   return await prisma.rule.findMany({
-    where: { emailAccountId: email },
+    where: { emailAccountId },
     include: {
       actions: true,
       group: { select: { name: true } },
@@ -16,8 +16,8 @@ async function getRules({ email }: { email: string }) {
   });
 }
 
-export const GET = withAuth(async (req) => {
-  const email = req.auth.userEmail;
-  const result = await getRules({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const result = await getRules({ emailAccountId });
   return NextResponse.json(result);
 });

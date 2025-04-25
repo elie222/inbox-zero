@@ -19,26 +19,23 @@ import { getAccessTokenFromClient } from "@/utils/gmail/client";
 const logger = createScopedLogger("generate-reply");
 
 export async function generateDraft({
-  userId,
-  userEmail,
+  emailAccountId,
   gmail,
   message,
 }: {
-  userId: string;
-  userEmail: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
 }) {
   const logger = createScopedLogger("generate-reply").with({
-    email: userEmail,
-    userId,
+    emailAccountId,
     messageId: message.id,
     threadId: message.threadId,
   });
 
   logger.info("Generating draft");
 
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId: userId });
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
   if (!emailAccount) throw new Error("User not found");
 
   // 1. Draft with AI
@@ -119,7 +116,7 @@ async function generateDraftContent(
   if (!lastMessage) throw new Error("No message provided");
 
   const reply = await getReply({
-    email: emailAccount.email,
+    emailAccountId: emailAccount.id,
     messageId: lastMessage.id,
   });
 
@@ -193,7 +190,7 @@ async function generateDraftContent(
 
   if (typeof text === "string") {
     await saveReply({
-      email: emailAccount.email,
+      emailAccountId: emailAccount.id,
       messageId: lastMessage.id,
       reply: text,
     });

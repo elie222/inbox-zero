@@ -75,20 +75,20 @@ async function findPotentialMatchingRules({
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
-  async function getGroups({ email }: { email: string }) {
-    if (!groups) groups = await getGroupsWithRules({ email });
+  async function getGroups({ emailAccountId }: { emailAccountId: string }) {
+    if (!groups) groups = await getGroupsWithRules({ emailAccountId });
     return groups;
   }
 
   // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
-  async function getSender({ email }: { email: string }) {
+  async function getSender({ emailAccountId }: { emailAccountId: string }) {
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
           email_emailAccountId: {
             email: extractEmailAddress(message.headers.from),
-            emailAccountId: email,
+            emailAccountId,
           },
         },
         select: { categoryId: true },
@@ -112,7 +112,7 @@ async function findPotentialMatchingRules({
     if (rule.groupId) {
       const { matchingItem, group } = await matchesGroupRule(
         rule,
-        await getGroups({ email: rule.emailAccountId }),
+        await getGroups({ emailAccountId: rule.emailAccountId }),
         message,
       );
       if (matchingItem) {
@@ -149,7 +149,7 @@ async function findPotentialMatchingRules({
     if (conditionTypes.CATEGORY) {
       const matchedCategory = await matchesCategoryRule(
         rule,
-        await getSender({ email: rule.emailAccountId }),
+        await getSender({ emailAccountId: rule.emailAccountId }),
       );
       if (matchedCategory) {
         unmatchedConditions.delete(ConditionType.CATEGORY);

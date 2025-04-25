@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,
@@ -11,22 +11,22 @@ export type SaveEmailUpdateSettingsResponse = Awaited<
 >;
 
 async function saveEmailUpdateSettings(
-  { email }: { email: string },
+  { emailAccountId }: { emailAccountId: string },
   { statsEmailFrequency, summaryEmailFrequency }: SaveEmailUpdateSettingsBody,
 ) {
   return await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { statsEmailFrequency, summaryEmailFrequency },
   });
 }
 
-export const POST = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const POST = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const json = await request.json();
   const body = saveEmailUpdateSettingsBody.parse(json);
 
-  const result = await saveEmailUpdateSettings({ email }, body);
+  const result = await saveEmailUpdateSettings({ emailAccountId }, body);
 
   return NextResponse.json(result);
 });

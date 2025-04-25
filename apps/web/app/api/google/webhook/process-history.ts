@@ -172,7 +172,8 @@ export async function processHistoryForUser(
 
       await processHistory({
         history: history.history,
-        email,
+        userEmail: emailAccount.email,
+        emailAccountId: emailAccount.id,
         gmail,
         accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
@@ -188,7 +189,10 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId(emailAccount.email, historyId.toString());
+      await updateLastSyncedHistoryId({
+        emailAccountId: emailAccount.id,
+        lastSyncedHistoryId: historyId.toString(),
+      });
     }
 
     logger.info("Completed processing history", { decodedData });
@@ -215,7 +219,7 @@ export async function processHistoryForUser(
 }
 
 async function processHistory(options: ProcessHistoryOptions) {
-  const { history, email } = options;
+  const { history, userEmail, emailAccountId } = options;
 
   if (!history?.length) return;
 
@@ -236,11 +240,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       } catch (error) {
         captureException(
           error,
-          { extra: { email, messageId: m.message?.id } },
-          email,
+          { extra: { userEmail, messageId: m.message?.id } },
+          userEmail,
         );
         logger.error("Error processing history item", {
-          email,
+          userEmail,
           messageId: m.message?.id,
           threadId: m.message?.threadId,
           error:
@@ -258,16 +262,22 @@ async function processHistory(options: ProcessHistoryOptions) {
 
   const lastSyncedHistoryId = history[history.length - 1].id;
 
-  await updateLastSyncedHistoryId(email, lastSyncedHistoryId);
+  await updateLastSyncedHistoryId({
+    emailAccountId,
+    lastSyncedHistoryId,
+  });
 }
 
-async function updateLastSyncedHistoryId(
-  email: string,
-  lastSyncedHistoryId?: string | null,
-) {
+async function updateLastSyncedHistoryId({
+  emailAccountId,
+  lastSyncedHistoryId,
+}: {
+  emailAccountId: string;
+  lastSyncedHistoryId?: string | null;
+}) {
   if (!lastSyncedHistoryId) return;
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { lastSyncedHistoryId },
   });
 }

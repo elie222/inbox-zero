@@ -22,34 +22,38 @@ import { SafeError } from "@/utils/error";
 export const updateColdEmailSettingsAction = actionClient
   .metadata({ name: "updateColdEmailSettings" })
   .schema(updateColdEmailSettingsBody)
-  .action(async ({ ctx: { email }, parsedInput: { coldEmailBlocker } }) => {
-    await prisma.emailAccount.update({
-      where: { email },
-      data: { coldEmailBlocker },
-    });
-  });
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailBlocker } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { coldEmailBlocker },
+      });
+    },
+  );
 
 export const updateColdEmailPromptAction = actionClient
   .metadata({ name: "updateColdEmailPrompt" })
   .schema(updateColdEmailPromptBody)
-  .action(async ({ ctx: { email }, parsedInput: { coldEmailPrompt } }) => {
-    await prisma.emailAccount.update({
-      where: { email },
-      data: { coldEmailPrompt },
-    });
-  });
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailPrompt } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { coldEmailPrompt },
+      });
+    },
+  );
 
 export const markNotColdEmailAction = actionClient
   .metadata({ name: "markNotColdEmail" })
   .schema(markNotColdEmailBody)
-  .action(async ({ ctx: { email }, parsedInput: { sender } }) => {
-    const gmail = await getGmailClientForEmail({ email });
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sender } }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     await Promise.all([
       prisma.coldEmail.update({
         where: {
           emailAccountId_fromEmail: {
-            emailAccountId: email,
+            emailAccountId,
             fromEmail: sender,
           },
         },
@@ -93,7 +97,7 @@ export const testColdEmailAction = actionClient
   .schema(coldEmailBlockerBody)
   .action(
     async ({
-      ctx: { email, emailAccount },
+      ctx: { emailAccountId },
       parsedInput: {
         from,
         subject,
@@ -105,9 +109,16 @@ export const testColdEmailAction = actionClient
         date,
       },
     }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        include: {
+          user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+        },
+      });
+
       if (!emailAccount) throw new SafeError("Email account not found");
 
-      const gmail = await getGmailClientForEmail({ email });
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
       const content = emailToContent({
         textHtml: textHtml || undefined,
@@ -124,7 +135,7 @@ export const testColdEmailAction = actionClient
           threadId: threadId || undefined,
           id: messageId || "",
         },
-        user: emailAccount,
+        emailAccount,
         gmail,
       });
 

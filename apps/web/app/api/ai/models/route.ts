@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { Provider } from "@/utils/llms/config";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -14,26 +14,28 @@ async function getOpenAiModels({ apiKey }: { apiKey: string }) {
 
   const models = await openai.models.list();
 
-  return models.data.filter((m) => m.id.startsWith("gpt-"));
+  return models.data;
 }
 
-export const GET = withAuth(async (req) => {
-  const email = req.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
-    select: { aiApiKey: true, aiProvider: true },
+    where: { id: emailAccountId },
+    select: { user: { select: { aiApiKey: true, aiProvider: true } } },
   });
 
   if (
     !emailAccount ||
-    !emailAccount.aiApiKey ||
-    emailAccount.aiProvider !== Provider.OPEN_AI
+    !emailAccount.user.aiApiKey ||
+    emailAccount.user.aiProvider !== Provider.OPEN_AI
   )
     return NextResponse.json([]);
 
   try {
-    const result = await getOpenAiModels({ apiKey: emailAccount.aiApiKey });
+    const result = await getOpenAiModels({
+      apiKey: emailAccount.user.aiApiKey,
+    });
     return NextResponse.json(result);
   } catch (error) {
     logger.error("Failed to get OpenAI models", { error });

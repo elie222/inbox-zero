@@ -26,7 +26,7 @@ async function disableUnusedAutoDrafts() {
 
   // TODO: may need to make this more efficient
   // Find all users who have the auto-draft feature enabled (have an Action of type DRAFT_EMAIL)
-  const usersWithAutoDraft = await prisma.emailAccount.findMany({
+  const emailAccountsWithAutoDraft = await prisma.emailAccount.findMany({
     where: {
       rules: {
         some: {
@@ -40,7 +40,7 @@ async function disableUnusedAutoDrafts() {
       },
     },
     select: {
-      email: true,
+      id: true,
       rules: {
         where: {
           systemType: SystemType.TO_REPLY,
@@ -53,23 +53,25 @@ async function disableUnusedAutoDrafts() {
   });
 
   logger.info(
-    `Found ${usersWithAutoDraft.length} users with auto-draft enabled`,
+    `Found ${emailAccountsWithAutoDraft.length} users with auto-draft enabled`,
   );
 
   const results = {
-    usersChecked: usersWithAutoDraft.length,
+    usersChecked: emailAccountsWithAutoDraft.length,
     usersDisabled: 0,
     errors: 0,
   };
 
   // Process each user
-  for (const user of usersWithAutoDraft) {
+  for (const emailAccount of emailAccountsWithAutoDraft) {
+    const emailAccountId = emailAccount.id;
+
     try {
       // Find the last 10 drafts created for the user
       const lastTenDrafts = await prisma.executedAction.findMany({
         where: {
           executedRule: {
-            emailAccountId: user.email,
+            emailAccountId,
             rule: {
               systemType: SystemType.TO_REPLY,
             },
@@ -96,7 +98,7 @@ async function disableUnusedAutoDrafts() {
       // Skip if user has fewer than 10 drafts (not enough data to make a decision)
       if (lastTenDrafts.length < MAX_DRAFTS_TO_CHECK) {
         logger.info("Skipping user - only has few drafts", {
-          email: user.email,
+          emailAccountId,
           numDrafts: lastTenDrafts.length,
         });
         continue;
@@ -110,14 +112,14 @@ async function disableUnusedAutoDrafts() {
       // If none of the drafts were sent, disable auto-draft
       if (!anyDraftsSent) {
         logger.info("Disabling auto-draft for user - last 10 drafts not used", {
-          email: user.email,
+          emailAccountId,
         });
 
         // Delete the DRAFT_EMAIL actions from all TO_REPLY rules
         await prisma.action.deleteMany({
           where: {
             rule: {
-              emailAccountId: user.email,
+              emailAccountId,
               systemType: SystemType.TO_REPLY,
             },
             type: ActionType.DRAFT_EMAIL,
@@ -128,7 +130,7 @@ async function disableUnusedAutoDrafts() {
         results.usersDisabled++;
       }
     } catch (error) {
-      logger.error("Error processing user", { email: user.email, error });
+      logger.error("Error processing user", { emailAccountId, error });
       captureException(error);
       results.errors++;
     }

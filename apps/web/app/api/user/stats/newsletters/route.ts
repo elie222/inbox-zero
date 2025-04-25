@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import {
   filterNewsletters,
   findAutoArchiveFilter,
@@ -233,14 +233,8 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-export const GET = withAuth(async (request) => {
+export const GET = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
-  if (!emailAccountId) {
-    return NextResponse.json(
-      { error: "Email account ID is required", isKnownError: true },
-      { status: 403 },
-    );
-  }
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({
