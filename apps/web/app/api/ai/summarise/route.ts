@@ -4,7 +4,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary } from "@/utils/redis/summary";
 import { emailToContent } from "@/utils/mail";
-import { getAiUser } from "@/utils/user/get";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
@@ -24,7 +24,7 @@ export const POST = withEmailAccount(async (request) => {
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
-  const userAi = await getAiUser({ emailAccountId });
+  const userAi = await getEmailAccountWithAi({ emailAccountId });
 
   if (!userAi)
     return NextResponse.json({ error: "User not found" }, { status: 404 });

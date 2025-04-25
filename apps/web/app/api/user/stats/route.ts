@@ -1,9 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
-import { getGmailClientForEmail } from "@/utils/account";
+import { getGmailClientForEmailId } from "@/utils/account";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
@@ -72,9 +72,10 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   };
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const gmail = await getGmailClientForEmailId({ emailAccountId });
   const result = await getStats({ gmail });
 
   return NextResponse.json(result);
