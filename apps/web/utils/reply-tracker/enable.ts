@@ -9,20 +9,28 @@ import { createScopedLogger } from "@/utils/logger";
 import { RuleName } from "@/utils/rule/consts";
 import { SafeError } from "@/utils/error";
 
-export async function enableReplyTracker({ email }: { email: string }) {
-  const logger = createScopedLogger("reply-tracker/enable").with({ email });
+export async function enableReplyTracker({
+  emailAccountId,
+}: { emailAccountId: string }) {
+  const logger = createScopedLogger("reply-tracker/enable").with({
+    emailAccountId,
+  });
 
   // Find existing reply required rule, make it track replies
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       userId: true,
       email: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
       about: true,
       rulesPrompt: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
       rules: {
         where: {
           systemType: SystemType.TO_REPLY,
@@ -116,7 +124,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
 
     // Add rule to prompt file
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: {
         rulesPrompt:
           `${emailAccount.rulesPrompt || ""}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
@@ -139,7 +147,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
   await Promise.allSettled([
     enableReplyTracking(updatedRule),
     enableDraftReplies(updatedRule),
-    enableOutboundReplyTracking({ email }),
+    enableOutboundReplyTracking({ emailAccountId }),
   ]);
 }
 
@@ -172,9 +180,11 @@ export async function enableDraftReplies(
   });
 }
 
-async function enableOutboundReplyTracking({ email }: { email: string }) {
+async function enableOutboundReplyTracking({
+  emailAccountId,
+}: { emailAccountId: string }) {
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { outboundReplyTracking: true },
   });
 }

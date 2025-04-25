@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getThreads } from "@/utils/gmail/thread";
 import { getGmailClientForEmail } from "@/utils/account";
 
@@ -25,9 +25,10 @@ async function getGetThreads(
   return threads.threads || [];
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get("from");

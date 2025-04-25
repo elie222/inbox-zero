@@ -15,7 +15,7 @@ import {
 } from "@/app/api/lemon-squeezy/api";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { getVariantId } from "@/app/(app)/[account]/premium/config";
+import { getVariantId } from "@/app/(app)/[emailAccountId]/premium/config";
 import {
   actionClientUser,
   adminActionClient,

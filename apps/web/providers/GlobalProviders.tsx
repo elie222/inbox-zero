@@ -4,7 +4,7 @@ import { SessionProvider } from "@/providers/SessionProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
 import { ComposeModalProvider } from "@/providers/ComposeModalProvider";
-import { AccountProvider } from "@/providers/AccountProvider";
+import { AccountProvider } from "@/providers/EmailAccountProvider";
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (

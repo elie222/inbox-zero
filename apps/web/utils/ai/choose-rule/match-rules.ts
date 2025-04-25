@@ -19,7 +19,7 @@ import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type {
   MatchReason,
@@ -206,15 +206,20 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
 export async function findMatchingRule({
   rules,
   message,
-  user,
+  emailAccount,
   gmail,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   gmail: gmail_v1.Gmail;
 }) {
-  const result = await findMatchingRuleWithReasons(rules, message, user, gmail);
+  const result = await findMatchingRuleWithReasons(
+    rules,
+    message,
+    emailAccount,
+    gmail,
+  );
   return {
     ...result,
     reason: result.reason || getMatchReason(result.matchReasons || []),
@@ -224,7 +229,7 @@ export async function findMatchingRule({
 async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
@@ -246,7 +251,7 @@ async function findMatchingRuleWithReasons(
     const result = await aiChooseRule({
       email: getEmailForLLM(message),
       rules: potentialMatches,
-      user,
+      emailAccount,
     });
 
     return result;

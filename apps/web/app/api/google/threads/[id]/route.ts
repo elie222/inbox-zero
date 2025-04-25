@@ -3,7 +3,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
 import { parseMessages } from "@/utils/mail";
 import { getGmailClientForEmail } from "@/utils/account";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getThread as getGmailThread } from "@/utils/gmail/thread";
 
 export const dynamic = "force-dynamic";
@@ -27,12 +27,13 @@ async function getThread(
   return { thread: { ...thread, messages } };
 }
 
-export const GET = withAuth(async (request, context) => {
+export const GET = withEmailAccount(async (request, context) => {
+  const emailAccountId = request.auth.emailAccountId;
+
   const params = await context.params;
   const { id } = threadQuery.parse(params);
 
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);
   const includeDrafts = searchParams.get("includeDrafts") === "true";

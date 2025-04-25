@@ -4,7 +4,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
 import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -117,7 +117,7 @@ async function updateThreadTrackers({
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
 export async function handleInboundReply(
-  user: UserEmailWithAI,
+  user: EmailAccountWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {

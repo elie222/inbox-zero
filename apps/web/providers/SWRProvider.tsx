@@ -3,7 +3,8 @@
 import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (url: string, init?: RequestInit | undefined) => {
@@ -72,7 +73,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
       const headers = new Headers(init?.headers);
 
       if (account?.accountId) {
-        headers.set("X-Account-ID", account.accountId);
+        headers.set(EMAIL_ACCOUNT_HEADER, account.accountId);
       }
 
       const newInit = { ...init, headers };

@@ -3,12 +3,15 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 
-export type GetAccountsResponse = Awaited<ReturnType<typeof getAccounts>>;
+export type GetEmailAccountsResponse = Awaited<
+  ReturnType<typeof getEmailAccounts>
+>;
 
-async function getAccounts({ userId }: { userId: string }) {
-  const accounts = await prisma.emailAccount.findMany({
+async function getEmailAccounts({ userId }: { userId: string }) {
+  const emailAccounts = await prisma.emailAccount.findMany({
     where: { userId },
     select: {
+      id: true,
       email: true,
       accountId: true,
       user: { select: { name: true, image: true } },
@@ -18,7 +21,7 @@ async function getAccounts({ userId }: { userId: string }) {
     },
   });
 
-  return { accounts };
+  return { emailAccounts };
 }
 
 export const GET = withError(async () => {
@@ -28,6 +31,6 @@ export const GET = withError(async () => {
   if (!userId)
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
-  const result = await getAccounts({ userId });
+  const result = await getEmailAccounts({ userId });
   return NextResponse.json(result);
 });

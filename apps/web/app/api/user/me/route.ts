@@ -11,15 +11,15 @@ async function getUser({ email }: { email: string }) {
     where: { email },
     select: {
       userId: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
       statsEmailFrequency: true,
       summaryEmailFrequency: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
       user: {
         select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyCustomerId: true,

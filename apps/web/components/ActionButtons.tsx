@@ -9,7 +9,7 @@ import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions/client";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ActionButtons({
   threadId,

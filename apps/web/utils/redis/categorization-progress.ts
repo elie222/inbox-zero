@@ -7,30 +7,30 @@ const categorizationProgressSchema = z.object({
 });
 type RedisCategorizationProgress = z.infer<typeof categorizationProgressSchema>;
 
-function getKey({ email }: { email: string }) {
-  return `categorization-progress:${email}`;
+function getKey({ emailAccountId }: { emailAccountId: string }) {
+  return `categorization-progress:${emailAccountId}`;
 }
 
 export async function getCategorizationProgress({
-  email,
+  emailAccountId,
 }: {
-  email: string;
+  emailAccountId: string;
 }) {
-  const key = getKey({ email });
+  const key = getKey({ emailAccountId });
   const progress = await redis.get<RedisCategorizationProgress>(key);
   if (!progress) return null;
   return progress;
 }
 
 export async function saveCategorizationTotalItems({
-  email,
+  emailAccountId,
   totalItems,
 }: {
-  email: string;
+  emailAccountId: string;
   totalItems: number;
 }) {
-  const key = getKey({ email });
-  const existingProgress = await getCategorizationProgress({ email });
+  const key = getKey({ emailAccountId });
+  const existingProgress = await getCategorizationProgress({ emailAccountId });
   await redis.set(
     key,
     {
@@ -42,16 +42,16 @@ export async function saveCategorizationTotalItems({
 }
 
 export async function saveCategorizationProgress({
-  email,
+  emailAccountId,
   incrementCompleted,
 }: {
-  email: string;
+  emailAccountId: string;
   incrementCompleted: number;
 }) {
-  const existingProgress = await getCategorizationProgress({ email });
+  const existingProgress = await getCategorizationProgress({ emailAccountId });
   if (!existingProgress) return null;
 
-  const key = getKey({ email });
+  const key = getKey({ emailAccountId });
   const updatedProgress: RedisCategorizationProgress = {
     ...existingProgress,
     completedItems: (existingProgress.completedItems || 0) + incrementCompleted,

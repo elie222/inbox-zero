@@ -22,7 +22,7 @@ import {
   cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import type { ParsedMessage } from "@/utils/types";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
 
 export async function processHistoryItem(
@@ -32,7 +32,7 @@ export async function processHistoryItem(
   {
     gmail,
     email: userEmail,
-    user,
+    emailAccount,
     accessToken,
     hasColdEmailAccess,
     hasAutomationRules,
@@ -98,7 +98,7 @@ export async function processHistoryItem(
       return processAssistantEmail({
         message,
         userEmail,
-        userId: user.userId,
+        userId: emailAccount.userId,
         gmail,
       });
     }
@@ -116,7 +116,7 @@ export async function processHistoryItem(
     const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutbound(user, message, gmail);
+      await handleOutbound(emailAccount, message, gmail);
       return;
     }
 
@@ -134,7 +134,7 @@ export async function processHistoryItem(
     }
 
     const shouldRunBlocker = shouldRunColdEmailBlocker(
-      user.coldEmailBlocker,
+      emailAccount.coldEmailBlocker,
       hasColdEmailAccess,
     );
 
@@ -153,7 +153,7 @@ export async function processHistoryItem(
           date: internalDateToDate(message.internalDate),
         },
         gmail,
-        user,
+        emailAccount,
       });
 
       if (response.isColdEmail) {
@@ -164,7 +164,7 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    if (user.autoCategorizeSenders) {
+    if (emailAccount.autoCategorizeSenders) {
       const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
@@ -173,7 +173,7 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, user, gmail, accessToken);
+        await categorizeSender(sender, emailAccount, gmail, accessToken);
       }
     }
 
@@ -184,7 +184,7 @@ export async function processHistoryItem(
         gmail,
         message,
         rules,
-        user,
+        emailAccount,
         isTest: false,
       });
     }
@@ -203,7 +203,7 @@ export async function processHistoryItem(
 }
 
 async function handleOutbound(
-  user: UserEmailWithAI,
+  user: EmailAccountWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {

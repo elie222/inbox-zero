@@ -69,10 +69,10 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
 async function getNewslettersTinybird(
   options: { emailAccountId: string } & NewsletterStatsQuery,
 ) {
-  const emailAccountId = options.emailAccountId;
+  const { emailAccountId } = options;
   const types = getTypeFilters(options.types);
 
-  const gmail = await getGmailClientForEmail({ email: emailAccountId });
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const [newsletterCounts, autoArchiveFilters, userNewsletters] =
     await Promise.all([
@@ -234,7 +234,13 @@ function getOrderByClause(orderBy: string): string {
 }
 
 export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+  const emailAccountId = request.auth.emailAccountId;
+  if (!emailAccountId) {
+    return NextResponse.json(
+      { error: "Email account ID is required", isKnownError: true },
+      { status: 403 },
+    );
+  }
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({
@@ -250,7 +256,7 @@ export const GET = withAuth(async (request) => {
 
   const result = await getNewslettersTinybird({
     ...params,
-    emailAccountId: email,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

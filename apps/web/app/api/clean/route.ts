@@ -10,7 +10,7 @@ import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { getAiUserWithTokens } from "@/utils/user/get";
+import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -20,12 +20,11 @@ import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
-import { hash } from "@/utils/hash";
 
 const logger = createScopedLogger("api/clean");
 
 const cleanThreadBody = z.object({
-  email: z.string(),
+  emailAccountId: z.string(),
   threadId: z.string(),
   markedDoneLabelId: z.string(),
   processedLabelId: z.string(),
@@ -40,12 +39,12 @@ const cleanThreadBody = z.object({
     attachment: z.boolean().default(false).nullish(),
     conversation: z.boolean().default(false).nullish(),
   }),
-  labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
+  // labels: z.array(z.object({ id: z.string(), name: z.string() })).optional(),
 });
 export type CleanThreadBody = z.infer<typeof cleanThreadBody>;
 
 async function cleanThread({
-  email,
+  emailAccountId,
   threadId,
   markedDoneLabelId,
   processedLabelId,
@@ -53,29 +52,30 @@ async function cleanThread({
   action,
   instructions,
   skips,
-  labels,
 }: CleanThreadBody) {
   // 1. get thread with messages
   // 2. process thread with ai / fixed logic
   // 3. add to gmail action queue
 
-  const user = await getAiUserWithTokens({ email });
+  const emailAccount = await getEmailAccountWithAiAndTokens({
+    emailAccountId,
+  });
 
-  if (!user) throw new SafeError("User not found", 404);
+  if (!emailAccount) throw new SafeError("User not found", 404);
 
-  if (!user.tokens) throw new SafeError("No Gmail account found", 404);
-  if (!user.tokens.access_token || !user.tokens.refresh_token)
+  if (!emailAccount.tokens) throw new SafeError("No Gmail account found", 404);
+  if (!emailAccount.tokens.access_token || !emailAccount.tokens.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
   const gmail = getGmailClient({
-    accessToken: user.tokens.access_token,
-    refreshToken: user.tokens.refresh_token,
+    accessToken: emailAccount.tokens.access_token,
+    refreshToken: emailAccount.tokens.refresh_token,
   });
 
   const messages = await getThreadMessages(threadId, gmail);
 
   logger.info("Fetched messages", {
-    email,
+    emailAccountId,
     threadId,
     messageCount: messages.length,
   });
@@ -83,17 +83,20 @@ async function cleanThread({
   const lastMessage = messages[messages.length - 1];
   if (!lastMessage) return;
 
-  await saveThread(email, {
-    threadId,
-    jobId,
-    subject: lastMessage.headers.subject,
-    from: lastMessage.headers.from,
-    snippet: lastMessage.snippet,
-    date: internalDateToDate(lastMessage.internalDate),
+  await saveThread({
+    emailAccountId,
+    thread: {
+      threadId,
+      jobId,
+      subject: lastMessage.headers.subject,
+      from: lastMessage.headers.from,
+      snippet: lastMessage.snippet,
+      date: internalDateToDate(lastMessage.internalDate),
+    },
   });
 
   const publish = getPublish({
-    email,
+    emailAccountId,
     threadId,
     markedDoneLabelId,
     processedLabelId,
@@ -204,7 +207,7 @@ async function cleanThread({
 
   // llm check
   const aiResult = await aiClean({
-    user,
+    emailAccount,
     messageId: lastMessage.id,
     messages: messages.map((m) => getEmailForLLM(m)),
     instructions,
@@ -215,14 +218,14 @@ async function cleanThread({
 }
 
 function getPublish({
-  email,
+  emailAccountId,
   threadId,
   markedDoneLabelId,
   processedLabelId,
   jobId,
   action,
 }: {
-  email: string;
+  emailAccountId: string;
   threadId: string;
   markedDoneLabelId: string;
   processedLabelId: string;
@@ -240,7 +243,7 @@ function getPublish({
     const maxRatePerSecond = Math.ceil(12 / actionCount);
 
     const cleanGmailBody: CleanGmailBody = {
-      email,
+      emailAccountId,
       threadId,
       markDone,
       action,
@@ -251,7 +254,7 @@ function getPublish({
     };
 
     logger.info("Publishing to Qstash", {
-      email,
+      emailAccountId,
       threadId,
       maxRatePerSecond,
       markDone,
@@ -259,11 +262,11 @@ function getPublish({
 
     await Promise.all([
       publishToQstash("/api/clean/gmail", cleanGmailBody, {
-        key: `gmail-action-${hash(email)}`,
+        key: `gmail-action-${emailAccountId}`,
         ratePerSecond: maxRatePerSecond,
       }),
       updateThread({
-        email,
+        emailAccountId,
         jobId,
         threadId,
         update: {
@@ -274,7 +277,7 @@ function getPublish({
       }),
     ]);
 
-    logger.info("Published to Qstash", { email, threadId });
+    logger.info("Published to Qstash", { emailAccountId, threadId });
   };
 }
 

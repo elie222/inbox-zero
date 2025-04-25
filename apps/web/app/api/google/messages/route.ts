@@ -1,9 +1,6 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
+import { NextResponse } from "next/server";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { withAuth, withError } from "@/utils/middleware";
-import { SafeError } from "@/utils/error";
+import { withEmailAccount } from "@/utils/middleware";
 import { messageQuerySchema } from "@/app/api/google/messages/validation";
 import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
@@ -17,14 +14,16 @@ export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 async function getMessages({
   query,
   pageToken,
-  email,
+  emailAccountId,
+  userEmail,
 }: {
   query?: string | null;
   pageToken?: string | null;
-  email: string;
+  emailAccountId: string;
+  userEmail: string;
 }) {
   try {
-    const gmail = await getGmailClientForEmail({ email });
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const { messages, nextPageToken } = await queryBatchMessages(gmail, {
       query: query?.trim(),
@@ -45,11 +44,11 @@ async function getMessages({
         // Don't include messages from/to the assistant
         if (
           isAssistantEmail({
-            userEmail: email,
+            userEmail,
             emailToCheck: message.headers.from,
           }) ||
           isAssistantEmail({
-            userEmail: email,
+            userEmail,
             emailToCheck: message.headers.to,
           })
         ) {
@@ -67,7 +66,7 @@ async function getMessages({
     return { messages: incomingMessages, nextPageToken };
   } catch (error) {
     logger.error("Error getting messages", {
-      email,
+      emailAccountId,
       query,
       pageToken,
       error,
@@ -76,16 +75,19 @@ async function getMessages({
   }
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const userEmail = request.auth.email;
+
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const pageToken = searchParams.get("pageToken");
   const r = messageQuerySchema.parse({ q: query, pageToken });
   const result = await getMessages({
-    email,
+    emailAccountId,
     query: r.q,
     pageToken: r.pageToken,
+    userEmail,
   });
   return NextResponse.json(result);
 });

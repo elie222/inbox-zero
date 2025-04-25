@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGmailAccessToken } from "@/utils/gmail/client";
 import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
@@ -19,9 +19,10 @@ export type MessagesBatchResponse = {
   messages: Awaited<ReturnType<typeof getMessagesBatch>>;
 };
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const tokens = await getTokens({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const tokens = await getTokens({ emailAccountId });
   const accessToken = await getGmailAccessToken(tokens);
 
   if (!accessToken.token)

@@ -4,7 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { GmailLabel } from "@/utils/gmail/label";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 import { getAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import prisma from "@/utils/prisma";
@@ -13,12 +13,10 @@ const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
 export async function processPreviousSentEmails(
   gmail: gmail_v1.Gmail,
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   maxResults = 100,
 ) {
-  if (!user.email) throw new Error("User email not found");
-
-  const assistantEmail = getAssistantEmail({ userEmail: user.email });
+  const assistantEmail = getAssistantEmail({ userEmail: emailAccount.email });
 
   // Get last sent messages
   const result = await getThreads(
@@ -47,7 +45,7 @@ export async function processPreviousSentEmails(
     const isProcessed = await prisma.executedRule.findUnique({
       where: {
         unique_emailAccount_thread_message: {
-          emailAccountId: user.email,
+          emailAccountId: emailAccount.id,
           threadId: latestMessage.threadId,
           messageId: latestMessage.id,
         },
@@ -56,7 +54,7 @@ export async function processPreviousSentEmails(
     });
 
     const loggerOptions = {
-      email: user.email,
+      email: emailAccount.email,
       messageId: latestMessage.id,
       threadId: latestMessage.threadId,
     };
@@ -70,11 +68,11 @@ export async function processPreviousSentEmails(
       if (latestMessage.labelIds?.includes(GmailLabel.SENT)) {
         // outbound
         logger.info("Processing outbound reply", loggerOptions);
-        await handleOutboundReply(user, latestMessage, gmail);
+        await handleOutboundReply(emailAccount, latestMessage, gmail);
       } else {
         // inbound
         logger.info("Processing inbound reply", loggerOptions);
-        await handleInboundReply(user, latestMessage, gmail);
+        await handleInboundReply(emailAccount, latestMessage, gmail);
       }
 
       revalidatePath("/reply-zero");

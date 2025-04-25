@@ -25,18 +25,16 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await prisma.emailAccount.findFirst({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
+      id: true,
       email: true,
       userId: true,
       about: true,
       lastSyncedHistoryId: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
       autoCategorizeSenders: true,
       account: {
         select: {
@@ -52,6 +50,9 @@ export async function processHistoryForUser(
       },
       user: {
         select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -90,11 +91,11 @@ export async function processHistoryForUser(
 
   const userHasAiAccess = hasAiAccess(
     premium.aiAutomationAccess,
-    emailAccount.aiApiKey,
+    emailAccount.user.aiApiKey,
   );
   const userHasColdEmailAccess = hasColdEmailAccess(
     premium.coldEmailBlockerAccess,
-    emailAccount.aiApiKey,
+    emailAccount.user.aiApiKey,
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
@@ -178,7 +179,7 @@ export async function processHistoryForUser(
         rules: emailAccount.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
         hasAiAutomationAccess: userHasAiAccess,
-        user: emailAccount,
+        emailAccount,
       });
     } else {
       logger.info("No history", {

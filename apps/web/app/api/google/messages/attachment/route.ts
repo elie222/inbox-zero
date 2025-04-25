@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGmailAttachment } from "@/utils/gmail/attachment";
 import { getGmailClientForEmail } from "@/utils/account";
 
@@ -13,9 +13,10 @@ const attachmentQuery = z.object({
 // export type AttachmentQuery = z.infer<typeof attachmentQuery>;
 // export type AttachmentResponse = Awaited<ReturnType<typeof getGmailAttachment>>;
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);
 

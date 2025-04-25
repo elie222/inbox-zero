@@ -34,18 +34,21 @@ export async function handleBatchRequest(
 async function handleBatchInternal(request: Request) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
-  const { email, senders } = body;
+  const { emailAccountId, senders } = body;
 
-  logger.trace("Handle batch request", { email, senders: senders.length });
+  logger.trace("Handle batch request", {
+    emailAccountId,
+    senders: senders.length,
+  });
 
-  const userResult = await validateUserAndAiAccess({ email });
+  const userResult = await validateUserAndAiAccess({ emailAccountId });
   const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories({ email });
+  const categoriesResult = await getCategories({ emailAccountId });
   const { categories } = categoriesResult;
 
   const emailAccountWithAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       account: {
         select: {
@@ -90,7 +93,7 @@ async function handleBatchInternal(request: Request) {
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
-    user: emailAccount,
+    emailAccount,
     sendersWithEmails,
     categories,
   });
@@ -131,7 +134,7 @@ async function handleBatchInternal(request: Request) {
   // }
 
   await saveCategorizationProgress({
-    email,
+    emailAccountId,
     incrementCompleted: senders.length,
   });
 

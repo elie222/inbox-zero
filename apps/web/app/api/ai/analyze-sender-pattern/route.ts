@@ -128,7 +128,7 @@ async function process({ email, from }: { email: string; from: string }) {
     // Detect pattern using AI
     const patternResult = await aiDetectRecurringPattern({
       emails,
-      user: emailAccount,
+      emailAccount,
       rules: emailAccount.rules.map((rule) => ({
         name: rule.name,
         instructions: rule.instructions || "",
@@ -297,12 +297,17 @@ async function getEmailAccountWithRules({ email }: { email: string }) {
   return await prisma.emailAccount.findUnique({
     where: { email },
     select: {
+      id: true,
       userId: true,
       email: true,
       about: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
+      user: {
+        select: {
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
       account: {
         select: {
           access_token: true,

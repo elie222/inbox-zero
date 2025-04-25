@@ -29,8 +29,8 @@ import {
   rulesExamplesBody,
   type RulesExamplesBody,
 } from "@/utils/actions/rule.validation";
-import { examplePrompts } from "@/app/(app)/[account]/automation/examples";
-import { useAccount } from "@/providers/AccountProvider";
+import { examplePrompts } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 type RulesExamplesResponse = InferSafeActionFnResult<
   typeof getRuleExamplesAction

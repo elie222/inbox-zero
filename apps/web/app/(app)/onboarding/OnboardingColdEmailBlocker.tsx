@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ColdEmailForm } from "@/app/(app)/[account]/cold-email-blocker/ColdEmailSettings";
+import { ColdEmailForm } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailSettings";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 

@@ -19,12 +19,12 @@ export async function getThreads({
   query,
   gmail,
   accessToken,
-  email,
+  emailAccountId,
 }: {
   query: ThreadsQuery;
   gmail: gmail_v1.Gmail;
   accessToken: string;
-  email: string;
+  emailAccountId: string;
 }) {
   if (!accessToken) throw new SafeError("Missing access token");
 
@@ -56,7 +56,7 @@ export async function getThreads({
     getThreadsBatch(threadIds, accessToken), // may have been faster not using batch method, but doing 50 getMessages in parallel
     prisma.executedRule.findMany({
       where: {
-        emailAccountId: email,
+        emailAccountId,
         threadId: { in: threadIds },
         status: {
           // TODO probably want to show applied rules here in the future too
@@ -88,7 +88,7 @@ export async function getThreads({
         messages,
         snippet: decodeSnippet(thread.snippet),
         plan,
-        category: await getCategory({ email, threadId: id }),
+        category: await getCategory({ emailAccountId, threadId: id }),
       };
     }) || [],
   );

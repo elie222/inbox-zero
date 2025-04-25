@@ -7,8 +7,14 @@ const EXPIRATION = 60 * 60; // 1 hour
 /**
  * Get the Redis key for account validation
  */
-function getValidationKey(userId: string, accountId: string): string {
-  return `account:${userId}:${accountId}`;
+function getValidationKey({
+  userId,
+  emailAccountId,
+}: {
+  userId: string;
+  emailAccountId: string;
+}): string {
+  return `account:${userId}:${emailAccountId}`;
 }
 
 /**
@@ -17,13 +23,16 @@ function getValidationKey(userId: string, accountId: string): string {
  * @param accountId The account ID to validate
  * @returns email address of the account if it belongs to the user, otherwise null
  */
-export async function validateUserAccount(
-  userId: string,
-  accountId: string,
-): Promise<string | null> {
-  if (!userId || !accountId) return null;
+export async function getEmailAccount({
+  userId,
+  emailAccountId,
+}: {
+  userId: string;
+  emailAccountId: string;
+}): Promise<string | null> {
+  if (!userId || !emailAccountId) return null;
 
-  const key = getValidationKey(userId, accountId);
+  const key = getValidationKey({ userId, emailAccountId });
 
   // Check Redis cache first
   const cachedResult = await redis.get<string>(key);
@@ -34,7 +43,7 @@ export async function validateUserAccount(
 
   // Not in cache, check database
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { accountId, userId },
+    where: { id: emailAccountId, userId },
     select: { email: true },
   });
 
@@ -48,10 +57,13 @@ export async function validateUserAccount(
  * Invalidate the cached validation result for a user's account
  * Useful when account ownership changes
  */
-export async function invalidateAccountValidation(
-  userId: string,
-  accountId: string,
-): Promise<void> {
-  const key = getValidationKey(userId, accountId);
+export async function invalidateAccountValidation({
+  userId,
+  emailAccountId,
+}: {
+  userId: string;
+  emailAccountId: string;
+}): Promise<void> {
+  const key = getValidationKey({ userId, emailAccountId });
   await redis.del(key);
 }

@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { ActionType } from "@prisma/client";
 
 export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const response = await getData({ email });
+  const response = await getData({ emailAccountId });
 
   return NextResponse.json(response);
 });
 
-async function getData({ email }: { email: string }) {
+async function getData({ emailAccountId }: { emailAccountId: string }) {
   const executedActions = await prisma.executedAction.findMany({
     where: {
-      executedRule: { emailAccountId: email },
+      executedRule: { emailAccountId },
       type: ActionType.DRAFT_EMAIL,
     },
     select: {

@@ -6,7 +6,7 @@ import { Tooltip } from "@/components/Tooltip";
 import type { Executing, Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});

@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
 import { getLabels as getGmailLabels } from "@/utils/gmail/label";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGmailClientForEmail } from "@/utils/account";
 
 export const dynamic = "force-dynamic";
@@ -16,9 +16,10 @@ async function getLabels(gmail: gmail_v1.Gmail) {
   return { labels };
 }
 
-export const GET = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const gmail = await getGmailClientForEmail({ emailAccountId });
   const labels = await getLabels(gmail);
 
   return NextResponse.json(labels);

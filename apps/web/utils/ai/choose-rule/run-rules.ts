@@ -4,7 +4,7 @@ import type {
   ParsedMessage,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
   Prisma,
@@ -36,22 +36,27 @@ export async function runRules({
   gmail,
   message,
   rules,
-  user,
+  emailAccount,
   isTest,
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  const result = await findMatchingRule({ rules, message, user, gmail });
+  const result = await findMatchingRule({
+    rules,
+    message,
+    emailAccount,
+    gmail,
+  });
 
   analyzeSenderPatternIfAiMatch({
     isTest,
     result,
     message,
-    email: user.email,
+    email: emailAccount.email,
   });
 
   logger.trace("Matching rule", { result });
@@ -60,7 +65,7 @@ export async function runRules({
     return await executeMatchedRule(
       result.rule,
       message,
-      user,
+      emailAccount,
       gmail,
       result.reason,
       result.matchReasons,
@@ -68,7 +73,7 @@ export async function runRules({
     );
   } else {
     await saveSkippedExecutedRule({
-      emailAccountId: user.email,
+      emailAccountId: emailAccount.email,
       threadId: message.threadId,
       messageId: message.id,
       reason: result.reason,
@@ -80,7 +85,7 @@ export async function runRules({
 async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
@@ -89,7 +94,7 @@ async function executeMatchedRule(
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
     message,
-    user,
+    emailAccount,
     selectedRule: rule,
     gmail,
   });
@@ -99,7 +104,7 @@ async function executeMatchedRule(
     ? undefined
     : await saveExecutedRule(
         {
-          emailAccountId: user.email,
+          emailAccountId: emailAccount.id,
           threadId: message.threadId,
           messageId: message.id,
         },
@@ -115,7 +120,7 @@ async function executeMatchedRule(
   if (shouldExecute) {
     await executeAct({
       gmail,
-      userEmail: user.email,
+      userEmail: emailAccount.email,
       executedRule,
       message,
     });

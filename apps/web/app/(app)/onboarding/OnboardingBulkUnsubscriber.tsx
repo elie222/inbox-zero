@@ -22,7 +22,7 @@ import type {
 import { LoadingContent } from "@/components/LoadingContent";
 import { ProgressBar } from "@tremor/react";
 import { ONE_MONTH_MS } from "@/utils/date";
-import { useUnsubscribe } from "@/app/(app)/[account]/bulk-unsubscribe/hooks";
+import { useUnsubscribe } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { NewsletterStatus } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
 

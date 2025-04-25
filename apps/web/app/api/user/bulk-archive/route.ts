@@ -7,7 +7,7 @@ import {
   labelThread,
 } from "@/utils/gmail/label";
 import { sleep } from "@/utils/sleep";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getThreads } from "@/utils/gmail/thread";
 import { getGmailClientForEmail } from "@/utils/account";
 
@@ -36,7 +36,7 @@ async function bulkArchive(body: BulkArchiveBody, gmail: gmail_v1.Gmail) {
   for (const thread of threads || []) {
     await labelThread({
       gmail,
-      threadId: thread.id!,
+      threadId: thread.id,
       addLabelIds: [archivedLabel.id],
       removeLabelIds: [GmailLabel.INBOX],
     });
@@ -49,9 +49,10 @@ async function bulkArchive(body: BulkArchiveBody, gmail: gmail_v1.Gmail) {
   return { count: threads?.length || 0 };
 }
 
-export const POST = withAuth(async (request) => {
-  const email = request.auth.userEmail;
-  const gmail = await getGmailClientForEmail({ email });
+export const POST = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const json = await request.json();
   const body = bulkArchiveBody.parse(json);

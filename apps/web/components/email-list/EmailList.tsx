@@ -31,7 +31,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function List({
   emails,

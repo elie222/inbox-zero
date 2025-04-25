@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { processQueue, useQueueState } from "@/store/archive-queue";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 let isInitialized = false;
 

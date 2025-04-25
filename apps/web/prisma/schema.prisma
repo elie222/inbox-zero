@@ -13,7 +13,7 @@ model Account {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  userId            String   @unique // `@unique` was added here. It's not part of the original schema. May remove this in the future
+  userId            String
   type              String
   provider          String
   providerAccountId String
@@ -96,7 +96,8 @@ model User {
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
-  email        String   @id
+  id           String   @id @default(cuid())
+  email        String   @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   writingStyle String?
@@ -107,9 +108,10 @@ model EmailAccount {
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
 
-  aiProvider            String?
-  aiModel               String?
-  aiApiKey              String?
+  // TODO: move these into user level again. run migratio to move over data
+  aiProvider            String? // deprecated
+  aiModel               String? // deprecated
+  aiApiKey              String? // deprecated
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
@@ -203,7 +205,7 @@ model Label {
   description    String? // used in prompts
   enabled        Boolean      @default(true)
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([gmailLabelId, emailAccountId])
   @@unique([name, emailAccountId])
@@ -219,7 +221,7 @@ model Rule {
   automate       Boolean      @default(false) // if disabled, user must approve to execute
   runOnThreads   Boolean      @default(false) // if disabled, only runs on individual emails
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   executedRules ExecutedRule[]
 
@@ -286,7 +288,7 @@ model ExecutedRule {
   rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   actionItems ExecutedAction[]
 
@@ -331,7 +333,7 @@ model Group {
   prompt         String?
   items          GroupItem[]
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   rule           Rule?
 
   @@unique([name, emailAccountId])
@@ -356,7 +358,7 @@ model Category {
   name           String
   description    String?
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   emailSenders Newsletter[]
   rules        Rule[]
@@ -379,7 +381,7 @@ model Newsletter {
   lastAnalyzedAt  DateTime?
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -399,7 +401,7 @@ model ColdEmail {
   reason    String?
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, fromEmail])
   @@index([emailAccountId, status])
@@ -423,7 +425,7 @@ model EmailMessage {
   inbox           Boolean
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, threadId])
@@ -442,7 +444,7 @@ model ThreadTracker {
   type      ThreadTrackerType
 
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, resolved])
@@ -463,8 +465,8 @@ model CleanupJob {
   skipReceipt      Boolean?
   skipAttachment   Boolean?
   skipConversation Boolean?
-  email            String
-  emailAccount     EmailAccount    @relation(fields: [email], references: [email], onDelete: Cascade)
+  emailAccountId   String
+  emailAccount     EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   threads          CleanupThread[]
 }
 
@@ -477,7 +479,7 @@ model CleanupThread {
   jobId          String
   job            CleanupJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
@@ -487,7 +489,7 @@ model Knowledge {
   title     String
   content   String
 
-  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [email])
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id])
   emailAccountId String?
 
   @@unique([emailAccountId, title])
@@ -512,7 +514,7 @@ model EmailToken {
   createdAt      DateTime     @default(now())
   token          String       @unique
   emailAccountId String
-  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [email], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   expiresAt      DateTime
   // action    EmailTokenAction @default(UNSUBSCRIBE)
 }

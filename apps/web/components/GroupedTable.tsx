@@ -47,7 +47,7 @@ import {
 } from "@/store/archive-sender-queue";
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
-import { CreateCategoryDialog } from "@/app/(app)/[account]/smart-categories/CreateCategoryButton";
+import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,7 +57,7 @@ import {
 import type { CategoryWithRules } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { CategorySelect } from "@/components/CategorySelect";
-import { useAccount } from "@/providers/AccountProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 const COLUMNS = 4;
 

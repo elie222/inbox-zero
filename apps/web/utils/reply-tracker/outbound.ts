@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
@@ -12,18 +12,20 @@ import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 
 export async function handleOutboundReply(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
   const logger = createScopedLogger("reply-tracker/outbound").with({
-    email: user.email,
+    email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,
   });
 
   // 1. Check if feature enabled
-  const isEnabled = await isOutboundTrackingEnabled({ email: user.email });
+  const isEnabled = await isOutboundTrackingEnabled({
+    email: emailAccount.email,
+  });
   if (!isEnabled) {
     logger.info("Outbound reply tracking disabled, skipping.");
     return;
@@ -38,7 +40,7 @@ export async function handleOutboundReply(
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackers(
     gmail,
-    user.userId,
+    emailAccount.userId,
     message.threadId,
     needsReplyLabelId,
   );
@@ -69,7 +71,7 @@ export async function handleOutboundReply(
 
   // 7. Perform AI check
   const aiResult = await aiCheckIfNeedsReply({
-    user,
+    emailAccount,
     messageToSend: messageToSendForLLM,
     threadContextMessages: threadContextMessagesForLLM,
   });
@@ -79,7 +81,7 @@ export async function handleOutboundReply(
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
-      email: user.email,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       awaitingReplyLabelId,
@@ -93,7 +95,7 @@ export async function handleOutboundReply(
 
 async function createReplyTrackerOutbound({
   gmail,
-  email,
+  emailAccountId,
   threadId,
   messageId,
   awaitingReplyLabelId,
@@ -101,7 +103,7 @@ async function createReplyTrackerOutbound({
   logger,
 }: {
   gmail: gmail_v1.Gmail;
-  email: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   awaitingReplyLabelId: string;
@@ -113,14 +115,14 @@ async function createReplyTrackerOutbound({
   const upsertPromise = prisma.threadTracker.upsert({
     where: {
       emailAccountId_threadId_messageId: {
-        emailAccountId: email,
+        emailAccountId,
         threadId,
         messageId,
       },
     },
     update: {},
     create: {
-      emailAccountId: email,
+      emailAccountId,
       threadId,
       messageId,
       type: ThreadTrackerType.AWAITING,

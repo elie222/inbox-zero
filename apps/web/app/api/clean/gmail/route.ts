@@ -14,7 +14,7 @@ import { updateThread } from "@/utils/redis/clean";
 const logger = createScopedLogger("api/clean/gmail");
 
 const cleanGmailSchema = z.object({
-  email: z.string(),
+  emailAccountId: z.string(),
   threadId: z.string(),
   markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
@@ -26,7 +26,7 @@ const cleanGmailSchema = z.object({
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
 async function performGmailAction({
-  email,
+  emailAccountId,
   threadId,
   markDone,
   // labelId,
@@ -36,7 +36,7 @@ async function performGmailAction({
   action,
 }: CleanGmailBody) {
   const account = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       account: { select: { access_token: true, refresh_token: true } },
     },
@@ -74,7 +74,7 @@ async function performGmailAction({
   });
 
   await saveCleanResult({
-    email,
+    emailAccountId,
     threadId,
     markDone,
     jobId,
@@ -82,20 +82,25 @@ async function performGmailAction({
 }
 
 async function saveCleanResult({
-  email,
+  emailAccountId,
   threadId,
   markDone,
   jobId,
 }: {
-  email: string;
+  emailAccountId: string;
   threadId: string;
   markDone: boolean;
   jobId: string;
 }) {
   await Promise.all([
-    updateThread({ email, jobId, threadId, update: { status: "completed" } }),
+    updateThread({
+      emailAccountId,
+      jobId,
+      threadId,
+      update: { status: "completed" },
+    }),
     saveToDatabase({
-      email,
+      emailAccountId,
       threadId,
       archive: markDone,
       jobId,
@@ -104,19 +109,19 @@ async function saveCleanResult({
 }
 
 async function saveToDatabase({
-  email,
+  emailAccountId,
   threadId,
   archive,
   jobId,
 }: {
-  email: string;
+  emailAccountId: string;
   threadId: string;
   archive: boolean;
   jobId: string;
 }) {
   await prisma.cleanupThread.create({
     data: {
-      emailAccount: { connect: { email } },
+      emailAccount: { connect: { id: emailAccountId } },
       threadId,
       archived: archive,
       job: { connect: { id: jobId } },
