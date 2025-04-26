@@ -220,6 +220,7 @@ export const approvePlanAction = actionClient
         message,
         executedRule,
         userEmail: emailAccount.email,
+        emailAccountId,
       });
     },
   );

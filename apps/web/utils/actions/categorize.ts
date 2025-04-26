@@ -29,16 +29,16 @@ const logger = createScopedLogger("actions/categorize");
 
 export const bulkCategorizeSendersAction = actionClient
   .metadata({ name: "bulkCategorizeSenders" })
-  .action(async ({ ctx: { emailAccountId, userEmail } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     await validateUserAndAiAccess({ emailAccountId });
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
-    deleteEmptyCategorizeSendersQueues({ skipEmail: userEmail }).catch(
-      (error) => {
-        logger.error("Error deleting empty queues", { error });
-      },
-    );
+    deleteEmptyCategorizeSendersQueues({
+      skipEmailAccountId: emailAccountId,
+    }).catch((error) => {
+      logger.error("Error deleting empty queues", { error });
+    });
 
     const LIMIT = 100;
 

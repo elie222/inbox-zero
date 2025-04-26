@@ -56,7 +56,7 @@ export async function runRules({
     isTest,
     result,
     message,
-    email: emailAccount.email,
+    emailAccountId: emailAccount.id,
   });
 
   logger.trace("Matching rule", { result });
@@ -121,6 +121,7 @@ async function executeMatchedRule(
     await executeAct({
       gmail,
       userEmail: emailAccount.email,
+      emailAccountId: emailAccount.id,
       executedRule,
       message,
     });
@@ -262,12 +263,12 @@ async function analyzeSenderPatternIfAiMatch({
   isTest,
   result,
   message,
-  email,
+  emailAccountId,
 }: {
   isTest: boolean;
   result: { rule?: Rule | null; matchReasons?: MatchReason[] };
   message: ParsedMessage;
-  email: string;
+  emailAccountId: string;
 }) {
   if (
     !isTest &&
@@ -285,7 +286,7 @@ async function analyzeSenderPatternIfAiMatch({
     if (fromAddress) {
       after(() =>
         analyzeSenderPattern({
-          email,
+          emailAccountId,
           from: fromAddress,
         }),
       );
