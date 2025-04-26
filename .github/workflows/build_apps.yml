@@ -53,6 +53,8 @@ jobs:
           NEW_TAG="${{ steps.increment_tag.outputs.new_tag }}"
 
           echo "Tag pushed to GitHub: $NEW_TAG"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
 
   builds-frontend:
     name: "Build Docker Image"
