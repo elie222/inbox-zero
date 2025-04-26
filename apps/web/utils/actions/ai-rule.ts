@@ -44,10 +44,10 @@ export const runRulesAction = actionClient
     async ({
       ctx: { emailAccountId },
       parsedInput: { messageId, threadId, rerun, isTest },
-    }): Promise<RunRulesResult | { error: string }> => {
+    }): Promise<RunRulesResult> => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new Error("Email account not found");
 
       const gmail = await getGmailClientForEmail({ emailAccountId });
 

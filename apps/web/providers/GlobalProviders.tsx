@@ -4,12 +4,12 @@ import { SessionProvider } from "@/providers/SessionProvider";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { StatLoaderProvider } from "@/providers/StatLoaderProvider";
 import { ComposeModalProvider } from "@/providers/ComposeModalProvider";
-import { AccountProvider } from "@/providers/EmailAccountProvider";
+import { EmailAccountProvider } from "@/providers/EmailAccountProvider";
 
 export function GlobalProviders(props: { children: React.ReactNode }) {
   return (
     <NuqsAdapter>
-      <AccountProvider>
+      <EmailAccountProvider>
         <SWRProvider>
           <SessionProvider>
             <StatLoaderProvider>
@@ -17,7 +17,7 @@ export function GlobalProviders(props: { children: React.ReactNode }) {
             </StatLoaderProvider>
           </SessionProvider>
         </SWRProvider>
-      </AccountProvider>
+      </EmailAccountProvider>
     </NuqsAdapter>
   );
 }
