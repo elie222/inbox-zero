@@ -162,7 +162,7 @@ export const createAutomationAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { prompt } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new Error("Email account not found");
 
     let result: CreateOrUpdateRuleSchemaWithCategories;
 
@@ -170,12 +170,12 @@ export const createAutomationAction = actionClient
       result = await aiCreateRule(prompt, emailAccount);
     } catch (error) {
       if (error instanceof Error) {
-        return { error: `AI error creating rule. ${error.message}` };
+        throw new Error(`AI error creating rule. ${error.message}`);
       }
-      return { error: "AI error creating rule." };
+      throw new Error("AI error creating rule.");
     }
 
-    if (!result) return { error: "AI error creating rule." };
+    if (!result) throw new Error("AI error creating rule.");
 
     const createdRule = await safeCreateRule({
       result,
