@@ -40,6 +40,7 @@ import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previo
 import { RuleName } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -48,7 +49,7 @@ export const createRuleAction = actionClient
   .schema(createRuleBody)
   .action(
     async ({
-      ctx: { email },
+      ctx: { emailAccountId },
       parsedInput: {
         name,
         automate,
@@ -87,7 +88,7 @@ export const createRuleAction = actionClient
                   },
                 }
               : undefined,
-            emailAccount: { connect: { email } },
+            emailAccountId,
             conditionalOperator: conditionalOperator || LogicalOperator.AND,
             systemType: systemType || undefined,
             // conditions
@@ -107,7 +108,7 @@ export const createRuleAction = actionClient
           include: { actions: true, categoryFilters: true, group: true },
         });
 
-        await updatePromptFileOnRuleCreated({ email, rule });
+        await updatePromptFileOnRuleCreated({ emailAccountId, rule });
 
         revalidatePath("/automation");
 
@@ -133,7 +134,7 @@ export const updateRuleAction = actionClient
   .schema(updateRuleBody)
   .action(
     async ({
-      ctx: { email },
+      ctx: { emailAccountId },
       parsedInput: {
         id,
         name,
@@ -149,7 +150,7 @@ export const updateRuleAction = actionClient
 
       try {
         const currentRule = await prisma.rule.findUnique({
-          where: { id, emailAccountId: email },
+          where: { id, emailAccountId },
           include: { actions: true, categoryFilters: true, group: true },
         });
         if (!currentRule) return { error: "Rule not found" };
@@ -165,7 +166,7 @@ export const updateRuleAction = actionClient
         const [updatedRule] = await prisma.$transaction([
           // update rule
           prisma.rule.update({
-            where: { id, emailAccountId: email },
+            where: { id, emailAccountId },
             data: {
               automate: automate ?? undefined,
               runOnThreads: runOnThreads ?? undefined,
@@ -238,7 +239,7 @@ export const updateRuleAction = actionClient
 
         // update prompt file
         await updatePromptFileOnRuleUpdated({
-          email,
+          emailAccountId,
           currentRule,
           updatedRule,
         });
@@ -266,51 +267,55 @@ export const updateRuleAction = actionClient
 export const updateRuleInstructionsAction = actionClient
   .metadata({ name: "updateRuleInstructions" })
   .schema(updateRuleInstructionsBody)
-  .action(async ({ ctx: { email }, parsedInput: { id, instructions } }) => {
-    const currentRule = await prisma.rule.findUnique({
-      where: { id, emailAccountId: email },
-      include: { actions: true, categoryFilters: true, group: true },
-    });
-    if (!currentRule) return { error: "Rule not found" };
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      const currentRule = await prisma.rule.findUnique({
+        where: { id, emailAccountId },
+        include: { actions: true, categoryFilters: true, group: true },
+      });
+      if (!currentRule) return { error: "Rule not found" };
 
-    await updateRuleInstructionsAndPromptFile({
-      email,
-      ruleId: id,
-      instructions,
-      currentRule,
-    });
+      await updateRuleInstructionsAndPromptFile({
+        emailAccountId,
+        ruleId: id,
+        instructions,
+        currentRule,
+      });
 
-    revalidatePath(`/automation/rule/${id}`);
-    revalidatePath("/automation");
-  });
+      revalidatePath(`/automation/rule/${id}`);
+      revalidatePath("/automation");
+    },
+  );
 
 export const updateRuleSettingsAction = actionClient
   .metadata({ name: "updateRuleSettings" })
   .schema(updateRuleSettingsBody)
-  .action(async ({ ctx: { email }, parsedInput: { id, instructions } }) => {
-    const currentRule = await prisma.rule.findUnique({
-      where: { id, emailAccountId: email },
-    });
-    if (!currentRule) return { error: "Rule not found" };
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      const currentRule = await prisma.rule.findUnique({
+        where: { id, emailAccountId },
+      });
+      if (!currentRule) return { error: "Rule not found" };
 
-    await prisma.rule.update({
-      where: { id, emailAccountId: email },
-      data: { instructions },
-    });
+      await prisma.rule.update({
+        where: { id, emailAccountId },
+        data: { instructions },
+      });
 
-    revalidatePath(`/automation/rule/${id}`);
-    revalidatePath("/automation");
-    revalidatePath("/reply-zero");
-  });
+      revalidatePath(`/automation/rule/${id}`);
+      revalidatePath("/automation");
+      revalidatePath("/reply-zero");
+    },
+  );
 
 export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
   .schema(enableDraftRepliesBody)
-  .action(async ({ ctx: { email }, parsedInput: { enable } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
     const rule = await prisma.rule.findUnique({
       where: {
         emailAccountId_systemType: {
-          emailAccountId: email,
+          emailAccountId,
           systemType: SystemType.TO_REPLY,
         },
       },
@@ -337,32 +342,37 @@ export const enableDraftRepliesAction = actionClient
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
-  .action(async ({ ctx: { email }, parsedInput: { id } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
-      where: { id, emailAccountId: email },
+      where: { id, emailAccountId },
       include: { actions: true, categoryFilters: true, group: true },
     });
     if (!rule) return; // already deleted
-    if (rule.emailAccountId !== email)
+    if (rule.emailAccountId !== emailAccountId)
       return { error: "You don't have permission to delete this rule" };
 
     try {
       await deleteRule({
         ruleId: id,
-        email,
+        emailAccountId,
         groupId: rule.groupId,
       });
 
       const emailAccount = await prisma.emailAccount.findUnique({
-        where: { email },
+        where: { id: emailAccountId },
         select: {
+          id: true,
           userId: true,
           email: true,
           about: true,
-          aiModel: true,
-          aiProvider: true,
-          aiApiKey: true,
           rulesPrompt: true,
+          user: {
+            select: {
+              aiModel: true,
+              aiProvider: true,
+              aiApiKey: true,
+            },
+          },
         },
       });
       if (!emailAccount) return { error: "User not found" };
@@ -370,13 +380,13 @@ export const deleteRuleAction = actionClient
       if (!emailAccount.rulesPrompt) return;
 
       const updatedPrompt = await generatePromptOnDeleteRule({
-        user: emailAccount,
+        emailAccount,
         existingPrompt: emailAccount.rulesPrompt,
         deletedRule: rule,
       });
 
       await prisma.emailAccount.update({
-        where: { email },
+        where: { id: emailAccountId },
         data: { rulesPrompt: updatedPrompt },
       });
 
@@ -391,28 +401,27 @@ export const deleteRuleAction = actionClient
 export const getRuleExamplesAction = actionClient
   .metadata({ name: "getRuleExamples" })
   .schema(rulesExamplesBody)
-  .action(
-    async ({ ctx: { email, emailAccount }, parsedInput: { rulesPrompt } }) => {
-      if (!emailAccount) throw new SafeError("Email account not found");
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { rulesPrompt } }) => {
+    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+    if (!emailAccount) throw new SafeError("Email account not found");
 
-      const gmail = await getGmailClientForEmail({ email });
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
-      const { matches } = await aiFindExampleMatches(
-        emailAccount,
-        gmail,
-        rulesPrompt,
-      );
+    const { matches } = await aiFindExampleMatches(
+      emailAccount,
+      gmail,
+      rulesPrompt,
+    );
 
-      return { matches };
-    },
-  );
+    return { matches };
+  });
 
 export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
   .action(
     async ({
-      ctx: { email },
+      ctx: { emailAccountId },
       parsedInput: {
         newsletter,
         coldEmail,
@@ -423,11 +432,11 @@ export const createRulesOnboardingAction = actionClient
         notification,
       },
     }) => {
-      const user = await prisma.emailAccount.findUnique({
-        where: { email },
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
         select: { rulesPrompt: true },
       });
-      if (!user) return { error: "User not found" };
+      if (!emailAccount) return { error: "User not found" };
 
       const promises: Promise<any>[] = [];
 
@@ -437,7 +446,7 @@ export const createRulesOnboardingAction = actionClient
       // cold email blocker
       if (isSet(coldEmail)) {
         const promise = prisma.emailAccount.update({
-          where: { email },
+          where: { id: emailAccountId },
           data: {
             coldEmailBlocker:
               coldEmail === "label"
@@ -452,7 +461,7 @@ export const createRulesOnboardingAction = actionClient
 
       // reply tracker
       if (isSet(toReply)) {
-        const promise = enableReplyTracker({ email }).then((res) => {
+        const promise = enableReplyTracker({ emailAccountId }).then((res) => {
           if (res?.alreadyEnabled) return;
 
           // Load previous emails needing replies in background
@@ -465,7 +474,9 @@ export const createRulesOnboardingAction = actionClient
                 "Content-Type": "application/json",
                 [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
               },
-              body: JSON.stringify({ email } satisfies ProcessPreviousBody),
+              body: JSON.stringify({
+                emailAccountId,
+              } satisfies ProcessPreviousBody),
             },
           );
         });
@@ -579,10 +590,10 @@ export const createRulesOnboardingAction = actionClient
           newsletter,
           "Newsletter",
           SystemType.NEWSLETTER,
-          email,
+          emailAccountId,
         );
       } else {
-        deleteRule(SystemType.NEWSLETTER, email);
+        deleteRule(SystemType.NEWSLETTER, emailAccountId);
       }
 
       // marketing
@@ -595,10 +606,10 @@ export const createRulesOnboardingAction = actionClient
           marketing,
           "Marketing",
           SystemType.MARKETING,
-          email,
+          emailAccountId,
         );
       } else {
-        deleteRule(SystemType.MARKETING, email);
+        deleteRule(SystemType.MARKETING, emailAccountId);
       }
 
       // calendar
@@ -611,10 +622,10 @@ export const createRulesOnboardingAction = actionClient
           calendar,
           "Calendar",
           SystemType.CALENDAR,
-          email,
+          emailAccountId,
         );
       } else {
-        deleteRule(SystemType.CALENDAR, email);
+        deleteRule(SystemType.CALENDAR, emailAccountId);
       }
 
       // receipt
@@ -627,10 +638,10 @@ export const createRulesOnboardingAction = actionClient
           receipt,
           "Receipt",
           SystemType.RECEIPT,
-          email,
+          emailAccountId,
         );
       } else {
-        deleteRule(SystemType.RECEIPT, email);
+        deleteRule(SystemType.RECEIPT, emailAccountId);
       }
 
       // notification
@@ -643,19 +654,20 @@ export const createRulesOnboardingAction = actionClient
           notification,
           "Notification",
           SystemType.NOTIFICATION,
-          email,
+          emailAccountId,
         );
       } else {
-        deleteRule(SystemType.NOTIFICATION, email);
+        deleteRule(SystemType.NOTIFICATION, emailAccountId);
       }
 
       await Promise.allSettled(promises);
 
       await prisma.emailAccount.update({
-        where: { email },
+        where: { id: emailAccountId },
         data: {
-          rulesPrompt:
-            `${user.rulesPrompt || ""}\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
+          rulesPrompt: `${emailAccount.rulesPrompt || ""}\n${rules
+            .map((r) => `* ${r}`)
+            .join("\n")}`.trim(),
         },
       });
     },
