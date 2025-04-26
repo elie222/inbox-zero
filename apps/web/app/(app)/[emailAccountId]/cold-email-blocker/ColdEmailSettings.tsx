@@ -44,7 +44,7 @@ export function ColdEmailForm({
   buttonText?: string;
   onSuccess?: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     control,

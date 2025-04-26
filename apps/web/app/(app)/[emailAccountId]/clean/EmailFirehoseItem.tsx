@@ -25,6 +25,7 @@ type Status = "markedDone" | "markingDone" | "keep" | "labelled" | "processing";
 export function EmailItem({
   email,
   userEmail,
+  emailAccountId,
   action,
   undoState,
   setUndoing,
@@ -32,6 +33,7 @@ export function EmailItem({
 }: {
   email: CleanThread;
   userEmail: string;
+  emailAccountId: string;
   action: CleanAction;
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
@@ -76,7 +78,7 @@ export function EmailItem({
           undoState={undoState}
           setUndoing={setUndoing}
           setUndone={setUndone}
-          userEmail={userEmail}
+          emailAccountId={emailAccountId}
         />
       </div>
     </div>
@@ -103,7 +105,7 @@ function StatusBadge({
   undoState,
   setUndoing,
   setUndone,
-  userEmail,
+  emailAccountId,
 }: {
   status: Status;
   email: CleanThread;
@@ -111,7 +113,7 @@ function StatusBadge({
   undoState?: "undoing" | "undone";
   setUndoing: (threadId: string) => void;
   setUndone: (threadId: string) => void;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   if (status === "processing") {
     return <Badge color="purple">Processing...</Badge>;
@@ -153,7 +155,7 @@ function StatusBadge({
 
               setUndoing(email.threadId);
 
-              const result = await undoCleanInboxAction(userEmail, {
+              const result = await undoCleanInboxAction(emailAccountId, {
                 threadId: email.threadId,
                 markedDone: !!email.archive,
                 action,
@@ -189,7 +191,7 @@ function StatusBadge({
 
               setUndoing(email.threadId);
 
-              const result = await changeKeepToDoneAction(userEmail, {
+              const result = await changeKeepToDoneAction(emailAccountId, {
                 threadId: email.threadId,
                 action,
               });

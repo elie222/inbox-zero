@@ -33,7 +33,7 @@ export function KnowledgeForm({
   refetch: KeyedMutator<GetKnowledgeResponse>;
   editingItem: Knowledge | null;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,

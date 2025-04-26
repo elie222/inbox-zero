@@ -51,7 +51,7 @@ export function Rules() {
 
   const hasRules = !!data?.length;
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync: setRuleRunOnThreads } = useAction(
     setRuleRunOnThreadsAction.bind(null, email),
   );

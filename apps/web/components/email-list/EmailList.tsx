@@ -175,7 +175,7 @@ export function EmailList({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccount } = useAccount();
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
   const closePanel = useCallback(
@@ -208,11 +208,11 @@ export function EmailList({
   }, [threads, isAllSelected, selectedRows]);
 
   const onPlanAiAction = useCallback((thread: Thread) => {
-    toast.promise(() => runAiRules([thread], true), {
+    toast.promise(() => runAiRules(emailAccountId, [thread], true), {
       success: "Running...",
       error: "There was an error running the AI rules :(",
     });
-  }, []);
+  }, [emailAccountId]);
 
   const onArchive = useCallback(
     (thread: Thread) => {
@@ -372,7 +372,7 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(selectedThreads, false);
+        runAiRules(emailAccountId, selectedThreads, false);
         // runAiRules(threadIds, () => refetch(threadIds));
       },
       {
@@ -380,7 +380,7 @@ export function EmailList({
         error: "There was an error running the AI rules :(",
       },
     );
-  }, [selectedRows, threads]);
+  }, [emailAccountId, selectedRows, threads]);
 
   const isEmpty = threads.length === 0;
 

@@ -8,11 +8,11 @@ import { EmailItem } from "./EmailFirehoseItem";
 import { useEmailStream } from "./useEmailStream";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { CleanAction } from "@prisma/client";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailFirehose({
   threads,
   stats,
-  userEmail,
   action,
 }: {
   threads: CleanThread[];
@@ -20,9 +20,10 @@ export function EmailFirehose({
     total: number;
     done: number;
   };
-  userEmail: string;
   action: CleanAction;
 }) {
+  const { userEmail, emailAccountId } = useAccount();
+
   const [isPaused, setIsPaused] = useState(false);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("archived"));
@@ -110,6 +111,7 @@ export function EmailFirehose({
                   <EmailItem
                     email={emails[virtualItem.index]}
                     userEmail={userEmail}
+                    emailAccountId={emailAccountId}
                     action={action}
                     undoState={undoStates[emails[virtualItem.index].threadId]}
                     setUndoing={(threadId) => {

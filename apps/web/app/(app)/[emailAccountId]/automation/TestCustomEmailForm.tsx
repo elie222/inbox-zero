@@ -18,7 +18,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export const TestCustomEmailForm = () => {
   const [testResult, setTestResult] = useState<RunRulesResult | undefined>();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,

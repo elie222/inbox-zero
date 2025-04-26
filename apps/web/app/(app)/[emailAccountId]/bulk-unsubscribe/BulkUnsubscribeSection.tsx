@@ -55,7 +55,7 @@ export function BulkUnsubscribeSection({
   refreshInterval: number;
   isMobile: boolean;
 }) {
-  const { email: userEmail } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   const [sortColumn, setSortColumn] = useState<
     "emails" | "unread" | "unarchived"
@@ -105,6 +105,7 @@ export function BulkUnsubscribeSection({
     hasUnsubscribeAccess,
     mutate,
     userEmail,
+    emailAccountId,
   });
 
   const [search, setSearch] = useState("");

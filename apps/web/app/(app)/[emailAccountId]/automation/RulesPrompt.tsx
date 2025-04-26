@@ -85,7 +85,7 @@ function RulesPromptForm({
   mutate: () => void;
   onOpenPersonaDialog: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);

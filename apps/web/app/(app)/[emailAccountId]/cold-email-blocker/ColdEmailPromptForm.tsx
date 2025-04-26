@@ -15,7 +15,7 @@ export function ColdEmailPromptForm(props: {
   coldEmailPrompt?: string | null;
   onSuccess: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,

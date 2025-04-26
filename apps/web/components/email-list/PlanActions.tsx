@@ -11,7 +11,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
   const [rejectingPlan, setRejectingPlan] = useState<Executing>({});
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const executePlan = useCallback(
     async (thread: Thread) => {

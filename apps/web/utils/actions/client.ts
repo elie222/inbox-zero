@@ -6,15 +6,15 @@ import {
 } from "@/utils/actions/mail";
 
 export async function onAutoArchive({
-  email,
+  emailAccountId,
   from,
   gmailLabelId,
 }: {
-  email: string;
+  emailAccountId: string;
   from: string;
   gmailLabelId?: string;
 }) {
-  const result = await createAutoArchiveFilterAction(email, {
+  const result = await createAutoArchiveFilterAction(emailAccountId, {
     from,
     gmailLabelId,
   });

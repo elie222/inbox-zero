@@ -46,7 +46,7 @@ export function Uncategorized({
     [senderAddresses],
   );
 
-  const { email: userEmail } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <LoadingContent loading={!senderAddresses && isLoading}>
@@ -67,7 +67,7 @@ export function Uncategorized({
 
                 pushToAiCategorizeSenderQueueAtom({
                   pushIds: senderAddresses,
-                  email: userEmail,
+                  emailAccountId,
                 });
               }}
             >
@@ -98,18 +98,14 @@ export function Uncategorized({
           </div>
           <AutoCategorizeToggle
             autoCategorizeSenders={autoCategorizeSenders}
-            userEmail={userEmail}
+            emailAccountId={emailAccountId}
           />
         </div>
       </TopBar>
       <ClientOnly>
         {senders?.length ? (
           <>
-            <SendersTable
-              senders={senders}
-              categories={categories}
-              userEmail={userEmail}
-            />
+            <SendersTable senders={senders} categories={categories} />
             {hasMore && (
               <Button
                 variant="outline"
@@ -140,10 +136,10 @@ export function Uncategorized({
 
 function AutoCategorizeToggle({
   autoCategorizeSenders,
-  userEmail,
+  emailAccountId,
 }: {
   autoCategorizeSenders: boolean;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   return (
     <Toggle
@@ -151,7 +147,7 @@ function AutoCategorizeToggle({
       label="Auto categorize"
       enabled={autoCategorizeSenders}
       onChange={async (enabled) => {
-        await setAutoCategorizeAction(userEmail, {
+        await setAutoCategorizeAction(emailAccountId, {
           autoCategorizeSenders: enabled,
         });
       }}

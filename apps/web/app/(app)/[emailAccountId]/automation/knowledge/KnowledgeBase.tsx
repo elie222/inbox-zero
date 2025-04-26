@@ -31,7 +31,7 @@ import { KnowledgeForm } from "@/app/(app)/[emailAccountId]/automation/knowledge
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function KnowledgeBase() {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
   const { data, isLoading, error, mutate } =

@@ -17,7 +17,7 @@ import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function PreviewBatch({ job }: { job: CleanupJob }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const [, setIsPreviewBatch] = useQueryState("isPreviewBatch", parseAsBoolean);
   const [isLoading, setIsLoading] = useState(false);
 

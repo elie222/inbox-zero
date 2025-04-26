@@ -37,7 +37,7 @@ export default async function CleanRunPage(props: {
 
   const [total, done] = await Promise.all([
     prisma.cleanupThread.count({
-      where: { jobId, emailAccountId: email },
+      where: { jobId, emailAccountId },
     }),
     prisma.cleanupThread.count({
       where: { jobId, emailAccountId, archived: true },
@@ -51,7 +51,6 @@ export default async function CleanRunPage(props: {
       threads={threads}
       total={total}
       done={done}
-      userEmail={email}
     />
   );
 }

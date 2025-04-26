@@ -19,9 +19,9 @@ async function unsubscribeAndArchive(
   newsletterEmail: string,
   mutate: () => Promise<void>,
   refetchPremium: () => Promise<any>,
-  userEmail: string,
+  emailAccountId: string,
 ) {
-  await setNewsletterStatusAction(userEmail, {
+  await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail,
     status: NewsletterStatus.UNSUBSCRIBED,
   });
@@ -57,7 +57,7 @@ export function useUnsubscribe<T extends Row>({
       posthog.capture("Clicked Unsubscribe");
 
       if (item.status === NewsletterStatus.UNSUBSCRIBED) {
-        await setNewsletterStatusAction(userEmail, {
+        await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: null,
         });
@@ -162,7 +162,7 @@ async function autoArchive(
     from: name,
     gmailLabelId: labelId,
   });
-  await setNewsletterStatusAction(userEmail, {
+  await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail: name,
     status: NewsletterStatus.AUTO_ARCHIVED,
   });
@@ -217,7 +217,7 @@ export function useAutoArchive<T extends Row>({
         filterId: item.autoArchived.id,
       });
     }
-    await setNewsletterStatusAction(userEmail, {
+    await setNewsletterStatusAction(emailAccountId, {
       newsletterEmail: item.name,
       status: null,
     });
@@ -313,7 +313,7 @@ export function useApproveButton<T extends Row>({
     setApproveLoading(true);
 
     await onDisableAutoArchive();
-    await setNewsletterStatusAction(userEmail, {
+    await setNewsletterStatusAction(emailAccountId, {
       newsletterEmail: item.name,
       status: NewsletterStatus.APPROVED,
     });
@@ -347,7 +347,7 @@ export function useBulkApprove<T extends Row>({
     posthog.capture("Clicked Bulk Approve");
 
     for (const item of items) {
-      await setNewsletterStatusAction(userEmail, {
+      await setNewsletterStatusAction(emailAccountId, {
         newsletterEmail: item.name,
         status: NewsletterStatus.APPROVED,
       });
@@ -530,7 +530,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   refetchPremium,
   hasUnsubscribeAccess,
   mutate,
-  userEmail,
+  emailAccountId,
+  // userEmail,
 }: {
   newsletters?: T[];
   selectedRow?: T;
@@ -539,6 +540,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   refetchPremium: () => Promise<any>;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<any>;
+  emailAccountId: string;
   userEmail: string;
 }) {
   // perform actions using keyboard shortcuts
@@ -575,10 +577,10 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         // auto archive
         e.preventDefault();
         onAutoArchive({
-          email: userEmail,
+          emailAccountId,
           from: item.name,
         });
-        await setNewsletterStatusAction(userEmail, {
+        await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: NewsletterStatus.AUTO_ARCHIVED,
         });
@@ -592,7 +594,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
         e.preventDefault();
         if (!item.lastUnsubscribeLink) return;
         window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
-        await setNewsletterStatusAction(userEmail, {
+        await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,
         });
@@ -604,7 +606,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "a") {
         // approve
         e.preventDefault();
-        await setNewsletterStatusAction(userEmail, {
+        await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: NewsletterStatus.APPROVED,
         });
@@ -623,6 +625,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
     setSelectedRow,
     onOpenNewsletter,
     userEmail,
+    emailAccountId,
   ]);
 }
 

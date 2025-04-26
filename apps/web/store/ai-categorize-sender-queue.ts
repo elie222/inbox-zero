@@ -18,10 +18,10 @@ const aiCategorizeSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 
 export const pushToAiCategorizeSenderQueueAtom = ({
   pushIds,
-  email,
+  emailAccountId,
 }: {
   pushIds: string[];
-  email: string;
+  emailAccountId: string;
 }) => {
   jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
     const newQueue = new Map(prev);
@@ -33,7 +33,7 @@ export const pushToAiCategorizeSenderQueueAtom = ({
     return newQueue;
   });
 
-  processAiCategorizeSenderQueue({ senders: pushIds, email });
+  processAiCategorizeSenderQueue({ senders: pushIds, emailAccountId });
 };
 
 export const stopAiCategorizeSenderQueue = () => {
@@ -64,10 +64,10 @@ export const useHasProcessingItems = () => {
 
 function processAiCategorizeSenderQueue({
   senders,
-  email,
+  emailAccountId,
 }: {
   senders: string[];
-  email: string;
+  emailAccountId: string;
 }) {
   const tasks = senders.map((sender) => async () => {
     jotaiStore.set(aiCategorizeSenderQueueAtom, (prev) => {
@@ -82,7 +82,7 @@ function processAiCategorizeSenderQueue({
           `Queue: aiCategorizeSender. Processing ${sender}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
         );
 
-        const result = await categorizeSenderAction(email, {
+        const result = await categorizeSenderAction(emailAccountId, {
           senderAddress: sender,
         });
 

@@ -7,7 +7,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 
 export function RegenerateSecretButton({ hasSecret }: { hasSecret: boolean }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(
     regenerateWebhookSecretAction.bind(null, email),
     {

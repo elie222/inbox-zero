@@ -38,7 +38,7 @@ export function NewsletterModal(props: {
 }) {
   const { newsletter, refreshInterval, onClose } = props;
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const { userLabels } = useLabels();
 

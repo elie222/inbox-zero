@@ -39,7 +39,7 @@ export function ColdEmailList() {
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync: markNotColdEmail, isExecuting } = useAction(
     markNotColdEmailAction.bind(null, email),
     {

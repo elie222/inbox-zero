@@ -127,7 +127,7 @@ const AddGroupItemForm = ({
   mutate: KeyedMutator<GroupItemsResponse>;
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,
@@ -261,7 +261,7 @@ function GroupItemList({
   items: GroupItem[];
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <Table>

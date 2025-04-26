@@ -38,7 +38,7 @@ export function TestRulesContent() {
     },
   );
 
-  const { email: userEmail } = useAccount();
+  const { userEmail } = useAccount();
 
   return (
     <div>
@@ -221,12 +221,12 @@ function useColdEmailTest() {
   const [response, setResponse] = useState<ColdEmailBlockerResponse | null>(
     null,
   );
-  const { email: userEmail } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const testEmail = async (data: ColdEmailBlockerBody) => {
     setTesting(true);
     try {
-      const result = await testColdEmailAction(userEmail, data);
+      const result = await testColdEmailAction(emailAccountId, data);
       if (result?.serverError) {
         toastError({
           title: "Error checking whether it's a cold email.",

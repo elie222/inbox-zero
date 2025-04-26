@@ -15,7 +15,7 @@ export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
 

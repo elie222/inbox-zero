@@ -33,7 +33,7 @@ export const SignatureSectionForm = ({
 
   const editorRef = useRef<TiptapHandle>(null);
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(
     saveSignatureAction.bind(null, email),
     {

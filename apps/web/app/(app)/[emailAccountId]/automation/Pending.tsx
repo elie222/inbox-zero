@@ -42,8 +42,6 @@ export function Pending() {
     `/api/user/planned?page=${page}&ruleId=${ruleId}`,
   );
 
-  const { email } = useAccount();
-
   return (
     <>
       <div className="flex">
@@ -55,7 +53,6 @@ export function Pending() {
             <PendingTable
               pending={data.executedRules}
               totalPages={data.totalPages}
-              userEmail={email}
               mutate={mutate}
             />
           ) : (
@@ -70,14 +67,13 @@ export function Pending() {
 function PendingTable({
   pending,
   totalPages,
-  userEmail,
   mutate,
 }: {
   pending: PendingExecutedRules["executedRules"];
   totalPages: number;
-  userEmail: string;
   mutate: () => void;
 }) {
+  const { emailAccountId, userEmail } = useAccount();
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(pending);
 
@@ -89,7 +85,7 @@ function PendingTable({
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      const result = await approvePlanAction(userEmail, {
+      const result = await approvePlanAction(emailAccountId, {
         executedRuleId: id,
         message: p.message,
       });
@@ -101,13 +97,13 @@ function PendingTable({
       mutate();
     }
     setIsApproving(false);
-  }, [selected, pending, mutate, userEmail]);
+  }, [selected, pending, mutate, emailAccountId]);
   const rejectSelected = useCallback(async () => {
     setIsRejecting(true);
     for (const id of Array.from(selected.keys())) {
       const p = pending.find((p) => p.id === id);
       if (!p) continue;
-      const result = await rejectPlanAction(userEmail, {
+      const result = await rejectPlanAction(emailAccountId, {
         executedRuleId: id,
       });
       if (result?.serverError) {
@@ -118,7 +114,7 @@ function PendingTable({
       mutate();
     }
     setIsRejecting(false);
-  }, [selected, pending, mutate, userEmail]);
+  }, [selected, pending, mutate, emailAccountId]);
 
   return (
     <div>
@@ -224,7 +220,7 @@ function ExecuteButtons({
 }) {
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <div className="flex items-center justify-end space-x-2 font-medium">
@@ -232,7 +228,7 @@ function ExecuteButtons({
         variant="default"
         onClick={async () => {
           setIsApproving(true);
-          const result = await approvePlanAction(email, {
+          const result = await approvePlanAction(emailAccountId, {
             executedRuleId: id,
             message,
           });
@@ -255,7 +251,7 @@ function ExecuteButtons({
         variant="outline"
         onClick={async () => {
           setIsRejecting(true);
-          const result = await rejectPlanAction(email, {
+          const result = await rejectPlanAction(emailAccountId, {
             executedRuleId: id,
           });
           if (result?.serverError) {

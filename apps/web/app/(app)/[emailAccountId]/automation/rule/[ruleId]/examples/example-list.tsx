@@ -16,7 +16,7 @@ export function ExampleList({
   groupedBySenders: Dictionary<MessageWithGroupItem[][]>;
 }) {
   const [removed, setRemoved] = useState<string[]>([]);
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <div className="mx-auto my-2 grid max-w-4xl gap-2 px-2 sm:my-4 sm:gap-4 sm:px-4">

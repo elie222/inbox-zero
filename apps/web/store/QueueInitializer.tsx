@@ -8,7 +8,7 @@ let isInitialized = false;
 
 function useInitializeQueues() {
   const queueState = useQueueState();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   useEffect(() => {
     if (!isInitialized) {

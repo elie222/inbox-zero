@@ -204,7 +204,7 @@ function ReplyPanel({
   draftMessage?: ThreadMessage;
   generateNudge?: boolean;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const replyRef = useRef<HTMLDivElement>(null);
 

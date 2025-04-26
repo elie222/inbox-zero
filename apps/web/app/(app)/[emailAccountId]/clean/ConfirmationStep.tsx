@@ -35,7 +35,7 @@ export function ConfirmationStep({
   reuseSettings: boolean;
 }) {
   const router = useRouter();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const handleStartCleaning = async () => {
     const result = await cleanInboxAction(email, {

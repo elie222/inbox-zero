@@ -143,7 +143,7 @@ function CreateCategoryForm({
   category?: Pick<Category, "name" | "description"> & { id?: string };
   closeModal: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,

@@ -76,7 +76,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   }, [data]);
 
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
-  const { email: userEmail } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
@@ -98,7 +98,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     async (message: Message, rerun?: boolean) => {
       setIsRunning((prev) => ({ ...prev, [message.id]: true }));
 
-      const result = await runRulesAction(userEmail, {
+      const result = await runRulesAction(emailAccountId, {
         messageId: message.id,
         threadId: message.threadId,
         isTest: testMode,
@@ -114,7 +114,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       }
       setIsRunning((prev) => ({ ...prev, [message.id]: false }));
     },
-    [testMode, userEmail],
+    [testMode, emailAccountId],
   );
 
   const handleRunAll = async () => {

@@ -23,7 +23,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <EnableFeatureCard

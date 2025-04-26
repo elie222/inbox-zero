@@ -22,7 +22,7 @@ import type { CreateAutomationBody } from "@/utils/actions/ai-rule.validation";
 // not in use anymore
 export default function AutomationSettingsPage() {
   const router = useRouter();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,

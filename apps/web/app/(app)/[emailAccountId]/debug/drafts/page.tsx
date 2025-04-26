@@ -37,7 +37,7 @@ export default function DebugDraftsPage() {
     parseReplies: true,
   });
 
-  const { email: userEmail } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <div className="container mx-auto py-6">

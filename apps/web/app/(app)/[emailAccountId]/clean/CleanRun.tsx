@@ -10,14 +10,12 @@ export function CleanRun({
   threads,
   total,
   done,
-  userEmail,
 }: {
   isPreviewBatch: boolean;
   job: CleanupJob;
   threads: Awaited<ReturnType<typeof getThreadsByJobId>>;
   total: number;
   done: number;
-  userEmail: string;
 }) {
   return (
     <div className="mx-auto my-4 w-full max-w-2xl px-4">
@@ -26,7 +24,6 @@ export function CleanRun({
         <EmailFirehose
           threads={threads.filter((t) => t.status !== "processing")}
           stats={{ total, done }}
-          userEmail={userEmail}
           action={job.action}
         />
       </Card>

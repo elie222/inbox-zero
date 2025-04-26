@@ -61,6 +61,7 @@ export function ActionCell<T extends Row>({
   labels,
   openPremiumModal,
   userEmail,
+  emailAccountId,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
@@ -71,6 +72,7 @@ export function ActionCell<T extends Row>({
   labels: UserLabel[];
   openPremiumModal: () => void;
   userEmail: string;
+  emailAccountId: string;
 }) {
   const posthog = usePostHog();
 
@@ -135,6 +137,7 @@ export function ActionCell<T extends Row>({
         onOpenNewsletter={onOpenNewsletter}
         item={item}
         userEmail={userEmail}
+        emailAccountId={emailAccountId}
         labels={labels}
         posthog={posthog}
       />
@@ -366,12 +369,14 @@ export function MoreDropdown<T extends Row>({
   onOpenNewsletter,
   item,
   userEmail,
+  emailAccountId,
   labels,
   posthog,
 }: {
   onOpenNewsletter?: (row: T) => void;
   item: T;
   userEmail: string;
+  emailAccountId: string;
   labels: UserLabel[];
   posthog: PostHog;
 }) {
@@ -426,7 +431,7 @@ export function MoreDropdown<T extends Row>({
             <LabelsSubMenu
               labels={labels}
               onClick={async (label) => {
-                const res = await createFilterAction(userEmail, {
+                const res = await createFilterAction(emailAccountId, {
                   from: item.name,
                   gmailLabelId: label.id,
                 });
@@ -510,7 +515,7 @@ export function HeaderButton(props: {
 //               <DropdownMenuItem
 //                 key={group.id}
 //                 onClick={async () => {
-//                   const result = await addGroupItemAction(userEmail, {
+//                   const result = await addGroupItemAction(emailAccountId, {
 //                     groupId: group.id,
 //                     type: GroupItemType.FROM,
 //                     value: sender,

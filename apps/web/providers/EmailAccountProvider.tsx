@@ -4,11 +4,10 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import type { GetEmailAccountsResponse } from "@/app/api/user/accounts/route";
 
-type Account = GetEmailAccountsResponse["emailAccounts"][number];
-
 type Context = {
-  account: Account | undefined;
-  email: string;
+  emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
+  emailAccountId: string;
+  userEmail: string;
   isLoading: boolean;
 };
 
@@ -43,19 +42,24 @@ export function EmailAccountProvider({
     fetchAccounts();
   }, []);
 
-  const account = useMemo(() => {
+  const emailAccount = useMemo(() => {
     if (data?.emailAccounts) {
-      const currentAccount =
+      const currentEmailAccount =
         data.emailAccounts.find((acc) => acc.id === emailAccountId) ??
         data.emailAccounts[0];
 
-      return currentAccount;
+      return currentEmailAccount;
     }
   }, [data, emailAccountId]);
 
   return (
     <EmailAccountContext.Provider
-      value={{ account, isLoading, email: account?.email || "" }}
+      value={{
+        emailAccount,
+        isLoading,
+        emailAccountId: emailAccountId ?? "",
+        userEmail: emailAccount?.email ?? "",
+      }}
     >
       {children}
     </EmailAccountContext.Provider>

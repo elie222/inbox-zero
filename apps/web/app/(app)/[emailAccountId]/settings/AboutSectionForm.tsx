@@ -23,7 +23,7 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
     defaultValues: { about: about ?? "" },
   });
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const { execute, isExecuting } = useAction(
     saveAboutAction.bind(null, email),

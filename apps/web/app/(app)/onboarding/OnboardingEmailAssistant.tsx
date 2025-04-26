@@ -58,7 +58,7 @@ function EmailAssistantForm({
   setShowNextButton: (show: boolean) => void;
   step: number;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const [data, setData] = useState<RulesExamplesResponse>();
 
   const {

@@ -159,7 +159,7 @@ function Content({
     });
   }, []);
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     reportAiMistakeAction.bind(null, email),
   );
@@ -454,7 +454,7 @@ function GroupMismatchAdd({
   onBack: () => void;
   onClose: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     addGroupItemAction.bind(null, email),
   );
@@ -523,7 +523,7 @@ function GroupMismatchRemove({
   onBack: () => void;
   onClose: () => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     deleteGroupItemAction.bind(null, email),
   );
@@ -595,6 +595,7 @@ function CategoryMismatch({
   onClose: () => void;
 }) {
   const { categories, isLoading } = useCategories();
+  const { emailAccountId } = useAccount();
 
   return (
     <div>
@@ -618,6 +619,7 @@ function CategoryMismatch({
         <LoadingMiniSpinner />
       ) : (
         <CategorySelect
+          emailAccountId={emailAccountId}
           sender={message.headers.from}
           senderCategory={categoryMatch.category}
           categories={categories || []}
@@ -725,7 +727,7 @@ function RuleForm({
 }: {
   rule: Pick<Rule, "id" | "instructions"> & { instructions: string };
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     updateRuleInstructionsAction.bind(null, email),
     {
@@ -794,7 +796,7 @@ function AIFixForm({
     fixedInstructions: string;
   }>();
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     reportAiMistakeAction.bind(null, email),
     {
@@ -897,7 +899,7 @@ function SuggestedFix({
 }) {
   const [accepted, setAccepted] = useState(false);
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
     updateRuleInstructionsAction.bind(null, email),
     {
@@ -973,7 +975,7 @@ function RerunButton({
 }) {
   const [result, setResult] = useState<RunRulesResult>();
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(runRulesAction.bind(null, email), {
     onSuccess: (result) => {
       setResult(result?.data);

@@ -15,7 +15,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const onSetDraftReplies = useCallback(
     async (value: string) => {
       const result = await enableDraftRepliesAction(email, {

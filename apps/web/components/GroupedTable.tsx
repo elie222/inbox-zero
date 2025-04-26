@@ -74,7 +74,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
-  const { email: userEmail } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -159,7 +159,7 @@ export function GroupedTable({
           <Select
             defaultValue={row.original.category?.id || ""}
             onValueChange={async (value) => {
-              const result = await changeSenderCategoryAction(userEmail, {
+              const result = await changeSenderCategoryAction(emailAccountId, {
                 sender: row.original.address,
                 categoryId: value,
               });
@@ -185,7 +185,7 @@ export function GroupedTable({
         ),
       },
     ],
-    [categories, userEmail],
+    [categories, userEmail, emailAccountId],
   );
 
   const table = useReactTable({
@@ -221,7 +221,7 @@ export function GroupedTable({
                 "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
               );
               if (!yes) return;
-              const result = await removeAllFromCategoryAction(userEmail, {
+              const result = await removeAllFromCategoryAction(emailAccountId, {
                 categoryName,
               });
 
@@ -289,12 +289,12 @@ export function GroupedTable({
 export function SendersTable({
   senders,
   categories,
-  userEmail,
 }: {
   senders: EmailGroup[];
   categories: CategoryWithRules[];
-  userEmail: string;
 }) {
+  const { emailAccountId, userEmail } = useAccount();
+
   const columns: ColumnDef<EmailGroup>[] = useMemo(
     () => [
       {
@@ -336,6 +336,7 @@ export function SendersTable({
         cell: ({ row }) => {
           return (
             <CategorySelect
+              emailAccountId={emailAccountId}
               sender={row.original.address}
               senderCategory={row.original.category}
               categories={categories}
@@ -344,7 +345,7 @@ export function SendersTable({
         },
       },
     ],
-    [categories],
+    [categories, emailAccountId],
   );
 
   const table = useReactTable({

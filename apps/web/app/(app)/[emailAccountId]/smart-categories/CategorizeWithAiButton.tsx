@@ -17,7 +17,7 @@ export function CategorizeWithAiButton({
 }: {
   buttonProps?: ButtonProps;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const [isCategorizing, setIsCategorizing] = useState(false);
   const { hasAiAccess } = usePremium();
   const { PremiumModal, openModal: openPremiumModal } = usePremiumModal();

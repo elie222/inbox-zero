@@ -9,7 +9,7 @@ const permissionsChecked: Record<string, boolean> = {};
 
 export function PermissionsCheck() {
   const router = useRouter();
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   useEffect(() => {
     if (permissionsChecked[email]) return;

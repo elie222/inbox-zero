@@ -121,7 +121,7 @@ function LabelsSectionFormInner(props: {
         .find((l) => l.indexOf(label.toLowerCase()) > -1),
   );
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <FormSection>
@@ -303,7 +303,7 @@ export function LabelItem(props: {
 function AddLabelModal() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const { mutate } = useSWRConfig();
 

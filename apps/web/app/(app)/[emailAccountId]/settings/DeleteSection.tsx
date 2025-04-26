@@ -15,7 +15,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
 
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync: executeResetAnalytics } = useAction(
     resetAnalyticsAction.bind(null, email),
   );

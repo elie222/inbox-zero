@@ -67,12 +67,13 @@ import { createGroupAction } from "@/utils/actions/group";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
+
 export function RuleForm({
   rule,
 }: {
   rule: CreateRuleBody & { id?: string };
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const {
     register,
@@ -129,7 +130,9 @@ export function RuleForm({
             (label) => label.name === action.label,
           );
           if (!hasLabel && action.label?.value && !action.label?.ai) {
-            await createLabelAction(email, { name: action.label.value });
+            await createLabelAction(emailAccountId, {
+              name: action.label.value,
+            });
           }
         }
       }
@@ -144,7 +147,10 @@ export function RuleForm({
       }
 
       if (data.id) {
-        const res = await updateRuleAction(email, { ...data, id: data.id });
+        const res = await updateRuleAction(emailAccountId, {
+          ...data,
+          id: data.id,
+        });
 
         if (res?.serverError) {
           console.error(res);
@@ -164,7 +170,7 @@ export function RuleForm({
           router.push("/automation?tab=rules");
         }
       } else {
-        const res = await createRuleAction(email, data);
+        const res = await createRuleAction(emailAccountId, data);
 
         if (res?.serverError) {
           console.error(res);
@@ -186,7 +192,7 @@ export function RuleForm({
         }
       }
     },
-    [userLabels, router, posthog, email],
+    [userLabels, router, posthog, emailAccountId],
   );
 
   const conditions = watch("conditions");
@@ -316,7 +322,7 @@ export function RuleForm({
                 onClick={async () => {
                   if (!rule.id) return;
 
-                  const result = await createGroupAction(email, {
+                  const result = await createGroupAction(emailAccountId, {
                     ruleId: rule.id,
                   });
 
@@ -665,7 +671,7 @@ export function RuleForm({
                         userLabels={userLabels}
                         isLoading={isLoading}
                         mutate={mutate}
-                        userEmail={email}
+                        emailAccountId={emailAccountId}
                       />
                     );
                   })}
@@ -755,14 +761,14 @@ function LabelCombobox({
   userLabels,
   isLoading,
   mutate,
-  userEmail,
+  emailAccountId,
 }: {
   value: string;
   onChangeValue: (value: string) => void;
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
   mutate: () => void;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   const [search, setSearch] = useState("");
 
@@ -787,7 +793,7 @@ function LabelCombobox({
               onClick={() => {
                 toast.promise(
                   async () => {
-                    const res = await createLabelAction(userEmail, {
+                    const res = await createLabelAction(emailAccountId, {
                       name: search,
                     });
                     mutate();
@@ -838,7 +844,7 @@ function ActionField({
   userLabels,
   isLoading,
   mutate,
-  userEmail,
+  emailAccountId,
 }: {
   field: {
     name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
@@ -856,7 +862,7 @@ function ActionField({
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
   mutate: () => void;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   // Get the typed field value safely
   const getFieldValue = (fieldName: string): string => {
@@ -906,7 +912,7 @@ function ActionField({
             onChangeValue={(newValue: string) => {
               setValue(`actions.${i}.${field.name}.value`, newValue);
             }}
-            userEmail={userEmail}
+            emailAccountId={emailAccountId}
           />
         </div>
       ) : isDraftContent && !setManually ? (

@@ -26,7 +26,7 @@ export function ActionButtons({
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const openInGmail = useCallback(() => {
     // open in gmail

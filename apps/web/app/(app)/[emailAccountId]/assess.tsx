@@ -10,15 +10,15 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function AssessUser() {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { executeAsync: executeAssessAsync } = useAction(
-    assessAction.bind(null, email),
+    assessAction.bind(null, emailAccountId),
   );
   const { execute: executeWhitelistInboxZero } = useAction(
-    whitelistInboxZeroAction.bind(null, email),
+    whitelistInboxZeroAction.bind(null, emailAccountId),
   );
   const { execute: executeAnalyzeWritingStyle } = useAction(
-    analyzeWritingStyleAction.bind(null, email),
+    analyzeWritingStyleAction.bind(null, emailAccountId),
   );
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only run once

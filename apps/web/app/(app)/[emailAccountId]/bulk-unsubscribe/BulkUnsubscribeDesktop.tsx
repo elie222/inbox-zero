@@ -143,6 +143,7 @@ export function BulkUnsubscribeRowDesktop({
           labels={labels}
           openPremiumModal={openPremiumModal}
           userEmail={userEmail}
+          emailAccountId={emailAccountId}
         />
       </TableCell>
     </TableRow>

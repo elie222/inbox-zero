@@ -35,7 +35,7 @@ export function History() {
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
     `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
   );
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
 
   return (
     <>

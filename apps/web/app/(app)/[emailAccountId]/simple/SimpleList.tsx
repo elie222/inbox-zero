@@ -52,7 +52,7 @@ export function SimpleList(props: {
   nextPageToken?: string | null;
   type: string;
 }) {
-  const { email } = useAccount();
+  const { emailAccountId } = useAccount();
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
