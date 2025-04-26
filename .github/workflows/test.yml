@@ -1,4 +1,5 @@
 name: Run Tests
+run-name: "Running Test Cases"
 
 on:
   push:
