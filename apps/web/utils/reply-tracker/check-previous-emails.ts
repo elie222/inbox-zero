@@ -11,11 +11,15 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
-export async function processPreviousSentEmails(
-  gmail: gmail_v1.Gmail,
-  emailAccount: EmailAccountWithAI,
+export async function processPreviousSentEmails({
+  gmail,
+  emailAccount,
   maxResults = 100,
-) {
+}: {
+  gmail: gmail_v1.Gmail;
+  emailAccount: EmailAccountWithAI;
+  maxResults?: number;
+}) {
   const assistantEmail = getAssistantEmail({ userEmail: emailAccount.email });
 
   // Get last sent messages
