@@ -9,7 +9,7 @@ on:
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: "elie222"
+  DOCKER_USERNAME: "gowthamkishore3799"
 
 jobs:
   set-version:
