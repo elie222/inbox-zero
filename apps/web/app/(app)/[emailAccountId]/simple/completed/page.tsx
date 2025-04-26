@@ -8,8 +8,7 @@ import { getGmailBasicSearchUrl } from "@/utils/url";
 import { OpenMultipleGmailButton } from "@/app/(app)/[emailAccountId]/simple/completed/OpenMultipleGmailButton";
 import { SimpleProgressCompleted } from "@/app/(app)/[emailAccountId]/simple/SimpleProgress";
 import { ShareOnTwitterButton } from "@/app/(app)/[emailAccountId]/simple/completed/ShareOnTwitterButton";
-import { getTokens } from "@/utils/account";
-import { getGmailClient, getGmailAccessToken } from "@/utils/gmail/client";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import prisma from "@/utils/prisma";
 
 export default async function SimpleCompletedPage(props: {
@@ -17,15 +16,14 @@ export default async function SimpleCompletedPage(props: {
 }) {
   const params = await props.params;
 
-  const tokens = await getTokens({ email: params.account });
+  const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId: params.emailAccountId,
+  });
 
-  const gmail = getGmailClient(tokens);
-  const token = await getGmailAccessToken(tokens);
-
-  if (!token.token) throw new Error("Account not found");
+  if (!accessToken) throw new Error("Account not found");
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email: params.account },
+    where: { id: params.emailAccountId },
     select: { email: true },
   });
 
@@ -36,8 +34,8 @@ export default async function SimpleCompletedPage(props: {
   const { threads } = await getThreads({
     query: { q: "newer_than:1d in:inbox" },
     gmail,
-    accessToken: token.token,
-    email: emailAccount.email,
+    accessToken,
+    emailAccountId: params.emailAccountId,
   });
 
   return (

@@ -210,8 +210,8 @@ describe("api-auth", () => {
       } as MockApiKeyResult);
 
       // Mock getGmailClientWithRefresh to return null (refresh failed)
-      vi.mocked(gmailClient.getGmailClientWithRefresh).mockResolvedValue(
-        undefined,
+      vi.mocked(gmailClient.getGmailClientWithRefresh).mockRejectedValue(
+        new Error("Error refreshing Gmail access token"),
       );
 
       await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(

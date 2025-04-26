@@ -1,9 +1,14 @@
 import { auth, gmail, type gmail_v1 } from "@googleapis/gmail";
 import { people } from "@googleapis/people";
-import { saveRefreshToken } from "@/utils/auth";
+import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
+
+// TODO: this file needs some clean up
+// We're returning different clients and can run into situations with expired access tokens
+// Ideally we refresh access token when needed and store the new access token in the db
+// Also we shouldn't be instantiating multiple clients as they can hold different tokens, where we refresh the access token for one client but not for the other
 
 const logger = createScopedLogger("gmail/client");
 
@@ -28,21 +33,42 @@ const getAuth = ({ accessToken, refreshToken, expiryDate }: AuthOptions) => {
   return googleAuth;
 };
 
-export const getGmailClient = (options: AuthOptions) => {
-  const auth = getAuth(options);
+// doesn't handle refreshing the access token
+export const getGmailClient = ({ accessToken, refreshToken }: AuthOptions) => {
+  // not passing in expiryDate, so it won't refresh the access token
+  const auth = getAuth({ accessToken, refreshToken });
   return gmail({ version: "v1", auth });
 };
 
-export const getContactsClient = (session: AuthOptions) => {
-  const auth = getAuth(session);
+// doesn't handle refreshing the access token
+export const getContactsClient = ({
+  accessToken,
+  refreshToken,
+}: AuthOptions) => {
+  const auth = getAuth({ accessToken, refreshToken });
   const contacts = people({ version: "v1", auth });
 
   return contacts;
 };
 
+// handles refreshing the access token if expired at is passed in, but doesn't save the new access token to the db
 export const getGmailAccessToken = async (options: AuthOptions) => {
   const auth = getAuth(options);
-  return auth.getAccessToken();
+  const token = await auth.getAccessToken();
+  const g = gmail({ version: "v1", auth });
+
+  // TODO: save the new access token to the db
+  // if (token.token && token.token !== options.accessToken) {
+  //   await saveRefreshToken(
+  //     {
+  //       access_token: token.token,
+  //       expires_at: token.res?.data.expires_at,
+  //     },
+  //     { refresh_token: options.refreshToken },
+  //   );
+  // }
+
+  return { gmail: g, accessToken: token.token };
 };
 
 export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
@@ -52,14 +78,16 @@ export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
   return accessToken;
 };
 
+// we should potentially use this everywhere instead of getGmailClient as this handles refreshing the access token and saving it to the db
 export const getGmailClientWithRefresh = async (
   options: AuthOptions & { refreshToken: string; expiryDate?: number | null },
   providerAccountId: string,
-): Promise<gmail_v1.Gmail | undefined> => {
+): Promise<gmail_v1.Gmail> => {
   const auth = getAuth(options);
   const g = gmail({ version: "v1", auth });
 
-  if (options.expiryDate && options.expiryDate > Date.now()) return g;
+  const { expiryDate } = options;
+  if (expiryDate && expiryDate > Date.now()) return g;
 
   // may throw `invalid_grant` error
   try {
@@ -67,7 +95,7 @@ export const getGmailClientWithRefresh = async (
     const newAccessToken = tokens.credentials.access_token;
 
     if (newAccessToken !== options.accessToken) {
-      await saveRefreshToken(
+      await saveTokens(
         {
           access_token: newAccessToken ?? undefined,
           expires_at: tokens.credentials.expiry_date
@@ -83,11 +111,14 @@ export const getGmailClientWithRefresh = async (
 
     return g;
   } catch (error) {
-    if (error instanceof Error && error.message.includes("invalid_grant")) {
+    if (isInvalidGrantError(error)) {
       logger.warn("Error refreshing Gmail access token", { error });
-      return undefined;
     }
 
     throw error;
   }
+};
+
+const isInvalidGrantError = (error: unknown) => {
+  return error instanceof Error && error.message.includes("invalid_grant");
 };

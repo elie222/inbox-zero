@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getGmailAccessToken } from "@/utils/gmail/client";
 import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { parseReply } from "@/utils/mail";
-import { getTokens } from "@/utils/account";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 const messagesBatchQuery = z.object({
   ids: z
@@ -22,11 +21,11 @@ export type MessagesBatchResponse = {
 export const GET = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
-  const tokens = await getTokens({ emailAccountId });
-  const accessToken = await getGmailAccessToken(tokens);
+  const { accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
 
-  if (!accessToken.token)
-    return NextResponse.json({ error: "Invalid access token" });
+  if (!accessToken) return NextResponse.json({ error: "Invalid access token" });
 
   const { searchParams } = new URL(request.url);
   const ids = searchParams.get("ids");
@@ -36,7 +35,7 @@ export const GET = withEmailAccount(async (request) => {
     parseReplies: parseReplies === "true",
   });
 
-  const messages = await getMessagesBatch(query.ids, accessToken.token);
+  const messages = await getMessagesBatch(query.ids, accessToken);
 
   const result = query.parseReplies
     ? messages.map((message) => ({

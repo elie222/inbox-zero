@@ -2,9 +2,7 @@ import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { getThreads } from "@/app/api/google/threads/controller";
 import { threadsQuery } from "@/app/api/google/threads/validation";
-import { getGmailAccessToken } from "@/utils/gmail/client";
-import { getTokens } from "@/utils/account";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 export const dynamic = "force-dynamic";
 
@@ -29,19 +27,17 @@ export const GET = withEmailAccount(async (request) => {
     labelId,
   });
 
-  const tokens = await getTokens({ emailAccountId });
-  if (!tokens) return NextResponse.json({ error: "Account not found" });
+  const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
 
-  const gmail = getGmailClient(tokens);
-  const token = await getGmailAccessToken(tokens);
-
-  if (!token.token) return NextResponse.json({ error: "Account not found" });
+  if (!accessToken) return NextResponse.json({ error: "Account not found" });
 
   const threads = await getThreads({
     query,
     emailAccountId,
     gmail,
-    accessToken: token.token,
+    accessToken,
   });
   return NextResponse.json(threads);
 });

@@ -67,6 +67,7 @@ export async function getUserFromApiKey(secretKey: string) {
 export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   const { user } = await validateApiKey(request);
 
+  // TODO: support API For multiple accounts
   const account = user.accounts[0];
 
   if (!account) throw new SafeError("Missing account", 401);
@@ -82,8 +83,6 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
     },
     account.providerAccountId,
   );
-
-  if (!gmail) throw new SafeError("Error refreshing Gmail access token", 401);
 
   return {
     gmail,

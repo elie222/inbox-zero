@@ -92,7 +92,7 @@ export const getAuthOptions: (options?: {
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           logger.info("Saving refresh token", { email: token.email });
-          await saveRefreshToken(
+          await saveTokens(
             {
               access_token: account.access_token,
               refresh_token: account.refresh_token,
@@ -290,7 +290,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
         : "undefined",
     });
 
-    await saveRefreshToken(
+    await saveTokens(
       { ...tokens, expires_at },
       {
         providerAccountId: account.providerAccountId,
@@ -326,7 +326,7 @@ function calculateExpiresAt(expiresIn?: number) {
   return Math.floor(Date.now() / 1000 + (expiresIn - 10)); // give 10 second buffer
 }
 
-export async function saveRefreshToken(
+export async function saveTokens(
   tokens: {
     access_token?: string;
     refresh_token?: string;
@@ -335,13 +335,12 @@ export async function saveRefreshToken(
   account: Pick<Account, "refresh_token" | "providerAccountId">,
 ) {
   const refreshToken = tokens.refresh_token ?? account.refresh_token;
+  const providerAccountId = account.providerAccountId;
 
   if (!refreshToken) {
-    logger.error("Attempted to save null refresh token", {
-      providerAccountId: account.providerAccountId,
-    });
+    logger.error("Attempted to save null refresh token", { providerAccountId });
     captureException("Cannot save null refresh token", {
-      extra: { providerAccountId: account.providerAccountId },
+      extra: { providerAccountId },
     });
     return;
   }
@@ -355,7 +354,7 @@ export async function saveRefreshToken(
     where: {
       provider_providerAccountId: {
         provider: "google",
-        providerAccountId: account.providerAccountId,
+        providerAccountId,
       },
     },
   });

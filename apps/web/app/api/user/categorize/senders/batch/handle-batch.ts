@@ -75,7 +75,6 @@ async function handleBatchInternal(request: Request) {
     },
     account.providerAccountId,
   );
-  if (!gmail) return { error: "No Gmail client" };
 
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
     new Map();
@@ -104,7 +103,7 @@ async function handleBatchInternal(request: Request) {
       sender: result.sender,
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
-      userEmail: emailAccount.email,
+      emailAccountId,
     });
   }
 

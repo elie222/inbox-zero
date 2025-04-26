@@ -24,7 +24,6 @@ async function watchAllEmails() {
     },
     select: {
       email: true,
-      aiApiKey: true,
       watchEmailsExpirationDate: true,
       account: {
         select: {
@@ -36,6 +35,7 @@ async function watchAllEmails() {
       },
       user: {
         select: {
+          aiApiKey: true,
           premium: {
             select: {
               aiAutomationAccess: true,
@@ -60,11 +60,11 @@ async function watchAllEmails() {
 
       const userHasAiAccess = hasAiAccess(
         emailAccount.user.premium?.aiAutomationAccess,
-        emailAccount.aiApiKey,
+        emailAccount.user.aiApiKey,
       );
       const userHasColdEmailAccess = hasColdEmailAccess(
         emailAccount.user.premium?.coldEmailBlockerAccess,
-        emailAccount.aiApiKey,
+        emailAccount.user.aiApiKey,
       );
 
       if (!userHasAiAccess && !userHasColdEmailAccess) {
@@ -112,9 +112,6 @@ async function watchAllEmails() {
         },
         emailAccount.account.providerAccountId,
       );
-
-      // couldn't refresh the token
-      if (!gmail) continue;
 
       await watchEmails({ email: emailAccount.email, gmail });
     } catch (error) {

@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
-import { getTokens } from "@/utils/account";
-import { getGmailAccessToken } from "@/utils/gmail/client";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 const requestSchema = z.object({
   threadIds: z.array(z.string()),
@@ -27,20 +26,20 @@ export const GET = withEmailAccount(async (request) => {
     return NextResponse.json({ threads: [] } satisfies ThreadsBatchResponse);
   }
 
-  const tokens = await getTokens({ emailAccountId });
-  if (!tokens) return NextResponse.json({ error: "Account not found" });
+  const { accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
 
-  const token = await getGmailAccessToken(tokens);
-
-  if (!token.token)
+  if (!accessToken) {
     return NextResponse.json(
       { error: "Missing access token" },
       { status: 401 },
     );
+  }
 
   const response = await getThreadsBatchAndParse(
     threadIds,
-    token.token,
+    accessToken,
     includeDrafts,
   );
 

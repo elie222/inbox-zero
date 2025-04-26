@@ -135,12 +135,6 @@ export async function processHistoryForUser(
       emailAccount.account?.providerAccountId,
     );
 
-    // couldn't refresh the token
-    if (!gmail) {
-      logger.error("Failed to refresh token", { email });
-      return NextResponse.json({ ok: true });
-    }
-
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(
@@ -212,9 +206,8 @@ export async function processHistoryForUser(
             }
           : error,
     });
+    // returning 200 here, as otherwise PubSub will call the webhook over and over
     return NextResponse.json({ error: true });
-    // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
-    // return NextResponse.error();
   }
 }
 
