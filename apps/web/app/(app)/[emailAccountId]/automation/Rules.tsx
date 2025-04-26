@@ -53,13 +53,13 @@ export function Rules() {
 
   const { emailAccountId } = useAccount();
   const { executeAsync: setRuleRunOnThreads } = useAction(
-    setRuleRunOnThreadsAction.bind(null, email),
+    setRuleRunOnThreadsAction.bind(null, emailAccountId),
   );
   const { executeAsync: setRuleEnabled } = useAction(
-    setRuleEnabledAction.bind(null, email),
+    setRuleEnabledAction.bind(null, emailAccountId),
   );
   const { executeAsync: deleteRule } = useAction(
-    deleteRuleAction.bind(null, email),
+    deleteRuleAction.bind(null, emailAccountId),
   );
 
   return (

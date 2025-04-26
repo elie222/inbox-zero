@@ -9,7 +9,7 @@ import { useAction } from "next-safe-action/hooks";
 export function RegenerateSecretButton({ hasSecret }: { hasSecret: boolean }) {
   const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(
-    regenerateWebhookSecretAction.bind(null, email),
+    regenerateWebhookSecretAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({

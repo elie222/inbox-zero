@@ -161,7 +161,7 @@ function Content({
 
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    reportAiMistakeAction.bind(null, email),
+    reportAiMistakeAction.bind(null, emailAccountId),
   );
 
   const onSelectExpectedRule = useCallback(
@@ -456,7 +456,7 @@ function GroupMismatchAdd({
 }) {
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    addGroupItemAction.bind(null, email),
+    addGroupItemAction.bind(null, emailAccountId),
   );
 
   return (
@@ -525,7 +525,7 @@ function GroupMismatchRemove({
 }) {
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    deleteGroupItemAction.bind(null, email),
+    deleteGroupItemAction.bind(null, emailAccountId),
   );
 
   return (
@@ -729,7 +729,7 @@ function RuleForm({
 }) {
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    updateRuleInstructionsAction.bind(null, email),
+    updateRuleInstructionsAction.bind(null, emailAccountId),
     {
       onSuccess() {
         toastSuccess({ description: "Rule updated!" });
@@ -798,7 +798,7 @@ function AIFixForm({
 
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    reportAiMistakeAction.bind(null, email),
+    reportAiMistakeAction.bind(null, emailAccountId),
     {
       onSuccess(result) {
         toastSuccess({
@@ -901,7 +901,7 @@ function SuggestedFix({
 
   const { emailAccountId } = useAccount();
   const { executeAsync, isExecuting } = useAction(
-    updateRuleInstructionsAction.bind(null, email),
+    updateRuleInstructionsAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Rule updated!" });
@@ -976,7 +976,7 @@ function RerunButton({
   const [result, setResult] = useState<RunRulesResult>();
 
   const { emailAccountId } = useAccount();
-  const { execute, isExecuting } = useAction(runRulesAction.bind(null, email), {
+  const { execute, isExecuting } = useAction(runRulesAction.bind(null, emailAccountId), {
     onSuccess: (result) => {
       setResult(result?.data);
     },

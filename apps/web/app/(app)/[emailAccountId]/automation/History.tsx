@@ -48,7 +48,6 @@ export function History() {
             <HistoryTable
               data={data.executedRules}
               totalPages={data.totalPages}
-              userEmail={email}
             />
           ) : (
             <AlertBasic
@@ -69,12 +68,12 @@ export function History() {
 function HistoryTable({
   data,
   totalPages,
-  userEmail,
 }: {
   data: PlanHistoryResponse["executedRules"];
   totalPages: number;
-  userEmail: string;
 }) {
+  const { userEmail } = useAccount();
+
   return (
     <div>
       <Table>

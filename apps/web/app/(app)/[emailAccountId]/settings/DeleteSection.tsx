@@ -17,7 +17,7 @@ export function DeleteSection() {
 
   const { emailAccountId } = useAccount();
   const { executeAsync: executeResetAnalytics } = useAction(
-    resetAnalyticsAction.bind(null, email),
+    resetAnalyticsAction.bind(null, emailAccountId),
   );
   const { executeAsync: executeDeleteAccount } = useAction(
     deleteAccountAction.bind(null),

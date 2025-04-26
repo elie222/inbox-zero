@@ -39,9 +39,9 @@ export function ColdEmailList() {
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(data?.coldEmails || []);
 
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const { executeAsync: markNotColdEmail, isExecuting } = useAction(
-    markNotColdEmailAction.bind(null, email),
+    markNotColdEmailAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Marked not cold email!" });
@@ -101,7 +101,7 @@ export function ColdEmailList() {
                 <Row
                   key={coldEmail.id}
                   row={coldEmail}
-                  userEmail={email}
+                  userEmail={userEmail}
                   mutate={mutate}
                   selected={selected}
                   onToggleSelect={onToggleSelect}

@@ -35,7 +35,7 @@ export const SignatureSectionForm = ({
 
   const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(
-    saveSignatureAction.bind(null, email),
+    saveSignatureAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({ description: "Signature saved" });
@@ -48,7 +48,7 @@ export const SignatureSectionForm = ({
     },
   );
   const { executeAsync: executeLoadSignatureFromGmail } = useAction(
-    loadSignatureFromGmailAction.bind(null, email),
+    loadSignatureFromGmailAction.bind(null, emailAccountId),
   );
 
   const handleEditorChange = useCallback(
