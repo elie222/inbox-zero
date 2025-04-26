@@ -1,8 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import type { Knowledge } from "@prisma/client";
-import type { UserEmailWithAI } from "@/utils/llms/types";
-import { getUser } from "@/__tests__/helpers";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-extract-knowledge
 
@@ -93,7 +92,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -112,7 +111,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -131,7 +130,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -149,7 +148,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: [],
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBe("");
@@ -162,7 +161,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -182,7 +181,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -201,7 +200,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -220,7 +219,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();

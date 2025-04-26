@@ -1,8 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
-import type { EmailForLLM } from "@/utils/types";
-import { getEmail, getUser } from "@/__tests__/helpers";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-rule-fix
 
@@ -36,7 +35,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule: rule,
       expectedRule: null,
       email: salesEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -76,7 +75,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule,
       expectedRule,
       email: feedbackEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -112,7 +111,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule,
       expectedRule: null,
       email: newsletterEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -148,7 +147,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule: null,
       expectedRule: correctRule,
       email: priceRequestEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
