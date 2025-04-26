@@ -9,11 +9,12 @@ on:
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: ${{ github.actor }}
+  DOCKER_USERNAME: "elie222"
 
 jobs:
 
   set-version:
+    if: ${{ github.repository == format('{0}/inbox-zero', env.DOCKER_USERNAME) }}
     runs-on: ubuntu-latest
 
     outputs:
@@ -63,6 +64,7 @@ jobs:
 
   build-frontend:
     name: "Build Docker Image"
+    if: ${{ github.repository == format('{0}/inbox-zero', env.DOCKER_USERNAME) }}
     runs-on: ubuntu-latest
     needs:
       - set-version
