@@ -28,21 +28,30 @@ jobs:
       - name: Get previous Git tag
         id: get_previous_tag
         run: |
-          TAG=$(git describe --tags --abbrev=0 2>/dev/null || cat version.txt)
-          echo "Previous tag: $TAG"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$TAG" ]; then
+            echo "No existing tags found. Using default v1.0.0"
+            echo "tag=v1.0.0" >> $GITHUB_OUTPUT
+          else
+            echo "Previous tag found: $TAG"
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          fi
 
       - name: Increment tag
         id: increment_tag
         run: |
           PREV_TAG="${{ steps.get_previous_tag.outputs.tag }}"
-          VERSION="${PREV_TAG#v}"
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
-          PATCH=$((PATCH + 1))
-          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          if [ "$PREV_TAG" = "v1.0.0" ]; then
+            echo "Using initial tag v1.0.0"
+            NEW_TAG="v1.0.0"
+          else
+            VERSION="${PREV_TAG#v}"
+            IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+            PATCH=$((PATCH + 1))
+            NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          fi
           echo "New tag: $NEW_TAG"
           echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
-          echo "$NEW_TAG" > version.txt
 
       - name: Push Git Tag
         id: push_git_tag
