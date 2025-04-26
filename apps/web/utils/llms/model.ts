@@ -195,10 +195,14 @@ function selectDefaultModel(userAi: UserAIFields) {
     providerOptions.openrouter = {
       models: [
         "anthropic/claude-3.7-sonnet",
-        "google/gemini-2.5-pro-preview-03-25",
+        // "google/gemini-2.5-pro-preview-03-25",
       ],
       provider: {
-        order: ["Amazon Bedrock", "Google AI Studio", "Anthropic"],
+        order: [
+          "Amazon Bedrock",
+          // "Google AI Studio",
+          "Anthropic",
+        ],
       },
     };
   }
