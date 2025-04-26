@@ -46,7 +46,7 @@ export async function categorizeSender(
       sender: senderAddress,
       categories,
       categoryName: aiResult.category,
-      userEmail: emailAccount.email,
+      emailAccountId: emailAccount.id,
     });
 
     return { categoryId: newsletter.categoryId };
@@ -61,12 +61,12 @@ export async function categorizeSender(
 }
 
 export async function updateSenderCategory({
-  userEmail,
+  emailAccountId,
   sender,
   categories,
   categoryName,
 }: {
-  userEmail: string;
+  emailAccountId: string;
   sender: string;
   categories: Pick<Category, "id" | "name">[];
   categoryName: string;
@@ -79,7 +79,7 @@ export async function updateSenderCategory({
     newCategory = await prisma.category.create({
       data: {
         name: categoryName,
-        emailAccountId: userEmail,
+        emailAccountId,
         // color: getRandomColor(),
       },
     });
@@ -89,12 +89,12 @@ export async function updateSenderCategory({
   // save category
   const newsletter = await prisma.newsletter.upsert({
     where: {
-      email_emailAccountId: { email: sender, emailAccountId: userEmail },
+      email_emailAccountId: { email: sender, emailAccountId },
     },
     update: { categoryId: category.id },
     create: {
       email: sender,
-      emailAccountId: userEmail,
+      emailAccountId,
       categoryId: category.id,
     },
   });
@@ -106,21 +106,21 @@ export async function updateSenderCategory({
 }
 
 export async function updateCategoryForSender({
-  userEmail,
+  emailAccountId,
   sender,
   categoryId,
 }: {
-  userEmail: string;
+  emailAccountId: string;
   sender: string;
   categoryId: string;
 }) {
   const email = extractEmailAddress(sender);
   await prisma.newsletter.upsert({
-    where: { email_emailAccountId: { email, emailAccountId: userEmail } },
+    where: { email_emailAccountId: { email, emailAccountId } },
     update: { categoryId },
     create: {
       email,
-      emailAccountId: userEmail,
+      emailAccountId,
       categoryId,
     },
   });

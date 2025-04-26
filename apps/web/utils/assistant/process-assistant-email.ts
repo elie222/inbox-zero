@@ -15,22 +15,22 @@ import { internalDateToDate } from "@/utils/date";
 const logger = createScopedLogger("process-assistant-email");
 
 type ProcessAssistantEmailArgs = {
+  emailAccountId: string;
   userEmail: string;
-  userId: string;
   message: ParsedMessage;
   gmail: gmail_v1.Gmail;
 };
 
 export async function processAssistantEmail({
+  emailAccountId,
   userEmail,
-  userId,
   message,
   gmail,
 }: ProcessAssistantEmailArgs) {
   return withProcessingLabels(message.id, gmail, () =>
     processAssistantEmailInternal({
+      emailAccountId,
       userEmail,
-      userId,
       message,
       gmail,
     }),
@@ -38,12 +38,12 @@ export async function processAssistantEmail({
 }
 
 async function processAssistantEmailInternal({
+  emailAccountId,
   userEmail,
-  userId,
   message,
   gmail,
 }: ProcessAssistantEmailArgs) {
-  if (!verifyUserSentEmail(message, userEmail)) {
+  if (!verifyUserSentEmail({ message, userEmail })) {
     logger.error("Unauthorized assistant access attempt", {
       email: userEmail,
       from: message.headers.from,
@@ -53,7 +53,7 @@ async function processAssistantEmailInternal({
   }
 
   const loggerOptions = {
-    email: userEmail,
+    emailAccountId,
     threadId: message.threadId,
     messageId: message.id,
   };
@@ -102,12 +102,17 @@ async function processAssistantEmailInternal({
     prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
+        id: true,
         userId: true,
         email: true,
         about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
+        user: {
+          select: {
+            aiProvider: true,
+            aiModel: true,
+            aiApiKey: true,
+          },
+        },
         rules: {
           include: {
             actions: true,
@@ -134,7 +139,7 @@ async function processAssistantEmailInternal({
       ? prisma.executedRule.findUnique({
           where: {
             unique_emailAccount_thread_message: {
-              emailAccountId: userEmail,
+              emailAccountId,
               threadId: originalMessage.threadId,
               messageId: originalMessage.id,
             },
@@ -155,7 +160,7 @@ async function processAssistantEmailInternal({
           where: {
             email_emailAccountId: {
               email: extractEmailAddress(originalMessage.headers.from),
-              emailAccountId: userEmail,
+              emailAccountId,
             },
           },
           select: {
@@ -209,7 +214,7 @@ async function processAssistantEmailInternal({
   }
 
   const result = await processUserRequest({
-    user: emailAccount,
+    emailAccount,
     rules: emailAccount.rules,
     originalEmail: originalMessage,
     messages,
@@ -231,7 +236,13 @@ async function processAssistantEmailInternal({
   }
 }
 
-function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
+function verifyUserSentEmail({
+  message,
+  userEmail,
+}: {
+  message: ParsedMessage;
+  userEmail: string;
+}) {
   return (
     extractEmailAddress(message.headers.from).toLowerCase() ===
     userEmail.toLowerCase()

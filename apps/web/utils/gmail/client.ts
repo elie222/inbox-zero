@@ -3,54 +3,45 @@ import { people } from "@googleapis/people";
 import { saveRefreshToken } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import type { Account } from "@prisma/client";
+import { SCOPES } from "@/utils/gmail/scopes";
 
 const logger = createScopedLogger("gmail/client");
 
-type ClientOptions = {
-  accessToken?: string;
-  refreshToken?: string;
+type AuthOptions = {
+  accessToken?: string | null;
+  refreshToken?: string | null;
+  expiryDate?: number | null;
 };
 
-const getClient = (session: ClientOptions) => {
+const getAuth = ({ accessToken, refreshToken, expiryDate }: AuthOptions) => {
   const googleAuth = new auth.OAuth2({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
   });
-  // not passing refresh_token when next-auth handles it
   googleAuth.setCredentials({
-    access_token: session.accessToken,
-    refresh_token: session.refreshToken,
+    access_token: accessToken,
+    refresh_token: refreshToken,
+    expiry_date: expiryDate,
+    scope: SCOPES.join(" "),
   });
 
   return googleAuth;
 };
 
-export const getGmailClient = (session: ClientOptions) => {
-  const auth = getClient(session);
-  const g = gmail({ version: "v1", auth });
-
-  return g;
+export const getGmailClient = (options: AuthOptions) => {
+  const auth = getAuth(options);
+  return gmail({ version: "v1", auth });
 };
 
-export const getGmailClientFromAccount = (
-  account: Pick<Account, "access_token" | "refresh_token">,
-) => {
-  return getGmailClient({
-    accessToken: account.access_token ?? undefined,
-    refreshToken: account.refresh_token ?? undefined,
-  });
-};
-
-export const getContactsClient = (session: ClientOptions) => {
-  const auth = getClient(session);
+export const getContactsClient = (session: AuthOptions) => {
+  const auth = getAuth(session);
   const contacts = people({ version: "v1", auth });
 
   return contacts;
 };
 
-export const getGmailAccessToken = (session: ClientOptions) => {
-  const auth = getClient(session);
+export const getGmailAccessToken = async (options: AuthOptions) => {
+  const auth = getAuth(options);
   return auth.getAccessToken();
 };
 
@@ -62,20 +53,20 @@ export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
 };
 
 export const getGmailClientWithRefresh = async (
-  session: ClientOptions & { refreshToken: string; expiryDate?: number | null },
+  options: AuthOptions & { refreshToken: string; expiryDate?: number | null },
   providerAccountId: string,
 ): Promise<gmail_v1.Gmail | undefined> => {
-  const auth = getClient(session);
+  const auth = getAuth(options);
   const g = gmail({ version: "v1", auth });
 
-  if (session.expiryDate && session.expiryDate > Date.now()) return g;
+  if (options.expiryDate && options.expiryDate > Date.now()) return g;
 
   // may throw `invalid_grant` error
   try {
     const tokens = await auth.refreshAccessToken();
     const newAccessToken = tokens.credentials.access_token;
 
-    if (newAccessToken !== session.accessToken) {
+    if (newAccessToken !== options.accessToken) {
       await saveRefreshToken(
         {
           access_token: newAccessToken ?? undefined,
@@ -84,7 +75,7 @@ export const getGmailClientWithRefresh = async (
             : undefined,
         },
         {
-          refresh_token: session.refreshToken,
+          refresh_token: options.refreshToken,
           providerAccountId,
         },
       );

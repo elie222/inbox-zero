@@ -17,7 +17,8 @@ import { withAuth } from "@/utils/middleware";
 export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withAuth(async () => {
-  const email = request.auth.userEmail;
+  const emailAccountId = request.auth.emailAccountId;
+  
 
   const result = getData({ email });
   return NextResponse.json(result);

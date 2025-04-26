@@ -98,8 +98,8 @@ export async function processHistoryItem(
       logger.info("Passing through assistant email.", loggerOptions);
       return processAssistantEmail({
         message,
+        emailAccountId,
         userEmail,
-        userId: emailAccount.userId,
         gmail,
       });
     }

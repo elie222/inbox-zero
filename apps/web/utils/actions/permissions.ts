@@ -6,20 +6,22 @@ import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
 import { createScopedLogger } from "@/utils/logger";
 import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import { getTokens } from "@/utils/account";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("actions/permissions");
 
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
-  .action(async ({ ctx: { email } }) => {
+  .action(async ({ ctx: { emailAccountId } }) => {
     try {
-      const tokens = await getTokens({ email });
-      const token = await getGmailAccessToken(tokens);
-      if (!token.token) return { error: "No Gmail access token" };
+      const tokens = await getTokens({ emailAccountId });
+      const accessToken = await getGmailAccessToken(tokens);
+
+      if (!accessToken.token) return { error: "No access token" };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
-        accessToken: token.token,
-        email,
+        accessToken: accessToken.token,
+        emailAccountId,
       });
       if (error) return { error };
 
@@ -31,7 +33,7 @@ export const checkPermissionsAction = actionClient
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
       logger.error("Failed to check permissions", {
-        email,
+        emailAccountId,
         error,
       });
       return { error: "Failed to check permissions" };
@@ -43,14 +45,26 @@ export const adminCheckPermissionsAction = adminActionClient
   .schema(z.object({ email: z.string().email() }))
   .action(async ({ parsedInput: { email } }) => {
     try {
-      const tokens = await getTokens({ email });
-      if (!tokens?.accessToken) return { error: "No access token" };
-      const token = await getGmailAccessToken(tokens);
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email },
+        select: {
+          id: true,
+          account: { select: { access_token: true, refresh_token: true } },
+        },
+      });
+      if (!emailAccount) return { error: "Email account not found" };
+      const emailAccountId = emailAccount.id;
+      if (!emailAccount.account?.access_token)
+        return { error: "No access token" };
+      const token = await getGmailAccessToken({
+        accessToken: emailAccount.account.access_token ?? undefined,
+        refreshToken: emailAccount.account.refresh_token ?? undefined,
+      });
       if (!token.token) return { error: "No Gmail access token" };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken: token.token,
-        email,
+        emailAccountId,
       });
       if (error) return { error };
       return { hasAllPermissions };

@@ -2,8 +2,6 @@ import { deleteContact as deleteLoopsContact } from "@inboxzero/loops";
 import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
-import { deleteUserStats } from "@/utils/redis/stats";
-import { deleteTinybirdEmails } from "@inboxzero/tinybird";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser } from "@/utils/posthog";
 import { captureException } from "@/utils/error";
@@ -20,13 +18,18 @@ export async function deleteUser({
 }) {
   const accounts = await prisma.account.findMany({
     where: { userId },
-    select: { access_token: true, emailAccount: { select: { email: true } } },
+    select: {
+      access_token: true,
+      emailAccount: { select: { id: true, email: true } },
+    },
   });
 
   const resourcesPromise = accounts.map((account) => {
     if (!account.emailAccount) return Promise.resolve();
     return deleteResources({
+      emailAccountId: account.emailAccount.id,
       email: account.emailAccount.email,
+      userId,
       accessToken: account.access_token,
     });
   });
@@ -71,25 +74,27 @@ export async function deleteUser({
 }
 
 async function deleteResources({
+  emailAccountId,
   email,
+  userId,
   accessToken,
 }: {
+  emailAccountId: string;
   email: string;
+  userId: string;
   accessToken: string | null;
 }) {
   const resourcesPromise = Promise.allSettled([
-    deleteUserLabels({ email }),
-    deleteInboxZeroLabels({ email }),
-    deleteUserStats({ email }),
-    deleteTinybirdEmails({ email }),
+    deleteUserLabels({ emailAccountId }),
+    deleteInboxZeroLabels({ emailAccountId }),
+    deleteLoopsContact(emailAccountId),
     deletePosthogUser({ email }),
-    deleteLoopsContact(email),
     deleteResendContact({ email }),
     accessToken
       ? unwatchEmails({
-          email,
-          access_token: accessToken,
-          refresh_token: null,
+          emailAccountId,
+          accessToken,
+          refreshToken: null,
         })
       : Promise.resolve(),
   ]);
@@ -98,15 +103,15 @@ async function deleteResources({
     // First delete ExecutedRules and their associated ExecutedActions in batches
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");
-    await deleteExecutedRulesInBatches({ email });
+    await deleteExecutedRulesInBatches({ emailAccountId });
     logger.info("Deleting user");
-    await prisma.user.delete({ where: { email } });
+    await prisma.user.delete({ where: { id: userId } });
   } catch (error) {
     logger.error("Error during database user deletion process", {
       error,
-      email,
+      emailAccountId,
     });
-    captureException(error, { extra: { email } }, email);
+    captureException(error, { extra: { emailAccountId } }, emailAccountId);
     throw error;
   }
 
@@ -117,10 +122,10 @@ async function deleteResources({
  * Delete ExecutedRules and their associated ExecutedActions in batches
  */
 async function deleteExecutedRulesInBatches({
-  email,
+  emailAccountId,
   batchSize = 100,
 }: {
-  email: string;
+  emailAccountId: string;
   batchSize?: number;
 }) {
   let deletedTotal = 0;
@@ -128,7 +133,7 @@ async function deleteExecutedRulesInBatches({
   while (true) {
     // 1. Get a batch of ExecutedRule IDs
     const executedRules = await prisma.executedRule.findMany({
-      where: { emailAccountId: email },
+      where: { emailAccountId },
       select: { id: true },
       take: batchSize,
     });

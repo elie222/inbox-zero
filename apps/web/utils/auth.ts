@@ -10,19 +10,9 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { SCOPES } from "@/utils/gmail/scopes";
 
 const logger = createScopedLogger("auth");
-
-export const SCOPES = [
-  "https://www.googleapis.com/auth/userinfo.profile",
-  "https://www.googleapis.com/auth/userinfo.email",
-
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/gmail.settings.basic",
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED
-    ? ["https://www.googleapis.com/auth/contacts"]
-    : []),
-];
 
 export const getAuthOptions: (options?: {
   consent: boolean;

@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { getGmailClientFromAccount } from "@/utils/gmail/client";
+import { getGmailClient } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
@@ -33,29 +33,29 @@ async function unwatch(gmail: gmail_v1.Gmail) {
 }
 
 export async function unwatchEmails({
-  email,
-  access_token,
-  refresh_token,
+  emailAccountId,
+  accessToken,
+  refreshToken,
 }: {
-  email: string;
-  access_token: string | null;
-  refresh_token: string | null;
+  emailAccountId: string;
+  accessToken?: string | null;
+  refreshToken?: string | null;
 }) {
   try {
-    const gmail = getGmailClientFromAccount({ access_token, refresh_token });
+    const gmail = getGmailClient({ accessToken, refreshToken });
     await unwatch(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Error unwatching emails, invalid grant", { email });
+      logger.warn("Error unwatching emails, invalid grant", { emailAccountId });
       return;
     }
 
-    logger.error("Error unwatching emails", { email, error });
+    logger.error("Error unwatching emails", { emailAccountId, error });
     captureException(error);
   }
 
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { watchEmailsExpirationDate: null },
   });
 }

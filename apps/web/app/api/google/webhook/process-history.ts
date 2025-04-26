@@ -82,9 +82,9 @@ export async function processHistoryForUser(
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
     });
     await unwatchEmails({
-      email: emailAccount.email,
-      access_token: emailAccount.account?.access_token ?? null,
-      refresh_token: emailAccount.account?.refresh_token ?? null,
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
     });
     return NextResponse.json({ ok: true });
   }
@@ -101,9 +101,9 @@ export async function processHistoryForUser(
   if (!userHasAiAccess && !userHasColdEmailAccess) {
     logger.trace("Does not have hasAiOrColdEmailAccess", { email });
     await unwatchEmails({
-      email: emailAccount.email,
-      access_token: emailAccount.account?.access_token ?? null,
-      refresh_token: emailAccount.account?.refresh_token ?? null,
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
     });
     return NextResponse.json({ ok: true });
   }
