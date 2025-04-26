@@ -166,10 +166,40 @@ pnpm run build
 pnpm start
 ```
 
+To run the inbox-zero using docker with all the mandatory env vairbales set
+
+```bash
+docker-compose up
+```
+
 Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
 
 To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
 Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
+
+## 🐳 Docker Setup
+
+To run Inbox Zero using Docker Compose:
+
+```bash
+docker-compose up
+```
+
+You must set the environment variables listed [here](#mandatory-environment-variables) for docker
+
+## 🛠 Mandatory Environment Variables
+
+The following environment variables are **required** to run Inbox Zero successfully:
+
+| Variable                | Type                                                                                                      | Notes                                   |
+| :---------------------- | :-------------------------------------------------------------------------------------------------------- | :-------------------------------------- |
+| `GOOGLE_CLIENT_ID`      | `z.string().min(1)`                                                                                       | Google OAuth Client ID (required).      |
+| `GOOGLE_CLIENT_SECRET`  | `z.string().min(1)`                                                                                       | Google OAuth Client Secret (required).  |
+| `GOOGLE_ENCRYPT_SECRET` | `z.string()`                                                                                              | Secret key for encrypting OAuth tokens. |
+| `GOOGLE_ENCRYPT_SALT`   | `z.string()`                                                                                              | Salt value for OAuth token encryption.  |
+| `DEFAULT_LLM_PROVIDER`  | `z.enum(["anthropic", "google", "openai", "bedrock", "openrouter", "groq", "ollama"]).default("bedrock")` | Default LLM provider for AI operations. |
+
+---
 
 ### Supported LLMs
 
@@ -188,14 +218,17 @@ You can select the model you wish to use in the app on the `/settings` page of t
 ### Setting up Google OAuth and Gmail API
 
 1. **Create a Project in Google Cloud Console**
+
    - Go to [Google Cloud Console](https://console.cloud.google.com/)
    - Create a new project
 
 2. **Enable Required APIs**
+
    - Enable the [Gmail API](https://console.developers.google.com/apis/api/gmail.googleapis.com/overview)
    - Enable the [People API](https://console.developers.google.com/apis/api/people.googleapis.com/overview)
 
 3. **Configure the OAuth Consent Screen**
+
    - Go to 'APIs & Services' > 'OAuth consent screen'
    - Choose 'External' user type (or 'Internal' if you have Google Workspace)
    - Fill in required app information
@@ -210,6 +243,7 @@ You can select the model you wish to use in the app on the `/settings` page of t
    - Add yourself as a test user under 'Test users' section
 
 4. **Create OAuth 2.0 Credentials**
+
    - Go to 'APIs & Services' > 'Credentials'
    - Click 'Create Credentials' > 'OAuth client ID'
    - Select 'Web application' type

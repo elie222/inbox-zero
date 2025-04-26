@@ -38,7 +38,7 @@ services:
       - inbox-zero-network
 
   web:
-    image: ghcr.io/gowthamkishore3799/inbox-zero:latest
+    image: ghcr.io/elie222/inbox-zero:latest
     pull_policy: always
     build:
       context: .

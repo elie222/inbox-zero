@@ -8,8 +8,8 @@ on:
     branches: [ "main" ]
 
 env:
-  DOCKER_IMAGE_REGISTRY: "ghcr.io"   # Fixed: You said you want GHCR
-  DOCKER_USERNAME: "gowthamkishore3799"
+  DOCKER_IMAGE_REGISTRY: "ghcr.io"
+  DOCKER_USERNAME: ${{ github.actor }}
 
 jobs:
 
@@ -56,7 +56,7 @@ jobs:
           git tag "$NEW_TAG"
           git push origin "$NEW_TAG"
 
-  builds-frontend:
+  build-frontend:
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     needs:
