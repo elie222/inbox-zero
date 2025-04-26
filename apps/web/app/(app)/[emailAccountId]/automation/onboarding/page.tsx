@@ -14,12 +14,15 @@ export default async function OnboardingPage({
 }: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const { account } = await params;
-  const defaultValues = await getUserPreferences({ accountId: account });
+  const { emailAccountId } = await params;
+  const defaultValues = await getUserPreferences({ emailAccountId });
 
   return (
     <Card className="my-4 w-full max-w-2xl p-6 sm:mx-4 md:mx-auto">
-      <CategoriesSetup defaultValues={defaultValues} />
+      <CategoriesSetup
+        emailAccountId={emailAccountId}
+        defaultValues={defaultValues}
+      />
     </Card>
   );
 }
@@ -39,12 +42,12 @@ type UserPreferences = Prisma.EmailAccountGetPayload<{
 }>;
 
 async function getUserPreferences({
-  accountId,
+  emailAccountId,
 }: {
-  accountId: string;
+  emailAccountId: string;
 }) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { accountId },
+    where: { id: emailAccountId },
     select: {
       rules: {
         select: {

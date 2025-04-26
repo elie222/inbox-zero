@@ -25,7 +25,7 @@ export default async function AutomationPage({
 }: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const { account } = await params;
+  const { emailAccountId } = await params;
 
   // onboarding redirect
   const cookieStore = await cookies();
@@ -34,7 +34,7 @@ export default async function AutomationPage({
 
   if (!viewedOnboarding) {
     const hasRule = await prisma.rule.findFirst({
-      where: { emailAccount: { accountId: account } },
+      where: { emailAccountId },
       select: { id: true },
     });
 

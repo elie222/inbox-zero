@@ -40,8 +40,10 @@ import {
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
 export function CategoriesSetup({
+  emailAccountId,
   defaultValues,
 }: {
+  emailAccountId: string;
   defaultValues?: Partial<CreateRulesOnboardingBody>;
 }) {
   const router = useRouter();
@@ -62,10 +64,10 @@ export function CategoriesSetup({
   const onSubmit = useCallback(
     async (data: CreateRulesOnboardingBody) => {
       // runs in background so we can move on to next step faster
-      createRulesOnboardingAction(data);
+      createRulesOnboardingAction(emailAccountId, data);
       router.push(NEXT_URL);
     },
-    [router],
+    [emailAccountId, router],
   );
 
   return (
