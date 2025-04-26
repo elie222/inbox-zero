@@ -5,7 +5,7 @@ import { withEmailAccount } from "@/utils/middleware";
 import { getContactsClient } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
 import { env } from "@/env";
-import { getTokens } from "@/utils/account";
+import prisma from "@/utils/prisma";
 
 const contactsQuery = z.object({ query: z.string() });
 export type ContactsQuery = z.infer<typeof contactsQuery>;
@@ -20,10 +20,21 @@ export const GET = withEmailAccount(async (request) => {
   if (!env.NEXT_PUBLIC_CONTACTS_ENABLED)
     return NextResponse.json({ error: "Contacts API not enabled" });
 
-  const tokens = await getTokens({
-    emailAccountId: request.auth.emailAccountId,
+  const emailAccountId = request.auth.emailAccountId;
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { access_token: true, refresh_token: true, expires_at: true },
+      },
+    },
   });
-  const client = getContactsClient(tokens);
+  const client = getContactsClient({
+    accessToken: emailAccount?.account.access_token,
+    refreshToken: emailAccount?.account.refresh_token,
+    expiryDate: emailAccount?.account.expires_at,
+  });
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query");
