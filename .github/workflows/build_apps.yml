@@ -29,20 +29,16 @@ jobs:
         id: get_previous_tag
         run: |
           TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          if [ -z "$TAG" ]; then
-            echo "No existing tags found. Using default v1.0.0"
-            echo "tag=v1.0.0" >> $GITHUB_OUTPUT
-          else
-            echo "Previous tag found: $TAG"
+          if [ -n "$TAG" ]; then
             echo "tag=$TAG" >> $GITHUB_OUTPUT
+            
           fi
 
       - name: Increment tag
         id: increment_tag
         run: |
           PREV_TAG="${{ steps.get_previous_tag.outputs.tag }}"
-          if [ "$PREV_TAG" = "v1.0.0" ]; then
-            echo "Using initial tag v1.0.0"
+          if [ -z "$PREV_TAG" ]; then
             NEW_TAG="v1.0.0"
           else
             VERSION="${PREV_TAG#v}"
