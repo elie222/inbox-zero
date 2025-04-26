@@ -30,7 +30,7 @@ export const TestCustomEmailForm = () => {
 
   const onSubmit: SubmitHandler<TestAiCustomContentBody> = useCallback(
     async (data) => {
-      const result = await testAiCustomContentAction(email, data);
+      const result = await testAiCustomContentAction(emailAccountId, data);
       if (result?.serverError) {
         toastError({
           title: "Error testing email",
@@ -40,7 +40,7 @@ export const TestCustomEmailForm = () => {
         setTestResult(result?.data);
       }
     },
-    [email],
+    [emailAccountId],
   );
 
   return (

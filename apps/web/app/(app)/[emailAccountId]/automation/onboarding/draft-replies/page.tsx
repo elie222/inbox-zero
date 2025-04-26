@@ -18,7 +18,7 @@ export default function DraftRepliesPage() {
   const { emailAccountId } = useAccount();
   const onSetDraftReplies = useCallback(
     async (value: string) => {
-      const result = await enableDraftRepliesAction(email, {
+      const result = await enableDraftRepliesAction(emailAccountId, {
         enable: value === "yes",
       });
 
@@ -32,7 +32,7 @@ export default function DraftRepliesPage() {
 
       router.push("/automation/onboarding/completed");
     },
-    [router, email],
+    [router, emailAccountId],
   );
 
   return (

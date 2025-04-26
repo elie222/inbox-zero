@@ -47,7 +47,7 @@ export function CategorySelect({
         });
 
         if (result?.serverError) {
-          toastError({ description: result.error });
+          toastError({ description: result.serverError });
         } else {
           toastSuccess({ description: "Category changed" });
           onSuccess?.(value);

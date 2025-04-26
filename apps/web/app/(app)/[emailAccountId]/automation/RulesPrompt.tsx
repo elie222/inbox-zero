@@ -26,7 +26,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { AutomationOnboarding } from "@/app/(app)/[emailAccountId]/automation/AutomationOnboarding";
-import { examplePrompts, personas } from "@/app/(app)/[emailAccountId]/automation/examples";
+import {
+  examplePrompts,
+  personas,
+} from "@/app/(app)/[emailAccountId]/automation/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/automation/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/automation/ProcessingPromptFileDialog";
@@ -135,7 +138,7 @@ function RulesPromptForm({
 
       const saveRulesPromise = async (data: SaveRulesPromptBody) => {
         setIsSubmitting(true);
-        const result = await saveRulesPromptAction(email, data);
+        const result = await saveRulesPromptAction(emailAccountId, data);
 
         if (result?.serverError) {
           setIsSubmitting(false);
@@ -182,7 +185,7 @@ function RulesPromptForm({
         },
       });
     },
-    [mutate, router, viewedProcessingPromptFileDialog, email],
+    [mutate, router, viewedProcessingPromptFileDialog, emailAccountId],
   );
 
   const addExamplePrompt = useCallback(
@@ -275,7 +278,7 @@ Let me know if you're interested!
                           async () => {
                             setIsGenerating(true);
                             const result = await generateRulesPromptAction(
-                              email,
+                              emailAccountId,
                               {},
                             );
 

@@ -75,7 +75,7 @@ function EmailAssistantForm({
   });
 
   const onSubmit: SubmitHandler<RulesExamplesBody> = async (data) => {
-    const result = await getRuleExamplesAction(email, data);
+    const result = await getRuleExamplesAction(emailAccountId, data);
 
     setShowNextButton(true);
 

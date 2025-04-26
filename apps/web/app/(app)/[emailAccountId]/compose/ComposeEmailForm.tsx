@@ -83,7 +83,7 @@ export const ComposeEmailForm = ({
       };
 
       try {
-        const res = await sendEmailAction(email, enrichedData);
+        const res = await sendEmailAction(emailAccountId, enrichedData);
         if (res?.serverError) {
           toastError({
             description: "There was an error sending the email :(",
@@ -99,7 +99,7 @@ export const ComposeEmailForm = ({
 
       refetch?.();
     },
-    [refetch, onSuccess, showFullContent, replyingToEmail, email],
+    [refetch, onSuccess, showFullContent, replyingToEmail, emailAccountId],
   );
 
   useHotkeys(

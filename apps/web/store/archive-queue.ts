@@ -65,14 +65,14 @@ const addThreadsToQueue = ({
   labelId,
   onSuccess,
   onError,
-  email,
+  emailAccountId,
 }: {
   actionType: ActionType;
   threadIds: string[];
   labelId?: string;
   onSuccess?: (threadId: string) => void;
   onError?: (threadId: string) => void;
-  email: string;
+  emailAccountId: string;
 }) => {
   const threads = Object.fromEntries(
     threadIds.map((threadId) => [
@@ -89,7 +89,7 @@ const addThreadsToQueue = ({
     totalThreads: prev.totalThreads + Object.keys(threads).length,
   }));
 
-  processQueue({ threads, onSuccess, onError, email });
+  processQueue({ threads, onSuccess, onError, emailAccountId });
 };
 
 export const archiveEmails = async ({
@@ -97,13 +97,13 @@ export const archiveEmails = async ({
   labelId,
   onSuccess,
   onError,
-  email,
+  emailAccountId,
 }: {
   threadIds: string[];
   labelId?: string;
   onSuccess: (threadId: string) => void;
   onError?: (threadId: string) => void;
-  email: string;
+  emailAccountId: string;
 }) => {
   addThreadsToQueue({
     actionType: "archive",
@@ -111,7 +111,7 @@ export const archiveEmails = async ({
     labelId,
     onSuccess,
     onError,
-    email,
+    emailAccountId,
   });
 };
 
@@ -119,19 +119,19 @@ export const markReadThreads = async ({
   threadIds,
   onSuccess,
   onError,
-  email,
+  emailAccountId,
 }: {
   threadIds: string[];
   onSuccess: (threadId: string) => void;
   onError?: (threadId: string) => void;
-  email: string;
+  emailAccountId: string;
 }) => {
   addThreadsToQueue({
     actionType: "markRead",
     threadIds,
     onSuccess,
     onError,
-    email,
+    emailAccountId,
   });
 };
 
@@ -139,19 +139,19 @@ export const deleteEmails = async ({
   threadIds,
   onSuccess,
   onError,
-  email,
+  emailAccountId,
 }: {
   threadIds: string[];
   onSuccess: (threadId: string) => void;
   onError?: (threadId: string) => void;
-  email: string;
+  emailAccountId: string;
 }) => {
   addThreadsToQueue({
     actionType: "delete",
     threadIds,
     onSuccess,
     onError,
-    email,
+    emailAccountId,
   });
 };
 
@@ -175,19 +175,19 @@ export function processQueue({
   threads,
   onSuccess,
   onError,
-  email,
+  emailAccountId,
 }: {
   threads: Record<string, QueueItem>;
   onSuccess?: (threadId: string) => void;
   onError?: (threadId: string) => void;
-  email: string;
+  emailAccountId: string;
 }) {
   const actionMap: Record<ActionType, ActionFunction> = {
     archive: ({ threadId, labelId }) =>
-      archiveThreadAction(email, { threadId, labelId }),
-    delete: ({ threadId }) => trashThreadAction(email, { threadId }),
+      archiveThreadAction(emailAccountId, { threadId, labelId }),
+    delete: ({ threadId }) => trashThreadAction(emailAccountId, { threadId }),
     markRead: ({ threadId }) =>
-      markReadThreadAction(email, { threadId, read: true }),
+      markReadThreadAction(emailAccountId, { threadId, read: true }),
   };
 
   emailActionQueue.addAll(

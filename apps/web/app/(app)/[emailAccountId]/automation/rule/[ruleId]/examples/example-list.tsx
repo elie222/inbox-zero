@@ -51,7 +51,7 @@ export function ExampleList({
                   size="sm"
                   className="mt-4 text-wrap"
                   onClick={async () => {
-                    const result = await deleteGroupItemAction(email, {
+                    const result = await deleteGroupItemAction(emailAccountId, {
                       id: matchingGroupItem.id,
                     });
                     if (result?.serverError) {

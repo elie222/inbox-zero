@@ -38,7 +38,7 @@ export function ConfirmationStep({
   const { emailAccountId } = useAccount();
 
   const handleStartCleaning = async () => {
-    const result = await cleanInboxAction(email, {
+    const result = await cleanInboxAction(emailAccountId, {
       daysOld: timeRange ?? 7,
       instructions: instructions || "",
       action: action || CleanAction.ARCHIVE,

@@ -34,6 +34,7 @@ import { getUserCategoriesForNames } from "@/utils/category.server";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -118,7 +119,7 @@ export const testAiCustomContentAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { content } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     const gmail = await getGmailClientForEmail({ emailAccountId });
 

@@ -26,13 +26,13 @@ export function ActionButtons({
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   const openInGmail = useCallback(() => {
     // open in gmail
-    const url = getGmailUrl(threadId, email);
+    const url = getGmailUrl(threadId, userEmail);
     window.open(url, "_blank");
-  }, [threadId, email]);
+  }, [threadId, userEmail]);
 
   const [isTrashing, setIsTrashing] = useState(false);
 
@@ -40,10 +40,10 @@ export function ActionButtons({
   // TODO show loading toast
   const onTrash = useCallback(async () => {
     setIsTrashing(true);
-    await onTrashThread({ email, threadId });
+    await onTrashThread({ emailAccountId, threadId });
     refetch(threadId);
     setIsTrashing(false);
-  }, [threadId, refetch, email]);
+  }, [threadId, refetch, emailAccountId]);
 
   const buttons = useMemo(
     () => [

@@ -21,7 +21,7 @@ export function useExecutePlan(refetch: () => void) {
 
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-      const result = await approvePlanAction(email, {
+      const result = await approvePlanAction(emailAccountId, {
         executedRuleId: thread.plan.id,
         message: lastMessage,
       });
@@ -37,7 +37,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setExecutingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch, email],
+    [refetch, emailAccountId],
   );
 
   const rejectPlan = useCallback(
@@ -45,7 +45,7 @@ export function useExecutePlan(refetch: () => void) {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       if (thread.plan?.id) {
-        const result = await rejectPlanAction(email, {
+        const result = await rejectPlanAction(emailAccountId, {
           executedRuleId: thread.plan.id,
         });
         if (result?.serverError) {
@@ -63,7 +63,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch, email],
+    [refetch, emailAccountId],
   );
 
   return {

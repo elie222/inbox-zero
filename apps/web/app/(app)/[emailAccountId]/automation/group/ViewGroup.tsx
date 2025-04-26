@@ -144,7 +144,7 @@ const AddGroupItemForm = ({
 
   const onSubmit: SubmitHandler<AddGroupItemBody> = useCallback(
     async (data) => {
-      const result = await addGroupItemAction(email, data);
+      const result = await addGroupItemAction(emailAccountId, data);
       if (result?.serverError) {
         toastError({
           description: `Failed to add pattern. ${result.serverError || ""}`,
@@ -155,7 +155,7 @@ const AddGroupItemForm = ({
       mutate();
       onClose();
     },
-    [mutate, onClose, email],
+    [mutate, onClose, emailAccountId],
   );
 
   const handleKeyDown = useCallback(
@@ -306,7 +306,7 @@ function GroupItemList({
                   variant="outline"
                   size="icon"
                   onClick={async () => {
-                    const result = await deleteGroupItemAction(email, {
+                    const result = await deleteGroupItemAction(emailAccountId, {
                       id: item.id,
                     });
                     if (result?.serverError) {

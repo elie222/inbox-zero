@@ -32,7 +32,7 @@ export function ColdEmailPromptForm(props: {
 
   const onSubmit: SubmitHandler<UpdateColdEmailPromptBody> = useCallback(
     async (data) => {
-      const result = await updateColdEmailPromptAction(email, {
+      const result = await updateColdEmailPromptAction(emailAccountId, {
         // if user hasn't changed the prompt, unset their custom prompt
         coldEmailPrompt:
           !data.coldEmailPrompt ||
@@ -48,7 +48,7 @@ export function ColdEmailPromptForm(props: {
         onSuccess();
       }
     },
-    [onSuccess, email],
+    [onSuccess, emailAccountId],
   );
 
   return (

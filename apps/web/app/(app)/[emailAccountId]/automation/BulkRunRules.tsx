@@ -22,8 +22,11 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkRunRules() {
+  const { emailAccountId } = useAccount();
+
   const [isOpen, setIsOpen] = useState(false);
   const [totalThreads, setTotalThreads] = useState(0);
 
@@ -95,6 +98,7 @@ export function BulkRunRules() {
                             if (!startDate) return;
                             setRunning(true);
                             abortRef.current = await onRun(
+                              emailAccountId,
                               { startDate, endDate },
                               (count) =>
                                 setTotalThreads((total) => total + count),
@@ -141,6 +145,7 @@ export function BulkRunRules() {
 
 // fetch batches of messages and add them to the ai queue
 async function onRun(
+  emailAccountId: string,
   { startDate, endDate }: { startDate: Date; endDate?: Date },
   incrementThreadsQueued: (count: number) => void,
   onComplete: () => void,
@@ -179,7 +184,7 @@ async function onRun(
 
       incrementThreadsQueued(threadsWithoutPlan.length);
 
-      runAiRules(threadsWithoutPlan, false);
+      runAiRules(emailAccountId, threadsWithoutPlan, false);
 
       if (!nextPageToken || aborted) break;
 

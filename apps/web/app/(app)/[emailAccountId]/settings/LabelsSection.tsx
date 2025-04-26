@@ -159,7 +159,7 @@ function LabelsSectionFormInner(props: {
                 });
 
                 try {
-                  await updateLabelsAction(email, { labels: formLabels });
+                  await updateLabelsAction(emailAccountId, { labels: formLabels });
                   toastSuccess({ description: "Updated labels!" });
                 } catch (error) {
                   console.error(error);
@@ -224,7 +224,7 @@ function LabelsSectionFormInner(props: {
                       type="button"
                       className="group"
                       onClick={async () => {
-                        const res = await createLabelAction(email, {
+                        const res = await createLabelAction(emailAccountId, {
                           name: label,
                         });
                         if (isErrorMessage(res)) {
@@ -318,7 +318,7 @@ function AddLabelModal() {
       async (data) => {
         const { name, description } = data;
         try {
-          await createLabelAction(email, { name, description });
+          await createLabelAction(emailAccountId, { name, description });
 
           toastSuccess({
             description: `Label "${name}" created!`,
@@ -338,7 +338,7 @@ function AddLabelModal() {
           });
         }
       },
-      [mutate, email],
+      [mutate, emailAccountId],
     );
 
   return (

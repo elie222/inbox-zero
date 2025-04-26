@@ -59,7 +59,7 @@ export function ColdEmailForm({
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
     async (data) => {
-      const result = await updateColdEmailSettingsAction(email, data);
+      const result = await updateColdEmailSettingsAction(emailAccountId, data);
 
       if (result?.serverError) {
         toastError({
@@ -70,7 +70,7 @@ export function ColdEmailForm({
         onSuccess?.();
       }
     },
-    [onSuccess, email],
+    [onSuccess, emailAccountId],
   );
 
   const onSubmitForm = handleSubmit(onSubmit);

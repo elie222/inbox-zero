@@ -67,8 +67,8 @@ export function KnowledgeForm({
     };
 
     const result = editingItem
-      ? await updateKnowledgeAction(email, submitData as UpdateKnowledgeBody)
-      : await createKnowledgeAction(email, submitData);
+      ? await updateKnowledgeAction(emailAccountId, submitData as UpdateKnowledgeBody)
+      : await createKnowledgeAction(emailAccountId, submitData);
 
     if (result?.serverError) {
       toastError({

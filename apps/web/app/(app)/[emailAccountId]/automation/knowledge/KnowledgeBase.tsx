@@ -122,7 +122,7 @@ export function KnowledgeBase() {
                     item={item}
                     onEdit={() => setEditingItem(item)}
                     onDelete={mutate}
-                    email={email}
+                    emailAccountId={emailAccountId}
                   />
                 ))
               )}
@@ -138,12 +138,12 @@ function KnowledgeTableRow({
   item,
   onEdit,
   onDelete,
-  email,
+  emailAccountId,
 }: {
   item: Knowledge;
   onEdit: () => void;
   onDelete: () => void;
-  email: string;
+  emailAccountId: string;
 }) {
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -168,7 +168,7 @@ function KnowledgeTableRow({
             onConfirm={async () => {
               try {
                 setIsDeleting(true);
-                const result = await deleteKnowledgeAction(email, {
+                const result = await deleteKnowledgeAction(emailAccountId, {
                   id: item.id,
                 });
                 if (result?.serverError) {

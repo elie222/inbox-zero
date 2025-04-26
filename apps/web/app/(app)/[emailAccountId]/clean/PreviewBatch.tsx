@@ -24,7 +24,7 @@ export function PreviewBatch({ job }: { job: CleanupJob }) {
   const handleRunOnFullInbox = async () => {
     setIsLoading(true);
     setIsPreviewBatch(false);
-    const result = await cleanInboxAction(email, {
+    const result = await cleanInboxAction(emailAccountId, {
       daysOld: job.daysOld,
       instructions: job.instructions || "",
       action: job.action,

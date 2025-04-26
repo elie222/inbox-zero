@@ -35,7 +35,7 @@ export default function AutomationSettingsPage() {
   const onSubmit: SubmitHandler<CreateAutomationBody> = useCallback(
     async (data) => {
       if (data.prompt) {
-        const result = await createAutomationAction(email, {
+        const result = await createAutomationAction(emailAccountId, {
           prompt: data.prompt,
         });
 
@@ -52,7 +52,7 @@ export default function AutomationSettingsPage() {
         }
       }
     },
-    [email, router],
+    [emailAccountId, router],
   );
 
   const prompt = watch("prompt");

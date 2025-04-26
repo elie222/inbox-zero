@@ -169,7 +169,7 @@ function CreateCategoryForm({
 
   const onSubmit: SubmitHandler<CreateCategoryBody> = useCallback(
     async (data) => {
-      const result = await createCategoryAction(email, data);
+      const result = await createCategoryAction(emailAccountId, data);
 
       if (result?.serverError) {
         toastError({
@@ -180,7 +180,7 @@ function CreateCategoryForm({
         closeModal();
       }
     },
-    [closeModal, email],
+    [closeModal, emailAccountId],
   );
 
   return (

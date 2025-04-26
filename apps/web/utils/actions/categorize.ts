@@ -136,13 +136,13 @@ export const changeSenderCategoryAction = actionClient
   .schema(z.object({ sender: z.string(), categoryId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId },
       parsedInput: { sender, categoryId },
     }) => {
       const category = await prisma.category.findUnique({
         where: { id: categoryId, emailAccountId },
       });
-      if (!category) return { error: "Category not found" };
+      if (!category) throw new SafeError("Category not found");
 
       await updateCategoryForSender({
         emailAccountId,

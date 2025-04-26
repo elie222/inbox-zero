@@ -229,7 +229,7 @@ function ReplyPanel({
 
       setIsGeneratingReply(true);
 
-      const result = await generateNudgeReplyAction(email, {
+      const result = await generateNudgeReplyAction(emailAccountId, {
         messages: [
           {
             id: message.id,
@@ -253,7 +253,7 @@ function ReplyPanel({
 
     // Only generate a nudge if there's no draft message and generateNudge is true
     if (generateNudge && !draftMessage) generateReply();
-  }, [generateNudge, message, draftMessage, email]);
+  }, [generateNudge, message, draftMessage, emailAccountId]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {

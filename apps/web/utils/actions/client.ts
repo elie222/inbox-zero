@@ -32,13 +32,13 @@ export async function onAutoArchive({
 }
 
 export async function onDeleteFilter({
-  email,
+  emailAccountId,
   filterId,
 }: {
-  email: string;
+  emailAccountId: string;
   filterId: string;
 }) {
-  const result = await deleteFilterAction(email, { id: filterId });
+  const result = await deleteFilterAction(emailAccountId, { id: filterId });
   if (result?.serverError) {
     toastError({
       description:
@@ -52,13 +52,13 @@ export async function onDeleteFilter({
 }
 
 export async function onTrashThread({
-  email,
+  emailAccountId,
   threadId,
 }: {
-  email: string;
+  emailAccountId: string;
   threadId: string;
 }) {
-  const result = await trashThreadAction(email, { threadId });
+  const result = await trashThreadAction(emailAccountId, { threadId });
   if (result?.serverError) {
     toastError({
       description:
