@@ -1,5 +1,4 @@
 name: "Build Inbox Zero Docker Images"
-run-name: "Build ${{ github.ref_name }} by @${{ github.actor }}"
 
 on:
   push:
