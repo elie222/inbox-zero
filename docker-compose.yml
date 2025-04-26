@@ -38,6 +38,8 @@ services:
       - inbox-zero-network
 
   web:
+    image: ghcr.io/gowthamkishore3799/inbox-zero:latest
+    pull_policy: always
     build:
       context: .
       dockerfile: ./docker/Dockerfile.web

@@ -1,0 +1,11 @@
+.git
+.gitignore
+Dockerfile
+Dockerfile.web
+.env
+*.log
+*.tmp
+tmp/
+.cache
+dist/
+coverage/
