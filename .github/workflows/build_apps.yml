@@ -12,7 +12,6 @@ env:
   DOCKER_USERNAME: "elie222"
 
 jobs:
-
   set-version:
     if: ${{ github.repository == format('{0}/inbox-zero', env.DOCKER_USERNAME) }}
     runs-on: ubuntu-latest
