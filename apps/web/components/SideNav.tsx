@@ -261,7 +261,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader>
+      <SidebarHeader className="gap-0 pb-0">
         {state === "expanded" ? (
           <Link href="/setup">
             <div className="flex items-center rounded-md p-3 text-white">
