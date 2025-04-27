@@ -276,7 +276,7 @@ export const GET = withEmailAccount(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!hasCronSecret(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));

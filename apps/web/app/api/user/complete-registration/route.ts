@@ -13,7 +13,7 @@ const logger = createScopedLogger("complete-registration");
 
 export type CompleteRegistrationBody = Record<string, never>;
 
-export const POST = withError(async (_request: NextRequest) => {
+export const POST = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });

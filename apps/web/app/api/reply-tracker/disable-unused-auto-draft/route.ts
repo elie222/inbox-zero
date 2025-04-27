@@ -153,7 +153,7 @@ async function disableUnusedAutoDrafts() {
 //   return NextResponse.json(results);
 // });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!(await hasPostCronSecret(request))) {
     captureException(
       new Error("Unauthorized cron request: api/auto-draft/disable-unused"),

@@ -15,7 +15,7 @@ export const maxDuration = 300;
 const processPreviousSchema = z.object({ emailAccountId: z.string() });
 export type ProcessPreviousBody = z.infer<typeof processPreviousSchema>;
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!isValidInternalApiKey(await headers())) {
     logger.error("Invalid API key");
     return NextResponse.json({ error: "Invalid API key" });

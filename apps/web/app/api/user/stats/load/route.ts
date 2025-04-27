@@ -10,6 +10,7 @@ export type LoadEmailStatsResponse = Awaited<ReturnType<typeof loadEmails>>;
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
+  console.log("🚀 ~ POST ~ emailAccountId:", emailAccountId);
 
   const json = await request.json();
   const body = loadEmailStatsBody.parse(json);

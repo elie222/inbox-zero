@@ -29,7 +29,7 @@ export function EmailAccountProvider({
       try {
         // Not using SWR here because this will lead to a circular provider tree
         // This is the simplest fix
-        const response = await fetch("/api/user/accounts");
+        const response = await fetch("/api/user/email-accounts");
         if (response.ok) {
           const emailAccounts: GetEmailAccountsResponse = await response.json();
           setData(emailAccounts);

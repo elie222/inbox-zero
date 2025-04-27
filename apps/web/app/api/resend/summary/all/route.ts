@@ -78,7 +78,7 @@ export const GET = withError(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!(await hasPostCronSecret(request))) {
     captureException(
       new Error("Unauthorized cron request: api/resend/summary/all"),
