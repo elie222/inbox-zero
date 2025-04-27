@@ -19,7 +19,6 @@ export function EmailAccountProvider({
   children: React.ReactNode;
 }) {
   const params = useParams<{ emailAccountId: string | undefined }>();
-  // TODO: throw an error if account is not defined?
   const emailAccountId = params.emailAccountId;
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
