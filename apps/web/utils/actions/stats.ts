@@ -1,3 +1,5 @@
+"use server";
+
 import type { gmail_v1 } from "@googleapis/gmail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { z } from "zod";
