@@ -51,6 +51,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 type NavItem = {
   name: string;
@@ -61,55 +62,62 @@ type NavItem = {
   hideInMail?: boolean;
 };
 
-// Assistant category items
-const assistantItems: NavItem[] = [
-  {
-    name: "Personal Assistant",
-    href: "/automation",
-    icon: SparklesIcon,
-  },
-  {
-    name: "Reply Zero",
-    href: "/reply-zero",
-    icon: MessageCircleReplyIcon,
-  },
-  {
-    name: "Cold Email Blocker",
-    href: "/cold-email-blocker",
-    icon: ShieldCheckIcon,
-  },
-];
-
-// Clean category items
-const cleanItems: NavItem[] = [
-  {
-    name: "Bulk Unsubscribe",
-    href: "/bulk-unsubscribe",
-    icon: MailsIcon,
-  },
-  {
-    name: "Deep Clean",
-    href: "/clean",
-    icon: BrushIcon,
-  },
-  {
-    name: "Analytics",
-    href: "/stats",
-    icon: BarChartBigIcon,
-  },
-];
-
 export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
+  const { emailAccountId } = useAccount();
+
+  // Assistant category items
+  const assistantItems: NavItem[] = useMemo(
+    () => [
+      {
+        name: "Personal Assistant",
+        href: `/${emailAccountId}/automation`,
+        icon: SparklesIcon,
+      },
+      {
+        name: "Reply Zero",
+        href: `/${emailAccountId}/reply-zero`,
+        icon: MessageCircleReplyIcon,
+      },
+      {
+        name: "Cold Email Blocker",
+        href: `/${emailAccountId}/cold-email-blocker`,
+        icon: ShieldCheckIcon,
+      },
+    ],
+    [emailAccountId],
+  );
+
+  // Clean category items
+  const cleanItems: NavItem[] = useMemo(
+    () => [
+      {
+        name: "Bulk Unsubscribe",
+        href: `/${emailAccountId}/bulk-unsubscribe`,
+        icon: MailsIcon,
+      },
+      {
+        name: "Deep Clean",
+        href: `/${emailAccountId}/clean`,
+        icon: BrushIcon,
+      },
+      {
+        name: "Analytics",
+        href: `/${emailAccountId}/stats`,
+        icon: BarChartBigIcon,
+      },
+    ],
+    [emailAccountId],
+  );
 
   const cleanItemsFiltered = useMemo(
     () =>
       cleanItems.filter((item) => {
-        if (item.href === "/clean") return showCleaner;
+        if (item.href === `/${emailAccountId}/clean`) return showCleaner;
         return true;
       }),
-    [showCleaner],
+    [showCleaner, emailAccountId, cleanItems],
   );
 
   return {
