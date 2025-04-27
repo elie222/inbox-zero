@@ -7,20 +7,18 @@ import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Input } from "@/components/Input";
-import { isError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { LoadingContent } from "@/components/LoadingContent";
-import { postRequest } from "@/utils/api";
 import {
-  saveSettingsBody,
-  type SaveSettingsBody,
-} from "@/app/api/user/settings/validation";
-import type { SaveSettingsResponse } from "@/app/api/user/settings/route";
+  saveAiSettingsBody,
+  type SaveAiSettingsBody,
+} from "@/utils/actions/settings.validation";
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertBasic, AlertError } from "@/components/Alert";
 import { modelOptions, Provider, providerOptions } from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
+import { updateAiSettingsAction } from "@/utils/actions/settings";
 
 export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
@@ -75,8 +73,8 @@ function ModelSectionForm(props: {
     watch,
     setValue,
     formState: { errors, isSubmitting },
-  } = useForm<SaveSettingsBody>({
-    resolver: zodResolver(saveSettingsBody),
+  } = useForm<SaveAiSettingsBody>({
+    resolver: zodResolver(saveAiSettingsBody),
     defaultValues: {
       aiProvider: props.aiProvider ?? Provider.ANTHROPIC,
       aiModel: props.aiModel ?? getDefaultModel(props.aiProvider),
@@ -98,14 +96,11 @@ function ModelSectionForm(props: {
     }
   }, [aiProvider, setValue, watch]);
 
-  const onSubmit: SubmitHandler<SaveSettingsBody> = useCallback(
+  const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
-      const res = await postRequest<SaveSettingsResponse, SaveSettingsBody>(
-        "/api/user/settings",
-        data,
-      );
+      const res = await updateAiSettingsAction(data);
 
-      if (isError(res)) {
+      if (res?.serverError) {
         toastError({
           description: "There was an error updating the settings.",
         });

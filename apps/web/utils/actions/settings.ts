@@ -1,5 +1,8 @@
-import { actionClient } from "@/utils/actions/safe-action";
-import { saveEmailUpdateSettingsBody } from "@/utils/actions/settings.validation";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import {
+  saveAiSettingsBody,
+  saveEmailUpdateSettingsBody,
+} from "@/utils/actions/settings.validation";
 import prisma from "@/utils/prisma";
 
 export const updateEmailSettingsAction = actionClient
@@ -16,6 +19,21 @@ export const updateEmailSettingsAction = actionClient
           statsEmailFrequency,
           summaryEmailFrequency,
         },
+      });
+    },
+  );
+
+export const updateAiSettingsAction = actionClientUser
+  .metadata({ name: "updateAiSettings" })
+  .schema(saveAiSettingsBody)
+  .action(
+    async ({
+      ctx: { userId },
+      parsedInput: { aiProvider, aiModel, aiApiKey },
+    }) => {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiProvider, aiModel, aiApiKey },
       });
     },
   );
