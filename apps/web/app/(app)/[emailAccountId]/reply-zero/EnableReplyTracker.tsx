@@ -67,7 +67,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           return;
         }
 
-        const result = await enableReplyTrackerAction(email);
+        const result = await enableReplyTrackerAction(emailAccountId);
 
         if (result?.serverError) {
           toastError({
@@ -83,7 +83,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
 
         toast.promise(
           async () => {
-            processPreviousSentEmailsAction(email);
+            processPreviousSentEmailsAction(emailAccountId);
 
             router.push("/reply-zero?enabled=true");
           },

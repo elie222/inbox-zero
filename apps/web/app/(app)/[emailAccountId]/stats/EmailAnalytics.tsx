@@ -11,11 +11,12 @@ import { BarList } from "@/components/charts/BarList";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 import { getGmailSearchUrl } from "@/utils/url";
 import { useAccount } from "@/providers/EmailAccountProvider";
+
 export function EmailAnalytics(props: {
   dateRange?: DateRange | undefined;
   refreshInterval: number;
 }) {
-  const { emailAccountId } = useAccount();
+  const { userEmail } = useAccount();
 
   const params = getDateRangeParams(props.dateRange);
 
@@ -55,7 +56,7 @@ export function EmailAnalytics(props: {
               ?.slice(0, expanded ? undefined : 5)
               .map((d) => ({
                 ...d,
-                href: getGmailSearchUrl(d.name, email),
+                href: getGmailSearchUrl(d.name, userEmail),
                 target: "_blank",
               }))}
             extra={extra}
@@ -76,7 +77,7 @@ export function EmailAnalytics(props: {
               ?.slice(0, expanded ? undefined : 5)
               .map((d) => ({
                 ...d,
-                href: getGmailSearchUrl(d.name, email),
+                href: getGmailSearchUrl(d.name, userEmail),
                 target: "_blank",
               }))}
             extra={extra}
@@ -98,7 +99,7 @@ export function EmailAnalytics(props: {
                 ?.slice(0, expanded ? undefined : 5)
                 .map((d) => ({
                   ...d,
-                  href: getGmailSearchUrl(d.name, email),
+                  href: getGmailSearchUrl(d.name, userEmail),
                   target: "_blank",
                 })) || []
             }

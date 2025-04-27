@@ -58,7 +58,7 @@ const SWRContext = createContext<Context>(defaultContextValue);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
-  const { account } = useAccount();
+  const { emailAccountId } = useAccount();
 
   const resetCache = useCallback(() => {
     // based on: https://swr.vercel.app/docs/mutation#mutate-multiple-items
@@ -72,15 +72,15 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     async (url: string, init?: RequestInit) => {
       const headers = new Headers(init?.headers);
 
-      if (account?.accountId) {
-        headers.set(EMAIL_ACCOUNT_HEADER, account.accountId);
+      if (emailAccountId) {
+        headers.set(EMAIL_ACCOUNT_HEADER, emailAccountId);
       }
 
       const newInit = { ...init, headers };
 
       return fetcher(url, newInit);
     },
-    [account?.accountId],
+    [emailAccountId],
   );
 
   const value = useMemo(() => ({ resetCache }), [resetCache]);

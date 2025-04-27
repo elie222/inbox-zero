@@ -52,7 +52,7 @@ export async function getExecutedRules({
       },
     }),
     prisma.executedRule.count({ where }),
-    getGmailClientForEmail({ email: emailAccountId }),
+    getGmailClientForEmail({ emailAccountId }),
   ]);
 
   const executedRulesWithMessages = await Promise.all(

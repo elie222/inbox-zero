@@ -52,7 +52,7 @@ export function SimpleList(props: {
   nextPageToken?: string | null;
   type: string;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
   const { toHandleLater, onSetHandled, onSetToHandleLater } =
     useSimpleProgress();
 
@@ -85,7 +85,8 @@ export function SimpleList(props: {
             <SimpleListRow
               key={message.id}
               message={message}
-              userEmail={email}
+              userEmail={userEmail}
+              emailAccountId={emailAccountId}
               toHandleLater={toHandleLater}
               onSetToHandleLater={onSetToHandleLater}
               handleUnsubscribe={() => handleUnsubscribe(message.id)}
@@ -105,7 +106,11 @@ export function SimpleList(props: {
             startTransition(() => {
               onSetHandled(toArchive);
 
-              archiveEmails(toArchive, undefined, () => {});
+              archiveEmails({
+                threadIds: toArchive,
+                emailAccountId,
+                onSuccess: () => {},
+              });
 
               if (props.nextPageToken) {
                 router.push(
@@ -139,12 +144,14 @@ export function SimpleList(props: {
 function SimpleListRow({
   message,
   userEmail,
+  emailAccountId,
   toHandleLater,
   onSetToHandleLater,
   handleUnsubscribe,
 }: {
   message: ParsedMessage;
   userEmail: string;
+  emailAccountId: string;
   toHandleLater: Record<string, boolean>;
   onSetToHandleLater: (ids: string[]) => void;
   handleUnsubscribe: (id: string) => void;
@@ -213,14 +220,20 @@ function SimpleListRow({
           {/* TODO only show one of these two buttons */}
           <DropdownMenuItem
             onClick={() => {
-              markImportantMessageAction(message.id, true);
+              markImportantMessageAction(emailAccountId, {
+                messageId: message.id,
+                important: true,
+              });
             }}
           >
             Mark Important
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
-              markImportantMessageAction(message.id, false);
+              markImportantMessageAction(emailAccountId, {
+                messageId: message.id,
+                important: false,
+              });
             }}
           >
             Mark Unimportant
@@ -229,7 +242,9 @@ function SimpleListRow({
           {/* <DropdownMenuItem>Unsubscribe</DropdownMenuItem> */}
           <DropdownMenuItem
             onClick={() => {
-              markSpamThreadAction(message.threadId);
+              markSpamThreadAction(emailAccountId, {
+                threadId: message.threadId,
+              });
             }}
           >
             Mark Spam

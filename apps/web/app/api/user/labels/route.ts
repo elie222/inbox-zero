@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth, withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type UserLabelsResponse = Awaited<ReturnType<typeof getLabels>>;
 
@@ -10,8 +10,8 @@ async function getLabels(options: { emailAccountId: string }) {
   });
 }
 
-export const GET = withAuth(async (request) => {
-  const emailAccountId = request.auth.userEmail;
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const labels = await getLabels({ emailAccountId });
 

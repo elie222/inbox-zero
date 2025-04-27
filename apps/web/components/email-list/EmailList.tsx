@@ -175,7 +175,8 @@ export function EmailList({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const { emailAccount } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
+
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
   const closePanel = useCallback(
@@ -207,12 +208,15 @@ export function EmailList({
     setSelectedRows(newState);
   }, [threads, isAllSelected, selectedRows]);
 
-  const onPlanAiAction = useCallback((thread: Thread) => {
-    toast.promise(() => runAiRules(emailAccountId, [thread], true), {
-      success: "Running...",
-      error: "There was an error running the AI rules :(",
-    });
-  }, [emailAccountId]);
+  const onPlanAiAction = useCallback(
+    (thread: Thread) => {
+      toast.promise(() => runAiRules(emailAccountId, [thread], true), {
+        success: "Running...",
+        error: "There was an error running the AI rules :(",
+      });
+    },
+    [emailAccountId],
+  );
 
   const onArchive = useCallback(
     (thread: Thread) => {
@@ -227,7 +231,7 @@ export function EmailList({
                 resolve();
               },
               onError: reject,
-              email,
+              emailAccountId,
             });
           });
         },
@@ -238,7 +242,7 @@ export function EmailList({
         },
       );
     },
-    [refetch, email],
+    [refetch, emailAccountId],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -326,7 +330,7 @@ export function EmailList({
               resolve();
             },
             onError: reject,
-            email,
+            emailAccountId,
           });
         });
       },
@@ -336,7 +340,7 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [selectedRows, refetch, email]);
+  }, [selectedRows, refetch, emailAccountId]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
@@ -353,7 +357,7 @@ export function EmailList({
               resolve();
             },
             onError: reject,
-            email,
+            emailAccountId,
           });
         });
       },
@@ -363,7 +367,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, refetch, email]);
+  }, [selectedRows, refetch, emailAccountId]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -454,7 +458,7 @@ export function EmailList({
                   markReadThreads({
                     threadIds: [thread.id],
                     onSuccess: () => refetch(),
-                    email,
+                    emailAccountId,
                   });
                 };
 
@@ -469,7 +473,7 @@ export function EmailList({
                         map.delete(thread.id);
                       }
                     }}
-                    userEmailAddress={email}
+                    userEmail={userEmail}
                     thread={thread}
                     opened={openThreadId === thread.id}
                     closePanel={closePanel}

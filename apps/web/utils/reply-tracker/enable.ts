@@ -11,7 +11,9 @@ import { SafeError } from "@/utils/error";
 
 export async function enableReplyTracker({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const logger = createScopedLogger("reply-tracker/enable").with({
     emailAccountId,
   });
@@ -20,6 +22,7 @@ export async function enableReplyTracker({
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
+      id: true,
       userId: true,
       email: true,
       about: true,
@@ -106,7 +109,7 @@ export async function enableReplyTracker({
           },
         ],
       },
-      email: emailAccount.email,
+      emailAccountId: emailAccount.id,
       systemType: SystemType.TO_REPLY,
     });
 
@@ -182,7 +185,9 @@ export async function enableDraftReplies(
 
 async function enableOutboundReplyTracking({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   await prisma.emailAccount.update({
     where: { id: emailAccountId },
     data: { outboundReplyTracking: true },

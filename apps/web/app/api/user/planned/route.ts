@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { getExecutedRules } from "@/app/api/user/planned/get-executed-rules";
 
@@ -8,15 +8,19 @@ export const maxDuration = 30; // TODO not great if this is taking more than 15s
 
 export type PendingExecutedRules = Awaited<ReturnType<typeof getExecutedRules>>;
 
-export const GET = withAuth(async (request) => {
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
   const url = new URL(request.url);
   const page = Number.parseInt(url.searchParams.get("page") || "1");
   const ruleId = url.searchParams.get("ruleId") || "all";
+
   const messages = await getExecutedRules({
     status: ExecutedRuleStatus.PENDING,
     page,
     ruleId,
-    emailAccountId: request.auth.userEmail,
+    emailAccountId,
   });
+
   return NextResponse.json(messages);
 });

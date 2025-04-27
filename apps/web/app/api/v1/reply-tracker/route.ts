@@ -51,7 +51,7 @@ export const GET = withError(async (request) => {
     }
 
     const { trackers, count } = await getPaginatedThreadTrackers({
-      email: emailAccountId,
+      emailAccountId,
       type: getType(queryResult.data.type),
       page: queryResult.data.page,
       timeRange: queryResult.data.timeRange,

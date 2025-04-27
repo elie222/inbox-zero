@@ -16,11 +16,11 @@ function useInitializeQueues() {
       if (queueState.activeThreads) {
         processQueue({
           threads: queueState.activeThreads,
-          email,
+          emailAccountId,
         });
       }
     }
-  }, [queueState.activeThreads, email]);
+  }, [queueState.activeThreads, emailAccountId]);
 }
 
 export function QueueInitializer() {

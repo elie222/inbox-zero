@@ -25,6 +25,7 @@ import {
   CreateCategoryDialog,
 } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import type { Category } from "@prisma/client";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 type CardCategory = Pick<Category, "name" | "description"> & {
   id?: string;
@@ -48,6 +49,8 @@ export function SetUpCategories({
   const router = useRouter();
   const [selectedCategoryName, setSelectedCategoryName] =
     useQueryState("category-name");
+
+  const { emailAccountId } = useAccount();
 
   const combinedCategories = uniqBy(
     [
@@ -134,7 +137,9 @@ export function SetUpCategories({
                   }
                   onRemove={async () => {
                     if (category.id) {
-                      await deleteCategoryAction(category.id);
+                      await deleteCategoryAction(emailAccountId, {
+                        categoryId: category.id,
+                      });
                     } else {
                       setCategories(
                         new Map(categories.entries()).set(category.name, false),
@@ -170,7 +175,9 @@ export function SetUpCategories({
                   }),
                 );
 
-                await upsertDefaultCategoriesAction(upsertCategories);
+                await upsertDefaultCategoriesAction(emailAccountId, {
+                  categories: upsertCategories,
+                });
                 setIsCreating(false);
                 router.push("/smart-categories");
               }}

@@ -1,15 +1,15 @@
 import { SetUpCategories } from "@/app/(app)/[emailAccountId]/smart-categories/setup/SetUpCategories";
 import { SmartCategoriesOnboarding } from "@/app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ClientOnly } from "@/components/ClientOnly";
 import { getUserCategories } from "@/utils/category.server";
 
-export default async function SetupCategoriesPage() {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new Error("Not authenticated");
+export default async function SetupCategoriesPage(props: {
+  params: Promise<{ emailAccountId: string }>;
+}) {
+  const params = await props.params;
+  const emailAccountId = params.emailAccountId;
 
-  const categories = await getUserCategories({ email });
+  const categories = await getUserCategories({ emailAccountId });
 
   return (
     <>

@@ -29,40 +29,51 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
 
-  return <AccountSwitcherInternal accounts={accountsData?.accounts ?? []} />;
+  return (
+    <AccountSwitcherInternal
+      emailAccounts={accountsData?.emailAccounts ?? []}
+    />
+  );
 }
 
 export function AccountSwitcherInternal({
-  accounts,
+  emailAccounts,
 }: {
-  accounts: GetEmailAccountsResponse["accounts"];
+  emailAccounts: GetEmailAccountsResponse["emailAccounts"];
 }) {
   const { isMobile } = useSidebar();
   const { symbol: modifierSymbol } = useModifierKey();
 
-  const { account: activeAccount, isLoading } = useAccount();
+  const {
+    emailAccountId: activeEmailAccountId,
+    emailAccount: activeEmailAccount,
+    isLoading,
+  } = useAccount();
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const getHref = useCallback(
-    (accountId: string) => {
-      if (!activeAccount?.accountId) return `/${accountId}`;
+    (emailAccountId: string) => {
+      if (!activeEmailAccountId) return `/${emailAccountId}`;
 
       const basePath = pathname.split("?")[0] || "/";
-      const newBasePath = basePath.replace(activeAccount.accountId, accountId);
+      const newBasePath = basePath.replace(
+        activeEmailAccountId,
+        emailAccountId,
+      );
 
       const tab = searchParams.get("tab");
 
       return `${newBasePath}${tab ? `?tab=${tab}` : ""}`;
     },
-    [pathname, activeAccount?.accountId, searchParams],
+    [pathname, activeEmailAccountId, searchParams],
   );
 
-  useAccountHotkeys(accounts, getHref);
+  useAccountHotkeys(emailAccounts, getHref);
 
   if (isLoading) return null;
-  if (!activeAccount) return null;
+  if (!activeEmailAccountId || !activeEmailAccount) return null;
 
   return (
     <SidebarMenu>
@@ -74,11 +85,11 @@ export function AccountSwitcherInternal({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center">
-                <ProfileImage image={activeAccount.user.image} />
+                <ProfileImage image={activeEmailAccount.user.image} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {activeAccount.user.name}
+                  {activeEmailAccount.user.name}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -93,11 +104,11 @@ export function AccountSwitcherInternal({
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Accounts
             </DropdownMenuLabel>
-            {accounts.map((account, index) => (
-              <Link href={getHref(account.accountId)} key={account.accountId}>
-                <DropdownMenuItem key={account.accountId} className="gap-2 p-2">
-                  <ProfileImage image={account.user.image} />
-                  <span className="truncate">{account.user.name}</span>
+            {emailAccounts.map((emailAccount, index) => (
+              <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
+                <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
+                  <ProfileImage image={emailAccount.user.image} />
+                  <span className="truncate">{emailAccount.user.name}</span>
                   <DropdownMenuShortcut>
                     {modifierSymbol}
                     {index + 1}
@@ -126,7 +137,10 @@ export function AccountSwitcherInternal({
 function ProfileImage({
   image,
   size = 24,
-}: { image: string | null; size?: number }) {
+}: {
+  image: string | null;
+  size?: number;
+}) {
   if (!image) return null;
 
   return (
@@ -141,19 +155,19 @@ function ProfileImage({
 }
 
 function useAccountHotkeys(
-  accounts: GetEmailAccountsResponse["accounts"],
-  getHref: (accountId: string) => string,
+  emailAccounts: GetEmailAccountsResponse["emailAccounts"],
+  getHref: (emailAccountId: string) => string,
 ) {
   const router = useRouter();
   const { isMac } = useModifierKey();
   const modifierKey = isMac ? "meta" : "ctrl";
 
   const accountShortcuts = useMemo(() => {
-    return accounts.slice(0, 9).map((account, index) => ({
+    return emailAccounts.slice(0, 9).map((emailAccount, index) => ({
       hotkey: `${modifierKey}+${index + 1}`,
-      accountId: account.accountId,
+      emailAccountId: emailAccount.id,
     }));
-  }, [accounts, modifierKey]);
+  }, [emailAccounts, modifierKey]);
 
   const hotkeyHandler = useCallback(
     (event: KeyboardEvent) => {
@@ -164,13 +178,13 @@ function useAccountHotkeys(
         pressedDigit <= 9
       ) {
         const accountIndex = pressedDigit - 1;
-        if (accounts[accountIndex]) {
-          router.push(getHref(accounts[accountIndex].accountId));
+        if (emailAccounts[accountIndex]) {
+          router.push(getHref(emailAccounts[accountIndex].id));
           event.preventDefault(); // Prevent browser default behavior
         }
       }
     },
-    [accounts, getHref, router],
+    [emailAccounts, getHref, router],
   );
 
   useHotkeys(

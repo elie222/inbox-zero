@@ -55,7 +55,10 @@ export const POST = withError(async (request) => {
 async function process({
   emailAccountId,
   from,
-}: { emailAccountId: string; from: string }) {
+}: {
+  emailAccountId: string;
+  from: string;
+}) {
   try {
     const emailAccount = await getEmailAccountWithRules({ emailAccountId });
 
@@ -148,7 +151,7 @@ async function process({
     }
 
     // Record the pattern analysis result
-    await savePatternCheck({ emailAccountId: emailAccount.email, from });
+    await savePatternCheck({ emailAccountId, from });
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -171,7 +174,10 @@ async function process({
 async function savePatternCheck({
   emailAccountId,
   from,
-}: { emailAccountId: string; from: string }) {
+}: {
+  emailAccountId: string;
+  from: string;
+}) {
   await prisma.newsletter.upsert({
     where: {
       email_emailAccountId: {
@@ -298,7 +304,9 @@ async function saveLearnedPattern({
 
 async function getEmailAccountWithRules({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   return await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {

@@ -38,7 +38,7 @@ export function NewsletterModal(props: {
 }) {
   const { newsletter, refreshInterval, onClose } = props;
 
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   const { userLabels } = useLabels();
 
@@ -68,7 +68,10 @@ export function NewsletterModal(props: {
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    onAutoArchive({ email, from: newsletter.name });
+                    onAutoArchive({
+                      emailAccountId,
+                      from: newsletter.name,
+                    });
                   }}
                 >
                   Auto archive
@@ -76,7 +79,10 @@ export function NewsletterModal(props: {
               </Tooltip>
               {newsletter.autoArchived && (
                 <Button asChild size="sm" variant="outline">
-                  <Link href={getGmailFilterSettingsUrl(email)} target="_blank">
+                  <Link
+                    href={getGmailFilterSettingsUrl(userEmail)}
+                    target="_blank"
+                  >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
                     View Auto Archive Filter
                   </Link>
@@ -84,7 +90,8 @@ export function NewsletterModal(props: {
               )}
               <MoreDropdown
                 item={newsletter}
-                userEmail={email || ""}
+                userEmail={userEmail}
+                emailAccountId={emailAccountId}
                 labels={userLabels}
                 posthog={posthog}
               />

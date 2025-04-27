@@ -40,7 +40,8 @@ export function CategorizeWithAiButton({
               async () => {
                 setIsCategorizing(true);
                 setIsBulkCategorizing(true);
-                const result = await bulkCategorizeSendersAction(email);
+                const result =
+                  await bulkCategorizeSendersAction(emailAccountId);
 
                 if (result?.serverError) {
                   setIsCategorizing(false);

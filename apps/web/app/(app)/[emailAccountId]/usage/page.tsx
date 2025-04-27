@@ -10,7 +10,7 @@ export default async function UsagePage(props: {
   const emailAccountId = params.emailAccountId;
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { accountId },
+    where: { id: emailAccountId },
     select: { email: true },
   });
 

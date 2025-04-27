@@ -9,7 +9,7 @@ export default async function OnboardingReplyTracker(props: {
 
   const trackerRule = await prisma.rule.findFirst({
     where: {
-      emailAccount: { accountId: params.account },
+      emailAccount: { id: params.emailAccountId },
       actions: { some: { type: ActionType.TRACK_THREAD } },
     },
     select: { id: true },

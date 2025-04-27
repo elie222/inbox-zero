@@ -17,7 +17,7 @@ export default async function SettingsPage(props: {
   const emailAccountId = params.emailAccountId;
 
   const user = await prisma.emailAccount.findUnique({
-    where: { accountId },
+    where: { id: emailAccountId },
     select: {
       about: true,
       signature: true,

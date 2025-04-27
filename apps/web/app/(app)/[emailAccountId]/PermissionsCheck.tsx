@@ -12,16 +12,16 @@ export function PermissionsCheck() {
   const { emailAccountId } = useAccount();
 
   useEffect(() => {
-    if (permissionsChecked[email]) return;
-    permissionsChecked[email] = true;
+    if (permissionsChecked[emailAccountId]) return;
+    permissionsChecked[emailAccountId] = true;
 
-    checkPermissionsAction(email).then((result) => {
+    checkPermissionsAction(emailAccountId).then((result) => {
       if (result?.data?.hasAllPermissions === false)
         router.replace("/permissions/error");
       if (result?.data?.hasRefreshToken === false)
         router.replace("/permissions/consent");
     });
-  }, [router, email]);
+  }, [router, emailAccountId]);
 
   return null;
 }

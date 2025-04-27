@@ -26,7 +26,7 @@ export function ModelSection() {
   const { data, isLoading, error, mutate } = useUser();
   const { data: dataModels, isLoading: isLoadingModels } =
     useSWR<OpenAiModelsResponse>(
-      data?.aiApiKey && data.aiProvider === Provider.OPEN_AI
+      data?.user.aiApiKey && data?.user.aiProvider === Provider.OPEN_AI
         ? "/api/ai/models"
         : null,
     );
@@ -41,9 +41,9 @@ export function ModelSection() {
       <LoadingContent loading={isLoading || isLoadingModels} error={error}>
         {data && (
           <ModelSectionForm
-            aiProvider={data.aiProvider}
-            aiModel={data.aiModel}
-            aiApiKey={data.aiApiKey}
+            aiProvider={data.user.aiProvider}
+            aiModel={data.user.aiModel}
+            aiApiKey={data.user.aiApiKey}
             models={dataModels}
             refetchUser={mutate}
           />

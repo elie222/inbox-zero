@@ -79,7 +79,7 @@ export default function DebugDraftsPage() {
                         <Link
                           href={getGmailUrl(
                             executedAction.draftSendLog.sentMessageId,
-                            userEmail,
+                            emailAccountId,
                           )}
                           target="_blank"
                           className="text-blue-500 hover:text-blue-600"
@@ -88,7 +88,10 @@ export default function DebugDraftsPage() {
                         </Link>
                       ) : executedAction.draftId ? (
                         <Link
-                          href={getGmailUrl(executedAction.draftId, userEmail)}
+                          href={getGmailUrl(
+                            executedAction.draftId,
+                            emailAccountId,
+                          )}
                           target="_blank"
                           className="text-blue-500 hover:text-blue-600"
                         >
