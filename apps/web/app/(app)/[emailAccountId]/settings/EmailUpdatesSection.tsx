@@ -5,16 +5,15 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isError } from "@/utils/error";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { postRequest } from "@/utils/api";
-import type { SaveEmailUpdateSettingsResponse } from "@/app/api/user/settings/email-updates/route";
 import { Select } from "@/components/Select";
 import { Frequency } from "@prisma/client";
 import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,
-} from "@/app/api/user/settings/email-updates/validation";
+} from "@/utils/actions/settings.validation";
+import { updateEmailSettingsAction } from "@/utils/actions/settings";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailUpdatesSection({
   statsEmailFrequency,
@@ -34,6 +33,8 @@ export function EmailUpdatesSection({
 }
 
 function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
+  const { emailAccountId } = useAccount();
+
   const {
     register,
     handleSubmit,
@@ -47,12 +48,9 @@ function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
 
   const onSubmit: SubmitHandler<SaveEmailUpdateSettingsBody> = useCallback(
     async (data) => {
-      const res = await postRequest<
-        SaveEmailUpdateSettingsResponse,
-        SaveEmailUpdateSettingsBody
-      >("/api/user/settings/email-updates", data);
+      const res = await updateEmailSettingsAction(emailAccountId, data);
 
-      if (isError(res)) {
+      if (res?.serverError) {
         toastError({
           description: "There was an error updating the settings.",
         });
@@ -60,7 +58,7 @@ function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
         toastSuccess({ description: "Settings updated!" });
       }
     },
-    [],
+    [emailAccountId],
   );
 
   const options: { label: string; value: Frequency }[] = useMemo(
