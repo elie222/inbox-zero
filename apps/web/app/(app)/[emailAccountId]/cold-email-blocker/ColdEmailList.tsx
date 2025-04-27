@@ -54,12 +54,13 @@ export function ColdEmailList() {
   );
 
   const markNotColdEmailSelected = useCallback(async () => {
-    for (const id of Array.from(selected.keys())) {
-      const c = data?.coldEmails.find((c) => c.id === id);
-      if (!c) continue;
-      await markNotColdEmail({ sender: c.fromEmail });
-      mutate();
-    }
+    const calls = Array.from(selected.keys())
+      .map((id) => data?.coldEmails.find((c) => c.id === id))
+      .filter(Boolean)
+      .map((c) => markNotColdEmail({ sender: c!.fromEmail }));
+
+    await Promise.all(calls);
+    mutate();
   }, [selected, data?.coldEmails, mutate, markNotColdEmail]);
 
   return (
