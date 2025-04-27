@@ -44,6 +44,7 @@ export function BulkUnsubscribeRowMobile({
   onOpenNewsletter,
   readPercentage,
   archivedPercentage,
+  emailAccountId,
 }: RowProps) {
   const name = extractNameFromEmail(item.name);
   const email = extractEmailAddress(item.name);
@@ -54,6 +55,7 @@ export function BulkUnsubscribeRowMobile({
     item,
     mutate,
     posthog,
+    emailAccountId,
   });
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -62,11 +64,13 @@ export function BulkUnsubscribeRowMobile({
       mutate,
       refetchPremium,
       posthog,
+      emailAccountId,
     },
   );
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
+    emailAccountId,
   });
 
   const hasUnsubscribeLink = unsubscribeLink !== "#";

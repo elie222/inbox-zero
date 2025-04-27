@@ -12,6 +12,8 @@ export type Row = {
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
 export interface RowProps {
+  emailAccountId: string;
+  userEmail: string;
   item: Newsletter;
   readPercentage: number;
   archivedEmails: number;
@@ -19,7 +21,6 @@ export interface RowProps {
 
   onOpenNewsletter: (row: Newsletter) => void;
   labels: UserLabel[];
-  userEmail: string;
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;

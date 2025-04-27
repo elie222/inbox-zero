@@ -15,12 +15,19 @@ interface QueueItem {
 
 const archiveSenderQueueAtom = atom<Map<string, QueueItem>>(new Map());
 
-export async function addToArchiveSenderQueue(
-  sender: string,
-  labelId?: string,
-  onSuccess?: (totalThreads: number) => void,
-  onError?: (sender: string) => void,
-) {
+export async function addToArchiveSenderQueue({
+  sender,
+  labelId,
+  onSuccess,
+  onError,
+  emailAccountId,
+}: {
+  sender: string;
+  labelId?: string;
+  onSuccess?: (totalThreads: number) => void;
+  onError?: (sender: string) => void;
+  emailAccountId: string;
+}) {
   // Add sender with pending status
   jotaiStore.set(archiveSenderQueueAtom, (prev) => {
     // Skip if sender is already in queue
@@ -52,10 +59,10 @@ export async function addToArchiveSenderQueue(
     }
 
     // Add threads to archive queue
-    await archiveEmails(
+    await archiveEmails({
       threadIds,
       labelId,
-      (threadId) => {
+      onSuccess: (threadId) => {
         const senderItem = jotaiStore.get(archiveSenderQueueAtom).get(sender);
         if (!senderItem) return;
 
@@ -83,7 +90,8 @@ export async function addToArchiveSenderQueue(
         }
       },
       onError,
-    );
+      emailAccountId,
+    });
   } catch (error) {
     // Remove sender from queue on error
     jotaiStore.set(archiveSenderQueueAtom, (prev) => {

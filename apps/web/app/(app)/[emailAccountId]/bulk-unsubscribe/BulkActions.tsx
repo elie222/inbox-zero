@@ -15,6 +15,7 @@ import {
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { usePremiumModal } from "@/app/(app)/[emailAccountId]/premium/PremiumModal";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkActions({
   selected,
@@ -26,28 +27,35 @@ export function BulkActions({
   const posthog = usePostHog();
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
   const { PremiumModal, openModal } = usePremiumModal();
-
+  const { emailAccountId } = useAccount();
   const { bulkUnsubscribeLoading, onBulkUnsubscribe } = useBulkUnsubscribe({
     hasUnsubscribeAccess,
     mutate,
     posthog,
     refetchPremium,
+    emailAccountId,
   });
 
   const { bulkApproveLoading, onBulkApprove } = useBulkApprove({
     mutate,
     posthog,
+    emailAccountId,
   });
 
   const { bulkAutoArchiveLoading, onBulkAutoArchive } = useBulkAutoArchive({
     hasUnsubscribeAccess,
     mutate,
     refetchPremium,
+    emailAccountId,
   });
 
-  const { onBulkArchive } = useBulkArchive({ mutate, posthog });
+  const { onBulkArchive } = useBulkArchive({
+    mutate,
+    posthog,
+    emailAccountId,
+  });
 
-  const { onBulkDelete } = useBulkDelete({ mutate, posthog });
+  const { onBulkDelete } = useBulkDelete({ mutate, posthog, emailAccountId });
 
   const getSelectedValues = () =>
     Array.from(selected.entries())

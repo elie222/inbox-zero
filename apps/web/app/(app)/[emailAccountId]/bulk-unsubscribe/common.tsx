@@ -88,7 +88,7 @@ export function ActionCell<T extends Row>({
           mutate={mutate}
           posthog={posthog}
           refetchPremium={refetchPremium}
-          userEmail={userEmail}
+          emailAccountId={emailAccountId}
         />
       </PremiumTooltip>
       <Tooltip
@@ -110,7 +110,7 @@ export function ActionCell<T extends Row>({
           posthog={posthog}
           refetchPremium={refetchPremium}
           labels={labels}
-          userEmail={userEmail}
+          emailAccountId={emailAccountId}
         />
       </Tooltip>
       <Tooltip
@@ -130,7 +130,7 @@ export function ActionCell<T extends Row>({
           hasUnsubscribeAccess={hasUnsubscribeAccess}
           mutate={mutate}
           posthog={posthog}
-          userEmail={userEmail}
+          emailAccountId={emailAccountId}
         />
       </Tooltip>
       <MoreDropdown
@@ -151,14 +151,14 @@ function UnsubscribeButton<T extends Row>({
   mutate,
   posthog,
   refetchPremium,
-  userEmail,
+  emailAccountId,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   posthog: PostHog;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -167,7 +167,7 @@ function UnsubscribeButton<T extends Row>({
       mutate,
       posthog,
       refetchPremium,
-      userEmail,
+      emailAccountId,
     },
   );
 
@@ -208,7 +208,7 @@ function AutoArchiveButton<T extends Row>({
   posthog,
   refetchPremium,
   labels,
-  userEmail,
+  emailAccountId,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
@@ -216,7 +216,7 @@ function AutoArchiveButton<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
   labels: UserLabel[];
-  userEmail: string;
+  emailAccountId: string;
 }) {
   const {
     autoArchiveLoading,
@@ -229,7 +229,7 @@ function AutoArchiveButton<T extends Row>({
     mutate,
     posthog,
     refetchPremium,
-    userEmail,
+    emailAccountId,
   });
 
   return (
@@ -330,19 +330,19 @@ function ApproveButton<T extends Row>({
   hasUnsubscribeAccess,
   mutate,
   posthog,
-  userEmail,
+  emailAccountId,
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
-  userEmail: string;
+  emailAccountId: string;
 }) {
   const { approveLoading, onApprove } = useApproveButton({
     item,
     mutate,
     posthog,
-    userEmail,
+    emailAccountId,
   });
 
   return (
@@ -383,11 +383,12 @@ export function MoreDropdown<T extends Row>({
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
+    emailAccountId,
   });
   const { deleteAllLoading, onDeleteAll } = useDeleteAllFromSender({
     item,
     posthog,
-    userEmail,
+    emailAccountId,
   });
 
   return (

@@ -208,7 +208,10 @@ export function GroupedTable({
 
             const onArchiveAll = async () => {
               for (const sender of senders) {
-                await addToArchiveSenderQueue(sender.address);
+                await addToArchiveSenderQueue({
+                  sender: sender.address,
+                  emailAccountId,
+                });
               }
             };
 
