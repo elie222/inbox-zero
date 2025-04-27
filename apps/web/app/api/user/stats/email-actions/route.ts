@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth, withEmailAccount } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getEmailActionsByDay } from "@inboxzero/tinybird";
 
 export type EmailActionStatsResponse = Awaited<

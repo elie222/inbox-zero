@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth, withEmailAccount } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { getExecutedRules } from "@/app/api/user/planned/get-executed-rules";
 

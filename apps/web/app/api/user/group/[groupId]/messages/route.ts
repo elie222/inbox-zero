@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth, withEmailAccount } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import { getGmailClientForEmail } from "@/utils/account";
 

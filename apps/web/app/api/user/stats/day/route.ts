@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { withAuth, withEmailAccount } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
 import { getGmailClientForEmail } from "@/utils/account";
