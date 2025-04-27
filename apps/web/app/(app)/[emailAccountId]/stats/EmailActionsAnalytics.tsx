@@ -4,7 +4,7 @@ import useSWR from "swr";
 import { BarChart, Title } from "@tremor/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { StatsByWeekResponse } from "@/app/api/user/stats/tinybird/route";
+import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
 import { CardBasic } from "@/components/ui/card";
 
 export function EmailActionsAnalytics() {

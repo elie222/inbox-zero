@@ -1,18 +1,18 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { loadEmails } from "@/app/api/user/stats/tinybird/load/load-emails";
-import { loadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import { loadEmails } from "@/app/api/user/stats/load/load-emails";
+import { loadEmailStatsBody } from "@/app/api/user/stats/load/validation";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 export const maxDuration = 90;
 
-export type LoadTinybirdEmailsResponse = Awaited<ReturnType<typeof loadEmails>>;
+export type LoadEmailStatsResponse = Awaited<ReturnType<typeof loadEmails>>;
 
 export const POST = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
 
   const json = await request.json();
-  const body = loadTinybirdEmailsBody.parse(json);
+  const body = loadEmailStatsBody.parse(json);
 
   const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
     emailAccountId,

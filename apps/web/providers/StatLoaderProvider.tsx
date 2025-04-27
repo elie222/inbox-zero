@@ -7,8 +7,8 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import type { LoadEmailStatsResponse } from "@/app/api/user/stats/load/route";
+import type { LoadEmailStatsBody } from "@/app/api/user/stats/load/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
@@ -43,12 +43,12 @@ class StatLoader {
 
     this.#isLoading = true;
 
-    const res = await postRequest<
-      LoadTinybirdEmailsResponse,
-      LoadTinybirdEmailsBody
-    >("/api/user/stats/tinybird/load", {
-      loadBefore: options.loadBefore,
-    });
+    const res = await postRequest<LoadEmailStatsResponse, LoadEmailStatsBody>(
+      "/api/user/stats/load",
+      {
+        loadBefore: options.loadBefore,
+      },
+    );
 
     if (options.showToast) {
       if (isError(res)) {

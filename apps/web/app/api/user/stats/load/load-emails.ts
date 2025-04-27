@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
+import type { LoadEmailStatsBody } from "@/app/api/user/stats/load/validation";
 import { getMessages, getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
@@ -25,7 +25,7 @@ export async function loadEmails(
     gmail: gmail_v1.Gmail;
     accessToken: string;
   },
-  body: LoadTinybirdEmailsBody,
+  body: LoadEmailStatsBody,
 ) {
   let nextPageToken: string | undefined = undefined;
   let pages = 0;

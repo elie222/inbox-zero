@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   StatsByWeekResponse,
   StatsByWeekParams,
-} from "@/app/api/user/stats/tinybird/route";
+} from "@/app/api/user/stats/by-period/route";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 
@@ -44,7 +44,7 @@ export function DetailedStats(props: {
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
     refreshInterval: props.refreshInterval,
   });
 

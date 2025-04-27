@@ -13,7 +13,7 @@ import {
 import type {
   StatsByWeekParams,
   StatsByWeekResponse,
-} from "@/app/api/user/stats/tinybird/route";
+} from "@/app/api/user/stats/by-period/route";
 import { getDateRangeParams } from "./params";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
@@ -32,7 +32,7 @@ export function StatsSummary(props: {
   const { data, isLoading, error } = useSWR<
     StatsByWeekResponse,
     { error: string }
-  >(`/api/user/stats/tinybird?${new URLSearchParams(params as any)}`, {
+  >(`/api/user/stats/by-period?${new URLSearchParams(params as any)}`, {
     refreshInterval: props.refreshInterval,
   });
 
