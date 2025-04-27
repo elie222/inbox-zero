@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@prisma/client";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-prompt-to-rules
 
@@ -11,14 +12,7 @@ vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiPromptToRules", () => {
   it("should convert prompt file to rules", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-      userId: "user123",
-      about: null,
-    };
+    const emailAccount = getEmailAccount();
 
     const prompts = [
       `* Label receipts as "Receipt"`,
@@ -30,7 +24,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     const promptFile = prompts.join("\n");
 
     const result = await aiPromptToRules({
-      user,
+      emailAccount,
       promptFile,
       isEditing: false,
     });
@@ -111,19 +105,16 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
   }, 15_000);
 
   it("should handle errors gracefully", async () => {
-    const user = {
-      email: "test@example.com",
-      aiProvider: null,
-      aiModel: null,
-      aiApiKey: "invalid-api-key",
-      about: null,
-      userId: "user123",
+    const emailAccount = {
+      ...getEmailAccount(),
+      user: { ...getEmailAccount().user, aiApiKey: "invalid-api-key" },
     };
+
     const promptFile = "Some prompt";
 
     await expect(
       aiPromptToRules({
-        user,
+        emailAccount,
         promptFile,
         isEditing: false,
       }),
@@ -131,14 +122,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
   });
 
   it("should handle complex email forwarding rules", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-      about: null,
-      userId: "user123",
-    };
+    const emailAccount = getEmailAccount();
 
     const promptFile = `
       * Forward urgent emails about system outages to urgent@company.com and label as "Urgent"
@@ -147,7 +131,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     `.trim();
 
     const result = await aiPromptToRules({
-      user,
+      emailAccount,
       promptFile,
       isEditing: false,
     });
@@ -208,14 +192,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
   }, 15_000);
 
   it("should handle reply templates with smart categories", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-      about: null,
-      userId: "user123",
-    };
+    const emailAccount = getEmailAccount();
 
     const promptFile = `
       When someone sends a job application, reply with:
@@ -227,7 +204,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     `.trim();
 
     const result = await aiPromptToRules({
-      user,
+      emailAccount,
       promptFile,
       isEditing: false,
       availableCategories: ["Job Applications", "HR", "Recruiting"],
@@ -252,14 +229,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
   }, 15_000);
 
   it("should handle multiple conditions in a single rule", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-      about: null,
-      userId: "user123",
-    };
+    const emailAccount = getEmailAccount();
 
     const promptFile = `
       When I get an urgent email from support@company.com containing the word "escalation", 
@@ -267,7 +237,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     `.trim();
 
     const result = await aiPromptToRules({
-      user,
+      emailAccount,
       promptFile,
       isEditing: false,
     });
@@ -296,14 +266,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
   }, 15_000);
 
   it("should handle template variables in replies", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-      about: null,
-      userId: "user123",
-    };
+    const emailAccount = getEmailAccount();
 
     const promptFile = `
       When someone asks about pricing, reply with:
@@ -318,7 +281,7 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     `.trim();
 
     const result = await aiPromptToRules({
-      user,
+      emailAccount,
       promptFile,
       isEditing: false,
     });
