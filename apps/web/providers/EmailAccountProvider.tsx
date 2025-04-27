@@ -15,10 +15,12 @@ const EmailAccountContext = createContext<Context | undefined>(undefined);
 
 export function EmailAccountProvider({
   children,
-}: { children: React.ReactNode }) {
-  const params = useParams<{ account: string | undefined }>();
+}: {
+  children: React.ReactNode;
+}) {
+  const params = useParams<{ emailAccountId: string | undefined }>();
   // TODO: throw an error if account is not defined?
-  const emailAccountId = params.account;
+  const emailAccountId = params.emailAccountId;
   const [data, setData] = useState<GetEmailAccountsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
