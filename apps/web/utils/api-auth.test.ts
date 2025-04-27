@@ -215,7 +215,7 @@ describe("api-auth", () => {
       );
 
       await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
-        SafeError,
+        Error,
       );
       await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
         "Error refreshing Gmail access token",

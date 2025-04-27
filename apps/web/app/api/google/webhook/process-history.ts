@@ -166,8 +166,6 @@ export async function processHistoryForUser(
 
       await processHistory({
         history: history.history,
-        userEmail: emailAccount.email,
-        emailAccountId: emailAccount.id,
         gmail,
         accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
@@ -212,7 +210,8 @@ export async function processHistoryForUser(
 }
 
 async function processHistory(options: ProcessHistoryOptions) {
-  const { history, userEmail, emailAccountId } = options;
+  const { history, emailAccount } = options;
+  const { email: userEmail, id: emailAccountId } = emailAccount;
 
   if (!history?.length) return;
 

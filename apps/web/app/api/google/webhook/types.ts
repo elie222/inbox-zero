@@ -5,8 +5,6 @@ import type { EmailAccount } from "@prisma/client";
 
 export type ProcessHistoryOptions = {
   history: gmail_v1.Schema$History[];
-  userEmail: string;
-  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   accessToken: string;
   rules: RuleWithActionsAndCategories[];

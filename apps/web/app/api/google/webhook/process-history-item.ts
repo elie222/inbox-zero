@@ -31,7 +31,6 @@ export async function processHistoryItem(
   }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
-    userEmail,
     emailAccount,
     accessToken,
     hasColdEmailAccess,
@@ -43,6 +42,7 @@ export async function processHistoryItem(
   const messageId = message?.id;
   const threadId = message?.threadId;
   const emailAccountId = emailAccount.id;
+  const userEmail = emailAccount.email;
 
   if (!messageId || !threadId) return;
 
