@@ -23,6 +23,7 @@ async function watchAllEmails() {
       },
     },
     select: {
+      id: true,
       email: true,
       watchEmailsExpirationDate: true,
       account: {
@@ -113,7 +114,7 @@ async function watchAllEmails() {
         emailAccount.account.providerAccountId,
       );
 
-      await watchEmails({ email: emailAccount.email, gmail });
+      await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {
       logger.error("Error for user", { userId: emailAccount.email, error });
     }

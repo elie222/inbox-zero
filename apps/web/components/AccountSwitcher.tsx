@@ -21,7 +21,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useAccounts } from "@/hooks/useAccounts";
-import type { GetEmailAccountsResponse } from "@/app/api/user/accounts/route";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";

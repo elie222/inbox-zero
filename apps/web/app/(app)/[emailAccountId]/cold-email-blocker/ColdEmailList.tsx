@@ -22,7 +22,7 @@ import { useSearchParams } from "next/navigation";
 import { markNotColdEmailAction } from "@/utils/actions/cold-email";
 import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
-import { useUser } from "@/hooks/useUser";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
@@ -184,7 +184,7 @@ function Row({
 }
 
 function NoColdEmails() {
-  const { data } = useUser();
+  const { data } = useEmailAccountFull();
   const { emailAccountId } = useAccount();
 
   if (!data?.coldEmailBlocker || data?.coldEmailBlocker === "DISABLED") {

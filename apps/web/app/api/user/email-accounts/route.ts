@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 
 export type GetEmailAccountsResponse = Awaited<
   ReturnType<typeof getEmailAccounts>
@@ -24,13 +23,8 @@ async function getEmailAccounts({ userId }: { userId: string }) {
   return { emailAccounts };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const userId = session?.user?.id;
-
-  if (!userId)
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-
+export const GET = withAuth(async (request) => {
+  const userId = request.auth.userId;
   const result = await getEmailAccounts({ userId });
   return NextResponse.json(result);
 });

@@ -14,11 +14,11 @@ import {
 import { updateColdEmailSettingsAction } from "@/utils/actions/cold-email";
 import { ColdEmailPromptForm } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailPromptForm";
 import { RadioGroup } from "@/components/RadioGroup";
-import { useUser } from "@/hooks/useUser";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ColdEmailSettings() {
-  const { data, isLoading, error, mutate } = useUser();
+  const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   return (
     <LoadingContent loading={isLoading} error={error}>

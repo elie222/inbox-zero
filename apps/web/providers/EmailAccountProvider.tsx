@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import type { GetEmailAccountsResponse } from "@/app/api/user/accounts/route";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 
 type Context = {
   emailAccount: GetEmailAccountsResponse["emailAccounts"][number] | undefined;
