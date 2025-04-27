@@ -10,8 +10,9 @@ const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
 const getCategorizeSendersQueueName = ({
   emailAccountId,
-}: { emailAccountId: string }) =>
-  `${CATEGORIZE_SENDERS_PREFIX}-${emailAccountId}`;
+}: {
+  emailAccountId: string;
+}) => `${CATEGORIZE_SENDERS_PREFIX}-${emailAccountId}`;
 
 /**
  * Publishes sender categorization tasks to QStash queue in batches
@@ -78,7 +79,6 @@ async function deleteEmptyQueues({
     if (!queue.name.startsWith(prefix)) continue;
     if (
       skipEmailAccountId &&
-      // TODO:
       queue.name ===
         getCategorizeSendersQueueName({ emailAccountId: skipEmailAccountId })
     )
