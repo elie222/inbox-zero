@@ -20,6 +20,7 @@ import {
   REPLY_ZERO_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
   const router = useRouter();
@@ -63,7 +64,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
         markOnboardingAsCompleted(REPLY_ZERO_ONBOARDING_COOKIE);
 
         if (enabled) {
-          router.push("/reply-zero");
+          router.push(prefixPath(emailAccountId, "/reply-zero"));
           return;
         }
 
@@ -85,7 +86,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
           async () => {
             processPreviousSentEmailsAction(emailAccountId);
 
-            router.push("/reply-zero?enabled=true");
+            router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
           },
           {
             loading:

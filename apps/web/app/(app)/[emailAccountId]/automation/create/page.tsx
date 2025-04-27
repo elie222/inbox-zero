@@ -49,7 +49,12 @@ export default function AutomationSettingsPage() {
             description: "There was an error creating your automation.",
           });
         } else {
-          router.push(`/automation/rule/${result.data?.id}?new=true`);
+          router.push(
+            prefixPath(
+              emailAccountId,
+              `/automation/rule/${result.data?.id}?new=true`,
+            ),
+          );
         }
       }
     },

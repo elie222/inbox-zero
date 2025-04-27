@@ -164,7 +164,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.push("/automation?tab=rules");
+          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
         }
       } else {
         const res = await createRuleAction(emailAccountId, data);
@@ -184,8 +184,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.replace(`/automation/rule/${res.data.rule.id}`);
-          router.push("/automation?tab=rules");
+          router.replace(
+            prefixPath(emailAccountId, `/automation/rule/${res.data.rule.id}`),
+          );
+          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
         }
       }
     },

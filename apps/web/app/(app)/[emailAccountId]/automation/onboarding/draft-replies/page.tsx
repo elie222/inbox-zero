@@ -12,6 +12,7 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
@@ -30,7 +31,9 @@ export default function DraftRepliesPage() {
 
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
-      router.push("/automation/onboarding/completed");
+      router.push(
+        prefixPath(emailAccountId, "/automation/onboarding/completed"),
+      );
     },
     [router, emailAccountId],
   );

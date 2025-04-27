@@ -46,6 +46,7 @@ import {
 import { ViewMoreButton } from "@/app/(app)/[emailAccountId]/simple/ViewMoreButton";
 import { HtmlEmail } from "@/components/email-list/EmailContents";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function SimpleList(props: {
   messages: ParsedMessage[];
@@ -114,7 +115,10 @@ export function SimpleList(props: {
 
               if (props.nextPageToken) {
                 router.push(
-                  `/simple?type=${props.type}&pageToken=${props.nextPageToken}`,
+                  prefixPath(
+                    emailAccountId,
+                    `/simple?type=${props.type}&pageToken=${props.nextPageToken}`,
+                  ),
                 );
               } else {
                 const lastCategory =
@@ -123,10 +127,12 @@ export function SimpleList(props: {
                   ][0];
 
                 if (props.type === lastCategory) {
-                  router.push("/simple/completed");
+                  router.push(prefixPath(emailAccountId, "/simple/completed"));
                 } else {
                   const next = getNextCategory(props.type);
-                  router.push(`/simple?type=${next}`);
+                  router.push(
+                    prefixPath(emailAccountId, `/simple?type=${next}`),
+                  );
                 }
               }
             });

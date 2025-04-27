@@ -36,6 +36,7 @@ import {
   ASSISTANT_ONBOARDING_COOKIE,
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
+import { prefixPath } from "@/utils/path";
 
 const NEXT_URL = "/automation/onboarding/draft-replies";
 
@@ -65,7 +66,7 @@ export function CategoriesSetup({
     async (data: CreateRulesOnboardingBody) => {
       // runs in background so we can move on to next step faster
       createRulesOnboardingAction(emailAccountId, data);
-      router.push(NEXT_URL);
+      router.push(prefixPath(emailAccountId, NEXT_URL));
     },
     [emailAccountId, router],
   );
@@ -147,7 +148,7 @@ export function CategoriesSetup({
             variant="outline"
             onClick={() => {
               markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-              router.push("/automation");
+              router.push(prefixPath(emailAccountId, "/automation"));
             }}
           >
             Skip

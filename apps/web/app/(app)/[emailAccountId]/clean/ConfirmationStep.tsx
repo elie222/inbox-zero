@@ -52,7 +52,12 @@ export function ConfirmationStep({
       return;
     }
 
-    router.push(`/clean/run?jobId=${result?.data?.jobId}&isPreviewBatch=true`);
+    router.push(
+      prefixPath(
+        emailAccountId,
+        `/clean/run?jobId=${result?.data?.jobId}&isPreviewBatch=true`,
+      ),
+    );
   };
 
   return (

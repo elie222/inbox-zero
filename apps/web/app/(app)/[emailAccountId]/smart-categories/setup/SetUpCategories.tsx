@@ -26,6 +26,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import type { Category } from "@prisma/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 type CardCategory = Pick<Category, "name" | "description"> & {
   id?: string;
@@ -179,7 +180,7 @@ export function SetUpCategories({
                   categories: upsertCategories,
                 });
                 setIsCreating(false);
-                router.push("/smart-categories");
+                router.push(prefixPath(emailAccountId, "/smart-categories"));
               }}
             >
               <TagsIcon className="mr-2 h-4 w-4" />

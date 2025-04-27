@@ -35,6 +35,7 @@ import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/automation/ProcessingPromptFileDialog";
 import { AlertBasic } from "@/components/Alert";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function RulesPrompt() {
   const { data, isLoading, error, mutate } = useSWR<
@@ -146,7 +147,7 @@ function RulesPromptForm({
         }
 
         if (viewedProcessingPromptFileDialog) {
-          router.push("/automation?tab=test");
+          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
         }
 
         mutate();
