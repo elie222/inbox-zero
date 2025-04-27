@@ -145,6 +145,7 @@ export function BulkUnsubscribeSection({
         key={item.name}
         item={item}
         userEmail={userEmail}
+        emailAccountId={emailAccountId}
         onOpenNewsletter={onOpenNewsletter}
         labels={userLabels}
         mutate={mutate}

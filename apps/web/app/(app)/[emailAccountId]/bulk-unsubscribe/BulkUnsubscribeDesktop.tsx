@@ -10,7 +10,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ActionCell, HeaderButton } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
+import {
+  ActionCell,
+  HeaderButton,
+} from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/common";
 import type { RowProps } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { Checkbox } from "@/components/Checkbox";
 
@@ -81,6 +84,7 @@ export function BulkUnsubscribeRowDesktop({
   labels,
   openPremiumModal,
   userEmail,
+  emailAccountId,
   onToggleSelect,
   checked,
   readPercentage,
