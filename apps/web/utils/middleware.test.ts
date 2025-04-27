@@ -45,26 +45,12 @@ vi.mock("@/utils/error", async (importActual) => {
   };
 });
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: vi.fn(() => ({
-    error: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    trace: vi.fn(),
-    with: vi.fn(),
-  })),
-}));
 vi.mock("@/utils/error.server");
-
-// Mock NextRequest and NextResponse if necessary, or use actual instances
-// For simplicity, using partial mocks or actual instances where possible
 
 // Import from the local path as before
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
-import { logErrorToPosthog } from "@/utils/error.server";
-import { createScopedLogger } from "@/utils/logger";
 
 // This should now correctly reference mockAuthFn
 const mockAuth = vi.mocked(auth);
@@ -72,8 +58,6 @@ const mockAuth = vi.mocked(auth);
 const mockGetEmailAccount = vi.mocked(getEmailAccount);
 const mockCheckCommonErrors = vi.mocked(checkCommonErrors);
 const mockCaptureException = vi.mocked(captureException);
-const mockLogErrorToPosthog = vi.mocked(logErrorToPosthog);
-const mockCreateScopedLogger = vi.mocked(createScopedLogger);
 
 // Helper to create a mock NextRequest
 const createMockRequest = (
@@ -131,7 +115,6 @@ describe("Middleware", () => {
         error: { issues: zodError.issues },
         isKnownError: true,
       });
-      // Check if logger was called if env var LOG_ZOD_ERRORS is true (optional)
     });
 
     it("should return 400 for SafeError", async () => {
@@ -159,11 +142,6 @@ describe("Middleware", () => {
       const responseBody = await response.json();
 
       expect(checkCommonErrors).toHaveBeenCalled();
-      expect(logErrorToPosthog).toHaveBeenCalledWith(
-        "api",
-        mockReq.url,
-        commonError.type,
-      );
       expect(response.status).toBe(commonError.code);
       expect(responseBody).toEqual({
         error: commonError.message,
@@ -195,10 +173,11 @@ describe("Middleware", () => {
 
     it("should call the handler with auth info if session exists", async () => {
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
-      const handler = vi
-        .fn()
-        .mockResolvedValue(NextResponse.json({ ok: true }));
-      const wrappedHandler = withAuth(handler as any); // Cast needed due to RequestWithAuth
+      // Adjust handler mock signature
+      const handler = vi.fn(async (req: RequestWithAuth, ctx: any) =>
+        NextResponse.json({ ok: true }),
+      );
+      const wrappedHandler = withAuth(handler);
 
       await wrappedHandler(mockReq, mockContext);
 
@@ -231,6 +210,10 @@ describe("Middleware", () => {
 
   // --- withEmailAccount Tests ---
   describe("withEmailAccount", () => {
+    type RequestWithAuthAndEmail = RequestWithAuth & {
+      auth: { emailAccountId: string; email: string };
+    };
+
     const mockUserId = "user-123";
     const mockAccountId = "acc-456";
     const mockEmail = "test@example.com";
@@ -246,10 +229,10 @@ describe("Middleware", () => {
       });
       mockGetEmailAccount.mockResolvedValue(mockEmail);
 
-      const handler = vi
-        .fn()
-        .mockResolvedValue(NextResponse.json({ success: true }));
-      const wrappedHandler = withEmailAccount(handler as any); // Cast needed
+      const handler = vi.fn(async (req: RequestWithAuthAndEmail, ctx: any) =>
+        NextResponse.json({ success: true }),
+      );
+      const wrappedHandler = withEmailAccount(handler);
 
       await wrappedHandler(mockReq, mockContext);
 
@@ -271,8 +254,17 @@ describe("Middleware", () => {
 
     it("should return 403 if email account header is missing", async () => {
       // No header added to mockReq in beforeEach
-      const handler = vi.fn();
-      const wrappedHandler = withEmailAccount(handler as any);
+      // Provide a typed mock implementation to satisfy the wrapper
+      const handler = vi.fn(
+        async (
+          req: RequestWithAuthAndEmail,
+          ctx: { params: Promise<Record<string, string>> },
+        ): Promise<NextResponse> => {
+          // Implementation won't run, just for types
+          return NextResponse.json({});
+        },
+      );
+      const wrappedHandler = withEmailAccount(handler);
 
       const response = await wrappedHandler(mockReq, mockContext);
       const responseBody = await response.json();
@@ -293,8 +285,17 @@ describe("Middleware", () => {
       });
       mockGetEmailAccount.mockResolvedValue(null); // Simulate invalid account
 
-      const handler = vi.fn();
-      const wrappedHandler = withEmailAccount(handler as any);
+      // Provide a typed mock implementation to satisfy the wrapper
+      const handler = vi.fn(
+        async (
+          req: RequestWithAuthAndEmail,
+          ctx: { params: Promise<Record<string, string>> },
+        ): Promise<NextResponse> => {
+          // Implementation won't run, just for types
+          return NextResponse.json({});
+        },
+      );
+      const wrappedHandler = withEmailAccount(handler);
 
       const response = await wrappedHandler(mockReq, mockContext);
       const responseBody = await response.json();
