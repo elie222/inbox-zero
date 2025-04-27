@@ -1,5 +1,4 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { LoadEmailStatsBody } from "@/app/api/user/stats/load/validation";
 import { getMessages, getMessagesBatch } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
@@ -25,7 +24,7 @@ export async function loadEmails(
     gmail: gmail_v1.Gmail;
     accessToken: string;
   },
-  body: LoadEmailStatsBody,
+  { loadBefore }: { loadBefore: boolean },
 ) {
   let nextPageToken: string | undefined = undefined;
   let pages = 0;
@@ -57,7 +56,7 @@ export async function loadEmails(
 
   logger.info("Completed emails after", { after });
 
-  if (!body.loadBefore || !newestEmailSaved) return { pages };
+  if (!loadBefore || !newestEmailSaved) return { pages };
 
   const oldestEmailSaved = await prisma.emailMessage.findFirst({
     where: { emailAccountId },
