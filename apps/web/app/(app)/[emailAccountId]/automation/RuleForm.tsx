@@ -67,12 +67,9 @@ import { createGroupAction } from "@/utils/actions/group";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
-export function RuleForm({
-  rule,
-}: {
-  rule: CreateRuleBody & { id?: string };
-}) {
+export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const { emailAccountId } = useAccount();
 
   const {
@@ -543,7 +540,10 @@ export function RuleForm({
                             className="ml-2"
                           >
                             <Link
-                              href="/smart-categories/setup"
+                              href={prefixPath(
+                                emailAccountId,
+                                "/smart-categories/setup",
+                              )}
                               target="_blank"
                             >
                               Create category
@@ -558,7 +558,13 @@ export function RuleForm({
                           </SectionDescription>
 
                           <Button asChild className="mt-1">
-                            <Link href="/smart-categories" target="_blank">
+                            <Link
+                              href={prefixPath(
+                                emailAccountId,
+                                "/smart-categories",
+                              )}
+                              target="_blank"
+                            >
                               Set up Sender Categories
                               <ExternalLinkIcon className="ml-1.5 size-4" />
                             </Link>
@@ -820,8 +826,8 @@ function LabelCombobox({
 
 function ReplyTrackerAction() {
   return (
-    <div className="h-full flex items-center justify-center">
-      <div className="text-center text-sm text-muted-foreground max-w-sm">
+    <div className="flex h-full items-center justify-center">
+      <div className="max-w-sm text-center text-sm text-muted-foreground">
         Used for reply tracking (Reply Zero). This action tracks emails this
         rule is applied to and removes the{" "}
         <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
@@ -916,8 +922,8 @@ function ActionField({
           />
         </div>
       ) : isDraftContent && !setManually ? (
-        <div className="h-full flex flex-col items-center justify-center gap-2 border rounded py-8 mt-2">
-          <div className="text-center text-sm text-muted-foreground max-w-sm">
+        <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 rounded border py-8">
+          <div className="max-w-sm text-center text-sm text-muted-foreground">
             Our AI will generate a reply using your knowledge base and previous
             conversations with the sender
           </div>

@@ -18,7 +18,7 @@ import {
 import { SectionDescription } from "@/components/Typography";
 import { ButtonLoader } from "@/components/Loading";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
-import { usePremiumModal } from "@/app/(app)/[emailAccountId]/premium/PremiumModal";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { Toggle } from "@/components/Toggle";
 import { setAutoCategorizeAction } from "@/utils/actions/categorize";
 import { TooltipExplanation } from "@/components/TooltipExplanation";

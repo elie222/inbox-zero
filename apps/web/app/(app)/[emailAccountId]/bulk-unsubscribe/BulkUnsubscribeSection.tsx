@@ -24,7 +24,7 @@ import {
   useBulkUnsubscribeShortcuts,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
-import { usePremiumModal } from "@/app/(app)/[emailAccountId]/premium/PremiumModal";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useLabels } from "@/hooks/useLabels";
 import {
   BulkUnsubscribeMobile,

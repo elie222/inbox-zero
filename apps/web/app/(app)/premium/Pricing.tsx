@@ -20,7 +20,7 @@ import {
   enterpriseTier,
   frequencies,
   pricingAdditonalEmail,
-} from "@/app/(app)/[emailAccountId]/premium/config";
+} from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { TooltipExplanation } from "@/components/TooltipExplanation";

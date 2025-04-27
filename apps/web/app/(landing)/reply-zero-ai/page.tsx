@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { Hero } from "@/app/(landing)/home/Hero";
 import { FeaturesReplyZero } from "@/app/(landing)/home/Features";
 import { Testimonials } from "@/app/(landing)/home/Testimonials";
-import { Pricing } from "@/app/(app)/[emailAccountId]/premium/Pricing";
+import { Pricing } from "@/app/(app)/premium/Pricing";
 import { FAQs } from "@/app/(landing)/home/FAQs";
 import { CTA } from "@/app/(landing)/home/CTA";
 import { BasicLayout } from "@/components/layouts/BasicLayout";

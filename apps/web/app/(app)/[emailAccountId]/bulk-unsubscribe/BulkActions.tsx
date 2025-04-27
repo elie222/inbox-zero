@@ -14,7 +14,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { PremiumTooltip, usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
-import { usePremiumModal } from "@/app/(app)/[emailAccountId]/premium/PremiumModal";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function BulkActions({

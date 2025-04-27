@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { CheckCircleIcon } from "lucide-react";
-import { Pricing } from "@/app/(app)/[emailAccountId]/premium/Pricing";
+import { Pricing } from "@/app/(app)/premium/Pricing";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { Loading } from "@/components/Loading";
 import { WelcomeUpgradeNav } from "@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav";

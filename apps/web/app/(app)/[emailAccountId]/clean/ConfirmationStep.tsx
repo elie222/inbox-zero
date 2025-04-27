@@ -12,6 +12,7 @@ import { CleanAction } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function ConfirmationStep({
   showFooter,
@@ -100,7 +101,7 @@ export function ConfirmationStep({
             You can adjust these{" "}
             <Link
               className="font-semibold hover:underline"
-              href="/clean/onboarding"
+              href={prefixPath(emailAccountId, "/clean/onboarding")}
             >
               here
             </Link>
@@ -117,11 +118,15 @@ export function ConfirmationStep({
 
       {showFooter && (
         <div className="mt-6 flex items-center justify-center space-x-6 text-sm text-muted-foreground">
-          <FooterLink icon={HistoryIcon} text="History" href="/clean/history" />
+          <FooterLink
+            icon={HistoryIcon}
+            text="History"
+            href={prefixPath(emailAccountId, "/clean/history")}
+          />
           <FooterLink
             icon={SettingsIcon}
             text="Edit settings"
-            href="/clean/onboarding"
+            href={prefixPath(emailAccountId, "/clean/onboarding")}
           />
         </div>
       )}

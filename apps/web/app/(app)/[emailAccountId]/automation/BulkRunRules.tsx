@@ -23,7 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-
+import { prefixPath } from "@/utils/path";
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
@@ -125,7 +125,7 @@ export function BulkRunRules() {
                   <SectionDescription>
                     You can also process specific emails by visiting the{" "}
                     <Link
-                      href="/mail"
+                      href={prefixPath(emailAccountId, "/mail")}
                       target="_blank"
                       className="font-semibold hover:underline"
                     >

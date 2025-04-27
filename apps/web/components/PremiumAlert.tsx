@@ -11,10 +11,10 @@ import {
   isPremium,
 } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
-import { usePremiumModal } from "@/app/(app)/[emailAccountId]/premium/PremiumModal";
+import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
 import { useUser } from "@/hooks/useUser";
-import { businessTierName } from "@/app/(app)/[emailAccountId]/premium/config";
+import { businessTierName } from "@/app/(app)/premium/config";
 
 export function usePremium() {
   const swrResponse = useUser();

@@ -28,6 +28,7 @@ import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 import { EnableFeatureCard } from "@/components/EnableFeatureCard";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function ColdEmailList() {
   const searchParams = useSearchParams();
@@ -184,6 +185,7 @@ function Row({
 
 function NoColdEmails() {
   const { data } = useUser();
+  const { emailAccountId } = useAccount();
 
   if (!data?.coldEmailBlocker || data?.coldEmailBlocker === "DISABLED") {
     return (
@@ -194,7 +196,7 @@ function NoColdEmails() {
           imageSrc="/images/illustrations/calling-help.svg"
           imageAlt="Cold email blocker"
           buttonText="Set Up"
-          href="/cold-email-blocker?tab=settings"
+          href={prefixPath(emailAccountId, "/cold-email-blocker?tab=settings")}
           hideBorder
         />
       </div>
