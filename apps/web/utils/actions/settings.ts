@@ -1,3 +1,5 @@
+"use server";
+
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
