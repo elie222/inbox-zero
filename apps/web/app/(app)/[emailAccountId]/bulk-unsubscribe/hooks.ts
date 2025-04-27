@@ -14,6 +14,7 @@ import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
+import { fetchWithAccount } from "@/utils/fetch";
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -496,7 +497,10 @@ async function deleteAllFromSender({
   toast.promise(
     async () => {
       // 1. search gmail for messages from sender
-      const res = await fetch(`/api/google/threads/basic?from=${name}`);
+      const res = await fetchWithAccount({
+        url: `/api/google/threads/basic?from=${name}`,
+        emailAccountId,
+      });
       const data: GetThreadsResponse = await res.json();
 
       // 2. delete messages

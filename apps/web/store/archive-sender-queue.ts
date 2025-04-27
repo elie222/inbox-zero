@@ -4,6 +4,7 @@ import { archiveEmails } from "./archive-queue";
 import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
+import { fetchWithAccount } from "@/utils/fetch";
 
 type ArchiveStatus = "pending" | "processing" | "completed";
 
@@ -39,7 +40,7 @@ export async function addToArchiveSenderQueue({
   });
 
   try {
-    const threads = await fetchSenderThreads(sender);
+    const threads = await fetchSenderThreads({ sender, emailAccountId });
     const threadIds = threads.map((t) => t.id).filter(isDefined);
 
     // Update with thread IDs
@@ -113,9 +114,18 @@ export const useArchiveSenderStatus = (sender: string) => {
   return useMemo(() => getStatus(sender), [getStatus, sender]);
 };
 
-async function fetchSenderThreads(sender: string) {
+async function fetchSenderThreads({
+  sender,
+  emailAccountId,
+}: {
+  sender: string;
+  emailAccountId: string;
+}) {
   const url = `/api/google/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
-  const res = await fetch(url);
+  const res = await fetchWithAccount({
+    url,
+    emailAccountId,
+  });
 
   if (!res.ok) throw new Error("Failed to fetch threads");
 

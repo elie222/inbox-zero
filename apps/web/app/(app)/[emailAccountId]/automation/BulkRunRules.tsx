@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { fetchWithAccount } from "@/utils/fetch";
+
 export function BulkRunRules() {
   const { emailAccountId } = useAccount();
 
@@ -173,9 +175,10 @@ async function onRun(
         limit: LIMIT,
         q,
       };
-      const res = await fetch(
-        `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
-      );
+      const res = await fetchWithAccount({
+        url: `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+        emailAccountId,
+      });
       const data: ThreadsResponse = await res.json();
 
       nextPageToken = data.nextPageToken || "";

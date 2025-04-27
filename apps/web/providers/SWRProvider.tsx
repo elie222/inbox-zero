@@ -7,12 +7,24 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
-const fetcher = async (url: string, init?: RequestInit | undefined) => {
+const fetcher = async (
+  url: string,
+  init?: RequestInit | undefined,
+  emailAccountId?: string | null,
+) => {
   // Super hacky, if we use streaming endpoints we should do this:
   // https://github.com/vercel/ai/issues/3214
   // if (url.startsWith("/api/ai/")) return [];
 
-  const res = await fetch(url, init);
+  const headers = new Headers(init?.headers);
+
+  if (emailAccountId) {
+    headers.set(EMAIL_ACCOUNT_HEADER, emailAccountId);
+  }
+
+  const newInit = { ...init, headers };
+
+  const res = await fetch(url, newInit);
 
   if (!res.ok) {
     const errorData = await res.json();
@@ -70,15 +82,7 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
 
   const enhancedFetcher = useCallback(
     async (url: string, init?: RequestInit) => {
-      const headers = new Headers(init?.headers);
-
-      if (emailAccountId) {
-        headers.set(EMAIL_ACCOUNT_HEADER, emailAccountId);
-      }
-
-      const newInit = { ...init, headers };
-
-      return fetcher(url, newInit);
+      return fetcher(url, init, emailAccountId);
     },
     [emailAccountId],
   );
