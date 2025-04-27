@@ -8,10 +8,10 @@ import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
 const logger = createScopedLogger("google/watch");
 
 export async function watchEmails({
-  email,
+  emailAccountId,
   gmail,
 }: {
-  email: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
 }) {
   const res = await watchGmail(gmail);
@@ -19,12 +19,12 @@ export async function watchEmails({
   if (res.expiration) {
     const expirationDate = new Date(+res.expiration);
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { watchEmailsExpirationDate: expirationDate },
     });
     return expirationDate;
   }
-  logger.error("Error watching inbox", { email });
+  logger.error("Error watching inbox", { emailAccountId });
 }
 
 async function unwatch(gmail: gmail_v1.Gmail) {

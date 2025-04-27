@@ -4,9 +4,10 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
+// Should this path be renamed to email account instead of user?
+export type UserResponse = Awaited<ReturnType<typeof getEmailAccount>> | null;
 
-async function getUser({ email }: { email: string }) {
+async function getEmailAccount({ email }: { email: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
@@ -48,10 +49,10 @@ async function getUser({ email }: { email: string }) {
 // Intentionally not using withAuth because we want to return null if the user is not authenticated
 export const GET = withError(async () => {
   const session = await auth();
-  const email = session?.user.email;
+  const email = session?.user.id;
   if (!email) return NextResponse.json(null);
 
-  const user = await getUser({ email });
+  const user = await getEmailAccount({ email });
 
   return NextResponse.json(user);
 });

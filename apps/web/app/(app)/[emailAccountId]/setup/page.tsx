@@ -15,13 +15,13 @@ import { LoadStats } from "@/providers/StatLoaderProvider";
 import { Card } from "@/components/ui/card";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 
-export default async function SetupPage() {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) throw new Error("Not authenticated");
+export default async function SetupPage(props: {
+  params: Promise<{ emailAccountId: string }>;
+}) {
+  const { emailAccountId } = await props.params;
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
       coldEmailBlocker: true,
       rules: { select: { id: true }, take: 1 },
@@ -43,6 +43,7 @@ export default async function SetupPage() {
   return (
     <>
       <SetupContent
+        emailAccountId={emailAccountId}
         isReplyTrackerConfigured={isReplyTrackerConfigured}
         isAiAssistantConfigured={isAiAssistantConfigured}
         isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
@@ -130,10 +131,12 @@ function FeatureGrid() {
 }
 
 function SetupContent({
+  emailAccountId,
   isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
 }: {
+  emailAccountId: string;
   isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
@@ -167,6 +170,7 @@ function SetupContent({
         <FeatureGrid />
       ) : (
         <Checklist
+          emailAccountId={emailAccountId}
           isReplyTrackerConfigured={isReplyTrackerConfigured}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}
@@ -241,6 +245,7 @@ const StepItem = ({
 };
 
 function Checklist({
+  emailAccountId,
   completedCount,
   totalSteps,
   progressPercentage,
@@ -248,6 +253,7 @@ function Checklist({
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
 }: {
+  emailAccountId: string;
   completedCount: number;
   totalSteps: number;
   progressPercentage: number;
@@ -255,6 +261,8 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
+  const prefixPath = (path: `/${string}`) => `/${emailAccountId}${path}`;
+
   return (
     <Card className="mb-6 overflow-hidden">
       <div className="border-b border-border p-4">
