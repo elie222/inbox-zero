@@ -13,6 +13,7 @@ import { GmailProvider } from "@/providers/GmailProvider";
 import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { ActionType } from "@prisma/client";
+import { prefixPath } from "@/utils/path";
 
 export const maxDuration = 300;
 
@@ -31,7 +32,8 @@ export default async function ReplyTrackerPage(props: {
   const viewedOnboarding =
     cookieStore.get(REPLY_ZERO_ONBOARDING_COOKIE)?.value === "true";
 
-  if (!viewedOnboarding) redirect("/reply-zero/onboarding");
+  if (!viewedOnboarding)
+    redirect(prefixPath(emailAccountId, "/reply-zero/onboarding"));
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -48,7 +50,8 @@ export default async function ReplyTrackerPage(props: {
 
   const trackerRule = emailAccount?.rules[0];
 
-  if (!trackerRule) redirect("/reply-zero/onboarding");
+  if (!trackerRule)
+    redirect(prefixPath(emailAccountId, "/reply-zero/onboarding"));
 
   const isAnalyzing = await isAnalyzingReplyTracker({ emailAccountId });
 

@@ -55,7 +55,7 @@ export default async function CategoriesPage({
   ]);
 
   if (!(senders.length > 0 || categories.length > 0))
-    redirect("/smart-categories/setup");
+    redirect(prefixPath(emailAccountId, "/smart-categories/setup"));
 
   return (
     <>

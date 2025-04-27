@@ -40,7 +40,7 @@ export default async function AutomationPage({
     });
 
     if (!hasRule) {
-      redirect("/automation/onboarding");
+      redirect(prefixPath(emailAccountId, "/automation/onboarding"));
     }
   }
 

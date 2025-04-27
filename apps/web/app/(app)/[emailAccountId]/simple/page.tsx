@@ -11,6 +11,7 @@ import { SimpleModeOnboarding } from "@/app/(app)/[emailAccountId]/simple/Simple
 import { ClientOnly } from "@/components/ClientOnly";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { getGmailClientForEmailId } from "@/utils/account";
+import { prefixPath } from "@/utils/path";
 
 export const dynamic = "force-dynamic";
 
@@ -52,9 +53,15 @@ export default async function SimplePage(props: {
   if (!messages.length) {
     const next = getNextCategory(type);
     if (next) {
-      redirect(`/simple?type=${next}`, RedirectType.replace);
+      redirect(
+        prefixPath(emailAccountId, `/simple?type=${next}`),
+        RedirectType.replace,
+      );
     } else {
-      redirect("/simple/completed", RedirectType.replace);
+      redirect(
+        prefixPath(emailAccountId, "/simple/completed"),
+        RedirectType.replace,
+      );
     }
   }
 
