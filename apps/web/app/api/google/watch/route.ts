@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getGmailClient } from "@/utils/gmail/client";
 import { watchEmails } from "./controller";
 import { withEmailAccount } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";

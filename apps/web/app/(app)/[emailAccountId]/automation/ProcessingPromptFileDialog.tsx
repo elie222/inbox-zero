@@ -11,6 +11,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
 import { pluralize } from "@/utils/string";
+import { prefixPath } from "@/utils/path";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 type StepProps = {
   back?: () => void;
@@ -226,6 +228,8 @@ function FinalStepReady({
 }: StepProps & {
   result: ResultProps;
 }) {
+  const { emailAccountId } = useAccount();
+
   function getDescription() {
     let message = "";
 
@@ -267,7 +271,9 @@ function FinalStepReady({
           Back
         </Button>
         <Button asChild onClick={next}>
-          <Link href="/automation?tab=test">Try them out!</Link>
+          <Link href={prefixPath(emailAccountId, "/automation?tab=test")}>
+            Try them out!
+          </Link>
         </Button>
       </div>
     </>

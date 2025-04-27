@@ -17,6 +17,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { Button } from "@/components/ui/button";
+import { prefixPath } from "@/utils/path";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -64,7 +65,11 @@ export default async function AutomationPage({
 
             <div className="flex items-center gap-2">
               <Button asChild variant="outline">
-                <Link href="/automation/onboarding">Set Up</Link>
+                <Link
+                  href={prefixPath(emailAccountId, "/automation/onboarding")}
+                >
+                  Set Up
+                </Link>
               </Button>
 
               <OnboardingModal

@@ -18,6 +18,7 @@ import { toastError } from "@/components/Toast";
 import { examples } from "@/app/(app)/[emailAccountId]/automation/create/examples";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { CreateAutomationBody } from "@/utils/actions/ai-rule.validation";
+import { prefixPath } from "@/utils/path";
 
 // not in use anymore
 export default function AutomationSettingsPage() {
@@ -133,7 +134,11 @@ export default function AutomationSettingsPage() {
               </TypographyH3>
               <div className="flex space-x-2 pb-8">
                 <Button variant="outline" asChild>
-                  <Link href="/automation/rule/create">Create rule</Link>
+                  <Link
+                    href={prefixPath(emailAccountId, "/automation/rule/create")}
+                  >
+                    Create rule
+                  </Link>
                 </Button>
                 <Button
                   variant="outline"

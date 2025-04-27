@@ -8,12 +8,12 @@ import {
   BotIcon,
   type LucideIcon,
 } from "lucide-react";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 import { Card } from "@/components/ui/card";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
+import { prefixPath } from "@/utils/path";
 
 export default async function SetupPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -261,8 +261,6 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
-  const prefixPath = (path: `/${string}`) => `/${emailAccountId}${path}`;
-
   return (
     <Card className="mb-6 overflow-hidden">
       <div className="border-b border-border p-4">
@@ -283,7 +281,7 @@ function Checklist({
       </div>
 
       <StepItem
-        href="/automation/onboarding"
+        href={prefixPath(emailAccountId, "/automation/onboarding")}
         icon={<BotIcon size={20} />}
         iconBg="bg-green-100 dark:bg-green-900/50"
         iconColor="text-green-500 dark:text-green-400"
@@ -295,7 +293,7 @@ function Checklist({
       />
 
       <StepItem
-        href="/bulk-unsubscribe"
+        href={prefixPath(emailAccountId, "/bulk-unsubscribe")}
         icon={<ArchiveIcon size={20} />}
         iconBg="bg-purple-100 dark:bg-purple-900/50"
         iconColor="text-purple-500 dark:text-purple-400"
@@ -307,7 +305,7 @@ function Checklist({
       />
 
       <StepItem
-        href="/reply-zero"
+        href={prefixPath(emailAccountId, "/reply-zero")}
         icon={<MailIcon size={20} />}
         iconBg="bg-blue-100 dark:bg-blue-900/50"
         iconColor="text-blue-500 dark:text-blue-400"

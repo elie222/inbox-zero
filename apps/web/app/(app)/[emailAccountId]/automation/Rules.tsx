@@ -45,7 +45,7 @@ import { ActionType } from "@prisma/client";
 import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/automation/RuleForm";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
-
+import { prefixPath } from "@/utils/path";
 export function Rules() {
   const { data, isLoading, error, mutate } = useRules();
 
@@ -220,13 +220,13 @@ export function Rules() {
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
           <Button asChild variant="outline">
-            <Link href="/automation?tab=prompt">
+            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
               Add Rule via Prompt
             </Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/automation/rule/create">
+            <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
               <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
               Add Rule Manually
             </Link>
@@ -259,6 +259,7 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
 }
 
 function NoRules() {
+  const { emailAccountId } = useAccount();
   return (
     <>
       <CardHeader>
@@ -271,14 +272,16 @@ function NoRules() {
       <CardContent>
         <div className="flex gap-2">
           <Button asChild>
-            <Link href="/automation?tab=prompt">
+            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
               Set Prompt
             </Link>
           </Button>
 
           <Button type="button" variant="outline" asChild>
-            <Link href="/automation/rule/create">Create a Rule Manually</Link>
+            <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
+              Create a Rule Manually
+            </Link>
           </Button>
         </div>
       </CardContent>

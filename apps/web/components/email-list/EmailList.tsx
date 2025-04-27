@@ -32,6 +32,7 @@ import {
   markReadThreads,
 } from "@/store/archive-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function List({
   emails,
@@ -48,6 +49,7 @@ export function List({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
+  const { emailAccountId } = useAccount();
   const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
   const categories = useMemo(() => {
@@ -124,7 +126,7 @@ export function List({
                     <>
                       Set rules on the{" "}
                       <Link
-                        href="/automation"
+                        href={prefixPath(emailAccountId, "/automation")}
                         className="font-semibold hover:underline"
                       >
                         Automation page

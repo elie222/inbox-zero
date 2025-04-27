@@ -16,6 +16,7 @@ import { ReportMistake } from "@/app/(app)/[emailAccountId]/automation/ReportMis
 import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { prefixPath } from "@/utils/path";
 
 export function EmailCell({
   from,
@@ -56,12 +57,14 @@ export function EmailCell({
 }
 
 export function RuleCell({
+  emailAccountId,
   rule,
   status,
   reason,
   message,
   isTest,
 }: {
+  emailAccountId: string;
   rule: PendingExecutedRules["executedRules"][number]["rule"];
   status: ExecutedRuleStatus;
   reason?: string | null;
@@ -92,7 +95,14 @@ export function RuleCell({
             <div className="mt-2">
               {!!rule && (
                 <Button size="sm" asChild>
-                  <Link href={`/automation/rule/${rule.id}`}>View</Link>
+                  <Link
+                    href={prefixPath(
+                      emailAccountId,
+                      `/automation/rule/${rule.id}`,
+                    )}
+                  >
+                    View
+                  </Link>
                 </Button>
               )}
             </div>

@@ -52,6 +52,7 @@ import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 type NavItem = {
   name: string;
@@ -72,17 +73,17 @@ export const useNavigation = () => {
     () => [
       {
         name: "Personal Assistant",
-        href: `/${emailAccountId}/automation`,
+        href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
       {
         name: "Reply Zero",
-        href: `/${emailAccountId}/reply-zero`,
+        href: prefixPath(emailAccountId, "/reply-zero"),
         icon: MessageCircleReplyIcon,
       },
       {
         name: "Cold Email Blocker",
-        href: `/${emailAccountId}/cold-email-blocker`,
+        href: prefixPath(emailAccountId, "/cold-email-blocker"),
         icon: ShieldCheckIcon,
       },
     ],
@@ -94,17 +95,17 @@ export const useNavigation = () => {
     () => [
       {
         name: "Bulk Unsubscribe",
-        href: `/${emailAccountId}/bulk-unsubscribe`,
+        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
       {
         name: "Deep Clean",
-        href: `/${emailAccountId}/clean`,
+        href: prefixPath(emailAccountId, "/clean"),
         icon: BrushIcon,
       },
       {
         name: "Analytics",
-        href: `/${emailAccountId}/stats`,
+        href: prefixPath(emailAccountId, "/stats"),
         icon: BarChartBigIcon,
       },
     ],

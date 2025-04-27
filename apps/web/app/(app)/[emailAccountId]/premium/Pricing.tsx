@@ -28,7 +28,6 @@ import { PremiumTier } from "@prisma/client";
 import {
   usePricingFrequencyDefault,
   usePricingVariant,
-  useSkipUpgrade,
 } from "@/hooks/useFeatureFlags";
 
 export function Pricing(props: {
@@ -45,8 +44,6 @@ export function Pricing(props: {
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(premium);
-
-  const skipVariant = useSkipUpgrade();
 
   const header = props.header || (
     <div className="mb-12">
@@ -287,17 +284,6 @@ export function Pricing(props: {
             );
           })}
         </Layout>
-
-        {props.showSkipUpgrade && skipVariant === "skip-button" && (
-          <div className="my-4 flex justify-center">
-            <Button size="lg" asChild>
-              <Link href="/automation">
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Explore the app for free
-              </Link>
-            </Button>
-          </div>
-        )}
       </div>
     </LoadingContent>
   );

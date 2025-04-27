@@ -183,6 +183,7 @@ function PendingTable({
               </TableCell>
               <TableCell>
                 <RuleCell
+                  emailAccountId={emailAccountId}
                   rule={p.rule}
                   status={p.status}
                   reason={p.reason}
