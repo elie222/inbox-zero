@@ -7,9 +7,29 @@ import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { Card, CardTitle, CardHeader, CardContent } from "@/components/ui/card";
 import { useAccounts } from "@/hooks/useAccounts";
+import { useAction } from "next-safe-action/hooks";
+import { deleteEmailAccountAction } from "@/utils/actions/user";
+import { toastError } from "@/components/Toast";
+import { toastSuccess } from "@/components/Toast";
 
 export default function AccountsPage() {
-  const { data, isLoading, error } = useAccounts();
+  const { data, isLoading, error, mutate } = useAccounts();
+  const { execute, isExecuting } = useAction(deleteEmailAccountAction, {
+    onSuccess: () => {
+      toastSuccess({
+        title: "Email account deleted",
+        description: "The email account has been deleted successfully.",
+      });
+      mutate();
+    },
+    onError: (error) => {
+      toastError({
+        title: "Error deleting email account",
+        description: error.error.serverError || "An unknown error occurred",
+      });
+      mutate();
+    },
+  });
 
   return (
     <div>
@@ -26,15 +46,21 @@ export default function AccountsPage() {
               <CardContent>
                 <ConfirmDialog
                   trigger={
-                    <Button variant="destructive" size="sm">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      loading={isExecuting}
+                      Icon={Trash2}
+                    >
                       Delete
-                      <Trash2 className="ml-2 h-4 w-4" />
                     </Button>
                   }
                   title="Delete Account"
                   description={`Are you sure you want to delete "${account.email}"? This will delete all data for it on Inbox Zero.`}
                   confirmText="Delete"
-                  onConfirm={async () => {}}
+                  onConfirm={() => {
+                    execute({ emailAccountId: account.id });
+                  }}
                 />
               </CardContent>
             </Card>
