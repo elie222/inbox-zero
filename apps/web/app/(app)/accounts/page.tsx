@@ -64,7 +64,7 @@ export default function AccountsPage() {
               <CardContent className="flex justify-end gap-2">
                 <Link href={prefixPath(emailAccount.id, "/setup")}>
                   <Button variant="outline" size="sm" Icon={ArrowRight}>
-                    Setup
+                    View
                   </Button>
                 </Link>
                 {!emailAccount.isPrimary && (
