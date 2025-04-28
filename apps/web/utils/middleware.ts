@@ -91,7 +91,7 @@ function withMiddleware<T extends NextRequest>(
       }
 
       logger.error("Unhandled error", {
-        error,
+        error: error instanceof Error ? error.message : error,
         url: req.url,
       });
       captureException(error, { extra: { url: req.url } });
