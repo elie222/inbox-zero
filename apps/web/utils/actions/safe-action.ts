@@ -15,8 +15,13 @@ const baseClient = createSafeActionClient({
   defineMetadataSchema() {
     return z.object({ name: z.string() });
   },
-  handleServerError(error) {
-    logger.error("Server action error:", { error });
+  handleServerError(error, { metadata, ctx, bindArgsClientInputs }) {
+    logger.error("Server action error:", {
+      metadata,
+      ctx,
+      bindArgsClientInputs,
+      error,
+    });
     if (error instanceof SafeError) return error.message;
     return "An unknown error occurred.";
   },
