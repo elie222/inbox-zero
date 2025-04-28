@@ -35,10 +35,11 @@ async function getEmailAccounts({ userId }: { userId: string }) {
         ...account,
         name: account.name || account.user.name,
         image: account.image || account.user.image,
+        isPrimary: true,
       };
     }
 
-    return account;
+    return { ...account, isPrimary: false };
   });
 
   return { emailAccounts: accountsWithNames };

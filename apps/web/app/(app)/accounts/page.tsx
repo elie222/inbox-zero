@@ -67,24 +67,26 @@ export default function AccountsPage() {
                     Setup
                   </Button>
                 </Link>
-                <ConfirmDialog
-                  trigger={
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      loading={isExecuting}
-                      Icon={Trash2}
-                    >
-                      Delete
-                    </Button>
-                  }
-                  title="Delete Account"
-                  description={`Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`}
-                  confirmText="Delete"
-                  onConfirm={() => {
-                    execute({ emailAccountId: emailAccount.id });
-                  }}
-                />
+                {!emailAccount.isPrimary && (
+                  <ConfirmDialog
+                    trigger={
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        loading={isExecuting}
+                        Icon={Trash2}
+                      >
+                        Delete
+                      </Button>
+                    }
+                    title="Delete Account"
+                    description={`Are you sure you want to delete "${emailAccount.email}"? This will delete all data for it on Inbox Zero.`}
+                    confirmText="Delete"
+                    onConfirm={() => {
+                      execute({ emailAccountId: emailAccount.id });
+                    }}
+                  />
+                )}
               </CardContent>
             </Card>
           ))}

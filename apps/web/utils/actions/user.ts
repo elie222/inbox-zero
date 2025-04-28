@@ -11,6 +11,7 @@ import { parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -130,6 +131,18 @@ export const deleteEmailAccountAction = actionClientUser
   .metadata({ name: "deleteEmailAccount" })
   .schema(z.object({ emailAccountId: z.string() }))
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId, userId },
+      select: { email: true, user: { select: { email: true } } },
+    });
+
+    if (!emailAccount) throw new SafeError("Email account not found");
+
+    if (emailAccount.email === emailAccount.user.email)
+      throw new SafeError(
+        "Cannot delete primary email account. Go to the Settings page to delete your entire account.",
+      );
+
     await prisma.emailAccount.delete({
       where: { id: emailAccountId, userId },
     });
