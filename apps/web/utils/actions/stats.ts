@@ -151,10 +151,10 @@ async function saveBatch({
   });
 
   // 2. fetch each email and save it to postgres
-  const messages = await getMessagesBatch(
-    res.messages?.map((m) => m.id).filter(isDefined) || [],
+  const messages = await getMessagesBatch({
+    messageIds: res.messages?.map((m) => m.id).filter(isDefined) || [],
     accessToken,
-  );
+  });
 
   const emailsToSave = messages
     .map((m) => {

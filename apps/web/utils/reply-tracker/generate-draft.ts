@@ -95,10 +95,10 @@ async function fetchThreadAndConversationMessages(
   const threadMessages = await getThreadMessages(threadId, gmail);
 
   // previous conversation messages
-  const previousConversationMessages = await getMessagesBatch(
-    threadMessages.map((msg) => msg.id),
-    getAccessTokenFromClient(gmail),
-  );
+  const previousConversationMessages = await getMessagesBatch({
+    messageIds: threadMessages.map((msg) => msg.id),
+    accessToken: getAccessTokenFromClient(gmail),
+  });
 
   return {
     threadMessages,

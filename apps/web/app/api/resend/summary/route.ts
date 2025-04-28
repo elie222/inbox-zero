@@ -174,7 +174,10 @@ async function sendEmail({
   });
 
   const messages = emailAccount.account.access_token
-    ? await getMessagesBatch(messageIds, emailAccount.account.access_token)
+    ? await getMessagesBatch({
+        messageIds,
+        accessToken: emailAccount.account.access_token,
+      })
     : [];
 
   const messageMap = Object.fromEntries(

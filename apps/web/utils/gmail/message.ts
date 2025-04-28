@@ -54,11 +54,17 @@ export async function getMessageByRfc822Id(
   return getMessage(message.id, gmail);
 }
 
-export async function getMessagesBatch(
-  messageIds: string[],
-  accessToken: string,
+export async function getMessagesBatch({
+  messageIds,
+  accessToken,
   retryCount = 0,
-): Promise<ParsedMessage[]> {
+}: {
+  messageIds: string[];
+  accessToken: string;
+  retryCount?: number;
+}): Promise<ParsedMessage[]> {
+  if (!accessToken) throw new Error("No access token");
+
   if (retryCount > 3) {
     logger.error("Too many retries", { messageIds, retryCount });
     return [];
@@ -95,11 +101,11 @@ export async function getMessagesBatch(
     });
     const nextRetryCount = retryCount + 1;
     await sleep(1_000 * nextRetryCount);
-    const missingMessages = await getMessagesBatch(
-      Array.from(missingMessageIds),
+    const missingMessages = await getMessagesBatch({
+      messageIds: Array.from(missingMessageIds),
       accessToken,
-      nextRetryCount,
-    );
+      retryCount: nextRetryCount,
+    });
     return [...messages, ...missingMessages];
   }
 
@@ -237,7 +243,7 @@ export async function queryBatchMessages(
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
   return {
-    messages: (await getMessagesBatch(messageIds, accessToken)) || [],
+    messages: (await getMessagesBatch({ messageIds, accessToken })) || [],
     nextPageToken: messages.nextPageToken,
   };
 }

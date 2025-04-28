@@ -35,7 +35,10 @@ export const GET = withEmailAccount(async (request) => {
     parseReplies: parseReplies === "true",
   });
 
-  const messages = await getMessagesBatch(query.ids, accessToken);
+  const messages = await getMessagesBatch({
+    messageIds: query.ids,
+    accessToken,
+  });
 
   const result = query.parseReplies
     ? messages.map((message) => ({
