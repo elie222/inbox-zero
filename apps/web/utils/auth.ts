@@ -75,17 +75,9 @@ export const getAuthOptions: (options?: {
               resourceName: "people/me",
               personFields: "emailAddresses,names,photos",
             });
-            console.log(
-              "🚀 ~ linkAccount: ~ profileResponse:",
-              JSON.stringify(profileResponse.data, null, 2),
-            );
             primaryEmail = profileResponse.data.emailAddresses?.find(
               (e) => e.metadata?.primary,
             )?.value;
-            console.log(
-              "🚀!!! ~ linkAccount: ~ profileResponse.data.emailAddresses:",
-              profileResponse.data.emailAddresses,
-            );
             primaryName = profileResponse.data.names?.find(
               (n) => n.metadata?.primary,
             )?.displayName;
