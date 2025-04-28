@@ -3,7 +3,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 export async function getEmailAccountWithAi({
   emailAccountId,
-}: { emailAccountId: string }): Promise<EmailAccountWithAI | null> {
+}: {
+  emailAccountId: string;
+}): Promise<EmailAccountWithAI | null> {
   return prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -24,7 +26,9 @@ export async function getEmailAccountWithAi({
 
 export async function getEmailAccountWithAiAndTokens({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -43,6 +47,7 @@ export async function getEmailAccountWithAiAndTokens({
         select: {
           access_token: true,
           refresh_token: true,
+          expires_at: true,
         },
       },
     },
@@ -58,7 +63,9 @@ export async function getEmailAccountWithAiAndTokens({
 
 export async function getWritingStyle({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const writingStyle = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: { writingStyle: true },

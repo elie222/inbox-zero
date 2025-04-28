@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { headers } from "next/headers";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -89,9 +89,11 @@ async function process({
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const gmail = getGmailClient({
+    const gmail = await getGmailClientWithRefresh({
       accessToken: account.access_token,
       refreshToken: account.refresh_token,
+      expiresAt: account.expires_at,
+      emailAccountId,
     });
 
     // Get threads from this sender
@@ -325,6 +327,7 @@ async function getEmailAccountWithRules({
         select: {
           access_token: true,
           refresh_token: true,
+          expires_at: true,
         },
       },
       rules: {

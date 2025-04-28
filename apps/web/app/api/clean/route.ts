@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { publishToQstash } from "@/utils/upstash";
 import { getThreadMessages } from "@/utils/gmail/thread";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import type { CleanGmailBody } from "@/app/api/clean/gmail/route";
 import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
@@ -67,9 +67,11 @@ async function cleanThread({
   if (!emailAccount.tokens.access_token || !emailAccount.tokens.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
-  const gmail = getGmailClient({
+  const gmail = await getGmailClientWithRefresh({
     accessToken: emailAccount.tokens.access_token,
     refreshToken: emailAccount.tokens.refresh_token,
+    expiresAt: emailAccount.tokens.expires_at,
+    emailAccountId,
   });
 
   const messages = await getThreadMessages(threadId, gmail);

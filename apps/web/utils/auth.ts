@@ -12,6 +12,7 @@ import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { getContactsClient } from "@/utils/gmail/client";
+import { encryptToken } from "@/utils/encryption";
 
 const logger = createScopedLogger("auth");
 
@@ -156,19 +157,17 @@ export const getAuthOptions: (options?: {
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           logger.info("Saving refresh token", { email: token.email });
-          await saveTokens(
-            {
+          await saveTokens({
+            tokens: {
               access_token: account.access_token,
               refresh_token: account.refresh_token,
               expires_at: calculateExpiresAt(
                 account.expires_in as number | undefined,
               ),
             },
-            {
-              providerAccountId: account.providerAccountId,
-              refresh_token: account.refresh_token,
-            },
-          );
+            accountRefreshToken: account.refresh_token,
+            providerAccountId: account.providerAccountId,
+          });
           token.refresh_token = account.refresh_token;
         } else {
           const dbAccount = await prisma.account.findUnique({
@@ -354,13 +353,11 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
         : "undefined",
     });
 
-    await saveTokens(
-      { ...tokens, expires_at },
-      {
-        providerAccountId: account.providerAccountId,
-        refresh_token: account.refresh_token,
-      },
-    );
+    await saveTokens({
+      tokens: { ...tokens, expires_at },
+      accountRefreshToken: account.refresh_token,
+      providerAccountId: account.providerAccountId,
+    });
 
     return {
       ...token, // Keep the previous token properties
@@ -390,16 +387,29 @@ function calculateExpiresAt(expiresIn?: number) {
   return Math.floor(Date.now() / 1000 + (expiresIn - 10)); // give 10 second buffer
 }
 
-export async function saveTokens(
+export async function saveTokens({
+  tokens,
+  accountRefreshToken,
+  providerAccountId,
+  emailAccountId,
+}: {
   tokens: {
     access_token?: string;
     refresh_token?: string;
     expires_at?: number;
-  },
-  account: Pick<Account, "refresh_token" | "providerAccountId">,
-) {
-  const refreshToken = tokens.refresh_token ?? account.refresh_token;
-  const providerAccountId = account.providerAccountId;
+  };
+  accountRefreshToken: string | null;
+} & ( // provide one of these:
+  | {
+      providerAccountId: string;
+      emailAccountId?: never;
+    }
+  | {
+      emailAccountId: string;
+      providerAccountId?: never;
+    }
+)) {
+  const refreshToken = tokens.refresh_token ?? accountRefreshToken;
 
   if (!refreshToken) {
     logger.error("Attempted to save null refresh token", { providerAccountId });
@@ -409,19 +419,46 @@ export async function saveTokens(
     return;
   }
 
-  return await prisma.account.update({
-    data: {
-      access_token: tokens.access_token,
-      expires_at: tokens.expires_at,
-      refresh_token: refreshToken,
-    },
-    where: {
-      provider_providerAccountId: {
-        provider: "google",
-        providerAccountId,
+  const data = {
+    access_token: tokens.access_token,
+    expires_at: tokens.expires_at,
+    refresh_token: refreshToken,
+  };
+
+  if (emailAccountId) {
+    // Encrypt tokens in data directly
+    // Usually we do this in prisma-extensions.ts but we need to do it here because we're updating the account via the emailAccount
+    // We could also edit prisma-extensions.ts to handle this case but this is easier for now
+    if (data.access_token)
+      data.access_token = encryptToken(data.access_token) || undefined;
+    if (data.refresh_token)
+      data.refresh_token = encryptToken(data.refresh_token) || "";
+
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { account: { update: data } },
+    });
+  } else {
+    if (!providerAccountId) {
+      logger.error("No providerAccountId found in database", {
+        emailAccountId,
+      });
+      captureException("No providerAccountId found in database", {
+        extra: { emailAccountId },
+      });
+      return;
+    }
+
+    return await prisma.account.update({
+      where: {
+        provider_providerAccountId: {
+          provider: "google",
+          providerAccountId,
+        },
       },
-    },
-  });
+      data,
+    });
+  }
 }
 
 async function handlePendingPremiumInvite(user: { email: string }) {

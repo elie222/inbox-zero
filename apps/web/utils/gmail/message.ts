@@ -79,6 +79,11 @@ export async function getMessagesBatch({
 
   const missingMessageIds = new Set<string>();
 
+  if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
+    logger.error("Error fetching messages", { firstBatchItem: batch?.[0] });
+    throw new Error("Invalid access token");
+  }
+
   const messages = batch
     .map((message, i) => {
       if (isBatchError(message)) {

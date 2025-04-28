@@ -31,7 +31,6 @@ async function watchAllEmails() {
           access_token: true,
           refresh_token: true,
           expires_at: true,
-          providerAccountId: true,
         },
       },
       user: {
@@ -105,14 +104,12 @@ async function watchAllEmails() {
         continue;
       }
 
-      const gmail = await getGmailClientWithRefresh(
-        {
-          accessToken: emailAccount.account.access_token,
-          refreshToken: emailAccount.account.refresh_token,
-          expiryDate: emailAccount.account.expires_at,
-        },
-        emailAccount.account.providerAccountId,
-      );
+      const gmail = await getGmailClientWithRefresh({
+        accessToken: emailAccount.account.access_token,
+        refreshToken: emailAccount.account.refresh_token,
+        expiresAt: emailAccount.account.expires_at,
+        emailAccountId: emailAccount.id,
+      });
 
       await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {

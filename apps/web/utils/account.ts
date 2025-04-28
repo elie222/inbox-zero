@@ -1,5 +1,8 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
+import {
+  getGmailAccessToken,
+  getGmailClientWithRefresh,
+} from "@/utils/gmail/client";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { notFound } from "next/navigation";
@@ -10,7 +13,12 @@ export async function getGmailClientForEmail({
   emailAccountId: string;
 }) {
   const tokens = await getTokens({ emailAccountId });
-  const gmail = getGmailClient(tokens);
+  const gmail = getGmailClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
   return gmail;
 }
 
@@ -32,12 +40,16 @@ export async function getGmailClientForEmailId({
   const account = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
-      account: { select: { access_token: true, refresh_token: true } },
+      account: {
+        select: { access_token: true, refresh_token: true, expires_at: true },
+      },
     },
   });
-  const gmail = getGmailClient({
-    accessToken: account?.account.access_token ?? undefined,
-    refreshToken: account?.account.refresh_token ?? undefined,
+  const gmail = getGmailClientWithRefresh({
+    accessToken: account?.account.access_token,
+    refreshToken: account?.account.refresh_token || "",
+    expiresAt: account?.account.expires_at ?? null,
+    emailAccountId,
   });
   return gmail;
 }
@@ -55,7 +67,7 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
   return {
     accessToken: emailAccount?.account.access_token,
     refreshToken: emailAccount?.account.refresh_token,
-    expiryDate: emailAccount?.account.expires_at,
+    expiresAt: emailAccount?.account.expires_at,
   };
 }
 

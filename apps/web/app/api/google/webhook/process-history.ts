@@ -41,7 +41,6 @@ export async function processHistoryForUser(
           access_token: true,
           refresh_token: true,
           expires_at: true,
-          providerAccountId: true,
         },
       },
       rules: {
@@ -85,6 +84,7 @@ export async function processHistoryForUser(
       emailAccountId: emailAccount.id,
       accessToken: emailAccount.account?.access_token,
       refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
     });
     return NextResponse.json({ ok: true });
   }
@@ -104,6 +104,7 @@ export async function processHistoryForUser(
       emailAccountId: emailAccount.id,
       accessToken: emailAccount.account?.access_token,
       refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
     });
     return NextResponse.json({ ok: true });
   }
@@ -126,14 +127,12 @@ export async function processHistoryForUser(
   }
 
   try {
-    const gmail = await getGmailClientWithRefresh(
-      {
-        accessToken: emailAccount.account?.access_token,
-        refreshToken: emailAccount.account?.refresh_token,
-        expiryDate: emailAccount.account?.expires_at,
-      },
-      emailAccount.account?.providerAccountId,
-    );
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
+      emailAccountId: emailAccount.id,
+    });
 
     const startHistoryId =
       options?.startHistoryId ||

@@ -44,7 +44,6 @@ export async function getUserFromApiKey(secretKey: string) {
               access_token: true,
               refresh_token: true,
               expires_at: true,
-              providerAccountId: true,
             },
             where: { provider: "google" },
             take: 1,
@@ -75,14 +74,12 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   if (!account.access_token || !account.refresh_token || !account.expires_at)
     throw new SafeError("Missing access token", 401);
 
-  const gmail = await getGmailClientWithRefresh(
-    {
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiryDate: account.expires_at,
-    },
-    account.providerAccountId,
-  );
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: account.access_token,
+    refreshToken: account.refresh_token,
+    expiresAt: account.expires_at,
+    emailAccountId: account.id,
+  });
 
   return {
     gmail,

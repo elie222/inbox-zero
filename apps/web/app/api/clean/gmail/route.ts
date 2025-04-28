@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel, labelThread } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -38,7 +38,13 @@ async function performGmailAction({
   const account = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
-      account: { select: { access_token: true, refresh_token: true } },
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+        },
+      },
     },
   });
 
@@ -46,9 +52,11 @@ async function performGmailAction({
   if (!account.account?.access_token || !account.account?.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
-  const gmail = getGmailClient({
+  const gmail = await getGmailClientWithRefresh({
     accessToken: account.account.access_token,
     refreshToken: account.account.refresh_token,
+    expiresAt: account.account.expires_at,
+    emailAccountId,
   });
 
   const shouldArchive = markDone && action === CleanAction.ARCHIVE;

@@ -11,15 +11,13 @@ import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("user/delete");
 
-export async function deleteUser({
-  userId,
-}: {
-  userId: string;
-}) {
+export async function deleteUser({ userId }: { userId: string }) {
   const accounts = await prisma.account.findMany({
     where: { userId },
     select: {
       access_token: true,
+      refresh_token: true,
+      expires_at: true,
       emailAccount: { select: { id: true, email: true } },
     },
   });
@@ -31,6 +29,8 @@ export async function deleteUser({
       email: account.emailAccount.email,
       userId,
       accessToken: account.access_token,
+      refreshToken: account.refresh_token,
+      expiresAt: account.expires_at,
     });
   });
 
@@ -78,11 +78,15 @@ async function deleteResources({
   email,
   userId,
   accessToken,
+  refreshToken,
+  expiresAt,
 }: {
   emailAccountId: string;
   email: string;
   userId: string;
   accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null;
 }) {
   const resourcesPromise = Promise.allSettled([
     deleteUserLabels({ emailAccountId }),
@@ -94,7 +98,8 @@ async function deleteResources({
       ? unwatchEmails({
           emailAccountId,
           accessToken,
-          refreshToken: null,
+          refreshToken,
+          expiresAt,
         })
       : Promise.resolve(),
   ]);

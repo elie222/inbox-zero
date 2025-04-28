@@ -55,7 +55,6 @@ async function handleBatchInternal(request: Request) {
           access_token: true,
           refresh_token: true,
           expires_at: true,
-          providerAccountId: true,
         },
       },
     },
@@ -67,14 +66,12 @@ async function handleBatchInternal(request: Request) {
   if (!account.access_token || !account.refresh_token)
     throw new SafeError("No access or refresh token");
 
-  const gmail = await getGmailClientWithRefresh(
-    {
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiryDate: account.expires_at,
-    },
-    account.providerAccountId,
-  );
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: account.access_token,
+    refreshToken: account.refresh_token,
+    expiresAt: account.expires_at,
+    emailAccountId,
+  });
 
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
     new Map();

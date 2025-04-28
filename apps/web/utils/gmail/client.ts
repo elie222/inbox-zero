@@ -16,9 +16,17 @@ type AuthOptions = {
   accessToken?: string | null;
   refreshToken?: string | null;
   expiryDate?: number | null;
+  expiresAt?: number | null;
 };
 
-const getAuth = ({ accessToken, refreshToken, expiryDate }: AuthOptions) => {
+const getAuth = ({
+  accessToken,
+  refreshToken,
+  expiresAt,
+  ...rest
+}: AuthOptions) => {
+  const expiryDate = expiresAt ? expiresAt * 1000 : rest.expiryDate;
+
   const googleAuth = new auth.OAuth2({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -31,13 +39,6 @@ const getAuth = ({ accessToken, refreshToken, expiryDate }: AuthOptions) => {
   });
 
   return googleAuth;
-};
-
-// doesn't handle refreshing the access token
-export const getGmailClient = ({ accessToken, refreshToken }: AuthOptions) => {
-  // not passing in expiryDate, so it won't refresh the access token
-  const auth = getAuth({ accessToken, refreshToken });
-  return gmail({ version: "v1", auth });
 };
 
 // doesn't handle refreshing the access token
@@ -79,14 +80,22 @@ export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
 };
 
 // we should potentially use this everywhere instead of getGmailClient as this handles refreshing the access token and saving it to the db
-export const getGmailClientWithRefresh = async (
-  options: AuthOptions & { refreshToken: string; expiryDate?: number | null },
-  providerAccountId: string,
-): Promise<gmail_v1.Gmail> => {
-  const auth = getAuth(options);
+export const getGmailClientWithRefresh = async ({
+  accessToken,
+  refreshToken,
+  expiresAt,
+  emailAccountId,
+}: {
+  accessToken?: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null;
+  emailAccountId: string;
+}): Promise<gmail_v1.Gmail> => {
+  // we handle refresh ourselves so not passing in expiresAt
+  const auth = getAuth({ accessToken, refreshToken });
   const g = gmail({ version: "v1", auth });
 
-  const { expiryDate } = options;
+  const expiryDate = expiresAt ? expiresAt * 1000 : null;
   if (expiryDate && expiryDate > Date.now()) return g;
 
   // may throw `invalid_grant` error
@@ -94,19 +103,17 @@ export const getGmailClientWithRefresh = async (
     const tokens = await auth.refreshAccessToken();
     const newAccessToken = tokens.credentials.access_token;
 
-    if (newAccessToken !== options.accessToken) {
-      await saveTokens(
-        {
+    if (newAccessToken !== accessToken) {
+      await saveTokens({
+        tokens: {
           access_token: newAccessToken ?? undefined,
           expires_at: tokens.credentials.expiry_date
             ? Math.floor(tokens.credentials.expiry_date / 1000)
             : undefined,
         },
-        {
-          refresh_token: options.refreshToken,
-          providerAccountId,
-        },
-      );
+        accountRefreshToken: refreshToken,
+        emailAccountId,
+      });
     }
 
     return g;
