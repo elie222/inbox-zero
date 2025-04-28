@@ -128,7 +128,7 @@ model EmailAccount {
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   accountId String  @unique
-  account   Account @relation(fields: [accountId], references: [id])
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   labels         Label[]
   rules          Rule[]
