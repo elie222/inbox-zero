@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useHotkeys } from "react-hotkeys-hook";
@@ -24,7 +25,6 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -85,11 +85,11 @@ export function AccountSwitcherInternal({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <div className="flex aspect-square size-8 items-center justify-center">
-                <ProfileImage image={activeEmailAccount.user.image} />
+                <ProfileImage image={activeEmailAccount.image} />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-semibold">
-                  {activeEmailAccount.user.name}
+                  {activeEmailAccount.name || activeEmailAccount.email}
                 </span>
               </div>
               <ChevronsUpDown className="ml-auto" />
@@ -107,8 +107,10 @@ export function AccountSwitcherInternal({
             {emailAccounts.map((emailAccount, index) => (
               <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
                 <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
-                  <ProfileImage image={emailAccount.user.image} />
-                  <span className="truncate">{emailAccount.user.name}</span>
+                  <ProfileImage image={emailAccount.image} />
+                  <span className="truncate">
+                    {emailAccount.name || emailAccount.email}
+                  </span>
                   <DropdownMenuShortcut>
                     {modifierSymbol}
                     {index + 1}
@@ -117,7 +119,7 @@ export function AccountSwitcherInternal({
               </Link>
             ))}
             <DropdownMenuSeparator />
-            <Link href="/add-account">
+            <Link href="/account/add">
               <DropdownMenuItem className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Plus className="size-4" />

@@ -13,14 +13,35 @@ async function getEmailAccounts({ userId }: { userId: string }) {
       id: true,
       email: true,
       accountId: true,
-      user: { select: { name: true, image: true } },
+      name: true,
+      image: true,
+      user: {
+        select: {
+          name: true,
+          image: true,
+          email: true,
+        },
+      },
     },
     orderBy: {
-      email: "asc",
+      createdAt: "asc",
     },
   });
 
-  return { emailAccounts };
+  const accountsWithNames = emailAccounts.map((account) => {
+    // Old accounts don't have a name attached, so use the name from the user
+    if (account.user.email === account.email) {
+      return {
+        ...account,
+        name: account.name || account.user.name,
+        image: account.image || account.user.image,
+      };
+    }
+
+    return account;
+  });
+
+  return { emailAccounts: accountsWithNames };
 }
 
 export const GET = withAuth(async (request) => {
