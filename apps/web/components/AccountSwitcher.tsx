@@ -92,6 +92,11 @@ export function AccountSwitcherInternal({
                     <span className="truncate font-semibold">
                       {activeEmailAccount.name || activeEmailAccount.email}
                     </span>
+                    {activeEmailAccount.name && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {activeEmailAccount.email}
+                      </span>
+                    )}
                   </div>
                 </>
               ) : (
@@ -113,9 +118,16 @@ export function AccountSwitcherInternal({
               <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
                 <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
                   <ProfileImage image={emailAccount.image} />
-                  <span className="truncate">
-                    {emailAccount.name || emailAccount.email}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="truncate font-medium">
+                      {emailAccount.name || emailAccount.email}
+                    </span>
+                    {emailAccount.name && (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {emailAccount.email}
+                      </span>
+                    )}
+                  </div>
                   <DropdownMenuShortcut>
                     {modifierSymbol}
                     {index + 1}
