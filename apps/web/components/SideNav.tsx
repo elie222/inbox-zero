@@ -240,7 +240,7 @@ const bottomMailLinks: NavItem[] = [
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
-  const showMailNav = path === "/mail" || path === "/compose";
+  const showMailNav = path.includes("/mail") || path.includes("/compose");
 
   const visibleBottomLinks = useMemo(
     () =>
