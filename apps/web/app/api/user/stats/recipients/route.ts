@@ -3,11 +3,9 @@ import { z } from "zod";
 import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { parseMessage } from "@/utils/mail";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { extractDomainFromEmail } from "@/utils/email";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
 
 const recipientStatsQuery = z.object({
@@ -85,11 +83,8 @@ async function getMostSentTo({
   });
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  const emailAccountId = session?.user.email;
-  if (!emailAccountId) return NextResponse.json({ error: "Not authenticated" });
-
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
   const { searchParams } = new URL(request.url);
   const query = recipientStatsQuery.parse({
     fromDate: searchParams.get("fromDate"),

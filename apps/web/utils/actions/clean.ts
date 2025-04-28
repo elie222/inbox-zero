@@ -76,30 +76,20 @@ export const cleanInboxAction = actionClient
 
       // const getLabels = async (instructions?: string) => {
       //   if (!instructions) return [];
-
       //   let labels: { id: string; name: string }[] | undefined;
-
       //   const labelNames = await aiCleanSelectLabels({ user, instructions });
-
       //   if (labelNames) {
       //     const gmailLabels = await getOrCreateLabels({
       //       names: labelNames,
       //       gmail,
       //     });
-
       //     labels = gmailLabels
       //       .map((label) => ({
       //         id: label.id || "",
       //         name: label.name || "",
       //       }))
       //       .filter((label) => label.id && label.name);
-
-      //     logger.info("Selected labels", {
-      //       email: session?.user.email,
-      //       labels,
-      //     });
       //   }
-
       //   return labels;
       // };
 

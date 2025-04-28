@@ -19,7 +19,7 @@ export default async function AuthenticationPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const session = await auth();
-  if (session?.user.email && !searchParams?.error) {
+  if (session?.user && !searchParams?.error) {
     if (searchParams?.next) {
       redirect(searchParams?.next);
     } else {
@@ -50,7 +50,7 @@ export default async function AuthenticationPage(props: {
               description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
             />
             <Suspense>
-              <AutoLogOut loggedIn={!!session?.user.email} />
+              <AutoLogOut loggedIn={!!session?.user} />
             </Suspense>
           </>
         )}
