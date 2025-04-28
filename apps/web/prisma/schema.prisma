@@ -96,13 +96,16 @@ model User {
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  writingStyle String?
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name  String? // Name associated with the Google account
+  image String? // Profile image URL from the Google account
 
   about                     String?
+  writingStyle              String?
   signature                 String?
   watchEmailsExpirationDate DateTime?
   lastSyncedHistoryId       String?
