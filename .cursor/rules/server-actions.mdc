@@ -62,8 +62,6 @@ export const updateAiSettingsAction = actionClientUser
         where: { id: userId },
         data: { aiProvider, aiModel, aiApiKey },
       });
-      // Optional: Invalidate cache if needed
-      // revalidatePath("/settings");
     },
   );
 
@@ -84,8 +82,6 @@ export const updateEmailSettingsAction = actionClient
           summaryEmailFrequency,
         },
       });
-      // Optional: Invalidate cache if needed
-      // revalidatePath("/settings");
     },
   );
 
