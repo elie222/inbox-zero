@@ -6,6 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
 import { SafeError } from "@/utils/error";
+import { env } from "@/env";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
@@ -20,8 +21,10 @@ const baseClient = createSafeActionClient({
       metadata,
       ctx,
       bindArgsClientInputs,
-      error,
+      error: error.message,
     });
+    // Need a better way to handle this within logger itself
+    if (env.NODE_ENV !== "production") console.log("Error:", error);
     if (error instanceof SafeError) return error.message;
     return "An unknown error occurred.";
   },

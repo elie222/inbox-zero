@@ -1,7 +1,7 @@
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
-  getGmailAccessToken,
   getGmailClientWithRefresh,
+  getAccessTokenFromClient,
 } from "@/utils/gmail/client";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -28,8 +28,14 @@ export async function getGmailAndAccessTokenForEmail({
   emailAccountId: string;
 }) {
   const tokens = await getTokens({ emailAccountId });
-  const gmailAndAccessToken = await getGmailAccessToken(tokens);
-  return { ...gmailAndAccessToken, tokens };
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
+  const accessToken = getAccessTokenFromClient(gmail);
+  return { gmail, accessToken, tokens };
 }
 
 export async function getGmailClientForEmailId({

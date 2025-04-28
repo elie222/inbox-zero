@@ -5,11 +5,6 @@ import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 
-// TODO: this file needs some clean up
-// We're returning different clients and can run into situations with expired access tokens
-// Ideally we refresh access token when needed and store the new access token in the db
-// Also we shouldn't be instantiating multiple clients as they can hold different tokens, where we refresh the access token for one client but not for the other
-
 const logger = createScopedLogger("gmail/client");
 
 type AuthOptions = {
@@ -39,44 +34,6 @@ const getAuth = ({
   });
 
   return googleAuth;
-};
-
-// doesn't handle refreshing the access token
-export const getContactsClient = ({
-  accessToken,
-  refreshToken,
-}: AuthOptions) => {
-  const auth = getAuth({ accessToken, refreshToken });
-  const contacts = people({ version: "v1", auth });
-
-  return contacts;
-};
-
-// handles refreshing the access token if expired at is passed in, but doesn't save the new access token to the db
-export const getGmailAccessToken = async (options: AuthOptions) => {
-  const auth = getAuth(options);
-  const token = await auth.getAccessToken();
-  const g = gmail({ version: "v1", auth });
-
-  // TODO: save the new access token to the db
-  // if (token.token && token.token !== options.accessToken) {
-  //   await saveRefreshToken(
-  //     {
-  //       access_token: token.token,
-  //       expires_at: token.res?.data.expires_at,
-  //     },
-  //     { refresh_token: options.refreshToken },
-  //   );
-  // }
-
-  return { gmail: g, accessToken: token.token };
-};
-
-export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
-  const accessToken = (client.context._options.auth as any).credentials
-    .access_token;
-  if (!accessToken) throw new Error("No access token");
-  return accessToken;
 };
 
 // we should potentially use this everywhere instead of getGmailClient as this handles refreshing the access token and saving it to the db
@@ -118,7 +75,10 @@ export const getGmailClientWithRefresh = async ({
 
     return g;
   } catch (error) {
-    if (isInvalidGrantError(error)) {
+    const isInvalidGrantError =
+      error instanceof Error && error.message.includes("invalid_grant");
+
+    if (isInvalidGrantError) {
       logger.warn("Error refreshing Gmail access token", { error });
     }
 
@@ -126,6 +86,21 @@ export const getGmailClientWithRefresh = async ({
   }
 };
 
-const isInvalidGrantError = (error: unknown) => {
-  return error instanceof Error && error.message.includes("invalid_grant");
+// doesn't handle refreshing the access token
+// should probably use the same auth object as getGmailClientWithRefresh but not critical for now
+export const getContactsClient = ({
+  accessToken,
+  refreshToken,
+}: AuthOptions) => {
+  const auth = getAuth({ accessToken, refreshToken });
+  const contacts = people({ version: "v1", auth });
+
+  return contacts;
+};
+
+export const getAccessTokenFromClient = (client: gmail_v1.Gmail): string => {
+  const accessToken = (client.context._options.auth as any).credentials
+    .access_token;
+  if (!accessToken) throw new Error("No access token");
+  return accessToken;
 };
