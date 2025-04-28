@@ -23,6 +23,8 @@ export function AssessUser() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: only run once
   useEffect(() => {
+    if (!emailAccountId) return;
+
     async function assess() {
       const result = await executeAssessAsync();
       // no need to run this over and over after the first time
@@ -33,7 +35,7 @@ export function AssessUser() {
 
     assess();
     executeAnalyzeWritingStyle();
-  }, []);
+  }, [emailAccountId]);
 
   return null;
 }
