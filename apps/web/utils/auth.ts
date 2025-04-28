@@ -1,7 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
+import type { Prisma } from "@prisma/client";
 import type { NextAuthConfig, DefaultSession, Account } from "next-auth";
-import type { AdapterAccount } from "@auth/core/adapters";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
@@ -11,6 +11,7 @@ import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
+import { getContactsClient } from "@/utils/gmail/client";
 
 const logger = createScopedLogger("auth");
 
@@ -28,10 +29,12 @@ export const getAuthOptions: (options?: {
           scope: SCOPES.join(" "),
           access_type: "offline",
           response_type: "code",
+          prompt: "consent",
+          include_granted_scopes: true,
           // when we don't have the refresh token
           // refresh token is only provided on first sign up unless we pass prompt=consent
           // https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
-          ...(options?.consent ? { prompt: "consent" } : {}),
+          // ...(options?.consent ? { prompt: "consent" } : {}),
         },
       },
     }),
@@ -49,34 +52,103 @@ export const getAuthOptions: (options?: {
   // },
   adapter: {
     ...PrismaAdapter(prisma),
-    linkAccount: async (data: AdapterAccount): Promise<void> => {
+    linkAccount: async (data): Promise<void> => {
+      logger.info("[linkAccount] Received data:", {
+        provider: data.provider,
+        providerAccountId: data.providerAccountId,
+        userId: data.userId,
+      });
+      const { profile, ...accountData } = data;
+
+      let primaryEmail: string | null | undefined;
+      let primaryName: string | null | undefined;
+      let primaryPhotoUrl: string | null | undefined;
+
       try {
-        // --- Step 1: Create the Account record ---
+        // --- Step 1: Fetch Profile Info using Access Token ---
+        if (data.access_token) {
+          const contactsClient = getContactsClient({
+            accessToken: data.access_token,
+          });
+          try {
+            const profileResponse = await contactsClient.people.get({
+              resourceName: "people/me",
+              personFields: "emailAddresses,names,photos",
+            });
+            console.log(
+              "🚀 ~ linkAccount: ~ profileResponse:",
+              JSON.stringify(profileResponse.data, null, 2),
+            );
+            primaryEmail = profileResponse.data.emailAddresses?.find(
+              (e) => e.metadata?.primary,
+            )?.value;
+            console.log(
+              "🚀!!! ~ linkAccount: ~ profileResponse.data.emailAddresses:",
+              profileResponse.data.emailAddresses,
+            );
+            primaryName = profileResponse.data.names?.find(
+              (n) => n.metadata?.primary,
+            )?.displayName;
+            primaryPhotoUrl = profileResponse.data.photos?.find(
+              (p) => p.metadata?.primary,
+            )?.url;
+          } catch (profileError) {
+            logger.error("[linkAccount] Error fetching profile info:", {
+              profileError,
+            });
+            // Decide if this is fatal. Probably should be.
+            throw new Error(
+              "Failed to fetch profile info for linking account.",
+            );
+          }
+        } else {
+          logger.error(
+            "[linkAccount] No access_token found in data, cannot fetch profile.",
+          );
+          throw new Error("Missing access token during account linking.");
+        }
+
+        if (!primaryEmail) {
+          logger.error(
+            "[linkAccount] Primary email could not be determined from profile.",
+          );
+          throw new Error("Primary email not found for linked account.");
+        }
+
+        // --- Step 2: Create the Account record ---
         const createdAccount = await prisma.account.create({
-          data,
-          select: { id: true, user: { select: { email: true } } },
+          data: accountData,
+          select: { id: true, userId: true },
         });
 
-        // --- Step 2: Create the corresponding EmailAccount record ---
-        await prisma.emailAccount.upsert({
-          where: { email: createdAccount.user.email },
+        // --- Step 3: Create/Update the corresponding EmailAccount record ---
+        const userId = createdAccount.userId;
+        const emailAccountData: Prisma.EmailAccountUpsertArgs = {
+          where: { email: primaryEmail },
           update: {
-            userId: data.userId,
+            userId: userId,
             accountId: createdAccount.id,
+            name: primaryName,
+            image: primaryPhotoUrl,
           },
           create: {
-            email: createdAccount.user.email,
-            userId: data.userId,
+            email: primaryEmail,
+            userId: userId,
             accountId: createdAccount.id,
+            name: primaryName,
+            image: primaryPhotoUrl,
           },
-        });
+        };
+        await prisma.emailAccount.upsert(emailAccountData);
       } catch (error) {
-        logger.error("Error linking account", {
-          userId: data.userId,
+        logger.error("[linkAccount] Error during linking process:", {
+          userId: data?.userId,
           error,
         });
-        captureException(error, { extra: { userId: data.userId } });
-        throw error;
+        captureException(error, {
+          extra: { userId: data?.userId, location: "linkAccount" },
+        });
+        throw error; // Re-throw the error so NextAuth knows it failed
       }
     },
   },
