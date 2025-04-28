@@ -19,6 +19,7 @@ import { deleteEmailAccountAction } from "@/utils/actions/user";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { prefixPath } from "@/utils/path";
+import { AddAccount } from "@/app/(app)/accounts/AddAccount";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -87,6 +88,7 @@ export default function AccountsPage() {
               </CardContent>
             </Card>
           ))}
+          <AddAccount />
         </div>
       </LoadingContent>
     </div>

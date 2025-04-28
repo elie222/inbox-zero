@@ -124,7 +124,7 @@ export function AccountSwitcherInternal({
               </Link>
             ))}
             <DropdownMenuSeparator />
-            <Link href="/account/add">
+            <Link href="/accounts">
               <DropdownMenuItem className="gap-2 p-2">
                 <div className="flex size-6 items-center justify-center rounded-md border bg-background">
                   <Plus className="size-4" />
