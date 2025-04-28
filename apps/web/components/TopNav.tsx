@@ -22,31 +22,8 @@ import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-const userNavigation = [
-  { name: "Usage", href: "/usage", icon: BarChartIcon },
-  {
-    name: "Mail (Beta)",
-    href: "/mail",
-    icon: InboxIcon,
-  },
-  {
-    name: "Sender Categories",
-    href: "/smart-categories",
-    icon: TagIcon,
-  },
-  {
-    name: "Early Access",
-    href: "/early-access",
-    icon: RibbonIcon,
-  },
-  {
-    name: "Sign out",
-    href: "#",
-    icon: LogOutIcon,
-    onClick: () => logOut(window.location.origin),
-  },
-];
+import { prefixPath } from "@/utils/path";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
@@ -66,6 +43,32 @@ export function TopNav({ trigger }: { trigger: React.ReactNode }) {
 
 function ProfileDropdown() {
   const { data: session, status } = useSession();
+  const { emailAccountId } = useAccount();
+
+  const userNavigation = [
+    { name: "Usage", href: "/usage", icon: BarChartIcon },
+    {
+      name: "Mail (Beta)",
+      href: prefixPath(emailAccountId, "/mail"),
+      icon: InboxIcon,
+    },
+    {
+      name: "Sender Categories",
+      href: prefixPath(emailAccountId, "/smart-categories"),
+      icon: TagIcon,
+    },
+    {
+      name: "Early Access",
+      href: "/early-access",
+      icon: RibbonIcon,
+    },
+    {
+      name: "Sign out",
+      href: "#",
+      icon: LogOutIcon,
+      onClick: () => logOut(window.location.origin),
+    },
+  ];
 
   if (session?.user) {
     return (
