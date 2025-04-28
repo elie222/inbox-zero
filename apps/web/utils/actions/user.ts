@@ -133,17 +133,22 @@ export const deleteEmailAccountAction = actionClientUser
   .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId, userId },
-      select: { email: true, user: { select: { email: true } } },
+      select: {
+        email: true,
+        accountId: true,
+        user: { select: { email: true } },
+      },
     });
 
     if (!emailAccount) throw new SafeError("Email account not found");
+    if (!emailAccount.accountId) throw new SafeError("Account id not found");
 
     if (emailAccount.email === emailAccount.user.email)
       throw new SafeError(
         "Cannot delete primary email account. Go to the Settings page to delete your entire account.",
       );
 
-    await prisma.emailAccount.delete({
-      where: { id: emailAccountId, userId },
+    await prisma.account.delete({
+      where: { id: emailAccount.accountId, userId },
     });
   });
