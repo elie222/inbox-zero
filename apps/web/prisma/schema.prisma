@@ -91,6 +91,20 @@ model User {
 
   emailAccounts EmailAccount[]
 
+  labels            Label[]
+  rules             Rule[]
+  executedRules     ExecutedRule[]
+  newsletters       Newsletter[]
+  coldEmails        ColdEmail[]
+  groups            Group[]
+  categories        Category[]
+  threadTrackers    ThreadTracker[]
+  unsubscribeTokens EmailToken[]
+  cleanupJobs       CleanupJob[]
+  cleanupThreads    CleanupThread[]
+  emailMessages     EmailMessage[]
+  knowledges        Knowledge[]
+
   @@index([lastSummaryEmailAt])
 }
 
@@ -200,31 +214,39 @@ model VerificationToken {
 }
 
 model Label {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  gmailLabelId   String
-  name           String
-  description    String? // used in prompts
-  enabled        Boolean      @default(true)
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  gmailLabelId String
+  name         String
+  description  String? // used in prompts
+  enabled      Boolean  @default(true)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([gmailLabelId, emailAccountId])
   @@unique([name, emailAccountId])
 }
 
 model Rule {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  name           String
-  actions        Action[]
-  enabled        Boolean      @default(true)
-  automate       Boolean      @default(false) // if disabled, user must approve to execute
-  runOnThreads   Boolean      @default(false) // if disabled, only runs on individual emails
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  name         String
+  actions      Action[]
+  enabled      Boolean  @default(true)
+  automate     Boolean  @default(false) // if disabled, user must approve to execute
+  runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   executedRules ExecutedRule[]
 
@@ -290,8 +312,12 @@ model ExecutedRule {
   ruleId String?
   rule   Rule?   @relation(fields: [ruleId], references: [id])
 
+  // storing user here in case rule was deleted
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   actionItems ExecutedAction[]
 
@@ -329,15 +355,20 @@ model ExecutedAction {
 // "Name" is no longer in use although still required.
 // If we really wanted we could remove Group and just have a relation between Rule and GroupItem, but leaving as is for now.
 model Group {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  name           String
-  prompt         String?
-  items          GroupItem[]
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  prompt    String?
+
+  items GroupItem[]
+  rule  Rule?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  rule           Rule?
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([name, emailAccountId])
 }
@@ -355,13 +386,17 @@ model GroupItem {
 }
 
 model Category {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  name           String
-  description    String?
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  description String?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   emailSenders Newsletter[]
   rules        Rule[]
@@ -385,6 +420,9 @@ model Newsletter {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -405,6 +443,9 @@ model ColdEmail {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, fromEmail])
   @@index([emailAccountId, status])
@@ -429,6 +470,9 @@ model EmailMessage {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, threadId])
@@ -448,6 +492,9 @@ model ThreadTracker {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, resolved])
@@ -456,11 +503,11 @@ model ThreadTracker {
 }
 
 model CleanupJob {
-  id               String          @id @default(cuid())
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  action           CleanAction     @default(ARCHIVE)
-  daysOld          Int             @default(7)
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  action           CleanAction @default(ARCHIVE)
+  daysOld          Int         @default(7)
   instructions     String?
   skipReply        Boolean?
   skipStarred      Boolean?
@@ -468,21 +515,31 @@ model CleanupJob {
   skipReceipt      Boolean?
   skipAttachment   Boolean?
   skipConversation Boolean?
-  emailAccountId   String
-  emailAccount     EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  threads          CleanupThread[]
+
+  email          String // deprecated
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  threads CleanupThread[]
 }
 
 model CleanupThread {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  threadId       String
-  archived       Boolean // this can also mean "mark as read". depends on CleanupJob.action
-  jobId          String
-  job            CleanupJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  threadId  String
+  archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
+  jobId     String
+  job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
@@ -492,8 +549,11 @@ model Knowledge {
   title     String
   content   String
 
-  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id])
-  emailAccountId String?
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id])
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, title])
 }
@@ -513,13 +573,17 @@ model ApiKey {
 }
 
 model EmailToken {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  token          String       @unique
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  expiresAt DateTime
+  // action    EmailTokenAction @default(UNSUBSCRIBE)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  expiresAt      DateTime
-  // action    EmailTokenAction @default(UNSUBSCRIBE)
+  // remove after migration
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
