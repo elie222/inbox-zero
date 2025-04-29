@@ -65,9 +65,9 @@ model User {
   errorMessages             Json? // eg. user set incorrect AI API key
 
   // settings
-  aiProvider            String? // deprecated
-  aiModel               String? // deprecated
-  aiApiKey              String? // deprecated
+  aiProvider            String?
+  aiModel               String?
+  aiApiKey              String?
   statsEmailFrequency   Frequency         @default(WEEKLY) // deprecated
   summaryEmailFrequency Frequency         @default(WEEKLY) // deprecated
   lastSummaryEmailAt    DateTime? // deprecated

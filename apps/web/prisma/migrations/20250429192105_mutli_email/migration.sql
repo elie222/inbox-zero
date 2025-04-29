@@ -344,3 +344,25 @@ ALTER TABLE "Knowledge" ADD CONSTRAINT "Knowledge_emailAccountId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "EmailToken" ADD CONSTRAINT "EmailToken_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Data migration: Copy AI settings from EmailAccount back to User
+-- Strategy: Copy from the first EmailAccount created for each user.
+-- This will overwrite any existing values in User.aiProvider, User.aiModel, User.aiApiKey.
+WITH FirstEmailAccount AS (
+    SELECT
+        "userId",
+        "aiProvider",
+        "aiModel",
+        "aiApiKey",
+        ROW_NUMBER() OVER(PARTITION BY "userId" ORDER BY "createdAt" ASC) as rn
+    FROM "EmailAccount"
+    -- Only consider accounts where at least one setting might exist
+    WHERE "aiProvider" IS NOT NULL OR "aiModel" IS NOT NULL OR "aiApiKey" IS NOT NULL
+)
+UPDATE "User" u
+SET
+    "aiProvider" = fea."aiProvider",
+    "aiModel" = fea."aiModel",
+    "aiApiKey" = fea."aiApiKey"
+FROM FirstEmailAccount fea
+WHERE u.id = fea."userId" AND fea.rn = 1;
