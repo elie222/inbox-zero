@@ -75,13 +75,9 @@ export const decrementUnsubscribeCreditAction = actionClientUser
     }
   });
 
-const updateMultiAccountPremiumSchema = z.object({
-  emails: z.array(z.string()),
-});
-
 export const updateMultiAccountPremiumAction = actionClientUser
   .metadata({ name: "updateMultiAccountPremium" })
-  .schema(updateMultiAccountPremiumSchema)
+  .schema(z.object({ emails: z.array(z.string()) }))
   .action(async ({ ctx: { userId }, parsedInput: { emails } }) => {
     const user = await prisma.user.findUnique({
       where: { id: userId },

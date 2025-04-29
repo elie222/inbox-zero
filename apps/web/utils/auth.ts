@@ -1,7 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Prisma } from "@prisma/client";
-import type { NextAuthConfig, DefaultSession, Account } from "next-auth";
+import type { NextAuthConfig, DefaultSession } from "next-auth";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
@@ -13,6 +13,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
 import { getContactsClient } from "@/utils/gmail/client";
 import { encryptToken } from "@/utils/encryption";
+import { updateAccountSeats } from "@/utils/premium/server";
 
 const logger = createScopedLogger("auth");
 
@@ -133,6 +134,15 @@ export const getAuthOptions: (options?: {
           },
         };
         await prisma.emailAccount.upsert(emailAccountData);
+
+        // Handle premium account seats
+        await updateAccountSeats({ userId }).catch((error) => {
+          logger.error("[linkAccount] Error updating premium account seats:", {
+            userId: data?.userId,
+            error,
+          });
+          captureException(error, { extra: { userId: data?.userId } });
+        });
       } catch (error) {
         logger.error("[linkAccount] Error during linking process:", {
           userId: data?.userId,

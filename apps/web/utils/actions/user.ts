@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
@@ -12,6 +13,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
+import { updateAccountSeats } from "@/utils/premium/server";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -150,5 +152,9 @@ export const deleteEmailAccountAction = actionClientUser
 
     await prisma.account.delete({
       where: { id: emailAccount.accountId, userId },
+    });
+
+    after(async () => {
+      await updateAccountSeats({ userId });
     });
   });
