@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { checkPermissionsAction } from "@/utils/actions/permissions";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 const permissionsChecked: Record<string, boolean> = {};
 
@@ -17,9 +18,9 @@ export function PermissionsCheck() {
 
     checkPermissionsAction(emailAccountId).then((result) => {
       if (result?.data?.hasAllPermissions === false)
-        router.replace("/permissions/error");
+        router.replace(prefixPath(emailAccountId, "/permissions/error"));
       if (result?.data?.hasRefreshToken === false)
-        router.replace("/permissions/consent");
+        router.replace(prefixPath(emailAccountId, "/permissions/consent"));
     });
   }, [router, emailAccountId]);
 
