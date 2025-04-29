@@ -91,20 +91,6 @@ model User {
 
   emailAccounts EmailAccount[]
 
-  labels            Label[]
-  rules             Rule[]
-  executedRules     ExecutedRule[]
-  newsletters       Newsletter[]
-  coldEmails        ColdEmail[]
-  groups            Group[]
-  categories        Category[]
-  threadTrackers    ThreadTracker[]
-  unsubscribeTokens EmailToken[]
-  cleanupJobs       CleanupJob[]
-  cleanupThreads    CleanupThread[]
-  emailMessages     EmailMessage[]
-  knowledges        Knowledge[]
-
   @@index([lastSummaryEmailAt])
 }
 
@@ -224,9 +210,6 @@ model Label {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([gmailLabelId, emailAccountId])
   @@unique([name, emailAccountId])
@@ -244,9 +227,6 @@ model Rule {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   executedRules ExecutedRule[]
 
@@ -315,9 +295,6 @@ model ExecutedRule {
   // storing user here in case rule was deleted
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   actionItems ExecutedAction[]
 
@@ -366,9 +343,6 @@ model Group {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([name, emailAccountId])
 }
@@ -394,9 +368,6 @@ model Category {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   emailSenders Newsletter[]
   rules        Rule[]
@@ -420,9 +391,6 @@ model Newsletter {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
@@ -443,9 +411,6 @@ model ColdEmail {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, fromEmail])
   @@index([emailAccountId, status])
@@ -470,9 +435,6 @@ model EmailMessage {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, threadId])
@@ -492,9 +454,6 @@ model ThreadTracker {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, resolved])
@@ -519,9 +478,6 @@ model CleanupJob {
   email          String // deprecated
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   threads CleanupThread[]
 }
@@ -537,9 +493,6 @@ model CleanupThread {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
@@ -551,9 +504,6 @@ model Knowledge {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id])
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, title])
 }
@@ -581,9 +531,6 @@ model EmailToken {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  // remove after migration
-  userId         String
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
