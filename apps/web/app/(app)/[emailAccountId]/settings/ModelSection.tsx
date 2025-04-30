@@ -16,7 +16,12 @@ import {
 import { Select } from "@/components/Select";
 import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertBasic, AlertError } from "@/components/Alert";
-import { modelOptions, Provider, providerOptions } from "@/utils/llms/config";
+import {
+  DEFAULT_PROVIDER,
+  modelOptions,
+  Provider,
+  providerOptions,
+} from "@/utils/llms/config";
 import { useUser } from "@/hooks/useUser";
 import { updateAiSettingsAction } from "@/utils/actions/settings";
 
@@ -59,9 +64,9 @@ function getDefaultModel(aiProvider: string | null) {
 }
 
 function ModelSectionForm(props: {
-  aiProvider: string | null;
-  aiModel: string | null;
-  aiApiKey: string | null;
+  aiProvider: SaveAiSettingsBody["aiProvider"] | null;
+  aiModel: SaveAiSettingsBody["aiModel"] | null;
+  aiApiKey: SaveAiSettingsBody["aiApiKey"] | null;
   models?: OpenAiModelsResponse;
   refetchUser: () => void;
 }) {
@@ -76,7 +81,7 @@ function ModelSectionForm(props: {
   } = useForm<SaveAiSettingsBody>({
     resolver: zodResolver(saveAiSettingsBody),
     defaultValues: {
-      aiProvider: props.aiProvider ?? Provider.ANTHROPIC,
+      aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
       aiModel: props.aiModel ?? getDefaultModel(props.aiProvider),
       aiApiKey: props.aiApiKey ?? undefined,
     },
@@ -121,7 +126,7 @@ function ModelSectionForm(props: {
           label: m.id,
           value: m.id,
         })) || []
-      : modelOptions[aiProvider ?? Provider.ANTHROPIC];
+      : modelOptions[aiProvider];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -132,30 +137,34 @@ function ModelSectionForm(props: {
         error={errors.aiProvider}
       />
 
-      {modelSelectOptions.length ? (
-        <Select
-          label="Model"
-          options={modelSelectOptions}
-          {...register("aiModel")}
-          error={errors.aiModel}
-        />
-      ) : (
-        <Input
-          type="text"
-          name="aiModel"
-          label="Model"
-          registerProps={register("aiModel")}
-          error={errors.aiModel}
-        />
-      )}
+      {watch("aiProvider") !== DEFAULT_PROVIDER && (
+        <>
+          {modelSelectOptions.length ? (
+            <Select
+              label="Model"
+              options={modelSelectOptions}
+              {...register("aiModel")}
+              error={errors.aiModel}
+            />
+          ) : (
+            <Input
+              type="text"
+              name="aiModel"
+              label="Model"
+              registerProps={register("aiModel")}
+              error={errors.aiModel}
+            />
+          )}
 
-      <Input
-        type="password"
-        name="aiApiKey"
-        label="API Key"
-        registerProps={register("aiApiKey")}
-        error={errors.aiApiKey}
-      />
+          <Input
+            type="password"
+            name="aiApiKey"
+            label="API Key"
+            registerProps={register("aiApiKey")}
+            error={errors.aiApiKey}
+          />
+        </>
+      )}
 
       {globalError && (
         <AlertError title="Error saving" description={globalError.message} />

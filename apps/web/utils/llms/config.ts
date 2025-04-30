@@ -2,6 +2,8 @@ import { env } from "@/env";
 
 export const supportsOllama = !!env.NEXT_PUBLIC_OLLAMA_MODEL;
 
+export const DEFAULT_PROVIDER = "DEFAULT";
+
 export const Provider = {
   OPEN_AI: "openai",
   ANTHROPIC: "anthropic",

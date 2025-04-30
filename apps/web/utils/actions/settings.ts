@@ -5,6 +5,7 @@ import {
   saveAiSettingsBody,
   saveEmailUpdateSettingsBody,
 } from "@/utils/actions/settings.validation";
+import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 
 export const updateEmailSettingsAction = actionClient
@@ -35,7 +36,10 @@ export const updateAiSettingsAction = actionClientUser
     }) => {
       await prisma.user.update({
         where: { id: userId },
-        data: { aiProvider, aiModel, aiApiKey },
+        data:
+          aiProvider === DEFAULT_PROVIDER
+            ? { aiProvider: null, aiModel: null, aiApiKey: null }
+            : { aiProvider, aiModel, aiApiKey },
       });
     },
   );

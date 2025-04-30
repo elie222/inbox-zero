@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { Frequency } from "@prisma/client";
-import { Provider } from "@/utils/llms/config";
+import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 
 export const saveEmailUpdateSettingsBody = z.object({
   statsEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),
@@ -13,6 +13,7 @@ export type SaveEmailUpdateSettingsBody = z.infer<
 export const saveAiSettingsBody = z
   .object({
     aiProvider: z.enum([
+      DEFAULT_PROVIDER,
       Provider.ANTHROPIC,
       Provider.OPEN_AI,
       Provider.GOOGLE,
