@@ -9,6 +9,8 @@ import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/Multi
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
 import prisma from "@/utils/prisma";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TabsToolbar } from "@/components/TabsToolbar";
 
 export default async function SettingsPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -29,17 +31,34 @@ export default async function SettingsPage(props: {
   if (!user) return <p>Email account not found</p>;
 
   return (
-    <FormWrapper>
-      <AboutSection about={user.about} />
-      {/* this is only used in Gmail when sending a new message. disabling for now. */}
-      {/* <SignatureSectionForm signature={user.signature} /> */}
-      {/* <LabelsSection /> */}
-      <ModelSection />
-      <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
-      <MultiAccountSection />
-      <WebhookSection webhookSecret={user.webhookSecret} />
-      <ApiKeysSection />
-      <DeleteSection />
-    </FormWrapper>
+    <Tabs defaultValue="email-account">
+      <TabsToolbar>
+        <div className="w-full overflow-x-auto">
+          <TabsList>
+            <TabsTrigger value="email">Email</TabsTrigger>
+            <TabsTrigger value="user">User</TabsTrigger>
+          </TabsList>
+        </div>
+      </TabsToolbar>
+
+      <TabsContent value="email" className="content-container mb-10">
+        <FormWrapper>
+          <AboutSection about={user.about} />
+          {/* this is only used in Gmail when sending a new message. disabling for now. */}
+          {/* <SignatureSectionForm signature={user.signature} /> */}
+          {/* <LabelsSection /> */}
+          <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
+        </FormWrapper>
+      </TabsContent>
+      <TabsContent value="user">
+        <FormWrapper>
+          <ModelSection />
+          <MultiAccountSection />
+          <WebhookSection webhookSecret={user.webhookSecret} />
+          <ApiKeysSection />
+          <DeleteSection />
+        </FormWrapper>
+      </TabsContent>
+    </Tabs>
   );
 }
