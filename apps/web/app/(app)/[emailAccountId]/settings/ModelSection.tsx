@@ -58,7 +58,7 @@ export function ModelSection() {
 }
 
 function getDefaultModel(aiProvider: string | null) {
-  const provider = aiProvider || Provider.ANTHROPIC;
+  const provider = aiProvider || DEFAULT_PROVIDER;
   const models = modelOptions[provider];
   return models?.[0]?.value;
 }
@@ -94,7 +94,7 @@ function ModelSectionForm(props: {
 
     // if model not part of provider then switch to default model for provider
     if (
-      modelOptions[aiProvider].length &&
+      modelOptions[aiProvider]?.length &&
       !modelOptions[aiProvider].find((o) => o.value === aiModel)
     ) {
       setValue("aiModel", getDefaultModel(aiProvider));

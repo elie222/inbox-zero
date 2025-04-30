@@ -11,6 +11,7 @@ import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSec
 import prisma from "@/utils/prisma";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TabsToolbar } from "@/components/TabsToolbar";
+import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 
 export default async function SettingsPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -31,7 +32,7 @@ export default async function SettingsPage(props: {
   if (!user) return <p>Email account not found</p>;
 
   return (
-    <Tabs defaultValue="email-account">
+    <Tabs defaultValue="email">
       <TabsToolbar>
         <div className="w-full overflow-x-auto">
           <TabsList>
@@ -48,6 +49,7 @@ export default async function SettingsPage(props: {
           {/* <SignatureSectionForm signature={user.signature} /> */}
           {/* <LabelsSection /> */}
           <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
+          <ResetAnalyticsSection />
         </FormWrapper>
       </TabsContent>
       <TabsContent value="user">

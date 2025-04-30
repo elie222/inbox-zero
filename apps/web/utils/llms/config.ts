@@ -32,6 +32,7 @@ export const Model = {
 };
 
 export const providerOptions: { label: string; value: string }[] = [
+  { label: "Default", value: DEFAULT_PROVIDER },
   { label: "Anthropic", value: Provider.ANTHROPIC },
   { label: "OpenAI", value: Provider.OPEN_AI },
   { label: "Google", value: Provider.GOOGLE },
