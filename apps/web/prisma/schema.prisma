@@ -475,7 +475,7 @@ model CleanupJob {
   skipAttachment   Boolean?
   skipConversation Boolean?
 
-  email          String // deprecated
+  // email          String // deprecated
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
