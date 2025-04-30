@@ -16,6 +16,7 @@ const zodActionType = z.enum([
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.CALL_WEBHOOK,
+  ActionType.DIGEST,
   ActionType.MARK_READ,
   ActionType.TRACK_THREAD,
 ]);
@@ -72,6 +73,7 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
+    frequency: zodField,
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
@@ -93,6 +95,13 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please enter a webhook URL",
         path: ["url"],
+      });
+    }
+    if (data.type === ActionType.DIGEST && !data.frequency?.value?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Please enter how often you want to receive a digest email",
+        path: ["frequency"],
       });
     }
   });

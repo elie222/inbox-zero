@@ -39,7 +39,7 @@ import {
   type CreateRuleBody,
   createRuleBody,
 } from "@/utils/actions/rule.validation";
-import { actionInputs } from "@/utils/action-item";
+import { type ActionFieldName, actionInputs } from "@/utils/action-item";
 import { Select } from "@/components/Select";
 import { Toggle } from "@/components/Toggle";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -236,6 +236,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
+      { label: "Digest", value: ActionType.DIGEST },
       { label: "Track reply", value: ActionType.TRACK_THREAD },
     ];
   }, []);
@@ -855,7 +856,7 @@ function ActionField({
   emailAccountId,
 }: {
   field: {
-    name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
+    name: ActionFieldName;
     label: string;
     textArea?: boolean;
   };

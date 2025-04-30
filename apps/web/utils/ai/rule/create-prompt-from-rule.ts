@@ -81,6 +81,9 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
       case ActionType.CALL_WEBHOOK:
         if (action.url) actions.push(`call webhook at ${action.url}`);
         break;
+      case ActionType.DIGEST:
+        if (action.frequency) actions.push(`${action.frequency} digest`);
+        break;
       case ActionType.MARK_READ:
         actions.push("mark as read");
         break;

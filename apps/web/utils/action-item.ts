@@ -5,11 +5,21 @@ import {
   type Prisma,
 } from "@prisma/client";
 
+export type ActionFieldName =
+  | "label"
+  | "subject"
+  | "content"
+  | "to"
+  | "cc"
+  | "bcc"
+  | "url"
+  | "frequency";
+
 export const actionInputs: Record<
   ActionType,
   {
     fields: {
-      name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
+      name: ActionFieldName;
       label: string;
       textArea?: boolean;
     }[];
@@ -121,6 +131,14 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.DIGEST]: {
+    fields: [
+      {
+        name: "frequency",
+        label: "How often",
+      },
+    ],
+  },
   [ActionType.MARK_READ]: { fields: [] },
   [ActionType.TRACK_THREAD]: { fields: [] },
 };
@@ -148,9 +166,17 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   return res;
 }
 
-type ActionFieldsSelection = Pick<
+export type ActionFieldsSelection = Pick<
   Prisma.ActionCreateInput,
-  "type" | "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
+  | "type"
+  | "label"
+  | "subject"
+  | "content"
+  | "to"
+  | "cc"
+  | "bcc"
+  | "url"
+  | "frequency"
 >;
 
 export function sanitizeActionFields(
@@ -165,6 +191,7 @@ export function sanitizeActionFields(
     cc: null,
     bcc: null,
     url: null,
+    frequency: null,
   };
 
   switch (action.type) {
@@ -220,6 +247,12 @@ export function sanitizeActionFields(
       return {
         ...base,
         url: action.url ?? null,
+      };
+    }
+    case ActionType.DIGEST: {
+      return {
+        ...base,
+        frequency: action.frequency ?? null,
       };
     }
     default:

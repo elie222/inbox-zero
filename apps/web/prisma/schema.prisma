@@ -267,13 +267,14 @@ model Action {
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
   // Optional static fields to use for this action
-  label   String?
-  subject String?
-  content String?
-  to      String?
-  cc      String?
-  bcc     String?
-  url     String?
+  label     String?
+  subject   String?
+  content   String?
+  to        String?
+  cc        String?
+  bcc       String?
+  url       String?
+  frequency String?
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.
@@ -592,6 +593,7 @@ enum ActionType {
   // SNOOZE
   // ADD_TO_DO
   // INTEGRATION // for example, add to Notion
+  DIGEST
 }
 
 enum Frequency {

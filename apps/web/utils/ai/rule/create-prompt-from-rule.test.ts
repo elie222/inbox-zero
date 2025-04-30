@@ -83,6 +83,7 @@ describe("generatePromptFromRule", () => {
         { type: "DRAFT_EMAIL" } as Action,
         { type: "MARK_SPAM" } as Action,
         { type: "CALL_WEBHOOK", url: "https://example.com/webhook" } as Action,
+        { type: "DIGEST", frequency: "daily" } as Action,
       ],
     } as Rule & { actions: Action[] };
 

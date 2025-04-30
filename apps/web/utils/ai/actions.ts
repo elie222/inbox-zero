@@ -13,12 +13,13 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import type { Attachment } from "@/utils/types/mail";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
+import { addToDigest } from "@/utils/digest";
+// import type { Attachment } from "@/utils/types/mail";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -69,6 +70,8 @@ export const runActionFunction = async (options: {
       return mark_spam(opts);
     case ActionType.CALL_WEBHOOK:
       return call_webhook(opts);
+    case ActionType.DIGEST:
+      return add_to_digest(opts);
     case ActionType.MARK_READ:
       return mark_read(opts);
     case ActionType.TRACK_THREAD:
@@ -198,6 +201,17 @@ const call_webhook: ActionFunction<any> = async ({
       createdAt: executedRule.createdAt,
     },
   });
+};
+
+// args: { frequency: string },
+const add_to_digest: ActionFunction<any> = async ({
+  email,
+  args,
+  userEmail,
+  executedRule,
+  emailAccountId,
+}) => {
+  await addToDigest({ emailAccountId, email });
 };
 
 const mark_read: ActionFunction<any> = async ({ gmail, email }) => {
