@@ -41,7 +41,7 @@ export default function SettingsPage(_props: {
               {/* <SignatureSectionForm signature={user.signature} /> */}
               {/* <LabelsSection /> */}
               <EmailUpdatesSection
-                statsEmailFrequency={data?.statsEmailFrequency}
+                summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
               />
               <ResetAnalyticsSection />

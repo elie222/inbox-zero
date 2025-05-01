@@ -16,10 +16,10 @@ import { updateEmailSettingsAction } from "@/utils/actions/settings";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailUpdatesSection({
-  statsEmailFrequency,
+  summaryEmailFrequency,
   mutate,
 }: {
-  statsEmailFrequency: Frequency;
+  summaryEmailFrequency: Frequency;
   mutate: () => void;
 }) {
   return (
@@ -29,19 +29,19 @@ export function EmailUpdatesSection({
         description="Get a weekly digest of items that need your attention."
       />
 
-      <StatsUpdateSectionForm
-        statsEmailFrequency={statsEmailFrequency}
+      <SummaryUpdateSectionForm
+        summaryEmailFrequency={summaryEmailFrequency}
         mutate={mutate}
       />
     </FormSection>
   );
 }
 
-function StatsUpdateSectionForm({
-  statsEmailFrequency,
+function SummaryUpdateSectionForm({
+  summaryEmailFrequency,
   mutate,
 }: {
-  statsEmailFrequency: Frequency;
+  summaryEmailFrequency: Frequency;
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
@@ -52,7 +52,7 @@ function StatsUpdateSectionForm({
     formState: { errors, isSubmitting },
   } = useForm<SaveEmailUpdateSettingsBody>({
     resolver: zodResolver(saveEmailUpdateSettingsBody),
-    defaultValues: { statsEmailFrequency },
+    defaultValues: { summaryEmailFrequency },
   });
 
   const onSubmit: SubmitHandler<SaveEmailUpdateSettingsBody> = useCallback(
