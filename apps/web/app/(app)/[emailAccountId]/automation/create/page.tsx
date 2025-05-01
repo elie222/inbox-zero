@@ -121,7 +121,10 @@ export default function AutomationSettingsPage() {
                     <Link
                       key={example.title}
                       className="block w-full text-left"
-                      href={`/automation/rule/create?example=${i}`}
+                      href={prefixPath(
+                        emailAccountId,
+                        `/automation/rule/create?example=${i}`,
+                      )}
                     >
                       <AlertBasic
                         title={example.title}

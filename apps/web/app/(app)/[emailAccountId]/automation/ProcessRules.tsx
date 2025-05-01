@@ -222,6 +222,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     result={results[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
+                    emailAccountId={emailAccountId}
                   />
                 ))}
               </TableBody>
@@ -252,6 +253,7 @@ function ProcessRulesRow({
   result,
   onRun,
   testMode,
+  emailAccountId,
 }: {
   message: Message;
   userEmail: string;
@@ -259,6 +261,7 @@ function ProcessRulesRow({
   result: RunRulesResult;
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
+  emailAccountId: string;
 }) {
   return (
     <TableRow
@@ -284,7 +287,10 @@ function ProcessRulesRow({
                   {result.existing && (
                     <Badge color="yellow">Already processed</Badge>
                   )}
-                  <ProcessResultDisplay result={result} />
+                  <ProcessResultDisplay
+                    result={result}
+                    emailAccountId={emailAccountId}
+                  />
                 </div>
                 <ReportMistake
                   result={result}

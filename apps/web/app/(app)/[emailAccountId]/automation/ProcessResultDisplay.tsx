@@ -8,13 +8,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { isAIRule } from "@/utils/condition";
+import { prefixPath } from "@/utils/path";
 
 export function ProcessResultDisplay({
   result,
   prefix,
+  emailAccountId,
 }: {
   result: RunRulesResult;
   prefix?: string;
+  emailAccountId: string;
 }) {
   if (!result) return null;
 
@@ -84,7 +87,10 @@ export function ProcessResultDisplay({
           <AlertTitle className="flex items-center justify-between">
             Matched rule "{result.rule.name}"
             <Link
-              href={`/automation/rule/${result.rule.id}`}
+              href={prefixPath(
+                emailAccountId,
+                `/automation/rule/${result.rule.id}`,
+              )}
               target="_blank"
               className="ml-1.5"
             >

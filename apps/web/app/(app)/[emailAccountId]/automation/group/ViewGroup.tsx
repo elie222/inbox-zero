@@ -42,8 +42,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
   );
@@ -86,7 +88,10 @@ export function ViewGroup({ groupId }: { groupId: string }) {
               {!!group?.items.length && (
                 <Button variant="outline" size="sm" asChild>
                   <Link
-                    href={`/automation/group/${groupId}/examples`}
+                    href={prefixPath(
+                      emailAccountId,
+                      `/automation/group/${groupId}/examples`,
+                    )}
                     target="_blank"
                   >
                     <ExternalLinkIcon className="mr-2 size-4" />
@@ -295,7 +300,7 @@ function GroupItemList({
                   </div>
                 </div>
               </TableCell>
-              <TableCell className="py-2 text-right flex justify-end items-center gap-4">
+              <TableCell className="flex items-center justify-end gap-4 py-2 text-right">
                 <Tooltip content="Date added">
                   <span className="text-sm text-muted-foreground">
                     {formatShortDate(new Date(item.createdAt))}

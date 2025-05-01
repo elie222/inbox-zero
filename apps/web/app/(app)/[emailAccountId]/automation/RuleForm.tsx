@@ -737,22 +737,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <div className="flex justify-end space-x-2 py-6">
         {rule.id ? (
-          <>
-            {/* {!isAIRule(rule) && (
-              <Button variant="outline" asChild>
-                <Link href={`/automation/rule/${rule.id}/examples`}>
-                  View Examples
-                </Link>
-              </Button>
-            )} */}
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
-              Save
-            </Button>
-          </>
+          <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
+            Save
+          </Button>
         ) : (
           <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
             Create

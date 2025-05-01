@@ -62,7 +62,10 @@ export const TestCustomEmailForm = () => {
       </form>
       {testResult && (
         <div className="mt-4">
-          <ProcessResultDisplay result={testResult} />
+          <ProcessResultDisplay
+            result={testResult}
+            emailAccountId={emailAccountId}
+          />
         </div>
       )}
     </div>

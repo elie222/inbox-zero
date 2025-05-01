@@ -58,6 +58,7 @@ import type { CategoryWithRules } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { CategorySelect } from "@/components/CategorySelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 const COLUMNS = 4;
 
@@ -246,6 +247,7 @@ export function GroupedTable({
             return (
               <Fragment key={categoryName}>
                 <GroupRow
+                  emailAccountId={emailAccountId}
                   category={category}
                   count={senders.length}
                   isExpanded={!!isCategoryExpanded}
@@ -369,6 +371,7 @@ export function SendersTable({
 }
 
 function GroupRow({
+  emailAccountId,
   category,
   count,
   isExpanded,
@@ -377,6 +380,7 @@ function GroupRow({
   onEditCategory,
   onRemoveAllFromCategory,
 }: {
+  emailAccountId: string;
   category: CategoryWithRules;
   count: number;
   isExpanded: boolean;
@@ -427,7 +431,13 @@ function GroupRow({
           <div className="flex items-center gap-1">
             {category.rules.map((rule) => (
               <Button variant="outline" size="xs" asChild key={rule.id}>
-                <Link href={`/automation/rule/${rule.id}`} target="_blank">
+                <Link
+                  href={prefixPath(
+                    emailAccountId,
+                    `/automation/rule/${rule.id}`,
+                  )}
+                  target="_blank"
+                >
                   <FileCogIcon className="mr-1 size-4" />
                   <span>{rule.name || `Rule ${rule.id}`}</span>
                 </Link>
@@ -437,7 +447,10 @@ function GroupRow({
         ) : (
           <Button variant="outline" size="xs" asChild>
             <Link
-              href={`/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`}
+              href={prefixPath(
+                emailAccountId,
+                `/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`,
+              )}
               target="_blank"
             >
               <PlusIcon className="mr-2 size-4" />

@@ -1,6 +1,6 @@
 "use client";
-import { use } from "react";
 
+import { use } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import groupBy from "lodash/groupBy";
@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button";
 import { ExampleList } from "@/app/(app)/[emailAccountId]/automation/rule/[ruleId]/examples/example-list";
 import type { ExamplesResponse } from "@/app/api/user/rules/[id]/example/route";
 import { LoadingContent } from "@/components/LoadingContent";
-
-export const dynamic = "force-dynamic";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export default function RuleExamplesPage(props: {
   params: Promise<{ ruleId: string }>;
@@ -19,7 +19,7 @@ export default function RuleExamplesPage(props: {
   const { data, isLoading, error } = useSWR<ExamplesResponse>(
     `/api/user/rules/${params.ruleId}/example`,
   );
-
+  const { emailAccountId } = useAccount();
   const threads = groupBy(data, (m) => m.threadId);
   const groupedBySenders = groupBy(threads, (t) => t[0]?.headers.from);
 
@@ -41,7 +41,14 @@ export default function RuleExamplesPage(props: {
               </p>
             )}
             <Button className="mt-4" asChild>
-              <Link href={`/automation/rule/${params.ruleId}`}>View Rule</Link>
+              <Link
+                href={prefixPath(
+                  emailAccountId,
+                  `/automation/rule/${params.ruleId}`,
+                )}
+              >
+                View Rule
+              </Link>
             </Button>
           </>
         }

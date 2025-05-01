@@ -62,6 +62,7 @@ import { CategorySelect } from "@/components/CategorySelect";
 import { useModal } from "@/hooks/useModal";
 import { ConditionType } from "@/utils/config";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
 
@@ -220,6 +221,7 @@ function Content({
     return (
       <RuleMismatch
         result={result}
+        emailAccountId={emailAccountId}
         onSelectExpectedRuleId={onSelectExpectedRule}
         rules={rules}
       />
@@ -234,6 +236,7 @@ function Content({
     return (
       <ThreadSettingsMismatchMessage
         expectedRuleId={expectedRule.id}
+        emailAccountId={emailAccountId}
         onBack={onBack}
       />
     );
@@ -273,6 +276,7 @@ function Content({
   if (isExpectedStaticRule || isActualStaticRule) {
     return (
       <StaticMismatch
+        emailAccountId={emailAccountId}
         ruleId={expectedRule?.id || actualRule?.id!}
         isExpectedStaticRule={isExpectedStaticRule}
         onBack={onBack}
@@ -298,6 +302,7 @@ function Content({
   if (view === "ai-fix") {
     return (
       <AIFixView
+        emailAccountId={emailAccountId}
         loadingAiFix={isExecuting}
         fixedInstructions={fixedInstructions ?? null}
         fixedInstructionsRule={fixedInstructionsRule ?? null}
@@ -318,6 +323,7 @@ function Content({
         result={result}
         isTest={isTest}
         onBack={onBack}
+        emailAccountId={emailAccountId}
       />
     );
   }
@@ -327,6 +333,7 @@ function Content({
 }
 
 function AIFixView({
+  emailAccountId,
   loadingAiFix,
   fixedInstructions,
   fixedInstructionsRule,
@@ -335,6 +342,7 @@ function AIFixView({
   onBack,
   onReject,
 }: {
+  emailAccountId: string;
   loadingAiFix: boolean;
   fixedInstructions: {
     ruleId: string;
@@ -359,7 +367,10 @@ function AIFixView({
     <div className="space-y-2">
       {fixedInstructionsRule?.instructions ? (
         <div className="space-y-2">
-          <ProcessResultDisplay result={{ rule: fixedInstructionsRule }} />
+          <ProcessResultDisplay
+            result={{ rule: fixedInstructionsRule }}
+            emailAccountId={emailAccountId}
+          />
           <Instructions
             label="Original:"
             instructions={fixedInstructionsRule?.instructions}
@@ -388,10 +399,12 @@ function AIFixView({
 function RuleMismatch({
   result,
   rules,
+  emailAccountId,
   onSelectExpectedRuleId,
 }: {
   result: RunRulesResult | null;
   rules: RulesResponse;
+  emailAccountId: string;
   onSelectExpectedRuleId: (ruleId: string | null) => void;
 }) {
   return (
@@ -399,7 +412,10 @@ function RuleMismatch({
       <Label name="matchedRule" label="Matched:" />
       <div className="mt-1">
         {result ? (
-          <ProcessResultDisplay result={result} />
+          <ProcessResultDisplay
+            result={result}
+            emailAccountId={emailAccountId}
+          />
         ) : (
           <p>No rule matched</p>
         )}
@@ -420,9 +436,11 @@ function RuleMismatch({
 
 function ThreadSettingsMismatchMessage({
   expectedRuleId,
+  emailAccountId,
   onBack,
 }: {
   expectedRuleId: string;
+  emailAccountId: string;
   onBack: () => void;
 }) {
   return (
@@ -433,7 +451,10 @@ function ThreadSettingsMismatchMessage({
       </SectionDescription>
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={expectedRuleId} />
+        <EditRuleButton
+          ruleId={expectedRuleId}
+          emailAccountId={emailAccountId}
+        />
       </div>
     </div>
   );
@@ -506,7 +527,7 @@ function GroupMismatchAdd({
 
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={ruleId} />
+        <EditRuleButton ruleId={ruleId} emailAccountId={emailAccountId} />
       </div>
     </div>
   );
@@ -575,7 +596,7 @@ function GroupMismatchRemove({
 
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={ruleId} />
+        <EditRuleButton ruleId={ruleId} emailAccountId={emailAccountId} />
       </div>
     </div>
   );
@@ -629,7 +650,7 @@ function CategoryMismatch({
 
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={ruleId} />
+        <EditRuleButton ruleId={ruleId} emailAccountId={emailAccountId} />
       </div>
     </div>
   );
@@ -637,10 +658,12 @@ function CategoryMismatch({
 
 // TODO: Could auto fix the static rule for the user
 function StaticMismatch({
+  emailAccountId,
   ruleId,
   isExpectedStaticRule,
   onBack,
 }: {
+  emailAccountId: string;
   ruleId: string;
   isExpectedStaticRule: boolean;
   onBack: () => void;
@@ -656,7 +679,7 @@ function StaticMismatch({
       </SectionDescription>
       <div className="mt-2 flex gap-2">
         <BackButton onBack={onBack} />
-        <EditRuleButton ruleId={ruleId} />
+        <EditRuleButton ruleId={ruleId} emailAccountId={emailAccountId} />
       </div>
     </div>
   );
@@ -669,6 +692,7 @@ function ManualFixView({
   result,
   onBack,
   isTest,
+  emailAccountId,
 }: {
   actualRule?: Rule | null;
   expectedRule?: Rule | null;
@@ -676,17 +700,27 @@ function ManualFixView({
   result: RunRulesResult | null;
   onBack: () => void;
   isTest: boolean;
+  emailAccountId: string;
 }) {
   return (
     <>
       <>
-        {result && <ProcessResultDisplay result={result} prefix="Matched: " />}
+        {result && (
+          <ProcessResultDisplay
+            result={result}
+            prefix="Matched: "
+            emailAccountId={emailAccountId}
+          />
+        )}
         {actualRule && (
           <>
             {isAIRule(actualRule) ? (
               <RuleForm rule={actualRule} />
             ) : (
-              <EditRuleButton ruleId={actualRule.id} />
+              <EditRuleButton
+                ruleId={actualRule.id}
+                emailAccountId={emailAccountId}
+              />
             )}
             <Separator />
           </>
@@ -698,7 +732,10 @@ function ManualFixView({
           {isAIRule(expectedRule) ? (
             <RuleForm rule={expectedRule} />
           ) : (
-            <EditRuleButton ruleId={expectedRule.id} />
+            <EditRuleButton
+              ruleId={expectedRule.id}
+              emailAccountId={emailAccountId}
+            />
           )}
           <Separator />
         </>
@@ -976,17 +1013,20 @@ function RerunButton({
   const [result, setResult] = useState<RunRulesResult>();
 
   const { emailAccountId } = useAccount();
-  const { execute, isExecuting } = useAction(runRulesAction.bind(null, emailAccountId), {
-    onSuccess: (result) => {
-      setResult(result?.data);
+  const { execute, isExecuting } = useAction(
+    runRulesAction.bind(null, emailAccountId),
+    {
+      onSuccess: (result) => {
+        setResult(result?.data);
+      },
+      onError: (error) => {
+        toastError({
+          title: "There was an error testing the email",
+          description: error.error.serverError ?? "An error occurred",
+        });
+      },
     },
-    onError: (error) => {
-      toastError({
-        title: "There was an error testing the email",
-        description: error.error.serverError ?? "An error occurred",
-      });
-    },
-  });
+  );
 
   return (
     <>
@@ -1007,7 +1047,10 @@ function RerunButton({
       {result && (
         <div className="mt-2 flex items-center gap-2">
           <SectionDescription>Result:</SectionDescription>
-          <ProcessResultDisplay result={result} />
+          <ProcessResultDisplay
+            result={result}
+            emailAccountId={emailAccountId}
+          />
         </div>
       )}
     </>
@@ -1023,10 +1066,19 @@ function BackButton({ onBack }: { onBack: () => void }) {
   );
 }
 
-function EditRuleButton({ ruleId }: { ruleId: string }) {
+function EditRuleButton({
+  ruleId,
+  emailAccountId,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+}) {
   return (
     <Button variant="outline" size="sm" asChild>
-      <Link href={`/automation/rule/${ruleId}`} target="_blank">
+      <Link
+        href={prefixPath(emailAccountId, `/automation/rule/${ruleId}`)}
+        target="_blank"
+      >
         <ExternalLinkIcon className="mr-2 size-4" />
         Edit Rule
       </Link>

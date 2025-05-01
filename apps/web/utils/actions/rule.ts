@@ -41,6 +41,7 @@ import { RuleName } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -244,8 +245,8 @@ export const updateRuleAction = actionClient
           updatedRule,
         });
 
-        revalidatePath(`/automation/rule/${id}`);
-        revalidatePath("/automation");
+        revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+        revalidatePath(prefixPath(emailAccountId, "/automation"));
 
         return { rule: updatedRule };
       } catch (error) {
@@ -282,8 +283,8 @@ export const updateRuleInstructionsAction = actionClient
         currentRule,
       });
 
-      revalidatePath(`/automation/rule/${id}`);
-      revalidatePath("/automation");
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
     },
   );
 
@@ -302,9 +303,9 @@ export const updateRuleSettingsAction = actionClient
         data: { instructions },
       });
 
-      revalidatePath(`/automation/rule/${id}`);
-      revalidatePath("/automation");
-      revalidatePath("/reply-zero");
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
 
@@ -334,9 +335,9 @@ export const enableDraftRepliesAction = actionClient
       });
     }
 
-    revalidatePath(`/automation/rule/${rule.id}`);
-    revalidatePath("/automation");
-    revalidatePath("/reply-zero");
+    revalidatePath(prefixPath(emailAccountId, `/automation/rule/${rule.id}`));
+    revalidatePath(prefixPath(emailAccountId, "/automation"));
+    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
   });
 
 export const deleteRuleAction = actionClient

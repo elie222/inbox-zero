@@ -5,8 +5,11 @@ import Link from "next/link";
 import type { CleanHistoryResponse } from "@/app/api/clean/history/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { formatDateSimple } from "@/utils/date";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function CleanHistory() {
+  const { emailAccountId } = useAccount();
   const { data, error, isLoading } =
     useSWR<CleanHistoryResponse>("/api/clean/history");
 
@@ -16,7 +19,7 @@ export function CleanHistory() {
         <div className="space-y-2">
           {data.result.map((job) => (
             <Link
-              href={`/clean/run?jobId=${job.id}`}
+              href={prefixPath(emailAccountId, `/clean/run?jobId=${job.id}`)}
               key={job.id}
               className="block w-full cursor-pointer rounded-md border p-3 text-left transition-colors hover:bg-muted/50"
             >

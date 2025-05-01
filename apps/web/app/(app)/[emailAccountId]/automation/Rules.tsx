@@ -95,7 +95,13 @@ export function Rules() {
                       className={!rule.enabled ? "bg-muted opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
-                        <Link href={`/automation/rule/${rule.id}`}>
+                        <Link
+                          href={prefixPath(
+                            emailAccountId,
+                            `/automation/rule/${rule.id}`,
+                          )}
+                          className="flex items-center gap-2"
+                        >
                           {!rule.enabled && (
                             <Badge color="red" className="mr-2">
                               Disabled
@@ -104,7 +110,10 @@ export function Rules() {
                           {rule.name}
                           {!rule.automate && (
                             <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab.">
-                              <Badge color="yellow" className="ml-2">
+                              <Badge
+                                color="yellow"
+                                className="ml-auto text-nowrap"
+                              >
                                 Requires Approval
                               </Badge>
                             </Tooltip>
@@ -152,7 +161,12 @@ export function Rules() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
-                              <Link href={`/automation/rule/${rule.id}`}>
+                              <Link
+                                href={prefixPath(
+                                  emailAccountId,
+                                  `/automation/rule/${rule.id}`,
+                                )}
+                              >
                                 Edit
                               </Link>
                             </DropdownMenuItem>

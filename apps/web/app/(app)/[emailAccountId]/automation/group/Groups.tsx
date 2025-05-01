@@ -21,9 +21,12 @@ import {
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { Button } from "@/components/ui/button";
 import { ConditionType } from "@/utils/config";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function Groups() {
   const { data, isLoading, error } = useSWR<GroupsResponse>("/api/user/group");
+  const { emailAccountId } = useAccount();
 
   return (
     <Card>
@@ -41,7 +44,7 @@ export function Groups() {
       </CardHeader>
       <LoadingContent loading={isLoading} error={error}>
         {data?.groups.length ? (
-          <GroupTable groups={data.groups} />
+          <GroupTable groups={data.groups} emailAccountId={emailAccountId} />
         ) : (
           <div className="mx-2 mb-2">
             <AlertBasic
@@ -55,7 +58,13 @@ export function Groups() {
   );
 }
 
-function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
+function GroupTable({
+  groups,
+  emailAccountId,
+}: {
+  groups: GroupsResponse["groups"];
+  emailAccountId: string;
+}) {
   return (
     <Table>
       <TableHeader>
@@ -72,7 +81,10 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
             <TableRow key={group.id}>
               <TableCell className="font-medium">
                 <Link
-                  href={`/automation/group/${group.id}`}
+                  href={prefixPath(
+                    emailAccountId,
+                    `/automation/group/${group.id}`,
+                  )}
                   className="font-semibold"
                 >
                   {group.name}
@@ -84,7 +96,10 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
               <TableCell>
                 {group.rule ? (
                   <Link
-                    href={`/automation/rule/${group.rule.id}`}
+                    href={prefixPath(
+                      emailAccountId,
+                      `/automation/rule/${group.rule.id}`,
+                    )}
                     className="hover:underline"
                   >
                     {group.rule.name || `Rule ${group.rule.id}`}
@@ -92,7 +107,10 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
                 ) : (
                   <Button variant="outline" size="sm" asChild>
                     <Link
-                      href={`/automation/rule/create?groupId=${group.id}&type=${ConditionType.GROUP}`}
+                      href={prefixPath(
+                        emailAccountId,
+                        `/automation/rule/create?groupId=${group.id}&type=${ConditionType.GROUP}`,
+                      )}
                     >
                       Attach
                     </Link>
@@ -102,12 +120,24 @@ function GroupTable({ groups }: { groups: GroupsResponse["groups"] }) {
               <TableCell>
                 <div className="flex items-center justify-end gap-1">
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/automation/group/${group.id}/examples`}>
+                    <Link
+                      href={prefixPath(
+                        emailAccountId,
+                        `/automation/group/${group.id}/examples`,
+                      )}
+                    >
                       Matching Emails
                     </Link>
                   </Button>
                   <Button variant="outline" size="sm" asChild>
-                    <Link href={`/automation/group/${group.id}`}>View</Link>
+                    <Link
+                      href={prefixPath(
+                        emailAccountId,
+                        `/automation/group/${group.id}`,
+                      )}
+                    >
+                      View
+                    </Link>
                   </Button>
                 </div>
               </TableCell>
