@@ -111,8 +111,6 @@ export const createRuleAction = actionClient
 
         await updatePromptFileOnRuleCreated({ emailAccountId, rule });
 
-        revalidatePath("/automation");
-
         return { rule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
@@ -390,9 +388,7 @@ export const deleteRuleAction = actionClient
         where: { id: emailAccountId },
         data: { rulesPrompt: updatedPrompt },
       });
-
-      revalidatePath(`/automation/rule/${id}`);
-      revalidatePath("/automation");
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
     } catch (error) {
       if (isNotFoundError(error)) return;
       throw error;

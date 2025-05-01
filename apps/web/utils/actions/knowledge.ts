@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import {
   createKnowledgeBody,
@@ -21,8 +20,6 @@ export const createKnowledgeAction = actionClient
           emailAccountId,
         },
       });
-
-      revalidatePath("/automation");
     },
   );
 
@@ -38,8 +35,6 @@ export const updateKnowledgeAction = actionClient
         where: { id, emailAccountId },
         data: { title, content },
       });
-
-      revalidatePath("/automation");
     },
   );
 
@@ -50,6 +45,4 @@ export const deleteKnowledgeAction = actionClient
     await prisma.knowledge.delete({
       where: { id, emailAccountId },
     });
-
-    revalidatePath("/automation");
   });

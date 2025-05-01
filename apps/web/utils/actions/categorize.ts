@@ -24,6 +24,7 @@ import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-
 import { extractEmailAddress } from "@/utils/email";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("actions/categorize");
 
@@ -125,7 +126,7 @@ export const categorizeSenderAction = actionClient
         session.accessToken,
       );
 
-      revalidatePath("/smart-categories");
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
 
       return result;
     },
@@ -150,7 +151,7 @@ export const changeSenderCategoryAction = actionClient
         categoryId,
       });
 
-      revalidatePath("/smart-categories");
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
     },
   );
 
@@ -183,7 +184,7 @@ export const upsertDefaultCategoriesAction = actionClient
       }
     }
 
-    revalidatePath("/smart-categories");
+    revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
   });
 
 export const createCategoryAction = actionClient
@@ -196,7 +197,7 @@ export const createCategoryAction = actionClient
         newCategory: { name, description },
       });
 
-      revalidatePath("/smart-categories");
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
     },
   );
 
@@ -206,7 +207,7 @@ export const deleteCategoryAction = actionClient
   .action(async ({ ctx: { emailAccountId }, parsedInput: { categoryId } }) => {
     await deleteCategory({ emailAccountId, categoryId });
 
-    revalidatePath("/smart-categories");
+    revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
   });
 
 async function deleteCategory({
@@ -286,6 +287,6 @@ export const removeAllFromCategoryAction = actionClient
         data: { categoryId: null },
       });
 
-      revalidatePath("/smart-categories");
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
     },
   );

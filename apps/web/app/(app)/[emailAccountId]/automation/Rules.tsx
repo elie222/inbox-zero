@@ -46,6 +46,7 @@ import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/automation/Rule
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+
 export function Rules() {
   const { data, isLoading, error, mutate } = useRules();
 

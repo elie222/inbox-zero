@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import {
   addGroupItemBody,
@@ -52,8 +51,6 @@ export const addGroupItemAction = actionClient
         };
 
       await addGroupItem({ groupId, type, value });
-
-      revalidatePath("/automation");
     },
   );
 
@@ -62,6 +59,4 @@ export const deleteGroupItemAction = actionClient
   .schema(z.object({ id: z.string() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     await deleteGroupItem({ id, emailAccountId });
-
-    revalidatePath("/automation");
   });

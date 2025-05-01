@@ -8,6 +8,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 import { getAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import prisma from "@/utils/prisma";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
@@ -87,7 +88,7 @@ export async function processPreviousSentEmails({
         });
       }
 
-      revalidatePath("/reply-zero");
+      revalidatePath(prefixPath(emailAccount.id, "/reply-zero"));
     } catch (error) {
       logger.error("Error processing message for reply tracking", {
         ...loggerOptions,

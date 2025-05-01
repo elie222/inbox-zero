@@ -14,6 +14,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -22,7 +23,7 @@ export const enableReplyTrackerAction = actionClient
   .action(async ({ ctx: { emailAccountId } }) => {
     await enableReplyTracker({ emailAccountId });
 
-    revalidatePath("/reply-zero");
+    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
 
     return { success: true };
   });
@@ -68,7 +69,7 @@ export const resolveThreadTrackerAction = actionClient
         logger.error("Error stopping Reply Zero analysis", { error });
       });
 
-      revalidatePath("/reply-zero");
+      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
 
       return { success: true };
     },
