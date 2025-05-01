@@ -24,7 +24,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { ProfileImage } from "@/components/ProfileImage";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -86,7 +86,9 @@ export function AccountSwitcherInternal({
                   <div className="flex aspect-square size-8 items-center justify-center">
                     <ProfileImage
                       image={activeEmailAccount.image}
-                      email={activeEmailAccount.email}
+                      label={
+                        activeEmailAccount.name || activeEmailAccount.email
+                      }
                     />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
@@ -120,7 +122,7 @@ export function AccountSwitcherInternal({
                 <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
                   <ProfileImage
                     image={emailAccount.image}
-                    email={emailAccount.email}
+                    label={emailAccount.name || emailAccount.email}
                   />
                   <div className="flex flex-col">
                     <span className="truncate font-medium">
@@ -154,23 +156,6 @@ export function AccountSwitcherInternal({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
-}
-
-function ProfileImage({
-  image,
-  email = "",
-  size = 24,
-}: {
-  image: string | null;
-  email: string;
-  size?: number;
-}) {
-  return (
-    <Avatar>
-      <AvatarImage src={image || undefined} width={size} height={size} />
-      <AvatarFallback>{email.at(0)?.toUpperCase()}</AvatarFallback>
-    </Avatar>
   );
 }
 
