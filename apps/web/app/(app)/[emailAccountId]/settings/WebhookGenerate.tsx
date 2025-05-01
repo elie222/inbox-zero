@@ -6,7 +6,13 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 
-export function RegenerateSecretButton({ hasSecret }: { hasSecret: boolean }) {
+export function RegenerateSecretButton({
+  hasSecret,
+  mutate,
+}: {
+  hasSecret: boolean;
+  mutate: () => void;
+}) {
   const { emailAccountId } = useAccount();
   const { execute, isExecuting } = useAction(
     regenerateWebhookSecretAction.bind(null, emailAccountId),
@@ -22,6 +28,9 @@ export function RegenerateSecretButton({ hasSecret }: { hasSecret: boolean }) {
             error.error.serverError ??
             "An unknown error occurred while regenerating the webhook secret",
         });
+      },
+      onSettled: () => {
+        mutate();
       },
     },
   );

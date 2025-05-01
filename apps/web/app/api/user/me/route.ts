@@ -4,7 +4,6 @@ import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-// Should this path be renamed to email account instead of user?
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
 async function getUser({ userId }: { userId: string }) {
@@ -15,6 +14,7 @@ async function getUser({ userId }: { userId: string }) {
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
+      webhookSecret: true,
       premium: {
         select: {
           lemonSqueezyCustomerId: true,

@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import { actionClient } from "@/utils/actions/safe-action";
 
@@ -13,8 +12,6 @@ export const regenerateWebhookSecretAction = actionClient
       where: { id: emailAccountId },
       data: { webhookSecret },
     });
-
-    revalidatePath("/settings");
   });
 
 function generateWebhookSecret(length = 32) {

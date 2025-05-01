@@ -7,12 +7,10 @@ import { FormSection, FormSectionLeft } from "@/components/Form";
 import { deleteAccountAction } from "@/utils/actions/user";
 import { logOut } from "@/utils/user";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
-import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function DeleteSection() {
   const { onCancelLoadBatch } = useStatLoader();
 
-  const { emailAccountId } = useAccount();
   const { executeAsync: executeDeleteAccount } = useAction(
     deleteAccountAction.bind(null),
   );

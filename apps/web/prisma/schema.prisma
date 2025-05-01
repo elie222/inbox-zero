@@ -74,7 +74,7 @@ model User {
   coldEmailBlocker      ColdEmailSetting? // deprecated
   coldEmailPrompt       String? // deprecated
   rulesPrompt           String? // deprecated
-  webhookSecret         String? // deprecated
+  webhookSecret         String?
   outboundReplyTracking Boolean           @default(false) // deprecated
 
   // categorization
@@ -121,7 +121,7 @@ model EmailAccount {
   coldEmailBlocker      ColdEmailSetting?
   coldEmailPrompt       String?
   rulesPrompt           String?
-  webhookSecret         String?
+  webhookSecret         String? // deprecated
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
 

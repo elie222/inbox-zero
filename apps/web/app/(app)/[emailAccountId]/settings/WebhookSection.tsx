@@ -1,13 +1,15 @@
+"use client";
+
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { Card } from "@/components/ui/card";
 import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
+import { useUser } from "@/hooks/useUser";
+import { LoadingContent } from "@/components/LoadingContent";
 
-export async function WebhookSection({
-  webhookSecret,
-}: {
-  webhookSecret: string | null;
-}) {
+export function WebhookSection() {
+  const { data, isLoading, error, mutate } = useUser();
+
   return (
     <FormSection>
       <FormSectionLeft
@@ -17,11 +19,20 @@ export async function WebhookSection({
 
       <div className="col-span-2">
         <Card className="p-6">
-          <div className="space-y-4">
-            {!!webhookSecret && <CopyInput value={webhookSecret} />}
+          <LoadingContent loading={isLoading} error={error}>
+            {data && (
+              <div className="space-y-4">
+                {!!data.webhookSecret && (
+                  <CopyInput value={data.webhookSecret} />
+                )}
 
-            <RegenerateSecretButton hasSecret={!!webhookSecret} />
-          </div>
+                <RegenerateSecretButton
+                  hasSecret={!!data.webhookSecret}
+                  mutate={mutate}
+                />
+              </div>
+            )}
+          </LoadingContent>
         </Card>
       </div>
     </FormSection>

@@ -1,5 +1,7 @@
+"use client";
+
 import { FormWrapper } from "@/components/Form";
-import { AboutSection } from "@/app/(app)/[emailAccountId]/settings/AboutSection";
+import { AboutSectionForm } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
 // import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
 // import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
@@ -8,28 +10,16 @@ import { EmailUpdatesSection } from "@/app/(app)/[emailAccountId]/settings/Email
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
-import prisma from "@/utils/prisma";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import { LoadingContent } from "@/components/LoadingContent";
 
-export default async function SettingsPage(props: {
+export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const params = await props.params;
-  const emailAccountId = params.emailAccountId;
-
-  const user = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      about: true,
-      signature: true,
-      statsEmailFrequency: true,
-      webhookSecret: true,
-    },
-  });
-
-  if (!user) return <p>Email account not found</p>;
+  const { data, isLoading, error, mutate } = useEmailAccountFull();
 
   return (
     <Tabs defaultValue="email">
@@ -43,20 +33,27 @@ export default async function SettingsPage(props: {
       </TabsToolbar>
 
       <TabsContent value="email" className="content-container mb-10">
-        <FormWrapper>
-          <AboutSection about={user.about} />
-          {/* this is only used in Gmail when sending a new message. disabling for now. */}
-          {/* <SignatureSectionForm signature={user.signature} /> */}
-          {/* <LabelsSection /> */}
-          <EmailUpdatesSection statsEmailFrequency={user.statsEmailFrequency} />
-          <ResetAnalyticsSection />
-        </FormWrapper>
+        <LoadingContent loading={isLoading} error={error}>
+          {data && (
+            <FormWrapper>
+              <AboutSectionForm about={data?.about} mutate={mutate} />
+              {/* this is only used in Gmail when sending a new message. disabling for now. */}
+              {/* <SignatureSectionForm signature={user.signature} /> */}
+              {/* <LabelsSection /> */}
+              <EmailUpdatesSection
+                statsEmailFrequency={data?.statsEmailFrequency}
+                mutate={mutate}
+              />
+              <ResetAnalyticsSection />
+            </FormWrapper>
+          )}
+        </LoadingContent>
       </TabsContent>
       <TabsContent value="user">
         <FormWrapper>
           <ModelSection />
           <MultiAccountSection />
-          <WebhookSection webhookSecret={user.webhookSecret} />
+          <WebhookSection />
           <ApiKeysSection />
           <DeleteSection />
         </FormWrapper>

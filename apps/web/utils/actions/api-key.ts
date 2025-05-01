@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import {
   createApiKeyBody,
   deactivateApiKeyBody,
@@ -25,8 +24,6 @@ export const createApiKeyAction = actionClientUser
       },
     });
 
-    revalidatePath("/settings");
-
     return { secretKey };
   });
 
@@ -38,6 +35,4 @@ export const deactivateApiKeyAction = actionClientUser
       where: { id, userId },
       data: { isActive: false },
     });
-
-    revalidatePath("/settings");
   });

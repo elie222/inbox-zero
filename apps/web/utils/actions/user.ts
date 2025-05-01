@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
@@ -26,8 +25,6 @@ export const saveAboutAction = actionClient
       where: { id: emailAccountId },
       data: { about },
     });
-
-    revalidatePath("/settings");
   });
 
 const saveSignatureBody = z.object({ signature: z.string().max(2_000) });
@@ -41,8 +38,6 @@ export const saveSignatureAction = actionClient
       where: { id: emailAccountId },
       data: { signature },
     });
-
-    revalidatePath("/settings");
   });
 
 export const loadSignatureFromGmailAction = actionClient

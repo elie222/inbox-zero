@@ -14,7 +14,13 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError, toastSuccess } from "@/components/Toast";
 
-export const AboutSectionForm = ({ about }: { about: string | null }) => {
+export const AboutSectionForm = ({
+  about,
+  mutate,
+}: {
+  about: string | null;
+  mutate: () => void;
+}) => {
   const {
     register,
     formState: { errors },
@@ -39,6 +45,9 @@ export const AboutSectionForm = ({ about }: { about: string | null }) => {
             error.error.serverError ??
             "An unknown error occurred while updating your profile",
         });
+      },
+      onSettled: () => {
+        mutate();
       },
     },
   );

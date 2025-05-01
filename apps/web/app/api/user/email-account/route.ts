@@ -3,7 +3,6 @@ import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
-// Should this path be renamed to email account instead of user?
 export type EmailAccountFullResponse = Awaited<
   ReturnType<typeof getEmailAccount>
 > | null;

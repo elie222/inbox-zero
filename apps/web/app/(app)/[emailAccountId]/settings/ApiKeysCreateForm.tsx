@@ -26,7 +26,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { CopyInput } from "@/components/CopyInput";
 import { SectionDescription } from "@/components/Typography";
 
-export function ApiKeysCreateButtonModal() {
+export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -41,13 +41,13 @@ export function ApiKeysCreateButtonModal() {
           </DialogDescription>
         </DialogHeader>
 
-        <ApiKeysForm />
+        <ApiKeysForm mutate={mutate} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function ApiKeysForm() {
+function ApiKeysForm({ mutate }: { mutate: () => void }) {
   const [secretKey, setSecretKey] = useState("");
 
   const { execute, isExecuting } = useAction(createApiKeyAction, {
@@ -65,6 +65,9 @@ function ApiKeysForm() {
         description:
           `Failed to create API key. ${error.error.serverError || ""}`.trim(),
       });
+    },
+    onSettled: () => {
+      mutate();
     },
   });
 
@@ -102,7 +105,13 @@ function ApiKeysForm() {
   );
 }
 
-export function ApiKeysDeactivateButton({ id }: { id: string }) {
+export function ApiKeysDeactivateButton({
+  id,
+  mutate,
+}: {
+  id: string;
+  mutate: () => void;
+}) {
   const { execute, isExecuting } = useAction(deactivateApiKeyAction, {
     onSuccess: () => {
       toastSuccess({ description: "API key deactivated!" });
@@ -113,10 +122,18 @@ export function ApiKeysDeactivateButton({ id }: { id: string }) {
           `Failed to deactivate API key. ${error.error.serverError || ""}`.trim(),
       });
     },
+    onSettled: () => {
+      mutate();
+    },
   });
 
   return (
-    <Button variant="outline" size="sm" onClick={() => execute({ id })}>
+    <Button
+      variant="outline"
+      size="sm"
+      loading={isExecuting}
+      onClick={() => execute({ id })}
+    >
       Revoke
     </Button>
   );

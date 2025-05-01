@@ -1,6 +1,6 @@
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+"use client";
+
 import { FormSection, FormSectionLeft } from "@/components/Form";
-import prisma from "@/utils/prisma";
 import {
   Table,
   TableBody,
@@ -14,20 +14,11 @@ import {
   ApiKeysDeactivateButton,
 } from "@/app/(app)/[emailAccountId]/settings/ApiKeysCreateForm";
 import { Card } from "@/components/ui/card";
+import { useApiKeys } from "@/hooks/useApiKeys";
+import { LoadingContent } from "@/components/LoadingContent";
 
-export async function ApiKeysSection() {
-  const session = await auth();
-  const userId = session?.user.id;
-  if (!userId) throw new Error("Not authenticated");
-
-  const apiKeys = await prisma.apiKey.findMany({
-    where: { userId, isActive: true },
-    select: {
-      id: true,
-      name: true,
-      createdAt: true,
-    },
-  });
+export function ApiKeysSection() {
+  const { data, isLoading, error, mutate } = useApiKeys();
 
   return (
     <FormSection>
@@ -36,34 +27,39 @@ export async function ApiKeysSection() {
         description="Create an API key to access the Inbox Zero API. Do not share your API key with others, or expose it in the browser or other client-side code."
       />
 
-      <div className="col-span-2 space-y-4">
-        {apiKeys.length > 0 ? (
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {apiKeys.map((apiKey) => (
-                  <TableRow key={apiKey.id}>
-                    <TableCell>{apiKey.name}</TableCell>
-                    <TableCell>{apiKey.createdAt.toLocaleString()}</TableCell>
-                    <TableCell>
-                      <ApiKeysDeactivateButton id={apiKey.id} />
-                    </TableCell>
+      <LoadingContent loading={isLoading} error={error}>
+        <div className="col-span-2 space-y-4">
+          {data && data.apiKeys.length > 0 ? (
+            <Card>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead />
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        ) : null}
+                </TableHeader>
+                <TableBody>
+                  {data.apiKeys.map((apiKey) => (
+                    <TableRow key={apiKey.id}>
+                      <TableCell>{apiKey.name}</TableCell>
+                      <TableCell>{apiKey.createdAt.toLocaleString()}</TableCell>
+                      <TableCell>
+                        <ApiKeysDeactivateButton
+                          id={apiKey.id}
+                          mutate={mutate}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          ) : null}
 
-        <ApiKeysCreateButtonModal />
-      </div>
+          <ApiKeysCreateButtonModal mutate={mutate} />
+        </div>
+      </LoadingContent>
     </FormSection>
   );
 }

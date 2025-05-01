@@ -17,8 +17,10 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailUpdatesSection({
   statsEmailFrequency,
+  mutate,
 }: {
   statsEmailFrequency: Frequency;
+  mutate: () => void;
 }) {
   return (
     <FormSection id="email-updates">
@@ -27,12 +29,21 @@ export function EmailUpdatesSection({
         description="Get a weekly digest of items that need your attention."
       />
 
-      <StatsUpdateSectionForm statsEmailFrequency={statsEmailFrequency} />
+      <StatsUpdateSectionForm
+        statsEmailFrequency={statsEmailFrequency}
+        mutate={mutate}
+      />
     </FormSection>
   );
 }
 
-function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
+function StatsUpdateSectionForm({
+  statsEmailFrequency,
+  mutate,
+}: {
+  statsEmailFrequency: Frequency;
+  mutate: () => void;
+}) {
   const { emailAccountId } = useAccount();
 
   const {
@@ -41,9 +52,7 @@ function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
     formState: { errors, isSubmitting },
   } = useForm<SaveEmailUpdateSettingsBody>({
     resolver: zodResolver(saveEmailUpdateSettingsBody),
-    defaultValues: {
-      statsEmailFrequency: props.statsEmailFrequency,
-    },
+    defaultValues: { statsEmailFrequency },
   });
 
   const onSubmit: SubmitHandler<SaveEmailUpdateSettingsBody> = useCallback(
@@ -57,8 +66,10 @@ function StatsUpdateSectionForm(props: { statsEmailFrequency: Frequency }) {
       } else {
         toastSuccess({ description: "Settings updated!" });
       }
+
+      mutate();
     },
-    [emailAccountId],
+    [emailAccountId, mutate],
   );
 
   const options: { label: string; value: Frequency }[] = useMemo(
