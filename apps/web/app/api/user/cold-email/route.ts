@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { ColdEmailStatus } from "@prisma/client";
 
 const LIMIT = 50;
@@ -9,11 +8,14 @@ const LIMIT = 50;
 export type ColdEmailsResponse = Awaited<ReturnType<typeof getColdEmails>>;
 
 async function getColdEmails(
-  { userId, status }: { userId: string; status: ColdEmailStatus },
+  {
+    emailAccountId,
+    status,
+  }: { emailAccountId: string; status: ColdEmailStatus },
   page: number,
 ) {
   const where = {
-    userId,
+    emailAccountId,
     status,
   };
 
@@ -39,9 +41,8 @@ async function getColdEmails(
   return { coldEmails, totalPages: Math.ceil(count / LIMIT) };
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const url = new URL(request.url);
   const page = Number.parseInt(url.searchParams.get("page") || "1");
@@ -49,7 +50,7 @@ export const GET = withError(async (request) => {
     (url.searchParams.get("status") as ColdEmailStatus | undefined) ||
     ColdEmailStatus.AI_LABELED_COLD;
 
-  const result = await getColdEmails({ userId: session.user.id, status }, page);
+  const result = await getColdEmails({ emailAccountId, status }, page);
 
   return NextResponse.json(result);
 });
