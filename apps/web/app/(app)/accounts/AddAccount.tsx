@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import Image from "next/image";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function AddAccount() {
   const [isLoading, setIsLoading] = useState(false);
@@ -27,22 +28,28 @@ export function AddAccount() {
   return (
     <Card className="flex items-center justify-center">
       <CardContent className="flex flex-col items-center p-6">
-        <Button
-          onClick={handleConnectGoogle}
-          disabled={isLoading}
-          className="mt-auto"
-        >
-          <Image
-            src="/images/google.svg"
-            alt=""
-            width={24}
-            height={24}
-            unoptimized
-          />
-          <span className="ml-2">
-            {isLoading ? "Connecting..." : "Add Google Account"}
-          </span>
-        </Button>
+        <ConfirmDialog
+          trigger={
+            <Button disabled={isLoading} className="mt-auto">
+              <Image
+                src="/images/google.svg"
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+              />
+              <span className="ml-2">
+                {isLoading ? "Connecting..." : "Add Google Account"}
+              </span>
+            </Button>
+          }
+          title="Connect Account"
+          description="Note: If your email address is already connected to another user, you will not be able to connect it to this user. We will offer a way to merge accounts in the near future."
+          confirmText="Got it"
+          onConfirm={async () => {
+            handleConnectGoogle();
+          }}
+        />
       </CardContent>
     </Card>
   );
