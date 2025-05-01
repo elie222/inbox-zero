@@ -24,6 +24,8 @@ export default function LogInErrorPage() {
   }, [data, router]);
 
   if (isLoading) return <Loading />;
+  // will redirect to /welcome if user is logged in
+  if (data?.userId) return <Loading />;
 
   return (
     <BasicLayout>
