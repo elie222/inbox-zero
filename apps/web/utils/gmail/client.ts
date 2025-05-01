@@ -36,6 +36,14 @@ const getAuth = ({
   return googleAuth;
 };
 
+export function getLinkingOAuth2Client() {
+  return new auth.OAuth2({
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    redirectUri: `${env.NEXT_PUBLIC_BASE_URL}/api/google/linking/callback`,
+  });
+}
+
 // we should potentially use this everywhere instead of getGmailClient as this handles refreshing the access token and saving it to the db
 export const getGmailClientWithRefresh = async ({
   accessToken,
