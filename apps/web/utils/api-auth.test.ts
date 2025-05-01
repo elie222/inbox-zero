@@ -267,7 +267,6 @@ describe("api-auth", () => {
         accessToken: "access-token",
         refreshToken: "refresh-token",
         expiresAt: 1234567890,
-        emailAccountId: "google-account-id",
       });
     });
   });
