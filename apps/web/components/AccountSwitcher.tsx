@@ -3,7 +3,6 @@
 import { useMemo, useCallback } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { useHotkeys } from "react-hotkeys-hook";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
@@ -25,15 +24,14 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
 
-  return (
-    <AccountSwitcherInternal
-      emailAccounts={accountsData?.emailAccounts ?? []}
-    />
-  );
+  if (!accountsData) return null;
+
+  return <AccountSwitcherInternal emailAccounts={accountsData.emailAccounts} />;
 }
 
 export function AccountSwitcherInternal({
@@ -55,7 +53,7 @@ export function AccountSwitcherInternal({
 
   const getHref = useCallback(
     (emailAccountId: string) => {
-      if (!activeEmailAccountId) return `/${emailAccountId}`;
+      if (!activeEmailAccountId) return `/${emailAccountId}/setup`;
 
       const basePath = pathname.split("?")[0] || "/";
       const newBasePath = basePath.replace(
@@ -86,7 +84,10 @@ export function AccountSwitcherInternal({
               {activeEmailAccount ? (
                 <>
                   <div className="flex aspect-square size-8 items-center justify-center">
-                    <ProfileImage image={activeEmailAccount.image} />
+                    <ProfileImage
+                      image={activeEmailAccount.image}
+                      email={activeEmailAccount.email}
+                    />
                   </div>
                   <div className="grid flex-1 text-left text-sm leading-tight">
                     <span className="truncate font-semibold">
@@ -106,7 +107,7 @@ export function AccountSwitcherInternal({
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-[--radix-dropdown-menu-trigger-width] min-w-80 rounded-lg"
             align="start"
             side={isMobile ? "bottom" : "right"}
             sideOffset={4}
@@ -117,7 +118,10 @@ export function AccountSwitcherInternal({
             {emailAccounts.map((emailAccount, index) => (
               <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
                 <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
-                  <ProfileImage image={emailAccount.image} />
+                  <ProfileImage
+                    image={emailAccount.image}
+                    email={emailAccount.email}
+                  />
                   <div className="flex flex-col">
                     <span className="truncate font-medium">
                       {emailAccount.name || emailAccount.email}
@@ -155,21 +159,18 @@ export function AccountSwitcherInternal({
 
 function ProfileImage({
   image,
+  email = "",
   size = 24,
 }: {
   image: string | null;
+  email: string;
   size?: number;
 }) {
-  if (!image) return null;
-
   return (
-    <Image
-      width={size}
-      height={size}
-      className="rounded-full"
-      src={image}
-      alt=""
-    />
+    <Avatar>
+      <AvatarImage src={image || undefined} width={size} height={size} />
+      <AvatarFallback>{email.at(0)?.toUpperCase()}</AvatarFallback>
+    </Avatar>
   );
 }
 
