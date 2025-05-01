@@ -9,6 +9,7 @@ import { ErrorPage } from "@/components/ErrorPage";
 import { env } from "@/env";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
+import { Loading } from "@/components/Loading";
 
 export default function LogInErrorPage() {
   const { data, isLoading, error } = useUser();
@@ -18,9 +19,11 @@ export default function LogInErrorPage() {
   // This will redirect them out of this page to the app
   useEffect(() => {
     if (data?.userId) {
-      router.push("/setup");
+      router.push("/welcome");
     }
   }, [data, router]);
+
+  if (isLoading) return <Loading />;
 
   return (
     <BasicLayout>
