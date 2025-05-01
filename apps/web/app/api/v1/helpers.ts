@@ -27,8 +27,8 @@ export async function getEmailAccountId({
 
   if (!accountId) return undefined;
 
-  const emailAccount = await prisma.emailAccount.findFirst({
-    where: { accountId },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { accountId, userId },
     select: { email: true },
   });
 
