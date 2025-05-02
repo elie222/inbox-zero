@@ -24,7 +24,7 @@ export async function checkAndRedirectForUpgrade() {
   if (!user) redirect("/login");
 
   if (!isPremium(user.premium?.lemonSqueezyRenewsAt || null)) {
-    if (!user.completedAppOnboardingAt) redirect("/onboarding");
+    if (!user.completedAppOnboardingAt) redirect("/setup");
     else redirect("/welcome-upgrade");
   }
 }
