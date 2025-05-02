@@ -314,7 +314,6 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       userId: true,
       refresh_token: true,
       providerAccountId: true,
-      emailAccount: { select: { email: true } },
     },
   });
 
@@ -326,8 +325,8 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   if (!account?.refresh_token) {
     logger.error("No refresh token found in database", {
       email: token.email,
-      accountEmail: account.emailAccount?.email,
       userId: account.userId,
+      providerAccountId: account.providerAccountId,
     });
     return {
       ...token,
