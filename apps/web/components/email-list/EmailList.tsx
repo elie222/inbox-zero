@@ -225,6 +225,12 @@ export function EmailList({
               undefined,
               (threadId) => {
                 refetch({ removedThreadIds: [threadId] });
+                // Automatically select the next email in the list
+                const nextEmail =
+                  threads[threads.findIndex((t) => t.id === thread.id) + 1];
+                if (nextEmail) {
+                  setOpenThreadId(nextEmail.id);
+                }
                 resolve();
               },
               reject,
