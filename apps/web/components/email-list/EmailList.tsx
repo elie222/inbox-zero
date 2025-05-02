@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef, useState, useMemo, useEffect } from "react";
 import { useQueryState } from "nuqs";
 import countBy from "lodash/countBy";
 import { capitalCase } from "capital-case";
@@ -32,6 +32,7 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
 
 export function List({
   emails,
@@ -364,6 +365,71 @@ export function EmailList({
     );
   }, [selectedRows, refetch]);
 
+  // useEffect(() => {
+  //   function handleKeyDown(e: KeyboardEvent) {
+  //     if (
+  //       document.activeElement?.tagName === "INPUT" ||
+  //       document.activeElement?.tagName === "TEXTAREA"
+  //     )
+  //       return;
+
+  //     const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+
+  //     if (e.key === "ArrowDown") {
+  //       setFocusedIndex((prev) => Math.min(prev + 1, threads.length - 1));
+  //     }
+
+  //     if (e.key === "ArrowUp") {
+  //       setFocusedIndex((prev) => Math.max(prev - 1, 0));
+  //     }
+
+  //     if (e.key === "r" || e.key === "R") {
+  //       if (isCmdOrCtrl) {
+  //         e.preventDefault();
+  //       }
+  //       const thread = threads[focusedIndex];
+  //       if (thread) {
+  // setOpenThreadId(thread.id);
+  // markReadThreads([thread.id], () => refetch());
+  // scrollToId(thread.id);
+  //       }
+  //     }
+
+  //     if (e.key === "e" || e.key === "E") {
+  //       if (isCmdOrCtrl) {
+  //         e.preventDefault();
+  //       }
+  //       const thread = threads[focusedIndex];
+  //       if (thread) {
+  //         onArchive(thread);
+  //       }
+  //     }
+  //   }
+
+  //   window.addEventListener("keydown", handleKeyDown);
+  //   return () => window.removeEventListener("keydown", handleKeyDown);
+  // }, [threads, focusedIndex, setOpenThreadId, onArchive, refetch]);
+
+  // const [focusedIndex, setFocusedIndex] = useState(0);
+
+  const handleAction = useCallback(
+    async (index: number, action: "reply" | "archive") => {
+      const thread = threads[index];
+      if (!thread) return;
+
+      if (action === "reply") {
+        setOpenThreadId(thread.id);
+        markReadThreads([thread.id], () => refetch());
+        scrollToId(thread.id);
+      } else if (action === "archive") {
+        onArchive(thread);
+      }
+    },
+    [threads, setOpenThreadId],
+  );
+
+  const { selectedIndex } = useEmailListKeyboardNav(threads, handleAction);
+
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
       async () => {
@@ -443,7 +509,7 @@ export function EmailList({
               className="divide-y divide-border overflow-y-auto scroll-smooth"
               ref={listRef}
             >
-              {threads.map((thread) => {
+              {threads.map((thread, index) => {
                 const onOpen = () => {
                   const alreadyOpen = !!openThreadId;
                   setOpenThreadId(thread.id);
@@ -468,7 +534,7 @@ export function EmailList({
                     thread={thread}
                     opened={openThreadId === thread.id}
                     closePanel={closePanel}
-                    selected={selectedRows[thread.id]}
+                    selected={selectedIndex === index}
                     onSelected={onSetSelectedRow}
                     splitView={!!openThreadId}
                     onClick={onOpen}
@@ -524,6 +590,26 @@ export function EmailList({
       )}
     </>
   );
+}
+
+function useEmailListKeyboardNav(
+  items: { id: string }[],
+  onAction: (index: number, action: "reply" | "archive") => void,
+) {
+  const handleKeyAction = useCallback(
+    (index: number, key: string) => {
+      if (key === "r") onAction(index, "reply");
+      else if (key === "e") onAction(index, "archive");
+    },
+    [onAction],
+  );
+
+  const { selectedIndex, setSelectedIndex, getRefCallback } =
+    useTableKeyboardNavigation({
+      items,
+      onKeyAction: handleKeyAction,
+    });
+  return { selectedIndex, setSelectedIndex, getRefCallback };
 }
 
 function ResizeGroup({
