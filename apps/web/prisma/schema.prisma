@@ -166,6 +166,7 @@ model Premium {
   lemonSqueezyVariantId          Int?
   lemonLicenseKey                String?
   lemonLicenseInstanceId         String?
+  lemonSubscriptionStatus        String?
 
   tier PremiumTier?
 
