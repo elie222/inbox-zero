@@ -4,6 +4,7 @@ import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES } from "@/utils/gmail/scopes";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("gmail/client");
 
@@ -56,6 +57,8 @@ export const getGmailClientWithRefresh = async ({
   expiresAt: number | null;
   emailAccountId: string;
 }): Promise<gmail_v1.Gmail> => {
+  if (!refreshToken) throw new SafeError("No refresh token");
+
   // we handle refresh ourselves so not passing in expiresAt
   const auth = getAuth({ accessToken, refreshToken });
   const g = gmail({ version: "v1", auth });

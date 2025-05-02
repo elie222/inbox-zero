@@ -6,7 +6,10 @@ import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import {
+  EMAIL_ACCOUNT_HEADER,
+  NO_REFRESH_TOKEN_ERROR_CODE,
+} from "@/utils/config";
 
 const logger = createScopedLogger("middleware");
 
@@ -54,6 +57,19 @@ function withMiddleware<T extends NextRequest>(
       // Execute the handler with the (potentially) enhanced request
       return await handler(enhancedReq as T, context);
     } catch (error) {
+      if (error instanceof SafeError) {
+        if (error.message === "No refresh token") {
+          return NextResponse.json(
+            {
+              error: "Authorization required. Please grant permissions.",
+              errorCode: NO_REFRESH_TOKEN_ERROR_CODE,
+              isKnownError: true,
+            },
+            { status: 401 },
+          );
+        }
+      }
+
       if (error instanceof ZodError) {
         if (env.LOG_ZOD_ERRORS) {
           logger.error("Error for url", { error, url: req.url });

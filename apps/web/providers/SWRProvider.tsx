@@ -5,6 +5,8 @@ import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { prefixPath } from "@/utils/path";
+import { NO_REFRESH_TOKEN_ERROR_CODE } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
@@ -28,6 +30,16 @@ const fetcher = async (
 
   if (!res.ok) {
     const errorData = await res.json();
+
+    if (errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE) {
+      if (emailAccountId) {
+        console.log("Refresh token missing, redirecting to consent page...");
+        const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
+        window.location.href = redirectUrl;
+        return;
+      }
+    }
+
     const errorMessage =
       errorData.message || "An error occurred while fetching the data.";
     const error: Error & { info?: any; status?: number } = new Error(
