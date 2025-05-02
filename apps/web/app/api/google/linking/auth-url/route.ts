@@ -6,7 +6,7 @@ import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 
 export type GetAuthLinkUrlResponse = { url: string };
 
-export const getAuthUrl = ({ userId }: { userId: string }) => {
+const getAuthUrl = ({ userId }: { userId: string }) => {
   const googleAuth = getLinkingOAuth2Client();
 
   const stateObject = { userId, nonce: crypto.randomUUID() };
