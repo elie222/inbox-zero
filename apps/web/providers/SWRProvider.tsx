@@ -33,6 +33,16 @@ const fetcher = async (
 
     if (errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE) {
       if (emailAccountId) {
+        captureException(new Error("Refresh token missing"), {
+          extra: {
+            url,
+            status: res.status,
+            statusText: res.statusText,
+            responseBody: errorData,
+            emailAccountId,
+          },
+        });
+
         console.log("Refresh token missing, redirecting to consent page...");
         const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
         window.location.href = redirectUrl;
