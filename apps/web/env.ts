@@ -44,8 +44,12 @@ export const env = createEnv({
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
+    // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     LEMON_SQUEEZY_API_KEY: z.string().optional(),
+    // Stripe
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     TINYBIRD_ENCRYPT_SECRET: z.string().optional(),
