@@ -1,4 +1,5 @@
 name: Publish Docker Image
+run-name: Build and Publish Docker Image
 
 on:
   push:
