@@ -44,7 +44,7 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
     from: email.from,
-    emailAccountId: emailAccount.email,
+    emailAccountId: emailAccount.id,
   });
 
   if (isColdEmailer) {

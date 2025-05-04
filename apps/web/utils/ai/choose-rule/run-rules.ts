@@ -73,7 +73,7 @@ export async function runRules({
     );
   } else {
     await saveSkippedExecutedRule({
-      emailAccountId: emailAccount.email,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       reason: result.reason,
