@@ -252,12 +252,15 @@ export const changePremiumStatusAction = adminActionClient
         upgrade,
       },
     }) => {
-      const userToUpgrade = await prisma.user.findUnique({
+      const userToUpgrade = await prisma.emailAccount.findUnique({
         where: { email },
-        select: { id: true, premiumId: true },
+        select: {
+          id: true,
+          user: { select: { id: true, premiumId: true } },
+        },
       });
 
-      if (!userToUpgrade) throw new SafeError("User not found");
+      if (!userToUpgrade?.user) throw new SafeError("User not found");
 
       let lemonSqueezySubscriptionId: number | null = null;
       let lemonSqueezySubscriptionItemId: number | null = null;
@@ -304,7 +307,7 @@ export const changePremiumStatusAction = adminActionClient
         };
 
         await upgradeToPremium({
-          userId: userToUpgrade.id,
+          userId: userToUpgrade.user.id,
           tier: period,
           lemonSqueezyCustomerId: lemonSqueezyCustomerId || null,
           lemonSqueezySubscriptionId,
@@ -315,16 +318,14 @@ export const changePremiumStatusAction = adminActionClient
           lemonSqueezyRenewsAt: getRenewsAt(period),
           emailAccountsAccess,
         });
-      } else if (userToUpgrade) {
-        if (userToUpgrade.premiumId) {
-          await cancelPremium({
-            premiumId: userToUpgrade.premiumId,
-            lemonSqueezyEndsAt: new Date(),
-            expired: true,
-          });
-        } else {
-          throw new SafeError("User not premium.");
-        }
+      } else if (userToUpgrade.user.premiumId) {
+        await cancelPremium({
+          premiumId: userToUpgrade.user.premiumId,
+          lemonSqueezyEndsAt: new Date(),
+          expired: true,
+        });
+      } else {
+        throw new SafeError("User not premium.");
       }
     },
   );
