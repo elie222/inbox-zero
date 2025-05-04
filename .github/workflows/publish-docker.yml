@@ -23,7 +23,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/vishalmakwana111/inbox-zero
+          images: ghcr.io/${{ github.repository_owner }}/inbox-zero
           tags: |
             # Push main branch commits as latest
             type=raw,value=latest,enable={{is_default_branch}}
