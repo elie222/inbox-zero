@@ -1,13 +1,17 @@
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 
-export function getUser() {
+export function getEmailAccount(): EmailAccountWithAI {
   return {
+    id: "email-account-id",
     userId: "user1",
     email: "user@test.com",
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
     about: null,
+    user: {
+      aiModel: null,
+      aiProvider: null,
+      aiApiKey: null,
+    },
   };
 }
 

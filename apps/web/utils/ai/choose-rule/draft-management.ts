@@ -14,7 +14,7 @@ export async function handlePreviousDraftDeletion({
   logger,
 }: {
   gmail: gmail_v1.Gmail;
-  executedRule: Pick<ExecutedRule, "id" | "threadId" | "userId">;
+  executedRule: Pick<ExecutedRule, "id" | "threadId" | "emailAccountId">;
   logger: Logger;
 }) {
   try {
@@ -23,7 +23,7 @@ export async function handlePreviousDraftDeletion({
       where: {
         executedRule: {
           threadId: executedRule.threadId, // Match threadId
-          userId: executedRule.userId, // Match userId for safety
+          emailAccountId: executedRule.emailAccountId, // Match emailAccountId for safety
         },
         type: ActionType.DRAFT_EMAIL,
         draftId: { not: null }, // Ensure it has a draftId

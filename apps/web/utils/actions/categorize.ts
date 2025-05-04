@@ -1,21 +1,19 @@
 "use server";
 
+import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import {
   type CreateCategoryBody,
   createCategoryBody,
 } from "@/utils/actions/categorize.validation";
-import { getSessionAndGmailClient } from "@/utils/actions/helpers";
 import prisma, { isDuplicateError } from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { defaultCategory } from "@/utils/categories";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import {
   categorizeSender,
   updateCategoryForSender,
 } from "@/utils/categorize/senders/categorize";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
-import { isActionError } from "@/utils/error";
+import { SafeError } from "@/utils/error";
 import {
   deleteEmptyCategorizeSendersQueues,
   publishToAiCategorizeSendersQueue,
@@ -24,32 +22,30 @@ import { createScopedLogger } from "@/utils/logger";
 import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progress";
 import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
 import { extractEmailAddress } from "@/utils/email";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("actions/categorize");
 
-export const bulkCategorizeSendersAction = withActionInstrumentation(
-  "bulkCategorizeSenders",
-  async () => {
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-    const { user } = sessionResult;
-
-    const userResult = await validateUserAndAiAccess({ email: user.email });
-    if (isActionError(userResult)) return userResult;
+export const bulkCategorizeSendersAction = actionClient
+  .metadata({ name: "bulkCategorizeSenders" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    await validateUserAndAiAccess({ emailAccountId });
 
     // Delete empty queues as Qstash has a limit on how many queues we can have
     // We could run this in a cron too but simplest to do here for now
-    deleteEmptyCategorizeSendersQueues({ skipEmail: user.email }).catch(
-      (error) => {
-        logger.error("Error deleting empty queues", { error });
-      },
-    );
+    deleteEmptyCategorizeSendersQueues({
+      skipEmailAccountId: emailAccountId,
+    }).catch((error) => {
+      logger.error("Error deleting empty queues", { error });
+    });
 
     const LIMIT = 100;
 
     async function getUncategorizedSenders(offset: number) {
       const result = await getSenders({
-        userId: user.id,
+        emailAccountId,
         limit: LIMIT,
         offset,
       });
@@ -59,7 +55,7 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       const existingSenders = await prisma.newsletter.findMany({
         where: {
           email: { in: allSenders },
-          userId: user.id,
+          emailAccountId,
           category: { isNot: null },
         },
         select: { email: true },
@@ -78,7 +74,7 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       const newUncategorizedSenders = await getUncategorizedSenders(i * LIMIT);
 
       logger.trace("Got uncategorized senders", {
-        userId: user.id,
+        emailAccountId,
         uncategorizedSenders: newUncategorizedSenders.length,
       });
 
@@ -87,13 +83,13 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
       totalUncategorizedSenders += newUncategorizedSenders.length;
 
       await saveCategorizationTotalItems({
-        email: user.email,
+        emailAccountId,
         totalItems: totalUncategorizedSenders,
       });
 
       // publish to qstash
       await publishToAiCategorizeSendersQueue({
-        email: user.email,
+        emailAccountId,
         senders: uncategorizedSenders,
       });
 
@@ -101,119 +97,142 @@ export const bulkCategorizeSendersAction = withActionInstrumentation(
     }
 
     logger.info("Queued senders for categorization", {
-      userId: user.id,
+      emailAccountId,
       totalUncategorizedSenders,
     });
 
     return { totalUncategorizedSenders };
-  },
-);
+  });
 
-export const categorizeSenderAction = withActionInstrumentation(
-  "categorizeSender",
-  async (senderAddress: string) => {
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-    const { gmail, user: u, session } = sessionResult;
+export const categorizeSenderAction = actionClient
+  .metadata({ name: "categorizeSender" })
+  .schema(z.object({ senderAddress: z.string() }))
+  .action(
+    async ({
+      ctx: { emailAccountId, session },
+      parsedInput: { senderAddress },
+    }) => {
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    if (!session.accessToken) return { error: "No access token" };
+      const userResult = await validateUserAndAiAccess({ emailAccountId });
+      const { emailAccount } = userResult;
 
-    const userResult = await validateUserAndAiAccess({ email: u.email });
-    if (isActionError(userResult)) return userResult;
-    const { emailAccount } = userResult;
+      if (!session.accessToken) throw new SafeError("No access token");
 
-    const result = await categorizeSender(
-      senderAddress,
-      emailAccount,
-      gmail,
-      session.accessToken,
-    );
+      const result = await categorizeSender(
+        senderAddress,
+        emailAccount,
+        gmail,
+        session.accessToken,
+      );
 
-    revalidatePath("/smart-categories");
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
 
-    return result;
-  },
-);
+      return result;
+    },
+  );
 
-export const changeSenderCategoryAction = withActionInstrumentation(
-  "changeSenderCategory",
-  async ({ sender, categoryId }: { sender: string; categoryId: string }) => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+export const changeSenderCategoryAction = actionClient
+  .metadata({ name: "changeSenderCategory" })
+  .schema(z.object({ sender: z.string(), categoryId: z.string() }))
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { sender, categoryId },
+    }) => {
+      const category = await prisma.category.findUnique({
+        where: { id: categoryId, emailAccountId },
+      });
+      if (!category) throw new SafeError("Category not found");
 
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId, userId: session.user.id },
-    });
-    if (!category) return { error: "Category not found" };
+      await updateCategoryForSender({
+        emailAccountId,
+        sender,
+        categoryId,
+      });
 
-    await updateCategoryForSender({
-      userId: session.user.id,
-      sender,
-      categoryId,
-    });
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
+    },
+  );
 
-    revalidatePath("/smart-categories");
-  },
-);
-
-export const upsertDefaultCategoriesAction = withActionInstrumentation(
-  "upsertDefaultCategories",
-  async (categories: { id?: string; name: string; enabled: boolean }[]) => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
-
+export const upsertDefaultCategoriesAction = actionClient
+  .metadata({ name: "upsertDefaultCategories" })
+  .schema(
+    z.object({
+      categories: z.array(
+        z.object({
+          id: z.string().optional(),
+          name: z.string(),
+          enabled: z.boolean(),
+        }),
+      ),
+    }),
+  )
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { categories } }) => {
     for (const { id, name, enabled } of categories) {
       const description = Object.values(defaultCategory).find(
         (c) => c.name === name,
       )?.description;
 
       if (enabled) {
-        await upsertCategory(session.user.id, { name, description });
+        await upsertCategory({
+          emailAccountId,
+          newCategory: { name, description },
+        });
       } else {
-        if (id) await deleteCategory(session.user.id, id);
+        if (id) await deleteCategory({ emailAccountId, categoryId: id });
       }
     }
 
-    revalidatePath("/smart-categories");
-  },
-);
+    revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
+  });
 
-export const createCategoryAction = withActionInstrumentation(
-  "createCategory",
-  async (unsafeData: CreateCategoryBody) => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
+export const createCategoryAction = actionClient
+  .metadata({ name: "createCategory" })
+  .schema(createCategoryBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
+      await upsertCategory({
+        emailAccountId,
+        newCategory: { name, description },
+      });
 
-    const { success, data, error } = createCategoryBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
+    },
+  );
 
-    await upsertCategory(session.user.id, data);
+export const deleteCategoryAction = actionClient
+  .metadata({ name: "deleteCategory" })
+  .schema(z.object({ categoryId: z.string() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { categoryId } }) => {
+    await deleteCategory({ emailAccountId, categoryId });
 
-    revalidatePath("/smart-categories");
-  },
-);
+    revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
+  });
 
-export const deleteCategoryAction = withActionInstrumentation(
-  "deleteCategory",
-  async (categoryId: string) => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
-
-    await deleteCategory(session.user.id, categoryId);
-
-    revalidatePath("/smart-categories");
-  },
-);
-
-async function deleteCategory(userId: string, categoryId: string) {
-  await prisma.category.delete({ where: { id: categoryId, userId } });
+async function deleteCategory({
+  emailAccountId,
+  categoryId,
+}: {
+  emailAccountId: string;
+  categoryId: string;
+}) {
+  await prisma.category.delete({
+    where: { id: categoryId, emailAccountId },
+  });
 }
 
-async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
+async function upsertCategory({
+  emailAccountId,
+  newCategory,
+}: {
+  emailAccountId: string;
+  newCategory: CreateCategoryBody;
+}) {
   try {
     if (newCategory.id) {
       const category = await prisma.category.update({
-        where: { id: newCategory.id, userId },
+        where: { id: newCategory.id, emailAccountId },
         data: {
           name: newCategory.name,
           description: newCategory.description,
@@ -224,7 +243,7 @@ async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
     } else {
       const category = await prisma.category.create({
         data: {
-          userId,
+          emailAccountId,
           name: newCategory.name,
           description: newCategory.description,
         },
@@ -240,36 +259,34 @@ async function upsertCategory(userId: string, newCategory: CreateCategoryBody) {
   }
 }
 
-export const setAutoCategorizeAction = withActionInstrumentation(
-  "setAutoCategorize",
-  async (autoCategorizeSenders: boolean) => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not authenticated" };
+export const setAutoCategorizeAction = actionClient
+  .metadata({ name: "setAutoCategorize" })
+  .schema(z.object({ autoCategorizeSenders: z.boolean() }))
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { autoCategorizeSenders },
+    }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { autoCategorizeSenders },
+      });
+    },
+  );
 
-    await prisma.emailAccount.update({
-      where: { email },
-      data: { autoCategorizeSenders },
-    });
+export const removeAllFromCategoryAction = actionClient
+  .metadata({ name: "removeAllFromCategory" })
+  .schema(z.object({ categoryName: z.string() }))
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { categoryName } }) => {
+      await prisma.newsletter.updateMany({
+        where: {
+          category: { name: categoryName },
+          emailAccountId,
+        },
+        data: { categoryId: null },
+      });
 
-    return { autoCategorizeSenders };
-  },
-);
-
-export const removeAllFromCategoryAction = withActionInstrumentation(
-  "removeAllFromCategory",
-  async (categoryName: string) => {
-    const session = await auth();
-    if (!session?.user) return { error: "Not authenticated" };
-
-    await prisma.newsletter.updateMany({
-      where: {
-        category: { name: categoryName },
-        userId: session.user.id,
-      },
-      data: { categoryId: null },
-    });
-
-    revalidatePath("/smart-categories");
-  },
-);
+      revalidatePath(prefixPath(emailAccountId, "/smart-categories"));
+    },
+  );

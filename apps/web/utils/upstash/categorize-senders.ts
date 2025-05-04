@@ -2,15 +2,17 @@ import chunk from "lodash/chunk";
 import { deleteQueue, listQueues, publishToQstashQueue } from "@/utils/upstash";
 import { env } from "@/env";
 import type { AiCategorizeSenders } from "@/app/api/user/categorize/senders/batch/handle-batch-validation";
-import { hash } from "@/utils/hash";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("upstash");
 
 const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
-const getCategorizeSendersQueueName = ({ email }: { email: string }) =>
-  `${CATEGORIZE_SENDERS_PREFIX}-${hash(email)}`;
+const getCategorizeSendersQueueName = ({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) => `${CATEGORIZE_SENDERS_PREFIX}-${emailAccountId}`;
 
 /**
  * Publishes sender categorization tasks to QStash queue in batches
@@ -26,7 +28,9 @@ export async function publishToAiCategorizeSendersQueue(
   const chunks = chunk(body.senders, BATCH_SIZE);
 
   // Create new queue for each user so we can run multiple users in parallel
-  const queueName = getCategorizeSendersQueueName({ email: body.email });
+  const queueName = getCategorizeSendersQueueName({
+    emailAccountId: body.emailAccountId,
+  });
 
   logger.info("Publishing to AI categorize senders queue in chunks", {
     url,
@@ -43,7 +47,7 @@ export async function publishToAiCategorizeSendersQueue(
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
         body: {
-          email: body.email,
+          emailAccountId: body.emailAccountId,
           senders: senderChunk,
         } satisfies AiCategorizeSenders,
       }),
@@ -52,30 +56,31 @@ export async function publishToAiCategorizeSendersQueue(
 }
 
 export async function deleteEmptyCategorizeSendersQueues({
-  skipEmail,
+  skipEmailAccountId,
 }: {
-  skipEmail: string;
+  skipEmailAccountId: string;
 }) {
   return deleteEmptyQueues({
     prefix: CATEGORIZE_SENDERS_PREFIX,
-    skipEmail,
+    skipEmailAccountId,
   });
 }
 
 async function deleteEmptyQueues({
   prefix,
-  skipEmail,
+  skipEmailAccountId,
 }: {
   prefix: string;
-  skipEmail: string;
+  skipEmailAccountId: string;
 }) {
   const queues = await listQueues();
   logger.info("Found queues", { count: queues.length });
   for (const queue of queues) {
     if (!queue.name.startsWith(prefix)) continue;
     if (
-      skipEmail &&
-      queue.name === getCategorizeSendersQueueName({ email: skipEmail })
+      skipEmailAccountId &&
+      queue.name ===
+        getCategorizeSendersQueueName({ emailAccountId: skipEmailAccountId })
     )
       continue;
 

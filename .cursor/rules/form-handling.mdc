@@ -18,21 +18,21 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import { createExampleAction } from "@/utils/actions/example";
 import { type CreateExampleBody } from "@/utils/actions/example.validation";
 
-export const ExampleForm = () => {
+export const ExampleForm = ({ emailAccountId }: { emailAccountId: string }) => {
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<CreateExampleBody>({
-    resolver: zodResolver(processHistorySchema),
+    resolver: zodResolver(schema),
   });
 
   const onSubmit: SubmitHandler<CreateExampleBody> = useCallback(
     async (data) => {
-      const result = await createExampleAction(data.email);
+      const result = await createExampleAction(emailAccountId, data);
       
-      if (isActionError(result)) {
-        toastError({ title: "Error", description: result.error });
+      if (result?.serverError) {
+        toastError({ title: "Error", description: result.serverError });
       } else {
         toastSuccess({ description: "Created example!" });
       }

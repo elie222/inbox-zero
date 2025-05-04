@@ -6,7 +6,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/SideNav";
+import { SideNav } from "@/components/SideNav";
 
 export function SideNavWithTopNav({
   children,
@@ -17,7 +17,7 @@ export function SideNavWithTopNav({
 }) {
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
-      <AppSidebar />
+      <SideNav />
       <SidebarInset className="overflow-hidden bg-background">
         <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
         <Toaster closeButton richColors theme="light" visibleToasts={9} />

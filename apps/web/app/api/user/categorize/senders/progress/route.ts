@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type CategorizeProgress = Awaited<
   ReturnType<typeof getCategorizeProgress>
 >;
 
-async function getCategorizeProgress({ email }: { email: string }) {
-  const progress = await getCategorizationProgress({ email });
+async function getCategorizeProgress({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const progress = await getCategorizationProgress({ emailAccountId });
   return progress;
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
-
-  const result = await getCategorizeProgress({ email });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const result = await getCategorizeProgress({ emailAccountId });
   return NextResponse.json(result);
 });

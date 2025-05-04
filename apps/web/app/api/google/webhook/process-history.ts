@@ -25,33 +25,33 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const emailAccount = await prisma.emailAccount.findFirst({
+  const emailAccount = await prisma.emailAccount.findUnique({
     where: { email },
     select: {
+      id: true,
       email: true,
       userId: true,
       about: true,
       lastSyncedHistoryId: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
       autoCategorizeSenders: true,
       account: {
         select: {
           access_token: true,
           refresh_token: true,
           expires_at: true,
-          providerAccountId: true,
         },
+      },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true, categoryFilters: true },
       },
       user: {
         select: {
-          rules: {
-            where: { enabled: true },
-            include: { actions: true, categoryFilters: true },
-          },
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
@@ -81,33 +81,35 @@ export async function processHistoryForUser(
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
     });
     await unwatchEmails({
-      email: emailAccount.email,
-      access_token: emailAccount.account?.access_token ?? null,
-      refresh_token: emailAccount.account?.refresh_token ?? null,
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
     });
     return NextResponse.json({ ok: true });
   }
 
   const userHasAiAccess = hasAiAccess(
     premium.aiAutomationAccess,
-    emailAccount.aiApiKey,
+    emailAccount.user.aiApiKey,
   );
   const userHasColdEmailAccess = hasColdEmailAccess(
     premium.coldEmailBlockerAccess,
-    emailAccount.aiApiKey,
+    emailAccount.user.aiApiKey,
   );
 
   if (!userHasAiAccess && !userHasColdEmailAccess) {
     logger.trace("Does not have hasAiOrColdEmailAccess", { email });
     await unwatchEmails({
-      email: emailAccount.email,
-      access_token: emailAccount.account?.access_token ?? null,
-      refresh_token: emailAccount.account?.refresh_token ?? null,
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
     });
     return NextResponse.json({ ok: true });
   }
 
-  const hasAutomationRules = emailAccount.user.rules.length > 0;
+  const hasAutomationRules = emailAccount.rules.length > 0;
   const shouldBlockColdEmails =
     emailAccount.coldEmailBlocker &&
     emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
@@ -125,20 +127,12 @@ export async function processHistoryForUser(
   }
 
   try {
-    const gmail = await getGmailClientWithRefresh(
-      {
-        accessToken: emailAccount.account?.access_token,
-        refreshToken: emailAccount.account?.refresh_token,
-        expiryDate: emailAccount.account?.expires_at,
-      },
-      emailAccount.account?.providerAccountId,
-    );
-
-    // couldn't refresh the token
-    if (!gmail) {
-      logger.error("Failed to refresh token", { email });
-      return NextResponse.json({ ok: true });
-    }
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
+      emailAccountId: emailAccount.id,
+    });
 
     const startHistoryId =
       options?.startHistoryId ||
@@ -171,14 +165,13 @@ export async function processHistoryForUser(
 
       await processHistory({
         history: history.history,
-        email,
         gmail,
         accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
-        rules: emailAccount.user.rules,
+        rules: emailAccount.rules,
         hasColdEmailAccess: userHasColdEmailAccess,
         hasAiAutomationAccess: userHasAiAccess,
-        user: emailAccount,
+        emailAccount,
       });
     } else {
       logger.info("No history", {
@@ -187,7 +180,10 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId(emailAccount.email, historyId.toString());
+      await updateLastSyncedHistoryId({
+        emailAccountId: emailAccount.id,
+        lastSyncedHistoryId: historyId.toString(),
+      });
     }
 
     logger.info("Completed processing history", { decodedData });
@@ -207,14 +203,14 @@ export async function processHistoryForUser(
             }
           : error,
     });
+    // returning 200 here, as otherwise PubSub will call the webhook over and over
     return NextResponse.json({ error: true });
-    // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
-    // return NextResponse.error();
   }
 }
 
 async function processHistory(options: ProcessHistoryOptions) {
-  const { history, email } = options;
+  const { history, emailAccount } = options;
+  const { email: userEmail, id: emailAccountId } = emailAccount;
 
   if (!history?.length) return;
 
@@ -235,11 +231,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       } catch (error) {
         captureException(
           error,
-          { extra: { email, messageId: m.message?.id } },
-          email,
+          { extra: { userEmail, messageId: m.message?.id } },
+          userEmail,
         );
         logger.error("Error processing history item", {
-          email,
+          userEmail,
           messageId: m.message?.id,
           threadId: m.message?.threadId,
           error:
@@ -257,16 +253,22 @@ async function processHistory(options: ProcessHistoryOptions) {
 
   const lastSyncedHistoryId = history[history.length - 1].id;
 
-  await updateLastSyncedHistoryId(email, lastSyncedHistoryId);
+  await updateLastSyncedHistoryId({
+    emailAccountId,
+    lastSyncedHistoryId,
+  });
 }
 
-async function updateLastSyncedHistoryId(
-  email: string,
-  lastSyncedHistoryId?: string | null,
-) {
+async function updateLastSyncedHistoryId({
+  emailAccountId,
+  lastSyncedHistoryId,
+}: {
+  emailAccountId: string;
+  lastSyncedHistoryId?: string | null;
+}) {
   if (!lastSyncedHistoryId) return;
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { lastSyncedHistoryId },
   });
 }

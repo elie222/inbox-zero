@@ -2,7 +2,7 @@ import { z } from "zod";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Rule } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -14,13 +14,13 @@ export type RuleFixResponse = {
 };
 
 export async function aiRuleFix({
-  user,
+  emailAccount,
   actualRule,
   expectedRule,
   email,
   explanation,
 }: {
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   actualRule: Pick<Rule, "instructions"> | null;
   expectedRule: Pick<Rule, "instructions"> | null;
   email: EmailForLLM;
@@ -40,7 +40,7 @@ export async function aiRuleFix({
 4. Make minimal changes to fix the issue while maintaining the original intent
 </instructions>
 
-${user.about ? `<user_info>${user.about}</user_info>` : ""}
+${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}
 
 Example Outputs:
 
@@ -66,11 +66,11 @@ Please provide the fixed rule.`;
   logger.trace("ai-rule-fix", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     schema,
-    userEmail: user.email ?? "",
+    userEmail: emailAccount.email ?? "",
     usageLabel: "ai-rule-fix",
   });
 

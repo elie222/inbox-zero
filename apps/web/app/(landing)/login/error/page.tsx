@@ -18,14 +18,14 @@ export default function LogInErrorPage() {
   // For some reason users are being sent to this page when logged in
   // This will redirect them out of this page to the app
   useEffect(() => {
-    if (data?.userId) {
+    if (data?.id) {
       router.push("/welcome");
     }
   }, [data, router]);
 
   if (isLoading) return <Loading />;
   // will redirect to /welcome if user is logged in
-  if (data?.userId) return <Loading />;
+  if (data?.id) return <Loading />;
 
   return (
     <BasicLayout>

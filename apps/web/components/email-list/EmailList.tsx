@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { ChevronsDownIcon } from "lucide-react";
 import { ActionButtonsBulk } from "@/components/ActionButtonsBulk";
 import { Celebration } from "@/components/Celebration";
-import { useSession } from "next-auth/react";
 import { EmailPanel } from "@/components/email-list/EmailPanel";
 import type { Thread } from "@/components/email-list/types";
 import { useExecutePlan } from "@/components/email-list/PlanActions";
@@ -32,6 +31,8 @@ import {
   deleteEmails,
   markReadThreads,
 } from "@/store/archive-queue";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 export function List({
   emails,
@@ -48,6 +49,7 @@ export function List({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
+  const { emailAccountId } = useAccount();
   const [selectedTab] = useQueryState("tab", { defaultValue: "all" });
 
   const categories = useMemo(() => {
@@ -124,7 +126,7 @@ export function List({
                     <>
                       Set rules on the{" "}
                       <Link
-                        href="/automation"
+                        href={prefixPath(emailAccountId, "/automation")}
                         className="font-semibold hover:underline"
                       >
                         Automation page
@@ -175,7 +177,8 @@ export function EmailList({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const session = useSession();
+  const { emailAccountId, userEmail } = useAccount();
+
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
   const closePanel = useCallback(
@@ -207,12 +210,15 @@ export function EmailList({
     setSelectedRows(newState);
   }, [threads, isAllSelected, selectedRows]);
 
-  const onPlanAiAction = useCallback((thread: Thread) => {
-    toast.promise(() => runAiRules([thread], true), {
-      success: "Running...",
-      error: "There was an error running the AI rules :(",
-    });
-  }, []);
+  const onPlanAiAction = useCallback(
+    (thread: Thread) => {
+      toast.promise(() => runAiRules(emailAccountId, [thread], true), {
+        success: "Running...",
+        error: "There was an error running the AI rules :(",
+      });
+    },
+    [emailAccountId],
+  );
 
   const onArchive = useCallback(
     (thread: Thread) => {
@@ -220,15 +226,15 @@ export function EmailList({
       toast.promise(
         async () => {
           await new Promise<void>((resolve, reject) => {
-            archiveEmails(
+            archiveEmails({
               threadIds,
-              undefined,
-              (threadId) => {
-                refetch({ removedThreadIds: [threadId] });
+              onSuccess: () => {
+                refetch({ removedThreadIds: [thread.id] });
                 resolve();
               },
-              reject,
-            );
+              onError: reject,
+              emailAccountId,
+            });
           });
         },
         {
@@ -238,7 +244,7 @@ export function EmailList({
         },
       );
     },
-    [refetch],
+    [refetch, emailAccountId],
   );
 
   const listRef = useRef<HTMLUListElement>(null);
@@ -319,15 +325,15 @@ export function EmailList({
           .map(([id]) => id);
 
         await new Promise<void>((resolve, reject) => {
-          archiveEmails(
+          archiveEmails({
             threadIds,
-            undefined,
-            () => {
+            onSuccess: () => {
               refetch({ removedThreadIds: threadIds });
               resolve();
             },
-            reject,
-          );
+            onError: reject,
+            emailAccountId,
+          });
         });
       },
       {
@@ -336,7 +342,7 @@ export function EmailList({
         error: "There was an error archiving the emails :(",
       },
     );
-  }, [selectedRows, refetch]);
+  }, [selectedRows, refetch, emailAccountId]);
 
   const onTrashBulk = useCallback(async () => {
     toast.promise(
@@ -346,14 +352,15 @@ export function EmailList({
           .map(([id]) => id);
 
         await new Promise<void>((resolve, reject) => {
-          deleteEmails(
+          deleteEmails({
             threadIds,
-            () => {
+            onSuccess: () => {
               refetch({ removedThreadIds: threadIds });
               resolve();
             },
-            reject,
-          );
+            onError: reject,
+            emailAccountId,
+          });
         });
       },
       {
@@ -362,7 +369,7 @@ export function EmailList({
         error: "There was an error deleting the emails :(",
       },
     );
-  }, [selectedRows, refetch]);
+  }, [selectedRows, refetch, emailAccountId]);
 
   const onPlanAiBulk = useCallback(async () => {
     toast.promise(
@@ -371,7 +378,7 @@ export function EmailList({
           .filter(([, selected]) => selected)
           .map(([id]) => threads.find((t) => t.id === id)!);
 
-        runAiRules(selectedThreads, false);
+        runAiRules(emailAccountId, selectedThreads, false);
         // runAiRules(threadIds, () => refetch(threadIds));
       },
       {
@@ -379,7 +386,7 @@ export function EmailList({
         error: "There was an error running the AI rules :(",
       },
     );
-  }, [selectedRows, threads]);
+  }, [emailAccountId, selectedRows, threads]);
 
   const isEmpty = threads.length === 0;
 
@@ -450,7 +457,11 @@ export function EmailList({
 
                   if (!alreadyOpen) scrollToId(thread.id);
 
-                  markReadThreads([thread.id], () => refetch());
+                  markReadThreads({
+                    threadIds: [thread.id],
+                    onSuccess: () => refetch(),
+                    emailAccountId,
+                  });
                 };
 
                 return (
@@ -464,7 +475,7 @@ export function EmailList({
                         map.delete(thread.id);
                       }
                     }}
-                    userEmailAddress={session.data?.user.email || ""}
+                    userEmail={userEmail}
                     thread={thread}
                     opened={openThreadId === thread.id}
                     closePanel={closePanel}

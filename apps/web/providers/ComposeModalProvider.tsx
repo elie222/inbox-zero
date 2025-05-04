@@ -2,7 +2,7 @@
 
 import { createContext, useContext } from "react";
 import { useModal } from "@/hooks/useModal";
-import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
+import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import {
   Dialog,
   DialogContent,

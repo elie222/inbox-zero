@@ -4,7 +4,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
 import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -17,23 +17,20 @@ import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
  * 2. Managing Gmail labels
  */
 export async function coordinateReplyProcess({
-  userId,
-  email,
+  emailAccountId,
   threadId,
   messageId,
   sentAt,
   gmail,
 }: {
-  userId: string;
-  email: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   sentAt: Date;
   gmail: gmail_v1.Gmail;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
-    userId,
-    email,
+    email: emailAccountId,
     threadId,
     messageId,
   });
@@ -43,7 +40,12 @@ export async function coordinateReplyProcess({
   const awaitingReplyLabelId = await getAwaitingReplyLabel(gmail);
 
   // Process in parallel for better performance
-  const dbPromise = updateThreadTrackers(userId, threadId, messageId, sentAt);
+  const dbPromise = updateThreadTrackers({
+    emailAccountId,
+    threadId,
+    messageId,
+    sentAt,
+  });
   const labelsPromise = removeThreadLabel(
     gmail,
     threadId,
@@ -69,17 +71,22 @@ export async function coordinateReplyProcess({
 /**
  * Updates thread trackers in the database - resolves AWAITING trackers and creates a NEEDS_REPLY tracker
  */
-async function updateThreadTrackers(
-  userId: string,
-  threadId: string,
-  messageId: string,
-  sentAt: Date,
-) {
+async function updateThreadTrackers({
+  emailAccountId,
+  threadId,
+  messageId,
+  sentAt,
+}: {
+  emailAccountId: string;
+  threadId: string;
+  messageId: string;
+  sentAt: Date;
+}) {
   return prisma.$transaction([
     // Resolve existing AWAITING trackers
     prisma.threadTracker.updateMany({
       where: {
-        userId,
+        emailAccountId,
         threadId,
         type: ThreadTrackerType.AWAITING,
       },
@@ -90,15 +97,15 @@ async function updateThreadTrackers(
     // Create new NEEDS_REPLY tracker
     prisma.threadTracker.upsert({
       where: {
-        userId_threadId_messageId: {
-          userId,
+        emailAccountId_threadId_messageId: {
+          emailAccountId,
           threadId,
           messageId,
         },
       },
       update: {},
       create: {
-        userId,
+        emailAccountId,
         threadId,
         messageId,
         type: ThreadTrackerType.NEEDS_REPLY,
@@ -109,18 +116,22 @@ async function updateThreadTrackers(
 }
 
 // Currently this is used when enabling reply tracking. Otherwise we use regular AI rule processing to handle inbound replies
-export async function handleInboundReply(
-  user: UserEmailWithAI,
-  message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
-) {
+export async function handleInboundReply({
+  emailAccount,
+  message,
+  gmail,
+}: {
+  emailAccount: EmailAccountWithAI;
+  message: ParsedMessage;
+  gmail: gmail_v1.Gmail;
+}) {
   // 1. Run rules check
   // 2. If the reply tracking rule is selected then mark as needs reply
   // We ignore the rest of the actions for this rule here as this could lead to double handling of emails for the user
 
   const replyTrackingRules = await prisma.rule.findMany({
     where: {
-      userId: user.userId,
+      emailAccountId: emailAccount.id,
       instructions: { not: null },
       actions: {
         some: {
@@ -139,13 +150,12 @@ export async function handleInboundReply(
       name: rule.name,
       instructions: rule.instructions || "",
     })),
-    user,
+    emailAccount,
   });
 
   if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
     await coordinateReplyProcess({
-      userId: user.userId,
-      email: user.email,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),

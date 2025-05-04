@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
-import type { Group, User } from "@prisma/client";
+import type { Group } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 // no longer in use. delete?
@@ -54,7 +54,7 @@ const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
 });
 
 export async function aiGenerateGroupItems(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
@@ -89,7 +89,7 @@ Key guidelines:
   logger.trace("aiGenerateGroupItems", { system, prompt });
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     maxSteps: 10,
@@ -100,7 +100,7 @@ Key guidelines:
         parameters: generateGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     label: "Create group",
   });
 
@@ -123,11 +123,11 @@ Key guidelines:
     { senders: [], subjects: [] },
   );
 
-  return await verifyGroupItems(user, gmail, group, combinedArgs);
+  return await verifyGroupItems(emailAccount, gmail, group, combinedArgs);
 }
 
 async function verifyGroupItems(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
@@ -160,7 +160,7 @@ Guidelines:
 6. When using listEmails, make separate calls for each sender and subject. Do not combine them in a single query.`;
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     maxSteps: 10,
@@ -171,7 +171,7 @@ Guidelines:
         parameters: verifyGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     label: "Verify group criteria",
   });
 

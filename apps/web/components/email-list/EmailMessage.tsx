@@ -8,13 +8,13 @@ import {
 import { Tooltip } from "@/components/Tooltip";
 import { extractNameFromEmail } from "@/utils/email";
 import { formatShortDate } from "@/utils/date";
-import { ComposeEmailFormLazy } from "@/app/(app)/compose/ComposeEmailFormLazy";
+import { ComposeEmailFormLazy } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailFormLazy";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { ParsedMessage } from "@/utils/types";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 import { extractEmailReply } from "@/utils/parse/extract-reply.client";
-import type { ReplyingToEmail } from "@/app/(app)/compose/ComposeEmailForm";
+import type { ReplyingToEmail } from "@/app/(app)/[emailAccountId]/compose/ComposeEmailForm";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { cn } from "@/utils";
 import { generateNudgeReplyAction } from "@/utils/actions/generate-reply";
@@ -22,9 +22,9 @@ import type { ThreadMessage } from "@/components/email-list/types";
 import { EmailDetails } from "@/components/email-list/EmailDetails";
 import { HtmlEmail, PlainEmail } from "@/components/email-list/EmailContents";
 import { EmailAttachments } from "@/components/email-list/EmailAttachments";
-import { isActionError } from "@/utils/error";
 import { Loading } from "@/components/Loading";
 import { MessageText } from "@/components/Typography";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailMessage({
   message,
@@ -204,6 +204,8 @@ function ReplyPanel({
   draftMessage?: ThreadMessage;
   generateNudge?: boolean;
 }) {
+  const { emailAccountId } = useAccount();
+
   const replyRef = useRef<HTMLDivElement>(null);
 
   const [isGeneratingReply, setIsGeneratingReply] = useState(false);
@@ -227,7 +229,7 @@ function ReplyPanel({
 
       setIsGeneratingReply(true);
 
-      const result = await generateNudgeReplyAction({
+      const result = await generateNudgeReplyAction(emailAccountId, {
         messages: [
           {
             id: message.id,
@@ -240,18 +242,18 @@ function ReplyPanel({
           },
         ],
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         console.error(result);
         setReply("");
       } else {
-        setReply(result.text);
+        setReply(result?.data?.text || "");
       }
       setIsGeneratingReply(false);
     }
 
     // Only generate a nudge if there's no draft message and generateNudge is true
     if (generateNudge && !draftMessage) generateReply();
-  }, [generateNudge, message, draftMessage]);
+  }, [generateNudge, message, draftMessage, emailAccountId]);
 
   const replyingToEmail: ReplyingToEmail = useMemo(() => {
     if (showReply) {

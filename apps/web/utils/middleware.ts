@@ -5,19 +5,71 @@ import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { getEmailAccount } from "@/utils/redis/account-validation";
+import {
+  EMAIL_ACCOUNT_HEADER,
+  NO_REFRESH_TOKEN_ERROR_CODE,
+} from "@/utils/config";
 
 const logger = createScopedLogger("middleware");
 
-export type NextHandler = (
-  req: NextRequest,
+export type NextHandler<T extends NextRequest = NextRequest> = (
+  req: T,
   context: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
 
-export function withError(handler: NextHandler): NextHandler {
+// Extended request type with validated account info
+export interface RequestWithAuth extends NextRequest {
+  auth: {
+    userId: string;
+  };
+}
+
+export interface RequestWithEmailAccount extends NextRequest {
+  auth: {
+    userId: string;
+    emailAccountId: string;
+    email: string;
+  };
+}
+
+// Higher-order middleware factory that handles common error logic
+function withMiddleware<T extends NextRequest>(
+  handler: NextHandler<T>,
+  middleware?: (req: NextRequest) => Promise<T | Response>,
+): NextHandler {
   return async (req, context) => {
     try {
-      return await handler(req, context);
+      // Apply middleware if provided
+      let enhancedReq = req;
+      if (middleware) {
+        const middlewareResult = await middleware(req);
+
+        // If middleware returned a Response, return it directly
+        if (middlewareResult instanceof Response) {
+          return middlewareResult;
+        }
+
+        // Otherwise, continue with the enhanced request
+        enhancedReq = middlewareResult;
+      }
+
+      // Execute the handler with the (potentially) enhanced request
+      return await handler(enhancedReq as T, context);
     } catch (error) {
+      if (error instanceof SafeError) {
+        if (error.message === "No refresh token") {
+          return NextResponse.json(
+            {
+              error: "Authorization required. Please grant permissions.",
+              errorCode: NO_REFRESH_TOKEN_ERROR_CODE,
+              isKnownError: true,
+            },
+            { status: 401 },
+          );
+        }
+      }
+
       if (error instanceof ZodError) {
         if (env.LOG_ZOD_ERRORS) {
           logger.error("Error for url", { error, url: req.url });
@@ -55,9 +107,8 @@ export function withError(handler: NextHandler): NextHandler {
       }
 
       logger.error("Unhandled error", {
-        error,
+        error: error instanceof Error ? error.message : error,
         url: req.url,
-        email: await getEmailFromRequest(),
       });
       captureException(error, { extra: { url: req.url } });
 
@@ -69,6 +120,76 @@ export function withError(handler: NextHandler): NextHandler {
   };
 }
 
+async function authMiddleware(
+  req: NextRequest,
+): Promise<RequestWithAuth | Response> {
+  const session = await auth();
+  if (!session?.user) {
+    return NextResponse.json(
+      { error: "Unauthorized", isKnownError: true },
+      { status: 401 },
+    );
+  }
+
+  const userId = session.user.id;
+
+  // Create a new request with auth info
+  const authReq = req.clone() as RequestWithAuth;
+  authReq.auth = { userId };
+
+  return authReq;
+}
+
+async function emailAccountMiddleware(
+  req: NextRequest,
+): Promise<RequestWithEmailAccount | Response> {
+  const authReq = await authMiddleware(req);
+  if (authReq instanceof Response) return authReq;
+
+  const userId = authReq.auth.userId;
+
+  // Check for X-Email-Account-ID header
+  const emailAccountId = req.headers.get(EMAIL_ACCOUNT_HEADER);
+
+  if (!emailAccountId) {
+    return NextResponse.json(
+      { error: "Email account ID is required", isKnownError: true },
+      { status: 403 },
+    );
+  }
+
+  // If account ID is provided, validate and get the email account ID
+  const email = await getEmailAccount({ userId, emailAccountId });
+
+  if (!email) {
+    return NextResponse.json(
+      { error: "Invalid account ID", isKnownError: true },
+      { status: 403 },
+    );
+  }
+
+  // Create a new request with email account info
+  const emailAccountReq = req.clone() as RequestWithEmailAccount;
+  emailAccountReq.auth = { userId, emailAccountId, email };
+
+  return emailAccountReq;
+}
+
+// Public middlewares that build on the common infrastructure
+export function withError(handler: NextHandler): NextHandler {
+  return withMiddleware(handler);
+}
+
+export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
+  return withMiddleware(handler, authMiddleware);
+}
+
+export function withEmailAccount(
+  handler: NextHandler<RequestWithEmailAccount>,
+): NextHandler {
+  return withMiddleware(handler, emailAccountMiddleware);
+}
+
 function isErrorWithConfigAndHeaders(
   error: unknown,
 ): error is { config: { headers: unknown } } {
@@ -78,14 +199,4 @@ function isErrorWithConfigAndHeaders(
     "config" in error &&
     "headers" in (error as { config: any }).config
   );
-}
-
-async function getEmailFromRequest() {
-  try {
-    const session = await auth();
-    return session?.user.email;
-  } catch (error) {
-    logger.error("Error getting email from request", { error });
-    return null;
-  }
 }

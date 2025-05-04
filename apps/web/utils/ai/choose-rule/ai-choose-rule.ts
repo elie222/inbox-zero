@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { chatCompletionObject } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
@@ -12,12 +12,12 @@ const braintrust = new Braintrust("choose-rule-2");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string }[];
 };
 
 async function getAiResponse(options: GetAiResponseOptions) {
-  const { email, user, rules } = options;
+  const { email, emailAccount, rules } = options;
 
   const emailSection = stringifyEmail(email, 500);
 
@@ -51,13 +51,13 @@ ${rules
 </user_rules>
 
 ${
-  user.about
+  emailAccount.about
     ? `<user_info>
-<about>${user.about}</about>
-<email>${user.email}</email>
+<about>${emailAccount.about}</about>
+<email>${emailAccount.email}</email>
 </user_info>`
     : `<user_info>
-<email>${user.email}</email>
+<email>${emailAccount.email}</email>
 </user_info>`
 }
 
@@ -77,7 +77,7 @@ ${emailSection}
   logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     messages: [
       {
         role: "system",
@@ -101,7 +101,7 @@ ${emailSection}
       ruleName: z.string(),
       noMatchFound: z.boolean().optional(),
     }),
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Choose rule",
   });
 
@@ -115,9 +115,9 @@ ${emailSection}
         name: rule.name,
         instructions: rule.instructions,
       })),
-      hasAbout: !!user.about,
-      userAbout: user.about,
-      userEmail: user.email,
+      hasAbout: !!emailAccount.about,
+      userAbout: emailAccount.about,
+      userEmail: emailAccount.email,
     },
     expected: aiResponse.object.ruleName,
   });
@@ -127,15 +127,21 @@ ${emailSection}
 
 export async function aiChooseRule<
   T extends { name: string; instructions: string },
->(options: { email: EmailForLLM; rules: T[]; user: UserEmailWithAI }) {
-  const { email, rules, user } = options;
-
+>({
+  email,
+  rules,
+  emailAccount,
+}: {
+  email: EmailForLLM;
+  rules: T[];
+  emailAccount: EmailAccountWithAI;
+}) {
   if (!rules.length) return { reason: "No rules" };
 
   const aiResponse = await getAiResponse({
     email,
     rules,
-    user,
+    emailAccount,
   });
 
   if (aiResponse.noMatchFound)

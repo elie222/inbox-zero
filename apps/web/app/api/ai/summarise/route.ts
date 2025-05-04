@@ -1,19 +1,13 @@
 import { NextResponse } from "next/server";
 import { summarise } from "@/app/api/ai/summarise/controller";
-import { withError } from "@/utils/middleware";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { withEmailAccount } from "@/utils/middleware";
 import { summariseBody } from "@/app/api/ai/summarise/validation";
 import { getSummary } from "@/utils/redis/summary";
 import { emailToContent } from "@/utils/mail";
-import { getAiUser } from "@/utils/user/get";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
-// doesn't work with parsing email packages we use
-// export const runtime = "edge";
-
-export const POST = withError(async (request: Request) => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const POST = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const json = await request.json();
   const body = summariseBody.parse(json);
@@ -30,12 +24,16 @@ export const POST = withError(async (request: Request) => {
   const cachedSummary = await getSummary(prompt);
   if (cachedSummary) return new NextResponse(cachedSummary);
 
-  const userAi = await getAiUser({ email });
+  const userAi = await getEmailAccountWithAi({ emailAccountId });
 
   if (!userAi)
     return NextResponse.json({ error: "User not found" }, { status: 404 });
 
-  const stream = await summarise(prompt, email, userAi);
+  const stream = await summarise({
+    text: prompt,
+    userEmail: userAi.email,
+    userAi,
+  });
 
   return stream.toTextStreamResponse();
 });

@@ -210,12 +210,12 @@ describe("api-auth", () => {
       } as MockApiKeyResult);
 
       // Mock getGmailClientWithRefresh to return null (refresh failed)
-      vi.mocked(gmailClient.getGmailClientWithRefresh).mockResolvedValue(
-        undefined,
+      vi.mocked(gmailClient.getGmailClientWithRefresh).mockRejectedValue(
+        new Error("Error refreshing Gmail access token"),
       );
 
       await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
-        SafeError,
+        Error,
       );
       await expect(validateApiKeyAndGetGmailClient(request)).rejects.toThrow(
         "Error refreshing Gmail access token",
@@ -263,14 +263,11 @@ describe("api-auth", () => {
       });
 
       // Verify getGmailClientWithRefresh was called with correct parameters
-      expect(gmailClient.getGmailClientWithRefresh).toHaveBeenCalledWith(
-        {
-          accessToken: "access-token",
-          refreshToken: "refresh-token",
-          expiryDate: 1234567890,
-        },
-        "google-account-id",
-      );
+      expect(gmailClient.getGmailClientWithRefresh).toHaveBeenCalledWith({
+        accessToken: "access-token",
+        refreshToken: "refresh-token",
+        expiresAt: 1234567890,
+      });
     });
   });
 });

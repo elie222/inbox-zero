@@ -1,80 +1,67 @@
 "use server";
 
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
-import { isAdmin } from "@/utils/admin";
-import { getGmailAccessToken } from "@/utils/gmail/client";
+import { z } from "zod";
 import { handleGmailPermissionsCheck } from "@/utils/gmail/permissions";
-import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("actions/permissions");
 
-export const checkPermissionsAction = withActionInstrumentation(
-  "checkPermissions",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const checkPermissionsAction = actionClient
+  .metadata({ name: "checkPermissions" })
+  .action(async ({ ctx: { emailAccountId } }) => {
     try {
-      const token = await getGmailAccessToken(session);
-      if (!token.token) return { error: "No Gmail access token" };
+      const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
+        emailAccountId,
+      });
+
+      if (!accessToken) return { error: "No access token" };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
-        accessToken: token.token,
-        email: session.user.email,
+        accessToken,
+        emailAccountId,
       });
       if (error) return { error };
 
       if (!hasAllPermissions) return { hasAllPermissions: false };
 
-      // Check for refresh token
-      const user = await prisma.account.findFirst({
-        where: {
-          userId: session.user.id,
-          provider: "google",
-        },
-        select: { refresh_token: true },
-      });
-
-      if (!user?.refresh_token)
+      if (!tokens.refreshToken)
         return { hasRefreshToken: false, hasAllPermissions };
 
       return { hasRefreshToken: true, hasAllPermissions };
     } catch (error) {
       logger.error("Failed to check permissions", {
-        email: session?.user.email,
+        emailAccountId,
         error,
       });
       return { error: "Failed to check permissions" };
     }
-  },
-);
+  });
 
-export const adminCheckPermissionsAction = withActionInstrumentation(
-  "adminCheckPermissions",
-  async ({ email }: { email: string }) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
-    if (!isAdmin(session.user.email)) return { error: "Not admin" };
-
+export const adminCheckPermissionsAction = adminActionClient
+  .metadata({ name: "adminCheckPermissions" })
+  .schema(z.object({ email: z.string().email() }))
+  .action(async ({ parsedInput: { email } }) => {
     try {
-      const account = await prisma.account.findFirst({
-        where: { user: { email }, provider: "google" },
-        select: { access_token: true, refresh_token: true },
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email },
+        select: {
+          id: true,
+        },
       });
-      if (!account) return { error: "No account found" };
+      if (!emailAccount) return { error: "Email account not found" };
+      const emailAccountId = emailAccount.id;
 
-      const token = await getGmailAccessToken({
-        accessToken: account.access_token || undefined,
-        refreshToken: account.refresh_token || undefined,
+      const { accessToken } = await getGmailAndAccessTokenForEmail({
+        emailAccountId,
       });
-      if (!token.token) return { error: "No Gmail access token" };
+      if (!accessToken) return { error: "No Gmail access token" };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
-        accessToken: token.token,
-        email,
+        accessToken,
+        emailAccountId,
       });
       if (error) return { error };
       return { hasAllPermissions };
@@ -82,5 +69,4 @@ export const adminCheckPermissionsAction = withActionInstrumentation(
       logger.error("Admin failed to check permissions", { email, error });
       return { error: "Failed to check permissions" };
     }
-  },
-);
+  });

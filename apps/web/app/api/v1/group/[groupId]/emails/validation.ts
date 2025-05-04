@@ -5,6 +5,7 @@ export const groupEmailsQuerySchema = z.object({
   pageToken: z.string().optional(),
   from: z.coerce.number().optional(),
   to: z.coerce.number().optional(),
+  email: z.string().optional(),
 });
 
 export const groupEmailsResponseSchema = z.object({

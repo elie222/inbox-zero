@@ -13,18 +13,17 @@ const logger = createScopedLogger("draft-tracking");
  * Checks if a sent message originated from an AI draft and logs its similarity.
  */
 export async function trackSentDraftStatus({
-  user,
+  emailAccountId,
   message,
   gmail,
 }: {
-  user: Pick<User, "id" | "email">;
+  emailAccountId: string;
   message: ParsedMessage;
   gmail: gmail_v1.Gmail;
 }) {
-  const { id: userId, email: userEmail } = user;
   const { threadId, id: sentMessageId, textPlain: sentTextPlain } = message;
 
-  const loggerOptions = { userId, userEmail, threadId, sentMessageId };
+  const loggerOptions = { threadId, sentMessageId };
 
   logger.info(
     "Checking if sent message corresponds to an AI draft",
@@ -33,7 +32,6 @@ export async function trackSentDraftStatus({
 
   if (!sentMessageId) {
     logger.warn("Sent message missing ID, cannot track draft status", {
-      userId,
       threadId,
     });
     return;
@@ -43,7 +41,7 @@ export async function trackSentDraftStatus({
   const executedAction = await prisma.executedAction.findFirst({
     where: {
       executedRule: {
-        userId: userId,
+        emailAccountId,
         threadId: threadId,
       },
       type: ActionType.DRAFT_EMAIL,
@@ -134,14 +132,14 @@ export async function trackSentDraftStatus({
  */
 export async function cleanupThreadAIDrafts({
   threadId,
-  userId,
+  emailAccountId,
   gmail,
 }: {
   threadId: string;
-  userId: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
 }) {
-  const loggerOptions = { userId, threadId };
+  const loggerOptions = { emailAccountId, threadId };
   logger.info("Starting cleanup of old AI drafts for thread", loggerOptions);
 
   try {
@@ -149,7 +147,7 @@ export async function cleanupThreadAIDrafts({
     const potentialDraftsToClean = await prisma.executedAction.findMany({
       where: {
         executedRule: {
-          userId: userId,
+          emailAccountId,
           threadId: threadId,
         },
         type: ActionType.DRAFT_EMAIL,

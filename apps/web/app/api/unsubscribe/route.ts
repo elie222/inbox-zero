@@ -27,7 +27,7 @@ async function unsubscribe(request: Request) {
   // Find and validate token
   const emailToken = await prisma.emailToken.findUnique({
     where: { token },
-    include: { user: true },
+    include: { emailAccount: true },
   });
 
   if (!emailToken) {
@@ -51,7 +51,7 @@ async function unsubscribe(request: Request) {
 
   const [userUpdate, tokenDelete] = await Promise.allSettled([
     prisma.emailAccount.update({
-      where: { email: emailToken.user.email },
+      where: { email: emailToken.emailAccountId },
       data: {
         summaryEmailFrequency: Frequency.NEVER,
         statsEmailFrequency: Frequency.NEVER,
@@ -64,7 +64,7 @@ async function unsubscribe(request: Request) {
 
   if (userUpdate.status === "rejected") {
     logger.error("Error updating user preferences", {
-      email: emailToken.user.email,
+      email: emailToken.emailAccount.email,
       error: userUpdate.reason,
     });
     return NextResponse.json(
@@ -79,15 +79,14 @@ async function unsubscribe(request: Request) {
 
   if (tokenDelete.status === "rejected") {
     logger.error("Error deleting token", {
-      email: emailToken.user.email,
+      email: emailToken.emailAccountId,
       tokenId: emailToken.id,
       error: tokenDelete.reason,
     });
   }
 
   logger.info("User unsubscribed from emails", {
-    userId: emailToken.userId,
-    email: emailToken.user.email,
+    email: emailToken.emailAccountId,
   });
 
   return NextResponse.json({ success: true });

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 const logger = createScopedLogger("ai/knowledge/extract");
 
@@ -39,11 +39,11 @@ The information you extract will be passed to another agent that will draft the 
 const getUserPrompt = ({
   knowledgeBase,
   emailContent,
-  user,
+  emailAccount,
 }: {
   knowledgeBase: Knowledge[];
   emailContent: string;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }) => {
   const knowledgeBaseText = knowledgeBase
     .map((k) => `Title: ${k.title}\nContent: ${k.content}`)
@@ -58,13 +58,13 @@ ${knowledgeBaseText}
 </knowledge_base>
 
 ${
-  user.about
+  emailAccount.about
     ? `<user_info>
-<about>${user.about}</about>
-<email>${user.email}</email>
+<about>${emailAccount.about}</about>
+<email>${emailAccount.email}</email>
 </user_info>`
     : `<user_info>
-<email>${user.email}</email>
+<email>${emailAccount.email}</email>
 </user_info>`
 }
 
@@ -84,17 +84,17 @@ export type ExtractedKnowledge = z.infer<typeof extractionSchema>;
 export async function aiExtractRelevantKnowledge({
   knowledgeBase,
   emailContent,
-  user,
+  emailAccount,
 }: {
   knowledgeBase: Knowledge[];
   emailContent: string;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }): Promise<ExtractedKnowledge | null> {
   try {
     if (!knowledgeBase.length) return null;
 
     const system = SYSTEM_PROMPT;
-    const prompt = getUserPrompt({ knowledgeBase, emailContent, user });
+    const prompt = getUserPrompt({ knowledgeBase, emailContent, emailAccount });
 
     logger.trace("Input", { system, prompt: prompt.slice(0, 500) });
 
@@ -103,8 +103,8 @@ export async function aiExtractRelevantKnowledge({
       prompt,
       schema: extractionSchema,
       usageLabel: "Knowledge extraction",
-      userAi: user,
-      userEmail: user.email,
+      userAi: emailAccount.user,
+      userEmail: emailAccount.email,
       useEconomyModel: true,
     });
 

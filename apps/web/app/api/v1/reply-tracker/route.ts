@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -7,14 +7,15 @@ import {
 } from "./validation";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
 import { ThreadTrackerType } from "@prisma/client";
-import { getPaginatedThreadTrackers } from "@/app/(app)/reply-zero/fetch-trackers";
+import { getPaginatedThreadTrackers } from "@/app/(app)/[emailAccountId]/reply-zero/fetch-trackers";
 import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";
+import { getEmailAccountId } from "@/app/api/v1/helpers";
 
 const logger = createScopedLogger("api/v1/reply-tracker");
 
 export const GET = withError(async (request) => {
-  const { accessToken, userId } =
+  const { accessToken, userId, accountId } =
     await validateApiKeyAndGetGmailClient(request);
 
   const { searchParams } = new URL(request.url);
@@ -29,6 +30,19 @@ export const GET = withError(async (request) => {
     );
   }
 
+  const emailAccountId = await getEmailAccountId({
+    email: queryResult.data.email,
+    accountId,
+    userId,
+  });
+
+  if (!emailAccountId) {
+    return NextResponse.json(
+      { error: "Email account not found" },
+      { status: 400 },
+    );
+  }
+
   try {
     function getType(type: "needs-reply" | "needs-follow-up") {
       if (type === "needs-reply") return ThreadTrackerType.NEEDS_REPLY;
@@ -37,7 +51,7 @@ export const GET = withError(async (request) => {
     }
 
     const { trackers, count } = await getPaginatedThreadTrackers({
-      userId,
+      emailAccountId,
       type: getType(queryResult.data.type),
       page: queryResult.data.page,
       timeRange: queryResult.data.timeRange,

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
@@ -26,22 +26,22 @@ Do not invent information. For example, DO NOT offer to meet someone at a specif
 
 const getUserPrompt = ({
   messages,
-  user,
+  emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   writingStyle: string | null;
 }) => {
-  const userAbout = user.about
+  const userAbout = emailAccount.about
     ? `Context about the user:
     
 <userAbout>
-${user.about}
+${emailAccount.about}
 </userAbout>
 `
     : "";
@@ -89,7 +89,7 @@ ${stringifyEmail(msg, 3000)}
      
 Please write a reply to the email.
 ${getTodayForLLM()}
-IMPORTANT: You are writing an email as ${user.email}. Write the reply from their perspective.`;
+IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
 const draftSchema = z.object({
@@ -102,13 +102,13 @@ const draftSchema = z.object({
 
 export async function aiDraftWithKnowledge({
   messages,
-  user,
+  emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   writingStyle: string | null;
@@ -122,7 +122,7 @@ export async function aiDraftWithKnowledge({
 
     const prompt = getUserPrompt({
       messages,
-      user,
+      emailAccount,
       knowledgeBaseContent,
       emailHistorySummary,
       writingStyle,
@@ -135,8 +135,8 @@ export async function aiDraftWithKnowledge({
       prompt,
       schema: draftSchema,
       usageLabel: "Email draft with knowledge",
-      userAi: user,
-      userEmail: user.email,
+      userAi: emailAccount.user,
+      userEmail: emailAccount.email,
     });
 
     logger.trace("Output", result.object);

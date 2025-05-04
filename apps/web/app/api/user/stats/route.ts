@@ -1,10 +1,9 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
-import { withError } from "@/utils/middleware";
 import { dateToSeconds } from "@/utils/date";
 import { getMessages } from "@/utils/gmail/message";
+import { getGmailClientForEmailId } from "@/utils/account";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type StatsResponse = Awaited<ReturnType<typeof getStats>>;
 
@@ -73,12 +72,10 @@ async function getStats(options: { gmail: gmail_v1.Gmail }) {
   };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForEmailId({ emailAccountId });
   const result = await getStats({ gmail });
 
   return NextResponse.json(result);

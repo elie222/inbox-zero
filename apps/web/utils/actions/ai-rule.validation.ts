@@ -15,7 +15,7 @@ export type RunRulesBody = z.infer<typeof runRulesBody>;
 
 export const reportAiMistakeBody = z
   .object({
-    email: z.object({
+    message: z.object({
       from: z.string(),
       subject: z.string(),
       snippet: z.string(),
@@ -31,3 +31,6 @@ export const reportAiMistakeBody = z
     path: ["expectedRuleId"], // This will show the error on the expectedRuleId field
   });
 export type ReportAiMistakeBody = z.infer<typeof reportAiMistakeBody>;
+
+export const createAutomationBody = z.object({ prompt: z.string() });
+export type CreateAutomationBody = z.infer<typeof createAutomationBody>;

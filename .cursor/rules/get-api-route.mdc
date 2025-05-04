@@ -11,29 +11,22 @@ Basic Structure. Note how we auto generate the response type for use on the clie
 
 ```typescript
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 
 export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.id)
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+export const GET = withAuth(async () => {
+  const emailAccountId = request.auth.emailAccountId;
+  
 
-  const result = getData(session.user.id);
+  const result = getData({ email });
   return NextResponse.json(result);
 });
 
-async function getData(userId: string) {
+async function getData({ email }: { email: string }) {
   const items = await prisma.example.findMany({
-    where: {
-      userId: session.user.id,
-    },
-    orderBy: {
-      updatedAt: "desc",
-    },
+    where: { email },
   });
 
   return { items };
@@ -44,8 +37,8 @@ See [data-fetching.mdc](mdc:.cursor/rules/data-fetching.mdc) as to how this woul
 
 Key Requirements:
 
-   - Always wrap the handler with `withError` for consistent error handling. We don't need try/catch
-   - Always check authentication using `auth()`
-   - Infer and export response type
-   - Use Prisma for database queries. See [prisma.mdc](mdc:.cursor/rules/prisma.mdc)
+   - Always wrap the handler with `withAuth` for consistent error handling and authentication.
+   - We don't need try/catch as `withAuth` handles that.
+   - Infer and export response type.
+   - Use Prisma for database queries.
    - Return responses using `NextResponse.json()`

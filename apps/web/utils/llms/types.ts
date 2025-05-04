@@ -1,8 +1,24 @@
-import type { EmailAccount } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
 
-export type UserAIFields = Pick<
-  EmailAccount,
-  "aiProvider" | "aiModel" | "aiApiKey"
->;
-export type UserEmailWithAI = Pick<EmailAccount, "userId" | "email" | "about"> &
-  UserAIFields;
+export type UserAIFields = Prisma.UserGetPayload<{
+  select: {
+    aiProvider: true;
+    aiModel: true;
+    aiApiKey: true;
+  };
+}>;
+export type EmailAccountWithAI = Prisma.EmailAccountGetPayload<{
+  select: {
+    id: true;
+    userId: true;
+    email: true;
+    about: true;
+    user: {
+      select: {
+        aiProvider: true;
+        aiModel: true;
+        aiApiKey: true;
+      };
+    };
+  };
+}>;

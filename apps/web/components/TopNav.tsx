@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { useSession, signIn } from "next-auth/react";
 import {
   Menu,
@@ -22,38 +21,14 @@ import { Button } from "@/components/Button";
 import { logOut } from "@/utils/user";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
-
-const userNavigation = [
-  { name: "Usage", href: "/usage", icon: BarChartIcon },
-  {
-    name: "Mail (Beta)",
-    href: "/mail",
-    icon: InboxIcon,
-  },
-  {
-    name: "Sender Categories",
-    href: "/smart-categories",
-    icon: TagIcon,
-  },
-  {
-    name: "Early Access",
-    href: "/early-access",
-    icon: RibbonIcon,
-  },
-  {
-    name: "Sign out",
-    href: "#",
-    icon: LogOutIcon,
-    onClick: () => logOut(window.location.origin),
-  },
-];
+import { prefixPath } from "@/utils/path";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { ProfileImage } from "@/components/ProfileImage";
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
     <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background shadow-sm sm:gap-x-6">
       {trigger}
-      {/* Separator */}
-      <div className="h-6 w-px bg-border" aria-hidden="true" />
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
         <div className="ml-auto flex items-center gap-x-4 lg:gap-x-6">
@@ -66,28 +41,49 @@ export function TopNav({ trigger }: { trigger: React.ReactNode }) {
 
 function ProfileDropdown() {
   const { data: session, status } = useSession();
+  const { emailAccountId, emailAccount } = useAccount();
+
+  const userNavigation = [
+    { name: "Usage", href: "/usage", icon: BarChartIcon },
+    {
+      name: "Mail (Beta)",
+      href: prefixPath(emailAccountId, "/mail"),
+      icon: InboxIcon,
+    },
+    {
+      name: "Sender Categories",
+      href: prefixPath(emailAccountId, "/smart-categories"),
+      icon: TagIcon,
+    },
+    {
+      name: "Early Access",
+      href: "/early-access",
+      icon: RibbonIcon,
+    },
+    {
+      name: "Sign out",
+      href: "#",
+      icon: LogOutIcon,
+      onClick: () => logOut(window.location.origin),
+    },
+  ];
 
   if (session?.user) {
     return (
       <Menu as="div" className="relative z-50">
         <MenuButton className="-m-1.5 flex items-center p-1.5">
           <span className="sr-only">Open user menu</span>
-          {session.user.image ? (
-            <Image
-              width={32}
-              height={32}
-              className="rounded-full bg-muted"
-              src={session.user.image}
-              alt="Profile"
-            />
-          ) : null}
+          <ProfileImage
+            image={emailAccount?.image || null}
+            label={emailAccount?.name || emailAccount?.email || ""}
+          />
           <span className="hidden lg:flex lg:items-center">
-            <span
+            {/* <span
               className="ml-4 text-sm font-semibold leading-6 text-foreground"
               aria-hidden="true"
             >
-              {session.user.name || "Account"}
-            </span>
+              {emailAccount?.name || emailAccount?.email || "Account"}
+            </span> */}
             <ChevronDownIcon
               className="ml-2 h-5 w-5 text-muted-foreground"
               aria-hidden="true"

@@ -21,7 +21,7 @@ export async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
 
     if (!response.ok) {
       logger.error("Sender pattern analysis API request failed", {
-        email: body.email,
+        emailAccountId: body.emailAccountId,
         from: body.from,
         status: response.status,
         statusText: response.statusText,
@@ -29,7 +29,7 @@ export async function analyzeSenderPattern(body: AnalyzeSenderPatternBody) {
     }
   } catch (error) {
     logger.error("Error in sender pattern analysis", {
-      email: body.email,
+      emailAccountId: body.emailAccountId,
       from: body.from,
       error: error instanceof Error ? error.message : error,
     });
