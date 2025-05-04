@@ -113,7 +113,14 @@ async function watchAllEmails() {
 
       await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {
-      logger.error("Error for user", { userId: emailAccount.email, error });
+      if (error instanceof Error && error.message.includes("invalid_grant")) {
+        logger.warn("Invalid grant for user", {
+          email: emailAccount.email,
+          error,
+        });
+      } else {
+        logger.error("Error for user", { userId: emailAccount.email, error });
+      }
     }
   }
 

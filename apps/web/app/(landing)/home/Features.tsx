@@ -10,10 +10,9 @@ import {
   Sparkles,
   SparklesIcon,
   TagIcon,
-  BlocksIcon,
-  ListStartIcon,
   BellIcon,
   ReplyIcon,
+  FocusIcon,
 } from "lucide-react";
 import Image from "next/image";
 
@@ -119,7 +118,8 @@ export function FeaturesAiAssistant({ imageSide }: { imageSide?: Side }) {
   const subtitle = "Your AI Email Assistant That Works Like Magic";
   const description = (
     <>
-      All the benefits of a personal assistant, at a fraction of the cost.
+      All the benefits of a personal assistant, at a fraction of the cost. It
+      drafts replies, organizes, and labels emails for you.
       <br />
       <br />
       Tell your AI assistant how to manage your email in plain English - just
@@ -254,28 +254,28 @@ export function FeaturesUnsubscribe({ imageSide }: { imageSide?: Side }) {
 
 const featuresReplyZero = [
   {
-    name: "Focus on what needs a reply",
+    name: "Pre-drafted replies",
     description:
-      "We label every email that needs a reply, so it's easy to focus on the ones that matter.",
+      "AI-drafted replies waiting in Gmail, ready to send or customize.",
     icon: ReplyIcon,
   },
   {
-    name: "Follow up on people who haven't replied",
+    name: "Focus on what needs a reply",
     description:
-      "Never lose track of conversations - we label every conversation that is missing a reply. Filter by overdue conversations to follow up on threads that need attention.",
+      "We label every email that needs a reply, so it's easy to focus on the ones that matter.",
+    icon: EyeIcon,
+  },
+  {
+    name: "Follow up reminders",
+    description:
+      "Never lose track of conversations. We label emails awaiting replies and help you filter for overdue ones.",
     icon: BellIcon,
   },
   {
-    name: "Send gentle follow-ups in one click",
+    name: "One-click follow-ups",
     description:
-      "No more crafting awkward follow-up emails. Our smart nudge feature drafts perfect follow-up messages for you, making it easy to keep conversations moving.",
+      "Send polite nudges effortlessly. Our AI drafts follow-up messages, keeping conversations moving.",
     icon: SparklesIcon,
-  },
-  {
-    name: "Choose your workflow",
-    description:
-      "Use Reply Zero as a minimal view within Inbox Zero for ultimate focus, or leverage our Gmail labels to manage replies your way. Either way, you'll only see what truly needs your attention.",
-    icon: ListStartIcon,
   },
 ];
 
@@ -284,8 +284,8 @@ export function FeaturesReplyZero({ imageSide }: { imageSide?: Side }) {
     <FeaturesWithImage
       imageSide={imageSide}
       title="Reply Zero"
-      subtitle="Answer every email that matters"
-      description="Most emails don't need a reply. Reply Zero only shows you the ones that do."
+      subtitle="Pre-written drafts waiting in your inbox"
+      description="Focus only on emails needing your attention. Reply Zero identifies them and prepares draft replies, letting you skip the noise and respond faster."
       image="/images/home/reply-zero.png"
       features={featuresReplyZero}
     />
