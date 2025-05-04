@@ -38,6 +38,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 
 export function RulesPrompt() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
@@ -57,17 +58,22 @@ export function RulesPrompt() {
   return (
     <>
       <LoadingContent loading={isLoading} error={error}>
-        <RulesPromptForm
-          rulesPrompt={data?.rulesPrompt || undefined}
-          personaPrompt={personaPrompt}
-          mutate={mutate}
-          onOpenPersonaDialog={onOpenPersonaDialog}
-        />
-        <AutomationOnboarding
-          onComplete={() => {
-            if (!data?.rulesPrompt) onOpenPersonaDialog();
-          }}
-        />
+        {data && (
+          <>
+            <RulesPromptForm
+              emailAccountId={emailAccountId}
+              rulesPrompt={data.rulesPrompt}
+              personaPrompt={personaPrompt}
+              mutate={mutate}
+              onOpenPersonaDialog={onOpenPersonaDialog}
+            />
+            <AutomationOnboarding
+              onComplete={() => {
+                if (!data.rulesPrompt) onOpenPersonaDialog();
+              }}
+            />
+          </>
+        )}
       </LoadingContent>
       <PersonaDialog
         isOpen={isModalOpen}
@@ -79,17 +85,18 @@ export function RulesPrompt() {
 }
 
 function RulesPromptForm({
+  emailAccountId,
   rulesPrompt,
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
 }: {
-  rulesPrompt?: string;
+  emailAccountId: string;
+  rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
 }) {
-  const { emailAccountId } = useAccount();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -114,7 +121,7 @@ function RulesPromptForm({
     watch,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
-    defaultValues: { rulesPrompt },
+    defaultValues: { rulesPrompt: rulesPrompt || undefined },
   });
 
   const currentPrompt = watch("rulesPrompt");
