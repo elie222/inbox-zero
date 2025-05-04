@@ -1,5 +1,6 @@
 "use client";
 
+import { use } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { TypographyH3, TypographyP } from "@/components/Typography";
@@ -7,10 +8,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
 
-export default async function CompletedPage(props: {
+export default function CompletedPage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const { emailAccountId } = await props.params;
+  const { emailAccountId } = use(props.params);
   return (
     <div>
       <Card className="my-4 max-w-2xl p-6 sm:mx-4 md:mx-auto">
