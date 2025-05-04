@@ -190,6 +190,11 @@ export async function processHistoryForUser(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "invalid_grant") {
+      logger.warn("Invalid grant", { email });
+      return NextResponse.json({ ok: true });
+    }
+
     captureException(error, { extra: { decodedData } }, email);
     logger.error("Error processing webhook", {
       decodedData,
