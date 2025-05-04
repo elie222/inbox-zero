@@ -166,7 +166,7 @@ async function saveBatch({
       const date = internalDateToDate(m.internalDate);
       if (!date) {
         logger.error("No date for email", {
-          email: emailAccountId,
+          emailAccountId,
           messageId: m.id,
           date: m.internalDate,
         });

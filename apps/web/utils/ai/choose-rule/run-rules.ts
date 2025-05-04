@@ -153,7 +153,7 @@ async function saveSkippedExecutedRule({
     automated: true,
     reason,
     status: ExecutedRuleStatus.SKIPPED,
-    emailAccount: { connect: { email: emailAccountId } },
+    emailAccount: { connect: { id: emailAccountId } },
   };
 
   await upsertExecutedRule({
@@ -196,7 +196,7 @@ async function saveExecutedRule(
     status: ExecutedRuleStatus.PENDING,
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-    emailAccount: { connect: { email: emailAccountId } },
+    emailAccount: { connect: { id: emailAccountId } },
   };
 
   return await upsertExecutedRule({
@@ -239,7 +239,7 @@ async function upsertExecutedRule({
       // Unique constraint violation, ignore the error
       // May be due to a race condition?
       logger.info("Ignored duplicate entry for ExecutedRule", {
-        email: emailAccountId,
+        emailAccountId,
         threadId,
         messageId,
       });

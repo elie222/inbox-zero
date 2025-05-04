@@ -11,9 +11,9 @@ import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { getGmailClientForEmail } from "@/utils/account";
+import { createScopedLogger } from "@/utils/logger";
 
-// not sure why this is slow sometimes
-export const maxDuration = 30;
+const logger = createScopedLogger("newsletter-stats");
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -215,7 +215,7 @@ async function getNewsletterCounts(
       lastUnsubscribeLink: result.lastUnsubscribeLink,
     }));
   } catch (error) {
-    console.error("Newsletter query error:", error);
+    logger.error("getNewsletterCounts error", { error });
     return [];
   }
 }

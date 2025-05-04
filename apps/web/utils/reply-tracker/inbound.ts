@@ -30,7 +30,7 @@ export async function coordinateReplyProcess({
   gmail: gmail_v1.Gmail;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
-    email: emailAccountId,
+    emailAccountId,
     threadId,
     messageId,
   });
