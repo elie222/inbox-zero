@@ -3,9 +3,9 @@ name: Publish Docker Image
 on:
   push:
     branches:
-      - 'main' # Trigger on push to main branch
+      - "main" # Trigger on push to main branch
     tags:
-      - 'v*.*.*' # Trigger on tags like v1.0.0
+      - "v*.*.*" # Trigger on tags like v1.0.0
 
 jobs:
   build-and-push:

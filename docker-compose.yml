@@ -38,10 +38,10 @@ services:
       - inbox-zero-network
 
   web:
-    # build:
-    #   context: .
-    #   dockerfile: ./docker/Dockerfile.web
-    image: ghcr.io/vishalmakwana111/inbox-zero:latest
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile.web
+    # image: ghcr.io/elie222/inbox-zero:latest
     env_file:
       - ./apps/web/.env
     depends_on:
