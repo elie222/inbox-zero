@@ -1,6 +1,9 @@
 import { redis } from "@/utils/redis";
 import type { CleanThread } from "@/utils/redis/clean.types";
 import { isDefined } from "@/utils/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("redis/clean");
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
@@ -54,7 +57,7 @@ export async function updateThread({
 }) {
   const thread = await getThread({ emailAccountId, jobId, threadId });
   if (!thread) {
-    console.warn("thread not found:", threadId);
+    logger.warn("Thread not found", { threadId, emailAccountId, jobId });
     return;
   }
 
