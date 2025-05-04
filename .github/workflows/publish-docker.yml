@@ -34,8 +34,8 @@ jobs:
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
+          registry: ghcr.io/${{ github.repository_owner }}/inbox-zero
+          username:  "github-actions"
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push Docker image
         id: build-and-push
