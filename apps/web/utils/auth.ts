@@ -77,6 +77,7 @@ export const getAuthOptions: (options?: {
               resourceName: "people/me",
               personFields: "emailAddresses,names,photos",
             });
+
             primaryEmail = profileResponse.data.emailAddresses?.find(
               (e) => e.metadata?.primary,
             )?.value;
@@ -120,14 +121,14 @@ export const getAuthOptions: (options?: {
         const emailAccountData: Prisma.EmailAccountUpsertArgs = {
           where: { email: primaryEmail },
           update: {
-            userId: userId,
+            userId,
             accountId: createdAccount.id,
             name: primaryName,
             image: primaryPhotoUrl,
           },
           create: {
             email: primaryEmail,
-            userId: userId,
+            userId,
             accountId: createdAccount.id,
             name: primaryName,
             image: primaryPhotoUrl,

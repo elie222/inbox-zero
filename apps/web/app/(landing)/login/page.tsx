@@ -7,6 +7,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
+import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -42,17 +43,8 @@ export default async function AuthenticationPage(props: {
           </Suspense>
         </div>
 
-        {searchParams?.error && searchParams?.error !== "RequiresReconsent" && (
-          <>
-            <AlertBasic
-              variant="destructive"
-              title="Error logging in"
-              description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-            />
-            <Suspense>
-              <AutoLogOut loggedIn={!!session?.user} />
-            </Suspense>
-          </>
+        {searchParams?.error && (
+          <ErrorAlert error={searchParams?.error} loggedIn={!!session?.user} />
         )}
 
         <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
@@ -86,5 +78,39 @@ export default async function AuthenticationPage(props: {
         </p>
       </div>
     </div>
+  );
+}
+
+function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
+  if (error === "RequiresReconsent") return null;
+
+  if (error === "OAuthAccountNotLinked") {
+    return (
+      <AlertBasic
+        variant="destructive"
+        title="Account already attached to another user"
+        description={
+          <>
+            <span>You can merge accounts instead.</span>
+            <Button asChild className="mt-2">
+              <Link href="/accounts">Merge accounts</Link>
+            </Button>
+          </>
+        }
+      />
+    );
+  }
+
+  return (
+    <>
+      <AlertBasic
+        variant="destructive"
+        title="Error logging in"
+        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+      />
+      <Suspense>
+        <AutoLogOut loggedIn={loggedIn} />
+      </Suspense>
+    </>
   );
 }
