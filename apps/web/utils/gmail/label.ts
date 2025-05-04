@@ -109,7 +109,7 @@ export async function archiveThread({
   if (archiveResult.status === "rejected") {
     const error = archiveResult.reason as Error;
     if (error.message?.includes("Requested entity was not found")) {
-      logger.error("Thread not found", { threadId });
+      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
       return { status: 404, message: "Thread not found" };
     }
     logger.error("Failed to archive thread", { threadId, error });
