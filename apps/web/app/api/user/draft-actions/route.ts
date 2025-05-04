@@ -1,26 +1,22 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { ActionType } from "@prisma/client";
 
 export type DraftActionsResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const userId = session?.user.id;
-  if (!userId)
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const response = await getData(userId);
+  const response = await getData({ emailAccountId });
 
   return NextResponse.json(response);
 });
 
-async function getData(userId: string) {
+async function getData({ emailAccountId }: { emailAccountId: string }) {
   const executedActions = await prisma.executedAction.findMany({
     where: {
-      executedRule: { userId },
+      executedRule: { emailAccountId },
       type: ActionType.DRAFT_EMAIL,
     },
     select: {

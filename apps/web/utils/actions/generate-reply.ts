@@ -1,57 +1,52 @@
 "use server";
 
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import {
-  generateReplySchema,
-  type GenerateReplySchema,
-} from "@/utils/actions/generate-reply.validation";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { generateReplySchema } from "@/utils/actions/generate-reply.validation";
 import { aiGenerateNudge } from "@/utils/ai/reply/generate-nudge";
 import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getAiUser } from "@/utils/user/get";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
-export const generateNudgeReplyAction = withActionInstrumentation(
-  "generateNudgeReply",
-  async (unsafeData: GenerateReplySchema) => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not authenticated" };
+export const generateNudgeReplyAction = actionClient
+  .metadata({ name: "generateNudgeReply" })
+  .schema(generateReplySchema)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { messages: inputMessages },
+    }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    const user = await getAiUser({ id: session.user.id });
+      if (!emailAccount) return { error: "User not found" };
 
-    if (!user) return { error: "User not found" };
+      const lastMessage = inputMessages.at(-1);
 
-    const { data, error } = generateReplySchema.safeParse(unsafeData);
-    if (error) return { error: error.message };
+      if (!lastMessage) return { error: "No message provided" };
 
-    const lastMessage = data.messages.at(-1);
+      const reply = await getReply({
+        emailAccountId,
+        messageId: lastMessage.id,
+      });
 
-    if (!lastMessage) return { error: "No message provided" };
+      if (reply) return { text: reply };
 
-    const reply = await getReply({
-      userId: user.id,
-      messageId: lastMessage.id,
-    });
+      const messages = inputMessages.map((msg) => ({
+        ...msg,
+        date: new Date(msg.date),
+        content: emailToContent({
+          textPlain: msg.textPlain,
+          textHtml: msg.textHtml,
+          snippet: "",
+        }),
+      }));
 
-    if (reply) return { text: reply };
+      const text = await aiGenerateNudge({ messages, emailAccount });
+      await saveReply({
+        emailAccountId,
+        messageId: lastMessage.id,
+        reply: text,
+      });
 
-    const messages = data.messages.map((msg) => ({
-      ...msg,
-      date: new Date(msg.date),
-      content: emailToContent({
-        textPlain: msg.textPlain,
-        textHtml: msg.textHtml,
-        snippet: "",
-      }),
-    }));
-
-    const text = await aiGenerateNudge({ messages, user });
-    await saveReply({
-      userId: user.id,
-      messageId: lastMessage.id,
-      reply: text,
-    });
-
-    return { text };
-  },
-);
+      return { text };
+    },
+  );

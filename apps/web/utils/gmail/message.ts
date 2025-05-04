@@ -11,6 +11,7 @@ import { getBatch } from "@/utils/gmail/batch";
 import { extractDomainFromEmail } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
+import { getAccessTokenFromClient } from "@/utils/gmail/client";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -53,11 +54,17 @@ export async function getMessageByRfc822Id(
   return getMessage(message.id, gmail);
 }
 
-export async function getMessagesBatch(
-  messageIds: string[],
-  accessToken: string,
+export async function getMessagesBatch({
+  messageIds,
+  accessToken,
   retryCount = 0,
-): Promise<ParsedMessage[]> {
+}: {
+  messageIds: string[];
+  accessToken: string;
+  retryCount?: number;
+}): Promise<ParsedMessage[]> {
+  if (!accessToken) throw new Error("No access token");
+
   if (retryCount > 3) {
     logger.error("Too many retries", { messageIds, retryCount });
     return [];
@@ -71,6 +78,11 @@ export async function getMessagesBatch(
   );
 
   const missingMessageIds = new Set<string>();
+
+  if (batch.some((m) => isBatchError(m) && m.error.code === 401)) {
+    logger.error("Error fetching messages", { firstBatchItem: batch?.[0] });
+    throw new Error("Invalid access token");
+  }
 
   const messages = batch
     .map((message, i) => {
@@ -94,11 +106,11 @@ export async function getMessagesBatch(
     });
     const nextRetryCount = retryCount + 1;
     await sleep(1_000 * nextRetryCount);
-    const missingMessages = await getMessagesBatch(
-      Array.from(missingMessageIds),
+    const missingMessages = await getMessagesBatch({
+      messageIds: Array.from(missingMessageIds),
       accessToken,
-      nextRetryCount,
-    );
+      retryCount: nextRetryCount,
+    });
     return [...messages, ...missingMessages];
   }
 
@@ -188,6 +200,10 @@ export async function hasPreviousCommunicationsWithSenderOrDomain(
   });
 }
 
+// List of messages.
+// Note that each message resource contains only an id and a threadId.
+// Additional message details can be fetched using the messages.get method.
+// https://developers.google.com/workspace/gmail/api/reference/rest/v1/users.messages/list
 export async function getMessages(
   gmail: gmail_v1.Gmail,
   options: {
@@ -210,7 +226,6 @@ export async function getMessages(
 
 export async function queryBatchMessages(
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   {
     query,
     maxResults = 20,
@@ -227,11 +242,13 @@ export async function queryBatchMessages(
     );
   }
 
+  const accessToken = getAccessTokenFromClient(gmail);
+
   const messages = await getMessages(gmail, { query, maxResults, pageToken });
   if (!messages.messages) return { messages: [], nextPageToken: undefined };
   const messageIds = messages.messages.map((m) => m.id).filter(isDefined);
   return {
-    messages: (await getMessagesBatch(messageIds, accessToken)) || [],
+    messages: (await getMessagesBatch({ messageIds, accessToken })) || [],
     nextPageToken: messages.nextPageToken,
   };
 }
@@ -239,7 +256,6 @@ export async function queryBatchMessages(
 // loops through multiple pages of messages
 export async function queryBatchMessagesPages(
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   {
     query,
     maxResults,
@@ -252,7 +268,7 @@ export async function queryBatchMessagesPages(
   let nextPageToken: string | undefined;
   do {
     const { messages: pageMessages, nextPageToken: nextToken } =
-      await queryBatchMessages(gmail, accessToken, {
+      await queryBatchMessages(gmail, {
         query,
         pageToken: nextPageToken,
       });
@@ -261,4 +277,12 @@ export async function queryBatchMessagesPages(
   } while (nextPageToken && messages.length < maxResults);
 
   return messages;
+}
+
+export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
+  const messages = await queryBatchMessages(gmail, {
+    query: "label:sent",
+    maxResults,
+  });
+  return messages.messages;
 }

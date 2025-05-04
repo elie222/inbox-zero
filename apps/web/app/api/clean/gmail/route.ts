@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { GmailLabel, labelThread } from "@/utils/gmail/label";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
@@ -14,7 +14,7 @@ import { updateThread } from "@/utils/redis/clean";
 const logger = createScopedLogger("api/clean/gmail");
 
 const cleanGmailSchema = z.object({
-  userId: z.string(),
+  emailAccountId: z.string(),
   threadId: z.string(),
   markDone: z.boolean(),
   action: z.enum([CleanAction.ARCHIVE, CleanAction.MARK_READ]),
@@ -26,7 +26,7 @@ const cleanGmailSchema = z.object({
 export type CleanGmailBody = z.infer<typeof cleanGmailSchema>;
 
 async function performGmailAction({
-  userId,
+  emailAccountId,
   threadId,
   markDone,
   // labelId,
@@ -35,18 +35,28 @@ async function performGmailAction({
   jobId,
   action,
 }: CleanGmailBody) {
-  const account = await prisma.account.findUnique({
-    where: { userId },
-    select: { access_token: true, refresh_token: true },
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+        },
+      },
+    },
   });
 
   if (!account) throw new SafeError("User not found", 404);
-  if (!account.access_token || !account.refresh_token)
+  if (!account.account?.access_token || !account.account?.refresh_token)
     throw new SafeError("No Gmail account found", 404);
 
-  const gmail = getGmailClient({
-    accessToken: account.access_token,
-    refreshToken: account.refresh_token,
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: account.account.access_token,
+    refreshToken: account.account.refresh_token,
+    expiresAt: account.account.expires_at,
+    emailAccountId,
   });
 
   const shouldArchive = markDone && action === CleanAction.ARCHIVE;
@@ -72,7 +82,7 @@ async function performGmailAction({
   });
 
   await saveCleanResult({
-    userId,
+    emailAccountId,
     threadId,
     markDone,
     jobId,
@@ -80,20 +90,25 @@ async function performGmailAction({
 }
 
 async function saveCleanResult({
-  userId,
+  emailAccountId,
   threadId,
   markDone,
   jobId,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   markDone: boolean;
   jobId: string;
 }) {
   await Promise.all([
-    updateThread(userId, jobId, threadId, { status: "completed" }),
+    updateThread({
+      emailAccountId,
+      jobId,
+      threadId,
+      update: { status: "completed" },
+    }),
     saveToDatabase({
-      userId,
+      emailAccountId,
       threadId,
       archive: markDone,
       jobId,
@@ -102,22 +117,22 @@ async function saveCleanResult({
 }
 
 async function saveToDatabase({
-  userId,
+  emailAccountId,
   threadId,
   archive,
   jobId,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   archive: boolean;
   jobId: string;
 }) {
   await prisma.cleanupThread.create({
     data: {
-      userId,
+      emailAccount: { connect: { id: emailAccountId } },
       threadId,
       archived: archive,
-      jobId,
+      job: { connect: { id: jobId } },
     },
   });
 }

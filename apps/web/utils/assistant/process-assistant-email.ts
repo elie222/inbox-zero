@@ -15,22 +15,22 @@ import { internalDateToDate } from "@/utils/date";
 const logger = createScopedLogger("process-assistant-email");
 
 type ProcessAssistantEmailArgs = {
+  emailAccountId: string;
   userEmail: string;
-  userId: string;
   message: ParsedMessage;
   gmail: gmail_v1.Gmail;
 };
 
 export async function processAssistantEmail({
+  emailAccountId,
   userEmail,
-  userId,
   message,
   gmail,
 }: ProcessAssistantEmailArgs) {
   return withProcessingLabels(message.id, gmail, () =>
     processAssistantEmailInternal({
+      emailAccountId,
       userEmail,
-      userId,
       message,
       gmail,
     }),
@@ -38,12 +38,12 @@ export async function processAssistantEmail({
 }
 
 async function processAssistantEmailInternal({
+  emailAccountId,
   userEmail,
-  userId,
   message,
   gmail,
 }: ProcessAssistantEmailArgs) {
-  if (!verifyUserSentEmail(message, userEmail)) {
+  if (!verifyUserSentEmail({ message, userEmail })) {
     logger.error("Unauthorized assistant access attempt", {
       email: userEmail,
       from: message.headers.from,
@@ -53,7 +53,7 @@ async function processAssistantEmailInternal({
   }
 
   const loggerOptions = {
-    email: userEmail,
+    emailAccountId,
     threadId: message.threadId,
     messageId: message.id,
   };
@@ -98,16 +98,21 @@ async function processAssistantEmailInternal({
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
   const originalMessage = await getOriginalMessage(originalMessageId, gmail);
 
-  const [user, executedRule, senderCategory] = await Promise.all([
-    prisma.user.findUnique({
+  const [emailAccount, executedRule, senderCategory] = await Promise.all([
+    prisma.emailAccount.findUnique({
       where: { email: userEmail },
       select: {
         id: true,
+        userId: true,
         email: true,
         about: true,
-        aiProvider: true,
-        aiModel: true,
-        aiApiKey: true,
+        user: {
+          select: {
+            aiProvider: true,
+            aiModel: true,
+            aiApiKey: true,
+          },
+        },
         rules: {
           include: {
             actions: true,
@@ -133,8 +138,8 @@ async function processAssistantEmailInternal({
     originalMessage
       ? prisma.executedRule.findUnique({
           where: {
-            unique_user_thread_message: {
-              userId,
+            unique_emailAccount_thread_message: {
+              emailAccountId,
               threadId: originalMessage.threadId,
               messageId: originalMessage.id,
             },
@@ -153,9 +158,9 @@ async function processAssistantEmailInternal({
     originalMessage
       ? prisma.newsletter.findUnique({
           where: {
-            email_userId: {
-              userId,
+            email_emailAccountId: {
               email: extractEmailAddress(originalMessage.headers.from),
+              emailAccountId,
             },
           },
           select: {
@@ -165,7 +170,7 @@ async function processAssistantEmailInternal({
       : null,
   ]);
 
-  if (!user) {
+  if (!emailAccount) {
     logger.error("User not found", loggerOptions);
     return;
   }
@@ -209,12 +214,12 @@ async function processAssistantEmailInternal({
   }
 
   const result = await processUserRequest({
-    user,
-    rules: user.rules,
+    emailAccount,
+    rules: emailAccount.rules,
     originalEmail: originalMessage,
     messages,
     matchedRule: executedRule?.rule || null,
-    categories: user.categories.length ? user.categories : null,
+    categories: emailAccount.categories.length ? emailAccount.categories : null,
     senderCategory: senderCategory?.category?.name ?? null,
   });
 
@@ -231,7 +236,13 @@ async function processAssistantEmailInternal({
   }
 }
 
-function verifyUserSentEmail(message: ParsedMessage, userEmail: string) {
+function verifyUserSentEmail({
+  message,
+  userEmail,
+}: {
+  message: ParsedMessage;
+  userEmail: string;
+}) {
   return (
     extractEmailAddress(message.headers.from).toLowerCase() ===
     userEmail.toLowerCase()

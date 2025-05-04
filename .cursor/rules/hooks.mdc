@@ -1,0 +1,20 @@
+---
+description: React hooks
+globs: 
+alwaysApply: false
+---
+# Custom Hook Guidelines
+
+This rule outlines the guidelines for creating custom React hooks within this project.
+
+## Custom Hooks
+
+-   **Purpose:** Encapsulate reusable stateful logic, especially for data fetching or complex UI interactions.
+-   **Location:** Place custom hooks in the `apps/web/hooks/` directory.
+-   **Naming:** Use the `use` prefix (e.g., `useAccounts.ts`).
+-   **Data Fetching:** For fetching data from API endpoints, prefer using `useSWR`. Follow the guidelines outlined in [data-fetching.mdc](mdc:.cursor/rules/data-fetching.mdc).
+    -   Create dedicated hooks for specific data types (e.g., `useAccounts`, `useLabels`).
+    -   The hook should typically wrap `useSWR`, handle the API endpoint URL, and return the data, loading state, error state, and potentially the `mutate` function from SWR.
+-   **Simplicity:** Keep hooks focused on a single responsibility.
+
+By adhering to these guidelines, we ensure a consistent approach to reusable logic and data fetching throughout the application.

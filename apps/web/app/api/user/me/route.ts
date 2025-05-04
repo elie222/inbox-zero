@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
-export type UserResponse = Awaited<ReturnType<typeof getUser>>;
+export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
-async function getUser(userId: string) {
+async function getUser({ userId }: { userId: string }) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
@@ -14,10 +14,7 @@ async function getUser(userId: string) {
       aiProvider: true,
       aiModel: true,
       aiApiKey: true,
-      statsEmailFrequency: true,
-      summaryEmailFrequency: true,
-      coldEmailBlocker: true,
-      coldEmailPrompt: true,
+      webhookSecret: true,
       premium: {
         select: {
           lemonSqueezyCustomerId: true,
@@ -41,12 +38,13 @@ async function getUser(userId: string) {
   return user;
 }
 
+// Intentionally not using withAuth because we want to return null if the user is not authenticated
 export const GET = withError(async () => {
   const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const userId = session?.user.id;
+  if (!userId) return NextResponse.json(null);
 
-  const user = await getUser(session.user.id);
+  const user = await getUser({ userId });
 
   return NextResponse.json(user);
 });

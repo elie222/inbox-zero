@@ -1,11 +1,10 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
-import { getGmailAccessToken } from "@/utils/gmail/client";
+import { withEmailAccount } from "@/utils/middleware";
 import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { parseReply } from "@/utils/mail";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 const messagesBatchQuery = z.object({
   ids: z
@@ -19,10 +18,14 @@ export type MessagesBatchResponse = {
   messages: Awaited<ReturnType<typeof getMessagesBatch>>;
 };
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
+  const { accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
+
+  if (!accessToken) return NextResponse.json({ error: "Invalid access token" });
 
   const { searchParams } = new URL(request.url);
   const ids = searchParams.get("ids");
@@ -32,12 +35,10 @@ export const GET = withError(async (request) => {
     parseReplies: parseReplies === "true",
   });
 
-  const accessToken = await getGmailAccessToken(session);
-
-  if (!accessToken.token)
-    return NextResponse.json({ error: "Invalid access token" });
-
-  const messages = await getMessagesBatch(query.ids, accessToken.token);
+  const messages = await getMessagesBatch({
+    messageIds: query.ids,
+    accessToken,
+  });
 
   const result = query.parseReplies
     ? messages.map((message) => ({

@@ -21,16 +21,18 @@ export const maxDuration = 300;
 async function sendSummaryAllUpdate() {
   logger.info("Sending summary all update");
 
-  const users = await prisma.user.findMany({
+  const emailAccounts = await prisma.emailAccount.findMany({
     select: { email: true },
     where: {
       summaryEmailFrequency: {
         not: Frequency.NEVER,
       },
       // Only send to premium users
-      premium: {
-        lemonSqueezyRenewsAt: {
-          gt: new Date(),
+      user: {
+        premium: {
+          lemonSqueezyRenewsAt: {
+            gt: new Date(),
+          },
         },
       },
       // User at least 4 days old
@@ -40,29 +42,29 @@ async function sendSummaryAllUpdate() {
     },
   });
 
-  logger.info("Sending summary to users", { count: users.length });
+  logger.info("Sending summary to users", { count: emailAccounts.length });
 
   const url = `${env.NEXT_PUBLIC_BASE_URL}/api/resend/summary`;
 
-  for (const user of users) {
+  for (const emailAccount of emailAccounts) {
     try {
       await publishToQstashQueue({
         queueName: "email-summary-all",
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: { email: user.email },
+        body: { email: emailAccount.email },
         headers: getCronSecretHeader(),
       });
     } catch (error) {
       logger.error("Failed to publish to Qstash", {
-        email: user.email,
+        email: emailAccount.email,
         error,
       });
     }
   }
 
-  logger.info("All requests initiated", { count: users.length });
-  return { count: users.length };
+  logger.info("All requests initiated", { count: emailAccounts.length });
+  return { count: emailAccounts.length };
 }
 
 export const GET = withError(async (request) => {
@@ -76,7 +78,7 @@ export const GET = withError(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!(await hasPostCronSecret(request))) {
     captureException(
       new Error("Unauthorized cron request: api/resend/summary/all"),

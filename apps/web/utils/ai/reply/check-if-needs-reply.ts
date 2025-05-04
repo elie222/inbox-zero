@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import {
@@ -23,11 +23,11 @@ const schema = z.object({
 export type AICheckResult = z.infer<typeof schema>;
 
 export async function aiCheckIfNeedsReply({
-  user,
+  emailAccount,
   messageToSend,
   threadContextMessages,
 }: {
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   messageToSend: EmailForLLM;
   threadContextMessages: EmailForLLM[];
 }): Promise<AICheckResult> {
@@ -40,7 +40,7 @@ export async function aiCheckIfNeedsReply({
   const system = "You are an AI assistant that checks if a reply is needed.";
 
   const prompt =
-    `${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
+    `${emailAccount.about ? `<user_background_information>${emailAccount.about}</user_background_information>` : ""}
 
 We are sending the following message:
 
@@ -66,11 +66,11 @@ Decide if the message we are sending needs a reply.
   logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Check if needs reply",
   });
 

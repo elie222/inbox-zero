@@ -5,6 +5,7 @@ import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as labelUtils from "@/utils/gmail/label";
 import { blockColdEmail } from "./is-cold-email";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));
@@ -33,9 +34,8 @@ describe("blockColdEmail", () => {
     id: "123",
     threadId: "thread123",
   };
-  const mockUser = {
-    id: "user123",
-    email: "user@example.com",
+  const mockEmailAccount = {
+    ...getEmailAccount(),
     coldEmailBlocker: ColdEmailSetting.LABEL,
   };
   const mockAiReason = "This is a cold email";
@@ -48,19 +48,22 @@ describe("blockColdEmail", () => {
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: mockUser,
+      emailAccount: mockEmailAccount,
       aiReason: mockAiReason,
     });
 
     expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
       where: {
-        userId_fromEmail: { userId: mockUser.id, fromEmail: mockEmail.from },
+        emailAccountId_fromEmail: {
+          emailAccountId: mockEmailAccount.id,
+          fromEmail: mockEmail.from,
+        },
       },
       update: { status: ColdEmailStatus.AI_LABELED_COLD },
       create: {
         status: ColdEmailStatus.AI_LABELED_COLD,
         fromEmail: mockEmail.from,
-        userId: mockUser.id,
+        emailAccountId: mockEmailAccount.id,
         reason: mockAiReason,
         messageId: mockEmail.id,
         threadId: mockEmail.threadId,
@@ -76,7 +79,7 @@ describe("blockColdEmail", () => {
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: mockUser,
+      emailAccount: mockEmailAccount,
       aiReason: mockAiReason,
     });
 
@@ -94,7 +97,7 @@ describe("blockColdEmail", () => {
 
   it("should archive email when coldEmailBlocker is ARCHIVE_AND_LABEL", async () => {
     const userWithArchive = {
-      ...mockUser,
+      ...mockEmailAccount,
       coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
     };
     vi.mocked(labelUtils.getOrCreateInboxZeroLabel).mockResolvedValue({
@@ -104,7 +107,7 @@ describe("blockColdEmail", () => {
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: userWithArchive,
+      emailAccount: userWithArchive,
       aiReason: mockAiReason,
     });
 
@@ -118,7 +121,7 @@ describe("blockColdEmail", () => {
 
   it("should archive and mark as read when coldEmailBlocker is ARCHIVE_AND_READ_AND_LABEL", async () => {
     const userWithArchiveAndRead = {
-      ...mockUser,
+      ...mockEmailAccount,
       coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
     };
     vi.mocked(labelUtils.getOrCreateInboxZeroLabel).mockResolvedValue({
@@ -128,7 +131,7 @@ describe("blockColdEmail", () => {
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: userWithArchiveAndRead,
+      emailAccount: userWithArchiveAndRead,
       aiReason: mockAiReason,
     });
 
@@ -141,13 +144,13 @@ describe("blockColdEmail", () => {
   });
 
   it("should throw error when user email is missing", async () => {
-    const userWithoutEmail = { ...mockUser, email: null as any };
+    const userWithoutEmail = { ...mockEmailAccount, email: null as any };
 
     await expect(
       blockColdEmail({
         gmail: mockGmail,
         email: mockEmail,
-        user: userWithoutEmail,
+        emailAccount: userWithoutEmail,
         aiReason: mockAiReason,
       }),
     ).rejects.toThrow("User email is required");
@@ -161,7 +164,7 @@ describe("blockColdEmail", () => {
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: mockUser,
+      emailAccount: mockEmailAccount,
       aiReason: mockAiReason,
     });
 
@@ -175,14 +178,14 @@ describe("blockColdEmail", () => {
 
   it("should not modify labels when coldEmailBlocker is DISABLED", async () => {
     const userWithBlockerOff = {
-      ...mockUser,
+      ...mockEmailAccount,
       coldEmailBlocker: ColdEmailSetting.DISABLED,
     };
 
     await blockColdEmail({
       gmail: mockGmail,
       email: mockEmail,
-      user: userWithBlockerOff,
+      emailAccount: userWithBlockerOff,
       aiReason: mockAiReason,
     });
 

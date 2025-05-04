@@ -17,6 +17,7 @@ import type {
 } from "@/utils/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with:
 // pnpm test match-rules.test.ts
@@ -106,8 +107,13 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const emailAccount = getEmailAccount();
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe("Matched static conditions");
@@ -119,9 +125,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe("Matched static conditions");
@@ -133,9 +144,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -158,9 +174,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
@@ -177,9 +198,14 @@ describe("findMatchingRule", () => {
     });
     const rules = [rule];
     const message = getMessage();
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -196,9 +222,14 @@ describe("findMatchingRule", () => {
     });
     const rules = [rule];
     const message = getMessage();
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -232,9 +263,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
@@ -262,9 +298,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "ai@newsletter.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBeDefined();
@@ -293,9 +334,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "marketing@newsletter.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule).toBeUndefined();
     expect(result.reason).toBeDefined();
@@ -315,9 +361,14 @@ describe("findMatchingRule", () => {
     });
     const rules = [rule];
     const message = getMessage();
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -336,9 +387,14 @@ describe("findMatchingRule", () => {
     });
     const rules = [rule];
     const message = getMessage();
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toBe('Matched category: "category"');
@@ -378,9 +434,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }), // This matches item in wrongGroup
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule).toBeUndefined();
     expect(result.reason).toBeUndefined();
@@ -418,9 +479,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     expect(result.rule?.id).toBe(rule.id);
     expect(result.reason).toContain("test@example.com");
@@ -459,9 +525,14 @@ describe("findMatchingRule", () => {
     const message = getMessage({
       headers: getHeaders({ from: "test@example.com" }),
     });
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
-    const result = await findMatchingRule(rules, message, user, gmail);
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
 
     // Should match the first rule only
     expect(result.rule?.id).toBe("rule1");
@@ -492,17 +563,6 @@ function getHeaders(
   } as ParsedMessageHeaders;
 }
 
-function getUser() {
-  return {
-    id: "user1",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
-}
-
 function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {
   const message = {
     id: "m1",
@@ -520,7 +580,7 @@ function getCategory(overrides: Partial<Category> = {}): Category {
     name: "category",
     createdAt: new Date(),
     updatedAt: new Date(),
-    userId: "userId",
+    emailAccountId: "emailAccountId",
     description: null,
     ...overrides,
   };
@@ -536,7 +596,7 @@ function getGroup(
     name: "group",
     createdAt: new Date(),
     updatedAt: new Date(),
-    userId: "userId",
+    emailAccountId: "emailAccountId",
     prompt: null,
     items: [],
     rule: null,

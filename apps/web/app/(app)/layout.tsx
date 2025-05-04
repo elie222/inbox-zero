@@ -10,7 +10,7 @@ import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
-import { AssessUser } from "@/app/(app)/assess";
+import { AssessUser } from "@/app/(app)/[emailAccountId]/assess";
 import { LastLogin } from "@/app/(app)/last-login";
 import { SentryIdentify } from "@/app/(app)/sentry-identify";
 import { ErrorMessages } from "@/app/(app)/ErrorMessages";

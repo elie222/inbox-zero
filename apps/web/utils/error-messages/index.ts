@@ -46,7 +46,11 @@ export async function addUserErrorMessage(
   });
 }
 
-export async function clearUserErrorMessages(userId: string): Promise<void> {
+export async function clearUserErrorMessages({
+  userId,
+}: {
+  userId: string;
+}): Promise<void> {
   await prisma.user.update({
     where: { id: userId },
     data: { errorMessages: {} },

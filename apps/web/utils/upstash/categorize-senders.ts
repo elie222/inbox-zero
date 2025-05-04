@@ -8,8 +8,11 @@ const logger = createScopedLogger("upstash");
 
 const CATEGORIZE_SENDERS_PREFIX = "ai-categorize-senders";
 
-const getCategorizeSendersQueueName = (userId: string) =>
-  `${CATEGORIZE_SENDERS_PREFIX}-${userId}`;
+const getCategorizeSendersQueueName = ({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) => `${CATEGORIZE_SENDERS_PREFIX}-${emailAccountId}`;
 
 /**
  * Publishes sender categorization tasks to QStash queue in batches
@@ -25,7 +28,9 @@ export async function publishToAiCategorizeSendersQueue(
   const chunks = chunk(body.senders, BATCH_SIZE);
 
   // Create new queue for each user so we can run multiple users in parallel
-  const queueName = getCategorizeSendersQueueName(body.userId);
+  const queueName = getCategorizeSendersQueueName({
+    emailAccountId: body.emailAccountId,
+  });
 
   logger.info("Publishing to AI categorize senders queue in chunks", {
     url,
@@ -41,26 +46,42 @@ export async function publishToAiCategorizeSendersQueue(
         queueName,
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: { userId: body.userId, senders: senderChunk },
+        body: {
+          emailAccountId: body.emailAccountId,
+          senders: senderChunk,
+        } satisfies AiCategorizeSenders,
       }),
     ),
   );
 }
 
 export async function deleteEmptyCategorizeSendersQueues({
-  skipUserId,
+  skipEmailAccountId,
 }: {
-  skipUserId: string;
+  skipEmailAccountId: string;
 }) {
-  return deleteEmptyQueues(CATEGORIZE_SENDERS_PREFIX, skipUserId);
+  return deleteEmptyQueues({
+    prefix: CATEGORIZE_SENDERS_PREFIX,
+    skipEmailAccountId,
+  });
 }
 
-async function deleteEmptyQueues(prefix: string, skipUserId: string) {
+async function deleteEmptyQueues({
+  prefix,
+  skipEmailAccountId,
+}: {
+  prefix: string;
+  skipEmailAccountId: string;
+}) {
   const queues = await listQueues();
   logger.info("Found queues", { count: queues.length });
   for (const queue of queues) {
     if (!queue.name.startsWith(prefix)) continue;
-    if (skipUserId && queue.name === getCategorizeSendersQueueName(skipUserId))
+    if (
+      skipEmailAccountId &&
+      queue.name ===
+        getCategorizeSendersQueueName({ emailAccountId: skipEmailAccountId })
+    )
       continue;
 
     if (!queue.lag) {

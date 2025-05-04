@@ -4,11 +4,21 @@ import { isDefined } from "@/utils/types";
 
 const EXPIRATION = 60 * 60 * 6; // 6 hours
 
-const threadKey = (userId: string, jobId: string, threadId: string) =>
-  `thread:${userId}:${jobId}:${threadId}`;
+const threadKey = ({
+  emailAccountId,
+  jobId,
+  threadId,
+}: {
+  emailAccountId: string;
+  jobId: string;
+  threadId: string;
+}) => `thread:${emailAccountId}:${jobId}:${threadId}`;
 
-export async function saveThread(
-  userId: string,
+export async function saveThread({
+  emailAccountId,
+  thread,
+}: {
+  emailAccountId: string;
   thread: {
     threadId: string;
     jobId: string;
@@ -18,37 +28,52 @@ export async function saveThread(
     date: Date;
     archive?: boolean;
     label?: string;
-  },
-): Promise<CleanThread> {
+  };
+}): Promise<CleanThread> {
   const cleanThread: CleanThread = {
     ...thread,
-    userId,
+    emailAccountId,
     status: "processing",
     createdAt: new Date().toISOString(),
   };
 
-  await publishThread(userId, cleanThread);
+  await publishThread({ emailAccountId, thread: cleanThread });
   return cleanThread;
 }
 
-export async function updateThread(
-  userId: string,
-  jobId: string,
-  threadId: string,
-  update: Partial<CleanThread>,
-) {
-  const thread = await getThread(userId, jobId, threadId);
+export async function updateThread({
+  emailAccountId,
+  jobId,
+  threadId,
+  update,
+}: {
+  emailAccountId: string;
+  jobId: string;
+  threadId: string;
+  update: Partial<CleanThread>;
+}) {
+  const thread = await getThread({ emailAccountId, jobId, threadId });
   if (!thread) {
     console.warn("thread not found:", threadId);
     return;
   }
 
   const updatedThread = { ...thread, ...update };
-  await publishThread(userId, updatedThread);
+  await publishThread({ emailAccountId, thread: updatedThread });
 }
 
-export async function publishThread(userId: string, thread: CleanThread) {
-  const key = threadKey(userId, thread.jobId, thread.threadId);
+export async function publishThread({
+  emailAccountId,
+  thread,
+}: {
+  emailAccountId: string;
+  thread: CleanThread;
+}) {
+  const key = threadKey({
+    emailAccountId,
+    jobId: thread.jobId,
+    threadId: thread.threadId,
+  });
 
   // Store the data with expiration
   await redis.set(key, thread, { ex: EXPIRATION });
@@ -56,17 +81,28 @@ export async function publishThread(userId: string, thread: CleanThread) {
   await redis.publish(key, JSON.stringify(thread));
 }
 
-async function getThread(userId: string, jobId: string, threadId: string) {
-  const key = threadKey(userId, jobId, threadId);
+async function getThread({
+  emailAccountId,
+  jobId,
+  threadId,
+}: {
+  emailAccountId: string;
+  jobId: string;
+  threadId: string;
+}) {
+  const key = threadKey({ emailAccountId, jobId, threadId });
   return redis.get<CleanThread>(key);
 }
-
-export async function getThreadsByJobId(
-  userId: string,
-  jobId: string,
+export async function getThreadsByJobId({
+  emailAccountId,
+  jobId,
   limit = 1000,
-) {
-  const pattern = `thread:${userId}:${jobId}:*`;
+}: {
+  emailAccountId: string;
+  jobId: string;
+  limit?: number;
+}) {
+  const pattern = `thread:${emailAccountId}:${jobId}:*`;
   const keys = [];
   let cursor = 0;
 

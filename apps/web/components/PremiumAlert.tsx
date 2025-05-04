@@ -13,8 +13,8 @@ import {
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
-import { useUser } from "@/hooks/useUser";
 import { businessTierName } from "@/app/(app)/premium/config";
+import { useUser } from "@/hooks/useUser";
 
 export function usePremium() {
   const swrResponse = useUser();
@@ -32,6 +32,7 @@ export function usePremium() {
 
   return {
     ...swrResponse,
+    premium,
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||

@@ -1,7 +1,6 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
-import { SafeError } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
 

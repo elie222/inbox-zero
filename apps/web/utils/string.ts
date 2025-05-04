@@ -44,3 +44,7 @@ export function pluralize(
 ) {
   return count === 1 ? singular : plural;
 }
+
+export function formatBulletList(list: string[]) {
+  return list.map((item) => `- ${item}`).join("\n");
+}

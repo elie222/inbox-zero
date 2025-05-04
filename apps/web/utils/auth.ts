@@ -1,6 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import type { NextAuthConfig, DefaultSession, Account } from "next-auth";
+import type { Prisma } from "@prisma/client";
+import type { NextAuthConfig, DefaultSession } from "next-auth";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
@@ -9,24 +10,17 @@ import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import { SCOPES } from "@/utils/gmail/scopes";
+import { getContactsClient } from "@/utils/gmail/client";
+import { encryptToken } from "@/utils/encryption";
+import { updateAccountSeats } from "@/utils/premium/server";
 
 const logger = createScopedLogger("auth");
-
-export const SCOPES = [
-  "https://www.googleapis.com/auth/userinfo.profile",
-  "https://www.googleapis.com/auth/userinfo.email",
-
-  "https://www.googleapis.com/auth/gmail.modify",
-  "https://www.googleapis.com/auth/gmail.settings.basic",
-  ...(env.NEXT_PUBLIC_CONTACTS_ENABLED
-    ? ["https://www.googleapis.com/auth/contacts"]
-    : []),
-];
 
 export const getAuthOptions: (options?: {
   consent: boolean;
 }) => NextAuthConfig = (options) => ({
-  // debug: true,
+  debug: false,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
@@ -37,15 +31,131 @@ export const getAuthOptions: (options?: {
           scope: SCOPES.join(" "),
           access_type: "offline",
           response_type: "code",
+          prompt: "consent",
+          include_granted_scopes: true,
           // when we don't have the refresh token
           // refresh token is only provided on first sign up unless we pass prompt=consent
           // https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
-          ...(options?.consent ? { prompt: "consent" } : {}),
+          // ...(options?.consent ? { prompt: "consent" } : {}),
         },
       },
     }),
   ],
-  adapter: PrismaAdapter(prisma),
+  // logger: {
+  //   error: (error) => {
+  //     logger.error(error.message, { error });
+  //   },
+  //   warn: (message) => {
+  //     logger.warn(message);
+  //   },
+  //   debug: (message, metadata) => {
+  //     logger.info(message, { metadata });
+  //   },
+  // },
+  adapter: {
+    ...PrismaAdapter(prisma),
+    linkAccount: async (data): Promise<void> => {
+      logger.info("[linkAccount] Received data:", {
+        provider: data.provider,
+        providerAccountId: data.providerAccountId,
+        userId: data.userId,
+      });
+      const { profile, ...accountData } = data;
+
+      let primaryEmail: string | null | undefined;
+      let primaryName: string | null | undefined;
+      let primaryPhotoUrl: string | null | undefined;
+
+      try {
+        // --- Step 1: Fetch Profile Info using Access Token ---
+        if (data.access_token) {
+          const contactsClient = getContactsClient({
+            accessToken: data.access_token,
+          });
+          try {
+            const profileResponse = await contactsClient.people.get({
+              resourceName: "people/me",
+              personFields: "emailAddresses,names,photos",
+            });
+
+            primaryEmail = profileResponse.data.emailAddresses?.find(
+              (e) => e.metadata?.primary,
+            )?.value;
+            primaryName = profileResponse.data.names?.find(
+              (n) => n.metadata?.primary,
+            )?.displayName;
+            primaryPhotoUrl = profileResponse.data.photos?.find(
+              (p) => p.metadata?.primary,
+            )?.url;
+          } catch (profileError) {
+            logger.error("[linkAccount] Error fetching profile info:", {
+              profileError,
+            });
+            // Decide if this is fatal. Probably should be.
+            throw new Error(
+              "Failed to fetch profile info for linking account.",
+            );
+          }
+        } else {
+          logger.error(
+            "[linkAccount] No access_token found in data, cannot fetch profile.",
+          );
+          throw new Error("Missing access token during account linking.");
+        }
+
+        if (!primaryEmail) {
+          logger.error(
+            "[linkAccount] Primary email could not be determined from profile.",
+          );
+          throw new Error("Primary email not found for linked account.");
+        }
+
+        // --- Step 2: Create the Account record ---
+        const createdAccount = await prisma.account.create({
+          data: accountData,
+          select: { id: true, userId: true },
+        });
+
+        // --- Step 3: Create/Update the corresponding EmailAccount record ---
+        const userId = createdAccount.userId;
+        const emailAccountData: Prisma.EmailAccountUpsertArgs = {
+          where: { email: primaryEmail },
+          update: {
+            userId,
+            accountId: createdAccount.id,
+            name: primaryName,
+            image: primaryPhotoUrl,
+          },
+          create: {
+            email: primaryEmail,
+            userId,
+            accountId: createdAccount.id,
+            name: primaryName,
+            image: primaryPhotoUrl,
+          },
+        };
+        await prisma.emailAccount.upsert(emailAccountData);
+
+        // Handle premium account seats
+        await updateAccountSeats({ userId }).catch((error) => {
+          logger.error("[linkAccount] Error updating premium account seats:", {
+            userId: data?.userId,
+            error,
+          });
+          captureException(error, { extra: { userId: data?.userId } });
+        });
+      } catch (error) {
+        logger.error("[linkAccount] Error during linking process:", {
+          userId: data?.userId,
+          error,
+        });
+        captureException(error, {
+          extra: { userId: data?.userId, location: "linkAccount" },
+        });
+        throw error; // Re-throw the error so NextAuth knows it failed
+      }
+    },
+  },
   session: { strategy: "jwt" },
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
@@ -58,19 +168,17 @@ export const getAuthOptions: (options?: {
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           logger.info("Saving refresh token", { email: token.email });
-          await saveRefreshToken(
-            {
+          await saveTokens({
+            tokens: {
               access_token: account.access_token,
               refresh_token: account.refresh_token,
               expires_at: calculateExpiresAt(
                 account.expires_in as number | undefined,
               ),
             },
-            {
-              providerAccountId: account.providerAccountId,
-              refresh_token: account.refresh_token,
-            },
-          );
+            accountRefreshToken: account.refresh_token,
+            providerAccountId: account.providerAccountId,
+          });
           token.refresh_token = account.refresh_token;
         } else {
           const dbAccount = await prisma.account.findUnique({
@@ -158,11 +266,17 @@ export const getAuthOptions: (options?: {
         ]);
 
         if (loopsResult.status === "rejected") {
-          logger.error("Error creating Loops contact", {
-            email: user.email,
-            error: loopsResult.reason,
-          });
-          captureException(loopsResult.reason, undefined, user.email);
+          const alreadyExists =
+            loopsResult.reason instanceof Error &&
+            loopsResult.reason.message.includes("409");
+
+          if (!alreadyExists) {
+            logger.error("Error creating Loops contact", {
+              email: user.email,
+              error: loopsResult.reason,
+            });
+            captureException(loopsResult.reason, undefined, user.email);
+          }
         }
 
         if (resendResult.status === "rejected") {
@@ -213,6 +327,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     logger.error("No refresh token found in database", {
       email: token.email,
       userId: account.userId,
+      providerAccountId: account.providerAccountId,
     });
     return {
       ...token,
@@ -250,13 +365,11 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
         : "undefined",
     });
 
-    await saveRefreshToken(
-      { ...tokens, expires_at },
-      {
-        providerAccountId: account.providerAccountId,
-        refresh_token: account.refresh_token,
-      },
-    );
+    await saveTokens({
+      tokens: { ...tokens, expires_at },
+      accountRefreshToken: account.refresh_token,
+      providerAccountId: account.providerAccountId,
+    });
 
     return {
       ...token, // Keep the previous token properties
@@ -286,39 +399,78 @@ function calculateExpiresAt(expiresIn?: number) {
   return Math.floor(Date.now() / 1000 + (expiresIn - 10)); // give 10 second buffer
 }
 
-export async function saveRefreshToken(
+export async function saveTokens({
+  tokens,
+  accountRefreshToken,
+  providerAccountId,
+  emailAccountId,
+}: {
   tokens: {
     access_token?: string;
     refresh_token?: string;
     expires_at?: number;
-  },
-  account: Pick<Account, "refresh_token" | "providerAccountId">,
-) {
-  const refreshToken = tokens.refresh_token ?? account.refresh_token;
+  };
+  accountRefreshToken: string | null;
+} & ( // provide one of these:
+  | {
+      providerAccountId: string;
+      emailAccountId?: never;
+    }
+  | {
+      emailAccountId: string;
+      providerAccountId?: never;
+    }
+)) {
+  const refreshToken = tokens.refresh_token ?? accountRefreshToken;
 
   if (!refreshToken) {
-    logger.error("Attempted to save null refresh token", {
-      providerAccountId: account.providerAccountId,
-    });
+    logger.error("Attempted to save null refresh token", { providerAccountId });
     captureException("Cannot save null refresh token", {
-      extra: { providerAccountId: account.providerAccountId },
+      extra: { providerAccountId },
     });
     return;
   }
 
-  return await prisma.account.update({
-    data: {
-      access_token: tokens.access_token,
-      expires_at: tokens.expires_at,
-      refresh_token: refreshToken,
-    },
-    where: {
-      provider_providerAccountId: {
-        provider: "google",
-        providerAccountId: account.providerAccountId,
+  const data = {
+    access_token: tokens.access_token,
+    expires_at: tokens.expires_at,
+    refresh_token: refreshToken,
+  };
+
+  if (emailAccountId) {
+    // Encrypt tokens in data directly
+    // Usually we do this in prisma-extensions.ts but we need to do it here because we're updating the account via the emailAccount
+    // We could also edit prisma-extensions.ts to handle this case but this is easier for now
+    if (data.access_token)
+      data.access_token = encryptToken(data.access_token) || undefined;
+    if (data.refresh_token)
+      data.refresh_token = encryptToken(data.refresh_token) || "";
+
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { account: { update: data } },
+    });
+  } else {
+    if (!providerAccountId) {
+      logger.error("No providerAccountId found in database", {
+        emailAccountId,
+      });
+      captureException("No providerAccountId found in database", {
+        extra: { emailAccountId },
+      });
+      return;
+    }
+
+    return await prisma.account.update({
+      where: {
+        provider_providerAccountId: {
+          provider: "google",
+          providerAccountId,
+        },
       },
-    },
-  });
+      data,
+    });
+  }
 }
 
 async function handlePendingPremiumInvite(user: { email: string }) {

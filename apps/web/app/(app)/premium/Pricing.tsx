@@ -23,24 +23,27 @@ import {
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
-import { isActionError } from "@/utils/error";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PremiumTier } from "@prisma/client";
-import { usePricingVariant, useSkipUpgrade } from "@/hooks/useFeatureFlags";
+import {
+  usePricingFrequencyDefault,
+  usePricingVariant,
+} from "@/hooks/useFeatureFlags";
 
 export function Pricing(props: {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
 }) {
-  const { isPremium, data, isLoading, error } = usePremium();
+  const { isPremium, premium, isLoading, error } = usePremium();
   const session = useSession();
 
-  const [frequency, setFrequency] = useState(frequencies[1]);
+  const defaultFrequency = usePricingFrequencyDefault();
+  const [frequency, setFrequency] = useState(
+    defaultFrequency === "monthly" ? frequencies[0] : frequencies[1],
+  );
 
   const affiliateCode = useAffiliateCode();
-  const premiumTier = getUserTier(data?.premium);
-
-  const skipVariant = useSkipUpgrade();
+  const premiumTier = getUserTier(premium);
 
   const header = props.header || (
     <div className="mb-12">
@@ -247,11 +250,11 @@ export function Pricing(props: {
                     if (premiumTier) {
                       toast.promise(
                         async () => {
-                          const result = await switchPremiumPlanAction(
-                            tier.tiers[frequency.value],
-                          );
-                          if (isActionError(result))
-                            throw new Error(result.error);
+                          const result = await switchPremiumPlanAction({
+                            premiumTier: tier.tiers[frequency.value],
+                          });
+                          if (result?.serverError)
+                            throw new Error(result.serverError);
                         },
                         {
                           loading: "Switching to plan...",
@@ -281,17 +284,6 @@ export function Pricing(props: {
             );
           })}
         </Layout>
-
-        {props.showSkipUpgrade && skipVariant === "skip-button" && (
-          <div className="my-4 flex justify-center">
-            <Button size="lg" asChild>
-              <Link href="/automation">
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Explore the app for free
-              </Link>
-            </Button>
-          </div>
-        )}
       </div>
     </LoadingContent>
   );

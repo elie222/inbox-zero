@@ -23,7 +23,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("Lemon Squeezy Webhook");
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   const payload = await getPayload(request);
   const userId = payload.meta.custom_data?.user_id;
 

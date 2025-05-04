@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createPatch } from "diff";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 const parameters = z.object({
   addedRules: z.array(z.string()).describe("The added rules"),
@@ -17,11 +17,11 @@ const parameters = z.object({
 });
 
 export async function aiDiffRules({
-  user,
+  emailAccount,
   oldPromptFile,
   newPromptFile,
 }: {
-  user: UserAIFields & { email: string };
+  emailAccount: EmailAccountWithAI;
   oldPromptFile: string;
   newPromptFile: string;
 }) {
@@ -55,7 +55,7 @@ If a rule is edited, it is an edit and not a removal! Be extra careful to not ma
 `;
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     tools: {
@@ -65,7 +65,7 @@ If a rule is edited, it is an edit and not a removal! Be extra careful to not ma
         parameters,
       },
     },
-    userEmail: user.email,
+    userEmail: emailAccount.email,
     label: "Diff rules",
   });
 

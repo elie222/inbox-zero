@@ -1,65 +1,50 @@
 "use server";
 
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
-import { auth, signOut } from "@/app/api/auth/[...nextauth]/auth";
+import { after } from "next/server";
+import { signOut } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
-import { getGmailClient } from "@/utils/gmail/client";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
+import { updateAccountSeats } from "@/utils/premium/server";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
-export const saveAboutAction = withActionInstrumentation(
-  "saveAbout",
-  async (unsafeBody: SaveAboutBody) => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
-    const { success, data, error } = saveAboutBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
-    await prisma.user.update({
-      where: { email: session.user.email },
-      data: { about: data.about },
+export const saveAboutAction = actionClient
+  .metadata({ name: "saveAbout" })
+  .schema(saveAboutBody)
+  .action(async ({ parsedInput: { about }, ctx: { emailAccountId } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { about },
     });
-
-    revalidatePath("/settings");
-  },
-);
+  });
 
 const saveSignatureBody = z.object({ signature: z.string().max(2_000) });
 export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
-export const saveSignatureAction = withActionInstrumentation(
-  "saveSignature",
-  async (unsafeBody: SaveSignatureBody) => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
-    const { success, data, error } = saveSignatureBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
-    await prisma.user.update({
-      where: { email: session.user.email },
-      data: { signature: data.signature },
+export const saveSignatureAction = actionClient
+  .metadata({ name: "saveSignature" })
+  .schema(saveSignatureBody)
+  .action(async ({ parsedInput: { signature }, ctx: { emailAccountId } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { signature },
     });
-  },
-);
+  });
 
-export const loadSignatureFromGmailAction = withActionInstrumentation(
-  "loadSignatureFromGmail",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const loadSignatureFromGmailAction = actionClient
+  .metadata({ name: "loadSignatureFromGmail" })
+  .action(async ({ ctx: { emailAccountId } }) => {
     // 1. find last 5 sent emails
-    const gmail = getGmailClient(session);
+    const gmail = await getGmailClientForEmail({ emailAccountId });
     const messages = await getMessages(gmail, {
       query: "from:me",
       maxResults: 5,
@@ -80,81 +65,91 @@ export const loadSignatureFromGmailAction = withActionInstrumentation(
     }
 
     return { signature: "" };
-  },
-);
+  });
 
-export const resetAnalyticsAction = withActionInstrumentation(
-  "resetAnalytics",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const resetAnalyticsAction = actionClient
+  .metadata({ name: "resetAnalytics" })
+  .action(async ({ ctx: { emailAccountId } }) => {
     await prisma.emailMessage.deleteMany({
-      where: { userId: session.user.id },
+      where: { emailAccountId },
     });
-  },
-);
+  });
 
-export const deleteAccountAction = withActionInstrumentation(
-  "deleteAccount",
-  async () => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
-
+export const deleteAccountAction = actionClientUser
+  .metadata({ name: "deleteAccount" })
+  .action(async ({ ctx: { userId } }) => {
     try {
       await signOut();
     } catch (error) {}
 
-    await deleteUser({ userId: session.user.id, email: session.user.email });
-  },
-);
+    await deleteUser({ userId });
+  });
 
-export const completedOnboardingAction = withActionInstrumentation(
-  "completedOnboarding",
-  async () => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
+export const completedOnboardingAction = actionClientUser
+  .metadata({ name: "completedOnboarding" })
+  .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
-      where: { id: session.user.id, completedOnboardingAt: null },
+      where: { id: userId, completedOnboardingAt: null },
       data: { completedOnboardingAt: new Date() },
     });
-  },
-);
+  });
 
-export const completedAppOnboardingAction = withActionInstrumentation(
-  "completedAppOnboarding",
-  async () => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
+export const completedAppOnboardingAction = actionClientUser
+  .metadata({ name: "completedAppOnboarding" })
+  .action(async ({ ctx: { userId } }) => {
     await prisma.user.update({
-      where: { id: session.user.id, completedAppOnboardingAt: null },
+      where: { id: userId, completedAppOnboardingAt: null },
       data: { completedAppOnboardingAt: new Date() },
     });
-  },
-);
+  });
 
 const saveOnboardingAnswersBody = z.object({
   surveyId: z.string().optional(),
   questions: z.any(),
   answers: z.any(),
 });
-type SaveOnboardingAnswersBody = z.infer<typeof saveOnboardingAnswersBody>;
 
-export const saveOnboardingAnswersAction = withActionInstrumentation(
-  "saveOnboardingAnswers",
-  async (unsafeBody: SaveOnboardingAnswersBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+export const saveOnboardingAnswersAction = actionClientUser
+  .metadata({ name: "saveOnboardingAnswers" })
+  .schema(saveOnboardingAnswersBody)
+  .action(
+    async ({
+      parsedInput: { surveyId, questions, answers },
+      ctx: { userId },
+    }) => {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { onboardingAnswers: { surveyId, questions, answers } },
+      });
+    },
+  );
 
-    const { success, data, error } =
-      saveOnboardingAnswersBody.safeParse(unsafeBody);
-    if (!success) return { error: error.message };
-
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { onboardingAnswers: data },
+export const deleteEmailAccountAction = actionClientUser
+  .metadata({ name: "deleteEmailAccount" })
+  .schema(z.object({ emailAccountId: z.string() }))
+  .action(async ({ ctx: { userId }, parsedInput: { emailAccountId } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId, userId },
+      select: {
+        email: true,
+        accountId: true,
+        user: { select: { email: true } },
+      },
     });
-  },
-);
+
+    if (!emailAccount) throw new SafeError("Email account not found");
+    if (!emailAccount.accountId) throw new SafeError("Account id not found");
+
+    if (emailAccount.email === emailAccount.user.email)
+      throw new SafeError(
+        "Cannot delete primary email account. Go to the Settings page to delete your entire account.",
+      );
+
+    await prisma.account.delete({
+      where: { id: emailAccount.accountId, userId },
+    });
+
+    after(async () => {
+      await updateAccountSeats({ userId });
+    });
+  });

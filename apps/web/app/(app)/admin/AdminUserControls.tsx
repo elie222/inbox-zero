@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useAction } from "next-safe-action/hooks";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
@@ -9,17 +9,62 @@ import {
   type AdminProcessHistoryOptions,
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { handleActionResult } from "@/utils/server-action";
 import {
   adminDeleteAccountAction,
   adminProcessHistoryAction,
 } from "@/utils/actions/admin";
 import { adminCheckPermissionsAction } from "@/utils/actions/permissions";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AdminUserControls = () => {
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
+  const { execute: processHistory, isExecuting: isProcessing } = useAction(
+    adminProcessHistoryAction,
+    {
+      onSuccess: () => {
+        toastSuccess({
+          title: "History processed",
+          description: "History processed",
+        });
+      },
+      onError: () => {
+        toastError({
+          title: "Error processing history",
+          description: "Error processing history",
+        });
+      },
+    },
+  );
+  const { execute: checkPermissions, isExecuting: isCheckingPermissions } =
+    useAction(adminCheckPermissionsAction, {
+      onSuccess: (result) => {
+        toastSuccess({
+          title: "Permissions checked",
+          description: `Permissions checked. ${
+            result.data?.hasAllPermissions
+              ? "Has all permissions"
+              : "Missing permissions"
+          }`,
+        });
+      },
+    });
+  const { execute: deleteAccount, isExecuting: isDeleting } = useAction(
+    adminDeleteAccountAction,
+    {
+      onSuccess: () => {
+        toastSuccess({
+          title: "User deleted",
+          description: "User deleted",
+        });
+      },
+      onError: () => {
+        toastError({
+          title: "Error deleting user",
+          description: "Error deleting user",
+        });
+      },
+    },
+  );
+
   const {
     register,
     formState: { errors },
@@ -41,14 +86,8 @@ export const AdminUserControls = () => {
         <Button
           variant="outline"
           loading={isProcessing}
-          onClick={async () => {
-            setIsProcessing(true);
-            const email = getValues("email");
-            const result = await adminProcessHistoryAction({
-              emailAddress: email,
-            });
-            handleActionResult(result, `Processed history for ${email}`);
-            setIsProcessing(false);
+          onClick={() => {
+            processHistory({ emailAddress: getValues("email") });
           }}
         >
           Process History
@@ -56,19 +95,8 @@ export const AdminUserControls = () => {
         <Button
           variant="outline"
           loading={isCheckingPermissions}
-          onClick={async () => {
-            setIsCheckingPermissions(true);
-            const email = getValues("email");
-            const result = await adminCheckPermissionsAction({ email });
-            handleActionResult(
-              result,
-              `Checked permissions for ${email}. ${
-                result?.hasAllPermissions
-                  ? "Has all permissions"
-                  : "Missing permissions"
-              }`,
-            );
-            setIsCheckingPermissions(false);
+          onClick={() => {
+            checkPermissions({ email: getValues("email") });
           }}
         >
           Check Permissions
@@ -76,12 +104,8 @@ export const AdminUserControls = () => {
         <Button
           variant="destructive"
           loading={isDeleting}
-          onClick={async () => {
-            setIsDeleting(true);
-            const email = getValues("email");
-            const result = await adminDeleteAccountAction(email);
-            handleActionResult(result, "Deleted user");
-            setIsDeleting(false);
+          onClick={() => {
+            deleteAccount({ email: getValues("email") });
           }}
         >
           Delete User

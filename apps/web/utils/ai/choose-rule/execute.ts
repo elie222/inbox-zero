@@ -23,12 +23,14 @@ export async function executeAct({
   gmail,
   executedRule,
   userEmail,
+  emailAccountId,
   message,
 }: {
   gmail: gmail_v1.Gmail;
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
   userEmail: string;
+  emailAccountId: string;
 }) {
   const logger = createScopedLogger("ai-execute-act").with({
     email: userEmail,
@@ -50,13 +52,14 @@ export async function executeAct({
 
   for (const action of executedRule.actionItems) {
     try {
-      const actionResult = await runActionFunction(
+      const actionResult = await runActionFunction({
         gmail,
-        message,
+        email: message,
         action,
         userEmail,
+        emailAccountId,
         executedRule,
-      );
+      });
 
       if (action.type === ActionType.DRAFT_EMAIL && actionResult?.draftId) {
         await updateExecutedActionWithDraftId({

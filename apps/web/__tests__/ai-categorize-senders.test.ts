@@ -5,6 +5,7 @@ import {
 } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { defaultCategory } from "@/utils/categories";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-categorize-senders
 
@@ -12,12 +13,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-const testUser = {
-  email: "user@test.com",
-  aiProvider: null,
-  aiModel: null,
-  aiApiKey: null,
-};
+const emailAccount = getEmailAccount();
 
 const testSenders = [
   {
@@ -55,7 +51,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
   describe("Bulk Categorization", () => {
     it("should categorize senders with snippets using AI", async () => {
       const result = await aiCategorizeSenders({
-        user: testUser,
+        emailAccount,
         senders: testSenders,
         categories: getEnabledCategories(),
       });
@@ -81,7 +77,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
 
     it("should handle empty senders list", async () => {
       const result = await aiCategorizeSenders({
-        user: testUser,
+        emailAccount,
         senders: [],
         categories: [],
       });
@@ -95,7 +91,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
         .map((category) => `${category.name}@example.com`);
 
       const result = await aiCategorizeSenders({
-        user: testUser,
+        emailAccount,
         senders: senders.map((sender) => ({
           emailAddress: sender,
           emails: [],
@@ -118,7 +114,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
     it("should categorize individual senders with snippets", async () => {
       for (const { emailAddress, emails, expectedCategory } of testSenders) {
         const result = await aiCategorizeSender({
-          user: testUser,
+          emailAccount,
           sender: emailAddress,
           previousEmails: emails,
           categories: getEnabledCategories(),
@@ -141,7 +137,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
       if (!unknownSender) throw new Error("No unknown sender in test data");
 
       const result = await aiCategorizeSender({
-        user: testUser,
+        emailAccount,
         sender: unknownSender.emailAddress,
         previousEmails: [],
         categories: getEnabledCategories(),
@@ -157,7 +153,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
     it("should produce consistent results between bulk and single categorization", async () => {
       // Run bulk categorization
       const bulkResults = await aiCategorizeSenders({
-        user: testUser,
+        emailAccount,
         senders: testSenders,
         categories: getEnabledCategories(),
       });
@@ -166,7 +162,7 @@ describe.runIf(isAiTest)("AI Sender Categorization", () => {
       const singleResults = await Promise.all(
         testSenders.map(async ({ emailAddress, emails }) => {
           const result = await aiCategorizeSender({
-            user: testUser,
+            emailAccount,
             sender: emailAddress,
             previousEmails: emails,
             categories: getEnabledCategories(),

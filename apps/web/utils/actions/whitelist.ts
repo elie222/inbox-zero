@@ -1,20 +1,17 @@
 "use server";
 
 import { env } from "@/env";
-import { getSessionAndGmailClient } from "@/utils/actions/helpers";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
-import { isActionError } from "@/utils/error";
 import { createFilter } from "@/utils/gmail/filter";
 import { GmailLabel } from "@/utils/gmail/label";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
 
-export const whitelistInboxZeroAction = withActionInstrumentation(
-  "whitelistInboxZero",
-  async () => {
+export const whitelistInboxZeroAction = actionClient
+  .metadata({ name: "whitelistInboxZero" })
+  .action(async ({ ctx: { emailAccountId } }) => {
     if (!env.WHITELIST_FROM) return;
 
-    const sessionResult = await getSessionAndGmailClient();
-    if (isActionError(sessionResult)) return sessionResult;
-    const { gmail } = sessionResult;
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     await createFilter({
       gmail,
@@ -22,5 +19,4 @@ export const whitelistInboxZeroAction = withActionInstrumentation(
       addLabelIds: ["CATEGORY_PERSONAL"],
       removeLabelIds: [GmailLabel.SPAM],
     });
-  },
-);
+  });

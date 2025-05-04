@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
@@ -11,20 +11,25 @@ import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
 import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 
-export async function handleOutboundReply(
-  user: UserEmailWithAI,
-  message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
-) {
+export async function handleOutboundReply({
+  emailAccount,
+  message,
+  gmail,
+}: {
+  emailAccount: EmailAccountWithAI;
+  message: ParsedMessage;
+  gmail: gmail_v1.Gmail;
+}) {
   const logger = createScopedLogger("reply-tracker/outbound").with({
-    email: user.email,
-    userId: user.id,
+    email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,
   });
 
   // 1. Check if feature enabled
-  const isEnabled = await isOutboundTrackingEnabled(user.id);
+  const isEnabled = await isOutboundTrackingEnabled({
+    email: emailAccount.email,
+  });
   if (!isEnabled) {
     logger.info("Outbound reply tracking disabled, skipping.");
     return;
@@ -39,7 +44,7 @@ export async function handleOutboundReply(
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackers(
     gmail,
-    user.id,
+    emailAccount.userId,
     message.threadId,
     needsReplyLabelId,
   );
@@ -70,7 +75,7 @@ export async function handleOutboundReply(
 
   // 7. Perform AI check
   const aiResult = await aiCheckIfNeedsReply({
-    user,
+    emailAccount,
     messageToSend: messageToSendForLLM,
     threadContextMessages: threadContextMessagesForLLM,
   });
@@ -80,7 +85,7 @@ export async function handleOutboundReply(
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
       gmail,
-      userId: user.id,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       awaitingReplyLabelId,
@@ -94,7 +99,7 @@ export async function handleOutboundReply(
 
 async function createReplyTrackerOutbound({
   gmail,
-  userId,
+  emailAccountId,
   threadId,
   messageId,
   awaitingReplyLabelId,
@@ -102,7 +107,7 @@ async function createReplyTrackerOutbound({
   logger,
 }: {
   gmail: gmail_v1.Gmail;
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   awaitingReplyLabelId: string;
@@ -113,15 +118,15 @@ async function createReplyTrackerOutbound({
 
   const upsertPromise = prisma.threadTracker.upsert({
     where: {
-      userId_threadId_messageId: {
-        userId,
+      emailAccountId_threadId_messageId: {
+        emailAccountId,
         threadId,
         messageId,
       },
     },
     update: {},
     create: {
-      userId,
+      emailAccountId,
       threadId,
       messageId,
       type: ThreadTrackerType.AWAITING,
@@ -155,13 +160,13 @@ async function createReplyTrackerOutbound({
 
 async function resolveReplyTrackers(
   gmail: gmail_v1.Gmail,
-  userId: string,
+  emailAccountId: string,
   threadId: string,
   needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
-      userId,
+      emailAccountId,
       threadId,
       resolved: false,
       type: ThreadTrackerType.NEEDS_REPLY,
@@ -176,9 +181,11 @@ async function resolveReplyTrackers(
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }
 
-async function isOutboundTrackingEnabled(userId: string): Promise<boolean> {
-  const userSettings = await prisma.user.findUnique({
-    where: { id: userId },
+async function isOutboundTrackingEnabled({
+  email,
+}: { email: string }): Promise<boolean> {
+  const userSettings = await prisma.emailAccount.findUnique({
+    where: { email },
     select: { outboundReplyTracking: true },
   });
   return !!userSettings?.outboundReplyTracking;

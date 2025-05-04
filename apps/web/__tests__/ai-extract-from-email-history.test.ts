@@ -1,6 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailForLLM } from "@/utils/types";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai extract-from-email-history
 
@@ -8,17 +9,6 @@ vi.mock("server-only", () => ({}));
 
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
-
-function getUser() {
-  return {
-    id: "test-user-id",
-    email: "user@test.com",
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
-    about: null,
-  };
-}
 
 function getMockMessage(overrides = {}): EmailForLLM {
   return {
@@ -49,12 +39,12 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
 
   test("successfully extracts information from email thread", async () => {
     const messages = getTestMessages();
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: messages.slice(0, 1),
       historicalMessages: messages.slice(1),
-      user,
+      emailAccount,
     });
 
     expect(result).toBeDefined();
@@ -71,7 +61,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: currentMessages,
       historicalMessages: [],
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toBeDefined();
@@ -89,7 +79,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: currentMessages,
       historicalMessages: historicalMessages,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toBeDefined();

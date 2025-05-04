@@ -1,5 +1,5 @@
 import { chatCompletion } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
@@ -9,10 +9,10 @@ const logger = createScopedLogger("generate-nudge");
 
 export async function aiGenerateNudge({
   messages,
-  user,
+  emailAccount,
 }: {
   messages: EmailForLLM[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   onFinish?: (completion: string) => Promise<void>;
 }) {
   const system = `You are an expert at writing follow-up emails that get responses.
@@ -40,10 +40,10 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
   logger.trace("Input", { system, prompt });
 
   const response = await chatCompletion({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
-    userEmail: user.email,
+    userEmail: emailAccount.email,
     usageLabel: "Reply",
   });
 

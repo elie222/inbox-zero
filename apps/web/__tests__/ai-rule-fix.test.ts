@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from "vitest";
 import stripIndent from "strip-indent";
 import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
-import type { EmailForLLM } from "@/utils/types";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-rule-fix
 
@@ -35,7 +35,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule: rule,
       expectedRule: null,
       email: salesEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -75,7 +75,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule,
       expectedRule,
       email: feedbackEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -111,7 +111,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule,
       expectedRule: null,
       email: newsletterEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -147,7 +147,7 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
       actualRule: null,
       expectedRule: correctRule,
       email: priceRequestEmail,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     console.log(result);
@@ -161,29 +161,3 @@ describe.runIf(isAiTest)("aiRuleFix", () => {
     );
   });
 });
-
-function getEmail({
-  from = "user@test.com",
-  subject = "Test Subject",
-  content = "Test content",
-  replyTo,
-  cc,
-}: Partial<EmailForLLM> = {}): EmailForLLM {
-  return {
-    from,
-    subject,
-    content,
-    ...(replyTo && { replyTo }),
-    ...(cc && { cc }),
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
-}

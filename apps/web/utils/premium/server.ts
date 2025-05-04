@@ -1,5 +1,10 @@
+import sumBy from "lodash/sumBy";
+import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
 import prisma from "@/utils/prisma";
 import { FeatureAccess, PremiumTier } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -162,4 +167,44 @@ function getTierAccess(tier: PremiumTier) {
     default:
       throw new Error(`Unknown premium tier: ${tier}`);
   }
+}
+
+export async function updateAccountSeats({ userId }: { userId: string }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      premium: {
+        select: {
+          lemonSqueezySubscriptionItemId: true,
+          users: {
+            select: {
+              _count: { select: { emailAccounts: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!user) throw new Error(`User not found for id ${userId}`);
+
+  const { premium } = user;
+
+  if (!premium) {
+    logger.warn("User has no premium", { userId });
+    return;
+  }
+
+  if (!premium.lemonSqueezySubscriptionItemId) {
+    logger.warn("User has no lemonSqueezySubscriptionItemId", { userId });
+    return;
+  }
+
+  // Count all email accounts for all users
+  const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
+
+  await updateSubscriptionItemQuantity({
+    id: premium.lemonSqueezySubscriptionItemId,
+    quantity: totalSeats,
+  });
 }

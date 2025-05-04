@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import format from "date-fns/format";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { zodPeriod } from "@inboxzero/tinybird";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -17,9 +16,9 @@ export type SenderEmailsQuery = z.infer<typeof senderEmailsQuery>;
 export type SenderEmailsResponse = Awaited<ReturnType<typeof getSenderEmails>>;
 
 async function getSenderEmails(
-  options: SenderEmailsQuery & { userId: string },
+  options: SenderEmailsQuery & { emailAccountId: string },
 ) {
-  const { fromEmail, period, fromDate, toDate, userId } = options;
+  const { fromEmail, period, fromDate, toDate, emailAccountId } = options;
 
   // Define the date truncation function based on the period
   let dateFunction: string;
@@ -37,7 +36,7 @@ async function getSenderEmails(
   let query = Prisma.sql`
     SELECT ${Prisma.raw(dateFunction)} AS "startOfPeriod", COUNT(*) as count
     FROM "EmailMessage"
-    WHERE "userId" = ${userId}
+    WHERE "emailAccountId" = ${emailAccountId}
       AND "from" = ${fromEmail}
   `;
 
@@ -70,10 +69,8 @@ async function getSenderEmails(
   };
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
 
@@ -86,7 +83,7 @@ export const GET = withError(async (request) => {
 
   const result = await getSenderEmails({
     ...query,
-    userId: session.user.id,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

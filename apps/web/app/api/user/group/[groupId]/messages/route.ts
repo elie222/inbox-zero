@@ -1,22 +1,19 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientForEmail } from "@/utils/account";
 
-export const GET = withError(async (_request, { params }) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request, { params }) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Missing group id" });
 
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { messages } = await getGroupEmails({
     groupId,
-    userId: session.user.id,
+    emailAccountId,
     gmail,
     from: undefined,
     to: undefined,

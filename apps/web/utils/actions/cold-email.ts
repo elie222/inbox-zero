@@ -1,78 +1,61 @@
 "use server";
 
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { ColdEmailStatus } from "@prisma/client";
 import { getLabel, labelThread } from "@/utils/gmail/label";
 import { GmailLabel } from "@/utils/gmail/label";
-import { getGmailClient } from "@/utils/gmail/client";
 import { getThreads } from "@/utils/gmail/thread";
 import { inboxZeroLabels } from "@/utils/label";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { emailToContent } from "@/utils/mail";
 import { isColdEmail } from "@/utils/cold-email/is-cold-email";
 import {
   coldEmailBlockerBody,
-  type ColdEmailBlockerBody,
   markNotColdEmailBody,
-  type MarkNotColdEmailBody,
   updateColdEmailPromptBody,
-  type UpdateColdEmailPromptBody,
   updateColdEmailSettingsBody,
-  type UpdateColdEmailSettingsBody,
 } from "@/utils/actions/cold-email.validation";
-import { formatZodError } from "@/utils/error";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
-export const updateColdEmailSettingsAction = withActionInstrumentation(
-  "updateColdEmailSettings",
-  async (body: UpdateColdEmailSettingsBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+export const updateColdEmailSettingsAction = actionClient
+  .metadata({ name: "updateColdEmailSettings" })
+  .schema(updateColdEmailSettingsBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailBlocker } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { coldEmailBlocker },
+      });
+    },
+  );
 
-    const { data, error } = updateColdEmailSettingsBody.safeParse(body);
-    if (error) return { error: error.message };
+export const updateColdEmailPromptAction = actionClient
+  .metadata({ name: "updateColdEmailPrompt" })
+  .schema(updateColdEmailPromptBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailPrompt } }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { coldEmailPrompt },
+      });
+    },
+  );
 
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { coldEmailBlocker: data.coldEmailBlocker },
-    });
-  },
-);
-
-export const updateColdEmailPromptAction = withActionInstrumentation(
-  "updateColdEmailPrompt",
-  async (body: UpdateColdEmailPromptBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { data, error } = updateColdEmailPromptBody.safeParse(body);
-    if (error) return { error: error.message };
-
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { coldEmailPrompt: data.coldEmailPrompt },
-    });
-  },
-);
-
-export const markNotColdEmailAction = withActionInstrumentation(
-  "markNotColdEmail",
-  async (body: MarkNotColdEmailBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { data, error } = markNotColdEmailBody.safeParse(body);
-    if (error) return { error: error.message };
-
-    const { sender } = data;
-
-    const gmail = getGmailClient(session);
+export const markNotColdEmailAction = actionClient
+  .metadata({ name: "markNotColdEmail" })
+  .schema(markNotColdEmailBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { sender } }) => {
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     await Promise.all([
       prisma.coldEmail.update({
         where: {
-          userId_fromEmail: { userId: session.user.id, fromEmail: sender },
+          emailAccountId_fromEmail: {
+            emailAccountId,
+            fromEmail: sender,
+          },
         },
         data: {
           status: ColdEmailStatus.USER_REJECTED_COLD,
@@ -80,8 +63,7 @@ export const markNotColdEmailAction = withActionInstrumentation(
       }),
       removeColdEmailLabelFromSender(gmail, sender),
     ]);
-  },
-);
+  });
 
 async function removeColdEmailLabelFromSender(
   gmail: gmail_v1.Gmail,
@@ -110,61 +92,53 @@ async function removeColdEmailLabelFromSender(
   }
 }
 
-export type ColdEmailBlockerResponse = Awaited<
-  ReturnType<typeof checkColdEmail>
->;
-export const testColdEmailAction = withActionInstrumentation(
-  "testColdEmail",
-  async (unsafeBody: ColdEmailBlockerBody) => {
-    const session = await auth();
-    if (!session?.user.email) return { error: "Not logged in" };
+export const testColdEmailAction = actionClient
+  .metadata({ name: "testColdEmail" })
+  .schema(coldEmailBlockerBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        from,
+        subject,
+        textHtml,
+        textPlain,
+        snippet,
+        threadId,
+        messageId,
+        date,
+      },
+    }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        include: {
+          user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+        },
+      });
 
-    const gmail = getGmailClient(session);
+      if (!emailAccount) throw new SafeError("Email account not found");
 
-    const { data, error } = coldEmailBlockerBody.safeParse(unsafeBody);
-    if (error) return { error: formatZodError(error) };
+      const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const result = await checkColdEmail(data, gmail, session.user.email);
+      const content = emailToContent({
+        textHtml: textHtml || undefined,
+        textPlain: textPlain || undefined,
+        snippet: snippet || "",
+      });
 
-    return result;
-  },
-);
+      const response = await isColdEmail({
+        email: {
+          from,
+          subject,
+          content,
+          date: date ? new Date(date) : undefined,
+          threadId: threadId || undefined,
+          id: messageId || "",
+        },
+        emailAccount,
+        gmail,
+      });
 
-async function checkColdEmail(
-  body: ColdEmailBlockerBody,
-  gmail: gmail_v1.Gmail,
-  userEmail: string,
-) {
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { email: userEmail },
-    select: {
-      id: true,
-      email: true,
-      coldEmailPrompt: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
+      return response;
     },
-  });
-
-  const content = emailToContent({
-    textHtml: body.textHtml || undefined,
-    textPlain: body.textPlain || undefined,
-    snippet: body.snippet || "",
-  });
-
-  const response = await isColdEmail({
-    email: {
-      from: body.from,
-      subject: body.subject,
-      content,
-      date: body.date ? new Date(body.date) : undefined,
-      threadId: body.threadId || undefined,
-      id: body.messageId || "",
-    },
-    user,
-    gmail,
-  });
-
-  return response;
-}
+  );

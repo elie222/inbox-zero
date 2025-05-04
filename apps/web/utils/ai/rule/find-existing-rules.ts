@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
 
 const parameters = z.object({
@@ -17,12 +17,12 @@ const parameters = z.object({
 });
 
 export async function aiFindExistingRules({
-  user,
+  emailAccount,
   promptRulesToEdit,
   promptRulesToRemove,
   databaseRules,
 }: {
-  user: UserAIFields & { email: string };
+  emailAccount: EmailAccountWithAI;
   promptRulesToEdit: { oldRule: string; newRule: string }[];
   promptRulesToRemove: string[];
   databaseRules: (Rule & { actions: Action[] })[];
@@ -45,7 +45,7 @@ ${JSON.stringify(databaseRules, null, 2)}
 Please return the existing rules that match the prompt rules.`;
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     tools: {
@@ -54,7 +54,7 @@ Please return the existing rules that match the prompt rules.`;
         parameters,
       },
     },
-    userEmail: user.email,
+    userEmail: emailAccount.email,
     label: "Find existing rules",
   });
 

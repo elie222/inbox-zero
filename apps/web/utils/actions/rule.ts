@@ -3,25 +3,16 @@
 import { revalidatePath } from "next/cache";
 import {
   createRuleBody,
-  type CreateRuleBody,
   updateRuleBody,
-  type UpdateRuleBody,
   updateRuleInstructionsBody,
-  type UpdateRuleInstructionsBody,
   rulesExamplesBody,
-  type RulesExamplesBody,
   updateRuleSettingsBody,
-  type UpdateRuleSettingsBody,
   createRulesOnboardingBody,
-  type CreateRulesOnboardingBody,
   enableDraftRepliesBody,
-  type EnableDraftRepliesBody,
+  deleteRuleBody,
 } from "@/utils/actions/rule.validation";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
-import { getGmailAccessToken, getGmailClient } from "@/utils/gmail/client";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import { flattenConditions } from "@/utils/condition";
 import {
   ActionType,
@@ -47,125 +38,60 @@ import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName } from "@/utils/rule/consts";
-import { getAiUser } from "@/utils/user/get";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("actions/rule");
 
-export const createRuleAction = withActionInstrumentation(
-  "createRule",
-  async (options: CreateRuleBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+export const createRuleAction = actionClient
+  .metadata({ name: "createRule" })
+  .schema(createRuleBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        name,
+        automate,
+        runOnThreads,
+        actions,
+        conditions: conditionsInput,
+        conditionalOperator,
+        systemType,
+      },
+    }) => {
+      const conditions = flattenConditions(conditionsInput);
 
-    const { data: body, error } = createRuleBody.safeParse(options);
-    if (error) return { error: error.message };
-
-    const conditions = flattenConditions(body.conditions);
-
-    try {
-      const rule = await prisma.rule.create({
-        data: {
-          name: body.name || "",
-          automate: body.automate ?? undefined,
-          runOnThreads: body.runOnThreads ?? undefined,
-          actions: body.actions
-            ? {
-                createMany: {
-                  data: body.actions.map(
-                    ({ type, label, subject, content, to, cc, bcc, url }) => {
-                      return sanitizeActionFields({
-                        type,
-                        label: label?.value,
-                        subject: subject?.value,
-                        content: content?.value,
-                        to: to?.value,
-                        cc: cc?.value,
-                        bcc: bcc?.value,
-                        url: url?.value,
-                      });
-                    },
-                  ),
-                },
-              }
-            : undefined,
-          userId: session.user.id,
-          conditionalOperator: body.conditionalOperator || LogicalOperator.AND,
-          systemType: body.systemType || undefined,
-          // conditions
-          instructions: conditions.instructions || null,
-          from: conditions.from || null,
-          to: conditions.to || null,
-          subject: conditions.subject || null,
-          // body: conditions.body || null,
-          categoryFilterType: conditions.categoryFilterType || null,
-          categoryFilters:
-            conditions.categoryFilterType && conditions.categoryFilters
-              ? {
-                  connect: conditions.categoryFilters.map((id) => ({ id })),
-                }
-              : {},
-        },
-        include: { actions: true, categoryFilters: true, group: true },
-      });
-
-      await updatePromptFileOnRuleCreated(session.user.id, rule);
-
-      revalidatePath("/automation");
-
-      return { rule };
-    } catch (error) {
-      if (isDuplicateError(error, "name")) {
-        return { error: "Rule name already exists" };
-      }
-      if (isDuplicateError(error, "groupId")) {
-        return {
-          error: "Group already has a rule. Please use the existing rule.",
-        };
-      }
-
-      logger.error("Error creating rule", { error });
-      throw new SafeError("Error creating rule");
-    }
-  },
-);
-
-export const updateRuleAction = withActionInstrumentation(
-  "updateRule",
-  async (options: UpdateRuleBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { data: body, error } = updateRuleBody.safeParse(options);
-    if (error) return { error: error.message };
-
-    const conditions = flattenConditions(body.conditions);
-
-    try {
-      const currentRule = await prisma.rule.findUnique({
-        where: { id: body.id, userId: session.user.id },
-        include: { actions: true, categoryFilters: true, group: true },
-      });
-      if (!currentRule) return { error: "Rule not found" };
-
-      const currentActions = currentRule.actions;
-
-      const actionsToDelete = currentActions.filter(
-        (currentAction) => !body.actions.find((a) => a.id === currentAction.id),
-      );
-      const actionsToUpdate = body.actions.filter((a) => a.id);
-      const actionsToCreate = body.actions.filter((a) => !a.id);
-
-      const [updatedRule] = await prisma.$transaction([
-        // update rule
-        prisma.rule.update({
-          where: { id: body.id, userId: session.user.id },
+      try {
+        const rule = await prisma.rule.create({
           data: {
-            automate: body.automate ?? undefined,
-            runOnThreads: body.runOnThreads ?? undefined,
-            name: body.name || undefined,
-            conditionalOperator:
-              body.conditionalOperator || LogicalOperator.AND,
-            systemType: body.systemType || undefined,
+            name,
+            automate: automate ?? undefined,
+            runOnThreads: runOnThreads ?? undefined,
+            actions: actions
+              ? {
+                  createMany: {
+                    data: actions.map(
+                      ({ type, label, subject, content, to, cc, bcc, url }) => {
+                        return sanitizeActionFields({
+                          type,
+                          label: label?.value,
+                          subject: subject?.value,
+                          content: content?.value,
+                          to: to?.value,
+                          cc: cc?.value,
+                          bcc: bcc?.value,
+                          url: url?.value,
+                        });
+                      },
+                    ),
+                  },
+                }
+              : undefined,
+            emailAccountId,
+            conditionalOperator: conditionalOperator || LogicalOperator.AND,
+            systemType: systemType || undefined,
             // conditions
             instructions: conditions.instructions || null,
             from: conditions.from || null,
@@ -176,147 +102,219 @@ export const updateRuleAction = withActionInstrumentation(
             categoryFilters:
               conditions.categoryFilterType && conditions.categoryFilters
                 ? {
-                    set: conditions.categoryFilters.map((id) => ({ id })),
+                    connect: conditions.categoryFilters.map((id) => ({ id })),
                   }
-                : { set: [] },
+                : {},
           },
           include: { actions: true, categoryFilters: true, group: true },
-        }),
-        // delete removed actions
-        ...(actionsToDelete.length
-          ? [
-              prisma.action.deleteMany({
-                where: { id: { in: actionsToDelete.map((a) => a.id) } },
-              }),
-            ]
-          : []),
-        // update existing actions
-        ...actionsToUpdate.map((a) => {
-          return prisma.action.update({
-            where: { id: a.id },
-            data: sanitizeActionFields({
-              type: a.type,
-              label: a.label?.value,
-              subject: a.subject?.value,
-              content: a.content?.value,
-              to: a.to?.value,
-              cc: a.cc?.value,
-              bcc: a.bcc?.value,
-              url: a.url?.value,
-            }),
-          });
-        }),
-        // create new actions
-        ...(actionsToCreate.length
-          ? [
-              prisma.action.createMany({
-                data: actionsToCreate.map((a) => {
-                  return {
-                    ...sanitizeActionFields({
-                      type: a.type,
-                      label: a.label?.value,
-                      subject: a.subject?.value,
-                      content: a.content?.value,
-                      to: a.to?.value,
-                      cc: a.cc?.value,
-                      bcc: a.bcc?.value,
-                      url: a.url?.value,
-                    }),
-                    ruleId: body.id,
-                  };
+        });
+
+        await updatePromptFileOnRuleCreated({ emailAccountId, rule });
+
+        return { rule };
+      } catch (error) {
+        if (isDuplicateError(error, "name")) {
+          throw new SafeError("Rule name already exists");
+        }
+        if (isDuplicateError(error, "groupId")) {
+          throw new SafeError(
+            "Group already has a rule. Please use the existing rule.",
+          );
+        }
+
+        logger.error("Error creating rule", { error });
+        throw new SafeError("Error creating rule");
+      }
+    },
+  );
+
+export const updateRuleAction = actionClient
+  .metadata({ name: "updateRule" })
+  .schema(updateRuleBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        id,
+        name,
+        automate,
+        runOnThreads,
+        actions,
+        conditions: conditionsInput,
+        conditionalOperator,
+        systemType,
+      },
+    }) => {
+      const conditions = flattenConditions(conditionsInput);
+
+      try {
+        const currentRule = await prisma.rule.findUnique({
+          where: { id, emailAccountId },
+          include: { actions: true, categoryFilters: true, group: true },
+        });
+        if (!currentRule) return { error: "Rule not found" };
+
+        const currentActions = currentRule.actions;
+
+        const actionsToDelete = currentActions.filter(
+          (currentAction) => !actions.find((a) => a.id === currentAction.id),
+        );
+        const actionsToUpdate = actions.filter((a) => a.id);
+        const actionsToCreate = actions.filter((a) => !a.id);
+
+        const [updatedRule] = await prisma.$transaction([
+          // update rule
+          prisma.rule.update({
+            where: { id, emailAccountId },
+            data: {
+              automate: automate ?? undefined,
+              runOnThreads: runOnThreads ?? undefined,
+              name: name || undefined,
+              conditionalOperator: conditionalOperator || LogicalOperator.AND,
+              systemType: systemType || undefined,
+              // conditions
+              instructions: conditions.instructions || null,
+              from: conditions.from || null,
+              to: conditions.to || null,
+              subject: conditions.subject || null,
+              // body: conditions.body || null,
+              categoryFilterType: conditions.categoryFilterType || null,
+              categoryFilters:
+                conditions.categoryFilterType && conditions.categoryFilters
+                  ? {
+                      set: conditions.categoryFilters.map((id) => ({ id })),
+                    }
+                  : { set: [] },
+            },
+            include: { actions: true, categoryFilters: true, group: true },
+          }),
+          // delete removed actions
+          ...(actionsToDelete.length
+            ? [
+                prisma.action.deleteMany({
+                  where: { id: { in: actionsToDelete.map((a) => a.id) } },
                 }),
+              ]
+            : []),
+          // update existing actions
+          ...actionsToUpdate.map((a) => {
+            return prisma.action.update({
+              where: { id: a.id },
+              data: sanitizeActionFields({
+                type: a.type,
+                label: a.label?.value,
+                subject: a.subject?.value,
+                content: a.content?.value,
+                to: a.to?.value,
+                cc: a.cc?.value,
+                bcc: a.bcc?.value,
+                url: a.url?.value,
               }),
-            ]
-          : []),
-      ]);
+            });
+          }),
+          // create new actions
+          ...(actionsToCreate.length
+            ? [
+                prisma.action.createMany({
+                  data: actionsToCreate.map((a) => {
+                    return {
+                      ...sanitizeActionFields({
+                        type: a.type,
+                        label: a.label?.value,
+                        subject: a.subject?.value,
+                        content: a.content?.value,
+                        to: a.to?.value,
+                        cc: a.cc?.value,
+                        bcc: a.bcc?.value,
+                        url: a.url?.value,
+                      }),
+                      ruleId: id,
+                    };
+                  }),
+                }),
+              ]
+            : []),
+        ]);
 
-      // update prompt file
-      await updatePromptFileOnRuleUpdated(
-        session.user.id,
+        // update prompt file
+        await updatePromptFileOnRuleUpdated({
+          emailAccountId,
+          currentRule,
+          updatedRule,
+        });
+
+        revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+        revalidatePath(prefixPath(emailAccountId, "/automation"));
+
+        return { rule: updatedRule };
+      } catch (error) {
+        if (isDuplicateError(error, "name")) {
+          return { error: "Rule name already exists" };
+        }
+        if (isDuplicateError(error, "groupId")) {
+          return {
+            error: "Group already has a rule. Please use the existing rule.",
+          };
+        }
+
+        logger.error("Error updating rule", { error });
+        throw new SafeError("Error updating rule");
+      }
+    },
+  );
+
+export const updateRuleInstructionsAction = actionClient
+  .metadata({ name: "updateRuleInstructions" })
+  .schema(updateRuleInstructionsBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      const currentRule = await prisma.rule.findUnique({
+        where: { id, emailAccountId },
+        include: { actions: true, categoryFilters: true, group: true },
+      });
+      if (!currentRule) return { error: "Rule not found" };
+
+      await updateRuleInstructionsAndPromptFile({
+        emailAccountId,
+        ruleId: id,
+        instructions,
         currentRule,
-        updatedRule,
-      );
+      });
 
-      revalidatePath(`/automation/rule/${body.id}`);
-      revalidatePath("/automation");
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
+    },
+  );
 
-      return { rule: updatedRule };
-    } catch (error) {
-      if (isDuplicateError(error, "name")) {
-        return { error: "Rule name already exists" };
-      }
-      if (isDuplicateError(error, "groupId")) {
-        return {
-          error: "Group already has a rule. Please use the existing rule.",
-        };
-      }
+export const updateRuleSettingsAction = actionClient
+  .metadata({ name: "updateRuleSettings" })
+  .schema(updateRuleSettingsBody)
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { id, instructions } }) => {
+      const currentRule = await prisma.rule.findUnique({
+        where: { id, emailAccountId },
+      });
+      if (!currentRule) return { error: "Rule not found" };
 
-      logger.error("Error updating rule", { error });
-      throw new SafeError("Error updating rule");
-    }
-  },
-);
+      await prisma.rule.update({
+        where: { id, emailAccountId },
+        data: { instructions },
+      });
 
-export const updateRuleInstructionsAction = withActionInstrumentation(
-  "updateRuleInstructions",
-  async (options: UpdateRuleInstructionsBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
+    },
+  );
 
-    const { data: body, error } = updateRuleInstructionsBody.safeParse(options);
-    if (error) return { error: error.message };
-
-    const currentRule = await prisma.rule.findUnique({
-      where: { id: body.id, userId: session.user.id },
-      include: { actions: true, categoryFilters: true, group: true },
-    });
-    if (!currentRule) return { error: "Rule not found" };
-
-    await updateRuleInstructionsAndPromptFile({
-      userId: session.user.id,
-      ruleId: body.id,
-      instructions: body.instructions,
-      currentRule,
-    });
-
-    revalidatePath(`/automation/rule/${body.id}`);
-    revalidatePath("/automation");
-  },
-);
-
-export const updateRuleSettingsAction = withActionInstrumentation(
-  "updateRuleSettings",
-  async (options: UpdateRuleSettingsBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { data: body, error } = updateRuleSettingsBody.safeParse(options);
-    if (error) return { error: error.message };
-
-    await prisma.rule.update({
-      where: { id: body.id, userId: session.user.id },
-      data: { instructions: body.instructions },
-    });
-
-    revalidatePath(`/automation/rule/${body.id}`);
-    revalidatePath("/automation");
-    revalidatePath("/reply-zero");
-  },
-);
-
-export const enableDraftRepliesAction = withActionInstrumentation(
-  "enableDraftReplies",
-  async (options: EnableDraftRepliesBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
-    const { data, error } = enableDraftRepliesBody.safeParse(options);
-    if (error) return { error: error.message };
-
+export const enableDraftRepliesAction = actionClient
+  .metadata({ name: "enableDraftReplies" })
+  .schema(enableDraftRepliesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
     const rule = await prisma.rule.findUnique({
       where: {
-        userId_systemType: {
-          userId: session.user.id,
+        emailAccountId_systemType: {
+          emailAccountId,
           systemType: SystemType.TO_REPLY,
         },
       },
@@ -324,7 +322,7 @@ export const enableDraftRepliesAction = withActionInstrumentation(
     });
     if (!rule) return { error: "Rule not found" };
 
-    if (data.enable) {
+    if (enable) {
       await enableDraftReplies(rule);
     } else {
       await prisma.action.deleteMany({
@@ -335,336 +333,339 @@ export const enableDraftRepliesAction = withActionInstrumentation(
       });
     }
 
-    revalidatePath(`/automation/rule/${rule.id}`);
-    revalidatePath("/automation");
-    revalidatePath("/reply-zero");
-  },
-);
+    revalidatePath(prefixPath(emailAccountId, `/automation/rule/${rule.id}`));
+    revalidatePath(prefixPath(emailAccountId, "/automation"));
+    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
+  });
 
-export const deleteRuleAction = withActionInstrumentation(
-  "deleteRule",
-  async ({ ruleId }: { ruleId: string }) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
-
+export const deleteRuleAction = actionClient
+  .metadata({ name: "deleteRule" })
+  .schema(deleteRuleBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
-      where: { id: ruleId },
+      where: { id, emailAccountId },
       include: { actions: true, categoryFilters: true, group: true },
     });
     if (!rule) return; // already deleted
-    if (rule.userId !== session.user.id)
+    if (rule.emailAccountId !== emailAccountId)
       return { error: "You don't have permission to delete this rule" };
 
     try {
       await deleteRule({
-        ruleId,
-        userId: session.user.id,
+        ruleId: id,
+        emailAccountId,
         groupId: rule.groupId,
       });
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id },
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
         select: {
+          id: true,
+          userId: true,
           email: true,
-          aiModel: true,
-          aiProvider: true,
-          aiApiKey: true,
+          about: true,
           rulesPrompt: true,
+          user: {
+            select: {
+              aiModel: true,
+              aiProvider: true,
+              aiApiKey: true,
+            },
+          },
         },
       });
-      if (!user) return { error: "User not found" };
+      if (!emailAccount) return { error: "User not found" };
 
-      if (!user.rulesPrompt) return;
+      if (!emailAccount.rulesPrompt) return;
 
       const updatedPrompt = await generatePromptOnDeleteRule({
-        user,
-        existingPrompt: user.rulesPrompt,
+        emailAccount,
+        existingPrompt: emailAccount.rulesPrompt,
         deletedRule: rule,
       });
 
-      await prisma.user.update({
-        where: { id: session.user.id },
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
         data: { rulesPrompt: updatedPrompt },
       });
-
-      revalidatePath(`/automation/rule/${ruleId}`);
-      revalidatePath("/automation");
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
     } catch (error) {
       if (isNotFoundError(error)) return;
       throw error;
     }
-  },
-);
+  });
 
-export const getRuleExamplesAction = withActionInstrumentation(
-  "getRuleExamples",
-  async (unsafeData: RulesExamplesBody) => {
-    const session = await auth();
-    if (!session?.user.id) return { error: "Not logged in" };
+export const getRuleExamplesAction = actionClient
+  .metadata({ name: "getRuleExamples" })
+  .schema(rulesExamplesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { rulesPrompt } }) => {
+    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+    if (!emailAccount) throw new SafeError("Email account not found");
 
-    const { success, error, data } = rulesExamplesBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
-
-    const gmail = getGmailClient(session);
-    const token = await getGmailAccessToken(session);
-
-    if (!token.token) return { error: "No access token" };
-
-    const user = await getAiUser({ id: session.user.id });
-    if (!user) return { error: "User not found" };
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
     const { matches } = await aiFindExampleMatches(
-      user,
+      emailAccount,
       gmail,
-      token.token,
-      data.rulesPrompt,
+      rulesPrompt,
     );
 
     return { matches };
-  },
-);
+  });
 
-export const createRulesOnboardingAction = withActionInstrumentation(
-  "createRulesOnboarding",
-  async (options: CreateRulesOnboardingBody) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+export const createRulesOnboardingAction = actionClient
+  .metadata({ name: "createRulesOnboarding" })
+  .schema(createRulesOnboardingBody)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: {
+        newsletter,
+        coldEmail,
+        toReply,
+        marketing,
+        calendar,
+        receipt,
+        notification,
+      },
+    }) => {
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { rulesPrompt: true },
+      });
+      if (!emailAccount) return { error: "User not found" };
 
-    const { data, error } = createRulesOnboardingBody.safeParse(options);
-    if (error) return { error: error.message };
+      const promises: Promise<any>[] = [];
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { rulesPrompt: true },
-    });
-    if (!user) return { error: "User not found" };
+      const isSet = (value: string): value is "label" | "label_archive" =>
+        value !== "none";
 
-    const promises: Promise<any>[] = [];
+      // cold email blocker
+      if (isSet(coldEmail)) {
+        const promise = prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: {
+            coldEmailBlocker:
+              coldEmail === "label"
+                ? ColdEmailSetting.LABEL
+                : ColdEmailSetting.ARCHIVE_AND_LABEL,
+          },
+        });
+        promises.push(promise);
+      }
 
-    const isSet = (value: string): value is "label" | "label_archive" =>
-      value !== "none";
+      const rules: string[] = [];
 
-    // cold email blocker
-    if (isSet(data.coldEmail)) {
-      const promise = prisma.user.update({
-        where: { id: userId },
+      // reply tracker
+      if (isSet(toReply)) {
+        const promise = enableReplyTracker({ emailAccountId }).then((res) => {
+          if (res?.alreadyEnabled) return;
+
+          // Load previous emails needing replies in background
+          // This can take a while
+          fetch(
+            `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+              },
+              body: JSON.stringify({
+                emailAccountId,
+              } satisfies ProcessPreviousBody),
+            },
+          );
+        });
+        promises.push(promise);
+      }
+
+      // regular categories
+      async function createRule(
+        name: string,
+        instructions: string,
+        promptFileInstructions: string,
+        runOnThreads: boolean,
+        categoryAction: "label" | "label_archive",
+        label: string,
+        systemType: SystemType,
+        emailAccountId: string,
+      ) {
+        const existingRule = await prisma.rule.findUnique({
+          where: { emailAccountId_systemType: { emailAccountId, systemType } },
+        });
+
+        if (existingRule) {
+          const promise = prisma.rule
+            .update({
+              where: { id: existingRule.id },
+              data: {
+                instructions,
+                actions: {
+                  deleteMany: {},
+                  createMany: {
+                    data: [
+                      { type: ActionType.LABEL, label },
+                      ...(categoryAction === "label_archive"
+                        ? [{ type: ActionType.ARCHIVE }]
+                        : []),
+                    ],
+                  },
+                },
+              },
+            })
+            // NOTE: doesn't update without this line
+            .then(() => {})
+            .catch((error) => {
+              logger.error("Error updating rule", { error });
+              throw error;
+            });
+          promises.push(promise);
+
+          // TODO: prompt file update
+        } else {
+          const promise = prisma.rule
+            .create({
+              data: {
+                emailAccountId,
+                name,
+                instructions,
+                systemType,
+                automate: true,
+                runOnThreads,
+                actions: {
+                  createMany: {
+                    data: [
+                      { type: ActionType.LABEL, label: "Newsletter" },
+                      ...(categoryAction === "label_archive"
+                        ? [{ type: ActionType.ARCHIVE }]
+                        : []),
+                    ],
+                  },
+                },
+              },
+            })
+            .then(() => {})
+            .catch((error) => {
+              if (isDuplicateError(error, "name")) return;
+              logger.error("Error creating rule", { error });
+              throw error;
+            });
+          promises.push(promise);
+
+          rules.push(
+            `${promptFileInstructions}${
+              categoryAction === "label_archive" ? " and archive them" : ""
+            }.`,
+          );
+        }
+      }
+
+      async function deleteRule(
+        systemType: SystemType,
+        emailAccountId: string,
+      ) {
+        const promise = async () => {
+          const rule = await prisma.rule.findUnique({
+            where: {
+              emailAccountId_systemType: { emailAccountId, systemType },
+            },
+          });
+          if (!rule) return;
+          await prisma.rule.delete({ where: { id: rule.id } });
+        };
+        promises.push(promise());
+      }
+
+      // newsletter
+      if (isSet(newsletter)) {
+        createRule(
+          RuleName.Newsletter,
+          "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
+          "Label all newsletters as 'Newsletter'",
+          false,
+          newsletter,
+          "Newsletter",
+          SystemType.NEWSLETTER,
+          emailAccountId,
+        );
+      } else {
+        deleteRule(SystemType.NEWSLETTER, emailAccountId);
+      }
+
+      // marketing
+      if (isSet(marketing)) {
+        createRule(
+          RuleName.Marketing,
+          "Marketing: Promotional emails about products, services, sales, or offers",
+          "Label all marketing emails as 'Marketing'",
+          false,
+          marketing,
+          "Marketing",
+          SystemType.MARKETING,
+          emailAccountId,
+        );
+      } else {
+        deleteRule(SystemType.MARKETING, emailAccountId);
+      }
+
+      // calendar
+      if (isSet(calendar)) {
+        createRule(
+          RuleName.Calendar,
+          "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
+          "Label all calendar emails as 'Calendar'",
+          false,
+          calendar,
+          "Calendar",
+          SystemType.CALENDAR,
+          emailAccountId,
+        );
+      } else {
+        deleteRule(SystemType.CALENDAR, emailAccountId);
+      }
+
+      // receipt
+      if (isSet(receipt)) {
+        createRule(
+          RuleName.Receipt,
+          "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
+          "Label all receipts as 'Receipts'",
+          false,
+          receipt,
+          "Receipt",
+          SystemType.RECEIPT,
+          emailAccountId,
+        );
+      } else {
+        deleteRule(SystemType.RECEIPT, emailAccountId);
+      }
+
+      // notification
+      if (isSet(notification)) {
+        createRule(
+          RuleName.Notification,
+          "Notifications: Alerts, status updates, or system messages",
+          "Label all notifications as 'Notifications'",
+          false,
+          notification,
+          "Notification",
+          SystemType.NOTIFICATION,
+          emailAccountId,
+        );
+      } else {
+        deleteRule(SystemType.NOTIFICATION, emailAccountId);
+      }
+
+      await Promise.allSettled(promises);
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
         data: {
-          coldEmailBlocker:
-            data.coldEmail === "label"
-              ? ColdEmailSetting.LABEL
-              : ColdEmailSetting.ARCHIVE_AND_LABEL,
+          rulesPrompt: `${emailAccount.rulesPrompt || ""}\n${rules
+            .map((r) => `* ${r}`)
+            .join("\n")}`.trim(),
         },
       });
-      promises.push(promise);
-    }
-
-    const rules: string[] = [];
-
-    // reply tracker
-    if (isSet(data.toReply)) {
-      const promise = enableReplyTracker(session.user.id).then((res) => {
-        if (res?.alreadyEnabled) return;
-
-        // Load previous emails needing replies in background
-        // This can take a while
-        fetch(
-          `${env.NEXT_PUBLIC_BASE_URL}/api/reply-tracker/process-previous`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
-            },
-            body: JSON.stringify({
-              userId: session.user.id,
-            } satisfies ProcessPreviousBody),
-          },
-        );
-      });
-      promises.push(promise);
-    }
-
-    // regular categories
-    async function createRule(
-      name: string,
-      instructions: string,
-      promptFileInstructions: string,
-      runOnThreads: boolean,
-      categoryAction: "label" | "label_archive",
-      label: string,
-      systemType: SystemType,
-      userId: string,
-    ) {
-      const existingRule = await prisma.rule.findUnique({
-        where: { userId_systemType: { userId, systemType } },
-      });
-
-      if (existingRule) {
-        const promise = prisma.rule
-          .update({
-            where: { id: existingRule.id },
-            data: {
-              instructions,
-              actions: {
-                deleteMany: {},
-                createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : []),
-                  ],
-                },
-              },
-            },
-          })
-          // NOTE: doesn't update without this line
-          .then(() => {})
-          .catch((error) => {
-            logger.error("Error updating rule", { error });
-            throw error;
-          });
-        promises.push(promise);
-
-        // TODO: prompt file update
-      } else {
-        const promise = prisma.rule
-          .create({
-            data: {
-              userId,
-              name,
-              instructions,
-              systemType,
-              automate: true,
-              runOnThreads,
-              actions: {
-                createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label: "Newsletter" },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : []),
-                  ],
-                },
-              },
-            },
-          })
-          .then(() => {})
-          .catch((error) => {
-            if (isDuplicateError(error, "name")) return;
-            logger.error("Error creating rule", { error });
-            throw error;
-          });
-        promises.push(promise);
-
-        rules.push(
-          `${promptFileInstructions}${
-            categoryAction === "label_archive" ? " and archive them" : ""
-          }.`,
-        );
-      }
-    }
-
-    async function deleteRule(systemType: SystemType, userId: string) {
-      const promise = async () => {
-        const rule = await prisma.rule.findUnique({
-          where: { userId_systemType: { userId, systemType } },
-        });
-        if (!rule) return;
-        await prisma.rule.delete({ where: { id: rule.id } });
-      };
-      promises.push(promise());
-    }
-
-    // newsletter
-    if (isSet(data.newsletter)) {
-      createRule(
-        RuleName.Newsletter,
-        "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-        "Label all newsletters as 'Newsletter'",
-        false,
-        data.newsletter,
-        "Newsletter",
-        SystemType.NEWSLETTER,
-        userId,
-      );
-    } else {
-      deleteRule(SystemType.NEWSLETTER, userId);
-    }
-
-    // marketing
-    if (isSet(data.marketing)) {
-      createRule(
-        RuleName.Marketing,
-        "Marketing: Promotional emails about products, services, sales, or offers",
-        "Label all marketing emails as 'Marketing'",
-        false,
-        data.marketing,
-        "Marketing",
-        SystemType.MARKETING,
-        userId,
-      );
-    } else {
-      deleteRule(SystemType.MARKETING, userId);
-    }
-
-    // calendar
-    if (isSet(data.calendar)) {
-      createRule(
-        RuleName.Calendar,
-        "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
-        "Label all calendar emails as 'Calendar'",
-        false,
-        data.calendar,
-        "Calendar",
-        SystemType.CALENDAR,
-        userId,
-      );
-    } else {
-      deleteRule(SystemType.CALENDAR, userId);
-    }
-
-    // receipt
-    if (isSet(data.receipt)) {
-      createRule(
-        RuleName.Receipt,
-        "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
-        "Label all receipts as 'Receipts'",
-        false,
-        data.receipt,
-        "Receipt",
-        SystemType.RECEIPT,
-        userId,
-      );
-    } else {
-      deleteRule(SystemType.RECEIPT, userId);
-    }
-
-    // notification
-    if (isSet(data.notification)) {
-      createRule(
-        RuleName.Notification,
-        "Notifications: Alerts, status updates, or system messages",
-        "Label all notifications as 'Notifications'",
-        false,
-        data.notification,
-        "Notification",
-        SystemType.NOTIFICATION,
-        userId,
-      );
-    } else {
-      deleteRule(SystemType.NOTIFICATION, userId);
-    }
-
-    await Promise.allSettled(promises);
-
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: {
-        rulesPrompt:
-          `${user.rulesPrompt || ""}\n${rules.map((r) => `* ${r}`).join("\n")}`.trim(),
-      },
-    });
-  },
-);
+    },
+  );

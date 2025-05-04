@@ -14,13 +14,13 @@ interface EmailFieldStatsResult {
  * Get detailed email stats for a specific field
  */
 export async function getEmailFieldStats({
-  userId,
+  emailAccountId,
   fromDate,
   toDate,
   field,
   isSent,
 }: {
-  userId: string;
+  emailAccountId: string;
   fromDate?: number | null;
   toDate?: number | null;
   field: EmailField;
@@ -31,7 +31,7 @@ export async function getEmailFieldStats({
   const emailsCount = await prisma.emailMessage.groupBy({
     by: [field],
     where: {
-      userId,
+      emailAccountId,
       sent: isSent,
       date: {
         gte: dateRange.fromDate ? new Date(dateRange.fromDate) : undefined,

@@ -1,40 +1,40 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
-import { getGmailClient } from "@/utils/gmail/client";
+import { withEmailAccount } from "@/utils/middleware";
 import { fetchExampleMessages } from "@/app/api/user/rules/[id]/example/controller";
 import { SafeError } from "@/utils/error";
+import { getGmailClientForEmail } from "@/utils/account";
 
 export type ExamplesResponse = Awaited<ReturnType<typeof getExamples>>;
 
-async function getExamples(options: { ruleId: string }) {
-  const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not logged in");
-
+async function getExamples({
+  ruleId,
+  emailAccountId,
+}: {
+  ruleId: string;
+  emailAccountId: string;
+}) {
   const rule = await prisma.rule.findUnique({
-    where: { id: options.ruleId, userId: session.user.id },
+    where: { id: ruleId, emailAccountId },
     include: { group: { include: { items: true } } },
   });
 
   if (!rule) throw new SafeError("Rule not found");
 
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const exampleMessages = await fetchExampleMessages(rule, gmail);
 
   return exampleMessages;
 }
 
-export const GET = withError(async (_request, { params }) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request, { params }) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { id } = await params;
   if (!id) return NextResponse.json({ error: "Missing rule id" });
 
-  const result = await getExamples({ ruleId: id });
+  const result = await getExamples({ ruleId: id, emailAccountId });
 
   return NextResponse.json(result);
 });

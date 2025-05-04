@@ -1,17 +1,24 @@
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
 import { type MessageWithPayload, isDefined } from "@/utils/types";
 import { parseMessage } from "@/utils/mail";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getThread } from "@/utils/gmail/thread";
 import { getMessages } from "@/utils/gmail/message";
+import { getGmailClientForEmail } from "@/utils/account";
 
 export type NoReplyResponse = Awaited<ReturnType<typeof getNoReply>>;
 
-async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
-  const sentEmails = await getMessages(options.gmail, {
+async function getNoReply({
+  emailAccountId,
+  gmail,
+  userEmail,
+}: {
+  emailAccountId: string;
+  gmail: gmail_v1.Gmail;
+  userEmail: string;
+}) {
+  const sentEmails = await getMessages(gmail, {
     query: "in:sent",
     maxResults: 50,
   });
@@ -19,13 +26,13 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
   const sentEmailsWithThreads = (
     await Promise.all(
       sentEmails.messages?.map(async (message) => {
-        const thread = await getThread(message.threadId || "", options.gmail);
+        const thread = await getThread(message.threadId || "", gmail);
 
         const lastMessage = thread.messages?.[thread.messages?.length - 1];
         const lastMessageFrom = lastMessage?.payload?.headers?.find(
           (header) => header.name?.toLowerCase() === "from",
         )?.value;
-        const isSentByUser = lastMessageFrom?.includes(options.email);
+        const isSentByUser = lastMessageFrom?.includes(userEmail);
 
         if (isSentByUser)
           return {
@@ -45,13 +52,12 @@ async function getNoReply(options: { email: string; gmail: gmail_v1.Gmail }) {
   return sentEmailsWithThreads;
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const userEmail = request.auth.email;
 
-  const gmail = getGmailClient(session);
-  const result = await getNoReply({ email: session.user.email, gmail });
+  const gmail = await getGmailClientForEmail({ emailAccountId });
+  const result = await getNoReply({ emailAccountId, gmail, userEmail });
 
   return NextResponse.json(result);
 });

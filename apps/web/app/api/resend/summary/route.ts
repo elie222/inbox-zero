@@ -2,13 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import subHours from "date-fns/subHours";
 import { sendSummaryEmail } from "@inboxzero/resend";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessagesBatch } from "@/utils/gmail/message";
@@ -19,10 +18,16 @@ export const maxDuration = 60;
 
 const logger = createScopedLogger("resend/summary");
 
-const sendSummaryEmailBody = z.object({ email: z.string() });
+const sendSummaryEmailBody = z.object({ emailAccountId: z.string() });
 
-async function sendEmail({ email, force }: { email: string; force?: boolean }) {
-  const loggerOptions = { email, force };
+async function sendEmail({
+  emailAccountId,
+  force,
+}: {
+  emailAccountId: string;
+  force?: boolean;
+}) {
+  const loggerOptions = { emailAccountId, force };
 
   logger.info("Sending summary email", loggerOptions);
 
@@ -30,20 +35,33 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   const days = 7;
   const cutOffDate = subHours(new Date(), days * 24 + 1);
 
-  const user = await prisma.user.findUnique({
-    where: {
-      email,
-      ...(force
-        ? {}
-        : {
-            OR: [
-              { lastSummaryEmailAt: { lt: cutOffDate } },
-              { lastSummaryEmailAt: null },
-            ],
-          }),
-    },
+  if (!force) {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { lastSummaryEmailAt: true },
+    });
+
+    if (!emailAccount) {
+      logger.error("Email account not found", loggerOptions);
+      return { success: true };
+    }
+
+    const lastSummaryEmailAt = emailAccount.lastSummaryEmailAt;
+
+    if (lastSummaryEmailAt && lastSummaryEmailAt > cutOffDate) {
+      logger.info("Last summary email was recent", {
+        ...loggerOptions,
+        lastSummaryEmailAt,
+        cutOffDate,
+      });
+      return { success: true };
+    }
+  }
+
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
     select: {
-      id: true,
+      email: true,
       coldEmails: { where: { createdAt: { gt: cutOffDate } } },
       _count: {
         select: {
@@ -55,7 +73,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
           },
         },
       },
-      accounts: {
+      account: {
         select: {
           access_token: true,
         },
@@ -63,10 +81,15 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     },
   });
 
-  if (user) {
-    logger.info("User found", loggerOptions);
+  if (!emailAccount) {
+    logger.error("Email account not found", loggerOptions);
+    return { success: false };
+  }
+
+  if (emailAccount) {
+    logger.info("Email account found", loggerOptions);
   } else {
-    logger.error("User not found or cutoff date is in the future", {
+    logger.error("Email account not found or cutoff date is in the future", {
       ...loggerOptions,
       cutOffDate,
     });
@@ -85,7 +108,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     prisma.threadTracker.groupBy({
       by: ["type"],
       where: {
-        userId: user.id,
+        emailAccountId,
         resolved: false,
       },
       _count: true,
@@ -93,7 +116,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     // needs reply
     prisma.threadTracker.findMany({
       where: {
-        userId: user.id,
+        emailAccountId,
         type: ThreadTrackerType.NEEDS_REPLY,
         resolved: false,
       },
@@ -104,7 +127,7 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     // awaiting reply
     prisma.threadTracker.findMany({
       where: {
-        userId: user.id,
+        emailAccountId,
         type: ThreadTrackerType.AWAITING,
         resolved: false,
         // only show emails that are more than 3 days overdue
@@ -131,12 +154,12 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     counts.map((count) => [count.type, count._count]),
   );
 
-  const coldEmailers = user.coldEmails.map((e) => ({
+  const coldEmailers = emailAccount.coldEmails.map((e) => ({
     from: e.fromEmail,
     subject: "",
     sentAt: e.createdAt,
   }));
-  const pendingCount = user._count.executedRules;
+  const pendingCount = emailAccount._count.executedRules;
 
   // get messages
   const messageIds = [
@@ -150,8 +173,11 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     messagesCount: messageIds.length,
   });
 
-  const messages = user.accounts?.[0]?.access_token
-    ? await getMessagesBatch(messageIds, user.accounts[0].access_token)
+  const messages = emailAccount.account.access_token
+    ? await getMessagesBatch({
+        messageIds,
+        accessToken: emailAccount.account.access_token,
+      })
     : [];
 
   const messageMap = Object.fromEntries(
@@ -203,11 +229,17 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
     needsActionCount: typeCounts[ThreadTrackerType.NEEDS_ACTION],
   });
 
-  async function sendEmail(userId: string) {
-    const token = await createUnsubscribeToken(userId);
+  async function sendEmail({
+    emailAccountId,
+    userEmail,
+  }: {
+    emailAccountId: string;
+    userEmail: string;
+  }) {
+    const token = await createUnsubscribeToken({ emailAccountId });
 
     return sendSummaryEmail({
-      to: email,
+      to: userEmail,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         coldEmailers,
@@ -224,9 +256,11 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   }
 
   await Promise.all([
-    shouldSendEmail ? sendEmail(user.id) : Promise.resolve(),
-    prisma.user.update({
-      where: { email },
+    shouldSendEmail
+      ? sendEmail({ emailAccountId, userEmail: emailAccount.email })
+      : Promise.resolve(),
+    prisma.emailAccount.update({
+      where: { id: emailAccountId },
       data: { lastSummaryEmailAt: new Date() },
     }),
   ]);
@@ -234,21 +268,18 @@ async function sendEmail({ email, force }: { email: string; force?: boolean }) {
   return { success: true };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-
+export const GET = withEmailAccount(async (request) => {
   // send to self
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = request.auth.emailAccountId;
 
-  logger.info("Sending summary email to user GET", { email });
+  logger.info("Sending summary email to user GET", { emailAccountId });
 
-  const result = await sendEmail({ email, force: true });
+  const result = await sendEmail({ emailAccountId, force: true });
 
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request: Request) => {
+export const POST = withError(async (request) => {
   if (!hasCronSecret(request)) {
     logger.error("Unauthorized cron request");
     captureException(new Error("Unauthorized cron request: resend"));
@@ -265,11 +296,12 @@ export const POST = withError(async (request: Request) => {
       { status: 400 },
     );
   }
+  const { emailAccountId } = data;
 
-  logger.info("Sending summary email to user POST", { email: data.email });
+  logger.info("Sending summary email to user POST", { emailAccountId });
 
   try {
-    await sendEmail(data);
+    await sendEmail({ emailAccountId });
     return NextResponse.json({ success: true });
   } catch (error) {
     logger.error("Error sending summary email", { error });

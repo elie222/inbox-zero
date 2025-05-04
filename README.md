@@ -60,9 +60,13 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Upstash](https://upstash.com/)
 - [Turborepo](https://turbo.build/)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=elie222/inbox-zero&type=Date)](https://www.star-history.com/#elie222/inbox-zero&Date)
+
 ## Feature Requests
 
-To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues). If you don't have a GitHub account you can request features [here](https://www.getinboxzero.com/feature-requests). Or join our [Discord](https://www.getinboxzero.com/discord).
+To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
 
 ## Getting Started for Developers
 
@@ -85,14 +89,20 @@ The external services that are required are (detailed setup instructions below):
 - [Google OAuth](https://console.cloud.google.com/apis/credentials)
 - [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list)
 
- ### Updating .env file: secrets
+### Updating .env file: secrets
 
- Create your own `.env` file from the example supplied:
+Create your own `.env` file from the example supplied:
 
 ```bash
 cp apps/web/.env.example apps/web/.env
 cd apps/web
 pnpm install
+```
+
+For self-hosting, you may also need to copy the `.env` file to both the root directory AND the apps/web directory (PRs welcome to improve this):
+
+```bash
+cp apps/web/.env .env
 ```
 
 Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
@@ -108,6 +118,15 @@ Secrets:
 Redis:
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
+
+We use Postgres for the database.
+For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
+
+You can run Postgres & Redis locally using `docker-compose`
+
+```bash
+docker-compose up -d # -d will run the services in the background
+```
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
 
@@ -224,11 +243,70 @@ pnpm start
 
 Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
 
-### Premium
-
-Many features are available only to premium users. To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
+To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
 Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
 
+### Supported LLMs
+
+For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can also use Ollama by setting the following enviroment variables:
+
+```sh
+DEFAULT_LLM_PROVIDER=ollama
+OLLAMA_BASE_URL=http://localhost:11434/api
+NEXT_PUBLIC_OLLAMA_MODEL=gemma3  # or whatever available model you want to use
+```
+
+Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
+
+You can select the model you wish to use in the app on the `/settings` page of the app.
+
+### Setting up Google OAuth and Gmail API
+
+1. **Create a Project in Google Cloud Console**
+   - Go to [Google Cloud Console](https://console.cloud.google.com/)
+   - Create a new project
+
+2. **Enable Required APIs**
+   - Enable the [Gmail API](https://console.developers.google.com/apis/api/gmail.googleapis.com/overview)
+   - Enable the [People API](https://console.developers.google.com/apis/api/people.googleapis.com/overview)
+
+3. **Configure the OAuth Consent Screen**
+   - Go to 'APIs & Services' > 'OAuth consent screen'
+   - Choose 'External' user type (or 'Internal' if you have Google Workspace)
+   - Fill in required app information
+   - Add the following scopes:
+     ```plaintext
+     https://www.googleapis.com/auth/userinfo.profile
+     https://www.googleapis.com/auth/userinfo.email
+     https://www.googleapis.com/auth/gmail.modify
+     https://www.googleapis.com/auth/gmail.settings.basic
+     https://www.googleapis.com/auth/contacts
+     ```
+   - Add yourself as a test user under 'Test users' section
+
+4. **Create OAuth 2.0 Credentials**
+   - Go to 'APIs & Services' > 'Credentials'
+   - Click 'Create Credentials' > 'OAuth client ID'
+   - Select 'Web application' type
+   - Add authorized JavaScript origins:
+     - Development: `http://localhost:3000`
+     - Production: `https://your-production-url.com`
+   - Add authorized redirect URIs:
+     - Development:
+       ```
+       http://localhost:3000/api/auth/callback/google
+       ```
+     - Production:
+       ```
+       https://your-production-url.com/api/auth/callback/google
+       ```
+
+5. **Configure Environment Variables**
+   - Add to your `.env` file:
+     ```
+     GOOGLE_CLIENT_ID=your_client_id
+     GOOGLE_CLIENT_SECRET=your_client_secret
+     ```
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 
@@ -256,7 +334,7 @@ To start watching emails visit: `/api/google/watch/all`
 ### Watching for email updates
 
 Set a cron job to run these:
-The Google watch is necessary. The Resend one is optional.
+The Google watch is necessary. Others are optional.
 
 ```json
   "crons": [
@@ -267,6 +345,10 @@ The Google watch is necessary. The Resend one is optional.
     {
       "path": "/api/resend/summary/all",
       "schedule": "0 16 * * 1"
+    },
+    {
+      "path": "/api/reply-tracker/disable-unused-auto-draft",
+      "schedule": "0 3 * * *"
     }
   ]
 ```

@@ -7,7 +7,7 @@ import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
 import { type GroupItem, GroupItemType } from "@prisma/client";
-import type { MessageWithGroupItem } from "@/app/(app)/automation/rule/[ruleId]/examples/types";
+import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/automation/rule/[ruleId]/examples/types";
 import { SafeError } from "@/utils/error";
 
 const PAGE_SIZE = 20;
@@ -23,21 +23,21 @@ export type GroupEmailsResponse = Awaited<ReturnType<typeof getGroupEmails>>;
 
 export async function getGroupEmails({
   groupId,
-  userId,
+  emailAccountId,
   gmail,
   from,
   to,
   pageToken,
 }: {
   groupId: string;
-  userId: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   from?: Date;
   to?: Date;
   pageToken?: string;
 }) {
   const group = await prisma.group.findUnique({
-    where: { id: groupId, userId },
+    where: { id: groupId, emailAccountId },
     include: { items: true },
   });
 

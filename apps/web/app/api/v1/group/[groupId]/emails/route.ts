@@ -1,4 +1,4 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getGroupEmails } from "@/app/api/user/group/[groupId]/messages/controller";
 import {
   groupEmailsQuerySchema,
@@ -6,9 +6,11 @@ import {
 } from "@/app/api/v1/group/[groupId]/emails/validation";
 import { withError } from "@/utils/middleware";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
+import { getEmailAccountId } from "@/app/api/v1/helpers";
 
 export const GET = withError(async (request, { params }) => {
-  const { gmail, userId } = await validateApiKeyAndGetGmailClient(request);
+  const { gmail, userId, accountId } =
+    await validateApiKeyAndGetGmailClient(request);
 
   const { groupId } = await params;
   if (!groupId)
@@ -26,11 +28,24 @@ export const GET = withError(async (request, { params }) => {
     );
   }
 
-  const { pageToken, from, to } = queryResult.data;
+  const { pageToken, from, to, email } = queryResult.data;
+
+  const emailAccountId = await getEmailAccountId({
+    email,
+    accountId,
+    userId,
+  });
+
+  if (!emailAccountId) {
+    return NextResponse.json(
+      { error: "Email account not found" },
+      { status: 400 },
+    );
+  }
 
   const { messages, nextPageToken } = await getGroupEmails({
     groupId,
-    userId,
+    emailAccountId,
     gmail,
     from: from ? new Date(from) : undefined,
     to: to ? new Date(to) : undefined,

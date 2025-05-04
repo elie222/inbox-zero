@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
@@ -17,12 +17,12 @@ const updateRuleSchema = createRuleSchema.extend({
 });
 
 export async function aiPromptToRules({
-  user,
+  emailAccount,
   promptFile,
   isEditing,
   availableCategories,
 }: {
-  user: UserAIFields & { email: string };
+  emailAccount: EmailAccountWithAI;
   promptFile: string;
   isEditing: boolean;
   availableCategories?: string[];
@@ -71,7 +71,7 @@ ${promptFile}
   }
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     tools: {
@@ -80,7 +80,7 @@ ${promptFile}
         parameters,
       },
     },
-    userEmail: user.email,
+    userEmail: emailAccount.email,
     label: "Prompt to rules",
   });
 

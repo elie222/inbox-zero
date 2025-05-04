@@ -1,7 +1,7 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import type { Knowledge } from "@prisma/client";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-extract-knowledge
 
@@ -10,22 +10,11 @@ vi.mock("server-only", () => ({}));
 // Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-function getUser(): UserEmailWithAI {
-  return {
-    id: "test-user-id",
-    email: "influencer@test.com",
-    about: null,
-    aiModel: null,
-    aiProvider: null,
-    aiApiKey: null,
-  };
-}
-
 function getKnowledgeBase(): Knowledge[] {
   return [
     {
       id: "1",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "Instagram Sponsorship Rates",
       content: `For brand sponsorships on Instagram, my standard rate is $5,000 per post. 
       This includes one main feed post with up to 3 stories. For longer term partnerships 
@@ -35,7 +24,7 @@ function getKnowledgeBase(): Knowledge[] {
     },
     {
       id: "2",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "YouTube Sponsorship Packages",
       content: `My YouTube sponsorship packages start at $10,000 for a 60-90 second 
       integration. This includes one round of revisions and a draft review before posting. 
@@ -45,7 +34,7 @@ function getKnowledgeBase(): Knowledge[] {
     },
     {
       id: "3",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "TikTok Collaboration Rates",
       content: `For TikTok collaborations, I charge $3,000 per video. This includes 
       concept development, filming, and editing. I typically post between 6-8pm EST 
@@ -55,7 +44,7 @@ function getKnowledgeBase(): Knowledge[] {
     },
     {
       id: "4",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "Speaking Engagements",
       content: `I'm available for keynote speaking at tech and marketing conferences. 
       My speaking fee is $15,000 for in-person events and $5,000 for virtual events. 
@@ -66,7 +55,7 @@ function getKnowledgeBase(): Knowledge[] {
     },
     {
       id: "5",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "Brand Ambassador Programs",
       content: `For long-term brand ambassador roles, I offer quarterly packages starting 
       at $50,000. This includes monthly content across all platforms (Instagram, YouTube, 
@@ -77,7 +66,7 @@ function getKnowledgeBase(): Knowledge[] {
     },
     {
       id: "6",
-      userId: "test-user-id",
+      emailAccountId: "test-user-id",
       title: "Consulting Services",
       content: `I offer social media strategy consulting for brands and creators. 
       Hourly rate is $500, with package options available:
@@ -103,7 +92,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -122,7 +111,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -141,7 +130,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -159,7 +148,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: [],
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBe("");
@@ -172,7 +161,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -192,7 +181,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -211,7 +200,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
@@ -230,7 +219,7 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     const result = await aiExtractRelevantKnowledge({
       knowledgeBase: getKnowledgeBase(),
       emailContent,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result?.relevantContent).toBeDefined();
