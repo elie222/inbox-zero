@@ -8,7 +8,9 @@ export type NewsletterSummaryResponse = Awaited<
 
 async function getNewsletterSummary({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const result = await prisma.newsletter.groupBy({
     where: { emailAccountId },
     by: ["status"],

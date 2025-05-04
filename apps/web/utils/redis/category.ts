@@ -55,7 +55,9 @@ export async function deleteCategory({
 
 export async function deleteCategories({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const key = getKey({ emailAccountId });
   return redis.del(key);
 }

@@ -113,7 +113,9 @@ export async function aiGenerateArgs({
 
 function getSystemPrompt({
   emailAccount,
-}: { emailAccount: EmailAccountWithAI }) {
+}: {
+  emailAccount: EmailAccountWithAI;
+}) {
   return `You are an AI assistant that helps people manage their emails.
 
 <key_instructions>

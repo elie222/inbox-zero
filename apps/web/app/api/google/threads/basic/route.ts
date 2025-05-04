@@ -27,7 +27,7 @@ async function getGetThreads(
 
 export const GET = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
-  
+
   const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);

@@ -71,7 +71,7 @@ export function KnowledgeBase() {
           </DialogContent>
         </Dialog>
 
-        <p className="text-sm text-muted-foreground ml-4">
+        <p className="ml-4 text-sm text-muted-foreground">
           The knowledge base is used to help draft responses to emails
         </p>
       </div>
@@ -90,7 +90,7 @@ export function KnowledgeBase() {
               {data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3}>
-                    <p className="max-w-prose text-center mx-auto my-8">
+                    <p className="mx-auto my-8 max-w-prose text-center">
                       Knowledge base entries are used to help draft responses to
                       emails.
                       <br />

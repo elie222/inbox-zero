@@ -41,6 +41,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.web
+    # image: ghcr.io/elie222/inbox-zero:latest
     env_file:
       - ./apps/web/.env
     depends_on:

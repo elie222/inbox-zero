@@ -67,7 +67,10 @@ export function KnowledgeForm({
     };
 
     const result = editingItem
-      ? await updateKnowledgeAction(emailAccountId, submitData as UpdateKnowledgeBody)
+      ? await updateKnowledgeAction(
+          emailAccountId,
+          submitData as UpdateKnowledgeBody,
+        )
       : await createKnowledgeAction(emailAccountId, submitData);
 
     if (result?.serverError) {

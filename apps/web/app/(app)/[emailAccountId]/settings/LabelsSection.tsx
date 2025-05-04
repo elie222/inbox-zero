@@ -159,7 +159,9 @@ function LabelsSectionFormInner(props: {
                 });
 
                 try {
-                  await updateLabelsAction(emailAccountId, { labels: formLabels });
+                  await updateLabelsAction(emailAccountId, {
+                    labels: formLabels,
+                  });
                   toastSuccess({ description: "Updated labels!" });
                 } catch (error) {
                   console.error(error);

@@ -1,0 +1,87 @@
+FROM node:22-alpine
+
+WORKDIR /app
+
+# Install necessary tools
+RUN apk add --no-cache openssl
+RUN npm install -g pnpm
+
+# Copy all package manager files first for caching
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
+COPY apps/web/package.json apps/web/
+COPY apps/unsubscriber/package.json apps/unsubscriber/
+COPY apps/mcp-server/package.json apps/mcp-server/
+COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/loops/package.json packages/loops/
+COPY packages/resend/package.json packages/resend/
+COPY packages/tinybird/package.json packages/tinybird/
+COPY packages/tinybird-ai-analytics/package.json packages/tinybird-ai-analytics/
+COPY packages/tsconfig/package.json packages/tsconfig/
+
+# Copy the rest of the application code FIRST
+COPY . .
+
+# Install ALL dependencies (including dev, no pruning)
+# This will now run postinstall scripts *after* source code is copied
+RUN pnpm install --frozen-lockfile
+
+# Set NODE_ENV for build and runtime
+ENV NODE_ENV=production
+
+# Provide dummy build-time ENV VARS (Still needed for build)
+ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+ENV NEXTAUTH_SECRET="dummy_secret_for_build_only"
+ENV NEXTAUTH_URL="http://localhost:3000"
+ENV GOOGLE_CLIENT_ID="dummy_id_for_build_only"
+ENV GOOGLE_CLIENT_SECRET="dummy_secret_for_build_only"
+ENV GOOGLE_ENCRYPT_SECRET="dummy_encrypt_secret_for_build_only"
+ENV GOOGLE_ENCRYPT_SALT="dummy_encrypt_salt_for_build_only"
+ENV GOOGLE_PUBSUB_TOPIC_NAME="dummy_topic_for_build_only"
+ENV GOOGLE_PUBSUB_VERIFICATION_TOKEN="dummy_pubsub_token_for_build"
+ENV INTERNAL_API_KEY="dummy_apikey_for_build_only"
+ENV API_KEY_SALT="dummy_salt_for_build_only"
+ENV UPSTASH_REDIS_URL="http://dummy-redis-for-build:6379"
+ENV UPSTASH_REDIS_TOKEN="dummy_redis_token_for_build"
+ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
+ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
+ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
+ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+ENV NEXT_PUBLIC_SANITY_PROJECT_ID="dummy-sanity-project-id-for-build"
+ENV NEXT_PUBLIC_SANITY_DATASET="dummy-sanity-dataset-for-build"
+
+# Ensure prisma generate runs
+RUN pnpm --filter inbox-zero-ai exec -- prisma generate
+
+# Provide dummy DB URLs for build-time Prisma schema loading
+ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
+# Provide dummy values for other required build-time ENV VARS
+ENV NEXTAUTH_SECRET="dummy_secret_for_build_only"
+ENV GOOGLE_CLIENT_ID="dummy_id_for_build_only"
+ENV GOOGLE_CLIENT_SECRET="dummy_secret_for_build_only"
+ENV GOOGLE_ENCRYPT_SECRET="dummy_encrypt_secret_for_build_only"
+ENV GOOGLE_ENCRYPT_SALT="dummy_encrypt_salt_for_build_only"
+ENV GOOGLE_PUBSUB_TOPIC_NAME="dummy_topic_for_build_only"
+ENV INTERNAL_API_KEY="dummy_apikey_for_build_only"
+
+# Provide dummy Redis/QStash vars needed for build analysis
+ENV UPSTASH_REDIS_URL="http://dummy-redis-for-build:6379"
+ENV UPSTASH_REDIS_TOKEN="dummy_redis_token_for_build"
+ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
+ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
+
+# Provide dummy Sanity vars needed for build
+ENV NEXT_PUBLIC_SANITY_PROJECT_ID="dummy_sanity_id_for_build"
+ENV NEXT_PUBLIC_SANITY_DATASET="dummy_sanity_dataset_for_build"
+
+# Build the Next.js application only (skip prisma migrate deploy during build)
+RUN pnpm --filter inbox-zero-ai exec -- next build
+
+# Expose port 3000
+EXPOSE 3000
+
+# Set the default command to start the production server
+# Use the simpler pnpm command, should work now as pnpm & next are installed
+CMD pnpm --filter inbox-zero-ai start 

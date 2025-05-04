@@ -44,7 +44,9 @@ export async function saveUserLabels({
 
 export async function deleteUserLabels({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const key = getUserLabelsKey({ emailAccountId });
   return redis.del(key);
 }

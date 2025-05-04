@@ -6,7 +6,9 @@ import { type GroupItem, GroupItemType } from "@prisma/client";
 type GroupsWithRules = Awaited<ReturnType<typeof getGroupsWithRules>>;
 export async function getGroupsWithRules({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   return prisma.group.findMany({
     where: { emailAccountId, rule: { isNot: null } },
     include: { items: true, rule: { include: { actions: true } } },

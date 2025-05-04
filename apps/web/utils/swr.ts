@@ -30,15 +30,20 @@ export function processSWRResponse<
   }
   // Handle potential non-Error SWR errors (less common)
   if (swrError) {
-     return {
-       ...swrResult,
-       data: null,
-       error: { error: String(swrError) }, // Convert non-Error to string
-     } as SWRResponse<TData | null, NormalizedError>;
+    return {
+      ...swrResult,
+      data: null,
+      error: { error: String(swrError) }, // Convert non-Error to string
+    } as SWRResponse<TData | null, NormalizedError>;
   }
 
   // Handle API error returned within data
-  if (data && typeof data === 'object' && 'error' in data && typeof data.error === 'string') {
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    typeof data.error === "string"
+  ) {
     return {
       ...swrResult,
       data: null,
@@ -53,4 +58,4 @@ export function processSWRResponse<
     data: data as TData | null, // SWR handles undefined during load
     error: undefined,
   } as SWRResponse<TData | null, NormalizedError>;
-} 
+}

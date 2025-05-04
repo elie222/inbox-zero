@@ -12,7 +12,9 @@ export type CategoryWithRules = Prisma.CategoryGetPayload<{
 
 export const getUserCategories = async ({
   emailAccountId,
-}: { emailAccountId: string }) => {
+}: {
+  emailAccountId: string;
+}) => {
   const categories = await prisma.category.findMany({
     where: { emailAccountId },
   });
@@ -21,7 +23,9 @@ export const getUserCategories = async ({
 
 export const getUserCategoriesWithRules = async ({
   emailAccountId,
-}: { emailAccountId: string }) => {
+}: {
+  emailAccountId: string;
+}) => {
   const categories = await prisma.category.findMany({
     where: { emailAccountId },
     select: {

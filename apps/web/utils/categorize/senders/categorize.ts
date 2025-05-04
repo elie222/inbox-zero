@@ -144,7 +144,9 @@ function preCategorizeSendersWithStaticRules(
 
 export async function getCategories({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   const categories = await getUserCategories({ emailAccountId });
   if (categories.length === 0) throw new SafeError("No categories found");
   return { categories };

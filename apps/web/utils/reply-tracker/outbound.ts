@@ -183,7 +183,9 @@ async function resolveReplyTrackers(
 
 async function isOutboundTrackingEnabled({
   email,
-}: { email: string }): Promise<boolean> {
+}: {
+  email: string;
+}): Promise<boolean> {
   const userSettings = await prisma.emailAccount.findUnique({
     where: { email },
     select: { outboundReplyTracking: true },

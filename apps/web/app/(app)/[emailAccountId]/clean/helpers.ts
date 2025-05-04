@@ -14,7 +14,9 @@ export async function getJobById({
 
 export async function getLastJob({
   emailAccountId,
-}: { emailAccountId: string }) {
+}: {
+  emailAccountId: string;
+}) {
   return await prisma.cleanupJob.findFirst({
     where: { emailAccountId },
     orderBy: { createdAt: "desc" },
