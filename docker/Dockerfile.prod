@@ -47,7 +47,7 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
-ENV NEXT_PUBLIC_SANITY_PROJECT_ID="dummy-sanity-project-id-for-build"
+ENV NEXT_PUBLIC_SANITY_PROJECT_ID="project123"
 ENV NEXT_PUBLIC_SANITY_DATASET="dummy-sanity-dataset-for-build"
 
 # Ensure prisma generate runs
@@ -73,7 +73,7 @@ ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 
 # Provide dummy Sanity vars needed for build
-ENV NEXT_PUBLIC_SANITY_PROJECT_ID="dummy_sanity_id_for_build"
+ENV NEXT_PUBLIC_SANITY_PROJECT_ID="project123"
 ENV NEXT_PUBLIC_SANITY_DATASET="dummy_sanity_dataset_for_build"
 
 # Build the Next.js application only (skip prisma migrate deploy during build)
@@ -84,4 +84,4 @@ EXPOSE 3000
 
 # Set the default command to start the production server
 # Use the simpler pnpm command, should work now as pnpm & next are installed
-CMD pnpm --filter inbox-zero-ai start 
+CMD pnpm --filter inbox-zero-ai start

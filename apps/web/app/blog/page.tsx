@@ -1,10 +1,10 @@
-import Image from "next/image";
-import Link from "next/link";
+import type { Post as PostType } from "@/app/blog/types";
 import { BlogLayout } from "@/components/layouts/BlogLayout";
+import { Card, CardContent } from "@/components/ui/card";
 import { sanityFetch } from "@/sanity/lib/fetch";
 import { postsQuery } from "@/sanity/lib/queries";
-import type { Post as PostType } from "@/app/blog/types";
-import { Card, CardContent } from "@/components/ui/card";
+import Image from "next/image";
+import Link from "next/link";
 
 type Post = {
   title: string;
@@ -208,7 +208,7 @@ export const revalidate = 60;
 export default async function BlogContentsPage() {
   // Skip Sanity fetch during build with dummy credentials
   let posts: SanityPost[] = [];
-  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID !== 'dummy-sanity-project-id-for-build') {
+  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID !== "project123") {
     posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
   }
 
