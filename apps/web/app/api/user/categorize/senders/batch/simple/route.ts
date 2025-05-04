@@ -4,6 +4,9 @@ import { withError } from "@/utils/middleware";
 import { handleBatchRequest } from "@/app/api/user/categorize/senders/batch/handle-batch";
 import { env } from "@/env";
 import { isValidInternalApiKey } from "@/utils/internal-api";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("api/user/categorize/senders/batch/simple");
 
 export const maxDuration = 300;
 
@@ -15,7 +18,7 @@ export const POST = withError(async (request) => {
     });
   }
 
-  if (!isValidInternalApiKey(await headers()))
+  if (!isValidInternalApiKey(await headers(), logger))
     return NextResponse.json({ error: "Invalid API key" });
 
   return handleBatchRequest(request);

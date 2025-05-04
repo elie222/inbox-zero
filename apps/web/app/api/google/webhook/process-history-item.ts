@@ -22,7 +22,7 @@ import {
   cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import type { ParsedMessage } from "@/utils/types";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
 
 export async function processHistoryItem(
@@ -31,8 +31,7 @@ export async function processHistoryItem(
   }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
   {
     gmail,
-    email: userEmail,
-    user,
+    emailAccount,
     accessToken,
     hasColdEmailAccess,
     hasAutomationRules,
@@ -42,6 +41,8 @@ export async function processHistoryItem(
 ) {
   const messageId = message?.id;
   const threadId = message?.threadId;
+  const emailAccountId = emailAccount.id;
+  const userEmail = emailAccount.email;
 
   if (!messageId || !threadId) return;
 
@@ -65,8 +66,8 @@ export async function processHistoryItem(
       getMessage(messageId, gmail, "full"),
       prisma.executedRule.findUnique({
         where: {
-          unique_user_thread_message: {
-            userId: user.userId,
+          unique_emailAccount_thread_message: {
+            emailAccountId,
             threadId,
             messageId,
           },
@@ -97,8 +98,8 @@ export async function processHistoryItem(
       logger.info("Passing through assistant email.", loggerOptions);
       return processAssistantEmail({
         message,
+        emailAccountId,
         userEmail,
-        userId: user.userId,
         gmail,
       });
     }
@@ -116,14 +117,14 @@ export async function processHistoryItem(
     const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutbound(user, message, gmail);
+      await handleOutbound(emailAccount, message, gmail);
       return;
     }
 
     // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
       from: message.headers.from,
-      userId: user.userId,
+      emailAccountId,
       gmail,
       messageId,
     });
@@ -134,7 +135,7 @@ export async function processHistoryItem(
     }
 
     const shouldRunBlocker = shouldRunColdEmailBlocker(
-      user.coldEmailBlocker,
+      emailAccount.coldEmailBlocker,
       hasColdEmailAccess,
     );
 
@@ -153,7 +154,7 @@ export async function processHistoryItem(
           date: internalDateToDate(message.internalDate),
         },
         gmail,
-        user,
+        emailAccount,
       });
 
       if (response.isColdEmail) {
@@ -164,14 +165,16 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    if (user.autoCategorizeSenders) {
+    if (emailAccount.autoCategorizeSenders) {
       const sender = extractEmailAddress(message.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
-        where: { email_userId: { email: sender, userId: user.userId } },
+        where: {
+          email_emailAccountId: { email: sender, emailAccountId },
+        },
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, user, gmail, accessToken);
+        await categorizeSender(sender, emailAccount, gmail, accessToken);
       }
     }
 
@@ -182,7 +185,7 @@ export async function processHistoryItem(
         gmail,
         message,
         rules,
-        user,
+        emailAccount,
         isTest: false,
       });
     }
@@ -201,12 +204,12 @@ export async function processHistoryItem(
 }
 
 async function handleOutbound(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ) {
   const loggerOptions = {
-    email: user.email,
+    email: emailAccount.email,
     messageId: message.id,
     threadId: message.threadId,
   };
@@ -217,11 +220,11 @@ async function handleOutbound(
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
     trackSentDraftStatus({
-      user: { id: user.userId, email: user.email },
+      emailAccountId: emailAccount.id,
       message,
       gmail,
     }),
-    handleOutboundReply(user, message, gmail),
+    handleOutboundReply({ emailAccount, message, gmail }),
   ]);
 
   if (trackingResult.status === "rejected") {
@@ -243,7 +246,7 @@ async function handleOutbound(
   try {
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
-      userId: user.userId,
+      emailAccountId: emailAccount.id,
       gmail,
     });
   } catch (cleanupError) {

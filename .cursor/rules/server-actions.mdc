@@ -17,51 +17,86 @@ For `apps/web/utils/actions/NAME.validation.ts`:
 ```typescript
 import { z } from "zod";
 
-export const createApiKeyBody = z.object({ name: z.string().nullish() });
-export type CreateApiKeyBody = z.infer<typeof createApiKeyBody>;
+// Example: Schema for updating AI settings
+export const saveAiSettingsBody = z.object({
+  aiProvider: z.string().optional(), // Adjust types as needed
+  aiModel: z.string().optional(),
+  aiApiKey: z.string().optional(),
+});
+export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
-export const deactivateApiKeyBody = z.object({ id: z.string() });
-export type DeactivateApiKeyBody = z.infer<typeof deactivateApiKeyBody>;
+// Example: Schema for updating email settings (requires emailAccountId binding)
+export const saveEmailUpdateSettingsBody = z.object({
+  statsEmailFrequency: z.string().optional(), // Use specific enum/types if applicable
+  summaryEmailFrequency: z.string().optional(),
+});
+export type SaveEmailUpdateSettingsBody = z.infer<
+  typeof saveEmailUpdateSettingsBody
+>;
+
 ```
 
 For `apps/web/utils/actions/NAME.ts`:
 
 ```typescript
-'use server';
+"use server";
 
-import { revalidatePath } from "next/cache";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
+import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import {
-  deactivateApiKeyBody,
-  type DeactivateApiKeyBody,
-} from "@/utils/actions/api-key.validation";
+  saveAiSettingsBody,
+  saveEmailUpdateSettingsBody,
+} from "@/utils/actions/settings.validation"; // Adjust path
+import prisma from "@/utils/prisma";
+import { revalidatePath } from "next/cache"; // Import if needed for cache invalidation
 
-export const deactivateApiKeyAction = withActionInstrumentation(
-  "deactivateApiKey",
-  async (unsafeData: DeactivateApiKeyBody) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+// Example using actionClientUser (requires authenticated user context)
+export const updateAiSettingsAction = actionClientUser
+  .metadata({ name: "updateAiSettings" }) // For logging/instrumentation
+  .schema(saveAiSettingsBody) // Zod schema for input validation
+  .action(
+    async ({
+      ctx: { userId }, // Access context provided by the safe-action client
+      parsedInput: { aiProvider, aiModel, aiApiKey }, // Validated and typed input
+    }) => {
+      await prisma.user.update({
+        where: { id: userId },
+        data: { aiProvider, aiModel, aiApiKey },
+      });
+    },
+  );
 
-    const { data, success, error } =
-      deactivateApiKeyBody.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+// Example using actionClient (requires authenticated user + bound emailAccountId)
+export const updateEmailSettingsAction = actionClient
+  .metadata({ name: "updateEmailSettings" })
+  .schema(saveEmailUpdateSettingsBody)
+  // Note: emailAccountId is bound when calling this action from the client
+  .action(
+    async ({
+      ctx: { emailAccountId }, // Access context (includes userId, email etc.)
+      parsedInput: { statsEmailFrequency, summaryEmailFrequency },
+    }) => {
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: {
+          statsEmailFrequency,
+          summaryEmailFrequency,
+        },
+      });
+    },
+  );
 
-    await prisma.apiKey.update({
-      where: { id: data.id, userId },
-      data: { isActive: false },
-    });
-
-    revalidatePath("/settings");
-  }
-);
 ```
 
 ## Implementation Guidelines
-- Implement type-safe server actions with proper validation
-- Define input schemas using Zod for robust type checking and validation
-- Handle errors gracefully and return appropriate responses
-- Ensure all server actions return the `Promise<ServerActionResponse>` type
-- The zod schema will also be used on the client for form validation.
+- **Use `next-safe-action`:** Implement all server actions using the `next-safe-action` library for type safety, input validation, context management, and error handling. Refer to `apps/web/utils/actions/safe-action.ts` for client definitions (`actionClient`, `actionClientUser`, `adminActionClient`).
+- **Choose the Right Client:**
+    - `actionClientUser`: Use when only authenticated user context (`userId`) is needed.
+    - `actionClient`: Use when both authenticated user context *and* a specific `emailAccountId` are needed. The `emailAccountId` must be bound when calling the action from the client.
+    - `adminActionClient`: Use for actions restricted to admin users.
+- **Input Validation:** Define input validation schemas using Zod in the corresponding `.validation.ts` file. These schemas are used by `next-safe-action` (`.schema()`) and can also be reused on the client for form validation.
+- **Context (`ctx`):** Access necessary context (like `userId`, `emailAccountId`, etc.) provided by the safe action client via the `ctx` object in the `.action()` handler.
+- **Mutations Only:** Server Actions are **strictly for mutations** (operations that change data, e.g., creating, updating, deleting). **Do NOT use Server Actions for data fetching (GET operations).**
+    - For data fetching, use dedicated [GET API Routes](mdc:.cursor/rules/get-api-route.mdc) combined with [SWR Hooks](mdc:.cursor/rules/data-fetching.mdc).
+- **Error Handling:** `next-safe-action` provides centralized error handling. Use `SafeError` for expected/handled errors within actions if needed (see `apps/web/utils/actions/safe-action.ts`).
+- **Instrumentation:** Sentry instrumentation is automatically applied via `withServerActionInstrumentation` within the safe action clients. Use the `.metadata({ name: "actionName" })` method to provide a meaningful name for monitoring.
+- **Cache Invalidation:** If an action modifies data displayed elsewhere, use `revalidatePath` or `revalidateTag` from `next/cache` within the action handler as needed.

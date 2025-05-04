@@ -1,11 +1,11 @@
 import type { people_v1 } from "@googleapis/people";
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getContactsClient } from "@/utils/gmail/client";
 import { searchContacts } from "@/utils/gmail/contact";
 import { env } from "@/env";
+import prisma from "@/utils/prisma";
 
 const contactsQuery = z.object({ query: z.string() });
 export type ContactsQuery = z.infer<typeof contactsQuery>;
@@ -16,15 +16,25 @@ async function getContacts(client: people_v1.People, query: string) {
   return { result };
 }
 
-export const GET = withError(async (request) => {
+export const GET = withEmailAccount(async (request) => {
   if (!env.NEXT_PUBLIC_CONTACTS_ENABLED)
     return NextResponse.json({ error: "Contacts API not enabled" });
 
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+  const emailAccountId = request.auth.emailAccountId;
 
-  const client = getContactsClient(session);
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { access_token: true, refresh_token: true, expires_at: true },
+      },
+    },
+  });
+  const client = getContactsClient({
+    accessToken: emailAccount?.account.access_token,
+    refreshToken: emailAccount?.account.refresh_token,
+    expiryDate: emailAccount?.account.expires_at,
+  });
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("query");

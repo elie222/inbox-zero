@@ -5,9 +5,9 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { draftEmail } from "@/utils/gmail/mail";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
-import { getAiUser, getWritingStyle } from "@/utils/user/get";
+import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
 import { getThreadMessages } from "@/utils/gmail/thread";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
@@ -19,31 +19,28 @@ import { getAccessTokenFromClient } from "@/utils/gmail/client";
 const logger = createScopedLogger("generate-reply");
 
 export async function generateDraft({
-  userId,
-  userEmail,
+  emailAccountId,
   gmail,
   message,
 }: {
-  userId: string;
-  userEmail: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
 }) {
   const logger = createScopedLogger("generate-reply").with({
-    email: userEmail,
-    userId,
+    emailAccountId,
     messageId: message.id,
     threadId: message.threadId,
   });
 
   logger.info("Generating draft");
 
-  const user = await getAiUser({ email: userEmail });
-  if (!user) throw new Error("User not found");
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  if (!emailAccount) throw new Error("User not found");
 
   // 1. Draft with AI
   const result = await fetchMessagesAndGenerateDraft(
-    user,
+    emailAccount,
     message.threadId,
     gmail,
   );
@@ -64,7 +61,7 @@ export async function generateDraft({
  * Fetches thread messages and generates draft content in one step
  */
 export async function fetchMessagesAndGenerateDraft(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   threadId: string,
   gmail: gmail_v1.Gmail,
 ): Promise<string> {
@@ -72,7 +69,7 @@ export async function fetchMessagesAndGenerateDraft(
     await fetchThreadAndConversationMessages(threadId, gmail);
 
   const result = await generateDraftContent(
-    user,
+    emailAccount,
     threadMessages,
     previousConversationMessages,
   );
@@ -98,10 +95,10 @@ async function fetchThreadAndConversationMessages(
   const threadMessages = await getThreadMessages(threadId, gmail);
 
   // previous conversation messages
-  const previousConversationMessages = await getMessagesBatch(
-    threadMessages.map((msg) => msg.id),
-    getAccessTokenFromClient(gmail),
-  );
+  const previousConversationMessages = await getMessagesBatch({
+    messageIds: threadMessages.map((msg) => msg.id),
+    accessToken: getAccessTokenFromClient(gmail),
+  });
 
   return {
     threadMessages,
@@ -110,7 +107,7 @@ async function fetchThreadAndConversationMessages(
 }
 
 async function generateDraftContent(
-  user: UserEmailWithAI,
+  emailAccount: EmailAccountWithAI,
   threadMessages: ParsedMessage[],
   previousConversationMessages: ParsedMessage[] | null,
 ) {
@@ -119,7 +116,7 @@ async function generateDraftContent(
   if (!lastMessage) throw new Error("No message provided");
 
   const reply = await getReply({
-    email: user.email,
+    emailAccountId: emailAccount.id,
     messageId: lastMessage.id,
   });
 
@@ -138,7 +135,7 @@ async function generateDraftContent(
 
   // 1. Get knowledge base entries
   const knowledgeBase = await prisma.knowledge.findMany({
-    where: { userId: user.userId },
+    where: { emailAccountId: emailAccount.id },
     orderBy: { updatedAt: "desc" },
   });
 
@@ -151,7 +148,7 @@ async function generateDraftContent(
   const knowledgeResult = await aiExtractRelevantKnowledge({
     knowledgeBase,
     emailContent: lastMessageContent,
-    user,
+    emailAccount,
   });
 
   // 2b. Extract email history context
@@ -174,16 +171,18 @@ async function generateDraftContent(
     ? await aiExtractFromEmailHistory({
         currentThreadMessages: messages,
         historicalMessages: historicalMessagesForLLM,
-        user,
+        emailAccount,
       })
     : null;
 
-  const writingStyle = await getWritingStyle(user.email);
+  const writingStyle = await getWritingStyle({
+    emailAccountId: emailAccount.id,
+  });
 
   // 3. Draft with extracted knowledge
   const text = await aiDraftWithKnowledge({
     messages,
-    user,
+    emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
     writingStyle,
@@ -191,7 +190,7 @@ async function generateDraftContent(
 
   if (typeof text === "string") {
     await saveReply({
-      email: user.email,
+      emailAccountId: emailAccount.id,
       messageId: lastMessage.id,
       reply: text,
     });

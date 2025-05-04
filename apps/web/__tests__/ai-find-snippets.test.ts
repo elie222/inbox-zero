@@ -1,7 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { EmailForLLM } from "@/utils/types";
-import { getEmail, getUser } from "@/__tests__/helpers";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai ai-find-snippets
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
@@ -27,7 +26,7 @@ describe.runIf(isAiTest)("aiFindSnippets", () => {
 
     const result = await aiFindSnippets({
       sentEmails: emails,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result.snippets).toHaveLength(1);
@@ -58,7 +57,7 @@ describe.runIf(isAiTest)("aiFindSnippets", () => {
 
     const result = await aiFindSnippets({
       sentEmails: emails,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result.snippets).toHaveLength(0);

@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
@@ -8,10 +8,10 @@ import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
 const logger = createScopedLogger("google/watch");
 
 export async function watchEmails({
-  email,
+  emailAccountId,
   gmail,
 }: {
-  email: string;
+  emailAccountId: string;
   gmail: gmail_v1.Gmail;
 }) {
   const res = await watchGmail(gmail);
@@ -19,12 +19,12 @@ export async function watchEmails({
   if (res.expiration) {
     const expirationDate = new Date(+res.expiration);
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: { watchEmailsExpirationDate: expirationDate },
     });
     return expirationDate;
   }
-  logger.error("Error watching inbox", { email });
+  logger.error("Error watching inbox", { emailAccountId });
 }
 
 async function unwatch(gmail: gmail_v1.Gmail) {
@@ -33,32 +33,36 @@ async function unwatch(gmail: gmail_v1.Gmail) {
 }
 
 export async function unwatchEmails({
-  email,
-  access_token,
-  refresh_token,
+  emailAccountId,
+  accessToken,
+  refreshToken,
+  expiresAt,
 }: {
-  email: string;
-  access_token: string | null;
-  refresh_token: string | null;
+  emailAccountId: string;
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null;
 }) {
   try {
-    const gmail = getGmailClient({
-      accessToken: access_token ?? undefined,
-      refreshToken: refresh_token ?? undefined,
+    const gmail = await getGmailClientWithRefresh({
+      accessToken,
+      refreshToken,
+      expiresAt,
+      emailAccountId,
     });
     await unwatch(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
-      logger.warn("Error unwatching emails, invalid grant", { email });
+      logger.warn("Error unwatching emails, invalid grant", { emailAccountId });
       return;
     }
 
-    logger.error("Error unwatching emails", { email, error });
+    logger.error("Error unwatching emails", { emailAccountId, error });
     captureException(error);
   }
 
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { watchEmailsExpirationDate: null },
   });
 }

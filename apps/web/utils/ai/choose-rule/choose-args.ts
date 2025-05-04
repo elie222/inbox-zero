@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { ActionType, type Action } from "@prisma/client";
 import {
   type RuleWithActions,
@@ -21,12 +21,12 @@ type ActionArgResponse = {
 
 export async function getActionItemsWithAiArgs({
   message,
-  user,
+  emailAccount,
   selectedRule,
   gmail,
 }: {
   message: ParsedMessage;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
   gmail: gmail_v1.Gmail;
 }): Promise<Action[]> {
@@ -41,7 +41,11 @@ export async function getActionItemsWithAiArgs({
   let draft: string | null = null;
 
   if (draftEmailActions.length) {
-    draft = await fetchMessagesAndGenerateDraft(user, message.threadId, gmail);
+    draft = await fetchMessagesAndGenerateDraft(
+      emailAccount,
+      message.threadId,
+      gmail,
+    );
   }
 
   const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);
@@ -50,7 +54,7 @@ export async function getActionItemsWithAiArgs({
 
   const result = await aiGenerateArgs({
     email,
-    user,
+    emailAccount,
     selectedRule,
     parameters,
   });

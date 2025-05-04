@@ -1,20 +1,19 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
 export type GroupRulesResponse = Awaited<ReturnType<typeof getGroupRules>>;
 
 async function getGroupRules({
-  userId,
+  emailAccountId,
   groupId,
 }: {
-  userId: string;
+  emailAccountId: string;
   groupId: string;
 }) {
   const groupWithRules = await prisma.group.findUnique({
-    where: { id: groupId, userId },
+    where: { id: groupId, emailAccountId },
     select: {
       rule: {
         include: {
@@ -29,18 +28,13 @@ async function getGroupRules({
   return { rule: groupWithRules.rule };
 }
 
-export const GET = withError(async (_request: Request, { params }) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request, { params }) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { groupId } = await params;
   if (!groupId) return NextResponse.json({ error: "Group id required" });
 
-  const result = await getGroupRules({
-    userId: session.user.id,
-    groupId,
-  });
+  const result = await getGroupRules({ emailAccountId, groupId });
 
   return NextResponse.json(result);
 });

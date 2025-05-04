@@ -6,67 +6,64 @@ import { generatePromptOnUpdateRule } from "@/utils/ai/rule/generate-prompt-on-u
 import prisma from "@/utils/prisma";
 
 export async function updatePromptFileOnRuleCreated({
-  email,
+  emailAccountId,
   rule,
 }: {
-  email: string;
+  emailAccountId: string;
   rule: RuleWithRelations;
 }) {
   const prompt = createPromptFromRule(rule);
-  await appendRulePrompt({ email, rulePrompt: prompt });
+  await appendRulePrompt({ emailAccountId, rulePrompt: prompt });
 }
 
 export async function updatePromptFileOnRuleUpdated({
-  email,
+  emailAccountId,
   currentRule,
   updatedRule,
 }: {
-  email: string;
+  emailAccountId: string;
   currentRule: RuleWithRelations;
   updatedRule: RuleWithRelations;
 }) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
+      id: true,
       email: true,
       userId: true,
       about: true,
-      aiModel: true,
-      aiProvider: true,
-      aiApiKey: true,
       rulesPrompt: true,
+      user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
     },
   });
   if (!emailAccount) return;
 
   const updatedPrompt = await generatePromptOnUpdateRule({
-    user: emailAccount,
+    emailAccount,
     existingPrompt: emailAccount.rulesPrompt || "",
     currentRule,
     updatedRule,
   });
 
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { rulesPrompt: updatedPrompt },
   });
 }
 
 export async function updateRuleInstructionsAndPromptFile({
-  userId,
-  email,
+  emailAccountId,
   ruleId,
   instructions,
   currentRule,
 }: {
-  userId: string;
-  email: string;
+  emailAccountId: string;
   ruleId: string;
   instructions: string;
   currentRule: RuleWithRelations | null;
 }) {
   const updatedRule = await prisma.rule.update({
-    where: { id: ruleId, userId },
+    where: { id: ruleId, emailAccountId },
     data: { instructions },
     include: { actions: true, categoryFilters: true, group: true },
   });
@@ -74,24 +71,24 @@ export async function updateRuleInstructionsAndPromptFile({
   // update prompt file
   if (currentRule) {
     await updatePromptFileOnRuleUpdated({
-      email,
+      emailAccountId,
       currentRule,
       updatedRule,
     });
   } else {
-    await appendRulePrompt({ email, rulePrompt: instructions });
+    await appendRulePrompt({ emailAccountId, rulePrompt: instructions });
   }
 }
 
 async function appendRulePrompt({
-  email,
+  emailAccountId,
   rulePrompt,
 }: {
-  email: string;
+  emailAccountId: string;
   rulePrompt: string;
 }) {
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: { rulesPrompt: true },
   });
 
@@ -100,7 +97,7 @@ async function appendRulePrompt({
   const updatedPrompt = `${existingPrompt}\n\n* ${rulePrompt}.`.trim();
 
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { rulesPrompt: updatedPrompt },
   });
 }

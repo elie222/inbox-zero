@@ -7,37 +7,45 @@ import {
 } from "@/utils/reply-tracker/consts";
 import { createScopedLogger } from "@/utils/logger";
 import { RuleName } from "@/utils/rule/consts";
+import { SafeError } from "@/utils/error";
 
-export async function enableReplyTracker({ email }: { email: string }) {
-  const logger = createScopedLogger("reply-tracker/enable").with({ email });
+export async function enableReplyTracker({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const logger = createScopedLogger("reply-tracker/enable").with({
+    emailAccountId,
+  });
 
   // Find existing reply required rule, make it track replies
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { email },
+    where: { id: emailAccountId },
     select: {
+      id: true,
       userId: true,
       email: true,
-      aiProvider: true,
-      aiModel: true,
-      aiApiKey: true,
       about: true,
       rulesPrompt: true,
       user: {
         select: {
-          rules: {
-            where: {
-              systemType: SystemType.TO_REPLY,
-            },
+          aiProvider: true,
+          aiModel: true,
+          aiApiKey: true,
+        },
+      },
+      rules: {
+        where: {
+          systemType: SystemType.TO_REPLY,
+        },
+        select: {
+          id: true,
+          systemType: true,
+          actions: {
             select: {
               id: true,
-              systemType: true,
-              actions: {
-                select: {
-                  id: true,
-                  type: true,
-                  label: true,
-                },
-              },
+              type: true,
+              label: true,
             },
           },
         },
@@ -46,9 +54,9 @@ export async function enableReplyTracker({ email }: { email: string }) {
   });
 
   // If enabled already skip
-  if (!emailAccount) return { error: "Email account not found" };
+  if (!emailAccount) throw new SafeError("Email account not found");
 
-  const rule = emailAccount.user.rules.find(
+  const rule = emailAccount.rules.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
@@ -101,25 +109,25 @@ export async function enableReplyTracker({ email }: { email: string }) {
           },
         ],
       },
-      userId: emailAccount.userId,
+      emailAccountId: emailAccount.id,
       systemType: SystemType.TO_REPLY,
     });
 
-    if ("error" in newRule) {
+    if (newRule && "error" in newRule) {
       logger.error("Error enabling Reply Zero", { error: newRule.error });
-      return { error: "Error enabling Reply Zero" };
+      throw new SafeError("Error enabling Reply Zero");
     }
 
-    ruleId = newRule.id;
+    ruleId = newRule?.id || null;
 
     if (!ruleId) {
       logger.error("Error enabling Reply Zero, no rule found");
-      return { error: "Error enabling Reply Zero" };
+      throw new SafeError("Error enabling Reply Zero");
     }
 
     // Add rule to prompt file
     await prisma.emailAccount.update({
-      where: { email },
+      where: { id: emailAccountId },
       data: {
         rulesPrompt:
           `${emailAccount.rulesPrompt || ""}\n\n* Label emails that require a reply as 'Reply Required'`.trim(),
@@ -130,7 +138,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
   // Update the rule to track replies
   if (!ruleId) {
     logger.error("Error enabling Reply Zero", { error: "No rule found" });
-    return { error: "Error enabling Reply Zero" };
+    throw new SafeError("Error enabling Reply Zero");
   }
 
   const updatedRule = await prisma.rule.update({
@@ -142,7 +150,7 @@ export async function enableReplyTracker({ email }: { email: string }) {
   await Promise.allSettled([
     enableReplyTracking(updatedRule),
     enableDraftReplies(updatedRule),
-    enableOutboundReplyTracking({ email }),
+    enableOutboundReplyTracking({ emailAccountId }),
   ]);
 }
 
@@ -175,9 +183,13 @@ export async function enableDraftReplies(
   });
 }
 
-async function enableOutboundReplyTracking({ email }: { email: string }) {
+async function enableOutboundReplyTracking({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   await prisma.emailAccount.update({
-    where: { email },
+    where: { id: emailAccountId },
     data: { outboundReplyTracking: true },
   });
 }

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 
 export type MultiAccountEmailsResponse = Awaited<
   ReturnType<typeof getMultiAccountEmails>
 >;
 
-async function getMultiAccountEmails(options: { email: string }) {
+async function getMultiAccountEmails({ userId }: { userId: string }) {
   const user = await prisma.user.findUnique({
-    where: { email: options.email },
+    where: { id: userId },
     select: {
       premium: {
         select: {
@@ -26,12 +25,10 @@ async function getMultiAccountEmails(options: { email: string }) {
   };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withAuth(async (request) => {
+  const userId = request.auth.userId;
 
-  const result = await getMultiAccountEmails({ email: session.user.email });
+  const result = await getMultiAccountEmails({ userId });
 
   return NextResponse.json(result);
 });

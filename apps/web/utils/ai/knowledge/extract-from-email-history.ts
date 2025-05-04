@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
@@ -26,11 +26,11 @@ Provide a concise summary (max 500 characters) that captures the most important 
 const getUserPrompt = ({
   currentThreadMessages,
   historicalMessages,
-  user,
+  emailAccount,
 }: {
   currentThreadMessages: EmailForLLM[];
   historicalMessages: EmailForLLM[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }) => {
   return `<current_email_thread>
 ${currentThreadMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
@@ -45,13 +45,13 @@ ${historicalMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
 }
 
 ${
-  user.about
+  emailAccount.about
     ? `<user_info>
-<about>${user.about}</about>
-<email>${user.email}</email>
+<about>${emailAccount.about}</about>
+<email>${emailAccount.email}</email>
 </user_info>`
     : `<user_info>
-<email>${user.email}</email>
+<email>${emailAccount.email}</email>
 </user_info>`
 }
 
@@ -73,11 +73,11 @@ const extractionSchema = z.object({
 export async function aiExtractFromEmailHistory({
   currentThreadMessages,
   historicalMessages,
-  user,
+  emailAccount,
 }: {
   currentThreadMessages: EmailForLLM[];
   historicalMessages: EmailForLLM[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }): Promise<string | null> {
   try {
     logger.info("Extracting information from email history", {
@@ -91,7 +91,7 @@ export async function aiExtractFromEmailHistory({
     const prompt = getUserPrompt({
       currentThreadMessages,
       historicalMessages,
-      user,
+      emailAccount,
     });
 
     logger.trace("Input", { system, prompt });
@@ -101,8 +101,8 @@ export async function aiExtractFromEmailHistory({
       prompt,
       schema: extractionSchema,
       usageLabel: "Email history extraction",
-      userAi: user,
-      userEmail: user.email,
+      userAi: emailAccount.user,
+      userEmail: emailAccount.email,
       useEconomyModel: true,
     });
 

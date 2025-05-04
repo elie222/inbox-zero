@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
 import { RuleName } from "@/utils/rule/consts";
-import { getUser } from "@/__tests__/helpers";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
 
@@ -221,7 +221,7 @@ Only flag when someone:
     test("detects newsletter pattern and suggests Newsletter rule", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getNewsletterEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 
@@ -234,7 +234,7 @@ Only flag when someone:
     test("detects receipt pattern and suggests Receipt rule", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getReceiptEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 
@@ -247,7 +247,7 @@ Only flag when someone:
     test("detects calendar pattern and suggests Calendar rule", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getCalendarEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 
@@ -260,7 +260,7 @@ Only flag when someone:
     test("detects reply needed pattern and suggests To Reply rule", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getNeedsReplyEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 
@@ -273,7 +273,7 @@ Only flag when someone:
     test("returns null for mixed inconsistent emails", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getMixedInconsistentEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 
@@ -285,7 +285,7 @@ Only flag when someone:
     test("returns null or matches Notification rule for same sender but different types of content", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getDifferentContentEmails(),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: getRealisticRules(),
       });
 

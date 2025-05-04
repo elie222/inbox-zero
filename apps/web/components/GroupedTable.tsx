@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { Fragment, useMemo } from "react";
 import { useQueryState } from "nuqs";
-import { useSession } from "next-auth/react";
 import groupBy from "lodash/groupBy";
 import {
   useReactTable,
@@ -41,7 +40,6 @@ import {
   removeAllFromCategoryAction,
 } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { Button } from "@/components/ui/button";
 import {
   addToArchiveSenderQueue,
@@ -49,7 +47,7 @@ import {
 } from "@/store/archive-sender-queue";
 import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
-import { CreateCategoryDialog } from "@/app/(app)/smart-categories/CreateCategoryButton";
+import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,6 +57,8 @@ import {
 import type { CategoryWithRules } from "@/utils/category.server";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { CategorySelect } from "@/components/CategorySelect";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 const COLUMNS = 4;
 
@@ -75,8 +75,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
-  const session = useSession();
-  const userEmail = session.data?.user?.email || "";
+  const { emailAccountId, userEmail } = useAccount();
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -161,13 +160,13 @@ export function GroupedTable({
           <Select
             defaultValue={row.original.category?.id || ""}
             onValueChange={async (value) => {
-              const result = await changeSenderCategoryAction({
+              const result = await changeSenderCategoryAction(emailAccountId, {
                 sender: row.original.address,
                 categoryId: value,
               });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 toastSuccess({ description: "Category changed" });
               }
@@ -187,7 +186,7 @@ export function GroupedTable({
         ),
       },
     ],
-    [categories, userEmail],
+    [categories, userEmail, emailAccountId],
   );
 
   const table = useReactTable({
@@ -210,7 +209,10 @@ export function GroupedTable({
 
             const onArchiveAll = async () => {
               for (const sender of senders) {
-                await addToArchiveSenderQueue(sender.address);
+                await addToArchiveSenderQueue({
+                  sender: sender.address,
+                  emailAccountId,
+                });
               }
             };
 
@@ -223,10 +225,12 @@ export function GroupedTable({
                 "This will remove all emails from this category. You can re-categorize them later. Do you want to continue?",
               );
               if (!yes) return;
-              const result = await removeAllFromCategoryAction(categoryName);
+              const result = await removeAllFromCategoryAction(emailAccountId, {
+                categoryName,
+              });
 
-              if (isActionError(result)) {
-                toastError({ description: result.error });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
               } else {
                 toastSuccess({
                   description: "All emails removed from category",
@@ -243,6 +247,7 @@ export function GroupedTable({
             return (
               <Fragment key={categoryName}>
                 <GroupRow
+                  emailAccountId={emailAccountId}
                   category={category}
                   count={senders.length}
                   isExpanded={!!isCategoryExpanded}
@@ -289,12 +294,12 @@ export function GroupedTable({
 export function SendersTable({
   senders,
   categories,
-  userEmail,
 }: {
   senders: EmailGroup[];
   categories: CategoryWithRules[];
-  userEmail: string;
 }) {
+  const { emailAccountId, userEmail } = useAccount();
+
   const columns: ColumnDef<EmailGroup>[] = useMemo(
     () => [
       {
@@ -336,6 +341,7 @@ export function SendersTable({
         cell: ({ row }) => {
           return (
             <CategorySelect
+              emailAccountId={emailAccountId}
               sender={row.original.address}
               senderCategory={row.original.category}
               categories={categories}
@@ -344,7 +350,7 @@ export function SendersTable({
         },
       },
     ],
-    [categories],
+    [categories, emailAccountId],
   );
 
   const table = useReactTable({
@@ -365,6 +371,7 @@ export function SendersTable({
 }
 
 function GroupRow({
+  emailAccountId,
   category,
   count,
   isExpanded,
@@ -373,6 +380,7 @@ function GroupRow({
   onEditCategory,
   onRemoveAllFromCategory,
 }: {
+  emailAccountId: string;
   category: CategoryWithRules;
   count: number;
   isExpanded: boolean;
@@ -423,7 +431,13 @@ function GroupRow({
           <div className="flex items-center gap-1">
             {category.rules.map((rule) => (
               <Button variant="outline" size="xs" asChild key={rule.id}>
-                <Link href={`/automation/rule/${rule.id}`} target="_blank">
+                <Link
+                  href={prefixPath(
+                    emailAccountId,
+                    `/automation/rule/${rule.id}`,
+                  )}
+                  target="_blank"
+                >
                   <FileCogIcon className="mr-1 size-4" />
                   <span>{rule.name || `Rule ${rule.id}`}</span>
                 </Link>
@@ -433,7 +447,10 @@ function GroupRow({
         ) : (
           <Button variant="outline" size="xs" asChild>
             <Link
-              href={`/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`}
+              href={prefixPath(
+                emailAccountId,
+                `/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`,
+              )}
               target="_blank"
             >
               <PlusIcon className="mr-2 size-4" />

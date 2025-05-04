@@ -7,11 +7,10 @@ import {
   useEffect,
   useState,
 } from "react";
-import type { LoadTinybirdEmailsResponse } from "@/app/api/user/stats/tinybird/load/route";
-import type { LoadTinybirdEmailsBody } from "@/app/api/user/stats/tinybird/load/validation";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { postRequest } from "@/utils/api";
 import { isError } from "@/utils/error";
+import { loadEmailStatsAction } from "@/utils/actions/stats";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 type Context = {
   isLoading: boolean;
@@ -38,19 +37,22 @@ export const useStatLoader = () => useContext(StatLoaderContext);
 class StatLoader {
   #isLoading = false;
 
-  async loadStats(options: { loadBefore: boolean; showToast: boolean }) {
+  async loadStats({
+    emailAccountId,
+    loadBefore,
+    showToast,
+  }: {
+    emailAccountId: string;
+    loadBefore: boolean;
+    showToast: boolean;
+  }) {
     if (this.#isLoading) return;
 
     this.#isLoading = true;
 
-    const res = await postRequest<
-      LoadTinybirdEmailsResponse,
-      LoadTinybirdEmailsBody
-    >("/api/user/stats/tinybird/load", {
-      loadBefore: options.loadBefore,
-    });
+    const res = await loadEmailStatsAction(emailAccountId, { loadBefore });
 
-    if (options.showToast) {
+    if (showToast) {
       if (isError(res)) {
         toastError({ description: "Error loading stats." });
       } else {
@@ -67,14 +69,19 @@ const statLoader = new StatLoader();
 export function StatLoaderProvider(props: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [stopLoading, setStopLoading] = useState(false);
+  const { emailAccountId } = useAccount();
 
   const onLoad = useCallback(
     async (options: { loadBefore: boolean; showToast: boolean }) => {
       setIsLoading(true);
-      await statLoader.loadStats(options);
+      await statLoader.loadStats({
+        emailAccountId,
+        loadBefore: options.loadBefore,
+        showToast: options.showToast,
+      });
       setIsLoading(false);
     },
-    [],
+    [emailAccountId],
   );
 
   const onLoadBatch = useCallback(

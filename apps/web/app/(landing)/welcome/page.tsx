@@ -23,7 +23,7 @@ export default async function WelcomePage(props: {
   const searchParams = await props.searchParams;
   const session = await auth();
 
-  if (!session?.user.email) redirect("/login");
+  if (!session?.user) redirect("/login");
   if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)
     redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 

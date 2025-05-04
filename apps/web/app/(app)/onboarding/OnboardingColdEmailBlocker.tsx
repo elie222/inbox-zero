@@ -1,13 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { ColdEmailForm } from "@/app/(app)/cold-email-blocker/ColdEmailSettings";
-import { useUser } from "@/hooks/useUser";
+import { ColdEmailForm } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailSettings";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export function OnboardingColdEmailBlocker({ step }: { step: number }) {
   const router = useRouter();
-  const { data, isLoading, error } = useUser();
+  const { data, isLoading, error } = useEmailAccountFull();
 
   return (
     <div>

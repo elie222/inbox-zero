@@ -14,6 +14,8 @@ import { isDuplicateError } from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
 
+// NOTE: this file is not longer in use but we want to move over functionality to the `actionClient`
+
 const logger = createScopedLogger("action-middleware");
 
 // Utility type to ensure we're dealing with object types only

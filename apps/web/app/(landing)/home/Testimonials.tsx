@@ -84,7 +84,7 @@ const desktopTestimonials: Testimonial[][][] = [
         author: {
           name: "Steve Radabaugh",
           handle: "stevenpaulr",
-          imageUrl: "https://images.getinboxzero.com/steve-rad.png",
+          imageUrl: "/images/home/testimonials/steve-rad.png",
         },
       },
       {

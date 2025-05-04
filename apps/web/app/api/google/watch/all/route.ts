@@ -23,19 +23,19 @@ async function watchAllEmails() {
       },
     },
     select: {
+      id: true,
       email: true,
-      aiApiKey: true,
       watchEmailsExpirationDate: true,
       account: {
         select: {
           access_token: true,
           refresh_token: true,
           expires_at: true,
-          providerAccountId: true,
         },
       },
       user: {
         select: {
+          aiApiKey: true,
           premium: {
             select: {
               aiAutomationAccess: true,
@@ -60,11 +60,11 @@ async function watchAllEmails() {
 
       const userHasAiAccess = hasAiAccess(
         emailAccount.user.premium?.aiAutomationAccess,
-        emailAccount.aiApiKey,
+        emailAccount.user.aiApiKey,
       );
       const userHasColdEmailAccess = hasColdEmailAccess(
         emailAccount.user.premium?.coldEmailBlockerAccess,
-        emailAccount.aiApiKey,
+        emailAccount.user.aiApiKey,
       );
 
       if (!userHasAiAccess && !userHasColdEmailAccess) {
@@ -104,19 +104,14 @@ async function watchAllEmails() {
         continue;
       }
 
-      const gmail = await getGmailClientWithRefresh(
-        {
-          accessToken: emailAccount.account.access_token,
-          refreshToken: emailAccount.account.refresh_token,
-          expiryDate: emailAccount.account.expires_at,
-        },
-        emailAccount.account.providerAccountId,
-      );
+      const gmail = await getGmailClientWithRefresh({
+        accessToken: emailAccount.account.access_token,
+        refreshToken: emailAccount.account.refresh_token,
+        expiresAt: emailAccount.account.expires_at,
+        emailAccountId: emailAccount.id,
+      });
 
-      // couldn't refresh the token
-      if (!gmail) continue;
-
-      await watchEmails({ email: emailAccount.email, gmail });
+      await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {
       logger.error("Error for user", { userId: emailAccount.email, error });
     }

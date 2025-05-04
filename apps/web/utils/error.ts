@@ -79,10 +79,6 @@ export type ServerActionResponse<
   E extends object = Record<string, unknown>,
 > = ActionError<E> | T;
 
-export function isActionError(error: any): error is ActionError {
-  return error && typeof error === "object" && "error" in error && error.error;
-}
-
 // This class is used to throw error messages that are safe to expose to the client.
 export class SafeError extends Error {
   constructor(

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ai-generate-rules-prompt");
@@ -28,12 +28,12 @@ const parametersSnippets = z.object({
 });
 
 export async function aiGenerateRulesPrompt({
-  user,
+  emailAccount,
   lastSentEmails,
   snippets,
   userLabels,
 }: {
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   lastSentEmails: string[];
   userLabels: string[];
   snippets: string[];
@@ -55,9 +55,9 @@ export async function aiGenerateRulesPrompt({
   const prompt = `Analyze the user's email behavior and suggest general rules for managing their inbox effectively. Here's the context:
 
 <user_email>
-${user.email}
+${emailAccount.email}
 </user_email>
-${user.about ? `\n<about_user>\n${user.about}\n</about_user>\n` : ""}
+${emailAccount.about ? `\n<about_user>\n${emailAccount.about}\n</about_user>\n` : ""}
 <last_sent_emails>
 ${lastSentEmails
   .slice(0, lastSentEmailsCount)
@@ -109,7 +109,7 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
   logger.trace("generate-rules-prompt", { system, prompt });
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     tools: {
@@ -118,7 +118,7 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
         parameters: hasSnippets ? parametersSnippets : parameters,
       },
     },
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     label: "Generate rules prompt",
   });
 

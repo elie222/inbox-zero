@@ -40,10 +40,10 @@ export async function getUserFromApiKey(secretKey: string) {
           id: true,
           accounts: {
             select: {
+              id: true,
               access_token: true,
               refresh_token: true,
               expires_at: true,
-              providerAccountId: true,
             },
             where: { provider: "google" },
             take: 1,
@@ -66,6 +66,7 @@ export async function getUserFromApiKey(secretKey: string) {
 export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   const { user } = await validateApiKey(request);
 
+  // TODO: support API For multiple accounts
   const account = user.accounts[0];
 
   if (!account) throw new SafeError("Missing account", 401);
@@ -73,16 +74,17 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   if (!account.access_token || !account.refresh_token || !account.expires_at)
     throw new SafeError("Missing access token", 401);
 
-  const gmail = await getGmailClientWithRefresh(
-    {
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiryDate: account.expires_at,
-    },
-    account.providerAccountId,
-  );
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: account.access_token,
+    refreshToken: account.refresh_token,
+    expiresAt: account.expires_at,
+    emailAccountId: account.id,
+  });
 
-  if (!gmail) throw new SafeError("Error refreshing Gmail access token", 401);
-
-  return { gmail, accessToken: account.access_token, userId: user.id };
+  return {
+    gmail,
+    accessToken: account.access_token,
+    userId: user.id,
+    accountId: account.id,
+  };
 }

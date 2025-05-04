@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
 import {
@@ -22,11 +22,11 @@ type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 
 export async function isColdEmail({
   email,
-  user,
+  emailAccount,
   gmail,
 }: {
   email: EmailForLLM & { threadId?: string };
-  user: Pick<EmailAccount, "coldEmailPrompt"> & UserEmailWithAI;
+  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
   gmail: gmail_v1.Gmail;
 }): Promise<{
   isColdEmail: boolean;
@@ -34,8 +34,7 @@ export async function isColdEmail({
   aiReason?: string | null;
 }> {
   const loggerOptions = {
-    userId: user.userId,
-    email: user.email,
+    email: emailAccount.email,
     threadId: email.threadId,
     messageId: email.id,
   };
@@ -45,7 +44,7 @@ export async function isColdEmail({
   // Check if we marked it as a cold email already
   const isColdEmailer = await isKnownColdEmailSender({
     from: email.from,
-    userId: user.userId,
+    emailAccountId: emailAccount.id,
   });
 
   if (isColdEmailer) {
@@ -71,7 +70,7 @@ export async function isColdEmail({
   }
 
   // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, user);
+  const res = await aiIsColdEmail(email, emailAccount);
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -87,14 +86,17 @@ export async function isColdEmail({
 
 async function isKnownColdEmailSender({
   from,
-  userId,
+  emailAccountId,
 }: {
   from: string;
-  userId: string;
+  emailAccountId: string;
 }) {
   const coldEmail = await prisma.coldEmail.findUnique({
     where: {
-      userId_fromEmail: { userId, fromEmail: from },
+      emailAccountId_fromEmail: {
+        emailAccountId,
+        fromEmail: from,
+      },
       status: ColdEmailStatus.AI_LABELED_COLD,
     },
     select: { id: true },
@@ -104,12 +106,12 @@ async function isKnownColdEmailSender({
 
 async function aiIsColdEmail(
   email: EmailForLLM,
-  user: Pick<EmailAccount, "coldEmailPrompt"> & UserEmailWithAI,
+  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
 <instructions>
-${user.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
+${emailAccount.coldEmailPrompt || DEFAULT_COLD_EMAIL_PROMPT}
 </instructions>
 
 <output_format>
@@ -134,14 +136,14 @@ ${stringifyEmail(email, 500)}
   logger.trace("AI is cold email prompt", { system, prompt });
 
   const response = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema: z.object({
       coldEmail: z.boolean(),
       reason: z.string(),
     }),
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Cold email check",
   });
 
@@ -153,8 +155,8 @@ ${stringifyEmail(email, 500)}
 export async function runColdEmailBlocker(options: {
   email: EmailForLLM & { threadId: string };
   gmail: gmail_v1.Gmail;
-  user: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
-    UserEmailWithAI;
+  emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
+    EmailAccountWithAI;
 }) {
   const response = await isColdEmail(options);
   if (response.isColdEmail)
@@ -165,18 +167,23 @@ export async function runColdEmailBlocker(options: {
 export async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
   email: { from: string; id: string; threadId: string };
-  user: Pick<EmailAccount, "coldEmailBlocker"> & UserEmailWithAI;
+  emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
   aiReason: string | null;
 }) {
-  const { gmail, email, user, aiReason } = options;
+  const { gmail, email, emailAccount, aiReason } = options;
 
   await prisma.coldEmail.upsert({
-    where: { userId_fromEmail: { userId: user.userId, fromEmail: email.from } },
+    where: {
+      emailAccountId_fromEmail: {
+        emailAccountId: emailAccount.id,
+        fromEmail: email.from,
+      },
+    },
     update: { status: ColdEmailStatus.AI_LABELED_COLD },
     create: {
       status: ColdEmailStatus.AI_LABELED_COLD,
       fromEmail: email.from,
-      userId: user.userId,
+      emailAccountId: emailAccount.id,
       reason: aiReason,
       messageId: email.id,
       threadId: email.threadId,
@@ -184,24 +191,27 @@ export async function blockColdEmail(options: {
   });
 
   if (
-    user.coldEmailBlocker === ColdEmailSetting.LABEL ||
-    user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-    user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
+    emailAccount.coldEmailBlocker === ColdEmailSetting.LABEL ||
+    emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+    emailAccount.coldEmailBlocker ===
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
   ) {
-    if (!user.email) throw new Error("User email is required");
+    if (!emailAccount.email) throw new Error("User email is required");
     const coldEmailLabel = await getOrCreateInboxZeroLabel({
       gmail,
       key: "cold_email",
     });
     if (!coldEmailLabel?.id)
-      logger.error("No gmail label id", { userId: user.userId });
+      logger.error("No gmail label id", { emailAccountId: emailAccount.id });
 
     const shouldArchive =
-      user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-      user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+      emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+      emailAccount.coldEmailBlocker ===
+        ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
     const shouldMarkRead =
-      user.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+      emailAccount.coldEmailBlocker ===
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
     const addLabelIds: string[] = [];
     if (coldEmailLabel?.id) addLabelIds.push(coldEmailLabel.id);

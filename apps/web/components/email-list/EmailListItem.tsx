@@ -25,7 +25,7 @@ import { internalDateToDate } from "@/utils/date";
 export const EmailListItem = forwardRef(
   (
     props: {
-      userEmailAddress: string;
+      userEmail: string;
       thread: Thread;
       opened: boolean;
       selected: boolean;
@@ -114,7 +114,7 @@ export const EmailListItem = forwardRef(
 
                 <div className="ml-4 w-48 min-w-0 overflow-hidden truncate text-foreground">
                   {extractNameFromEmail(
-                    participant(lastMessage, props.userEmailAddress),
+                    participant(lastMessage, props.userEmail),
                   )}{" "}
                   {thread.messages.length > 1 ? (
                     <span className="font-normal">

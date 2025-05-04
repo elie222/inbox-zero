@@ -31,17 +31,6 @@ async function deleteFromDatasource(
   return await res.json();
 }
 
-export async function deleteTinybirdEmails(options: {
-  email: string;
-}): Promise<unknown> {
-  if (!TINYBIRD_TOKEN) return;
-  await deleteFromDatasourceWithRetry("email", `ownerEmail='${options.email}'`);
-  await deleteFromDatasourceWithRetry(
-    "last_and_oldest_emails_mv",
-    `ownerEmail='${options.email}'`,
-  );
-}
-
 // Tinybird only allows 1 delete at a time
 async function deleteFromDatasourceWithRetry(
   datasource: string,

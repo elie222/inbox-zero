@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { createScopedLogger } from "@/utils/logger";
@@ -23,11 +23,11 @@ const categorizeSendersSchema = z.object({
 });
 
 export async function aiCategorizeSenders({
-  user,
+  emailAccount,
   senders,
   categories,
 }: {
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   senders: {
     emailAddress: string;
     emails: { subject: string; snippet: string }[];
@@ -90,11 +90,11 @@ ${formatCategoriesForPrompt(categories)}
   logger.trace("Categorize senders", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema: categorizeSendersSchema,
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Categorize senders bulk",
   });
 

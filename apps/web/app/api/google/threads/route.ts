@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getThreads } from "@/app/api/google/threads/controller";
 import { threadsQuery } from "@/app/api/google/threads/validation";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withError(async (request) => {
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+
   const { searchParams } = new URL(request.url);
   const limit = searchParams.get("limit");
   const fromEmail = searchParams.get("fromEmail");
@@ -24,6 +27,17 @@ export const GET = withError(async (request) => {
     labelId,
   });
 
-  const threads = await getThreads(query);
+  const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
+
+  if (!accessToken) return NextResponse.json({ error: "Account not found" });
+
+  const threads = await getThreads({
+    query,
+    emailAccountId,
+    gmail,
+    accessToken,
+  });
   return NextResponse.json(threads);
 });

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
-import { getUser } from "@/__tests__/helpers";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-diff-rules
 
@@ -10,7 +10,7 @@ vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiDiffRules", () => {
   it("should correctly identify added, edited, and removed rules", async () => {
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
     const oldPromptFile = `
 * Label receipts as "Receipt"
@@ -26,7 +26,11 @@ describe.runIf(isAiTest)("aiDiffRules", () => {
 * Label all emails from support@company.com as "Support"
     `.trim();
 
-    const result = await aiDiffRules({ user, oldPromptFile, newPromptFile });
+    const result = await aiDiffRules({
+      emailAccount,
+      oldPromptFile,
+      newPromptFile,
+    });
 
     expect(result).toEqual({
       addedRules: ['Label all emails from support@company.com as "Support"'],
@@ -41,12 +45,15 @@ describe.runIf(isAiTest)("aiDiffRules", () => {
   }, 15_000);
 
   it("should handle errors gracefully", async () => {
-    const user = { ...getUser(), aiApiKey: "invalid-api-key" };
+    const emailAccount = {
+      ...getEmailAccount(),
+      user: { ...getEmailAccount().user, aiApiKey: "invalid-api-key" },
+    };
     const oldPromptFile = "Some old prompt";
     const newPromptFile = "Some new prompt";
 
     await expect(
-      aiDiffRules({ user, oldPromptFile, newPromptFile }),
+      aiDiffRules({ emailAccount, oldPromptFile, newPromptFile }),
     ).rejects.toThrow();
   });
 });

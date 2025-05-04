@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { truncate } from "@/utils/string";
 import { removeExcessiveWhitespace } from "@/utils/string";
@@ -18,9 +18,9 @@ export const schema = z.object({
 
 export async function aiAnalyzeWritingStyle(options: {
   emails: EmailForLLM[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }) {
-  const { emails, user } = options;
+  const { emails, emailAccount } = options;
 
   if (!emails.length) {
     logger.warn("No emails provided for writing style analysis");
@@ -70,20 +70,20 @@ ${emails
 </emails>
 
 ${
-  user.about
+  emailAccount.about
     ? `Some additional information about the user:
-<user_info>${user.about}</user_info>`
+<user_info>${emailAccount.about}</user_info>`
     : ""
 }`;
 
   logger.trace("Input", { system, prompt });
 
   const result = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema,
-    userEmail: user.email,
+    userEmail: emailAccount.email,
     usageLabel: "Writing Style Analysis",
   });
 

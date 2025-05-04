@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { composeAutocompleteBody } from "@/app/api/ai/compose-autocomplete/validation";
 import { chatCompletionStream } from "@/utils/llms";
-import { getAiUser } from "@/utils/user/get";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
-export const POST = withError(async (request: Request): Promise<Response> => {
-  const session = await auth();
-  const email = session?.user.email;
-  if (!email) return NextResponse.json({ error: "Not authenticated" });
+export const POST = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const user = await getAiUser({ email });
+  const user = await getEmailAccountWithAi({ emailAccountId });
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
 
@@ -22,10 +19,10 @@ Give more weight/priority to the later characters than the beginning ones.
 Limit your response to no more than 200 characters, but make sure to construct complete sentences.`;
 
   const response = await chatCompletionStream({
-    userAi: user,
+    userAi: user.user,
     system,
     prompt,
-    userEmail: email,
+    userEmail: user.email,
     usageLabel: "Compose auto complete",
   });
 

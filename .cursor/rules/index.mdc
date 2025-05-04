@@ -28,9 +28,10 @@ Guidelines for building user interfaces and handling frontend logic.
 | Rule File                          | Description                                                 |
 | :--------------------------------- | :---------------------------------------------------------- |
 | @page-structure.mdc                | Page structure guidelines                                   |
-| @ui-components.mdc                 | UI component and styling guidelines (Shadcn, Radix, Tailwind) |
+| @ui-components.mdc                 | UI component and styling guidelines (Shadcn, Tailwind)      |
 | @form-handling.mdc                 | Form handling using React Hook Form and Zod                 |
 | @data-fetching.mdc                 | Fetching data from the API using SWR                        |
+| @hooks.mdc                         | Guidelines for creating custom React hooks                  |
 
 ## Backend & API
 
@@ -38,7 +39,6 @@ Guidelines for implementing backend logic, APIs, and data persistence.
 
 | Rule File                          | Description                                                 |
 | :--------------------------------- | :---------------------------------------------------------- |
-| @api-routes.mdc                    | Guidelines for implementing Next.js API routes (general)    |
 | @get-api-route.mdc                 | Guidelines for implementing GET API routes in Next.js       |
 | @server-actions.mdc                | Guidelines for implementing Next.js server actions          |
 | @prisma.mdc                        | How to use Prisma                                           |

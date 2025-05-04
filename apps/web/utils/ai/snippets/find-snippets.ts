@@ -2,7 +2,7 @@ import { z } from "zod";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("AI Find Snippets");
@@ -19,10 +19,10 @@ const snippetsSchema = z.object({
 export type SnippetsResponse = z.infer<typeof snippetsSchema>;
 
 export async function aiFindSnippets({
-  user,
+  emailAccount,
   sentEmails,
 }: {
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   sentEmails: EmailForLLM[];
 }) {
   const system = `You are an AI assistant that analyzes email content to find common snippets (canned responses) that the user frequently uses.
@@ -63,11 +63,11 @@ ${sentEmails
   .join("\n")}`;
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     schema: snippetsSchema,
-    userEmail: user.email ?? "",
+    userEmail: emailAccount.email ?? "",
     usageLabel: "ai-find-snippets",
   });
 

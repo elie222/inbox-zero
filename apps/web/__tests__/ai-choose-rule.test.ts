@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
-import { getEmail, getUser } from "@/__tests__/helpers";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-rule
 
@@ -15,7 +15,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     const result = await aiChooseRule({
       rules: [],
       email: getEmail(),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toEqual({ reason: "No rules" });
@@ -29,7 +29,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     const result = await aiChooseRule({
       email: getEmail({ subject: "test" }),
       rules: [rule],
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toEqual({
@@ -49,7 +49,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
     const result = await aiChooseRule({
       rules: [rule1, rule2],
       email: getEmail({ subject: "remember that call" }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toEqual({
@@ -85,7 +85,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         subject: "Joke",
         content: "Tell me a joke about sheep",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result).toEqual({
@@ -153,7 +153,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Can we meet for lunch tomorrow?",
           content: "LMK\n\n--\nAlice Smith,\nCEO, The Boring Fund",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -170,7 +170,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content:
             "We're experiencing critical server issues affecting production.",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -186,7 +186,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Your invoice for March 2024",
           content: "Please find attached your invoice for services rendered.",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -203,7 +203,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           content:
             "I came across your profile and think you'd be perfect for...",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -219,7 +219,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Please review: Contract for new project",
           content: "Attached is the contract for your review and signature.",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -235,7 +235,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Team lunch tomorrow?",
           content: "Would you like to join us for team lunch tomorrow at 12pm?",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -251,7 +251,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "New Feature Release: AI Integration",
           content: "We're excited to announce our new AI features...",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -267,7 +267,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "50% off Spring Sale!",
           content: "Don't miss out on our biggest sale of the season!",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -283,7 +283,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Weekly Team Update",
           content: "Here's what the team accomplished this week...",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -299,7 +299,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Customer Feedback: App Performance",
           content: "I've been experiencing slow loading times...",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({
@@ -315,7 +315,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
           subject: "Invitation: Annual Tech Conference",
           content: "You're invited to speak at our annual conference...",
         }),
-        user: getUser(),
+        emailAccount: getEmailAccount(),
       });
 
       expect(result).toEqual({

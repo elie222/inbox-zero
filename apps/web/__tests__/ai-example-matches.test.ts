@@ -4,7 +4,7 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
 import { findExampleMatchesSchema } from "@/utils/ai/example-matches/find-example-matches";
-import { getUser } from "@/__tests__/helpers";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-find-example-matches
 
@@ -17,7 +17,7 @@ vi.mock("@/utils/gmail/message", () => ({
 
 describe.runIf(isAiTest)("aiFindExampleMatches", () => {
   it("should find example matches based on user prompt", async () => {
-    const user = getUser();
+    const emailAccount = getEmailAccount();
 
     const gmail = {} as gmail_v1.Gmail;
     const rulesPrompt = `
@@ -61,7 +61,7 @@ describe.runIf(isAiTest)("aiFindExampleMatches", () => {
       nextPageToken: null,
     });
 
-    const result = await aiFindExampleMatches(user, gmail, rulesPrompt);
+    const result = await aiFindExampleMatches(emailAccount, gmail, rulesPrompt);
 
     expect(result).toEqual(
       expect.objectContaining({

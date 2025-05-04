@@ -22,21 +22,24 @@ import { internalDateToDate } from "@/utils/date";
 
 const logger = createScopedLogger("ai-actions");
 
-type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (
-  gmail: gmail_v1.Gmail,
-  email: EmailForAction,
-  args: T,
-  userEmail: string,
-  executedRule: ExecutedRule,
-) => Promise<any>;
+type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (options: {
+  gmail: gmail_v1.Gmail;
+  email: EmailForAction;
+  args: T;
+  userEmail: string;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+}) => Promise<any>;
 
-export const runActionFunction = async (
-  gmail: gmail_v1.Gmail,
-  email: EmailForAction,
-  action: ActionItem,
-  userEmail: string,
-  executedRule: ExecutedRule,
-) => {
+export const runActionFunction = async (options: {
+  gmail: gmail_v1.Gmail;
+  email: EmailForAction;
+  action: ActionItem;
+  userEmail: string;
+  emailAccountId: string;
+  executedRule: ExecutedRule;
+}) => {
+  const { action, userEmail } = options;
   logger.info("Running action", {
     actionType: action.type,
     userEmail,
@@ -45,38 +48,41 @@ export const runActionFunction = async (
   logger.trace("Running action:", action);
 
   const { type, ...args } = action;
+  const opts = {
+    ...options,
+    args,
+  };
   switch (type) {
     case ActionType.ARCHIVE:
-      return archive(gmail, email, args, userEmail, executedRule);
+      return archive(opts);
     case ActionType.LABEL:
-      return label(gmail, email, args, userEmail, executedRule);
+      return label(opts);
     case ActionType.DRAFT_EMAIL:
-      return draft(gmail, email, args, userEmail, executedRule);
+      return draft(opts);
     case ActionType.REPLY:
-      return reply(gmail, email, args, userEmail, executedRule);
+      return reply(opts);
     case ActionType.SEND_EMAIL:
-      return send_email(gmail, email, args, userEmail, executedRule);
+      return send_email(opts);
     case ActionType.FORWARD:
-      return forward(gmail, email, args, userEmail, executedRule);
+      return forward(opts);
     case ActionType.MARK_SPAM:
-      return mark_spam(gmail, email, args, userEmail, executedRule);
+      return mark_spam(opts);
     case ActionType.CALL_WEBHOOK:
-      return call_webhook(gmail, email, args, userEmail, executedRule);
+      return call_webhook(opts);
     case ActionType.MARK_READ:
-      return mark_read(gmail, email, args, userEmail, executedRule);
+      return mark_read(opts);
     case ActionType.TRACK_THREAD:
-      return track_thread(gmail, email, args, userEmail, executedRule);
+      return track_thread(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
 };
 
-const archive: ActionFunction<Record<string, unknown>> = async (
+const archive: ActionFunction<Record<string, unknown>> = async ({
   gmail,
   email,
-  _args,
   userEmail,
-) => {
+}) => {
   await archiveThread({
     gmail,
     threadId: email.threadId,
@@ -85,11 +91,11 @@ const archive: ActionFunction<Record<string, unknown>> = async (
   });
 };
 
-const label: ActionFunction<{ label: string } | any> = async (
+const label: ActionFunction<{ label: string } | any> = async ({
   gmail,
   email,
   args,
-) => {
+}) => {
   if (!args.label) return;
 
   const label = await getOrCreateLabel({
@@ -106,32 +112,26 @@ const label: ActionFunction<{ label: string } | any> = async (
   });
 };
 
-const draft: ActionFunction<any> = async (
-  gmail,
-  email,
-  args: {
-    to: string;
-    subject: string;
-    content: string;
-    attachments?: Attachment[];
-  },
-) => {
+// args: {
+//   to: string;
+//   subject: string;
+//   content: string;
+//   attachments?: Attachment[];
+// },
+const draft: ActionFunction<any> = async ({ gmail, email, args }) => {
   const result = await draftEmail(gmail, email, args);
   return { draftId: result.data.message?.id };
 };
 
-const send_email: ActionFunction<any> = async (
-  gmail,
-  _email,
-  args: {
-    to: string;
-    subject: string;
-    content: string;
-    cc: string;
-    bcc: string;
-    attachments?: Attachment[];
-  },
-) => {
+// args: {
+//   to: string;
+//   subject: string;
+//   content: string;
+//   cc: string;
+//   bcc: string;
+//   attachments?: Attachment[];
+// },
+const send_email: ActionFunction<any> = async ({ gmail, args }) => {
   await sendEmailWithPlainText(gmail, {
     to: args.to,
     cc: args.cc,
@@ -142,29 +142,23 @@ const send_email: ActionFunction<any> = async (
   });
 };
 
-const reply: ActionFunction<any> = async (
-  gmail,
-  email,
-  args: {
-    content: string;
-    cc?: string;
-    bcc?: string;
-    attachments?: Attachment[];
-  },
-) => {
+// args: {
+//   content: string;
+//   cc?: string;
+//   bcc?: string;
+//   attachments?: Attachment[];
+// },
+const reply: ActionFunction<any> = async ({ gmail, email, args }) => {
   await replyToEmail(gmail, email, args.content, email.headers.from);
 };
 
-const forward: ActionFunction<any> = async (
-  gmail,
-  email,
-  args: {
-    to: string;
-    content: string;
-    cc: string;
-    bcc: string;
-  },
-) => {
+// args: {
+//   to: string;
+//   content: string;
+//   cc: string;
+//   bcc: string;
+// },
+const forward: ActionFunction<any> = async ({ gmail, email, args }) => {
   // We may need to make sure the AI isn't adding the extra forward content on its own
   await forwardEmail(gmail, {
     messageId: email.id,
@@ -175,17 +169,17 @@ const forward: ActionFunction<any> = async (
   });
 };
 
-const mark_spam: ActionFunction<any> = async (gmail, email) => {
+const mark_spam: ActionFunction<any> = async ({ gmail, email }) => {
   return await markSpam({ gmail, threadId: email.threadId });
 };
 
-const call_webhook: ActionFunction<any> = async (
-  _gmail,
+// args: { url: string },
+const call_webhook: ActionFunction<any> = async ({
   email,
-  args: { url: string },
+  args,
   userEmail,
   executedRule,
-) => {
+}) => {
   await callWebhook(userEmail, args.url, {
     email: {
       threadId: email.threadId,
@@ -206,20 +200,17 @@ const call_webhook: ActionFunction<any> = async (
   });
 };
 
-const mark_read: ActionFunction<any> = async (gmail, email) => {
+const mark_read: ActionFunction<any> = async ({ gmail, email }) => {
   return await markReadThread({ gmail, threadId: email.threadId, read: true });
 };
 
-const track_thread: ActionFunction<any> = async (
+const track_thread: ActionFunction<any> = async ({
   gmail,
   email,
-  _args,
-  userEmail,
-  executedRule,
-) => {
+  emailAccountId,
+}) => {
   await coordinateReplyProcess({
-    userId: executedRule.userId,
-    email: userEmail,
+    emailAccountId,
     threadId: email.threadId,
     messageId: email.id,
     sentAt: internalDateToDate(email.internalDate),

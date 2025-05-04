@@ -4,6 +4,7 @@ export const replyTrackerQuerySchema = z.object({
   type: z.enum(["needs-reply", "needs-follow-up"]),
   page: z.number().optional().default(1),
   timeRange: z.enum(["all", "3d", "1w", "2w", "1m"]).optional().default("all"),
+  email: z.string().optional(),
 });
 
 export const replyTrackerResponseSchema = z.object({

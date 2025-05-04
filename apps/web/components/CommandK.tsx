@@ -18,11 +18,13 @@ import { useComposeModal } from "@/providers/ComposeModalProvider";
 import { refetchEmailListAtom } from "@/store/email";
 import { archiveEmails } from "@/store/archive-queue";
 import { useDisplayedEmail } from "@/hooks/useDisplayedEmail";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function CommandK() {
   const [open, setOpen] = React.useState(false);
 
   const router = useRouter();
+  const { emailAccountId } = useAccount();
 
   const { threadId, showEmail } = useDisplayedEmail();
   const refreshEmailList = useAtomValue(refetchEmailListAtom);
@@ -32,12 +34,16 @@ export function CommandK() {
   const onArchive = React.useCallback(() => {
     if (threadId) {
       const threadIds = [threadId];
-      archiveEmails(threadIds, undefined, () => {
-        return refreshEmailList?.refetch({ removedThreadIds: threadIds });
+      archiveEmails({
+        threadIds,
+        onSuccess: () => {
+          return refreshEmailList?.refetch({ removedThreadIds: threadIds });
+        },
+        emailAccountId,
       });
       showEmail(null);
     }
-  }, [refreshEmailList, threadId, showEmail]);
+  }, [refreshEmailList, threadId, showEmail, emailAccountId]);
 
   React.useEffect(() => {
     const down = (e: KeyboardEvent) => {

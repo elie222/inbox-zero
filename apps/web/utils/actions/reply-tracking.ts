@@ -2,89 +2,75 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withActionInstrumentation } from "@/utils/actions/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { getGmailClient } from "@/utils/gmail/client";
 import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-emails";
 import {
   startAnalyzingReplyTracker,
   stopAnalyzingReplyTracker,
 } from "@/utils/redis/reply-tracker-analyzing";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
-import { getAiUser } from "@/utils/user/get";
+import { actionClient } from "@/utils/actions/safe-action";
+import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("enableReplyTracker");
 
-export const enableReplyTrackerAction = withActionInstrumentation(
-  "enableReplyTracker",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+export const enableReplyTrackerAction = actionClient
+  .metadata({ name: "enableReplyTracker" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    await enableReplyTracker({ emailAccountId });
 
-    await enableReplyTracker({ email });
-
-    revalidatePath("/reply-zero");
+    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
 
     return { success: true };
-  },
-);
+  });
 
-export const processPreviousSentEmailsAction = withActionInstrumentation(
-  "processPreviousSentEmails",
-  async () => {
-    const session = await auth();
-    const email = session?.user.email;
-    if (!email) return { error: "Not logged in" };
+export const processPreviousSentEmailsAction = actionClient
+  .metadata({ name: "processPreviousSentEmails" })
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+    if (!emailAccount) throw new SafeError("Email account not found");
 
-    const user = await getAiUser({ email });
-    if (!user) return { error: "User not found" };
-
-    const gmail = getGmailClient({ accessToken: session.accessToken });
-    await processPreviousSentEmails(gmail, user);
+    const gmail = await getGmailClientForEmail({ emailAccountId });
+    await processPreviousSentEmails({ gmail, emailAccount });
 
     return { success: true };
-  },
-);
+  });
 
 const resolveThreadTrackerSchema = z.object({
   threadId: z.string(),
   resolved: z.boolean(),
 });
 
-type ResolveThreadTrackerBody = z.infer<typeof resolveThreadTrackerSchema>;
+export const resolveThreadTrackerAction = actionClient
+  .metadata({ name: "resolveThreadTracker" })
+  .schema(resolveThreadTrackerSchema)
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { threadId, resolved },
+    }) => {
+      await startAnalyzingReplyTracker({ emailAccountId }).catch((error) => {
+        logger.error("Error starting Reply Zero analysis", { error });
+      });
 
-export const resolveThreadTrackerAction = withActionInstrumentation(
-  "resolveThreadTracker",
-  async (unsafeData: ResolveThreadTrackerBody) => {
-    const session = await auth();
-    const userId = session?.user.id;
-    if (!userId) return { error: "Not logged in" };
+      await prisma.threadTracker.updateMany({
+        where: {
+          threadId,
+          emailAccountId,
+        },
+        data: { resolved },
+      });
 
-    const { data, success, error } =
-      resolveThreadTrackerSchema.safeParse(unsafeData);
-    if (!success) return { error: error.message };
+      await stopAnalyzingReplyTracker({ emailAccountId }).catch((error) => {
+        logger.error("Error stopping Reply Zero analysis", { error });
+      });
 
-    await startAnalyzingReplyTracker(userId).catch((error) => {
-      logger.error("Error starting Reply Zero analysis", { error });
-    });
+      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
 
-    await prisma.threadTracker.updateMany({
-      where: {
-        threadId: data.threadId,
-        userId,
-      },
-      data: { resolved: data.resolved },
-    });
-
-    await stopAnalyzingReplyTracker(userId).catch((error) => {
-      logger.error("Error stopping Reply Zero analysis", { error });
-    });
-
-    revalidatePath("/reply-zero");
-
-    return { success: true };
-  },
-);
+      return { success: true };
+    },
+  );

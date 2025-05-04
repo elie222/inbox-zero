@@ -22,7 +22,7 @@ export function LoginForm() {
   const [loading, setLoading] = useState(false);
 
   return (
-    <div className="flex flex-col gap-2 justify-center px-4 sm:px-16">
+    <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
       <Dialog>
         <DialogTrigger asChild>
           <Button size="2xl">
@@ -80,15 +80,7 @@ export function LoginForm() {
         size="2xl"
         link={{ href: "/waitlist-other", target: "_blank" }}
       >
-        Sign in with Outlook
-      </Button>
-
-      <Button
-        color="white"
-        size="2xl"
-        link={{ href: "/waitlist-other", target: "_blank" }}
-      >
-        Other
+        Join the Outlook waitlist
       </Button>
     </div>
   );
