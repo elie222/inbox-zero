@@ -82,7 +82,7 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ge
 - [pnpm](https://pnpm.io/) >= 8.6.12
 - [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended but optional)
 
-Make sure you have the above installed before starting. 
+Make sure you have the above installed before starting.
 
 The external services that are required are (detailed setup instructions below):
 
@@ -99,12 +99,6 @@ cd apps/web
 pnpm install
 ```
 
-For self-hosting, you may also need to copy the `.env` file to both the root directory AND the apps/web directory (PRs welcome to improve this):
-
-```bash
-cp apps/web/.env .env
-```
-
 Set the environment variables in the newly created `.env`. You can see a list of required variables in: `apps/web/env.ts`.
 
 The required environment variables:
@@ -116,17 +110,9 @@ Secrets:
 - `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 
 Redis:
+
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
-
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
-
-You can run Postgres & Redis locally using `docker-compose`
-
-```bash
-docker-compose up -d # -d will run the services in the background
-```
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
 
@@ -138,39 +124,43 @@ When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=30
 Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if necessary.
 
 Create [new credentials](https://console.cloud.google.com/apis/credentials):
- 1. If the banner shows up, configure **consent screen** (if not, you can do this later)
-    1. Click the banner, then Click `Get Started`. 
+
+1.  If the banner shows up, configure **consent screen** (if not, you can do this later)
+    1. Click the banner, then Click `Get Started`.
     2. Choose a name for your app, and enter your email.
     3. In Audience, choose `External`
     4. Enter your contact information
     5. Agree to the User Data policy and then click `Create`.
     6. Return to APIs and Services using the left sidebar.
- 2. Create new [credentials](https://console.cloud.google.com/apis/credentials):
-    1. Click the  `+Create Credentials` button. Choose OAuth Client ID.
+2.  Create new [credentials](https://console.cloud.google.com/apis/credentials):
+    1. Click the `+Create Credentials` button. Choose OAuth Client ID.
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
     4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
     5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
-    6. Click `Create`. 
+    6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
- 3. Update .env file:
+3.  Update .env file:
     1. Copy the Client ID to `GOOGLE_CLIENT_ID`
     2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
- 4. Update [scopes](https://console.cloud.google.com/auth/scopes)
+4.  Update [scopes](https://console.cloud.google.com/auth/scopes)
+
     1. Go to `Data Access` in the left sidebar (or click link above)
     2. Click `Add or remove scopes`
     3. Copy paste the below into the `Manually add scopes` box:
 
-      ```plaintext
-      https://www.googleapis.com/auth/userinfo.profile
-      https://www.googleapis.com/auth/userinfo.email
-      https://www.googleapis.com/auth/gmail.modify
-      https://www.googleapis.com/auth/gmail.settings.basic
-      https://www.googleapis.com/auth/contacts
-      ```
+    ```plaintext
+    https://www.googleapis.com/auth/userinfo.profile
+    https://www.googleapis.com/auth/userinfo.email
+    https://www.googleapis.com/auth/gmail.modify
+    https://www.googleapis.com/auth/gmail.settings.basic
+    https://www.googleapis.com/auth/contacts
+    ```
+
     4. Click `Update`
     5. Click `Save` in the Data Access page.
- 5. Add yourself as a test user
+
+5.  Add yourself as a test user
     1. Go to [Audience](https://console.cloud.google.com/auth/audience)
     2. In the `Test users` section, click `+Add users`
     3. Enter your email and press `Save`
@@ -186,7 +176,7 @@ You need to set an LLM, but you can use a local one too:
 - Groq Llama 3.3 70B
 - Ollama (local)
 
-For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You 
+For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You
 can also use Ollama by setting the following enviroment variables:
 
 ```sh
@@ -216,6 +206,7 @@ docker-compose up -d # -d will run the services in the background
 ```
 
 ### Running the app
+
 To run the migrations:
 
 ```bash
@@ -243,70 +234,10 @@ pnpm start
 
 Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
 
-To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
+### Premium
+
+Many features are available only to premium users. To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
 Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
-
-### Supported LLMs
-
-For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can also use Ollama by setting the following enviroment variables:
-
-```sh
-DEFAULT_LLM_PROVIDER=ollama
-OLLAMA_BASE_URL=http://localhost:11434/api
-NEXT_PUBLIC_OLLAMA_MODEL=gemma3  # or whatever available model you want to use
-```
-
-Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
-
-You can select the model you wish to use in the app on the `/settings` page of the app.
-
-### Setting up Google OAuth and Gmail API
-
-1. **Create a Project in Google Cloud Console**
-   - Go to [Google Cloud Console](https://console.cloud.google.com/)
-   - Create a new project
-
-2. **Enable Required APIs**
-   - Enable the [Gmail API](https://console.developers.google.com/apis/api/gmail.googleapis.com/overview)
-   - Enable the [People API](https://console.developers.google.com/apis/api/people.googleapis.com/overview)
-
-3. **Configure the OAuth Consent Screen**
-   - Go to 'APIs & Services' > 'OAuth consent screen'
-   - Choose 'External' user type (or 'Internal' if you have Google Workspace)
-   - Fill in required app information
-   - Add the following scopes:
-     ```plaintext
-     https://www.googleapis.com/auth/userinfo.profile
-     https://www.googleapis.com/auth/userinfo.email
-     https://www.googleapis.com/auth/gmail.modify
-     https://www.googleapis.com/auth/gmail.settings.basic
-     https://www.googleapis.com/auth/contacts
-     ```
-   - Add yourself as a test user under 'Test users' section
-
-4. **Create OAuth 2.0 Credentials**
-   - Go to 'APIs & Services' > 'Credentials'
-   - Click 'Create Credentials' > 'OAuth client ID'
-   - Select 'Web application' type
-   - Add authorized JavaScript origins:
-     - Development: `http://localhost:3000`
-     - Production: `https://your-production-url.com`
-   - Add authorized redirect URIs:
-     - Development:
-       ```
-       http://localhost:3000/api/auth/callback/google
-       ```
-     - Production:
-       ```
-       https://your-production-url.com/api/auth/callback/google
-       ```
-
-5. **Configure Environment Variables**
-   - Add to your `.env` file:
-     ```
-     GOOGLE_CLIENT_ID=your_client_id
-     GOOGLE_CLIENT_SECRET=your_client_secret
-     ```
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 
