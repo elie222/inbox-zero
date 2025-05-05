@@ -299,7 +299,7 @@ export const enterpriseTier: Tier = {
   mostPopular: false,
 };
 
-export function getSubscriptionTier({
+export function getLemonSubscriptionTier({
   variantId,
 }: {
   variantId: number;

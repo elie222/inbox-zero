@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
+import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -72,30 +73,30 @@ export async function syncStripeDataToDb({
     }
     const product = price.product;
 
-    // Prepare data for Prisma update, mapping Stripe fields to Prisma schema
-    const premiumUpdateData = {
-      stripeSubscriptionId: subscription.id,
-      stripeSubscriptionStatus: subscription.status,
-      stripePriceId: price.id,
-      stripeProductId: typeof product === "string" ? product : product.id, // Handle expanded product object
-      stripeRenewsAt: subscriptionItem.current_period_end // RenewsAt uses the item's period end
-        ? new Date(subscriptionItem.current_period_end * 1000)
-        : null,
-      stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-      stripeTrialEnd: subscription.trial_end
-        ? new Date(subscription.trial_end * 1000)
-        : null,
-      stripeCanceledAt: subscription.canceled_at
-        ? new Date(subscription.canceled_at * 1000)
-        : null,
-      stripeEndedAt: subscription.ended_at
-        ? new Date(subscription.ended_at * 1000)
-        : null,
-    };
+    const tier = getStripeSubscriptionTier({ priceId: price.id });
 
     await prisma.premium.update({
       where: { stripeCustomerId: customerId },
-      data: premiumUpdateData,
+      data: {
+        tier,
+        stripeSubscriptionId: subscription.id,
+        stripeSubscriptionStatus: subscription.status,
+        stripePriceId: price.id,
+        stripeProductId: typeof product === "string" ? product : product.id, // Handle expanded product object
+        stripeRenewsAt: subscriptionItem.current_period_end // RenewsAt uses the item's period end
+          ? new Date(subscriptionItem.current_period_end * 1000)
+          : null,
+        stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
+        stripeTrialEnd: subscription.trial_end
+          ? new Date(subscription.trial_end * 1000)
+          : null,
+        stripeCanceledAt: subscription.canceled_at
+          ? new Date(subscription.canceled_at * 1000)
+          : null,
+        stripeEndedAt: subscription.ended_at
+          ? new Date(subscription.ended_at * 1000)
+          : null,
+      },
     });
 
     logger.info("Successfully updated Premium record from Stripe data", {

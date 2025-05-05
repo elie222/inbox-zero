@@ -24,7 +24,7 @@ import {
   upgradedToPremium,
 } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
-import { getSubscriptionTier } from "@/app/(app)/premium/config";
+import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("Lemon Squeezy Webhook");
@@ -232,7 +232,7 @@ async function handleSubscriptionCreated(payload: Payload, userId: string) {
       payload.data.attributes.first_subscription_item.id,
   });
 
-  const tier = getSubscriptionTier({
+  const tier = getLemonSubscriptionTier({
     variantId: payload.data.attributes.variant_id,
   });
 
