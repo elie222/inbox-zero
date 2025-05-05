@@ -2,7 +2,7 @@ import sumBy from "lodash/sumBy";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import { FeatureAccess, PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("premium");
@@ -40,7 +40,6 @@ export async function upgradeToPremiumLemon(options: {
   const data = {
     ...rest,
     lemonSqueezyRenewsAt,
-    ...getTierAccess(options.tier),
   };
 
   if (user.premiumId) {
@@ -117,40 +116,6 @@ export async function cancelPremiumLemon({
       },
     },
   });
-}
-
-function getTierAccess(tier: PremiumTier) {
-  switch (tier) {
-    case PremiumTier.BASIC_MONTHLY:
-    case PremiumTier.BASIC_ANNUALLY:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.LOCKED,
-        coldEmailBlockerAccess: FeatureAccess.LOCKED,
-      };
-    case PremiumTier.PRO_MONTHLY:
-    case PremiumTier.PRO_ANNUALLY:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
-        coldEmailBlockerAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
-      };
-    case PremiumTier.BUSINESS_MONTHLY:
-    case PremiumTier.BUSINESS_ANNUALLY:
-    case PremiumTier.BUSINESS_PLUS_MONTHLY:
-    case PremiumTier.BUSINESS_PLUS_ANNUALLY:
-    case PremiumTier.COPILOT_MONTHLY:
-    case PremiumTier.LIFETIME:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.UNLOCKED,
-        coldEmailBlockerAccess: FeatureAccess.UNLOCKED,
-      };
-    default:
-      // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
-      const exhaustiveCheck: never = tier;
-      throw new Error(`Unknown tier: ${exhaustiveCheck}`);
-  }
 }
 
 export async function updateAccountSeats({ userId }: { userId: string }) {

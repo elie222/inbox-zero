@@ -5,7 +5,7 @@ import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasAiAccess, hasColdEmailAccess } from "@/utils/premium";
+import { hasAiAccess } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("api/google/watch/all");
@@ -36,12 +36,7 @@ async function watchAllEmails() {
       user: {
         select: {
           aiApiKey: true,
-          premium: {
-            select: {
-              aiAutomationAccess: true,
-              coldEmailBlockerAccess: true,
-            },
-          },
+          premium: { select: { tier: true } },
         },
       },
     },
@@ -59,15 +54,11 @@ async function watchAllEmails() {
       logger.info("Watching emails for user", { email: emailAccount.email });
 
       const userHasAiAccess = hasAiAccess(
-        emailAccount.user.premium?.aiAutomationAccess,
-        emailAccount.user.aiApiKey,
-      );
-      const userHasColdEmailAccess = hasColdEmailAccess(
-        emailAccount.user.premium?.coldEmailBlockerAccess,
+        emailAccount.user.premium?.tier || null,
         emailAccount.user.aiApiKey,
       );
 
-      if (!userHasAiAccess && !userHasColdEmailAccess) {
+      if (!userHasAiAccess) {
         logger.info("User does not have access to AI or cold email", {
           email: emailAccount.email,
         });

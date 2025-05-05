@@ -184,11 +184,7 @@ model Premium {
 
   tier PremiumTier?
 
-  // feature access
-  bulkUnsubscribeAccess  FeatureAccess?
-  coldEmailBlockerAccess FeatureAccess?
-  aiAutomationAccess     FeatureAccess?
-  emailAccountsAccess    Int?
+  emailAccountsAccess Int?
 
   // unsubscribe/ai credits
   // if `unsubscribeMonth` not set to this month, set to current month
@@ -646,12 +642,6 @@ enum PremiumTier {
   BUSINESS_PLUS_ANNUALLY
   COPILOT_MONTHLY
   LIFETIME
-}
-
-enum FeatureAccess {
-  UNLOCKED
-  UNLOCKED_WITH_API_KEY
-  LOCKED
 }
 
 enum ExecutedRuleStatus {

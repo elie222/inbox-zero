@@ -21,7 +21,7 @@ export async function validateUserAndAiAccess({
           aiApiKey: true,
           premium: {
             select: {
-              aiAutomationAccess: true,
+              tier: true,
             },
           },
         },
@@ -31,7 +31,7 @@ export async function validateUserAndAiAccess({
   if (!emailAccount) throw new SafeError("User not found");
 
   const userHasAiAccess = hasAiAccess(
-    emailAccount.user.premium?.aiAutomationAccess,
+    emailAccount.user.premium?.tier || null,
     emailAccount.user.aiApiKey,
   );
   if (!userHasAiAccess) throw new SafeError("Please upgrade for AI access");
