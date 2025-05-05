@@ -8,7 +8,17 @@ const logger = createScopedLogger("ee/billing/stripe/index");
 
 export const getStripe = () => {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY is not set");
-  if (!stripe) stripe = new Stripe(env.STRIPE_SECRET_KEY);
+  if (!stripe) {
+    stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+      apiVersion: "2025-04-30.basil",
+      appInfo: {
+        name: "Inbox Zero",
+        version: "1.0.0",
+        url: "https://www.getinboxzero.com",
+      },
+      typescript: true,
+    });
+  }
   return stripe;
 };
 

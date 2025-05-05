@@ -29,6 +29,8 @@ import {
   usePricingFrequencyDefault,
   usePricingVariant,
 } from "@/hooks/useFeatureFlags";
+import { getBillingPortalUrlAction } from "@/utils/actions/user";
+import { toastError } from "@/components/Toast";
 
 export function Pricing(props: {
   header?: React.ReactNode;
@@ -65,6 +67,8 @@ export function Pricing(props: {
     premiumTier,
   );
 
+  const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
+
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div
@@ -75,15 +79,41 @@ export function Pricing(props: {
 
         {isPremium && (
           <div className="mb-8 mt-8 text-center">
-            <Button asChild>
-              <Link
-                href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
-                target="_blank"
+            {premium?.stripeSubscriptionStatus && (
+              <Button
+                loading={loadingBillingPortal}
+                onClick={async () => {
+                  setLoadingBillingPortal(true);
+                  const result = await getBillingPortalUrlAction();
+                  setLoadingBillingPortal(false);
+                  const url = result?.data?.url;
+                  if (result?.serverError || !url) {
+                    toastError({
+                      description:
+                        result?.serverError ||
+                        "Error loading billing portal. Please contact support.",
+                    });
+                  }
+
+                  window.open(url);
+                }}
               >
                 <CreditCardIcon className="mr-2 h-4 w-4" />
                 Manage subscription
-              </Link>
-            </Button>
+              </Button>
+            )}
+
+            {premium?.lemonSqueezyCustomerId && (
+              <Button asChild>
+                <Link
+                  href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
+                  target="_blank"
+                >
+                  <CreditCardIcon className="mr-2 h-4 w-4" />
+                  Manage subscription
+                </Link>
+              </Button>
+            )}
 
             <Button variant="primaryBlue" className="ml-2" asChild>
               <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>

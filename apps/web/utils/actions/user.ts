@@ -13,6 +13,8 @@ import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
+import { getStripe } from "@/ee/billing/stripe";
+import { env } from "@/env";
 
 const saveAboutBody = z.object({ about: z.string().max(2_000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -152,4 +154,25 @@ export const deleteEmailAccountAction = actionClientUser
     after(async () => {
       await updateAccountSeats({ userId });
     });
+  });
+
+export const getBillingPortalUrlAction = actionClientUser
+  .metadata({ name: "getBillingPortalUrl" })
+  .action(async ({ ctx: { userId } }) => {
+    const stripe = getStripe();
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { premium: { select: { stripeCustomerId: true } } },
+    });
+
+    if (!user?.premium?.stripeCustomerId)
+      throw new SafeError("Stripe customer id not found");
+
+    const { url } = await stripe.billingPortal.sessions.create({
+      customer: user.premium.stripeCustomerId,
+      return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+    });
+
+    return { url };
   });
