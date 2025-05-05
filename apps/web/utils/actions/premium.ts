@@ -39,6 +39,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
             unsubscribeCredits: true,
             unsubscribeMonth: true,
             lemonSqueezyRenewsAt: true,
+            stripeSubscriptionStatus: true,
           },
         },
       },
@@ -46,7 +47,10 @@ export const decrementUnsubscribeCreditAction = actionClientUser
 
     if (!user) return { error: "User not found" };
 
-    const isUserPremium = isPremium(user.premium?.lemonSqueezyRenewsAt || null);
+    const isUserPremium = isPremium(
+      user.premium?.lemonSqueezyRenewsAt || null,
+      user.premium?.stripeSubscriptionStatus || null,
+    );
     if (isUserPremium) return;
 
     const currentMonth = new Date().getMonth() + 1;

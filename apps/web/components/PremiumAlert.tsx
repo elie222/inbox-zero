@@ -18,7 +18,10 @@ export function usePremium() {
   const premium = data?.premium;
   const aiApiKey = data?.aiApiKey;
 
-  const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));
+  const isUserPremium = !!(
+    premium &&
+    isPremium(premium.lemonSqueezyRenewsAt, premium.stripeSubscriptionStatus)
+  );
 
   const isProPlanWithoutApiKey =
     (premium?.tier === PremiumTier.PRO_MONTHLY ||

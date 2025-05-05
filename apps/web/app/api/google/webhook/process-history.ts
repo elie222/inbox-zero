@@ -55,7 +55,7 @@ export async function processHistoryForUser(
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
-              // stripe: TODO:
+              stripeSubscriptionStatus: true,
               tier: true,
             },
           },
@@ -71,6 +71,7 @@ export async function processHistoryForUser(
 
   const premium = isPremium(
     emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+    emailAccount.user.premium?.stripeSubscriptionStatus || null,
   )
     ? emailAccount.user.premium
     : undefined;

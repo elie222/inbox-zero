@@ -20,6 +20,7 @@ async function getUser({ userId }: { userId: string }) {
           lemonSqueezyCustomerId: true,
           lemonSqueezySubscriptionId: true,
           lemonSqueezyRenewsAt: true,
+          stripeSubscriptionStatus: true,
           unsubscribeCredits: true,
           tier: true,
           emailAccountsAccess: true,
