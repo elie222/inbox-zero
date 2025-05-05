@@ -25,10 +25,10 @@ import { AlertWithButton } from "@/components/Alert";
 import { switchPremiumPlanAction } from "@/utils/actions/premium";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PremiumTier } from "@prisma/client";
-import {
-  usePricingFrequencyDefault,
-  usePricingVariant,
-} from "@/hooks/useFeatureFlags";
+// import {
+//   usePricingFrequencyDefault,
+//   usePricingVariant,
+// } from "@/hooks/useFeatureFlags";
 import { getBillingPortalUrlAction } from "@/utils/actions/user";
 import { toastError } from "@/components/Toast";
 
@@ -39,10 +39,11 @@ export function Pricing(props: {
   const { isPremium, premium, isLoading, error } = usePremium();
   const session = useSession();
 
-  const defaultFrequency = usePricingFrequencyDefault();
-  const [frequency, setFrequency] = useState(
-    defaultFrequency === "monthly" ? frequencies[0] : frequencies[1],
-  );
+  // const defaultFrequency = usePricingFrequencyDefault();
+  // const [frequency, setFrequency] = useState(
+  //   defaultFrequency === "monthly" ? frequencies[0] : frequencies[1],
+  // );
+  const [frequency, setFrequency] = useState(frequencies[0]);
 
   const affiliateCode = useAffiliateCode();
   const premiumTier = getUserTier(premium);
@@ -61,11 +62,23 @@ export function Pricing(props: {
     </div>
   );
 
-  const pricingVariant = usePricingVariant();
-  const { Layout, Item, tiers } = getLayoutComponents(
-    pricingVariant,
-    premiumTier,
-  );
+  // const pricingVariant = usePricingVariant();
+  // const { Layout, Item, tiers } = getLayoutComponents(
+  //   pricingVariant,
+  //   premiumTier,
+  // );
+
+  // const pricingVariant = usePricingVariant();
+  // const { Layout, Item, tiers } = getLayoutComponents(
+  //   pricingVariant,
+  //   premiumTier,
+  // );
+
+  const { Layout, Item, tiers } = {
+    Layout: ThreeColLayout,
+    Item: ThreeColItem,
+    tiers: [basicTier, businessTier, enterpriseTier],
+  };
 
   const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
 
