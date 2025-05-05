@@ -1,7 +1,13 @@
 import { type Premium, PremiumTier } from "@prisma/client";
 
-export const isPremium = (lemonSqueezyRenewsAt: Date | null): boolean => {
-  return !!lemonSqueezyRenewsAt && new Date(lemonSqueezyRenewsAt) > new Date();
+export const isPremium = (
+  lemonSqueezyRenewsAt: Date | null,
+  stripeSubscriptionStatus: string | null,
+): boolean => {
+  if (lemonSqueezyRenewsAt) return new Date(lemonSqueezyRenewsAt) > new Date();
+  if (stripeSubscriptionStatus) return stripeSubscriptionStatus === "active";
+
+  return false;
 };
 
 // deprecated. we now store the plan in the database
