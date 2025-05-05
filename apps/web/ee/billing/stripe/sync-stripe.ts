@@ -32,6 +32,7 @@ export async function syncStripeDataToDb({
         where: { stripeCustomerId: customerId },
         data: {
           stripeSubscriptionId: null,
+          stripeSubscriptionItemId: null,
           stripePriceId: null,
           stripeProductId: null,
           stripeSubscriptionStatus: null, // Or 'none', 'canceled' depending on desired state
@@ -80,9 +81,10 @@ export async function syncStripeDataToDb({
       data: {
         tier,
         stripeSubscriptionId: subscription.id,
-        stripeSubscriptionStatus: subscription.status,
+        stripeSubscriptionItemId: subscriptionItem.id,
         stripePriceId: price.id,
         stripeProductId: typeof product === "string" ? product : product.id, // Handle expanded product object
+        stripeSubscriptionStatus: subscription.status,
         stripeRenewsAt: subscriptionItem.current_period_end // RenewsAt uses the item's period end
           ? new Date(subscriptionItem.current_period_end * 1000)
           : null,
