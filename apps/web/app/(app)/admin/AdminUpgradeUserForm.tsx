@@ -92,6 +92,14 @@ export const AdminUpgradeUserForm = () => {
             value: PremiumTier.BUSINESS_MONTHLY,
           },
           {
+            label: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+            value: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+          },
+          {
+            label: PremiumTier.BUSINESS_PLUS_MONTHLY,
+            value: PremiumTier.BUSINESS_PLUS_MONTHLY,
+          },
+          {
             label: PremiumTier.PRO_ANNUALLY,
             value: PremiumTier.PRO_ANNUALLY,
           },
@@ -110,10 +118,6 @@ export const AdminUpgradeUserForm = () => {
           {
             label: PremiumTier.COPILOT_MONTHLY,
             value: PremiumTier.COPILOT_MONTHLY,
-          },
-          {
-            label: PremiumTier.LIFETIME,
-            value: PremiumTier.LIFETIME,
           },
         ]}
         {...register("period")}

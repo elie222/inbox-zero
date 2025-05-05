@@ -5,14 +5,17 @@ import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
-import { cancelPremium, upgradeToPremium } from "@/utils/premium/server";
+import {
+  cancelPremiumLemon,
+  upgradeToPremiumLemon,
+} from "@/utils/premium/server";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
   switchPremiumPlan,
   updateSubscriptionItemQuantity,
-} from "@/app/api/lemon-squeezy/api";
+} from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getVariantId } from "@/app/(app)/premium/config";
@@ -22,6 +25,7 @@ import {
 } from "@/utils/actions/safe-action";
 import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
+import { createPremiumForUser } from "@/utils/premium/create-premium";
 
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
@@ -48,7 +52,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
     const currentMonth = new Date().getMonth() + 1;
 
     // create premium row for user if it doesn't already exist
-    const premium = user.premium || (await createPremiumForUser(userId));
+    const premium = user.premium || (await createPremiumForUser({ userId }));
 
     if (
       !premium?.unsubscribeMonth ||
@@ -107,7 +111,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
       select: { id: true, premium: true, email: true },
     });
 
-    const premium = user.premium || (await createPremiumForUser(userId));
+    const premium = user.premium || (await createPremiumForUser({ userId }));
 
     const otherUsers = users.filter((u) => u.id !== userId);
 
@@ -188,15 +192,6 @@ export const switchPremiumPlanAction = actionClientUser
     await switchPremiumPlan(user.premium.lemonSqueezySubscriptionId, variantId);
   });
 
-async function createPremiumForUser(userId: string) {
-  return await prisma.premium.create({
-    data: {
-      users: { connect: { id: userId } },
-      admins: { connect: { id: userId } },
-    },
-  });
-}
-
 export const activateLicenseKeyAction = actionClientUser
   .metadata({ name: "activateLicenseKey" })
   .schema(activateLicenseKeySchema)
@@ -220,7 +215,7 @@ export const activateLicenseKeyAction = actionClientUser
       [env.LICENSE_25_SEAT_VARIANT_ID || ""]: 25,
     };
 
-    await upgradeToPremium({
+    await upgradeToPremiumLemon({
       userId,
       tier: PremiumTier.LIFETIME,
       lemonLicenseKey: licenseKey,
@@ -306,7 +301,7 @@ export const changePremiumStatusAction = adminActionClient
           }
         };
 
-        await upgradeToPremium({
+        await upgradeToPremiumLemon({
           userId: userToUpgrade.user.id,
           tier: period,
           lemonSqueezyCustomerId: lemonSqueezyCustomerId || null,
@@ -319,7 +314,7 @@ export const changePremiumStatusAction = adminActionClient
           emailAccountsAccess,
         });
       } else if (userToUpgrade.user.premiumId) {
-        await cancelPremium({
+        await cancelPremiumLemon({
           premiumId: userToUpgrade.user.premiumId,
           lemonSqueezyEndsAt: new Date(),
           expired: true,

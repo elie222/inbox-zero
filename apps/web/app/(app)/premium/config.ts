@@ -1,10 +1,7 @@
 import { env } from "@/env";
 import { PremiumTier } from "@prisma/client";
 
-type Feature = {
-  text: string;
-  tooltip?: string;
-};
+type Feature = { text: string; tooltip?: string };
 
 type Tier = {
   name: string;
@@ -31,8 +28,10 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BASIC_ANNUALLY]: 8,
   [PremiumTier.PRO_MONTHLY]: 16,
   [PremiumTier.PRO_ANNUALLY]: 10,
-  [PremiumTier.BUSINESS_MONTHLY]: 24,
-  [PremiumTier.BUSINESS_ANNUALLY]: 12,
+  [PremiumTier.BUSINESS_MONTHLY]: 20,
+  [PremiumTier.BUSINESS_ANNUALLY]: 17,
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
   [PremiumTier.LIFETIME]: 299,
 };
@@ -44,6 +43,8 @@ export const pricingAdditonalEmail: Record<PremiumTier, number> = {
   [PremiumTier.PRO_ANNUALLY]: 8,
   [PremiumTier.BUSINESS_MONTHLY]: 10,
   [PremiumTier.BUSINESS_ANNUALLY]: 10,
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 25,
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 25,
   [PremiumTier.COPILOT_MONTHLY]: 10,
   [PremiumTier.LIFETIME]: 99,
 };
@@ -56,18 +57,110 @@ const variantIdToTier: Record<number, PremiumTier> = {
   [env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID]: PremiumTier.BUSINESS_MONTHLY,
   [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: PremiumTier.BUSINESS_ANNUALLY,
   [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: PremiumTier.COPILOT_MONTHLY,
-  [env.NEXT_PUBLIC_LIFETIME_VARIANT_ID]: PremiumTier.LIFETIME,
 };
 
-const tierToVariantId: Record<PremiumTier, number> = {
+// --- Stripe Configuration --- //
+
+const STRIPE_PRICE_ID_CONFIG: Array<{ tier: PremiumTier; ids: string[] }> = [
+  { tier: PremiumTier.BASIC_MONTHLY, ids: [] },
+  { tier: PremiumTier.BASIC_ANNUALLY, ids: [] },
+  { tier: PremiumTier.PRO_MONTHLY, ids: [] },
+  { tier: PremiumTier.PRO_ANNUALLY, ids: [] },
+  {
+    tier: PremiumTier.BUSINESS_MONTHLY,
+    ids: [
+      "price_business_monthly_stripe_prod",
+      "price_business_monthly_stripe_test",
+    ],
+  },
+  {
+    tier: PremiumTier.BUSINESS_ANNUALLY,
+    ids: [
+      "price_business_annually_stripe_prod",
+      "price_business_annually_stripe_test",
+    ],
+  },
+  {
+    tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    ids: [
+      "price_business_plus_monthly_stripe_prod",
+      "price_business_plus_monthly_stripe_test",
+    ],
+  },
+  {
+    tier: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+    ids: [
+      "price_business_plus_annually_stripe_prod",
+      "price_business_plus_annually_stripe_test",
+    ],
+  },
+];
+
+export function getStripeSubscriptionTier({
+  priceId,
+}: {
+  priceId: string;
+}): PremiumTier | null {
+  for (const config of STRIPE_PRICE_ID_CONFIG) {
+    if (config.ids.includes(priceId)) {
+      return config.tier;
+    }
+  }
+  return null;
+}
+
+const STRIPE_PRICE_IDS: Record<
+  PremiumTier,
+  { monthly: string | null; annually: string | null }
+> = {
+  [PremiumTier.BASIC_MONTHLY]: { monthly: null, annually: null },
+  [PremiumTier.BASIC_ANNUALLY]: { monthly: null, annually: null },
+  [PremiumTier.PRO_MONTHLY]: { monthly: null, annually: null },
+  [PremiumTier.PRO_ANNUALLY]: { monthly: null, annually: null },
+  [PremiumTier.COPILOT_MONTHLY]: { monthly: null, annually: null },
+  [PremiumTier.LIFETIME]: { monthly: null, annually: null },
+  [PremiumTier.BUSINESS_MONTHLY]: {
+    monthly: "price_business_monthly_stripe_prod",
+    annually: "price_business_annually_stripe_prod",
+  },
+  [PremiumTier.BUSINESS_ANNUALLY]: {
+    monthly: "price_business_monthly_stripe_prod",
+    annually: "price_business_annually_stripe_prod",
+  },
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
+    monthly: "price_business_plus_monthly_stripe_prod",
+    annually: "price_business_plus_annually_stripe_prod",
+  },
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
+    monthly: "price_business_plus_monthly_stripe_prod",
+    annually: "price_business_plus_annually_stripe_prod",
+  },
+};
+
+export function getStripePriceId({
+  tier,
+  frequency,
+}: {
+  tier: PremiumTier;
+  frequency: "monthly" | "annually";
+}): string | null {
+  const ids = STRIPE_PRICE_IDS[tier];
+  return ids ? ids[frequency] : null;
+}
+
+// --- End Stripe Configuration --- //
+
+const tierToVariantId: Record<PremiumTier, number | null> = {
   [PremiumTier.BASIC_MONTHLY]: env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID,
   [PremiumTier.BASIC_ANNUALLY]: env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID,
   [PremiumTier.PRO_MONTHLY]: env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID,
   [PremiumTier.PRO_ANNUALLY]: env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID,
   [PremiumTier.BUSINESS_MONTHLY]: env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
   [PremiumTier.BUSINESS_ANNUALLY]: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: null,
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: null,
   [PremiumTier.COPILOT_MONTHLY]: env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID,
-  [PremiumTier.LIFETIME]: env.NEXT_PUBLIC_LIFETIME_VARIANT_ID,
+  [PremiumTier.LIFETIME]: null,
 };
 
 function discount(monthly: number, annually: number) {

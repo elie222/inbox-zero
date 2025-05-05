@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
-import { posthogCaptureEvent } from "@/utils/posthog";
+import { trackUserSignedUp } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
 import { createScopedLogger } from "@/utils/logger";
@@ -93,12 +93,5 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     return;
   }
 
-  return posthogCaptureEvent(
-    email,
-    "User signed up",
-    {
-      $set_once: { createdAt: userCreatedAt.createdAt },
-    },
-    true,
-  );
+  return trackUserSignedUp(email, userCreatedAt.createdAt);
 }

@@ -1,5 +1,4 @@
-"use server";
-
+import type Stripe from "stripe";
 import { PostHog } from "posthog-node";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
@@ -95,4 +94,188 @@ export async function posthogCaptureEvent(
   } catch (error) {
     logger.error("Error capturing PostHog event", { error });
   }
+}
+
+export async function trackUserSignedUp(email: string, createdAt: Date) {
+  return posthogCaptureEvent(
+    email,
+    "User signed up",
+    {
+      $set_once: { createdAt },
+    },
+    true,
+  );
+}
+
+export async function trackStripeCustomerCreated(
+  email: string,
+  stripeCustomerId: string,
+) {
+  return posthogCaptureEvent(
+    email,
+    "Stripe customer created",
+    {
+      $set_once: { stripeCustomerId },
+    },
+    true,
+  );
+}
+
+export async function trackStripeCheckoutCreated(email: string) {
+  return posthogCaptureEvent(email, "Stripe checkout created");
+}
+
+export async function trackStripeCheckoutCompleted(email: string) {
+  return posthogCaptureEvent(email, "Stripe checkout completed");
+}
+
+export async function trackError({
+  email,
+  errorType,
+  type,
+  url,
+}: {
+  email: string;
+  errorType: string;
+  type: "api" | "action";
+  url: string;
+}) {
+  return posthogCaptureEvent(email, errorType, {
+    $set: { isError: true, type, url },
+  });
+}
+
+export async function trackTrialStarted(email: string, attributes: any) {
+  return posthogCaptureEvent(email, "Premium trial started", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "on_trial",
+    },
+  });
+}
+
+export async function trackUpgradedToPremium(email: string, attributes: any) {
+  return posthogCaptureEvent(email, "Upgraded to premium", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "active",
+    },
+  });
+}
+
+export async function trackSubscriptionTrialStarted(
+  email: string,
+  attributes: any,
+) {
+  return posthogCaptureEvent(email, "Premium subscription trial started", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: "on_trial",
+    },
+  });
+}
+
+export async function trackSubscriptionCustom(
+  email: string,
+  status: string,
+  attributes: any,
+) {
+  const event = `Premium subscription ${status}`;
+
+  return posthogCaptureEvent(email, event, {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: status,
+    },
+  });
+}
+
+export async function trackSubscriptionStatusChanged(
+  email: string,
+  attributes: any,
+) {
+  return posthogCaptureEvent(email, "Subscription status changed", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: attributes.status,
+    },
+  });
+}
+
+export async function trackSubscriptionCancelled(
+  email: string,
+  status: string,
+  attributes: any,
+) {
+  return posthogCaptureEvent(email, "Cancelled premium subscription", {
+    ...attributes,
+    $set: {
+      premiumCancelled: true,
+      premium: false,
+      premiumStatus: status,
+    },
+  });
+}
+
+export async function trackSwitchedPremiumPlan(
+  email: string,
+  status: string,
+  attributes: any,
+) {
+  return posthogCaptureEvent(email, "Switched premium plan", {
+    ...attributes,
+    $set: {
+      premium: true,
+      premiumTier: "subscription",
+      premiumStatus: status,
+    },
+  });
+}
+
+export async function trackPaymentSuccess({
+  email,
+  totalPaidUSD,
+  lemonSqueezyId,
+  lemonSqueezyType,
+}: {
+  email: string;
+  totalPaidUSD: number | undefined;
+  lemonSqueezyId: string;
+  lemonSqueezyType: string;
+}) {
+  return posthogCaptureEvent(email, "Payment success", {
+    totalPaidUSD,
+    lemonSqueezyId,
+    lemonSqueezyType,
+  });
+}
+
+export async function trackStripePaymentSuccess({
+  email,
+  options,
+}: {
+  email: string;
+  options: {
+    customerId: string;
+    subscriptionId: string;
+    subscriptionItemId: string;
+    productId: string;
+    priceId: string;
+  };
+}) {
+  return posthogCaptureEvent(email, "Stripe payment success", options);
+}
+
+export async function trackStripeEvent(email: string, event: Stripe.Event) {
+  return posthogCaptureEvent(email, "Stripe event", event);
 }

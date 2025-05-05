@@ -131,11 +131,9 @@ async function authMiddleware(
     );
   }
 
-  const userId = session.user.id;
-
   // Create a new request with auth info
   const authReq = req.clone() as RequestWithAuth;
-  authReq.auth = { userId };
+  authReq.auth = { userId: session.user.id };
 
   return authReq;
 }

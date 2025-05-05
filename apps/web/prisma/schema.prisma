@@ -169,6 +169,19 @@ model Premium {
   lemonLicenseInstanceId         String?
   lemonSubscriptionStatus        String?
 
+  // stripe
+  stripeCustomerId         String?   @unique
+  stripeSubscriptionId     String?   @unique
+  stripeSubscriptionItemId String?   @unique
+  stripePriceId            String?
+  stripeProductId          String?
+  stripeSubscriptionStatus String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
+  stripeCancelAtPeriodEnd  Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
+  stripeRenewsAt           DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
+  stripeTrialEnd           DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeCanceledAt         DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
+  stripeEndedAt            DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+
   tier PremiumTier?
 
   // feature access
@@ -629,6 +642,8 @@ enum PremiumTier {
   PRO_ANNUALLY
   BUSINESS_MONTHLY
   BUSINESS_ANNUALLY
+  BUSINESS_PLUS_MONTHLY
+  BUSINESS_PLUS_ANNUALLY
   COPILOT_MONTHLY
   LIFETIME
 }
@@ -672,6 +687,7 @@ enum ThreadTrackerType {
 
 enum ProcessorType {
   LEMON_SQUEEZY
+  STRIPE
 }
 
 enum CleanAction {
