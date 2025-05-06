@@ -4,7 +4,6 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
-import { useSession } from "next-auth/react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import clsx from "clsx";
@@ -32,7 +31,6 @@ export function Pricing(props: {
   showSkipUpgrade?: boolean;
 }) {
   const { isPremium, premium, isLoading, error } = usePremium();
-  const session = useSession();
 
   // const defaultFrequency = usePricingFrequencyDefault();
   // const [frequency, setFrequency] = useState(
@@ -194,8 +192,6 @@ export function Pricing(props: {
           {tiers.map((tier) => {
             const isCurrentPlan =
               tier.tiers[frequency.value] === userPremiumTier;
-
-            const user = session.data?.user;
 
             function getCTAText() {
               if (isCurrentPlan) return "Current plan";
