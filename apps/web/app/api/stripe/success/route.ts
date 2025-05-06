@@ -22,8 +22,9 @@ export const GET = withAuth(async (request) => {
     select: { premium: { select: { stripeCustomerId: true } } },
   });
 
-  if (!user?.premium?.stripeCustomerId) return redirect("/premium");
+  if (!user?.premium?.stripeCustomerId) redirect("/premium");
 
   await syncStripeDataToDb({ customerId: user.premium.stripeCustomerId });
-  return redirect("/setup");
+
+  redirect("/setup");
 });

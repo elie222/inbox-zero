@@ -418,12 +418,12 @@ export const generateCheckoutSessionAction = actionClientUser
       // Store the relation between userId and stripeCustomerId
       const premium = user.premium || (await createPremiumForUser({ userId }));
 
+      stripeCustomerId = newCustomer.id;
+
       await prisma.premium.update({
         where: { id: premium.id },
         data: { stripeCustomerId },
       });
-
-      stripeCustomerId = newCustomer.id;
     }
 
     // ALWAYS create a checkout with a stripeCustomerId

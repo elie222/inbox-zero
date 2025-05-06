@@ -57,6 +57,11 @@ function withMiddleware<T extends NextRequest>(
       // Execute the handler with the (potentially) enhanced request
       return await handler(enhancedReq as T, context);
     } catch (error) {
+      // redirects work by throwing an error. allow these
+      if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+        throw error;
+      }
+
       if (error instanceof SafeError) {
         if (error.message === "No refresh token") {
           return NextResponse.json(
