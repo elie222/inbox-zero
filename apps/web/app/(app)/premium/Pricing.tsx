@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
 import { pricingAdditonalEmail, tiers } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
-import { switchLemonPremiumPlanAction } from "@/utils/actions/premium";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";
 import {
@@ -152,7 +151,8 @@ export function Pricing(props: {
                   button={
                     <div className="ml-4 whitespace-nowrap">
                       <Button variant="primaryBlue" asChild>
-                        <Link href="/settings#manage-users">Add users</Link>
+                        {/* <Link href="/settings#manage-users">Add users</Link> */}
+                        <Link href="/accounts">Add users</Link>
                       </Button>
                     </div>
                   }
@@ -191,38 +191,11 @@ export function Pricing(props: {
         </div>
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
-          {tiers.map((tier, tierIdx) => {
+          {tiers.map((tier) => {
             const isCurrentPlan =
               tier.tiers[frequency.value] === userPremiumTier;
 
             const user = session.data?.user;
-
-            // async function getHref(): Promise<string> {
-            //   if (!user) return "/login?next=/premium";
-            //   if (isCurrentPlan) return "#";
-            //   if (tier.ctaLink) return tier.ctaLink;
-
-            //   const result = await generateCheckoutSessionAction({
-            //     userId: user.id,
-            //   });
-
-            //   return result.data?.url;
-
-            //   // return buildLemonUrl(
-            //   //   attachUserInfo(
-            //   //     tier.href[frequency.value],
-            //   //     {
-            //   //       id: user.id,
-            //   //       email: user.email!,
-            //   //       name: user.name,
-            //   //     },
-            //   //     tier.quantity,
-            //   //   ),
-            //   //   affiliateCode,
-            //   // );
-            // }
-
-            // const href = getHref();
 
             function getCTAText() {
               if (isCurrentPlan) return "Current plan";
@@ -311,30 +284,12 @@ export function Pricing(props: {
                       toastError({
                         description:
                           result?.serverError ||
-                          "Error generating checkout session. Please contact support.",
+                          "Error creating checkout session. Please contact support.",
                       });
                       return;
                     }
 
                     window.open(result.data.url);
-
-                    if (userPremiumTier) {
-                      toast.promise(
-                        async () => {
-                          const result = await switchLemonPremiumPlanAction({
-                            premiumTier: tier.tiers[frequency.value],
-                          });
-                          if (result?.serverError)
-                            throw new Error(result.serverError);
-                        },
-                        {
-                          loading: "Switching to plan...",
-                          success: "Switched to plan",
-                          error: (e) =>
-                            `There was an error switching to plan: ${e.message}`,
-                        },
-                      );
-                    }
                   }}
                   aria-describedby={tier.name}
                   className={clsx(
@@ -475,16 +430,6 @@ function TwoColItem({
     </div>
   );
 }
-
-// function OneColItem({
-//   children,
-//   className,
-// }: {
-//   children: React.ReactNode;
-//   className?: string;
-// }) {
-//   return <div className={className}>{children}</div>;
-// }
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (

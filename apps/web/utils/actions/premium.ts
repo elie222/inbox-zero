@@ -14,7 +14,6 @@ import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
-  switchPremiumPlan,
   updateSubscriptionItemQuantity,
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
@@ -183,27 +182,27 @@ export const updateMultiAccountPremiumAction = actionClientUser
     });
   });
 
-export const switchLemonPremiumPlanAction = actionClientUser
-  .metadata({ name: "switchLemonPremiumPlan" })
-  .schema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId }, parsedInput: { premiumTier } }) => {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        premium: {
-          select: { lemonSqueezySubscriptionId: true },
-        },
-      },
-    });
+// export const switchLemonPremiumPlanAction = actionClientUser
+//   .metadata({ name: "switchLemonPremiumPlan" })
+//   .schema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
+//   .action(async ({ ctx: { userId }, parsedInput: { premiumTier } }) => {
+//     const user = await prisma.user.findUnique({
+//       where: { id: userId },
+//       select: {
+//         premium: {
+//           select: { lemonSqueezySubscriptionId: true },
+//         },
+//       },
+//     });
 
-    if (!user) return { error: "User not found" };
-    if (!user.premium?.lemonSqueezySubscriptionId)
-      return { error: "You do not have a premium subscription" };
+//     if (!user) return { error: "User not found" };
+//     if (!user.premium?.lemonSqueezySubscriptionId)
+//       return { error: "You do not have a premium subscription" };
 
-    const variantId = getVariantId({ tier: premiumTier });
+//     const variantId = getVariantId({ tier: premiumTier });
 
-    await switchPremiumPlan(user.premium.lemonSqueezySubscriptionId, variantId);
-  });
+//     await switchPremiumPlan(user.premium.lemonSqueezySubscriptionId, variantId);
+//   });
 
 export const activateLicenseKeyAction = actionClientUser
   .metadata({ name: "activateLicenseKey" })
