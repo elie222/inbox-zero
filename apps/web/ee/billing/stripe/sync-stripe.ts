@@ -20,7 +20,7 @@ export async function syncStripeDataToDb({
       status: "all",
       expand: [
         "data.default_payment_method",
-        "data.items.data.price.product", // Expand to get product ID
+        "data.items.data.price", // Expand to get product ID
       ],
     });
 

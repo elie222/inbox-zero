@@ -430,6 +430,7 @@ export const generateCheckoutSessionAction = actionClientUser
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
     });
 
