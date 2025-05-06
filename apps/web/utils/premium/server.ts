@@ -4,6 +4,8 @@ import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index"
 import prisma from "@/utils/prisma";
 import { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { hasTierAccess } from "@/utils/premium";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("premium");
 
@@ -159,4 +161,33 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
       quantity: totalSeats,
     });
   }
+}
+
+export async function checkHasAccess({
+  userId,
+  minimumTier,
+}: {
+  userId: string;
+  minimumTier: PremiumTier;
+}): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      premium: {
+        select: {
+          tier: true,
+          // TODO: check status/lemon
+          stripeSubscriptionStatus: true,
+          lemonSqueezyRenewsAt: true,
+        },
+      },
+    },
+  });
+
+  if (!user) throw new SafeError("User not found");
+
+  return hasTierAccess({
+    tier: user.premium?.tier || null,
+    minimumTier,
+  });
 }

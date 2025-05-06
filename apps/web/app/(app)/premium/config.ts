@@ -1,5 +1,4 @@
 import { env } from "@/env";
-import { isDefined } from "@/utils/types";
 import { PremiumTier } from "@prisma/client";
 
 type Feature = { text: string; tooltip?: string };
@@ -18,18 +17,13 @@ type Tier = {
   mostPopular?: boolean;
 };
 
-export const frequencies = [
-  { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
-];
-
 const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BASIC_MONTHLY]: 16,
   [PremiumTier.BASIC_ANNUALLY]: 8,
   [PremiumTier.PRO_MONTHLY]: 16,
   [PremiumTier.PRO_ANNUALLY]: 10,
   [PremiumTier.BUSINESS_MONTHLY]: 20,
-  [PremiumTier.BUSINESS_ANNUALLY]: 17,
+  [PremiumTier.BUSINESS_ANNUALLY]: 16,
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
@@ -138,8 +132,8 @@ const aiAssistantFeature = {
 };
 
 const replyZeroFeature = {
-  text: "Reply Zero",
-  tooltip: "Never miss a reply or follow up again",
+  text: "Auto drafted replies",
+  tooltip: "Prewritten drafts ready to send in your inbox",
 };
 
 const coldEmailBlockerFeature = {
@@ -147,46 +141,46 @@ const coldEmailBlockerFeature = {
   tooltip: "Automatically block cold emails",
 };
 
-const smartCategoriesFeature = {
-  text: "Sender categories",
-  tooltip: "Automatically group emails for easier management and bulk actions",
-};
+// const smartCategoriesFeature = {
+//   text: "Sender categories",
+//   tooltip: "Automatically group emails for easier management and bulk actions",
+// };
 
 const bulkUnsubscribeFeature = {
-  text: "Bulk unsubscribe",
+  text: "Bulk unsubscriber",
   tooltip: "Bulk unsubscribe from emails in one-click",
 };
 
 const analyticsFeature = { text: "Email analytics" };
 
-export const basicTier: Tier = {
-  name: "Unsubscriber",
-  tiers: {
-    monthly: PremiumTier.BASIC_MONTHLY,
-    annually: PremiumTier.BASIC_ANNUALLY,
-  },
-  price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BASIC_MONTHLY,
-    annually: pricingAdditonalEmail.BASIC_ANNUALLY,
-  },
-  discount: {
-    monthly: 0,
-    annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
-  },
-  description: "Unlimited unsubscribe credits.",
-  features: [
-    bulkUnsubscribeFeature,
-    { text: "Unlimited unsubscribes" },
-    { text: "Unlimited archives" },
-    analyticsFeature,
-  ],
-  cta: "Try free for 7 days",
-};
+// const basicTier: Tier = {
+//   name: "Unsubscriber",
+//   tiers: {
+//     monthly: PremiumTier.BASIC_MONTHLY,
+//     annually: PremiumTier.BASIC_ANNUALLY,
+//   },
+//   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
+//   priceAdditional: {
+//     monthly: pricingAdditonalEmail.BASIC_MONTHLY,
+//     annually: pricingAdditonalEmail.BASIC_ANNUALLY,
+//   },
+//   discount: {
+//     monthly: 0,
+//     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
+//   },
+//   description: "Unlimited unsubscribe credits.",
+//   features: [
+//     bulkUnsubscribeFeature,
+//     { text: "Unlimited unsubscribes" },
+//     { text: "Unlimited archives" },
+//     analyticsFeature,
+//   ],
+//   cta: "Try free for 7 days",
+// };
 
-export const businessTierName = "AI Assistant";
+export const businessTierName = "Pro";
 
-export const businessTier: Tier = {
+const businessTier: Tier = {
   name: businessTierName,
   tiers: {
     monthly: PremiumTier.BUSINESS_MONTHLY,
@@ -204,48 +198,90 @@ export const businessTier: Tier = {
     monthly: 0,
     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
   },
-  description: "Unlock full AI-powered email management",
+  description:
+    "For individuals and businesses that want to get their email under control.",
   features: [
-    { text: "Everything in Unsubscriber tier" },
     aiAssistantFeature,
     replyZeroFeature,
     coldEmailBlockerFeature,
-    smartCategoriesFeature,
+    bulkUnsubscribeFeature,
+    analyticsFeature,
     { text: "Unlimited AI credits" },
+    {
+      text: "Limited Knowledge Base",
+      tooltip:
+        "The knowledge base is used to help draft responses. Store up to 2000 characters in your knowledge base.",
+    },
+  ],
+  cta: "Try free for 7 days",
+  mostPopular: false,
+};
+
+const businessPlusTier: Tier = {
+  name: "Business",
+  tiers: {
+    monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
+    annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+  },
+  price: {
+    monthly: pricing.BUSINESS_PLUS_MONTHLY,
+    annually: pricing.BUSINESS_PLUS_ANNUALLY,
+  },
+  priceAdditional: {
+    monthly: pricingAdditonalEmail.BUSINESS_PLUS_MONTHLY,
+    annually: pricingAdditonalEmail.BUSINESS_PLUS_ANNUALLY,
+  },
+  discount: {
+    monthly: 0,
+    annually: discount(
+      pricing.BUSINESS_PLUS_MONTHLY,
+      pricing.BUSINESS_PLUS_ANNUALLY,
+    ),
+  },
+  description:
+    "For teams handling high email volumes: streamline repetitive tasks, outreach, and support.",
+  features: [
+    aiAssistantFeature,
+    replyZeroFeature,
+    coldEmailBlockerFeature,
+    bulkUnsubscribeFeature,
+    analyticsFeature,
+    { text: "Unlimited AI credits" },
+    {
+      text: "Unlimited Knowledge Base",
+      tooltip:
+        "The knowledge base is used to help draft responses. Store up to unlimited content in your knowledge base.",
+    },
     { text: "Priority support" },
+    {
+      text: "Dedicated onboarding manager",
+      tooltip:
+        "We'll help you get set up on an onboarding call. Book as many free calls as needed.",
+    },
   ],
   cta: "Try free for 7 days",
   mostPopular: true,
 };
 
-export const enterpriseTier: Tier = {
+const enterpriseTier: Tier = {
   name: "Enterprise",
   tiers: {
     monthly: PremiumTier.COPILOT_MONTHLY,
     annually: PremiumTier.COPILOT_MONTHLY,
   },
-  price: {
-    monthly: pricing.COPILOT_MONTHLY,
-    annually: pricing.COPILOT_MONTHLY,
-  },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.COPILOT_MONTHLY,
-    annually: pricingAdditonalEmail.COPILOT_MONTHLY,
-  },
+  price: { monthly: 0, annually: 0 },
+  priceAdditional: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
-  description: "Self-hosted, bring your own LLM",
+  description: "On premise deployment",
   features: [
     {
-      text: "25 email accounts included",
+      text: "25+ accounts",
     },
     {
-      text: "Self-hosted deployment",
+      text: "On premise deployment",
     },
     { text: "Setup assistance" },
     { text: "Dedicated account manager" },
-    {
-      text: "Everything in AI Assistant tier",
-    },
   ],
   cta: "Book a call",
   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
@@ -267,3 +303,5 @@ export function getVariantId({ tier }: { tier: PremiumTier }): number {
   if (!variantId) throw new Error(`Unknown tier: ${tier}`);
   return variantId;
 }
+
+export const tiers: Tier[] = [businessTier, businessPlusTier];

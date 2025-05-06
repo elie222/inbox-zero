@@ -13,22 +13,20 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
-import {
-  basicTier,
-  businessTier,
-  enterpriseTier,
-  frequencies,
-  pricingAdditonalEmail,
-} from "@/app/(app)/premium/config";
+import { pricingAdditonalEmail, tiers } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { switchLemonPremiumPlanAction } from "@/utils/actions/premium";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import { PremiumTier } from "@prisma/client";
 import { toastError } from "@/components/Toast";
 import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
+
+const frequencies = [
+  { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
+  { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
+];
 
 export function Pricing(props: {
   header?: React.ReactNode;
@@ -77,9 +75,8 @@ export function Pricing(props: {
   //   tiers: [basicTier, businessTier, enterpriseTier],
   // };
 
-  const Layout = ThreeColLayout;
-  const Item = ThreeColItem;
-  const tiers = [basicTier, businessTier, enterpriseTier];
+  const Layout = TwoColLayout;
+  const Item = TwoColItem;
 
   const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
 
@@ -136,7 +133,7 @@ export function Pricing(props: {
             <Button variant="primaryBlue" className="ml-2" asChild>
               <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
                 <SparklesIcon className="mr-2 h-4 w-4" />
-                Use Inbox Zero
+                Go to app
               </Link>
             </Button>
 
@@ -189,7 +186,7 @@ export function Pricing(props: {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 50%!</Badge>
+            <Badge>Save up to 20%!</Badge>
           </div>
         </div>
 
@@ -237,7 +234,7 @@ export function Pricing(props: {
               <Item
                 key={tier.name}
                 className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
-                index={tierIdx}
+                // index={tierIdx}
               >
                 <div className="flex-1">
                   <div className="flex items-center justify-between gap-x-4">
@@ -250,7 +247,7 @@ export function Pricing(props: {
                     >
                       {tier.name}
                     </h3>
-                    {tier.mostPopular ? <Badge>Most popular</Badge> : null}
+                    {tier.mostPopular ? <Badge>Popular</Badge> : null}
                   </div>
                   <p className="mt-4 text-sm leading-6 text-gray-600">
                     {tier.description}
@@ -414,21 +411,7 @@ export function Pricing(props: {
 //   };
 // }
 
-function ThreeColLayout({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={clsx("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
-      {children}
-    </div>
-  );
-}
-
-// function TwoColLayout({
+// function ThreeColLayout({
 //   children,
 //   className,
 // }: {
@@ -436,48 +419,62 @@ function ThreeColLayout({
 //   className?: string;
 // }) {
 //   return (
-//     <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
+//     <div className={clsx("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
 //       {children}
 //     </div>
 //   );
 // }
 
-function ThreeColItem({
+function TwoColLayout({
   children,
   className,
-  index,
 }: {
   children: React.ReactNode;
   className?: string;
-  index: number;
 }) {
   return (
-    <div
-      className={clsx(
-        index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
-        index === 0 ? "lg:rounded-r-none" : "",
-        index === 2 ? "lg:rounded-l-none" : "",
-        className,
-      )}
-    >
+    <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
       {children}
     </div>
   );
 }
 
-// function TwoColItem({
+// function ThreeColItem({
 //   children,
 //   className,
+//   index,
 // }: {
 //   children: React.ReactNode;
 //   className?: string;
+//   index: number;
 // }) {
 //   return (
-//     <div className={clsx("flex flex-col justify-between", className)}>
+//     <div
+//       className={clsx(
+//         index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
+//         index === 0 ? "lg:rounded-r-none" : "",
+//         index === 2 ? "lg:rounded-l-none" : "",
+//         className,
+//       )}
+//     >
 //       {children}
 //     </div>
 //   );
 // }
+
+function TwoColItem({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={clsx("flex flex-col justify-between", className)}>
+      {children}
+    </div>
+  );
+}
 
 // function OneColItem({
 //   children,

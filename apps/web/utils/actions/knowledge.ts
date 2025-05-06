@@ -7,12 +7,43 @@ import {
   deleteKnowledgeBody,
 } from "@/utils/actions/knowledge.validation";
 import { actionClient } from "@/utils/actions/safe-action";
+import { SafeError } from "@/utils/error";
+import {
+  KNOWLEDGE_BASIC_MAX_ITEMS,
+  KNOWLEDGE_BASIC_MAX_CHARS,
+} from "@/utils/config";
+import { PremiumTier } from "@prisma/client";
+import { checkHasAccess } from "@/utils/premium/server";
 
 export const createKnowledgeAction = actionClient
   .metadata({ name: "createKnowledge" })
   .schema(createKnowledgeBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { title, content } }) => {
+    async ({
+      ctx: { emailAccountId, userId },
+      parsedInput: { title, content },
+    }) => {
+      const knowledgeCount = await prisma.knowledge.count({
+        where: { emailAccountId },
+      });
+
+      // premium check
+      if (
+        knowledgeCount >= KNOWLEDGE_BASIC_MAX_ITEMS ||
+        content.length > KNOWLEDGE_BASIC_MAX_CHARS
+      ) {
+        const hasAccess = await checkHasAccess({
+          userId,
+          minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+        });
+
+        if (!hasAccess) {
+          throw new SafeError(
+            `You can save up to ${KNOWLEDGE_BASIC_MAX_CHARS} characters and ${KNOWLEDGE_BASIC_MAX_ITEMS} item to your knowledge base. Upgrade to a higher tier to save unlimited content.`,
+          );
+        }
+      }
+
       await prisma.knowledge.create({
         data: {
           title,
@@ -28,9 +59,22 @@ export const updateKnowledgeAction = actionClient
   .schema(updateKnowledgeBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, userId },
       parsedInput: { id, title, content },
     }) => {
+      if (content.length > KNOWLEDGE_BASIC_MAX_CHARS) {
+        const hasAccess = await checkHasAccess({
+          userId,
+          minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+        });
+
+        if (!hasAccess) {
+          throw new SafeError(
+            `You can save up to ${KNOWLEDGE_BASIC_MAX_CHARS} characters to your knowledge base. Upgrade to a higher tier to save unlimited content.`,
+          );
+        }
+      }
+
       await prisma.knowledge.update({
         where: { id, emailAccountId },
         data: { title, content },

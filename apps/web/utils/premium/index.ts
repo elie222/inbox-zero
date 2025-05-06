@@ -92,6 +92,22 @@ export const hasAiAccess = (
   return hasAiAccess;
 };
 
+export const hasTierAccess = ({
+  tier,
+  minimumTier,
+}: {
+  tier: PremiumTier | null;
+  minimumTier: PremiumTier;
+}): boolean => {
+  if (!tier) return false;
+
+  const ranking = tierRanking[tier];
+
+  const hasAiAccess = ranking >= tierRanking[minimumTier];
+
+  return hasAiAccess;
+};
+
 export function isOnHigherTier(
   tier1?: PremiumTier | null,
   tier2?: PremiumTier | null,
