@@ -61,65 +61,38 @@ const variantIdToTier: Record<number, PremiumTier> = {
 
 // --- Stripe Configuration --- //
 
-const STRIPE_PRICE_IDS: Record<PremiumTier, string | null> = {
-  [PremiumTier.BASIC_MONTHLY]: null,
-  [PremiumTier.BASIC_ANNUALLY]: null,
-  [PremiumTier.PRO_MONTHLY]: null,
-  [PremiumTier.PRO_ANNUALLY]: null,
-  [PremiumTier.COPILOT_MONTHLY]: null,
-  [PremiumTier.LIFETIME]: null,
-  [PremiumTier.BUSINESS_MONTHLY]: "price_business_monthly_stripe_prod",
-  [PremiumTier.BUSINESS_ANNUALLY]: "price_business_annually_stripe_prod",
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]:
-    "price_business_plus_monthly_stripe_prod",
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]:
-    "price_business_plus_annually_stripe_prod",
+const STRIPE_PRICE_ID_CONFIG: Record<
+  PremiumTier,
+  {
+    // active price id
+    priceId?: string;
+    // Allow handling of old price ids
+    oldPriceIds?: string[];
+  }
+> = {
+  [PremiumTier.BASIC_MONTHLY]: {},
+  [PremiumTier.BASIC_ANNUALLY]: {},
+  [PremiumTier.PRO_MONTHLY]: {},
+  [PremiumTier.PRO_ANNUALLY]: {},
+  // TODO: env
+  [PremiumTier.BUSINESS_MONTHLY]: { priceId: "" },
+  [PremiumTier.BUSINESS_ANNUALLY]: { priceId: "" },
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: { priceId: "" },
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: { priceId: "" },
+  [PremiumTier.COPILOT_MONTHLY]: {},
+  [PremiumTier.LIFETIME]: {},
 };
-
-// Allow handling of old price ids
-const STRIPE_PRICE_ID_CONFIG: Array<{ tier: PremiumTier; ids: string[] }> = [
-  { tier: PremiumTier.BASIC_MONTHLY, ids: [] },
-  { tier: PremiumTier.BASIC_ANNUALLY, ids: [] },
-  { tier: PremiumTier.PRO_MONTHLY, ids: [] },
-  { tier: PremiumTier.PRO_ANNUALLY, ids: [] },
-  {
-    tier: PremiumTier.BUSINESS_MONTHLY,
-    ids: [
-      STRIPE_PRICE_IDS[PremiumTier.BUSINESS_MONTHLY],
-      "price_1RKrYgKGf8mwZWHnUKYYBemS",
-    ].filter(isDefined),
-  },
-  {
-    tier: PremiumTier.BUSINESS_ANNUALLY,
-    ids: [
-      STRIPE_PRICE_IDS[PremiumTier.BUSINESS_ANNUALLY],
-      "price_1RKrb5KGf8mwZWHnJZe7L7fH",
-    ].filter(isDefined),
-  },
-  {
-    tier: PremiumTier.BUSINESS_PLUS_MONTHLY,
-    ids: [
-      STRIPE_PRICE_IDS[PremiumTier.BUSINESS_PLUS_MONTHLY],
-      "price_1RKrfJKGf8mwZWHn3ML9pRjp",
-    ].filter(isDefined),
-  },
-  {
-    tier: PremiumTier.BUSINESS_PLUS_ANNUALLY,
-    ids: [
-      STRIPE_PRICE_IDS[PremiumTier.BUSINESS_PLUS_ANNUALLY],
-      "price_1RKrfJKGf8mwZWHnuDFdyPQu",
-    ].filter(isDefined),
-  },
-];
 
 export function getStripeSubscriptionTier({
   priceId,
 }: {
   priceId: string;
 }): PremiumTier | null {
-  for (const config of STRIPE_PRICE_ID_CONFIG) {
-    if (config.ids.includes(priceId)) {
-      return config.tier;
+  const entries = Object.entries(STRIPE_PRICE_ID_CONFIG);
+
+  for (const [tier, config] of entries) {
+    if (config.priceId === priceId || config.oldPriceIds?.includes(priceId)) {
+      return tier as PremiumTier;
     }
   }
   return null;
@@ -130,7 +103,7 @@ export function getStripePriceId({
 }: {
   tier: PremiumTier;
 }): string | null {
-  return STRIPE_PRICE_IDS[tier];
+  return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
 }
 
 // --- End Stripe Configuration --- //
