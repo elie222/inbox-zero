@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -22,15 +21,14 @@ import {
   pricingAdditonalEmail,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
-import { switchPremiumPlanAction } from "@/utils/actions/premium";
+import { switchLemonPremiumPlanAction } from "@/utils/actions/premium";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { PremiumTier } from "@prisma/client";
-// import {
-//   usePricingFrequencyDefault,
-//   usePricingVariant,
-// } from "@/hooks/useFeatureFlags";
-import { getBillingPortalUrlAction } from "@/utils/actions/user";
 import { toastError } from "@/components/Toast";
+import {
+  generateCheckoutSessionAction,
+  getBillingPortalUrlAction,
+} from "@/utils/actions/premium";
 
 export function Pricing(props: {
   header?: React.ReactNode;
@@ -45,8 +43,7 @@ export function Pricing(props: {
   // );
   const [frequency, setFrequency] = useState(frequencies[0]);
 
-  const affiliateCode = useAffiliateCode();
-  const premiumTier = getUserTier(premium);
+  const userPremiumTier = getUserTier(premium);
 
   const header = props.header || (
     <div className="mb-12">
@@ -74,11 +71,15 @@ export function Pricing(props: {
   //   premiumTier,
   // );
 
-  const { Layout, Item, tiers } = {
-    Layout: ThreeColLayout,
-    Item: ThreeColItem,
-    tiers: [basicTier, businessTier, enterpriseTier],
-  };
+  // const { Layout, Item, tiers } = {
+  //   Layout: ThreeColLayout,
+  //   Item: ThreeColItem,
+  //   tiers: [basicTier, businessTier, enterpriseTier],
+  // };
+
+  const Layout = ThreeColLayout;
+  const Item = ThreeColItem;
+  const tiers = [basicTier, businessTier, enterpriseTier];
 
   const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
 
@@ -139,16 +140,16 @@ export function Pricing(props: {
               </Link>
             </Button>
 
-            {premiumTier && (
+            {userPremiumTier && (
               <div className="mx-auto mt-4 max-w-md">
                 <AlertWithButton
                   className="bg-background"
                   variant="blue"
                   title="Add extra users to your account!"
                   description={`You can upgrade extra accounts to ${capitalCase(
-                    premiumTier,
+                    userPremiumTier,
                   )} for $${
-                    pricingAdditonalEmail[premiumTier]
+                    pricingAdditonalEmail[userPremiumTier]
                   } per email address!`}
                   icon={null}
                   button={
@@ -194,36 +195,41 @@ export function Pricing(props: {
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier, tierIdx) => {
-            const isCurrentPlan = tier.tiers[frequency.value] === premiumTier;
+            const isCurrentPlan =
+              tier.tiers[frequency.value] === userPremiumTier;
 
             const user = session.data?.user;
 
-            function getHref(): string {
-              if (!user) return "/login?next=/premium";
+            // async function getHref(): Promise<string> {
+            //   if (!user) return "/login?next=/premium";
+            //   if (isCurrentPlan) return "#";
+            //   if (tier.ctaLink) return tier.ctaLink;
 
-              if (isCurrentPlan) return "#";
+            //   const result = await generateCheckoutSessionAction({
+            //     userId: user.id,
+            //   });
 
-              if (tier.ctaLink) return tier.ctaLink;
+            //   return result.data?.url;
 
-              return buildLemonUrl(
-                attachUserInfo(
-                  tier.href[frequency.value],
-                  {
-                    id: user.id,
-                    email: user.email!,
-                    name: user.name,
-                  },
-                  tier.quantity,
-                ),
-                affiliateCode,
-              );
-            }
+            //   // return buildLemonUrl(
+            //   //   attachUserInfo(
+            //   //     tier.href[frequency.value],
+            //   //     {
+            //   //       id: user.id,
+            //   //       email: user.email!,
+            //   //       name: user.name,
+            //   //     },
+            //   //     tier.quantity,
+            //   //   ),
+            //   //   affiliateCode,
+            //   // );
+            // }
 
-            const href = getHref();
+            // const href = getHref();
 
             function getCTAText() {
               if (isCurrentPlan) return "Current plan";
-              if (premiumTier) return "Switch to this plan";
+              if (userPremiumTier) return "Switch to this plan";
               return tier.cta;
             }
 
@@ -291,13 +297,34 @@ export function Pricing(props: {
                   </ul>
                 </div>
 
-                <a
-                  href={!premiumTier ? href : "#"}
-                  onClick={() => {
-                    if (premiumTier) {
+                <button
+                  type="button"
+                  // href={!premiumTier ? href : "#"}
+                  onClick={async () => {
+                    if (tier.tiers[frequency.value] === userPremiumTier) {
+                      toast.info("You are already on this plan");
+                      return;
+                    }
+
+                    const result = await generateCheckoutSessionAction({
+                      tier: tier.tiers[frequency.value],
+                    });
+
+                    if (!result?.data?.url || result?.serverError) {
+                      toastError({
+                        description:
+                          result?.serverError ||
+                          "Error generating checkout session. Please contact support.",
+                      });
+                      return;
+                    }
+
+                    window.open(result.data.url);
+
+                    if (userPremiumTier) {
                       toast.promise(
                         async () => {
-                          const result = await switchPremiumPlanAction({
+                          const result = await switchLemonPremiumPlanAction({
                             premiumTier: tier.tiers[frequency.value],
                           });
                           if (result?.serverError)
@@ -312,11 +339,6 @@ export function Pricing(props: {
                       );
                     }
                   }}
-                  target={
-                    !premiumTier && href.startsWith("http")
-                      ? "_blank"
-                      : undefined
-                  }
                   aria-describedby={tier.name}
                   className={clsx(
                     tier.mostPopular
@@ -326,7 +348,7 @@ export function Pricing(props: {
                   )}
                 >
                   {getCTAText()}
-                </a>
+                </button>
               </Item>
             );
           })}
@@ -336,61 +358,61 @@ export function Pricing(props: {
   );
 }
 
-function attachUserInfo(
-  url: string,
-  user: { id: string; email: string; name?: string | null },
-  quantity?: number,
-) {
-  if (!user) return url;
+// function attachUserInfo(
+//   url: string,
+//   user: { id: string; email: string; name?: string | null },
+//   quantity?: number,
+// ) {
+//   if (!user) return url;
 
-  let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
-  if (quantity) res += `&quantity=${quantity}`;
-  return res;
-}
+//   let res = `${url}?checkout[custom][user_id]=${user.id}&checkout[email]=${user.email}&checkout[name]=${user.name}`;
+//   if (quantity) res += `&quantity=${quantity}`;
+//   return res;
+// }
 
-function useAffiliateCode() {
-  const searchParams = useSearchParams();
-  const affiliateCode = searchParams.get("aff");
-  return affiliateCode;
-}
+// function useAffiliateCode() {
+//   const searchParams = useSearchParams();
+//   const affiliateCode = searchParams.get("aff");
+//   return affiliateCode;
+// }
 
-function buildLemonUrl(url: string, affiliateCode: string | null) {
-  if (!affiliateCode) return url;
-  const newUrl = `${url}?aff_ref=${affiliateCode}`;
-  return newUrl;
-}
+// function buildLemonUrl(url: string, affiliateCode: string | null) {
+//   if (!affiliateCode) return url;
+//   const newUrl = `${url}?aff_ref=${affiliateCode}`;
+//   return newUrl;
+// }
 
-function getLayoutComponents(
-  pricingVariant: string,
-  premiumTier: PremiumTier | null,
-) {
-  const isBasicTier =
-    premiumTier === PremiumTier.BASIC_MONTHLY ||
-    premiumTier === PremiumTier.BASIC_ANNUALLY;
+// function getLayoutComponents(
+//   pricingVariant: string,
+//   premiumTier: PremiumTier | null,
+// ) {
+//   const isBasicTier =
+//     premiumTier === PremiumTier.BASIC_MONTHLY ||
+//     premiumTier === PremiumTier.BASIC_ANNUALLY;
 
-  if (pricingVariant === "basic-business" || isBasicTier) {
-    return {
-      Layout: TwoColLayout,
-      Item: TwoColItem,
-      tiers: [basicTier, businessTier],
-    };
-  }
+//   if (pricingVariant === "basic-business" || isBasicTier) {
+//     return {
+//       Layout: TwoColLayout,
+//       Item: TwoColItem,
+//       tiers: [basicTier, businessTier],
+//     };
+//   }
 
-  if (pricingVariant === "business-basic" || isBasicTier) {
-    return {
-      Layout: TwoColLayout,
-      Item: TwoColItem,
-      tiers: [businessTier, basicTier],
-    };
-  }
+//   if (pricingVariant === "business-basic" || isBasicTier) {
+//     return {
+//       Layout: TwoColLayout,
+//       Item: TwoColItem,
+//       tiers: [businessTier, basicTier],
+//     };
+//   }
 
-  // control
-  return {
-    Layout: ThreeColLayout,
-    Item: ThreeColItem,
-    tiers: [basicTier, businessTier, enterpriseTier],
-  };
-}
+//   // control
+//   return {
+//     Layout: ThreeColLayout,
+//     Item: ThreeColItem,
+//     tiers: [basicTier, businessTier, enterpriseTier],
+//   };
+// }
 
 function ThreeColLayout({
   children,
@@ -406,29 +428,19 @@ function ThreeColLayout({
   );
 }
 
-function TwoColLayout({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
-      {children}
-    </div>
-  );
-}
-
-function OneColLayout({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={className}>{children}</div>;
-}
+// function TwoColLayout({
+//   children,
+//   className,
+// }: {
+//   children: React.ReactNode;
+//   className?: string;
+// }) {
+//   return (
+//     <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
+//       {children}
+//     </div>
+//   );
+// }
 
 function ThreeColItem({
   children,
@@ -453,29 +465,29 @@ function ThreeColItem({
   );
 }
 
-function TwoColItem({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={clsx("flex flex-col justify-between", className)}>
-      {children}
-    </div>
-  );
-}
+// function TwoColItem({
+//   children,
+//   className,
+// }: {
+//   children: React.ReactNode;
+//   className?: string;
+// }) {
+//   return (
+//     <div className={clsx("flex flex-col justify-between", className)}>
+//       {children}
+//     </div>
+//   );
+// }
 
-function OneColItem({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return <div className={className}>{children}</div>;
-}
+// function OneColItem({
+//   children,
+//   className,
+// }: {
+//   children: React.ReactNode;
+//   className?: string;
+// }) {
+//   return <div className={className}>{children}</div>;
+// }
 
 function Badge({ children }: { children: React.ReactNode }) {
   return (

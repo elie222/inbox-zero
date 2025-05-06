@@ -5,7 +5,7 @@ import { useAction } from "next-safe-action/hooks";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { changePremiumStatusAction } from "@/utils/actions/premium";
+import { adminChangePremiumStatusAction } from "@/utils/actions/premium";
 import { Select } from "@/components/Select";
 import {
   changePremiumStatusSchema,
@@ -17,7 +17,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AdminUpgradeUserForm = () => {
   const { execute: changePremiumStatus, isExecuting } = useAction(
-    changePremiumStatusAction,
+    adminChangePremiumStatusAction,
     {
       onSuccess: () => {
         toastSuccess({

@@ -155,24 +155,3 @@ export const deleteEmailAccountAction = actionClientUser
       await updateAccountSeats({ userId });
     });
   });
-
-export const getBillingPortalUrlAction = actionClientUser
-  .metadata({ name: "getBillingPortalUrl" })
-  .action(async ({ ctx: { userId } }) => {
-    const stripe = getStripe();
-
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { premium: { select: { stripeCustomerId: true } } },
-    });
-
-    if (!user?.premium?.stripeCustomerId)
-      throw new SafeError("Stripe customer id not found");
-
-    const { url } = await stripe.billingPortal.sessions.create({
-      customer: user.premium.stripeCustomerId,
-      return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
-    });
-
-    return { url };
-  });

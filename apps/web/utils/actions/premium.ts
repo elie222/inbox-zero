@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { after } from "next/server";
 import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
@@ -18,7 +19,7 @@ import {
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { getVariantId } from "@/app/(app)/premium/config";
+import { getStripePriceId, getVariantId } from "@/app/(app)/premium/config";
 import {
   actionClientUser,
   adminActionClient,
@@ -26,6 +27,14 @@ import {
 import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
+import { getStripe } from "@/ee/billing/stripe";
+import {
+  trackStripeCheckoutCreated,
+  trackStripeCustomerCreated,
+} from "@/utils/posthog";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("actions/premium");
 
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
@@ -174,8 +183,8 @@ export const updateMultiAccountPremiumAction = actionClientUser
     });
   });
 
-export const switchPremiumPlanAction = actionClientUser
-  .metadata({ name: "switchPremiumPlan" })
+export const switchLemonPremiumPlanAction = actionClientUser
+  .metadata({ name: "switchLemonPremiumPlan" })
   .schema(z.object({ premiumTier: z.nativeEnum(PremiumTier) }))
   .action(async ({ ctx: { userId }, parsedInput: { premiumTier } }) => {
     const user = await prisma.user.findUnique({
@@ -237,8 +246,8 @@ export const activateLicenseKeyAction = actionClientUser
     });
   });
 
-export const changePremiumStatusAction = adminActionClient
-  .metadata({ name: "changePremiumStatus" })
+export const adminChangePremiumStatusAction = adminActionClient
+  .metadata({ name: "adminChangePremiumStatus" })
   .schema(changePremiumStatusSchema)
   .action(
     async ({
@@ -345,4 +354,87 @@ export const claimPremiumAdminAction = actionClientUser
       where: { id: user.premium.id },
       data: { admins: { connect: { id: userId } } },
     });
+  });
+
+export const getBillingPortalUrlAction = actionClientUser
+  .metadata({ name: "getBillingPortalUrl" })
+  .action(async ({ ctx: { userId } }) => {
+    const stripe = getStripe();
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { premium: { select: { stripeCustomerId: true } } },
+    });
+
+    if (!user?.premium?.stripeCustomerId)
+      throw new SafeError("Stripe customer id not found");
+
+    const { url } = await stripe.billingPortal.sessions.create({
+      customer: user.premium.stripeCustomerId,
+      return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+    });
+
+    return { url };
+  });
+
+export const generateCheckoutSessionAction = actionClientUser
+  .metadata({ name: "generateCheckoutSession" })
+  .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
+  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+    const priceId = getStripePriceId({ tier });
+
+    if (!priceId) throw new SafeError("Unknown tier. Contact support.");
+
+    const stripe = getStripe();
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        premium: { select: { id: true, stripeCustomerId: true } },
+      },
+    });
+    if (!user) {
+      logger.error("User not found", { userId });
+      throw new Error("User not found");
+    }
+
+    // Get the stripeCustomerId from your KV store
+    let stripeCustomerId = user.premium?.stripeCustomerId;
+
+    // Create a new Stripe customer if this user doesn't have one
+    if (!stripeCustomerId) {
+      const newCustomer = await stripe.customers.create(
+        {
+          email: user.email,
+          metadata: { userId },
+        },
+        // prevent race conditions of creating 2 customers in stripe for on user
+        // https://github.com/stripe/stripe-node/issues/476#issuecomment-402541143
+        { idempotencyKey: userId },
+      );
+
+      after(() => trackStripeCustomerCreated(user.email, newCustomer.id));
+
+      // Store the relation between userId and stripeCustomerId
+      const premium = user.premium || (await createPremiumForUser({ userId }));
+
+      await prisma.premium.update({
+        where: { id: premium.id },
+        data: { stripeCustomerId },
+      });
+
+      stripeCustomerId = newCustomer.id;
+    }
+
+    // ALWAYS create a checkout with a stripeCustomerId
+    const checkout = await stripe.checkout.sessions.create({
+      customer: stripeCustomerId,
+      success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      line_items: [{ price: priceId, quantity: 1 }],
+    });
+
+    after(() => trackStripeCheckoutCreated(user.email));
+
+    return { url: checkout.url };
   });
