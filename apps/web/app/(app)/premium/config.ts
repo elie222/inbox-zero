@@ -74,11 +74,18 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BASIC_ANNUALLY]: {},
   [PremiumTier.PRO_MONTHLY]: {},
   [PremiumTier.PRO_ANNUALLY]: {},
-  // TODO: env
-  [PremiumTier.BUSINESS_MONTHLY]: { priceId: "" },
-  [PremiumTier.BUSINESS_ANNUALLY]: { priceId: "" },
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: { priceId: "" },
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: { priceId: "" },
+  [PremiumTier.BUSINESS_MONTHLY]: {
+    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
+  },
+  [PremiumTier.BUSINESS_ANNUALLY]: {
+    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
+  },
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
+    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+  },
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
+    priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
+  },
   [PremiumTier.COPILOT_MONTHLY]: {},
   [PremiumTier.LIFETIME]: {},
 };
