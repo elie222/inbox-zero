@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
+import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
@@ -418,7 +419,17 @@ export const generateCheckoutSessionAction = actionClientUser
       where: { id: userId },
       select: {
         email: true,
-        premium: { select: { id: true, stripeCustomerId: true } },
+        premium: {
+          select: {
+            id: true,
+            stripeCustomerId: true,
+            users: {
+              select: {
+                _count: { select: { emailAccounts: true } },
+              },
+            },
+          },
+        },
       },
     });
     if (!user) {
@@ -454,12 +465,16 @@ export const generateCheckoutSessionAction = actionClientUser
       });
     }
 
+    const quantity =
+      sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
+
     // ALWAYS create a checkout with a stripeCustomerId
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: { trial_period_days: 7 },
+      line_items: [{ price: priceId, quantity }],
     });
 
     after(() => trackStripeCheckoutCreated(user.email));
