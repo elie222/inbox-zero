@@ -45,7 +45,7 @@ export function Pricing(props: {
   // const [frequency, setFrequency] = useState(
   //   defaultFrequency === "monthly" ? frequencies[0] : frequencies[1],
   // );
-  const [frequency, setFrequency] = useState(frequencies[0]);
+  const [frequency, setFrequency] = useState(frequencies[1]);
 
   const userPremiumTier = getUserTier(premium);
 
