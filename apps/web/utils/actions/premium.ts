@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import sumBy from "lodash/sumBy";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
@@ -372,15 +371,6 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
-            users: {
-              select: {
-                _count: {
-                  select: {
-                    emailAccounts: true,
-                  },
-                },
-              },
-            },
           },
         },
       },
@@ -388,8 +378,6 @@ export const getBillingPortalUrlAction = actionClientUser
 
     if (!user?.premium?.stripeCustomerId)
       throw new SafeError("Stripe customer id not found");
-
-    const quantity = sumBy(user.premium.users, (u) => u._count.emailAccounts);
 
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
@@ -405,7 +393,6 @@ export const getBillingPortalUrlAction = actionClientUser
                 items: [
                   {
                     id: user.premium.stripeSubscriptionItemId,
-                    quantity,
                     price: priceId,
                   },
                 ],
