@@ -66,9 +66,10 @@ async function processEvent(event: Stripe.Event) {
   if (!allowedEvents.includes(event.type)) return;
 
   // All the events we track have a customerId
-  const { customer: customerId } = event?.data?.object as { customer: string };
+  const customerId =
+    "customer" in event.data.object ? event.data.object.customer : null;
 
-  if (typeof customerId !== "string") {
+  if (!customerId || typeof customerId !== "string") {
     logger.error("ID isn't string", { event });
     throw new Error(`ID isn't string.\nEvent type: ${event.type}`);
   }
