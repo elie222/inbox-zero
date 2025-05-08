@@ -536,7 +536,7 @@ export const createRulesOnboardingAction = actionClient
                 actions: {
                   createMany: {
                     data: [
-                      { type: ActionType.LABEL, label: "Newsletter" },
+                      { type: ActionType.LABEL, label },
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
                         : []),
