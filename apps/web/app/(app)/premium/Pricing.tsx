@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
@@ -36,7 +37,9 @@ export function Pricing(props: {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
 }) {
-  const { isPremium, premium, isLoading, error } = usePremium();
+  const { isPremium, premium, isLoading, error, data } = usePremium();
+
+  const isLoggedIn = !!data?.id;
 
   // const defaultFrequency = usePricingFrequencyDefault();
   // const [frequency, setFrequency] = useState(
@@ -85,6 +88,8 @@ export function Pricing(props: {
   const hasBothStripeAndLemon = !!(
     premium?.stripeSubscriptionId && premium?.lemonSqueezyCustomerId
   );
+
+  const router = useRouter();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
@@ -202,6 +207,8 @@ export function Pricing(props: {
                 userPremiumTier={userPremiumTier}
                 frequency={frequency}
                 stripeSubscriptionId={premium?.stripeSubscriptionId}
+                isLoggedIn={isLoggedIn}
+                router={router}
               />
             );
           })}
@@ -216,11 +223,15 @@ function PriceTier({
   userPremiumTier,
   frequency,
   stripeSubscriptionId,
+  isLoggedIn,
+  router,
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
   frequency: (typeof frequencies)[number];
   stripeSubscriptionId: string | null | undefined;
+  isLoggedIn: boolean;
+  router: ReturnType<typeof useRouter>;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -299,6 +310,8 @@ function PriceTier({
         type="button"
         disabled={loading}
         onClick={async () => {
+          if (!isLoggedIn) router.push("/login");
+
           setLoading(true);
 
           async function load() {
