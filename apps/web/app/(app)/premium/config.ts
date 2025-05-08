@@ -263,30 +263,30 @@ const businessPlusTier: Tier = {
   mostPopular: true,
 };
 
-const enterpriseTier: Tier = {
-  name: "Enterprise",
-  tiers: {
-    monthly: PremiumTier.COPILOT_MONTHLY,
-    annually: PremiumTier.COPILOT_MONTHLY,
-  },
-  price: { monthly: 0, annually: 0 },
-  priceAdditional: { monthly: 0, annually: 0 },
-  discount: { monthly: 0, annually: 0 },
-  description: "On premise deployment",
-  features: [
-    {
-      text: "25+ accounts",
-    },
-    {
-      text: "On premise deployment",
-    },
-    { text: "Setup assistance" },
-    { text: "Dedicated account manager" },
-  ],
-  cta: "Book a call",
-  ctaLink: env.NEXT_PUBLIC_CALL_LINK,
-  mostPopular: false,
-};
+// const enterpriseTier: Tier = {
+//   name: "Enterprise",
+//   tiers: {
+//     monthly: PremiumTier.COPILOT_MONTHLY,
+//     annually: PremiumTier.COPILOT_MONTHLY,
+//   },
+//   price: { monthly: 0, annually: 0 },
+//   priceAdditional: { monthly: 0, annually: 0 },
+//   discount: { monthly: 0, annually: 0 },
+//   description: "On premise deployment",
+//   features: [
+//     {
+//       text: "25+ accounts",
+//     },
+//     {
+//       text: "On premise deployment",
+//     },
+//     { text: "Setup assistance" },
+//     { text: "Dedicated account manager" },
+//   ],
+//   cta: "Book a call",
+//   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
+//   mostPopular: false,
+// };
 
 export function getLemonSubscriptionTier({
   variantId,
@@ -296,12 +296,6 @@ export function getLemonSubscriptionTier({
   const tier = variantIdToTier[variantId];
   if (!tier) throw new Error(`Unknown variant id: ${variantId}`);
   return tier;
-}
-
-export function getVariantId({ tier }: { tier: PremiumTier }): number {
-  const variantId = tierToVariantId[tier];
-  if (!variantId) throw new Error(`Unknown tier: ${tier}`);
-  return variantId;
 }
 
 export const tiers: Tier[] = [businessTier, businessPlusTier];

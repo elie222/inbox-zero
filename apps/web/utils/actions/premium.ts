@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import sumBy from "lodash/sumBy";
 import { after } from "next/server";
 import uniq from "lodash/uniq";
 import prisma from "@/utils/prisma";
@@ -18,7 +19,7 @@ import {
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
-import { getStripePriceId, getVariantId } from "@/app/(app)/premium/config";
+import { getStripePriceId } from "@/app/(app)/premium/config";
 import {
   actionClientUser,
   adminActionClient,
@@ -357,20 +358,60 @@ export const claimPremiumAdminAction = actionClientUser
 
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
-  .action(async ({ ctx: { userId } }) => {
+  .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
+  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+    const priceId = tier ? getStripePriceId({ tier }) : undefined;
+
     const stripe = getStripe();
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { premium: { select: { stripeCustomerId: true } } },
+      select: {
+        premium: {
+          select: {
+            stripeCustomerId: true,
+            stripeSubscriptionId: true,
+            stripeSubscriptionItemId: true,
+            users: {
+              select: {
+                _count: {
+                  select: {
+                    emailAccounts: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!user?.premium?.stripeCustomerId)
       throw new SafeError("Stripe customer id not found");
 
+    const quantity = sumBy(user.premium.users, (u) => u._count.emailAccounts);
+
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
+      flow_data:
+        user.premium.stripeSubscriptionId &&
+        user.premium.stripeSubscriptionItemId &&
+        priceId
+          ? {
+              type: "subscription_update_confirm",
+              subscription_update_confirm: {
+                subscription: user.premium.stripeSubscriptionId,
+                items: [
+                  {
+                    id: user.premium.stripeSubscriptionItemId,
+                    quantity,
+                    price: priceId,
+                  },
+                ],
+              },
+            }
+          : undefined,
     });
 
     return { url };

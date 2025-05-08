@@ -78,7 +78,7 @@ export function Pricing(props: {
   const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
 
   const hasBothStripeAndLemon = !!(
-    premium?.stripeSubscriptionStatus && premium?.lemonSqueezyCustomerId
+    premium?.stripeSubscriptionId && premium?.lemonSqueezyCustomerId
   );
 
   return (
@@ -91,12 +91,12 @@ export function Pricing(props: {
 
         {isPremium && (
           <div className="mb-8 mt-8 text-center">
-            {premium?.stripeSubscriptionStatus && (
+            {premium?.stripeSubscriptionId && (
               <Button
                 loading={loadingBillingPortal}
                 onClick={async () => {
                   setLoadingBillingPortal(true);
-                  const result = await getBillingPortalUrlAction();
+                  const result = await getBillingPortalUrlAction({});
                   setLoadingBillingPortal(false);
                   const url = result?.data?.url;
                   if (result?.serverError || !url) {
@@ -272,9 +272,15 @@ export function Pricing(props: {
                       return;
                     }
 
-                    const result = await generateCheckoutSessionAction({
-                      tier: tier.tiers[frequency.value],
-                    });
+                    const upgradeToTier = tier.tiers[frequency.value];
+
+                    const result = premium?.stripeSubscriptionId
+                      ? await getBillingPortalUrlAction({
+                          tier: upgradeToTier,
+                        })
+                      : await generateCheckoutSessionAction({
+                          tier: upgradeToTier,
+                        });
 
                     if (!result?.data?.url || result?.serverError) {
                       toastError({
