@@ -110,6 +110,7 @@ export function Pricing(props: {
                         result?.serverError ||
                         "Error loading billing portal. Please contact support.",
                     });
+                    return;
                   }
 
                   window.open(url);
