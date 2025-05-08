@@ -4,7 +4,7 @@ import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index"
 import prisma from "@/utils/prisma";
 import { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { hasTierAccess } from "@/utils/premium";
+import { hasTierAccess, isPremium } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("premium");
@@ -176,7 +176,6 @@ export async function checkHasAccess({
       premium: {
         select: {
           tier: true,
-          // TODO: check status/lemon
           stripeSubscriptionStatus: true,
           lemonSqueezyRenewsAt: true,
         },
@@ -185,6 +184,15 @@ export async function checkHasAccess({
   });
 
   if (!user) throw new SafeError("User not found");
+
+  if (
+    !isPremium(
+      user?.premium?.lemonSqueezyRenewsAt || null,
+      user?.premium?.stripeSubscriptionStatus || null,
+    )
+  ) {
+    return false;
+  }
 
   return hasTierAccess({
     tier: user.premium?.tier || null,
