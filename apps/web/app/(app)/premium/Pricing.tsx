@@ -297,6 +297,7 @@ function PriceTier({
 
       <button
         type="button"
+        disabled={loading}
         onClick={async () => {
           setLoading(true);
 

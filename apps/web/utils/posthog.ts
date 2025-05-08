@@ -260,6 +260,6 @@ export async function trackPaymentSuccess({
   });
 }
 
-export async function trackStripeEvent(email: string, event: Stripe.Event) {
-  return posthogCaptureEvent(email, "Stripe event", event);
+export async function trackStripeEvent(email: string, data: any) {
+  return posthogCaptureEvent(email, "Stripe event", data);
 }

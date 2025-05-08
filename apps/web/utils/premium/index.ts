@@ -5,7 +5,10 @@ export const isPremium = (
   stripeSubscriptionStatus: string | null,
 ): boolean => {
   if (lemonSqueezyRenewsAt) return new Date(lemonSqueezyRenewsAt) > new Date();
-  if (stripeSubscriptionStatus) return stripeSubscriptionStatus === "active";
+  if (stripeSubscriptionStatus) {
+    const activeStatuses = ["active", "trialing"];
+    return activeStatuses.includes(stripeSubscriptionStatus);
+  }
 
   return false;
 };

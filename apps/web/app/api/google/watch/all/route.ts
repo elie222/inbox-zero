@@ -18,7 +18,10 @@ async function watchAllEmails() {
     where: {
       user: {
         premium: {
-          lemonSqueezyRenewsAt: { gt: new Date() },
+          OR: [
+            { lemonSqueezyRenewsAt: { gt: new Date() } },
+            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+          ],
         },
       },
     },

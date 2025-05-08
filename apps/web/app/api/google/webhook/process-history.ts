@@ -80,6 +80,8 @@ export async function processHistoryForUser(
     logger.info("Account not premium", {
       email,
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
+      stripeSubscriptionStatus:
+        emailAccount.user.premium?.stripeSubscriptionStatus,
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
