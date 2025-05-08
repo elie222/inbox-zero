@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
 import { useSession } from "next-auth/react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -26,7 +25,6 @@ import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
 import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
-import { env } from "@/env";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";
@@ -212,20 +210,9 @@ function MultiAccountForm({
         })}
       </div>
 
-      {needsToPurchaseMoreSeats ? (
-        <Button type="button" loading={isExecuting} asChild>
-          <Link
-            href={`${env.NEXT_PUBLIC_LIFETIME_EXTRA_SEATS_PAYMENT_LINK}?quantity=${extraSeats}`}
-            target="_blank"
-          >
-            Purchase {extraSeats} Extra Seat{extraSeats > 1 ? "s" : ""}
-          </Link>
-        </Button>
-      ) : (
-        <Button type="submit" loading={isExecuting}>
-          Save
-        </Button>
-      )}
+      <Button type="submit" loading={isExecuting}>
+        Save
+      </Button>
     </form>
   );
 }

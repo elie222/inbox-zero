@@ -33,9 +33,8 @@ export async function processHistoryItem(
     gmail,
     emailAccount,
     accessToken,
-    hasColdEmailAccess,
     hasAutomationRules,
-    hasAiAutomationAccess,
+    hasAiAccess,
     rules,
   }: ProcessHistoryOptions,
 ) {
@@ -136,7 +135,7 @@ export async function processHistoryItem(
 
     const shouldRunBlocker = shouldRunColdEmailBlocker(
       emailAccount.coldEmailBlocker,
-      hasColdEmailAccess,
+      hasAiAccess,
     );
 
     if (shouldRunBlocker) {
@@ -178,7 +177,7 @@ export async function processHistoryItem(
       }
     }
 
-    if (hasAutomationRules && hasAiAutomationAccess) {
+    if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
@@ -262,12 +261,12 @@ async function handleOutbound(
 
 export function shouldRunColdEmailBlocker(
   coldEmailBlocker: ColdEmailSetting | null,
-  hasColdEmailAccess: boolean,
+  hasAiAccess: boolean,
 ) {
   return (
     (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL ||
       coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
-    hasColdEmailAccess
+    hasAiAccess
   );
 }

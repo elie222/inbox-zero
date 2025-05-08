@@ -1,12 +1,9 @@
-"use server";
-
 import { env } from "@/env";
 import {
   lemonSqueezySetup,
   updateSubscriptionItem,
   getCustomer,
   activateLicense,
-  updateSubscription,
 } from "@lemonsqueezy/lemonsqueezy.js";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -47,11 +44,11 @@ export async function activateLemonLicenseKey(
   return activateLicense(licenseKey, name);
 }
 
-export async function switchPremiumPlan(
-  subscriptionId: number,
-  variantId: number,
-) {
-  setUpLemon();
-  logger.info("Switching premium plan", { subscriptionId, variantId });
-  return updateSubscription(subscriptionId, { variantId });
-}
+// export async function switchPremiumPlan(
+//   subscriptionId: number,
+//   variantId: number,
+// ) {
+//   setUpLemon();
+//   logger.info("Switching premium plan", { subscriptionId, variantId });
+//   return updateSubscription(subscriptionId, { variantId });
+// }

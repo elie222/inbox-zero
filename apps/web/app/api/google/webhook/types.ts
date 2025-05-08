@@ -9,8 +9,7 @@ export type ProcessHistoryOptions = {
   accessToken: string;
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
-  hasColdEmailAccess: boolean;
-  hasAiAutomationAccess: boolean;
+  hasAiAccess: boolean;
   emailAccount: Pick<
     EmailAccount,
     "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
