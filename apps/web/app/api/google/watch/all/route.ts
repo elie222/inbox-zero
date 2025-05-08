@@ -107,14 +107,24 @@ async function watchAllEmails() {
 
       await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {
-      if (error instanceof Error && error.message.includes("invalid_grant")) {
-        logger.warn("Invalid grant for user", {
-          email: emailAccount.email,
-          error,
-        });
-      } else {
-        logger.error("Error for user", { userId: emailAccount.email, error });
+      if (error instanceof Error) {
+        if (error.message.includes("invalid_grant")) {
+          logger.warn("Invalid grant for user", {
+            email: emailAccount.email,
+            error,
+          });
+          continue;
+        }
+
+        if (error.message.includes("Mail service not enabled")) {
+          logger.warn("Mail service not enabled for user", {
+            email: emailAccount.email,
+            error,
+          });
+          continue;
+        }
       }
+      logger.error("Error for user", { email: emailAccount.email, error });
     }
   }
 
