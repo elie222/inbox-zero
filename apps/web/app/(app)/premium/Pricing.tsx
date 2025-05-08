@@ -111,7 +111,7 @@ export function Pricing(props: {
                 }}
               >
                 <CreditCardIcon className="mr-2 h-4 w-4" />
-                Manage{hasBothStripeAndLemon ? "" : " Stripe"} subscription
+                Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
               </Button>
             )}
 
@@ -122,7 +122,7 @@ export function Pricing(props: {
                   target="_blank"
                 >
                   <CreditCardIcon className="mr-2 h-4 w-4" />
-                  Manage{hasBothStripeAndLemon ? "" : " Lemon"} subscription
+                  Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
                 </Link>
               </Button>
             )}
