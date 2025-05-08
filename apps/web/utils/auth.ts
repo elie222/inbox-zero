@@ -78,9 +78,9 @@ export const getAuthOptions: (options?: {
               personFields: "emailAddresses,names,photos",
             });
 
-            primaryEmail = profileResponse.data.emailAddresses?.find(
-              (e) => e.metadata?.primary,
-            )?.value;
+            primaryEmail = profileResponse.data.emailAddresses
+              ?.find((e) => e.metadata?.primary)
+              ?.value?.toLowerCase();
             primaryName = profileResponse.data.names?.find(
               (n) => n.metadata?.primary,
             )?.displayName;
