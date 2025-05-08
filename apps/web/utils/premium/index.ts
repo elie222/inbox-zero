@@ -55,7 +55,9 @@ export const hasUnsubscribeAccess = (
   tier: PremiumTier | null,
   unsubscribeCredits?: number | null,
 ): boolean => {
-  return !!tier || unsubscribeCredits !== 0;
+  if (tier) return true;
+  if (unsubscribeCredits && unsubscribeCredits > 0) return true;
+  return false;
 };
 
 export const hasAiAccess = (
