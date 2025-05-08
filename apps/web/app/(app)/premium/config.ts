@@ -3,7 +3,7 @@ import { PremiumTier } from "@prisma/client";
 
 type Feature = { text: string; tooltip?: string };
 
-type Tier = {
+export type Tier = {
   name: string;
   tiers: { monthly: PremiumTier; annually: PremiumTier };
   price: { monthly: number; annually: number };
@@ -208,9 +208,9 @@ const businessTier: Tier = {
     analyticsFeature,
     { text: "Unlimited AI credits" },
     {
-      text: "Limited Knowledge Base",
+      text: "Basic Knowledge Base",
       tooltip:
-        "The knowledge base is used to help draft responses. Store up to 2000 characters in your knowledge base.",
+        "The knowledge base is used to help draft responses. This plan includes 2000 characters in your knowledge base.",
     },
   ],
   cta: "Try free for 7 days",

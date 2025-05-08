@@ -12,7 +12,11 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
-import { pricingAdditonalEmail, tiers } from "@/app/(app)/premium/config";
+import {
+  pricingAdditonalEmail,
+  type Tier,
+  tiers,
+} from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";
@@ -20,6 +24,8 @@ import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
+import type { PremiumTier } from "@prisma/client";
+import { LoadingMiniSpinner } from "@/components/Loading";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
@@ -73,7 +79,6 @@ export function Pricing(props: {
   // };
 
   const Layout = TwoColLayout;
-  const Item = TwoColItem;
 
   const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
 
@@ -190,125 +195,164 @@ export function Pricing(props: {
 
         <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
           {tiers.map((tier) => {
-            const isCurrentPlan =
-              tier.tiers[frequency.value] === userPremiumTier;
-
-            function getCTAText() {
-              if (isCurrentPlan) return "Current plan";
-              if (userPremiumTier) return "Switch to this plan";
-              return tier.cta;
-            }
-
             return (
-              <Item
+              <PriceTier
                 key={tier.name}
-                className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
-                // index={tierIdx}
-              >
-                <div className="flex-1">
-                  <div className="flex items-center justify-between gap-x-4">
-                    <h3
-                      id={tier.name}
-                      className={clsx(
-                        tier.mostPopular ? "text-blue-600" : "text-gray-900",
-                        "font-cal text-lg leading-8",
-                      )}
-                    >
-                      {tier.name}
-                    </h3>
-                    {tier.mostPopular ? <Badge>Popular</Badge> : null}
-                  </div>
-                  <p className="mt-4 text-sm leading-6 text-gray-600">
-                    {tier.description}
-                  </p>
-                  <p className="mt-6 flex items-baseline gap-x-1">
-                    <span className="text-4xl font-bold tracking-tight text-gray-900">
-                      ${tier.price[frequency.value]}
-                    </span>
-                    <span className="text-sm font-semibold leading-6 text-gray-600">
-                      {frequency.priceSuffix}
-                    </span>
-
-                    {!!tier.discount?.[frequency.value] && (
-                      <Badge>
-                        <span className="tracking-wide">
-                          SAVE {tier.discount[frequency.value].toFixed(0)}%
-                        </span>
-                      </Badge>
-                    )}
-                  </p>
-                  {tier.priceAdditional ? (
-                    <p className="mt-3 text-sm leading-6 text-gray-500">
-                      +${formatPrice(tier.priceAdditional[frequency.value])} for
-                      each additional email account
-                    </p>
-                  ) : (
-                    <div className="mt-16" />
-                  )}
-                  <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
-                    {tier.features.map((feature) => (
-                      <li key={feature.text} className="flex gap-x-3">
-                        <CheckIcon
-                          className="h-6 w-5 flex-none text-blue-600"
-                          aria-hidden="true"
-                        />
-                        <span className="flex items-center gap-2">
-                          {feature.text}
-                          {feature.tooltip && (
-                            <TooltipExplanation text={feature.tooltip} />
-                          )}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button
-                  type="button"
-                  // href={!premiumTier ? href : "#"}
-                  onClick={async () => {
-                    if (tier.tiers[frequency.value] === userPremiumTier) {
-                      toast.info("You are already on this plan");
-                      return;
-                    }
-
-                    const upgradeToTier = tier.tiers[frequency.value];
-
-                    const result = premium?.stripeSubscriptionId
-                      ? await getBillingPortalUrlAction({
-                          tier: upgradeToTier,
-                        })
-                      : await generateCheckoutSessionAction({
-                          tier: upgradeToTier,
-                        });
-
-                    if (!result?.data?.url || result?.serverError) {
-                      toastError({
-                        description:
-                          result?.serverError ||
-                          "Error creating checkout session. Please contact support.",
-                      });
-                      return;
-                    }
-
-                    window.open(result.data.url);
-                  }}
-                  aria-describedby={tier.name}
-                  className={clsx(
-                    tier.mostPopular
-                      ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
-                      : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
-                    "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
-                  )}
-                >
-                  {getCTAText()}
-                </button>
-              </Item>
+                tier={tier}
+                userPremiumTier={userPremiumTier}
+                frequency={frequency}
+                stripeSubscriptionId={premium?.stripeSubscriptionId}
+              />
             );
           })}
         </Layout>
       </div>
     </LoadingContent>
+  );
+}
+
+function PriceTier({
+  tier,
+  userPremiumTier,
+  frequency,
+  stripeSubscriptionId,
+}: {
+  tier: Tier;
+  userPremiumTier: PremiumTier | null;
+  frequency: (typeof frequencies)[number];
+  stripeSubscriptionId: string | null | undefined;
+}) {
+  const [loading, setLoading] = useState(false);
+
+  const isCurrentPlan = tier.tiers[frequency.value] === userPremiumTier;
+
+  function getCTAText() {
+    if (isCurrentPlan) return "Current plan";
+    if (userPremiumTier) return "Switch to this plan";
+    return tier.cta;
+  }
+
+  return (
+    <TwoColItem
+      key={tier.name}
+      className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
+    >
+      <div className="flex-1">
+        <div className="flex items-center justify-between gap-x-4">
+          <h3
+            id={tier.name}
+            className={clsx(
+              tier.mostPopular ? "text-blue-600" : "text-gray-900",
+              "font-cal text-lg leading-8",
+            )}
+          >
+            {tier.name}
+          </h3>
+          {tier.mostPopular ? <Badge>Popular</Badge> : null}
+        </div>
+        <p className="mt-4 text-sm leading-6 text-gray-600">
+          {tier.description}
+        </p>
+        <p className="mt-6 flex items-baseline gap-x-1">
+          <span className="text-4xl font-bold tracking-tight text-gray-900">
+            ${tier.price[frequency.value]}
+          </span>
+          <span className="text-sm font-semibold leading-6 text-gray-600">
+            {frequency.priceSuffix}
+          </span>
+
+          {!!tier.discount?.[frequency.value] && (
+            <Badge>
+              <span className="tracking-wide">
+                SAVE {tier.discount[frequency.value].toFixed(0)}%
+              </span>
+            </Badge>
+          )}
+        </p>
+        {tier.priceAdditional ? (
+          <p className="mt-3 text-sm leading-6 text-gray-500">
+            +${formatPrice(tier.priceAdditional[frequency.value])} for each
+            additional email account
+          </p>
+        ) : (
+          <div className="mt-16" />
+        )}
+        <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
+          {tier.features.map((feature) => (
+            <li key={feature.text} className="flex gap-x-3">
+              <CheckIcon
+                className="h-6 w-5 flex-none text-blue-600"
+                aria-hidden="true"
+              />
+              <span className="flex items-center gap-2">
+                {feature.text}
+                {feature.tooltip && (
+                  <TooltipExplanation text={feature.tooltip} />
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      <button
+        type="button"
+        onClick={async () => {
+          setLoading(true);
+
+          async function load() {
+            if (tier.tiers[frequency.value] === userPremiumTier) {
+              toast.info("You are already on this plan");
+              return;
+            }
+
+            const upgradeToTier = tier.tiers[frequency.value];
+
+            const result = stripeSubscriptionId
+              ? await getBillingPortalUrlAction({
+                  tier: upgradeToTier,
+                })
+              : await generateCheckoutSessionAction({
+                  tier: upgradeToTier,
+                });
+
+            if (!result?.data?.url || result?.serverError) {
+              toastError({
+                description:
+                  result?.serverError ||
+                  "Error creating checkout session. Please contact support.",
+              });
+              return;
+            }
+
+            window.open(result.data.url);
+          }
+
+          try {
+            await load();
+          } catch (error) {
+            console.error(error);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        aria-describedby={tier.name}
+        className={clsx(
+          tier.mostPopular
+            ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
+            : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
+          "mt-8 block rounded-md px-3 py-2 text-center text-sm font-semibold leading-6 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600",
+        )}
+      >
+        {loading ? (
+          <div className="flex items-center justify-center py-1">
+            <LoadingMiniSpinner />
+          </div>
+        ) : (
+          getCTAText()
+        )}
+      </button>
+    </TwoColItem>
   );
 }
 
