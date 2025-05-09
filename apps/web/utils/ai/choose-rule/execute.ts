@@ -23,6 +23,7 @@ export async function executeAct({
   gmail,
   executedRule,
   userEmail,
+  userId,
   emailAccountId,
   message,
 }: {
@@ -30,6 +31,7 @@ export async function executeAct({
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
   userEmail: string;
+  userId: string;
   emailAccountId: string;
 }) {
   const logger = createScopedLogger("ai-execute-act").with({
@@ -57,6 +59,7 @@ export async function executeAct({
         email: message,
         action,
         userEmail,
+        userId,
         emailAccountId,
         executedRule,
       });

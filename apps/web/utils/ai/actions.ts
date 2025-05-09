@@ -13,7 +13,7 @@ import {
   markReadThread,
 } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import type { Attachment } from "@/utils/types/mail";
+// import type { Attachment } from "@/utils/types/mail";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
@@ -27,6 +27,7 @@ type ActionFunction<T extends Omit<ActionItem, "type" | "id">> = (options: {
   email: EmailForAction;
   args: T;
   userEmail: string;
+  userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
 }) => Promise<any>;
@@ -36,6 +37,7 @@ export const runActionFunction = async (options: {
   email: EmailForAction;
   action: ActionItem;
   userEmail: string;
+  userId: string;
   emailAccountId: string;
   executedRule: ExecutedRule;
 }) => {
@@ -177,10 +179,10 @@ const mark_spam: ActionFunction<any> = async ({ gmail, email }) => {
 const call_webhook: ActionFunction<any> = async ({
   email,
   args,
-  userEmail,
+  userId,
   executedRule,
 }) => {
-  await callWebhook(userEmail, args.url, {
+  await callWebhook(userId, args.url, {
     email: {
       threadId: email.threadId,
       messageId: email.id,

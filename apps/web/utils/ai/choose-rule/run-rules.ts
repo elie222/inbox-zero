@@ -121,6 +121,7 @@ async function executeMatchedRule(
     await executeAct({
       gmail,
       userEmail: emailAccount.email,
+      userId: emailAccount.userId,
       emailAccountId: emailAccount.id,
       executedRule,
       message,
