@@ -52,14 +52,9 @@ model User {
   sessions      Session[]
 
   // additional fields
-  about                     String? // deprecated
-  signature                 String? // deprecated
-  watchEmailsExpirationDate DateTime? // deprecated
-  lastSyncedHistoryId       String? // deprecated
   completedOnboardingAt     DateTime? // questions about the user. e.g. their role
   completedAppOnboardingAt  DateTime? // how to use the app
   onboardingAnswers         Json?
-  behaviorProfile           Json? // deprecated
   lastLogin                 DateTime?
   utms                      Json?
   errorMessages             Json? // eg. user set incorrect AI API key
@@ -68,17 +63,7 @@ model User {
   aiProvider            String?
   aiModel               String?
   aiApiKey              String?
-  statsEmailFrequency   Frequency         @default(WEEKLY) // deprecated
-  summaryEmailFrequency Frequency         @default(WEEKLY) // deprecated
-  lastSummaryEmailAt    DateTime? // deprecated
-  coldEmailBlocker      ColdEmailSetting? // deprecated
-  coldEmailPrompt       String? // deprecated
-  rulesPrompt           String? // deprecated
   webhookSecret         String?
-  outboundReplyTracking Boolean           @default(false) // deprecated
-
-  // categorization
-  autoCategorizeSenders Boolean @default(false) // deprecated
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -90,8 +75,6 @@ model User {
   apiKeys ApiKey[]
 
   emailAccounts EmailAccount[]
-
-  @@index([lastSummaryEmailAt])
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -111,17 +94,12 @@ model EmailAccount {
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
 
-  // TODO: move these into user level again. run migratio to move over data
-  aiProvider            String? // deprecated
-  aiModel               String? // deprecated
-  aiApiKey              String? // deprecated
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
   coldEmailBlocker      ColdEmailSetting?
   coldEmailPrompt       String?
   rulesPrompt           String?
-  webhookSecret         String? // deprecated
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
 
@@ -485,7 +463,6 @@ model CleanupJob {
   skipAttachment   Boolean?
   skipConversation Boolean?
 
-  // email          String // deprecated
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
