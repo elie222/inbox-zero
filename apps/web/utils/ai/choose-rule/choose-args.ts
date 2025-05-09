@@ -30,14 +30,12 @@ export async function getActionItemsWithAiArgs({
   selectedRule: RuleWithActions;
   gmail: gmail_v1.Gmail;
 }): Promise<Action[]> {
-  const email = getEmailForLLM(message);
-
-  const draftEmailActions = selectedRule.actions.filter(
-    (action) => action.type === ActionType.DRAFT_EMAIL,
-  );
-
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
+  const draftEmailActions = selectedRule.actions.filter(
+    (action) => action.type === ActionType.DRAFT_EMAIL && !action.content,
+  );
+
   let draft: string | null = null;
 
   if (draftEmailActions.length) {
@@ -53,7 +51,7 @@ export async function getActionItemsWithAiArgs({
   if (parameters.length === 0 && !draft) return selectedRule.actions;
 
   const result = await aiGenerateArgs({
-    email,
+    email: getEmailForLLM(message),
     emailAccount,
     selectedRule,
     parameters,
