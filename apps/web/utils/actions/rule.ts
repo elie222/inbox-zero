@@ -42,6 +42,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
+import { after } from "next/server";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -357,38 +358,41 @@ export const deleteRuleAction = actionClient
         groupId: rule.groupId,
       });
 
-      const emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: {
-          id: true,
-          userId: true,
-          email: true,
-          about: true,
-          rulesPrompt: true,
-          user: {
-            select: {
-              aiModel: true,
-              aiProvider: true,
-              aiApiKey: true,
+      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+
+      after(async () => {
+        const emailAccount = await prisma.emailAccount.findUnique({
+          where: { id: emailAccountId },
+          select: {
+            id: true,
+            userId: true,
+            email: true,
+            about: true,
+            rulesPrompt: true,
+            user: {
+              select: {
+                aiModel: true,
+                aiProvider: true,
+                aiApiKey: true,
+              },
             },
           },
-        },
-      });
-      if (!emailAccount) return { error: "User not found" };
+        });
+        if (!emailAccount) return { error: "User not found" };
 
-      if (!emailAccount.rulesPrompt) return;
+        if (!emailAccount.rulesPrompt) return;
 
-      const updatedPrompt = await generatePromptOnDeleteRule({
-        emailAccount,
-        existingPrompt: emailAccount.rulesPrompt,
-        deletedRule: rule,
-      });
+        const updatedPrompt = await generatePromptOnDeleteRule({
+          emailAccount,
+          existingPrompt: emailAccount.rulesPrompt,
+          deletedRule: rule,
+        });
 
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: { rulesPrompt: updatedPrompt },
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { rulesPrompt: updatedPrompt },
+        });
       });
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
     } catch (error) {
       if (isNotFoundError(error)) return;
       throw error;
