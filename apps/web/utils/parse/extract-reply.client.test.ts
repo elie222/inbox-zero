@@ -111,4 +111,14 @@ describe("extractEmailReply", () => {
     );
     expect(result.originalHtml).toContain("gmail_quote");
   });
+
+  it("handles more complex draft with formatting and <br> separator", () => {
+    const html = `<div dir="ltr">hi,<div><br></div><div>this is a test</div></div><br><div class="gmail_quote gmail_quote_container"><div dir="ltr" class="gmail_attr">On Mon, 5 May 2025 at 22:27, Matt &lt;<a href="mailto:xyz">examplecom</a>&gt; wrote:<br></div><blockquote class="gmail_quote" style="margin:0px 0px 0px 0.8ex;border-left:1px solid rgb(204,204,204);padding-left:1ex"><div dir="ltr">:)</div></blockquote></div>`;
+
+    const result = extractEmailReply(html);
+    expect(result.draftHtml).toBe(
+      '<div dir="ltr">hi,<div><br></div><div>this is a test</div></div>',
+    );
+    expect(result.originalHtml).toContain("gmail_quote");
+  });
 });
