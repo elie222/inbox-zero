@@ -38,9 +38,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
       }
       extraDescription={
         <div className="mt-4 text-left">
-          <p>
-            <SectionDescription>We label your emails with:</SectionDescription>
-          </p>
+          <SectionDescription>We label your emails with:</SectionDescription>
 
           <SectionDescription>
             <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> - emails you

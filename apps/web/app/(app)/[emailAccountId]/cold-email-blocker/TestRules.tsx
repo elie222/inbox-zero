@@ -16,7 +16,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { SearchForm } from "@/components/SearchForm";
-import { TableCell, TableRow } from "@/components/ui/table";
+import { TableCell, TableRow, Table, TableBody } from "@/components/ui/table";
 import { CardContent } from "@/components/ui/card";
 import { testColdEmailAction } from "@/utils/actions/cold-email";
 import type { ColdEmailBlockerBody } from "@/utils/actions/cold-email.validation";
@@ -57,17 +57,17 @@ export function TestRulesContent() {
 
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div>
-            {data.messages.map((message) => {
-              return (
+          <Table>
+            <TableBody>
+              {data.messages.map((message) => (
                 <TestRulesContentRow
                   key={message.id}
                   message={message}
                   userEmail={userEmail}
                 />
-              );
-            })}
-          </div>
+              ))}
+            </TableBody>
+          </Table>
         )}
       </LoadingContent>
     </div>
