@@ -1,15 +1,15 @@
 "use server";
 
 import prisma from "@/utils/prisma";
-import { actionClient } from "@/utils/actions/safe-action";
+import { actionClientUser } from "@/utils/actions/safe-action";
 
-export const regenerateWebhookSecretAction = actionClient
+export const regenerateWebhookSecretAction = actionClientUser
   .metadata({ name: "regenerateWebhookSecret" })
-  .action(async ({ ctx: { emailAccountId } }) => {
+  .action(async ({ ctx: { userId } }) => {
     const webhookSecret = generateWebhookSecret();
 
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
+    await prisma.user.update({
+      where: { id: userId },
       data: { webhookSecret },
     });
   });

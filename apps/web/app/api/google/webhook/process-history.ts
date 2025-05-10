@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
-import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
+import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
@@ -55,8 +55,8 @@ export async function processHistoryForUser(
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
-              coldEmailBlockerAccess: true,
-              aiAutomationAccess: true,
+              stripeSubscriptionStatus: true,
+              tier: true,
             },
           },
         },
@@ -71,6 +71,7 @@ export async function processHistoryForUser(
 
   const premium = isPremium(
     emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+    emailAccount.user.premium?.stripeSubscriptionStatus || null,
   )
     ? emailAccount.user.premium
     : undefined;
@@ -79,6 +80,8 @@ export async function processHistoryForUser(
     logger.info("Account not premium", {
       email,
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
+      stripeSubscriptionStatus:
+        emailAccount.user.premium?.stripeSubscriptionStatus,
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
@@ -89,17 +92,10 @@ export async function processHistoryForUser(
     return NextResponse.json({ ok: true });
   }
 
-  const userHasAiAccess = hasAiAccess(
-    premium.aiAutomationAccess,
-    emailAccount.user.aiApiKey,
-  );
-  const userHasColdEmailAccess = hasColdEmailAccess(
-    premium.coldEmailBlockerAccess,
-    emailAccount.user.aiApiKey,
-  );
+  const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
 
-  if (!userHasAiAccess && !userHasColdEmailAccess) {
-    logger.trace("Does not have hasAiOrColdEmailAccess", { email });
+  if (!userHasAiAccess) {
+    logger.trace("Does not have ai access", { email });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
       accessToken: emailAccount.account?.access_token,
@@ -168,9 +164,8 @@ export async function processHistoryForUser(
         gmail,
         accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
+        hasAiAccess: userHasAiAccess,
         rules: emailAccount.rules,
-        hasColdEmailAccess: userHasColdEmailAccess,
-        hasAiAutomationAccess: userHasAiAccess,
         emailAccount,
       });
     } else {
@@ -190,6 +185,11 @@ export async function processHistoryForUser(
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "invalid_grant") {
+      logger.warn("Invalid grant", { email });
+      return NextResponse.json({ ok: true });
+    }
+
     captureException(error, { extra: { decodedData } }, email);
     logger.error("Error processing webhook", {
       decodedData,

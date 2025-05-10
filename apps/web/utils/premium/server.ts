@@ -1,14 +1,17 @@
 import sumBy from "lodash/sumBy";
-import { updateSubscriptionItemQuantity } from "@/app/api/lemon-squeezy/api";
+import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
+import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import { FeatureAccess, PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { hasTierAccess, isPremium } from "@/utils/premium";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
-export async function upgradeToPremium(options: {
+export async function upgradeToPremiumLemon(options: {
   userId: string;
   tier: PremiumTier;
   lemonSqueezyRenewsAt: Date | null;
@@ -39,7 +42,6 @@ export async function upgradeToPremium(options: {
   const data = {
     ...rest,
     lemonSqueezyRenewsAt,
-    ...getTierAccess(options.tier),
   };
 
   if (user.premiumId) {
@@ -59,7 +61,7 @@ export async function upgradeToPremium(options: {
   });
 }
 
-export async function extendPremium(options: {
+export async function extendPremiumLemon(options: {
   premiumId: string;
   lemonSqueezyRenewsAt: Date;
 }) {
@@ -76,7 +78,7 @@ export async function extendPremium(options: {
   });
 }
 
-export async function cancelPremium({
+export async function cancelPremiumLemon({
   premiumId,
   lemonSqueezyEndsAt,
   variantId,
@@ -118,57 +120,6 @@ export async function cancelPremium({
   });
 }
 
-export async function editEmailAccountsAccess(options: {
-  premiumId: string;
-  count: number;
-}) {
-  const { count } = options;
-  if (!count) return;
-
-  return await prisma.premium.update({
-    where: { id: options.premiumId },
-    data: {
-      emailAccountsAccess:
-        count > 0 ? { increment: count } : { decrement: count },
-    },
-    select: {
-      users: {
-        select: { email: true },
-      },
-    },
-  });
-}
-
-function getTierAccess(tier: PremiumTier) {
-  switch (tier) {
-    case PremiumTier.BASIC_MONTHLY:
-    case PremiumTier.BASIC_ANNUALLY:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.LOCKED,
-        coldEmailBlockerAccess: FeatureAccess.LOCKED,
-      };
-    case PremiumTier.PRO_MONTHLY:
-    case PremiumTier.PRO_ANNUALLY:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
-        coldEmailBlockerAccess: FeatureAccess.UNLOCKED_WITH_API_KEY,
-      };
-    case PremiumTier.BUSINESS_MONTHLY:
-    case PremiumTier.BUSINESS_ANNUALLY:
-    case PremiumTier.COPILOT_MONTHLY:
-    case PremiumTier.LIFETIME:
-      return {
-        bulkUnsubscribeAccess: FeatureAccess.UNLOCKED,
-        aiAutomationAccess: FeatureAccess.UNLOCKED,
-        coldEmailBlockerAccess: FeatureAccess.UNLOCKED,
-      };
-    default:
-      throw new Error(`Unknown premium tier: ${tier}`);
-  }
-}
-
 export async function updateAccountSeats({ userId }: { userId: string }) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -176,6 +127,7 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
       premium: {
         select: {
           lemonSqueezySubscriptionItemId: true,
+          stripeSubscriptionItemId: true,
           users: {
             select: {
               _count: { select: { emailAccounts: true } },
@@ -195,16 +147,55 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
     return;
   }
 
-  if (!premium.lemonSqueezySubscriptionItemId) {
-    logger.warn("User has no lemonSqueezySubscriptionItemId", { userId });
-    return;
-  }
-
   // Count all email accounts for all users
   const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
 
-  await updateSubscriptionItemQuantity({
-    id: premium.lemonSqueezySubscriptionItemId,
-    quantity: totalSeats,
+  if (premium.stripeSubscriptionItemId) {
+    await updateStripeSubscriptionItemQuantity({
+      subscriptionItemId: premium.stripeSubscriptionItemId,
+      quantity: totalSeats,
+    });
+  } else if (premium.lemonSqueezySubscriptionItemId) {
+    await updateSubscriptionItemQuantity({
+      id: premium.lemonSqueezySubscriptionItemId,
+      quantity: totalSeats,
+    });
+  }
+}
+
+export async function checkHasAccess({
+  userId,
+  minimumTier,
+}: {
+  userId: string;
+  minimumTier: PremiumTier;
+}): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      premium: {
+        select: {
+          tier: true,
+          stripeSubscriptionStatus: true,
+          lemonSqueezyRenewsAt: true,
+        },
+      },
+    },
+  });
+
+  if (!user) throw new SafeError("User not found");
+
+  if (
+    !isPremium(
+      user?.premium?.lemonSqueezyRenewsAt || null,
+      user?.premium?.stripeSubscriptionStatus || null,
+    )
+  ) {
+    return false;
+  }
+
+  return hasTierAccess({
+    tier: user.premium?.tier || null,
+    minimumTier,
   });
 }

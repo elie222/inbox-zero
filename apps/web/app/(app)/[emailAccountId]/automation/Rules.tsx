@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { toast } from "sonner";
 import { capitalCase } from "capital-case";
 import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
@@ -203,17 +204,35 @@ export function Rules() {
                                   "Are you sure you want to delete this rule?",
                                 );
                                 if (yes) {
-                                  const result = await deleteRule({
-                                    id: rule.id,
-                                  });
+                                  toast.promise(
+                                    async () => {
+                                      const res = await deleteRule({
+                                        id: rule.id,
+                                      });
 
-                                  if (result?.serverError) {
-                                    toastError({
-                                      description: `There was an error deleting your rule. ${result.serverError || ""}`,
-                                    });
-                                  }
+                                      if (
+                                        res?.serverError ||
+                                        res?.validationErrors ||
+                                        res?.bindArgsValidationErrors
+                                      ) {
+                                        throw new Error(
+                                          res?.serverError ||
+                                            "There was an error deleting your rule",
+                                        );
+                                      }
 
-                                  mutate();
+                                      mutate();
+                                    },
+                                    {
+                                      loading: "Deleting rule...",
+                                      success: "Rule deleted",
+                                      error: (error) =>
+                                        `Error deleting rule. ${error.message}`,
+                                      finally: () => {
+                                        mutate();
+                                      },
+                                    },
+                                  );
                                 }
                               }}
                             >

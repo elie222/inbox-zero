@@ -30,9 +30,10 @@ async function sendSummaryAllUpdate() {
       // Only send to premium users
       user: {
         premium: {
-          lemonSqueezyRenewsAt: {
-            gt: new Date(),
-          },
+          OR: [
+            { lemonSqueezyRenewsAt: { gt: new Date() } },
+            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+          ],
         },
       },
       // User at least 4 days old

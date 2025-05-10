@@ -933,7 +933,7 @@ function ActionField({
             className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
             minRows={3}
             rows={3}
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
             value={value || ""}
             {...register(`actions.${i}.${field.name}.value`)}
           />
@@ -955,7 +955,7 @@ function ActionField({
           <input
             className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
             type="text"
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{write greeting}}"
+            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
             {...register(`actions.${i}.${field.name}.value`)}
           />
         </div>

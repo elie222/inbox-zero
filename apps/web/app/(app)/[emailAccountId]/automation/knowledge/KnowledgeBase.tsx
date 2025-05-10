@@ -23,12 +23,12 @@ import {
 import { deleteKnowledgeAction } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import { formatDateSimple } from "@/utils/date";
-import type { Knowledge } from "@prisma/client";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { KnowledgeForm } from "@/app/(app)/[emailAccountId]/automation/knowledge/KnowledgeForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
+import type { Knowledge } from "@prisma/client";
 
 export function KnowledgeBase() {
   const { emailAccountId } = useAccount();
@@ -67,6 +67,7 @@ export function KnowledgeBase() {
               closeDialog={handleClose}
               refetch={mutate}
               editingItem={editingItem}
+              knowledgeItemsCount={data?.items.length || 0}
             />
           </DialogContent>
         </Dialog>

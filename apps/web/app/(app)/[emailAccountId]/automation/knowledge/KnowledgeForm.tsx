@@ -2,6 +2,8 @@
 
 import { useRef } from "react";
 import type { KeyedMutator } from "swr";
+import { CrownIcon } from "lucide-react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { useForm, Controller } from "react-hook-form";
@@ -18,22 +20,34 @@ import {
 } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
-import type { Knowledge } from "@prisma/client";
+import { PremiumTier, type Knowledge } from "@prisma/client";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { usePremium } from "@/components/PremiumAlert";
+import { hasTierAccess } from "@/utils/premium";
+import { AlertWithButton } from "@/components/Alert";
+import { KNOWLEDGE_BASIC_MAX_ITEMS } from "@/utils/config";
 
 export function KnowledgeForm({
   closeDialog,
   refetch,
   editingItem,
+  knowledgeItemsCount,
 }: {
   closeDialog: () => void;
   refetch: KeyedMutator<GetKnowledgeResponse>;
   editingItem: Knowledge | null;
+  knowledgeItemsCount: number;
 }) {
   const { emailAccountId } = useAccount();
+  const { tier } = usePremium();
+
+  const hasFullAccess = hasTierAccess({
+    tier: tier || null,
+    minimumTier: PremiumTier.BUSINESS_PLUS_MONTHLY,
+  });
 
   const {
     register,
@@ -91,6 +105,26 @@ export function KnowledgeForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+      {!editingItem &&
+        !hasFullAccess &&
+        knowledgeItemsCount >= KNOWLEDGE_BASIC_MAX_ITEMS && (
+          <AlertWithButton
+            title="Upgrade to add more knowledge base entries"
+            description={
+              <>
+                Switch to the Business plan to add more knowledge base entries.
+              </>
+            }
+            icon={<CrownIcon className="h-4 w-4" />}
+            button={
+              <Button asChild>
+                <Link href="/premium">Upgrade</Link>
+              </Button>
+            }
+            variant="blue"
+          />
+        )}
+
       <Input
         type="text"
         name="title"

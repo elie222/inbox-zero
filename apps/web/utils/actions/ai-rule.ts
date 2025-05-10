@@ -221,6 +221,7 @@ export const approvePlanAction = actionClient
         message,
         executedRule,
         userEmail: emailAccount.email,
+        userId: emailAccount.userId,
         emailAccountId,
       });
     },

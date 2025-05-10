@@ -100,9 +100,8 @@ describe("processHistoryItem", () => {
     gmail: {} as any,
     email: "user@test.com",
     accessToken: "fake-token",
-    hasColdEmailAccess: false,
     hasAutomationRules: false,
-    hasAiAutomationAccess: false,
+    hasAiAccess: false,
     rules: [],
     history: [] as gmail_v1.Schema$History[],
   };
@@ -197,7 +196,7 @@ describe("processHistoryItem", () => {
         ...getDefaultEmailAccount(),
         coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
       },
-      hasColdEmailAccess: true,
+      hasAiAccess: true,
     };
 
     await processHistoryItem(createHistoryItem(), options);
@@ -230,9 +229,8 @@ describe("processHistoryItem", () => {
         coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
         autoCategorizeSenders: true,
       },
-      hasColdEmailAccess: true,
       hasAutomationRules: true,
-      hasAiAutomationAccess: true,
+      hasAiAccess: true,
     };
 
     await processHistoryItem(createHistoryItem(), options);
