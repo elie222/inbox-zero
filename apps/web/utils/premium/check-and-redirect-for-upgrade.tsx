@@ -9,22 +9,32 @@ export async function checkAndRedirectForUpgrade() {
 
   const session = await auth();
 
-  const email = session?.user.email;
+  const userId = session?.user.id;
 
-  if (!email) redirect("/login");
+  if (!userId) redirect("/login");
 
   const user = await prisma.user.findUnique({
-    where: { email },
+    where: { id: userId },
     select: {
-      premium: { select: { lemonSqueezyRenewsAt: true } },
+      premium: {
+        select: {
+          lemonSqueezyRenewsAt: true,
+          stripeSubscriptionStatus: true,
+        },
+      },
       completedAppOnboardingAt: true,
     },
   });
 
   if (!user) redirect("/login");
 
-  if (!isPremium(user.premium?.lemonSqueezyRenewsAt || null)) {
-    if (!user.completedAppOnboardingAt) redirect("/onboarding");
+  if (
+    !isPremium(
+      user.premium?.lemonSqueezyRenewsAt || null,
+      user.premium?.stripeSubscriptionStatus || null,
+    )
+  ) {
+    if (!user.completedAppOnboardingAt) redirect("/setup");
     else redirect("/welcome-upgrade");
   }
 }

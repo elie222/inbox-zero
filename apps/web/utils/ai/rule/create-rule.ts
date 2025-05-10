@@ -1,19 +1,18 @@
 import type { z } from "zod";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { chatCompletionTools } from "@/utils/llms";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 
 export async function aiCreateRule(
   instructions: string,
-  user: UserAIFields,
-  userEmail: string,
+  emailAccount: EmailAccountWithAI,
 ) {
   const system =
     "You are an AI assistant that helps people manage their emails.";
   const prompt = `Generate a rule for these instructions:\n${instructions}`;
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     tools: {
@@ -22,7 +21,7 @@ export async function aiCreateRule(
         parameters: createRuleSchema,
       },
     },
-    userEmail,
+    userEmail: emailAccount.email,
     label: "Categorize rule",
   });
 

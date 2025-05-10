@@ -1,9 +1,8 @@
 import { z } from "zod";
-import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { NextResponse } from "next/server";
+import { withEmailAccount } from "@/utils/middleware";
 import { getGmailAttachment } from "@/utils/gmail/attachment";
-import { getGmailClient } from "@/utils/gmail/client";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const attachmentQuery = z.object({
   messageId: z.string(),
@@ -14,12 +13,10 @@ const attachmentQuery = z.object({
 // export type AttachmentQuery = z.infer<typeof attachmentQuery>;
 // export type AttachmentResponse = Awaited<ReturnType<typeof getGmailAttachment>>;
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const gmail = getGmailClient(session);
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);
 

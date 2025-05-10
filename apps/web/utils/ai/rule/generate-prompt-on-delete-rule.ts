@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserAIFields } from "@/utils/llms/types";
-import type { User } from "@prisma/client";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
@@ -15,11 +14,11 @@ const parameters = z.object({
 });
 
 export async function generatePromptOnDeleteRule({
-  user,
+  emailAccount,
   existingPrompt,
   deletedRule,
 }: {
-  user: UserAIFields & Pick<User, "email">;
+  emailAccount: EmailAccountWithAI;
   existingPrompt: string;
   deletedRule: RuleWithRelations;
 }): Promise<string> {
@@ -54,11 +53,11 @@ ${deletedRulePrompt}
   logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     prompt,
     system,
     schema: parameters,
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Update prompt on delete rule",
   });
 

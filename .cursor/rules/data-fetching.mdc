@@ -27,17 +27,18 @@ const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
 ```
 
 ## Error Handling
-Use `isActionError` with `toastError` and `toastSuccess`. Success toast is optional:
+
+Use `result?.serverError` with `toastError` and `toastSuccess`. Success toast is optional:
 
 ```typescript
 import { toastError, toastSuccess } from "@/components/Toast";
 
 const onSubmit: SubmitHandler<TestRulesInputs> = useCallback(async (data) => {
   const result = await testAiCustomContentAction({ content: data.message });
-  if (isActionError(result)) {
+  if (result?.serverError) {
     toastError({
       title: "Error testing email",
-      description: result.error,
+      description: result?.serverError || "",
     });
   } else {
     toastSuccess({ description: "Saved!" });

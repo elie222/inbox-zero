@@ -1,41 +1,47 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
-const SYSTEM_PROMPT = `You are an expert assistant that drafts email replies using knowledge base information.
+const system = `You are an expert assistant that drafts email replies using knowledge base information.
 Write a polite and professional email that follows up on the previous conversation.
-Keep it concise and friendly. Don't be pushy.
+Keep it concise and friendly.
+IMPORTANT: Keep the reply short. Aim for 2 sentences at most.
+Don't be pushy.
 Use context from the previous emails and the provided knowledge base to make it relevant and accurate.
+IMPORTANT: Do NOT simply repeat or mirror what the last email said. It doesn't add anything to the conversation to repeat back to them what they just said.
+Your reply should aim to continue the conversation or provide new information based on the context or knowledge base. If you have nothing substantial to add, keep the reply minimal.
 Don't mention that you're an AI.
 Don't reply with a Subject. Only reply with the body of the email.
-Keep it short.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.`;
+Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.
+`;
 
 const getUserPrompt = ({
   messages,
-  user,
+  emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  writingStyle: string | null;
 }) => {
-  const userAbout = user.about
+  const userAbout = emailAccount.about
     ? `Context about the user:
     
 <userAbout>
-${user.about}
+${emailAccount.about}
 </userAbout>
 `
     : "";
@@ -58,9 +64,19 @@ ${emailHistorySummary}
 `
     : "";
 
+  const writingStylePrompt = writingStyle
+    ? `Writing style:
+    
+<writing_style>
+${writingStyle}
+</writing_style>
+`
+    : "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
+${writingStylePrompt}
 
 Here is the context of the email thread (from oldest to newest):
 ${messages
@@ -73,7 +89,7 @@ ${stringifyEmail(msg, 3000)}
      
 Please write a reply to the email.
 ${getTodayForLLM()}
-IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.to}.`.trim();
+IMPORTANT: You are writing an email as ${emailAccount.email}. Write the reply from their perspective.`;
 };
 
 const draftSchema = z.object({
@@ -86,14 +102,16 @@ const draftSchema = z.object({
 
 export async function aiDraftWithKnowledge({
   messages,
-  user,
+  emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  writingStyle: string | null;
 }) {
   try {
     logger.info("Drafting email with knowledge base", {
@@ -102,12 +120,12 @@ export async function aiDraftWithKnowledge({
       hasHistory: !!emailHistorySummary,
     });
 
-    const system = SYSTEM_PROMPT;
     const prompt = getUserPrompt({
       messages,
-      user,
+      emailAccount,
       knowledgeBaseContent,
       emailHistorySummary,
+      writingStyle,
     });
 
     logger.trace("Input", { system, prompt });
@@ -117,8 +135,8 @@ export async function aiDraftWithKnowledge({
       prompt,
       schema: draftSchema,
       usageLabel: "Email draft with knowledge",
-      userAi: user,
-      userEmail: user.email,
+      userAi: emailAccount.user,
+      userEmail: emailAccount.email,
     });
 
     logger.trace("Output", result.object);

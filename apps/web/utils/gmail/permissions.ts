@@ -1,4 +1,4 @@
-import { SCOPES } from "@/utils/auth";
+import { SCOPES } from "@/utils/gmail/scopes";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -7,17 +7,17 @@ const logger = createScopedLogger("Gmail Permissions");
 // TODO: this can also error on network error
 async function checkGmailPermissions({
   accessToken,
-  email,
+  emailAccountId,
 }: {
   accessToken: string;
-  email: string;
+  emailAccountId: string;
 }): Promise<{
   hasAllPermissions: boolean;
   missingScopes: string[];
   error?: string;
 }> {
   if (!accessToken) {
-    logger.error("No access token available", { email });
+    logger.error("No access token available", { emailAccountId });
     return {
       hasAllPermissions: false,
       missingScopes: SCOPES,
@@ -34,7 +34,7 @@ async function checkGmailPermissions({
 
     if (data.error) {
       logger.error("Invalid token or Google API error", {
-        email,
+        emailAccountId,
         error: data.error,
       });
       return {
@@ -52,11 +52,14 @@ async function checkGmailPermissions({
     const hasAllPermissions = missingScopes.length === 0;
 
     if (!hasAllPermissions)
-      logger.info("Missing Gmail permissions", { email, missingScopes });
+      logger.info("Missing Gmail permissions", {
+        emailAccountId,
+        missingScopes,
+      });
 
     return { hasAllPermissions, missingScopes };
   } catch (error) {
-    logger.error("Error checking Gmail permissions", { email, error });
+    logger.error("Error checking Gmail permissions", { emailAccountId, error });
     return {
       hasAllPermissions: false,
       missingScopes: SCOPES, // Assume all scopes are missing if we can't check
@@ -67,22 +70,25 @@ async function checkGmailPermissions({
 
 export async function handleGmailPermissionsCheck({
   accessToken,
-  email,
+  emailAccountId,
 }: {
   accessToken: string;
-  email: string;
+  emailAccountId: string;
 }) {
   const { hasAllPermissions, error, missingScopes } =
-    await checkGmailPermissions({ accessToken, email });
+    await checkGmailPermissions({ accessToken, emailAccountId });
 
   if (error === "invalid_token") {
-    logger.info("Cleaning up invalid Gmail tokens", { email });
+    logger.info("Cleaning up invalid Gmail tokens", { emailAccountId });
     // Clean up invalid tokens
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) return { hasAllPermissions: false, error: "User not found" };
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+    });
+    if (!emailAccount)
+      return { hasAllPermissions: false, error: "Email account not found" };
 
     await prisma.account.update({
-      where: { provider: "google", userId: user.id },
+      where: { id: emailAccount.accountId },
       data: {
         access_token: null,
         refresh_token: null,

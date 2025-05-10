@@ -1,7 +1,6 @@
 import { z } from "zod";
-import type { User } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
@@ -22,13 +21,13 @@ const schema = z.object({
 const braintrust = new Braintrust("cleaner-1");
 
 export async function aiClean({
-  user,
+  emailAccount,
   messageId,
   messages,
   instructions,
   skips,
 }: {
-  user: Pick<User, "about"> & UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   messageId: string;
   messages: EmailForLLM[];
   instructions?: string;
@@ -94,11 +93,11 @@ The current date is ${currentDate}.
   logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Clean",
   });
 

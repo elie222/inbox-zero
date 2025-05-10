@@ -10,7 +10,7 @@ export const maxDuration = 300;
 export default async function AdminPage() {
   const session = await auth();
 
-  if (!isAdmin(session?.user.email)) {
+  if (!isAdmin({ email: session?.user.email })) {
     return (
       <ErrorPage
         title="No Access"

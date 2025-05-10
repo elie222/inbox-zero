@@ -38,13 +38,9 @@ const defaultReceiptSubjects = [
 ];
 
 // Find additional receipts from the user's inbox that don't match the predefined lists
-export async function findReceipts(
-  gmail: gmail_v1.Gmail,
-  accessToken: string,
-  userEmail: string,
-) {
-  const senders = await findReceiptSenders(gmail, accessToken);
-  const subjects = await findReceiptSubjects(gmail, accessToken);
+export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
+  const senders = await findReceiptSenders(gmail);
+  const subjects = await findReceiptSubjects(gmail);
 
   // filter out senders that would match the default list
   const filteredSenders = senders.filter(
@@ -98,9 +94,9 @@ export async function findReceipts(
 
 const receiptSenders = ["invoice", "receipt", "payment"];
 
-async function findReceiptSenders(gmail: gmail_v1.Gmail, accessToken: string) {
+async function findReceiptSenders(gmail: gmail_v1.Gmail) {
   const query = `from:(${receiptSenders.join(" OR ")})`;
-  const messages = await queryBatchMessagesPages(gmail, accessToken, {
+  const messages = await queryBatchMessagesPages(gmail, {
     query,
     maxResults: 100,
   });
@@ -118,9 +114,9 @@ const receiptSubjects = [
   '"billing statement"',
 ];
 
-async function findReceiptSubjects(gmail: gmail_v1.Gmail, accessToken: string) {
+async function findReceiptSubjects(gmail: gmail_v1.Gmail) {
   const query = `subject:(${receiptSubjects.join(" OR ")})`;
-  const messages = await queryBatchMessagesPages(gmail, accessToken, {
+  const messages = await queryBatchMessagesPages(gmail, {
     query,
     maxResults: 100,
   });

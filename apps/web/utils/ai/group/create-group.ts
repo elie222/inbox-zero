@@ -1,9 +1,9 @@
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
-import type { Group, User } from "@prisma/client";
+import type { Group } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 // no longer in use. delete?
@@ -32,13 +32,13 @@ const verifyGroupItemsSchema = z.object({
   reason: z.string(),
 });
 
-const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
+const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
   description: "List email messages. Returns max 20 results.",
   parameters: z.object({
     query: z.string().optional().describe("Optional Gmail search query."),
   }),
   execute: async ({ query }: { query: string | undefined }) => {
-    const { messages } = await queryBatchMessages(gmail, accessToken, {
+    const { messages } = await queryBatchMessages(gmail, {
       query: `${query || ""} -label:sent`.trim(),
       maxResults: 20,
     });
@@ -54,9 +54,8 @@ const listEmailsTool = (gmail: gmail_v1.Gmail, accessToken: string) => ({
 });
 
 export async function aiGenerateGroupItems(
-  user: Pick<User, "email"> & UserAIFields,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
   logger.info("aiGenerateGroupItems", {
@@ -90,18 +89,18 @@ Key guidelines:
   logger.trace("aiGenerateGroupItems", { system, prompt });
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     maxSteps: 10,
     tools: {
-      listEmails: listEmailsTool(gmail, accessToken),
+      listEmails: listEmailsTool(gmail),
       [GENERATE_GROUP_ITEMS]: {
         description: "Create a group",
         parameters: generateGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     label: "Create group",
   });
 
@@ -124,13 +123,12 @@ Key guidelines:
     { senders: [], subjects: [] },
   );
 
-  return await verifyGroupItems(user, gmail, accessToken, group, combinedArgs);
+  return await verifyGroupItems(emailAccount, gmail, group, combinedArgs);
 }
 
 async function verifyGroupItems(
-  user: Pick<User, "email"> & UserAIFields,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
-  accessToken: string,
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
@@ -162,18 +160,18 @@ Guidelines:
 6. When using listEmails, make separate calls for each sender and subject. Do not combine them in a single query.`;
 
   const aiResponse = await chatCompletionTools({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     maxSteps: 10,
     tools: {
-      listEmails: listEmailsTool(gmail, accessToken),
+      listEmails: listEmailsTool(gmail),
       [VERIFY_GROUP_ITEMS]: {
         description: "Remove incorrect or overly broad group criteria",
         parameters: verifyGroupItemsSchema,
       },
     },
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     label: "Verify group criteria",
   });
 

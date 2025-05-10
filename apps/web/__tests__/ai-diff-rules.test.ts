@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-diff-rules
 
@@ -7,14 +8,9 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiDiffRules", () => {
+describe.runIf(isAiTest)("aiDiffRules", () => {
   it("should correctly identify added, edited, and removed rules", async () => {
-    const user = {
-      email: "user@test.com",
-      aiModel: null,
-      aiProvider: null,
-      aiApiKey: null,
-    };
+    const emailAccount = getEmailAccount();
 
     const oldPromptFile = `
 * Label receipts as "Receipt"
@@ -30,7 +26,11 @@ describe.skipIf(!isAiTest)("aiDiffRules", () => {
 * Label all emails from support@company.com as "Support"
     `.trim();
 
-    const result = await aiDiffRules({ user, oldPromptFile, newPromptFile });
+    const result = await aiDiffRules({
+      emailAccount,
+      oldPromptFile,
+      newPromptFile,
+    });
 
     expect(result).toEqual({
       addedRules: ['Label all emails from support@company.com as "Support"'],
@@ -45,17 +45,15 @@ describe.skipIf(!isAiTest)("aiDiffRules", () => {
   }, 15_000);
 
   it("should handle errors gracefully", async () => {
-    const user = {
-      email: "test@example.com",
-      aiProvider: null,
-      aiModel: null,
-      aiApiKey: "invalid-api-key",
+    const emailAccount = {
+      ...getEmailAccount(),
+      user: { ...getEmailAccount().user, aiApiKey: "invalid-api-key" },
     };
     const oldPromptFile = "Some old prompt";
     const newPromptFile = "Some new prompt";
 
     await expect(
-      aiDiffRules({ user, oldPromptFile, newPromptFile }),
+      aiDiffRules({ emailAccount, oldPromptFile, newPromptFile }),
     ).rejects.toThrow();
   });
 });

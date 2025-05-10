@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
-import { hasAiAccess, hasColdEmailAccess, isPremium } from "@/utils/premium";
+import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
@@ -25,120 +25,121 @@ export async function processHistoryForUser(
   // So we need to convert it to lowercase
   const email = emailAddress.toLowerCase();
 
-  const account = await prisma.account.findFirst({
-    where: { user: { email }, provider: "google" },
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { email },
     select: {
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
+      id: true,
+      email: true,
       userId: true,
+      about: true,
+      lastSyncedHistoryId: true,
+      coldEmailBlocker: true,
+      coldEmailPrompt: true,
+      autoCategorizeSenders: true,
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+        },
+      },
+      rules: {
+        where: { enabled: true },
+        include: { actions: true, categoryFilters: true },
+      },
       user: {
         select: {
-          email: true,
-          about: true,
-          lastSyncedHistoryId: true,
-          rules: {
-            where: { enabled: true },
-            include: { actions: true, categoryFilters: true },
-          },
-          coldEmailBlocker: true,
-          coldEmailPrompt: true,
           aiProvider: true,
           aiModel: true,
           aiApiKey: true,
           premium: {
             select: {
               lemonSqueezyRenewsAt: true,
-              coldEmailBlockerAccess: true,
-              aiAutomationAccess: true,
+              stripeSubscriptionStatus: true,
+              tier: true,
             },
           },
-          autoCategorizeSenders: true,
         },
       },
     },
   });
 
-  if (!account) {
+  if (!emailAccount) {
     logger.error("Account not found", { email });
     return NextResponse.json({ ok: true });
   }
 
-  const premium = isPremium(account.user.premium?.lemonSqueezyRenewsAt || null)
-    ? account.user.premium
+  const premium = isPremium(
+    emailAccount.user.premium?.lemonSqueezyRenewsAt || null,
+    emailAccount.user.premium?.stripeSubscriptionStatus || null,
+  )
+    ? emailAccount.user.premium
     : undefined;
 
   if (!premium) {
     logger.info("Account not premium", {
       email,
-      lemonSqueezyRenewsAt: account.user.premium?.lemonSqueezyRenewsAt,
+      lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
+      stripeSubscriptionStatus:
+        emailAccount.user.premium?.stripeSubscriptionStatus,
     });
-    await unwatchEmails(account);
+    await unwatchEmails({
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
+    });
     return NextResponse.json({ ok: true });
   }
 
-  const userHasAiAccess = hasAiAccess(
-    premium.aiAutomationAccess,
-    account.user.aiApiKey,
-  );
-  const userHasColdEmailAccess = hasColdEmailAccess(
-    premium.coldEmailBlockerAccess,
-    account.user.aiApiKey,
-  );
+  const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
 
-  if (!userHasAiAccess && !userHasColdEmailAccess) {
-    logger.trace("Does not have hasAiOrColdEmailAccess", { email });
-    await unwatchEmails(account);
+  if (!userHasAiAccess) {
+    logger.trace("Does not have ai access", { email });
+    await unwatchEmails({
+      emailAccountId: emailAccount.id,
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
+    });
     return NextResponse.json({ ok: true });
   }
 
-  const hasAutomationRules = account.user.rules.length > 0;
+  const hasAutomationRules = emailAccount.rules.length > 0;
   const shouldBlockColdEmails =
-    account.user.coldEmailBlocker &&
-    account.user.coldEmailBlocker !== ColdEmailSetting.DISABLED;
+    emailAccount.coldEmailBlocker &&
+    emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     logger.trace("Has no rules set and cold email blocker disabled", { email });
     return NextResponse.json({ ok: true });
   }
 
-  if (!account.access_token || !account.refresh_token) {
+  if (
+    !emailAccount.account?.access_token ||
+    !emailAccount.account?.refresh_token
+  ) {
     logger.error("Missing access or refresh token", { email });
     return NextResponse.json({ ok: true });
   }
 
-  if (!account.user.email) {
-    // shouldn't ever happen
-    logger.error("Missing user email", { email });
-    return NextResponse.json({ ok: true });
-  }
-
   try {
-    const gmail = await getGmailClientWithRefresh(
-      {
-        accessToken: account.access_token,
-        refreshToken: account.refresh_token,
-        expiryDate: account.expires_at,
-      },
-      account.providerAccountId,
-    );
-
-    // couldn't refresh the token
-    if (!gmail) {
-      logger.error("Failed to refresh token", { email });
-      return NextResponse.json({ ok: true });
-    }
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.account?.access_token,
+      refreshToken: emailAccount.account?.refresh_token,
+      expiresAt: emailAccount.account?.expires_at,
+      emailAccountId: emailAccount.id,
+    });
 
     const startHistoryId =
       options?.startHistoryId ||
       Math.max(
-        Number.parseInt(account.user.lastSyncedHistoryId || "0"),
+        Number.parseInt(emailAccount.lastSyncedHistoryId || "0"),
         historyId - 500, // avoid going too far back
       ).toString();
 
     logger.info("Listing history", {
       startHistoryId,
-      lastSyncedHistoryId: account.user.lastSyncedHistoryId,
+      lastSyncedHistoryId: emailAccount.lastSyncedHistoryId,
       gmailHistoryId: startHistoryId,
       email,
     });
@@ -160,24 +161,12 @@ export async function processHistoryForUser(
 
       await processHistory({
         history: history.history,
-        email,
         gmail,
-        accessToken: account.access_token,
+        accessToken: emailAccount.account?.access_token,
         hasAutomationRules,
-        rules: account.user.rules,
-        hasColdEmailAccess: userHasColdEmailAccess,
-        hasAiAutomationAccess: userHasAiAccess,
-        user: {
-          id: account.userId,
-          email: account.user.email,
-          about: account.user.about || "",
-          aiProvider: account.user.aiProvider,
-          aiModel: account.user.aiModel,
-          aiApiKey: account.user.aiApiKey,
-          coldEmailPrompt: account.user.coldEmailPrompt,
-          coldEmailBlocker: account.user.coldEmailBlocker,
-          autoCategorizeSenders: account.user.autoCategorizeSenders,
-        },
+        hasAiAccess: userHasAiAccess,
+        rules: emailAccount.rules,
+        emailAccount,
       });
     } else {
       logger.info("No history", {
@@ -186,13 +175,21 @@ export async function processHistoryForUser(
       });
 
       // important to save this or we can get into a loop with never receiving history
-      await updateLastSyncedHistoryId(account.user.email, historyId.toString());
+      await updateLastSyncedHistoryId({
+        emailAccountId: emailAccount.id,
+        lastSyncedHistoryId: historyId.toString(),
+      });
     }
 
     logger.info("Completed processing history", { decodedData });
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (error instanceof Error && error.message === "invalid_grant") {
+      logger.warn("Invalid grant", { email });
+      return NextResponse.json({ ok: true });
+    }
+
     captureException(error, { extra: { decodedData } }, email);
     logger.error("Error processing webhook", {
       decodedData,
@@ -206,14 +203,14 @@ export async function processHistoryForUser(
             }
           : error,
     });
+    // returning 200 here, as otherwise PubSub will call the webhook over and over
     return NextResponse.json({ error: true });
-    // be careful about calling an error here with the wrong settings, as otherwise PubSub will call the webhook over and over
-    // return NextResponse.error();
   }
 }
 
 async function processHistory(options: ProcessHistoryOptions) {
-  const { history, email } = options;
+  const { history, emailAccount } = options;
+  const { email: userEmail, id: emailAccountId } = emailAccount;
 
   if (!history?.length) return;
 
@@ -234,11 +231,11 @@ async function processHistory(options: ProcessHistoryOptions) {
       } catch (error) {
         captureException(
           error,
-          { extra: { email, messageId: m.message?.id } },
-          email,
+          { extra: { userEmail, messageId: m.message?.id } },
+          userEmail,
         );
         logger.error("Error processing history item", {
-          email,
+          userEmail,
           messageId: m.message?.id,
           threadId: m.message?.threadId,
           error:
@@ -256,16 +253,22 @@ async function processHistory(options: ProcessHistoryOptions) {
 
   const lastSyncedHistoryId = history[history.length - 1].id;
 
-  await updateLastSyncedHistoryId(email, lastSyncedHistoryId);
+  await updateLastSyncedHistoryId({
+    emailAccountId,
+    lastSyncedHistoryId,
+  });
 }
 
-async function updateLastSyncedHistoryId(
-  email: string,
-  lastSyncedHistoryId?: string | null,
-) {
+async function updateLastSyncedHistoryId({
+  emailAccountId,
+  lastSyncedHistoryId,
+}: {
+  emailAccountId: string;
+  lastSyncedHistoryId?: string | null;
+}) {
   if (!lastSyncedHistoryId) return;
-  await prisma.user.update({
-    where: { email },
+  await prisma.emailAccount.update({
+    where: { id: emailAccountId },
     data: { lastSyncedHistoryId },
   });
 }

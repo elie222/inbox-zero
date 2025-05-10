@@ -64,25 +64,6 @@ describe("Calendar Event Detection", () => {
       expect(result.eventTitle).toBe("Meeting Invitation: Project Review");
     });
 
-    it("should detect Google Calendar links", () => {
-      const email = createTestEmail({
-        headers: {
-          subject: "Quick sync?",
-          from: "colleague@example.com",
-          to: "user@example.com",
-          date: "2024-03-06T00:26:01Z",
-        },
-        textHtml: `
-          Let's have a quick sync. Here's my calendar link:
-          https://calendar.google.com/calendar/event?action=TEMPLATE&...
-        `,
-        textPlain: "Calendar scheduling request",
-      });
-
-      const result = analyzeCalendarEvent(email);
-      expect(result.isCalendarEvent).toBe(true);
-    });
-
     it("should not detect regular emails as calendar events", () => {
       const email = createTestEmail({
         headers: {

@@ -31,7 +31,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    // Skip tests unless explicitly running AI tests
    const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-   describe.skipIf(!isAiTest)("yourFunction", () => {
+   describe.runIf(isAiTest)("yourFunction", () => {
      beforeEach(() => {
        vi.clearAllMocks();
      });
@@ -39,7 +39,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
      test("test case description", async () => {
        // Test implementation
      });
-   });
+   }, 15_000);
    ```
 
 ## Helper Functions
@@ -111,13 +111,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
    console.debug("Generated content:\n", result.content);
    ```
 
-3. Mock external dependencies:
-
-   ```typescript
-   vi.mock("@/utils/llms", () => ({
-     chatCompletionObject: vi.fn(),
-   }));
-   ```
+3. Do not mock the LLM call. We want to call the actual LLM in these tests.
 
 4. Test both AI and non-AI paths:
    ```typescript
@@ -130,13 +124,8 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 
 ## Running Tests
 
-1. Run AI tests with:
+Run AI tests with:
 
    ```bash
    pnpm test-ai your-feature
-   ```
-
-2. Skip AI tests in regular test runs:
-   ```bash
-   pnpm test
    ```

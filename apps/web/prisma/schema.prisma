@@ -13,7 +13,7 @@ model Account {
   id                String   @id @default(cuid())
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  userId            String   @unique // `@unique` was added here. It's not part of the original schema. May remove this in the future
+  userId            String
   type              String
   provider          String
   providerAccountId String
@@ -25,7 +25,8 @@ model Account {
   id_token          String?  @db.Text
   session_state     String?
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount EmailAccount?
 
   @@unique([provider, providerAccountId])
 }
@@ -51,15 +52,9 @@ model User {
   sessions      Session[]
 
   // additional fields
-  about                     String?
-  signature                 String?
-  watchEmailsExpirationDate DateTime?
-  lastSyncedHistoryId       String?
-  completedOnboarding       Boolean   @default(false) // deprecated
   completedOnboardingAt     DateTime? // questions about the user. e.g. their role
   completedAppOnboardingAt  DateTime? // how to use the app
   onboardingAnswers         Json?
-  behaviorProfile           Json?
   lastLogin                 DateTime?
   utms                      Json?
   errorMessages             Json? // eg. user set incorrect AI API key
@@ -68,17 +63,7 @@ model User {
   aiProvider            String?
   aiModel               String?
   aiApiKey              String?
-  statsEmailFrequency   Frequency         @default(WEEKLY)
-  summaryEmailFrequency Frequency         @default(WEEKLY)
-  lastSummaryEmailAt    DateTime?
-  coldEmailBlocker      ColdEmailSetting?
-  coldEmailPrompt       String?
-  rulesPrompt           String?
   webhookSecret         String?
-  outboundReplyTracking Boolean           @default(false)
-
-  // categorization
-  autoCategorizeSenders Boolean @default(false)
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -87,20 +72,55 @@ model User {
   premiumAdminId String?
   premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
 
-  labels            Label[]
-  rules             Rule[]
-  executedRules     ExecutedRule[]
-  newsletters       Newsletter[]
-  coldEmails        ColdEmail[]
-  groups            Group[]
-  apiKeys           ApiKey[]
-  categories        Category[]
-  threadTrackers    ThreadTracker[]
-  unsubscribeTokens EmailToken[]
-  cleanupJobs       CleanupJob[]
-  cleanupThreads    CleanupThread[]
-  emailMessages     EmailMessage[]
-  knowledges        Knowledge[]
+  apiKeys ApiKey[]
+
+  emailAccounts EmailAccount[]
+}
+
+// Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
+model EmailAccount {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name  String? // Name associated with the Google account
+  image String? // Profile image URL from the Google account
+
+  about                     String?
+  writingStyle              String?
+  signature                 String?
+  watchEmailsExpirationDate DateTime?
+  lastSyncedHistoryId       String?
+  behaviorProfile           Json?
+
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
+  coldEmailBlocker      ColdEmailSetting?
+  coldEmailPrompt       String?
+  rulesPrompt           String?
+  outboundReplyTracking Boolean           @default(false)
+  autoCategorizeSenders Boolean           @default(false)
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String  @unique
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  labels         Label[]
+  rules          Rule[]
+  executedRules  ExecutedRule[]
+  newsletters    Newsletter[]
+  coldEmails     ColdEmail[]
+  groups         Group[]
+  categories     Category[]
+  threadTrackers ThreadTracker[]
+  cleanupJobs    CleanupJob[]
+  cleanupThreads CleanupThread[]
+  emailMessages  EmailMessage[]
+  emailTokens    EmailToken[]
+  knowledge      Knowledge[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -125,14 +145,24 @@ model Premium {
   lemonSqueezyVariantId          Int?
   lemonLicenseKey                String?
   lemonLicenseInstanceId         String?
+  lemonSubscriptionStatus        String?
+
+  // stripe
+  stripeCustomerId         String?   @unique
+  stripeSubscriptionId     String?   @unique
+  stripeSubscriptionItemId String?   @unique
+  stripePriceId            String?
+  stripeProductId          String?
+  stripeSubscriptionStatus String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
+  stripeCancelAtPeriodEnd  Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
+  stripeRenewsAt           DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
+  stripeTrialEnd           DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeCanceledAt         DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
+  stripeEndedAt            DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
 
   tier PremiumTier?
 
-  // feature access
-  bulkUnsubscribeAccess  FeatureAccess?
-  coldEmailBlockerAccess FeatureAccess?
-  aiAutomationAccess     FeatureAccess?
-  emailAccountsAccess    Int?
+  emailAccountsAccess Int?
 
   // unsubscribe/ai credits
   // if `unsubscribeMonth` not set to this month, set to current month
@@ -165,34 +195,30 @@ model Label {
   name         String
   description  String? // used in prompts
   enabled      Boolean  @default(true)
-  userId       String
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([gmailLabelId, userId])
-  @@unique([name, userId])
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([gmailLabelId, emailAccountId])
+  @@unique([name, emailAccountId])
 }
 
 model Rule {
-  id            String         @id @default(cuid())
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  name          String
-  actions       Action[]
-  enabled       Boolean        @default(true)
-  automate      Boolean        @default(false) // if disabled, user must approve to execute
-  runOnThreads  Boolean        @default(false) // if disabled, only runs on individual emails
-  userId        String
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  name         String
+  actions      Action[]
+  enabled      Boolean  @default(true)
+  automate     Boolean  @default(false) // if disabled, user must approve to execute
+  runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   executedRules ExecutedRule[]
 
-  // reply tracking fields
-  trackReplies             Boolean? // deprecated - If this is the reply tracking rule. Using partial unique index (created manually)
-  draftReplies             Boolean? // deprecated
-  draftRepliesInstructions String? // deprecated
-  // threadTrackers           ThreadTracker[] // deprecated
-
   // conditions: ai, group, static, category
-  type                RuleType? // deprecated
   conditionalOperator LogicalOperator @default(AND)
 
   // ai conditions
@@ -214,7 +240,10 @@ model Rule {
   categoryFilterType CategoryFilterType?
   categoryFilters    Category[]
 
-  @@unique([name, userId])
+  systemType SystemType?
+
+  @@unique([name, emailAccountId])
+  @@unique([emailAccountId, systemType])
 }
 
 model Action {
@@ -252,13 +281,13 @@ model ExecutedRule {
   rule   Rule?   @relation(fields: [ruleId], references: [id])
 
   // storing user here in case rule was deleted
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   actionItems ExecutedAction[]
 
-  @@unique([userId, threadId, messageId], name: "unique_user_thread_message")
-  @@index([userId, status, createdAt])
+  @@unique([emailAccountId, threadId, messageId], name: "unique_emailAccount_thread_message")
+  @@index([emailAccountId, status, createdAt])
 }
 
 model ExecutedAction {
@@ -277,6 +306,11 @@ model ExecutedAction {
   cc      String?
   bcc     String?
   url     String?
+
+  // additional fields as a result of the action
+  draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
+  wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftSendLog DraftSendLog? // Will exist if the draft was sent
 }
 
 // Notes:
@@ -286,17 +320,19 @@ model ExecutedAction {
 // "Name" is no longer in use although still required.
 // If we really wanted we could remove Group and just have a relation between Rule and GroupItem, but leaving as is for now.
 model Group {
-  id        String      @id @default(cuid())
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   name      String
   prompt    String?
-  items     GroupItem[]
-  userId    String
-  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rule      Rule?
 
-  @@unique([name, userId])
+  items GroupItem[]
+  rule  Rule?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([name, emailAccountId])
 }
 
 model GroupItem {
@@ -312,17 +348,19 @@ model GroupItem {
 }
 
 model Category {
-  id           String       @id @default(cuid())
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  name         String
-  description  String?
-  userId       String
-  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  description String?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   emailSenders Newsletter[]
   rules        Rule[]
 
-  @@unique([name, userId])
+  @@unique([name, emailAccountId])
 }
 
 // Represents a sender (`email`) that a user can unsubscribe from,
@@ -335,13 +373,18 @@ model Newsletter {
   email     String
   status    NewsletterStatus?
 
-  userId     String
-  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // For learned patterns for rules
+  patternAnalyzed Boolean   @default(false)
+  lastAnalyzedAt  DateTime?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   categoryId String?
   category   Category? @relation(fields: [categoryId], references: [id])
 
-  @@unique([email, userId])
-  @@index([userId, status])
+  @@unique([email, emailAccountId])
+  @@index([emailAccountId, status])
 }
 
 model ColdEmail {
@@ -354,12 +397,12 @@ model ColdEmail {
   status    ColdEmailStatus?
   reason    String?
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, fromEmail])
-  @@index([userId, status])
-  @@index([userId, createdAt])
+  @@unique([emailAccountId, fromEmail])
+  @@index([emailAccountId, status])
+  @@index([emailAccountId, createdAt])
 }
 
 model EmailMessage {
@@ -378,13 +421,13 @@ model EmailMessage {
   draft           Boolean
   inbox           Boolean
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, threadId, messageId])
-  @@index([userId, threadId])
-  @@index([userId, date])
-  @@index([userId, from])
+  @@unique([emailAccountId, threadId, messageId])
+  @@index([emailAccountId, threadId])
+  @@index([emailAccountId, date])
+  @@index([emailAccountId, from])
 }
 
 model ThreadTracker {
@@ -397,24 +440,21 @@ model ThreadTracker {
   resolved  Boolean           @default(false)
   type      ThreadTrackerType
 
-  // ruleId String?
-  // rule   Rule?   @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, threadId, messageId])
-  @@index([userId, resolved])
-  @@index([userId, resolved, sentAt, type])
-  @@index([userId, type, resolved, sentAt])
+  @@unique([emailAccountId, threadId, messageId])
+  @@index([emailAccountId, resolved])
+  @@index([emailAccountId, resolved, sentAt, type])
+  @@index([emailAccountId, type, resolved, sentAt])
 }
 
 model CleanupJob {
-  id               String          @id @default(cuid())
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  action           CleanAction     @default(ARCHIVE)
-  daysOld          Int             @default(7)
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  action           CleanAction @default(ARCHIVE)
+  daysOld          Int         @default(7)
   instructions     String?
   skipReply        Boolean?
   skipStarred      Boolean?
@@ -422,9 +462,11 @@ model CleanupJob {
   skipReceipt      Boolean?
   skipAttachment   Boolean?
   skipConversation Boolean?
-  userId           String
-  user             User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  threads          CleanupThread[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  threads CleanupThread[]
 }
 
 model CleanupThread {
@@ -433,11 +475,11 @@ model CleanupThread {
   updatedAt DateTime   @updatedAt
   threadId  String
   archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
-  // labelIds  String[]
   jobId     String
   job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
@@ -447,10 +489,10 @@ model Knowledge {
   title     String
   content   String
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id])
 
-  @@unique([userId, title])
+  @@unique([emailAccountId, title])
 }
 
 model ApiKey {
@@ -471,10 +513,11 @@ model EmailToken {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   token     String   @unique
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   expiresAt DateTime
   // action    EmailTokenAction @default(UNSUBSCRIBE)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
@@ -506,6 +549,19 @@ model Payment {
 
   // Metadata
   billingReason String? // initial, renewal, update, etc.
+}
+
+model DraftSendLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  executedActionId String         @unique
+  executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
+
+  sentMessageId   String
+  similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
+
+  @@index([executedActionId])
 }
 
 enum ActionType {
@@ -559,14 +615,10 @@ enum PremiumTier {
   PRO_ANNUALLY
   BUSINESS_MONTHLY
   BUSINESS_ANNUALLY
+  BUSINESS_PLUS_MONTHLY
+  BUSINESS_PLUS_ANNUALLY
   COPILOT_MONTHLY
   LIFETIME
-}
-
-enum FeatureAccess {
-  UNLOCKED
-  UNLOCKED_WITH_API_KEY
-  LOCKED
 }
 
 enum ExecutedRuleStatus {
@@ -576,13 +628,6 @@ enum ExecutedRuleStatus {
   PENDING
   SKIPPED
   ERROR
-}
-
-enum RuleType {
-  AI
-  STATIC
-  GROUP
-  CATEGORY
 }
 
 enum GroupItemType {
@@ -609,9 +654,20 @@ enum ThreadTrackerType {
 
 enum ProcessorType {
   LEMON_SQUEEZY
+  STRIPE
 }
 
 enum CleanAction {
   ARCHIVE
   MARK_READ
+}
+
+enum SystemType {
+  TO_REPLY
+  NEWSLETTER
+  MARKETING
+  CALENDAR
+  RECEIPT
+  NOTIFICATION
+  // COLD_EMAIL // handled separately. we may unify in the future
 }

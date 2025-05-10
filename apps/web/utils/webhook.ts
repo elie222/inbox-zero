@@ -22,14 +22,14 @@ type WebhookPayload = {
 };
 
 export const callWebhook = async (
-  userEmail: string,
+  userId: string,
   url: string,
   payload: WebhookPayload,
 ) => {
   if (!url) throw new Error("Webhook URL is required");
 
   const user = await prisma.user.findUnique({
-    where: { email: userEmail },
+    where: { id: userId },
     select: { webhookSecret: true },
   });
   if (!user) throw new Error("User not found");
@@ -40,7 +40,7 @@ export const callWebhook = async (
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Webhook-Secret": user?.webhookSecret || "",
+          "X-Webhook-Secret": user.webhookSecret || "",
         },
         body: JSON.stringify(payload),
       }),

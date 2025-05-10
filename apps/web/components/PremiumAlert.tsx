@@ -4,17 +4,12 @@ import Link from "next/link";
 import { CrownIcon } from "lucide-react";
 import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
-import {
-  hasAiAccess,
-  hasColdEmailAccess,
-  hasUnsubscribeAccess,
-  isPremium,
-} from "@/utils/premium";
+import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { PremiumTier } from "@prisma/client";
-import { useUser } from "@/hooks/useUser";
 import { businessTierName } from "@/app/(app)/premium/config";
+import { useUser } from "@/hooks/useUser";
 
 export function usePremium() {
   const swrResponse = useUser();
@@ -23,7 +18,10 @@ export function usePremium() {
   const premium = data?.premium;
   const aiApiKey = data?.aiApiKey;
 
-  const isUserPremium = !!(premium && isPremium(premium.lemonSqueezyRenewsAt));
+  const isUserPremium = !!(
+    premium &&
+    isPremium(premium.lemonSqueezyRenewsAt, premium.stripeSubscriptionStatus)
+  );
 
   const isProPlanWithoutApiKey =
     (premium?.tier === PremiumTier.PRO_MONTHLY ||
@@ -32,18 +30,12 @@ export function usePremium() {
 
   return {
     ...swrResponse,
+    premium,
     isPremium: isUserPremium,
     hasUnsubscribeAccess:
       isUserPremium ||
-      hasUnsubscribeAccess(
-        premium?.bulkUnsubscribeAccess,
-        premium?.unsubscribeCredits,
-      ),
-    hasAiAccess: hasAiAccess(premium?.aiAutomationAccess, aiApiKey),
-    hasColdEmailAccess: hasColdEmailAccess(
-      premium?.coldEmailBlockerAccess,
-      aiApiKey,
-    ),
+      hasUnsubscribeAccess(premium?.tier || null, premium?.unsubscribeCredits),
+    hasAiAccess: hasAiAccess(premium?.tier || null, aiApiKey),
     isProPlanWithoutApiKey,
     tier: premium?.tier,
   };

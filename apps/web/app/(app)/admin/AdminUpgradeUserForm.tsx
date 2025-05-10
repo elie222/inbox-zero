@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback } from "react";
+import { useAction } from "next-safe-action/hooks";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
-import { changePremiumStatusAction } from "@/utils/actions/premium";
+import { adminChangePremiumStatusAction } from "@/utils/actions/premium";
 import { Select } from "@/components/Select";
 import {
   changePremiumStatusSchema,
@@ -12,12 +13,28 @@ import {
 } from "@/app/(app)/admin/validation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { PremiumTier } from "@prisma/client";
-import { handleActionResult } from "@/utils/server-action";
+import { toastError, toastSuccess } from "@/components/Toast";
 
 export const AdminUpgradeUserForm = () => {
+  const { execute: changePremiumStatus, isExecuting } = useAction(
+    adminChangePremiumStatusAction,
+    {
+      onSuccess: () => {
+        toastSuccess({
+          description: "Premium status changed",
+        });
+      },
+      onError: () => {
+        toastError({
+          description: "Error changing premium status",
+        });
+      },
+    },
+  );
+
   const {
     register,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     getValues,
   } = useForm<ChangePremiumStatusOptions>({
     resolver: zodResolver(changePremiumStatusSchema),
@@ -27,16 +44,15 @@ export const AdminUpgradeUserForm = () => {
   });
 
   const onSubmit: SubmitHandler<ChangePremiumStatusOptions> = useCallback(
-    async (data) => {
-      const result = await changePremiumStatusAction({
+    (data) => {
+      changePremiumStatus({
         ...data,
         count: data.count || 1,
         lemonSqueezyCustomerId: data.lemonSqueezyCustomerId || undefined,
         emailAccountsAccess: data.emailAccountsAccess || undefined,
       });
-      handleActionResult(result, data.upgrade ? "Upgraded!" : "Downgraded!");
     },
-    [],
+    [changePremiumStatus],
   );
 
   return (
@@ -76,6 +92,14 @@ export const AdminUpgradeUserForm = () => {
             value: PremiumTier.BUSINESS_MONTHLY,
           },
           {
+            label: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+            value: PremiumTier.BUSINESS_PLUS_ANNUALLY,
+          },
+          {
+            label: PremiumTier.BUSINESS_PLUS_MONTHLY,
+            value: PremiumTier.BUSINESS_PLUS_MONTHLY,
+          },
+          {
             label: PremiumTier.PRO_ANNUALLY,
             value: PremiumTier.PRO_ANNUALLY,
           },
@@ -95,10 +119,6 @@ export const AdminUpgradeUserForm = () => {
             label: PremiumTier.COPILOT_MONTHLY,
             value: PremiumTier.COPILOT_MONTHLY,
           },
-          {
-            label: PremiumTier.LIFETIME,
-            value: PremiumTier.LIFETIME,
-          },
         ]}
         {...register("period")}
         error={errors.period}
@@ -113,7 +133,7 @@ export const AdminUpgradeUserForm = () => {
       <div className="space-x-2">
         <Button
           type="button"
-          loading={isSubmitting}
+          loading={isExecuting}
           onClick={() => {
             onSubmit({
               email: getValues("email"),
@@ -130,7 +150,7 @@ export const AdminUpgradeUserForm = () => {
         <Button
           type="button"
           variant="destructive"
-          loading={isSubmitting}
+          loading={isExecuting}
           onClick={() => {
             onSubmit({
               email: getValues("email"),

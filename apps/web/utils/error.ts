@@ -30,6 +30,33 @@ export function formatZodError(error: z.ZodError): string {
   return `Invalid data: ${formattedError}`;
 }
 
+export function formatGmailError(error: unknown): string {
+  return (error as any)?.errors?.[0]?.message ?? "Unknown error";
+}
+
+export function isGmailError(
+  error: unknown,
+): error is { code: number; errors: { message: string }[] } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    Array.isArray((error as any).errors) &&
+    (error as any).errors.length > 0
+  );
+}
+
+export function formatError(error: unknown): string {
+  if (isGmailError(error)) {
+    return formatGmailError(error);
+  } else if (error instanceof Error) {
+    // Use the standard message for Error instances
+    return error.message;
+  } else {
+    // Fallback for other types
+    return String(error);
+  }
+}
+
 export function captureException(
   error: unknown,
   additionalInfo?: { extra?: Record<string, any> },
@@ -51,10 +78,6 @@ export type ServerActionResponse<
   T,
   E extends object = Record<string, unknown>,
 > = ActionError<E> | T;
-
-export function isActionError(error: any): error is ActionError {
-  return error && typeof error === "object" && "error" in error && error.error;
-}
 
 // This class is used to throw error messages that are safe to expose to the client.
 export class SafeError extends Error {

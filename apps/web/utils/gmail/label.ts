@@ -60,6 +60,18 @@ export async function labelThread(options: {
   );
 }
 
+export async function removeThreadLabel(
+  gmail: gmail_v1.Gmail,
+  threadId: string,
+  labelId: string,
+) {
+  await labelThread({
+    gmail,
+    threadId,
+    removeLabelIds: [labelId],
+  });
+}
+
 export async function archiveThread({
   gmail,
   threadId,
@@ -97,7 +109,7 @@ export async function archiveThread({
   if (archiveResult.status === "rejected") {
     const error = archiveResult.reason as Error;
     if (error.message?.includes("Requested entity was not found")) {
-      logger.error("Thread not found", { threadId });
+      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
       return { status: 404, message: "Thread not found" };
     }
     logger.error("Failed to archive thread", { threadId, error });

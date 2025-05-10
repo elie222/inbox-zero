@@ -94,13 +94,13 @@ export function EmailMessageCell({
           />
         )}
         {labelsToDisplay && labelsToDisplay.length > 0 && (
-          <div className="ml-2 flex flex-wrap items-center gap-1">
+          <span className="ml-2 flex flex-wrap items-center gap-1">
             {labelsToDisplay.map((label) => (
               <Badge variant="secondary" key={label.id}>
                 {label.name}
               </Badge>
             ))}
-          </div>
+          </span>
         )}
       </MessageText>
       <MessageText className="mt-1 font-bold">{subject}</MessageText>

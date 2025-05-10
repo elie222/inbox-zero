@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import {
   filterNewsletters,
   findAutoArchiveFilter,
@@ -10,9 +9,11 @@ import {
 } from "@/app/api/user/stats/newsletters/helpers";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
+import { extractEmailAddress } from "@/utils/email";
+import { getGmailClientForEmail } from "@/utils/account";
+import { createScopedLogger } from "@/utils/logger";
 
-// not sure why this is slow sometimes
-export const maxDuration = 30;
+const logger = createScopedLogger("newsletter-stats");
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -66,9 +67,12 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
 }
 
 async function getNewslettersTinybird(
-  options: { ownerEmail: string; userId: string } & NewsletterStatsQuery,
+  options: { emailAccountId: string } & NewsletterStatsQuery,
 ) {
+  const { emailAccountId } = options;
   const types = getTypeFilters(options.types);
+
+  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const [newsletterCounts, autoArchiveFilters, userNewsletters] =
     await Promise.all([
@@ -76,19 +80,20 @@ async function getNewslettersTinybird(
         ...options,
         ...types,
       }),
-      getAutoArchiveFilters(),
-      findNewsletterStatus(options.userId),
+      getAutoArchiveFilters(gmail),
+      findNewsletterStatus({ emailAccountId }),
     ]);
 
   const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {
+    const from = extractEmailAddress(email.from);
     return {
-      name: email.from,
+      name: from,
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       lastUnsubscribeLink: email.lastUnsubscribeLink,
-      autoArchived: findAutoArchiveFilter(autoArchiveFilters, email.from),
-      status: userNewsletters?.find((n) => n.email === email.from)?.status,
+      autoArchived: findAutoArchiveFilter(autoArchiveFilters, from),
+      status: userNewsletters?.find((n) => n.email === from)?.status,
     };
   });
 
@@ -117,7 +122,7 @@ type NewsletterCountRawResult = {
 
 async function getNewsletterCounts(
   options: NewsletterStatsQuery & {
-    userId: string;
+    emailAccountId: string;
     read?: boolean;
     unread?: boolean;
     archived?: boolean;
@@ -160,8 +165,8 @@ async function getNewsletterCounts(
   }
 
   // Always filter by userId
-  whereConditions.push(`"userId" = $${queryParams.length + 1}`);
-  queryParams.push(options.userId);
+  whereConditions.push(`"emailAccountId" = $${queryParams.length + 1}`);
+  queryParams.push(options.emailAccountId);
 
   // Create WHERE clause
   const whereClause = whereConditions.length
@@ -210,7 +215,7 @@ async function getNewsletterCounts(
       lastUnsubscribeLink: result.lastUnsubscribeLink,
     }));
   } catch (error) {
-    console.error("Newsletter query error:", error);
+    logger.error("getNewsletterCounts error", { error });
     return [];
   }
 }
@@ -228,10 +233,8 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({
@@ -247,8 +250,7 @@ export const GET = withError(async (request) => {
 
   const result = await getNewslettersTinybird({
     ...params,
-    ownerEmail: session.user.email,
-    userId: session.user.id,
+    emailAccountId,
   });
 
   return NextResponse.json(result);

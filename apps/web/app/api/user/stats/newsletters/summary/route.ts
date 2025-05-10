@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type NewsletterSummaryResponse = Awaited<
   ReturnType<typeof getNewsletterSummary>
 >;
 
-async function getNewsletterSummary({ userId }: { userId: string }) {
+async function getNewsletterSummary({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   const result = await prisma.newsletter.groupBy({
-    where: { userId },
+    where: { emailAccountId },
     by: ["status"],
     _count: true,
   });
@@ -21,12 +24,10 @@ async function getNewsletterSummary({ userId }: { userId: string }) {
   return { result: resultObject };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const result = await getNewsletterSummary({ userId: session.user.id });
+  const result = await getNewsletterSummary({ emailAccountId });
 
   return NextResponse.json(result);
 });

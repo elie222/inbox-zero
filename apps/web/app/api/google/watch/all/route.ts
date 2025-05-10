@@ -5,7 +5,7 @@ import { watchEmails } from "@/app/api/google/watch/controller";
 import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { withError } from "@/utils/middleware";
 import { captureException } from "@/utils/error";
-import { hasAiAccess, hasColdEmailAccess } from "@/utils/premium";
+import { hasAiAccess } from "@/utils/premium";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("api/google/watch/all");
@@ -14,77 +14,63 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 async function watchAllEmails() {
-  const premiums = await prisma.premium.findMany({
+  const emailAccounts = await prisma.emailAccount.findMany({
     where: {
-      lemonSqueezyRenewsAt: { gt: new Date() },
-    },
-    select: {
-      tier: true,
-      coldEmailBlockerAccess: true,
-      aiAutomationAccess: true,
-      users: {
-        select: {
-          id: true,
-          email: true,
-          aiApiKey: true,
-          watchEmailsExpirationDate: true,
-          accounts: {
-            select: {
-              access_token: true,
-              refresh_token: true,
-              expires_at: true,
-              providerAccountId: true,
-            },
-          },
+      user: {
+        premium: {
+          OR: [
+            { lemonSqueezyRenewsAt: { gt: new Date() } },
+            { stripeSubscriptionStatus: { in: ["active", "trialing"] } },
+          ],
         },
       },
     },
+    select: {
+      id: true,
+      email: true,
+      watchEmailsExpirationDate: true,
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+        },
+      },
+      user: {
+        select: {
+          aiApiKey: true,
+          premium: { select: { tier: true } },
+        },
+      },
+    },
+    orderBy: {
+      watchEmailsExpirationDate: { sort: "asc", nulls: "first" },
+    },
   });
 
-  const users = premiums
-    .flatMap((premium) => premium.users.map((user) => ({ ...user, premium })))
-    .sort((a, b) => {
-      // Prioritize null dates first
-      if (!a.watchEmailsExpirationDate && b.watchEmailsExpirationDate)
-        return -1;
-      if (a.watchEmailsExpirationDate && !b.watchEmailsExpirationDate) return 1;
+  logger.info("Watching emails for users", {
+    count: emailAccounts.length,
+  });
 
-      // If both have dates, sort by earliest date first
-      if (a.watchEmailsExpirationDate && b.watchEmailsExpirationDate) {
-        return (
-          new Date(a.watchEmailsExpirationDate).getTime() -
-          new Date(b.watchEmailsExpirationDate).getTime()
-        );
-      }
-
-      return 0;
-    });
-
-  logger.info("Watching emails for users", { count: users.length });
-
-  for (const user of users) {
+  for (const emailAccount of emailAccounts) {
     try {
-      logger.info("Watching emails for user", { email: user.email });
+      logger.info("Watching emails for user", { email: emailAccount.email });
 
       const userHasAiAccess = hasAiAccess(
-        user.premium.aiAutomationAccess,
-        user.aiApiKey,
-      );
-      const userHasColdEmailAccess = hasColdEmailAccess(
-        user.premium.coldEmailBlockerAccess,
-        user.aiApiKey,
+        emailAccount.user.premium?.tier || null,
+        emailAccount.user.aiApiKey,
       );
 
-      if (!userHasAiAccess && !userHasColdEmailAccess) {
+      if (!userHasAiAccess) {
         logger.info("User does not have access to AI or cold email", {
-          email: user.email,
+          email: emailAccount.email,
         });
         if (
-          user.watchEmailsExpirationDate &&
-          new Date(user.watchEmailsExpirationDate) < new Date()
+          emailAccount.watchEmailsExpirationDate &&
+          new Date(emailAccount.watchEmailsExpirationDate) < new Date()
         ) {
-          prisma.user.update({
-            where: { id: user.id },
+          await prisma.emailAccount.update({
+            where: { email: emailAccount.email },
             data: { watchEmailsExpirationDate: null },
           });
         }
@@ -102,30 +88,42 @@ async function watchAllEmails() {
       //   continue;
       // }
 
-      const account = user.accounts[0];
-
-      if (!account.access_token || !account.refresh_token) {
+      if (
+        !emailAccount.account?.access_token ||
+        !emailAccount.account?.refresh_token
+      ) {
         logger.info("User has no access token or refresh token", {
-          email: user.email,
+          email: emailAccount.email,
         });
         continue;
       }
 
-      const gmail = await getGmailClientWithRefresh(
-        {
-          accessToken: account.access_token,
-          refreshToken: account.refresh_token,
-          expiryDate: account.expires_at,
-        },
-        account.providerAccountId,
-      );
+      const gmail = await getGmailClientWithRefresh({
+        accessToken: emailAccount.account.access_token,
+        refreshToken: emailAccount.account.refresh_token,
+        expiresAt: emailAccount.account.expires_at,
+        emailAccountId: emailAccount.id,
+      });
 
-      // couldn't refresh the token
-      if (!gmail) continue;
-
-      await watchEmails(user.id, gmail);
+      await watchEmails({ emailAccountId: emailAccount.id, gmail });
     } catch (error) {
-      logger.error("Error for user", { userId: user.id, error });
+      if (error instanceof Error) {
+        const warn = [
+          "invalid_grant",
+          "Mail service not enabled",
+          "Insufficient Permission",
+        ];
+
+        if (warn.some((w) => error.message.includes(w))) {
+          logger.warn("Not watching emails for user", {
+            email: emailAccount.email,
+            error,
+          });
+          continue;
+        }
+      }
+
+      logger.error("Error for user", { email: emailAccount.email, error });
     }
   }
 

@@ -61,3 +61,8 @@ dist
 .sanity
 
 TODO.md
+
+tasks/ 
+
+# prisma
+apps/web/generated

@@ -1,3 +1,4 @@
+import type { gmail_v1 } from "@googleapis/gmail";
 import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
@@ -11,21 +12,26 @@ import type {
 import {
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
-  type User,
+  SystemType,
 } from "@prisma/client";
+import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { isReplyInThread } from "@/utils/thread";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type {
   MatchReason,
   MatchingRuleResult,
 } from "@/utils/ai/choose-rule/types";
+import { extractEmailAddress } from "@/utils/email";
+import { hasIcsAttachment } from "@/utils/parse/calender-event";
+import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 
 const logger = createScopedLogger("match-rules");
+
+const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
 // if we find a match, return it
 // if we don't find a match, return the potential matches
@@ -35,30 +41,55 @@ async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
+  gmail,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   isThread: boolean;
+  gmail: gmail_v1.Gmail;
 }): Promise<MatchingRuleResult> {
   const potentialMatches: (RuleWithActionsAndCategories & {
     instructions: string;
   })[] = [];
 
+  // Check for calendar preset match
+  const isCalendarEvent = hasIcsAttachment(message);
+  if (isCalendarEvent) {
+    const calendarRule = rules.find(
+      (r) => r.systemType === SystemType.CALENDAR,
+    );
+    if (calendarRule) {
+      logger.info("Found matching calendar rule", {
+        ruleId: calendarRule.id,
+        messageId: message.id,
+      });
+      return {
+        match: calendarRule,
+        matchReasons: [
+          { type: ConditionType.PRESET, systemType: SystemType.CALENDAR },
+        ],
+      };
+    }
+  }
+
   // groups singleton
   let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
-  async function getGroups(userId: string) {
-    if (!groups) groups = await getGroupsWithRules(userId);
+  async function getGroups({ emailAccountId }: { emailAccountId: string }) {
+    if (!groups) groups = await getGroupsWithRules({ emailAccountId });
     return groups;
   }
 
   // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
-  async function getSender(userId: string) {
+  async function getSender({ emailAccountId }: { emailAccountId: string }) {
     if (typeof sender === "undefined") {
       sender = await prisma.newsletter.findUnique({
         where: {
-          email_userId: { email: message.headers.from, userId },
+          email_emailAccountId: {
+            email: extractEmailAddress(message.headers.from),
+            emailAccountId,
+          },
         },
         select: { categoryId: true },
       });
@@ -81,12 +112,12 @@ async function findPotentialMatchingRules({
     if (rule.groupId) {
       const { matchingItem, group } = await matchesGroupRule(
         rule,
-        await getGroups(rule.userId),
+        await getGroups({ emailAccountId: rule.emailAccountId }),
         message,
       );
       if (matchingItem) {
         matchReasons.push({
-          type: RuleType.GROUP,
+          type: ConditionType.GROUP,
           groupItem: matchingItem,
           group,
         });
@@ -96,16 +127,16 @@ async function findPotentialMatchingRules({
     }
 
     // Regular conditions:
-    const unmatchedConditions = new Set<RuleType>(
-      Object.keys(conditionTypes) as RuleType[],
+    const unmatchedConditions = new Set<ConditionType>(
+      Object.keys(conditionTypes) as ConditionType[],
     );
 
     // static
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
       if (match) {
-        unmatchedConditions.delete(RuleType.STATIC);
-        matchReasons.push({ type: RuleType.STATIC });
+        unmatchedConditions.delete(ConditionType.STATIC);
+        matchReasons.push({ type: ConditionType.STATIC });
         if (operator === LogicalOperator.OR || !unmatchedConditions.size)
           return { match: rule, matchReasons };
       } else {
@@ -118,13 +149,13 @@ async function findPotentialMatchingRules({
     if (conditionTypes.CATEGORY) {
       const matchedCategory = await matchesCategoryRule(
         rule,
-        await getSender(rule.userId),
+        await getSender({ emailAccountId: rule.emailAccountId }),
       );
       if (matchedCategory) {
-        unmatchedConditions.delete(RuleType.CATEGORY);
+        unmatchedConditions.delete(ConditionType.CATEGORY);
         if (typeof matchedCategory !== "boolean") {
           matchReasons.push({
-            type: RuleType.CATEGORY,
+            type: ConditionType.CATEGORY,
             category: matchedCategory,
           });
         }
@@ -143,7 +174,14 @@ async function findPotentialMatchingRules({
     }
   }
 
-  return { potentialMatches };
+  // Apply TO_REPLY preset filter before returning potential matches
+  const filteredPotentialMatches = await filterToReplyPreset(
+    potentialMatches,
+    message,
+    gmail,
+  );
+
+  return { potentialMatches: filteredPotentialMatches };
 }
 
 function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
@@ -152,23 +190,36 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
   return matchReasons
     .map((reason) => {
       switch (reason.type) {
-        case RuleType.STATIC:
+        case ConditionType.STATIC:
           return "Matched static conditions";
-        case RuleType.GROUP:
+        case ConditionType.GROUP:
           return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
-        case RuleType.CATEGORY:
+        case ConditionType.CATEGORY:
           return `Matched category: "${reason.category.name}"`;
+        case ConditionType.PRESET:
+          return "Matched a system preset";
       }
     })
     .join(", ");
 }
 
-export async function findMatchingRule(
-  rules: RuleWithActionsAndCategories[],
-  message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
-) {
-  const result = await findMatchingRuleWithReasons(rules, message, user);
+export async function findMatchingRule({
+  rules,
+  message,
+  emailAccount,
+  gmail,
+}: {
+  rules: RuleWithActionsAndCategories[];
+  message: ParsedMessage;
+  emailAccount: EmailAccountWithAI;
+  gmail: gmail_v1.Gmail;
+}) {
+  const result = await findMatchingRuleWithReasons(
+    rules,
+    message,
+    emailAccount,
+    gmail,
+  );
   return {
     ...result,
     reason: result.reason || getMatchReason(result.matchReasons || []),
@@ -178,7 +229,8 @@ export async function findMatchingRule(
 async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  emailAccount: EmailAccountWithAI,
+  gmail: gmail_v1.Gmail,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
@@ -190,6 +242,7 @@ async function findMatchingRuleWithReasons(
       rules,
       message,
       isThread,
+      gmail,
     });
 
   if (match) return { rule: match, matchReasons };
@@ -198,7 +251,7 @@ async function findMatchingRuleWithReasons(
     const result = await aiChooseRule({
       email: getEmailForLLM(message),
       rules: potentialMatches,
-      user,
+      emailAccount,
     });
 
     return result;
@@ -271,4 +324,53 @@ async function matchesCategoryRule(
   }
 
   return matchedFilter;
+}
+
+// Helper function to filter out TO_REPLY preset if conditions met
+async function filterToReplyPreset(
+  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
+  message: ParsedMessage,
+  gmail: gmail_v1.Gmail,
+): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
+  const toReplyRuleIndex = potentialMatches.findIndex(
+    (r) => r.systemType === SystemType.TO_REPLY,
+  );
+
+  if (toReplyRuleIndex === -1) {
+    return potentialMatches; // No TO_REPLY rule found
+  }
+
+  const senderEmail = message.headers.from;
+  if (!senderEmail) {
+    return potentialMatches; // Cannot check history without sender email
+  }
+
+  try {
+    const { hasReplied, receivedCount } = await checkSenderReplyHistory(
+      gmail,
+      senderEmail,
+      TO_REPLY_RECEIVED_THRESHOLD,
+    );
+
+    // If user hasn't replied and received count meets/exceeds the threshold, filter out the rule.
+    if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
+      logger.info(
+        "Filtering out TO_REPLY rule due to no prior reply and high received count",
+        {
+          ruleId: potentialMatches[toReplyRuleIndex].id,
+          senderEmail,
+          receivedCount,
+        },
+      );
+      return potentialMatches.filter((_, index) => index !== toReplyRuleIndex);
+    }
+  } catch (error) {
+    // Log the error but proceed without filtering in case of failure
+    logger.error("Error checking reply history for TO_REPLY filter", {
+      senderEmail,
+      error,
+    });
+  }
+
+  return potentialMatches;
 }

@@ -28,11 +28,12 @@ export function usePricingVariant() {
   );
 }
 
-export type SkipUpgradeVariant = "control" | "skip-button";
+export type PricingFrequencyDefault = "control" | "monthly";
 
-export function useSkipUpgrade() {
+export function usePricingFrequencyDefault() {
   return (
-    (useFeatureFlagVariantKey("skip-upgrade") as SkipUpgradeVariant) ||
-    "control"
+    (useFeatureFlagVariantKey(
+      "pricing-frequency-default",
+    ) as PricingFrequencyDefault) || "control"
   );
 }

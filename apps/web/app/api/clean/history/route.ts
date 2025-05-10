@@ -1,25 +1,21 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type CleanHistoryResponse = Awaited<ReturnType<typeof getCleanHistory>>;
 
-async function getCleanHistory({ userId }: { userId: string }) {
+async function getCleanHistory({ emailAccountId }: { emailAccountId: string }) {
   const result = await prisma.cleanupJob.findMany({
-    where: { userId },
+    where: { emailAccountId },
     orderBy: { createdAt: "desc" },
     include: { _count: { select: { threads: true } } },
   });
   return { result };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.id)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const result = await getCleanHistory({ userId: session.user.id });
-
+  const result = await getCleanHistory({ emailAccountId });
   return NextResponse.json(result);
 });

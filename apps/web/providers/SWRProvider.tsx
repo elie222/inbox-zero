@@ -3,18 +3,54 @@
 import { useCallback, useState, createContext, useMemo } from "react";
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
+import { prefixPath } from "@/utils/path";
+import { NO_REFRESH_TOKEN_ERROR_CODE } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
-const fetcher = async (url: string, init?: RequestInit | undefined) => {
+const fetcher = async (
+  url: string,
+  init?: RequestInit | undefined,
+  emailAccountId?: string | null,
+) => {
   // Super hacky, if we use streaming endpoints we should do this:
   // https://github.com/vercel/ai/issues/3214
   if (url.startsWith("/api/chat")) return [];
   // if (url.startsWith("/api/ai/")) return [];
 
-  const res = await fetch(url, init);
+  const headers = new Headers(init?.headers);
+
+  if (emailAccountId) {
+    headers.set(EMAIL_ACCOUNT_HEADER, emailAccountId);
+  }
+
+  const newInit = { ...init, headers };
+
+  const res = await fetch(url, newInit);
 
   if (!res.ok) {
     const errorData = await res.json();
+
+    if (errorData.errorCode === NO_REFRESH_TOKEN_ERROR_CODE) {
+      if (emailAccountId) {
+        captureException(new Error("Refresh token missing"), {
+          extra: {
+            url,
+            status: res.status,
+            statusText: res.statusText,
+            responseBody: errorData,
+            emailAccountId,
+          },
+        });
+
+        console.log("Refresh token missing, redirecting to consent page...");
+        const redirectUrl = prefixPath(emailAccountId, "/permissions/consent");
+        window.location.href = redirectUrl;
+        return;
+      }
+    }
+
     const errorMessage =
       errorData.message || "An error occurred while fetching the data.";
     const error: Error & { info?: any; status?: number } = new Error(
@@ -57,6 +93,7 @@ const SWRContext = createContext<Context>(defaultContextValue);
 
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
+  const { emailAccountId } = useAccount();
 
   const resetCache = useCallback(() => {
     // based on: https://swr.vercel.app/docs/mutation#mutate-multiple-items
@@ -66,13 +103,22 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     setProvider(new Map());
   }, []);
 
+  const enhancedFetcher = useCallback(
+    async (url: string, init?: RequestInit) => {
+      return fetcher(url, init, emailAccountId);
+    },
+    [emailAccountId],
+  );
+
   const value = useMemo(() => ({ resetCache }), [resetCache]);
 
   return (
     <SWRContext.Provider value={value}>
-      <SWRConfig value={{ fetcher, provider: () => provider }}>
+      <SWRConfig value={{ fetcher: enhancedFetcher, provider: () => provider }}>
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>
   );
 };
+
+export { SWRContext };

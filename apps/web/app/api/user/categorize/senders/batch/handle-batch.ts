@@ -6,13 +6,13 @@ import {
   getCategories,
   updateSenderCategory,
 } from "@/utils/categorize/senders/categorize";
-import { isActionError } from "@/utils/error";
 import { validateUserAndAiAccess } from "@/utils/user/validate";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { UNKNOWN_CATEGORY } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { saveCategorizationProgress } from "@/utils/redis/categorization-progress";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("api/user/categorize/senders/batch");
 
@@ -20,9 +20,7 @@ export async function handleBatchRequest(
   request: Request,
 ): Promise<NextResponse> {
   try {
-    const handleBatchResult = await handleBatchInternal(request);
-    if (isActionError(handleBatchResult))
-      return NextResponse.json({ error: handleBatchResult.error });
+    await handleBatchInternal(request);
     return NextResponse.json({ ok: true });
   } catch (error) {
     logger.error("Handle batch request error", { error });
@@ -36,44 +34,44 @@ export async function handleBatchRequest(
 async function handleBatchInternal(request: Request) {
   const json = await request.json();
   const body = aiCategorizeSendersSchema.parse(json);
-  const { userId, senders } = body;
+  const { emailAccountId, senders } = body;
 
   logger.trace("Handle batch request", {
-    userId,
+    emailAccountId,
     senders: senders.length,
   });
 
-  const userResult = await validateUserAndAiAccess(userId);
-  if (isActionError(userResult)) return userResult;
-  const { user } = userResult;
+  const userResult = await validateUserAndAiAccess({ emailAccountId });
+  const { emailAccount } = userResult;
 
-  const categoriesResult = await getCategories(userId);
-  if (isActionError(categoriesResult)) return categoriesResult;
+  const categoriesResult = await getCategories({ emailAccountId });
   const { categories } = categoriesResult;
 
-  const account = await prisma.account.findFirst({
-    where: { userId, provider: "google" },
+  const emailAccountWithAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
     select: {
-      access_token: true,
-      refresh_token: true,
-      expires_at: true,
-      providerAccountId: true,
+      account: {
+        select: {
+          access_token: true,
+          refresh_token: true,
+          expires_at: true,
+        },
+      },
     },
   });
 
-  if (!account) return { error: "No account found" };
-  if (!account.access_token || !account.refresh_token)
-    return { error: "No access or refresh token" };
+  const account = emailAccountWithAccount?.account;
 
-  const gmail = await getGmailClientWithRefresh(
-    {
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiryDate: account.expires_at,
-    },
-    account.providerAccountId,
-  );
-  if (!gmail) return { error: "No Gmail client" };
+  if (!account) throw new SafeError("No account found");
+  if (!account.access_token || !account.refresh_token)
+    throw new SafeError("No access or refresh token");
+
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: account.access_token,
+    refreshToken: account.refresh_token,
+    expiresAt: account.expires_at,
+    emailAccountId,
+  });
 
   const sendersWithEmails: Map<string, { subject: string; snippet: string }[]> =
     new Map();
@@ -91,7 +89,7 @@ async function handleBatchInternal(request: Request) {
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
-    user,
+    emailAccount,
     sendersWithEmails,
     categories,
   });
@@ -102,7 +100,7 @@ async function handleBatchInternal(request: Request) {
       sender: result.sender,
       categories,
       categoryName: result.category ?? UNKNOWN_CATEGORY,
-      userId,
+      emailAccountId,
     });
   }
 
@@ -132,7 +130,7 @@ async function handleBatchInternal(request: Request) {
   // }
 
   await saveCategorizationProgress({
-    userId,
+    emailAccountId,
     incrementCompleted: senders.length,
   });
 

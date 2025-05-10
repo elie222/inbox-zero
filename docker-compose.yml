@@ -41,8 +41,9 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.web
+    # image: ghcr.io/elie222/inbox-zero:latest
     env_file:
-      - ./.env
+      - ./apps/web/.env
     depends_on:
       - db
       - redis

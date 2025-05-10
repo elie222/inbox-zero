@@ -1,5 +1,5 @@
 import { setUser } from "@sentry/nextjs";
-import { posthogCaptureEvent } from "@/utils/posthog";
+import { trackError } from "@/utils/posthog";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -14,9 +14,7 @@ export async function logErrorToPosthog(
     const session = await auth();
     if (session?.user.email) {
       setUser({ email: session.user.email });
-      await posthogCaptureEvent(session.user.email, errorType, {
-        $set: { isError: true, type, url },
-      });
+      await trackError({ email: session.user.email, errorType, type, url });
     }
   } catch (error) {
     logger.error("Error logging to PostHog:", { error });

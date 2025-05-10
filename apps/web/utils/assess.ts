@@ -10,13 +10,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("utils/assess");
 
-export async function assessUser({
-  gmail,
-  accessToken,
-}: {
-  gmail: gmail_v1.Gmail;
-  accessToken: string;
-}) {
+export async function assessUser({ gmail }: { gmail: gmail_v1.Gmail }) {
   // how many unread emails?
   const unreadCount = await getUnreadEmailCount(gmail);
   // how many unarchived emails?
@@ -41,7 +35,7 @@ export async function assessUser({
   // TODO We could check it with embeddings
 
   // what email client does user use?
-  const emailClients = await getEmailClients(gmail, accessToken);
+  const emailClients = await getEmailClients(gmail);
 
   return {
     unreadCount,
@@ -100,9 +94,9 @@ async function getForwardingAddressesCount(gmail: gmail_v1.Gmail) {
   }
 }
 
-async function getEmailClients(gmail: gmail_v1.Gmail, accessToken: string) {
+async function getEmailClients(gmail: gmail_v1.Gmail) {
   try {
-    const { messages } = await queryBatchMessages(gmail, accessToken, {
+    const { messages } = await queryBatchMessages(gmail, {
       query: "from:me",
     });
 

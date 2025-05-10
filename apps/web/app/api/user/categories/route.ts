@@ -1,21 +1,16 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { getUserCategories } from "@/utils/category.server";
 
 export type UserCategoriesResponse = Awaited<ReturnType<typeof getCategories>>;
 
-async function getCategories({ userId }: { userId: string }) {
-  const result = await getUserCategories(userId);
+async function getCategories({ emailAccountId }: { emailAccountId: string }) {
+  const result = await getUserCategories({ emailAccountId });
   return { result };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.id)
-    return NextResponse.json({ error: "Not authenticated" });
-
-  const result = await getCategories({ userId: session.user.id });
-
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const result = await getCategories({ emailAccountId });
   return NextResponse.json(result);
 });

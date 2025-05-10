@@ -4,6 +4,13 @@ import { sanityFetch } from "@/sanity/lib/fetch";
 import { postSlugsQuery } from "@/sanity/lib/queries";
 
 async function getBlogPosts() {
+  // Skip Sanity fetch during build with dummy credentials
+  if (
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ===
+    "dummy-sanity-project-id-for-build"
+  ) {
+    return []; // Return empty array directly
+  }
   const posts = await sanityFetch<{ slug: string; date: string }[]>({
     query: postSlugsQuery,
   });

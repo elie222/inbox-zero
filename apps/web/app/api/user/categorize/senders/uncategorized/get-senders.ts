@@ -1,17 +1,17 @@
 import prisma from "@/utils/prisma";
 
 export async function getSenders({
-  userId,
+  emailAccountId,
   offset = 0,
   limit = 100,
 }: {
-  userId: string;
+  emailAccountId: string;
   offset?: number;
   limit?: number;
 }) {
   return prisma.emailMessage.findMany({
     where: {
-      userId,
+      emailAccountId,
       sent: false,
     },
     select: {

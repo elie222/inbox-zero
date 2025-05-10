@@ -4,7 +4,7 @@ import { OnboardingBulkUnsubscriber } from "@/app/(app)/onboarding/OnboardingBul
 import { OnboardingColdEmailBlocker } from "@/app/(app)/onboarding/OnboardingColdEmailBlocker";
 import { OnboardingAIEmailAssistant } from "@/app/(app)/onboarding/OnboardingEmailAssistant";
 import { OnboardingFinish } from "@/app/(app)/onboarding/OnboardingFinish";
-import { PermissionsCheck } from "@/app/(app)/PermissionsCheck";
+import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { LoadStats } from "@/providers/StatLoaderProvider";
 
 export const maxDuration = 120;

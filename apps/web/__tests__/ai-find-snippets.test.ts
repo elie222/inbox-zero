@@ -1,13 +1,13 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import type { EmailForLLM } from "@/utils/types";
+import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 // pnpm test-ai ai-find-snippets
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("aiFindSnippets", () => {
+describe.runIf(isAiTest)("aiFindSnippets", () => {
   test("should find snippets in similar emails", async () => {
     const emails = [
       getEmail({
@@ -26,7 +26,7 @@ describe.skipIf(!isAiTest)("aiFindSnippets", () => {
 
     const result = await aiFindSnippets({
       sentEmails: emails,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result.snippets).toHaveLength(1);
@@ -57,36 +57,9 @@ describe.skipIf(!isAiTest)("aiFindSnippets", () => {
 
     const result = await aiFindSnippets({
       sentEmails: emails,
-      user: getUser(),
+      emailAccount: getEmailAccount(),
     });
 
     expect(result.snippets).toHaveLength(0);
   });
 });
-
-// helpers
-function getEmail({
-  from = "user@test.com",
-  subject = "Test Subject",
-  content = "Test content",
-  replyTo,
-  cc,
-}: Partial<EmailForLLM> = {}): EmailForLLM {
-  return {
-    from,
-    subject,
-    content,
-    ...(replyTo && { replyTo }),
-    ...(cc && { cc }),
-  };
-}
-
-function getUser() {
-  return {
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
-  };
-}

@@ -50,6 +50,9 @@ import { useSplitLabels } from "@/hooks/useLabels";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useCleanerEnabled } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
+import { AccountSwitcher } from "@/components/AccountSwitcher";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { prefixPath } from "@/utils/path";
 
 type NavItem = {
   name: string;
@@ -60,55 +63,62 @@ type NavItem = {
   hideInMail?: boolean;
 };
 
-// Assistant category items
-const assistantItems: NavItem[] = [
-  {
-    name: "Personal Assistant",
-    href: "/automation",
-    icon: SparklesIcon,
-  },
-  {
-    name: "Reply Zero",
-    href: "/reply-zero",
-    icon: MessageCircleReplyIcon,
-  },
-  {
-    name: "Cold Email Blocker",
-    href: "/cold-email-blocker",
-    icon: ShieldCheckIcon,
-  },
-];
-
-// Clean category items
-const cleanItems: NavItem[] = [
-  {
-    name: "Bulk Unsubscribe",
-    href: "/bulk-unsubscribe",
-    icon: MailsIcon,
-  },
-  {
-    name: "Deep Clean",
-    href: "/clean",
-    icon: BrushIcon,
-  },
-  {
-    name: "Analytics",
-    href: "/stats",
-    icon: BarChartBigIcon,
-  },
-];
-
 export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
+  const { emailAccountId } = useAccount();
+
+  // Assistant category items
+  const assistantItems: NavItem[] = useMemo(
+    () => [
+      {
+        name: "Personal Assistant",
+        href: prefixPath(emailAccountId, "/automation"),
+        icon: SparklesIcon,
+      },
+      {
+        name: "Reply Zero",
+        href: prefixPath(emailAccountId, "/reply-zero"),
+        icon: MessageCircleReplyIcon,
+      },
+      {
+        name: "Cold Email Blocker",
+        href: prefixPath(emailAccountId, "/cold-email-blocker"),
+        icon: ShieldCheckIcon,
+      },
+    ],
+    [emailAccountId],
+  );
+
+  // Clean category items
+  const cleanItems: NavItem[] = useMemo(
+    () => [
+      {
+        name: "Bulk Unsubscribe",
+        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
+        icon: MailsIcon,
+      },
+      {
+        name: "Deep Clean",
+        href: prefixPath(emailAccountId, "/clean"),
+        icon: BrushIcon,
+      },
+      {
+        name: "Analytics",
+        href: prefixPath(emailAccountId, "/stats"),
+        icon: BarChartBigIcon,
+      },
+    ],
+    [emailAccountId],
+  );
 
   const cleanItemsFiltered = useMemo(
     () =>
       cleanItems.filter((item) => {
-        if (item.href === "/clean") return showCleaner;
+        if (item.href === `/${emailAccountId}/clean`) return showCleaner;
         return true;
       }),
-    [showCleaner],
+    [showCleaner, emailAccountId, cleanItems],
   );
 
   return {
@@ -227,10 +237,10 @@ const bottomMailLinks: NavItem[] = [
   },
 ];
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
   const path = usePathname();
-  const showMailNav = path === "/mail" || path === "/compose";
+  const showMailNav = path.includes("/mail") || path.includes("/compose");
 
   const visibleBottomLinks = useMemo(
     () =>
@@ -251,15 +261,16 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   return (
     <Sidebar collapsible="icon" {...props}>
-      {state === "expanded" ? (
-        <SidebarHeader>
+      <SidebarHeader className="gap-0 pb-0">
+        {state === "expanded" ? (
           <Link href="/setup">
-            <div className="flex h-12 items-center p-4 text-white">
-              <Logo className="h-4" />
+            <div className="flex items-center rounded-md p-3 text-white">
+              <Logo className="h-3.5" />
             </div>
           </Link>
-        </SidebarHeader>
-      ) : null}
+        ) : null}
+        <AccountSwitcher />
+      </SidebarHeader>
 
       <SidebarContent>
         <SidebarGroupContent>
@@ -290,7 +301,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
       <SidebarFooter className="pb-4">
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
-        {/* <NavUser user={data.user} /> */}
       </SidebarFooter>
     </Sidebar>
   );

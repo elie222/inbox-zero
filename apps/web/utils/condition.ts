@@ -1,10 +1,10 @@
 import {
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
   type Category,
   type Rule,
 } from "@prisma/client";
+import { ConditionType, type CoreConditionType } from "@/utils/config";
 import type {
   CreateRuleBody,
   ZodCondition,
@@ -52,14 +52,14 @@ export function getConditions(rule: RuleConditions) {
 
   if (isAIRule(rule)) {
     conditions.push({
-      type: RuleType.AI,
+      type: ConditionType.AI,
       instructions: rule.instructions,
     });
   }
 
   if (isStaticRule(rule)) {
     conditions.push({
-      type: RuleType.STATIC,
+      type: ConditionType.STATIC,
       from: rule.from,
       to: rule.to,
       subject: rule.subject,
@@ -69,7 +69,7 @@ export function getConditions(rule: RuleConditions) {
 
   if (isCategoryRule(rule)) {
     conditions.push({
-      type: RuleType.CATEGORY,
+      type: ConditionType.CATEGORY,
       categoryFilterType: rule.categoryFilterType,
       categoryFilters: rule.categoryFilters?.map((category) => category.id),
     });
@@ -80,37 +80,37 @@ export function getConditions(rule: RuleConditions) {
 
 export function getConditionTypes(
   rule: RuleConditions,
-): Record<RuleType, boolean> {
+): Record<ConditionType, boolean> {
   return getConditions(rule).reduce(
     (acc, condition) => {
       acc[condition.type] = true;
       return acc;
     },
-    {} as Record<RuleType, boolean>,
+    {} as Record<ConditionType, boolean>,
   );
 }
 
 export function getEmptyCondition(
-  type: Exclude<RuleType, "GROUP">,
+  type: CoreConditionType,
   category?: string,
 ): ZodCondition {
   switch (type) {
-    case RuleType.AI:
+    case ConditionType.AI:
       return {
-        type: RuleType.AI,
+        type: ConditionType.AI,
         instructions: "",
       };
-    case RuleType.STATIC:
+    case ConditionType.STATIC:
       return {
-        type: RuleType.STATIC,
+        type: ConditionType.STATIC,
         from: null,
         to: null,
         subject: null,
         body: null,
       };
-    case RuleType.CATEGORY:
+    case ConditionType.CATEGORY:
       return {
-        type: RuleType.CATEGORY,
+        type: ConditionType.CATEGORY,
         categoryFilterType: CategoryFilterType.INCLUDE,
         categoryFilters: category ? [category] : null,
       };
@@ -136,16 +136,16 @@ export const flattenConditions = (
 ): FlattenedConditions => {
   return conditions.reduce((acc, condition) => {
     switch (condition.type) {
-      case RuleType.AI:
+      case ConditionType.AI:
         acc.instructions = condition.instructions;
         break;
-      case RuleType.STATIC:
+      case ConditionType.STATIC:
         acc.to = condition.to;
         acc.from = condition.from;
         acc.subject = condition.subject;
         acc.body = condition.body;
         break;
-      case RuleType.CATEGORY:
+      case ConditionType.CATEGORY:
         acc.categoryFilterType = condition.categoryFilterType;
         acc.categoryFilters = condition.categoryFilters;
         break;
@@ -165,23 +165,25 @@ export const flattenConditions = (
 
 export function conditionTypesToString(rule: RuleConditions) {
   return getConditions(rule)
-    .map((condition) => ruleTypeToString(condition.type))
+    .map((condition) => conditionTypeToString(condition.type))
     .join(", ");
 }
 
-export function ruleTypeToString(ruleType: RuleType): string {
-  switch (ruleType) {
-    case RuleType.AI:
+function conditionTypeToString(conditionType: ConditionType): string {
+  switch (conditionType) {
+    case ConditionType.AI:
       return "AI";
-    case RuleType.STATIC:
+    case ConditionType.STATIC:
       return "Static";
-    case RuleType.GROUP:
+    case ConditionType.GROUP:
       return "Group";
-    case RuleType.CATEGORY:
+    case ConditionType.CATEGORY:
       return "Category";
+    case ConditionType.PRESET:
+      return "Preset";
     default:
       // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
-      const exhaustiveCheck: never = ruleType;
+      const exhaustiveCheck: never = conditionType;
       return exhaustiveCheck;
   }
 }

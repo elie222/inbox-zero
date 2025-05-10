@@ -1,9 +1,9 @@
-import { type NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { withError } from "@/utils/middleware";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
-import { posthogCaptureEvent } from "@/utils/posthog";
+import { trackUserSignedUp } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
 import { ONE_HOUR_MS } from "@/utils/date";
 import { createScopedLogger } from "@/utils/logger";
@@ -11,9 +11,7 @@ import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapte
 
 const logger = createScopedLogger("complete-registration");
 
-export type CompleteRegistrationBody = Record<string, never>;
-
-export const POST = withError(async (_request: NextRequest) => {
+export const POST = withError(async () => {
   const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
@@ -95,12 +93,5 @@ async function storePosthogSignupEvent(userId: string, email: string) {
     return;
   }
 
-  return posthogCaptureEvent(
-    email,
-    "User signed up",
-    {
-      $set_once: { createdAt: userCreatedAt.createdAt },
-    },
-    true,
-  );
+  return trackUserSignedUp(email, userCreatedAt.createdAt);
 }

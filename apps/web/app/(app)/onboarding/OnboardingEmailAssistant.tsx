@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import Link from "next/link";
 import type { SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { InferSafeActionFnResult } from "next-safe-action";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
@@ -23,15 +24,17 @@ import { OnboardingNextButton } from "@/app/(app)/onboarding/OnboardingNextButto
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { Loading } from "@/components/Loading";
 import { getRuleExamplesAction } from "@/utils/actions/rule";
-import { isActionError } from "@/utils/error";
 import { toastError } from "@/components/Toast";
 import {
   rulesExamplesBody,
   type RulesExamplesBody,
 } from "@/utils/actions/rule.validation";
-import { examplePrompts } from "@/app/(app)/automation/examples";
+import { examplePrompts } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
-type RulesExamplesResponse = Awaited<ReturnType<typeof getRuleExamplesAction>>;
+type RulesExamplesResponse = InferSafeActionFnResult<
+  typeof getRuleExamplesAction
+>["data"];
 
 export function OnboardingAIEmailAssistant({ step }: { step: number }) {
   const [showNextButton, setShowNextButton] = useState(false);
@@ -55,6 +58,7 @@ function EmailAssistantForm({
   setShowNextButton: (show: boolean) => void;
   step: number;
 }) {
+  const { emailAccountId } = useAccount();
   const [data, setData] = useState<RulesExamplesResponse>();
 
   const {
@@ -71,19 +75,19 @@ function EmailAssistantForm({
   });
 
   const onSubmit: SubmitHandler<RulesExamplesBody> = async (data) => {
-    const result = await getRuleExamplesAction(data);
+    const result = await getRuleExamplesAction(emailAccountId, data);
 
     setShowNextButton(true);
 
-    if (isActionError(result)) {
+    if (result?.serverError) {
       toastError({
         title: "Error getting rule examples",
-        description: result.error,
+        description: result.serverError,
       });
       return;
     }
-    if (result.success) {
-      setData(result);
+    if (result?.data) {
+      setData(result.data);
     }
   };
 

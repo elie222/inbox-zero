@@ -2,6 +2,7 @@ import { describe, expect, test, vi } from "vitest";
 import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-choose-args
 
@@ -9,7 +10,7 @@ const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 vi.mock("server-only", () => ({}));
 
-describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
+describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
   test("should return actions unchanged when no AI args needed", async () => {
     const actions = [getAction({})];
     const rule = getRule("Test rule", actions);
@@ -19,7 +20,7 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Test subject",
         content: "Test content",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
       selectedRule: rule,
       gmail: {} as any,
     });
@@ -41,7 +42,7 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Quick question",
         content: "When is the meeting tomorrow?",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
       selectedRule: rule,
       gmail: {} as any,
     });
@@ -68,7 +69,7 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Quick question",
         content: "How much are pears?",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
       selectedRule: rule,
       gmail: {} as any,
     });
@@ -95,7 +96,7 @@ describe.skipIf(!isAiTest)("getActionItemsWithAiArgs", () => {
         subject: "Project status",
         content: "Can you update me on the project status?",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
       selectedRule: rule,
       gmail: {} as any,
     });
@@ -132,7 +133,7 @@ Matt`,
         subject: "fruits",
         content: "how much do apples cost?",
       }),
-      user: getUser(),
+      emailAccount: getEmailAccount(),
       selectedRule: rule,
       gmail: {} as any,
     });
@@ -184,7 +185,7 @@ function getRule(
     name: "Test Rule",
     actions,
     id: "r123",
-    userId: "userId",
+    emailAccountId: "emailAccountId",
     createdAt: new Date(),
     updatedAt: new Date(),
     automate: false,
@@ -197,7 +198,7 @@ function getRule(
     enabled: true,
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
-    type: null,
+    systemType: null,
   };
 }
 
@@ -226,16 +227,5 @@ function getParsedMessage({
       "message-id": "message-id",
       // ...message.headers,
     },
-  };
-}
-
-function getUser() {
-  return {
-    id: "userId",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }

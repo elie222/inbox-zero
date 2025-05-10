@@ -7,55 +7,44 @@ import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
-import { Model, Provider, supportsOllama } from "@/utils/llms/config";
+import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms/model");
 
-export function getModel(
-  userAi: UserAIFields,
-  useEconomyModel?: boolean,
+export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
+  const data = useEconomyModel
+    ? selectEconomyModel(userAi)
+    : selectDefaultModel(userAi);
+
+  logger.info("Using model", {
+    useEconomyModel,
+    provider: data.provider,
+    model: data.model,
+    providerOptions: data.providerOptions,
+  });
+
+  return data;
+}
+
+function selectModel(
+  {
+    aiProvider,
+    aiModel,
+    aiApiKey,
+  }: {
+    aiProvider: string;
+    aiModel: string | null;
+    aiApiKey: string | null;
+  },
+  providerOptions?: Record<string, any>,
 ): {
   provider: string;
   model: string;
   llmModel: LanguageModelV1;
+  providerOptions?: Record<string, any>;
 } {
-  const model = useEconomyModel
-    ? selectEconomyModel(userAi)
-    : selectModel(userAi);
-
-  logger.trace("Using model", {
-    useEconomyModel,
-    provider: model.provider,
-    model: model.model,
-  });
-
-  return model;
-}
-
-function selectModel(userAi: UserAIFields): {
-  provider: string;
-  model: string;
-  llmModel: LanguageModelV1;
-} {
-  const defaultProvider = getDefaultProvider();
-  const aiApiKey = userAi.aiApiKey;
-  let aiProvider: string;
-  let aiModel: string | null = null;
-
-  // If user has not api key set, then use default model
-  // If they do they can use the model of their choice
-  if (aiApiKey) {
-    aiProvider = userAi.aiProvider || defaultProvider;
-
-    if (userAi.aiModel) {
-      aiModel = userAi.aiModel;
-    }
-  } else {
-    aiProvider = defaultProvider;
-  }
-
   switch (aiProvider) {
     case Provider.OPEN_AI: {
       const model = aiModel || Model.GPT_4O;
@@ -86,9 +75,13 @@ function selectModel(userAi: UserAIFields): {
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.GEMINI_2_0_FLASH_OPENROUTER;
+      const model = aiModel || Model.CLAUDE_3_7_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+        headers: {
+          "HTTP-Referer": "https://www.getinboxzero.com",
+          "X-Title": "Inbox Zero",
+        },
       });
       const chatModel = openrouter.chat(model);
 
@@ -96,6 +89,7 @@ function selectModel(userAi: UserAIFields): {
         provider: Provider.OPENROUTER,
         model,
         llmModel: chatModel,
+        providerOptions,
       };
     }
     case Provider.OLLAMA: {
@@ -162,7 +156,7 @@ function selectEconomyModel(userAi: UserAIFields) {
       logger.warn("Economy LLM provider configured but API key not found", {
         provider: env.ECONOMY_LLM_PROVIDER,
       });
-      return selectModel(userAi);
+      return selectDefaultModel(userAi);
     }
 
     return selectModel({
@@ -172,7 +166,55 @@ function selectEconomyModel(userAi: UserAIFields) {
     });
   }
 
-  return selectModel(userAi);
+  return selectDefaultModel(userAi);
+}
+
+function selectDefaultModel(userAi: UserAIFields) {
+  const defaultProvider = env.DEFAULT_LLM_PROVIDER;
+  const aiApiKey = userAi.aiApiKey;
+  let aiProvider: string;
+  let aiModel: string | null = null;
+
+  // If user has not api key set, then use default model
+  // If they do they can use the model of their choice
+  if (aiApiKey) {
+    aiProvider = userAi.aiProvider || defaultProvider;
+
+    if (userAi.aiModel) {
+      aiModel = userAi.aiModel;
+    }
+  } else {
+    aiProvider = defaultProvider;
+  }
+
+  const providerOptions: Record<string, any> = {};
+
+  // Add OpenRouter-specific provider options
+  // TODO: shouldn't be harded coded
+  if (defaultProvider === Provider.OPENROUTER) {
+    providerOptions.openrouter = {
+      models: [
+        "anthropic/claude-3.7-sonnet",
+        // "google/gemini-2.5-pro-preview-03-25",
+      ],
+      provider: {
+        order: [
+          "Amazon Bedrock",
+          // "Google AI Studio",
+          "Anthropic",
+        ],
+      },
+    };
+  }
+
+  return selectModel(
+    {
+      aiProvider,
+      aiModel,
+      aiApiKey,
+    },
+    providerOptions,
+  );
 }
 
 function getProviderApiKey(
@@ -194,28 +236,4 @@ function getProviderApiKey(
   };
 
   return providerApiKeys[provider];
-}
-
-function getDefaultProvider(): string {
-  switch (env.DEFAULT_LLM_PROVIDER) {
-    case "google":
-      return Provider.GOOGLE;
-    case "anthropic":
-      return Provider.ANTHROPIC;
-    case "bedrock":
-      return Provider.ANTHROPIC;
-    case "openai":
-      return Provider.OPEN_AI;
-    case "openrouter":
-      return Provider.OPENROUTER;
-    case "groq":
-      return Provider.GROQ;
-    case "ollama":
-      if (supportsOllama && env.OLLAMA_BASE_URL) return Provider.OLLAMA!;
-      throw new Error("Ollama is not supported");
-    default:
-      throw new Error(
-        "No AI provider found. Please set at least one API key in env variables.",
-      );
-  }
 }

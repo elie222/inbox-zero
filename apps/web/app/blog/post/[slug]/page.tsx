@@ -10,6 +10,12 @@ import { captureException } from "@/utils/error";
 export const revalidate = 60;
 
 export async function generateStaticParams() {
+  if (
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ===
+    "dummy-sanity-project-id-for-build"
+  ) {
+    return [];
+  }
   const posts = await client.fetch(postPathsQuery);
   return posts;
 }
@@ -66,6 +72,10 @@ export async function generateMetadata(
 export default async function Page(props: Props) {
   const params = await props.params;
   const post = await sanityFetch<PostType>({ query: postQuery, params });
+
+  if (!post) {
+    return <div>Blog post content unavailable.</div>;
+  }
 
   return <Post post={post} />;
 }

@@ -4,6 +4,7 @@ import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-ma
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
 import { findExampleMatchesSchema } from "@/utils/ai/example-matches/find-example-matches";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-find-example-matches
 
@@ -14,17 +15,11 @@ vi.mock("@/utils/gmail/message", () => ({
   queryBatchMessages: vi.fn(),
 }));
 
-describe.skipIf(!isAiTest)("aiFindExampleMatches", () => {
+describe.runIf(isAiTest)("aiFindExampleMatches", () => {
   it("should find example matches based on user prompt", async () => {
-    const user = {
-      email: "user@test.com",
-      aiProvider: null,
-      aiModel: null,
-      aiApiKey: null,
-    };
+    const emailAccount = getEmailAccount();
 
     const gmail = {} as gmail_v1.Gmail;
-    const accessToken = "fake-access-token";
     const rulesPrompt = `
 * Label newsletters as "Newsletter" and archive them.
 * Label emails that require a reply as "Reply Required".
@@ -66,12 +61,7 @@ describe.skipIf(!isAiTest)("aiFindExampleMatches", () => {
       nextPageToken: null,
     });
 
-    const result = await aiFindExampleMatches(
-      user,
-      gmail,
-      accessToken,
-      rulesPrompt,
-    );
+    const result = await aiFindExampleMatches(emailAccount, gmail, rulesPrompt);
 
     expect(result).toEqual(
       expect.objectContaining({

@@ -1,13 +1,11 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { getGmailClient } from "@/utils/gmail/client";
+import { NextResponse } from "next/server";
 import { queryBatchMessages } from "@/utils/gmail/message";
-import { withError } from "@/utils/middleware";
-import { SafeError } from "@/utils/error";
+import { withEmailAccount } from "@/utils/middleware";
 import { messageQuerySchema } from "@/app/api/google/messages/validation";
 import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("api/google/messages");
 
@@ -16,28 +14,22 @@ export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 async function getMessages({
   query,
   pageToken,
+  emailAccountId,
+  userEmail,
 }: {
   query?: string | null;
   pageToken?: string | null;
+  emailAccountId: string;
+  userEmail: string;
 }) {
-  const session = await auth();
-  if (!session?.user.email) throw new SafeError("Not authenticated");
-  if (!session.accessToken) throw new SafeError("Missing access token");
-
   try {
-    const gmail = getGmailClient(session);
+    const gmail = await getGmailClientForEmail({ emailAccountId });
 
-    const { messages, nextPageToken } = await queryBatchMessages(
-      gmail,
-      session.accessToken,
-      {
-        query: query?.trim(),
-        maxResults: 20,
-        pageToken: pageToken ?? undefined,
-      },
-    );
-
-    const email = session.user.email;
+    const { messages, nextPageToken } = await queryBatchMessages(gmail, {
+      query: query?.trim(),
+      maxResults: 20,
+      pageToken: pageToken ?? undefined,
+    });
 
     // filter out SENT messages from the user
     // NOTE: -from:me doesn't work because it filters out messages from threads where the user responded
@@ -52,11 +44,11 @@ async function getMessages({
         // Don't include messages from/to the assistant
         if (
           isAssistantEmail({
-            userEmail: email,
+            userEmail,
             emailToCheck: message.headers.from,
           }) ||
           isAssistantEmail({
-            userEmail: email,
+            userEmail,
             emailToCheck: message.headers.to,
           })
         ) {
@@ -74,7 +66,7 @@ async function getMessages({
     return { messages: incomingMessages, nextPageToken };
   } catch (error) {
     logger.error("Error getting messages", {
-      email: session?.user.email,
+      emailAccountId,
       query,
       pageToken,
       error,
@@ -83,11 +75,19 @@ async function getMessages({
   }
 }
 
-export const GET = withError(async (request) => {
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const userEmail = request.auth.email;
+
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
   const pageToken = searchParams.get("pageToken");
   const r = messageQuerySchema.parse({ q: query, pageToken });
-  const result = await getMessages({ query: r.q, pageToken: r.pageToken });
+  const result = await getMessages({
+    emailAccountId,
+    query: r.q,
+    pageToken: r.pageToken,
+    userEmail,
+  });
   return NextResponse.json(result);
 });

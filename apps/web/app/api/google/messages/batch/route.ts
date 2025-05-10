@@ -1,38 +1,52 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import { withError } from "@/utils/middleware";
-import { getGmailAccessToken } from "@/utils/gmail/client";
+import { withEmailAccount } from "@/utils/middleware";
 import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
+import { parseReply } from "@/utils/mail";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 
 const messagesBatchQuery = z.object({
-  messageIds: z
+  ids: z
     .array(z.string())
     .max(100)
     .transform((arr) => uniq(arr)),
+  parseReplies: z.coerce.boolean().optional(),
 });
 export type MessagesBatchQuery = z.infer<typeof messagesBatchQuery>;
 export type MessagesBatchResponse = {
   messages: Awaited<ReturnType<typeof getMessagesBatch>>;
 };
 
-export const GET = withError(async (request) => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const { searchParams } = new URL(request.url);
-  const query = messagesBatchQuery.parse({
-    messageIds: searchParams.getAll("messageIds"),
+  const { accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
   });
 
-  const accessToken = await getGmailAccessToken(session);
+  if (!accessToken) return NextResponse.json({ error: "Invalid access token" });
 
-  if (!accessToken.token)
-    return NextResponse.json({ error: "Invalid access token" });
+  const { searchParams } = new URL(request.url);
+  const ids = searchParams.get("ids");
+  const parseReplies = searchParams.get("parseReplies");
+  const query = messagesBatchQuery.parse({
+    ids: ids ? ids.split(",") : [],
+    parseReplies: parseReplies === "true",
+  });
 
-  const messages = await getMessagesBatch(query.messageIds, accessToken.token);
+  const messages = await getMessagesBatch({
+    messageIds: query.ids,
+    accessToken,
+  });
 
-  return NextResponse.json({ messages });
+  const result = query.parseReplies
+    ? messages.map((message) => ({
+        ...message,
+        textPlain: parseReply(message.textPlain || ""),
+        textHtml: parseReply(message.textHtml || ""),
+      }))
+    : messages;
+
+  return NextResponse.json({ messages: result });
 });

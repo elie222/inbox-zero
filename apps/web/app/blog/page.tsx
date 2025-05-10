@@ -206,7 +206,14 @@ const mdxPosts: Post[] = [
 export const revalidate = 60;
 
 export default async function BlogContentsPage() {
-  const posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
+  // Skip Sanity fetch during build with dummy credentials
+  let posts: SanityPost[] = [];
+  if (
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID !==
+    "dummy-sanity-project-id-for-build"
+  ) {
+    posts = await sanityFetch<SanityPost[]>({ query: postsQuery });
+  }
 
   return (
     <BlogLayout>

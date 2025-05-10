@@ -1,14 +1,15 @@
+import { extractEmailAddress } from "@/utils/email";
 import { getSenders } from "./get-senders";
 import prisma from "@/utils/prisma";
 
 const MAX_ITERATIONS = 200;
 
 export async function getUncategorizedSenders({
-  userId,
+  emailAccountId,
   offset = 0,
   limit = 100,
 }: {
-  userId: string;
+  emailAccountId: string;
   offset?: number;
   limit?: number;
 }) {
@@ -17,16 +18,16 @@ export async function getUncategorizedSenders({
 
   while (uncategorizedSenders.length === 0 && currentOffset < MAX_ITERATIONS) {
     const result = await getSenders({
-      userId,
+      emailAccountId,
       limit,
       offset: currentOffset,
     });
-    const allSenders = result.map((sender) => sender.from);
+    const allSenders = result.map((sender) => extractEmailAddress(sender.from));
 
     const existingSenders = await prisma.newsletter.findMany({
       where: {
         email: { in: allSenders },
-        userId,
+        emailAccountId,
         category: { isNot: null },
       },
       select: { email: true },

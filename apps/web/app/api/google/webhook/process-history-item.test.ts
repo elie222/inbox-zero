@@ -14,8 +14,12 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/server", () => ({
+  after: vi.fn((callback) => callback()),
+}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
@@ -28,7 +32,7 @@ vi.mock("@/utils/gmail/message", () => ({
     payload: {
       headers: [
         { name: "From", value: "sender@example.com" },
-        { name: "To", value: "user@example.com" },
+        { name: "To", value: "user@test.com" },
         { name: "Subject", value: "Test Email" },
         { name: "Date", value: "2024-01-01T00:00:00Z" },
       ],
@@ -51,7 +55,7 @@ vi.mock("@/utils/gmail/thread", () => ({
       internalDate: "1704067200000", // 2024-01-01T00:00:00Z
       headers: {
         from: "sender@example.com",
-        to: "user@example.com",
+        to: "user@test.com",
         subject: "Test Email",
         date: "2024-01-01T00:00:00Z",
       },
@@ -92,52 +96,34 @@ describe("processHistoryItem", () => {
     message: { id: messageId, threadId },
   });
 
-  interface TestUser {
-    id: string;
-    email: string | null;
-    about: string | null;
-    coldEmailBlocker: ColdEmailSetting | null;
-    coldEmailPrompt: string | null;
-    autoCategorizeSenders: boolean;
-    aiProvider: string;
-    aiModel: string;
-    aiApiKey: string | null;
-  }
-
-  const defaultUser: TestUser = {
-    id: "user-123",
-    email: "user@example.com",
-    about: null,
-    coldEmailBlocker: ColdEmailSetting.DISABLED,
-    coldEmailPrompt: null,
-    autoCategorizeSenders: false,
-    aiProvider: "openai",
-    aiModel: "gpt-4",
-    aiApiKey: null,
+  const defaultOptions = {
+    gmail: {} as any,
+    email: "user@test.com",
+    accessToken: "fake-token",
+    hasAutomationRules: false,
+    hasAiAccess: false,
+    rules: [],
+    history: [] as gmail_v1.Schema$History[],
   };
 
-  const createOptions = (overrides: { [key: string]: any } = {}) => {
-    const user = overrides.user
-      ? { ...defaultUser, ...overrides.user }
-      : defaultUser;
+  function getDefaultEmailAccount() {
     return {
-      gmail: {} as any,
-      email: "user@example.com",
-      user,
-      accessToken: "fake-token",
-      hasColdEmailAccess: false,
-      hasAutomationRules: false,
-      hasAiAutomationAccess: false,
-      rules: [],
-      history: [] as gmail_v1.Schema$History[],
-      ...overrides,
+      ...getEmailAccount(),
+      coldEmailPrompt: null,
+      coldEmailBlocker: ColdEmailSetting.DISABLED,
+      autoCategorizeSenders: false,
     };
-  };
+  }
 
   it("should skip if message is already being processed", async () => {
     vi.mocked(markMessageAsProcessing).mockResolvedValueOnce(false);
 
-    await processHistoryItem(createHistoryItem(), createOptions());
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+
+    await processHistoryItem(createHistoryItem(), options);
 
     expect(getMessage).not.toHaveBeenCalled();
   });
@@ -145,7 +131,11 @@ describe("processHistoryItem", () => {
   it("should skip if message is an assistant email", async () => {
     vi.mocked(isAssistantEmail).mockReturnValueOnce(true);
 
-    await processHistoryItem(createHistoryItem(), createOptions());
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+    await processHistoryItem(createHistoryItem(), options);
 
     expect(blockUnsubscribedEmails).not.toHaveBeenCalled();
     expect(runColdEmailBlocker).not.toHaveBeenCalled();
@@ -153,11 +143,11 @@ describe("processHistoryItem", () => {
       message: expect.objectContaining({
         headers: expect.objectContaining({
           from: "sender@example.com",
-          to: "user@example.com",
+          to: "user@test.com",
         }),
       }),
-      userEmail: "user@example.com",
-      userId: "user-123",
+      userEmail: "user@test.com",
+      emailAccountId: "email-account-id",
       gmail: expect.any(Object),
     });
   });
@@ -169,7 +159,7 @@ describe("processHistoryItem", () => {
       labelIds: [GmailLabel.SENT],
       payload: {
         headers: [
-          { name: "From", value: "user@example.com" },
+          { name: "From", value: "user@test.com" },
           { name: "To", value: "recipient@example.com" },
           { name: "Subject", value: "Test Email" },
           { name: "Date", value: "2024-01-01T00:00:00Z" },
@@ -177,7 +167,11 @@ describe("processHistoryItem", () => {
       },
     });
 
-    await processHistoryItem(createHistoryItem(), createOptions());
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+    await processHistoryItem(createHistoryItem(), options);
 
     expect(blockUnsubscribedEmails).not.toHaveBeenCalled();
     expect(runColdEmailBlocker).not.toHaveBeenCalled();
@@ -186,19 +180,24 @@ describe("processHistoryItem", () => {
   it("should skip if email is unsubscribed", async () => {
     vi.mocked(blockUnsubscribedEmails).mockResolvedValueOnce(true);
 
-    await processHistoryItem(createHistoryItem(), createOptions());
+    const options = {
+      ...defaultOptions,
+      emailAccount: getDefaultEmailAccount(),
+    };
+    await processHistoryItem(createHistoryItem(), options);
 
     expect(runColdEmailBlocker).not.toHaveBeenCalled();
   });
 
   it("should run cold email blocker when enabled", async () => {
-    const options = createOptions({
-      user: {
-        ...defaultUser,
+    const options = {
+      ...defaultOptions,
+      emailAccount: {
+        ...getDefaultEmailAccount(),
         coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
       },
-      hasColdEmailAccess: true,
-    });
+      hasAiAccess: true,
+    };
 
     await processHistoryItem(createHistoryItem(), options);
 
@@ -212,7 +211,7 @@ describe("processHistoryItem", () => {
         date: expect.any(Date),
       }),
       gmail: options.gmail,
-      user: options.user,
+      emailAccount: options.emailAccount,
     });
   });
 
@@ -223,16 +222,16 @@ describe("processHistoryItem", () => {
       aiReason: "This appears to be a cold email",
     });
 
-    const options = createOptions({
-      user: {
-        ...defaultUser,
+    const options = {
+      ...defaultOptions,
+      emailAccount: {
+        ...getDefaultEmailAccount(),
         coldEmailBlocker: ColdEmailSetting.ARCHIVE_AND_LABEL,
+        autoCategorizeSenders: true,
       },
-      hasColdEmailAccess: true,
       hasAutomationRules: true,
-      hasAiAutomationAccess: true,
-      autoCategorizeSenders: true,
-    });
+      hasAiAccess: true,
+    };
 
     await processHistoryItem(createHistoryItem(), options);
 

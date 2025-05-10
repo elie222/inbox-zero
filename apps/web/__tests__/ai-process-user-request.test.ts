@@ -3,13 +3,9 @@ import stripIndent from "strip-indent";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
-import {
-  type Category,
-  type GroupItem,
-  type Prisma,
-  RuleType,
-} from "@prisma/client";
+import type { Category, GroupItem, Prisma } from "@prisma/client";
 import { GroupItemType, LogicalOperator } from "@prisma/client";
+import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-process-user-request
 
@@ -50,7 +46,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -103,7 +99,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [ruleSupport, ruleUrgent],
         messages: [
           {
@@ -148,7 +144,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -223,7 +219,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -285,7 +281,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -330,7 +326,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -381,7 +377,7 @@ describe(
       });
 
       const result = await processUserRequest({
-        user: getUser(),
+        emailAccount: getEmailAccount(),
         rules: [rule],
         messages: [
           {
@@ -425,7 +421,7 @@ describe(
 function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
   return {
     id: "1",
-    userId: "user1",
+    emailAccountId: "user1",
     name: "Rule name",
 
     conditionalOperator: LogicalOperator.AND,
@@ -448,9 +444,9 @@ function getRule(rule: Partial<RuleWithRelations>): RuleWithRelations {
     automate: true,
     runOnThreads: true,
     enabled: true,
-    type: RuleType.AI,
     createdAt: new Date(),
     updatedAt: new Date(),
+    systemType: null,
     ...rule,
   };
 }
@@ -480,17 +476,6 @@ function getParsedMessage(
       "message-id": "message-id",
       ...message.headers,
     },
-  };
-}
-
-function getUser() {
-  return {
-    id: "user1",
-    aiModel: null,
-    aiProvider: null,
-    email: "user@test.com",
-    aiApiKey: null,
-    about: null,
   };
 }
 
@@ -530,7 +515,7 @@ function getCategory(category: Partial<Category>): Category {
     description: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    userId: "user1",
+    emailAccountId: "user1",
     ...category,
   };
 }

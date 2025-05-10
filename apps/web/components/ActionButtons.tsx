@@ -1,5 +1,4 @@
 import { useCallback, useMemo, useState } from "react";
-import { useSession } from "next-auth/react";
 import {
   ArchiveIcon,
   Trash2Icon,
@@ -10,6 +9,7 @@ import { ButtonGroup } from "@/components/ButtonGroup";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions/client";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ActionButtons({
   threadId,
@@ -26,14 +26,13 @@ export function ActionButtons({
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
-  const session = useSession();
-  const email = session.data?.user.email;
+  const { emailAccountId, userEmail } = useAccount();
 
   const openInGmail = useCallback(() => {
     // open in gmail
-    const url = getGmailUrl(threadId, email);
+    const url = getGmailUrl(threadId, userEmail);
     window.open(url, "_blank");
-  }, [threadId, email]);
+  }, [threadId, userEmail]);
 
   const [isTrashing, setIsTrashing] = useState(false);
 
@@ -41,10 +40,10 @@ export function ActionButtons({
   // TODO show loading toast
   const onTrash = useCallback(async () => {
     setIsTrashing(true);
-    await onTrashThread(threadId);
+    await onTrashThread({ emailAccountId, threadId });
     refetch(threadId);
     setIsTrashing(false);
-  }, [threadId, refetch]);
+  }, [threadId, refetch, emailAccountId]);
 
   const buttons = useMemo(
     () => [

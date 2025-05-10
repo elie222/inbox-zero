@@ -22,7 +22,7 @@ There are two parts to Inbox Zero:
 1. An AI email assistant that helps you spend less time on email.
 2. Open source AI email client.
 
-If you're looking to contribue to the project, the email client is the best place to do this.
+If you're looking to contribute to the project, the email client is the best place to do this.
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_ENCRYPT_SECRET,GOOGLE_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
 
@@ -60,55 +60,38 @@ Learn more in our [docs](https://docs.getinboxzero.com).
 - [Upstash](https://upstash.com/)
 - [Turborepo](https://turbo.build/)
 
+## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=elie222/inbox-zero&type=Date)](https://www.star-history.com/#elie222/inbox-zero&Date)
+
 ## Feature Requests
 
-To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues). If you don't have a GitHub account you can request features [here](https://www.getinboxzero.com/feature-requests). Or join our [Discord](https://www.getinboxzero.com/discord).
+To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero/issues), or join our [Discord](https://www.getinboxzero.com/discord).
 
 ## Getting Started for Developers
 
 We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
 
-### Contributing to the project
+### Setup
 
-You can view open tasks in our [GitHub Issues](https://github.com/elie222/inbox-zero/issues).
-Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
-
-[ARCHITECTURE.md](./ARCHITECTURE.md) explains the architecture of the project (LLM generated).
+[Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
 ### Requirements
 
 - [Node.js](https://nodejs.org/en/) >= 18.0.0
 - [pnpm](https://pnpm.io/) >= 8.6.12
-- [Docker desktop](https://www.docker.com/products/docker-desktop/) (optional)
+- [Docker desktop](https://www.docker.com/products/docker-desktop/) (recommended but optional)
 
-### Setup
+Make sure you have the above installed before starting.
 
-[Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
-
-The external services that are required are:
+The external services that are required are (detailed setup instructions below):
 
 - [Google OAuth](https://console.cloud.google.com/apis/credentials)
-- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list) - see set up instructions below
+- [Google PubSub](https://console.cloud.google.com/cloudpubsub/topic/list)
 
-You also need to set an LLM, but you can use a local one too:
+### Updating .env file: secrets
 
-- [Anthropic](https://console.anthropic.com/settings/keys)
-- [OpenAI](https://platform.openai.com/api-keys)
-- AWS Bedrock Anthropic
-- Google Gemini
-- Groq Llama 3.3 70B
-- Ollama (local)
-
-We use Postgres for the database.
-For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
-
-You can run Postgres & Redis locally using `docker-compose`
-
-```bash
-docker-compose up -d # -d will run the services in the background
-```
-
-Create your own `.env` file:
+Create your own `.env` file from the example supplied:
 
 ```bash
 cp apps/web/.env.example apps/web/.env
@@ -120,15 +103,109 @@ Set the environment variables in the newly created `.env`. You can see a list of
 
 The required environment variables:
 
+Secrets:
+
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
-- `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
-- `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
 - `GOOGLE_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
 - `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
+
+Redis:
+
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
 
 When using Vercel with Fluid Compute turned off, you should set `MAX_DURATION=300` or lower. See Vercel limits for different plans [here](https://vercel.com/docs/functions/configuring-functions/duration#duration-limits).
+
+### Updating .env file with Google OAuth credentials:
+
+- `GOOGLE_CLIENT_ID` -- Google OAuth client ID. More info [here](https://next-auth.js.org/providers/google)
+- `GOOGLE_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://next-auth.js.org/providers/google)
+
+Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if necessary.
+
+Create [new credentials](https://console.cloud.google.com/apis/credentials):
+
+1.  If the banner shows up, configure **consent screen** (if not, you can do this later)
+    1. Click the banner, then Click `Get Started`.
+    2. Choose a name for your app, and enter your email.
+    3. In Audience, choose `External`
+    4. Enter your contact information
+    5. Agree to the User Data policy and then click `Create`.
+    6. Return to APIs and Services using the left sidebar.
+2.  Create new [credentials](https://console.cloud.google.com/apis/credentials):
+    1. Click the `+Create Credentials` button. Choose OAuth Client ID.
+    2. In `Application Type`, Choose `Web application`
+    3. Choose a name for your web client
+    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
+    5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
+    6. Click `Create`.
+    7. A popup will show up with the new credentials, including the Client ID and secret.
+3.  Update .env file:
+    1. Copy the Client ID to `GOOGLE_CLIENT_ID`
+    2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
+4.  Update [scopes](https://console.cloud.google.com/auth/scopes)
+
+    1. Go to `Data Access` in the left sidebar (or click link above)
+    2. Click `Add or remove scopes`
+    3. Copy paste the below into the `Manually add scopes` box:
+
+    ```plaintext
+    https://www.googleapis.com/auth/userinfo.profile
+    https://www.googleapis.com/auth/userinfo.email
+    https://www.googleapis.com/auth/gmail.modify
+    https://www.googleapis.com/auth/gmail.settings.basic
+    https://www.googleapis.com/auth/contacts
+    ```
+
+    4. Click `Update`
+    5. Click `Save` in the Data Access page.
+
+5.  Add yourself as a test user
+    1. Go to [Audience](https://console.cloud.google.com/auth/audience)
+    2. In the `Test users` section, click `+Add users`
+    3. Enter your email and press `Save`
+
+### Updating .env file with LLM parameters
+
+You need to set an LLM, but you can use a local one too:
+
+- [Anthropic](https://console.anthropic.com/settings/keys)
+- [OpenAI](https://platform.openai.com/api-keys)
+- AWS Bedrock Anthropic
+- Google Gemini
+- Groq Llama 3.3 70B
+- Ollama (local)
+
+For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You
+can also use Ollama by setting the following enviroment variables:
+
+```sh
+OLLAMA_BASE_URL=http://localhost:11434/api
+NEXT_PUBLIC_OLLAMA_MODEL=phi3
+```
+
+Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
+
+You can select the model you wish to use in the app on the `/settings` page of the app.
+
+If you are using local ollama, you can set it to be default:
+
+```sh
+DEFAULT_LLM_PROVIDER=ollama
+```
+
+### Redis and Postgres
+
+We use Postgres for the database.
+For Redis, you can use [Upstash Redis](https://upstash.com/) or set up your own Redis instance.
+
+You can run Postgres & Redis locally using `docker-compose`
+
+```bash
+docker-compose up -d # -d will run the services in the background
+```
+
+### Running the app
 
 To run the migrations:
 
@@ -157,33 +234,10 @@ pnpm start
 
 Open [http://localhost:3000](http://localhost:3000) to view the app in your browser.
 
-To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
+### Premium
+
+Many features are available only to premium users. To upgrade yourself, make yourself an admin in the `.env`: `ADMINS=hello@gmail.com`
 Then upgrade yourself at: [http://localhost:3000/admin](http://localhost:3000/admin).
-
-### Supported LLMs
-
-For the LLM, you can use Anthropic, OpenAI, or Anthropic on AWS Bedrock. You can also use Ollama by setting the following enviroment variables:
-
-```sh
-OLLAMA_BASE_URL=http://localhost:11434/api
-NEXT_PUBLIC_OLLAMA_MODEL=phi3
-```
-
-Note: If you need to access Ollama hosted locally and the application is running on Docker setup, you can use `http://host.docker.internal:11434/api` as the base URL. You might also need to set `OLLAMA_HOST` to `0.0.0.0` in the Ollama configuration file.
-
-You can select the model you wish to use in the app on the `/settings` page of the app.
-
-### Setting up Google OAuth and Gmail API
-
-You need to enable these scopes in the Google Cloud Console:
-
-```plaintext
-https://www.googleapis.com/auth/userinfo.profile
-https://www.googleapis.com/auth/userinfo.email
-https://www.googleapis.com/auth/gmail.modify
-https://www.googleapis.com/auth/gmail.settings.basic
-https://www.googleapis.com/auth/contacts
-```
 
 ### Set up push notifications via Google PubSub to handle emails in real time
 
@@ -211,7 +265,7 @@ To start watching emails visit: `/api/google/watch/all`
 ### Watching for email updates
 
 Set a cron job to run these:
-The Google watch is necessary. The Resend one is optional.
+The Google watch is necessary. Others are optional.
 
 ```json
   "crons": [
@@ -222,8 +276,19 @@ The Google watch is necessary. The Resend one is optional.
     {
       "path": "/api/resend/summary/all",
       "schedule": "0 16 * * 1"
+    },
+    {
+      "path": "/api/reply-tracker/disable-unused-auto-draft",
+      "schedule": "0 3 * * *"
     }
   ]
 ```
 
 [Here](https://vercel.com/guides/how-to-setup-cron-jobs-on-vercel#alternative-cron-providers) are some easy ways to run cron jobs. Upstash is a free, easy option. I could never get the Vercel `vercel.json`. Open to PRs if you find a fix for that.
+
+### Contributing to the project
+
+You can view open tasks in our [GitHub Issues](https://github.com/elie222/inbox-zero/issues).
+Join our [Discord](https://www.getinboxzero.com/discord) to discuss tasks and check what's being worked on.
+
+[ARCHITECTURE.md](./ARCHITECTURE.md) explains the architecture of the project (LLM generated).

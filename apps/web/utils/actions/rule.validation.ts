@@ -3,8 +3,9 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  RuleType,
+  SystemType,
 } from "@prisma/client";
+import { ConditionType } from "@/utils/config";
 
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
@@ -19,10 +20,10 @@ const zodActionType = z.enum([
   ActionType.TRACK_THREAD,
 ]);
 
-export const zodRuleType = z.enum([
-  RuleType.AI,
-  RuleType.STATIC,
-  RuleType.CATEGORY,
+const zodConditionType = z.enum([
+  ConditionType.AI,
+  ConditionType.STATIC,
+  ConditionType.CATEGORY,
 ]);
 
 const zodAiCondition = z.object({
@@ -44,7 +45,7 @@ const zodCategoryCondition = z.object({
 });
 
 const zodCondition = z.object({
-  type: zodRuleType,
+  type: zodConditionType,
   ...zodAiCondition.shape,
   ...zodStaticCondition.shape,
   ...zodCategoryCondition.shape,
@@ -120,11 +121,23 @@ export const createRuleBody = z.object({
     .enum([LogicalOperator.AND, LogicalOperator.OR])
     .default(LogicalOperator.AND)
     .optional(),
+  systemType: z
+    .enum([
+      SystemType.TO_REPLY,
+      SystemType.NEWSLETTER,
+      SystemType.MARKETING,
+      SystemType.CALENDAR,
+      SystemType.RECEIPT,
+      SystemType.NOTIFICATION,
+    ])
+    .nullish(),
 });
 export type CreateRuleBody = z.infer<typeof createRuleBody>;
 
 export const updateRuleBody = createRuleBody.extend({ id: z.string() });
 export type UpdateRuleBody = z.infer<typeof updateRuleBody>;
+
+export const deleteRuleBody = z.object({ id: z.string() });
 
 export const updateRuleInstructionsBody = z.object({
   id: z.string(),

@@ -6,11 +6,12 @@ import { Tooltip } from "@/components/Tooltip";
 import type { Executing, Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
-import { isActionError } from "@/utils/error";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
   const [rejectingPlan, setRejectingPlan] = useState<Executing>({});
+  const { emailAccountId } = useAccount();
 
   const executePlan = useCallback(
     async (thread: Thread) => {
@@ -20,13 +21,13 @@ export function useExecutePlan(refetch: () => void) {
 
       const lastMessage = thread.messages?.[thread.messages.length - 1];
 
-      const result = await approvePlanAction({
+      const result = await approvePlanAction(emailAccountId, {
         executedRuleId: thread.plan.id,
         message: lastMessage,
       });
-      if (isActionError(result)) {
+      if (result?.serverError) {
         toastError({
-          description: `Unable to execute plan. ${result.error || ""}`,
+          description: `Unable to execute plan. ${result.serverError || ""}`,
         });
       } else {
         toastSuccess({ description: "Executed!" });
@@ -36,7 +37,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setExecutingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch],
+    [refetch, emailAccountId],
   );
 
   const rejectPlan = useCallback(
@@ -44,12 +45,12 @@ export function useExecutePlan(refetch: () => void) {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       if (thread.plan?.id) {
-        const result = await rejectPlanAction({
+        const result = await rejectPlanAction(emailAccountId, {
           executedRuleId: thread.plan.id,
         });
-        if (isActionError(result)) {
+        if (result?.serverError) {
           toastError({
-            description: `Error rejecting plan. ${result.error || ""}`,
+            description: `Error rejecting plan. ${result.serverError || ""}`,
           });
         } else {
           toastSuccess({ description: "Plan rejected" });
@@ -62,7 +63,7 @@ export function useExecutePlan(refetch: () => void) {
 
       setRejectingPlan((s) => ({ ...s, [thread.id!]: false }));
     },
-    [refetch],
+    [refetch, emailAccountId],
   );
 
   return {

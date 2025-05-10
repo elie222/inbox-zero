@@ -1,9 +1,10 @@
 import type { gmail_v1 } from "@googleapis/gmail";
+import { after } from "next/server";
 import type {
   ParsedMessage,
   RuleWithActionsAndCategories,
 } from "@/utils/types";
-import type { UserAIFields } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   ExecutedRuleStatus,
   Prisma,
@@ -18,6 +19,8 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
+import { extractEmailAddress } from "@/utils/email";
+import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -33,16 +36,28 @@ export async function runRules({
   gmail,
   message,
   rules,
-  user,
+  emailAccount,
   isTest,
 }: {
   gmail: gmail_v1.Gmail;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields;
+  emailAccount: EmailAccountWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  const result = await findMatchingRule(rules, message, user);
+  const result = await findMatchingRule({
+    rules,
+    message,
+    emailAccount,
+    gmail,
+  });
+
+  analyzeSenderPatternIfAiMatch({
+    isTest,
+    result,
+    message,
+    emailAccountId: emailAccount.id,
+  });
 
   logger.trace("Matching rule", { result });
 
@@ -50,7 +65,7 @@ export async function runRules({
     return await executeMatchedRule(
       result.rule,
       message,
-      user,
+      emailAccount,
       gmail,
       result.reason,
       result.matchReasons,
@@ -58,7 +73,7 @@ export async function runRules({
     );
   } else {
     await saveSkippedExecutedRule({
-      userId: user.id,
+      emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
       reason: result.reason,
@@ -70,7 +85,7 @@ export async function runRules({
 async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
-  user: Pick<User, "id" | "email" | "about"> & UserAIFields,
+  emailAccount: EmailAccountWithAI,
   gmail: gmail_v1.Gmail,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
@@ -79,7 +94,7 @@ async function executeMatchedRule(
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
     message,
-    user,
+    emailAccount,
     selectedRule: rule,
     gmail,
   });
@@ -89,7 +104,7 @@ async function executeMatchedRule(
     ? undefined
     : await saveExecutedRule(
         {
-          userId: user.id,
+          emailAccountId: emailAccount.id,
           threadId: message.threadId,
           messageId: message.id,
         },
@@ -105,7 +120,9 @@ async function executeMatchedRule(
   if (shouldExecute) {
     await executeAct({
       gmail,
-      userEmail: user.email || "",
+      userEmail: emailAccount.email,
+      userId: emailAccount.userId,
+      emailAccountId: emailAccount.id,
       executedRule,
       message,
     });
@@ -121,12 +138,12 @@ async function executeMatchedRule(
 }
 
 async function saveSkippedExecutedRule({
-  userId,
+  emailAccountId,
   threadId,
   messageId,
   reason,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   reason?: string;
@@ -137,11 +154,11 @@ async function saveSkippedExecutedRule({
     automated: true,
     reason,
     status: ExecutedRuleStatus.SKIPPED,
-    user: { connect: { id: userId } },
+    emailAccount: { connect: { id: emailAccountId } },
   };
 
   await upsertExecutedRule({
-    userId,
+    emailAccountId,
     threadId,
     messageId,
     data,
@@ -150,11 +167,11 @@ async function saveSkippedExecutedRule({
 
 async function saveExecutedRule(
   {
-    userId,
+    emailAccountId,
     threadId,
     messageId,
   }: {
-    userId: string;
+    emailAccountId: string;
     threadId: string;
     messageId: string;
   },
@@ -180,19 +197,24 @@ async function saveExecutedRule(
     status: ExecutedRuleStatus.PENDING,
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
-    user: { connect: { id: userId } },
+    emailAccount: { connect: { id: emailAccountId } },
   };
 
-  return await upsertExecutedRule({ userId, threadId, messageId, data });
+  return await upsertExecutedRule({
+    emailAccountId,
+    threadId,
+    messageId,
+    data,
+  });
 }
 
 async function upsertExecutedRule({
-  userId,
+  emailAccountId,
   threadId,
   messageId,
   data,
 }: {
-  userId: string;
+  emailAccountId: string;
   threadId: string;
   messageId: string;
   data: Prisma.ExecutedRuleCreateInput;
@@ -200,8 +222,8 @@ async function upsertExecutedRule({
   try {
     return await prisma.executedRule.upsert({
       where: {
-        unique_user_thread_message: {
-          userId,
+        unique_emailAccount_thread_message: {
+          emailAccountId,
           threadId,
           messageId,
         },
@@ -218,14 +240,14 @@ async function upsertExecutedRule({
       // Unique constraint violation, ignore the error
       // May be due to a race condition?
       logger.info("Ignored duplicate entry for ExecutedRule", {
-        userId,
+        emailAccountId,
         threadId,
         messageId,
       });
       return await prisma.executedRule.findUnique({
         where: {
-          unique_user_thread_message: {
-            userId,
+          unique_emailAccount_thread_message: {
+            emailAccountId,
             threadId,
             messageId,
           },
@@ -235,5 +257,40 @@ async function upsertExecutedRule({
     }
     // Re-throw any other errors
     throw error;
+  }
+}
+
+async function analyzeSenderPatternIfAiMatch({
+  isTest,
+  result,
+  message,
+  emailAccountId,
+}: {
+  isTest: boolean;
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  message: ParsedMessage;
+  emailAccountId: string;
+}) {
+  if (
+    !isTest &&
+    result.rule &&
+    // skip if we already matched for static reasons
+    // learnings only needed for rules that would run through an ai
+    !result.matchReasons?.some(
+      (reason) =>
+        reason.type === "STATIC" ||
+        reason.type === "GROUP" ||
+        reason.type === "CATEGORY",
+    )
+  ) {
+    const fromAddress = extractEmailAddress(message.headers.from);
+    if (fromAddress) {
+      after(() =>
+        analyzeSenderPattern({
+          emailAccountId,
+          from: fromAddress,
+        }),
+      );
+    }
   }
 }

@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
 export type GroupsResponse = Awaited<ReturnType<typeof getGroups>>;
 
-async function getGroups({ userId }: { userId: string }) {
+async function getGroups({ emailAccountId }: { emailAccountId: string }) {
   const groups = await prisma.group.findMany({
-    where: { userId },
+    where: { emailAccountId },
     select: {
       id: true,
       name: true,
@@ -18,12 +17,8 @@ async function getGroups({ userId }: { userId: string }) {
   return { groups };
 }
 
-export const GET = withError(async () => {
-  const session = await auth();
-  if (!session?.user.email)
-    return NextResponse.json({ error: "Not authenticated" });
-
-  const result = await getGroups({ userId: session.user.id });
-
+export const GET = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
+  const result = await getGroups({ emailAccountId });
   return NextResponse.json(result);
 });

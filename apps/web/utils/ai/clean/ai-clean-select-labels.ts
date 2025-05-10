@@ -1,17 +1,16 @@
 import { z } from "zod";
-import type { User } from "@prisma/client";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("ai/clean/select-labels");
 
 const schema = z.object({ labels: z.array(z.string()).optional() });
 
 export async function aiCleanSelectLabels({
-  user,
+  emailAccount,
   instructions,
 }: {
-  user: Pick<User, "about"> & UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
   instructions: string;
 }) {
   const system = `You are an AI assistant helping users organize their emails efficiently.
@@ -32,11 +31,11 @@ ${instructions}
   logger.trace("Input", { system, prompt });
 
   const aiResponse = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema,
-    userEmail: user.email || "",
+    userEmail: emailAccount.email,
     usageLabel: "Clean - Select Labels",
   });
 

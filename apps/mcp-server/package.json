@@ -14,11 +14,11 @@
     "build"
   ],
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.8.0",
+    "@modelcontextprotocol/sdk": "1.9.0",
     "zod": "3.24.2"
   },
   "devDependencies": {
-    "@types/node": "22.13.14",
-    "typescript": "5.8.2"
+    "@types/node": "22.14.1",
+    "typescript": "5.8.3"
   }
 }

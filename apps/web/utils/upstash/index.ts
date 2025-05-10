@@ -1,7 +1,6 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
-import { SafeError } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -81,9 +80,6 @@ export async function publishToQstashQueue({
 async function fallbackPublishToQstash(url: string, body: any) {
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
-
-  if (!env.INTERNAL_API_KEY)
-    throw new SafeError("Internal API key must be set");
 
   // Don't await. Run in background
   fetch(`${url}/simple`, {

@@ -126,6 +126,18 @@ const costs: Record<
     input: 0.1 / 1_000_000,
     output: 0.4 / 1_000_000,
   },
+  "google/gemini-2.0-flash-001": {
+    input: (0.1 / 1_000_000) * 1.05,
+    output: (0.4 / 1_000_000) * 1.05,
+  },
+  "google/gemini-2.5-pro-preview-03-25": {
+    input: (1.25 / 1_000_000) * 1.05,
+    output: (2.5 / 1_000_000) * 1.05,
+  },
+  "meta-llama/llama-4-maverick": {
+    input: 0.2 / 1_000_000,
+    output: 0.85 / 1_000_000,
+  },
   // https://groq.com/pricing
   "llama-3.3-70b-versatile": {
     input: 0.59 / 1_000_000,

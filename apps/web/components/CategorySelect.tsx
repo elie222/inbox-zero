@@ -10,16 +10,17 @@ import {
 } from "@/components/ui/select";
 import { changeSenderCategoryAction } from "@/utils/actions/categorize";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { isActionError } from "@/utils/error";
 import { useAiCategorizationQueueItem } from "@/store/ai-categorize-sender-queue";
 import { LoadingMiniSpinner } from "@/components/Loading";
 
 export function CategorySelect({
+  emailAccountId,
   sender,
   senderCategory,
   categories,
   onSuccess,
 }: {
+  emailAccountId: string;
   sender: string;
   senderCategory: Pick<Category, "id"> | null;
   categories: Pick<Category, "id" | "name">[];
@@ -40,13 +41,13 @@ export function CategorySelect({
     <Select
       defaultValue={item?.categoryId || senderCategory?.id || ""}
       onValueChange={async (value) => {
-        const result = await changeSenderCategoryAction({
+        const result = await changeSenderCategoryAction(emailAccountId, {
           sender,
           categoryId: value,
         });
 
-        if (isActionError(result)) {
-          toastError({ description: result.error });
+        if (result?.serverError) {
+          toastError({ description: result.serverError });
         } else {
           toastSuccess({ description: "Category changed" });
           onSuccess?.(value);

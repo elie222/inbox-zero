@@ -51,7 +51,7 @@ The knowledge base functionality is implemented in:
 - `apps/web/utils/ai/knowledge/extract.ts` - Extract relevant knowledge from knowledge base entries
 - `apps/web/utils/ai/knowledge/extract-from-email-history.ts` - Extract context from previous emails
 - `apps/web/utils/ai/reply/draft-with-knowledge.ts` - Generate email drafts using extracted knowledge
-- `apps/web/utils/reply-tracker/generate-reply.ts` - Coordinates the extraction and drafting process
+- `apps/web/utils/reply-tracker/generate-draft.ts` - Coordinates the extraction and drafting process
 - `apps/web/utils/llms/model-selector.ts` - Economy LLM selection for high-volume tasks
 
 ## Features

@@ -1,6 +1,6 @@
 export type CleanThread = {
+  emailAccountId: string;
   threadId: string;
-  userId: string;
   jobId: string;
   status: "processing" | "applying" | "completed";
   createdAt: string;

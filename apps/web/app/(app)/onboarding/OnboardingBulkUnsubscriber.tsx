@@ -22,9 +22,10 @@ import type {
 import { LoadingContent } from "@/components/LoadingContent";
 import { ProgressBar } from "@tremor/react";
 import { ONE_MONTH_MS } from "@/utils/date";
-import { useUnsubscribe } from "@/app/(app)/bulk-unsubscribe/hooks";
+import { useUnsubscribe } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { NewsletterStatus } from "@prisma/client";
 import { EmailCell } from "@/components/EmailCell";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 const useNewsletterStats = () => {
   const now = useMemo(() => Date.now(), []);
@@ -48,6 +49,7 @@ const useNewsletterStats = () => {
 
 export function OnboardingBulkUnsubscriber() {
   const { data, isLoading, error, mutate } = useNewsletterStats();
+  const { emailAccountId } = useAccount();
 
   const posthog = usePostHog();
 
@@ -99,6 +101,7 @@ export function OnboardingBulkUnsubscriber() {
                     row={row}
                     posthog={posthog}
                     mutate={mutate}
+                    emailAccountId={emailAccountId}
                   />
                 ))}
               </TableBody>
@@ -127,10 +130,12 @@ function UnsubscribeRow({
   row,
   posthog,
   mutate,
+  emailAccountId,
 }: {
   row: NewsletterStatsResponse["newsletters"][number];
   posthog: PostHog;
   mutate: () => Promise<any>;
+  emailAccountId: string;
 }) {
   const { unsubscribeLoading, onUnsubscribe, unsubscribeLink } = useUnsubscribe(
     {
@@ -139,6 +144,7 @@ function UnsubscribeRow({
       mutate,
       refetchPremium: () => Promise.resolve(),
       posthog,
+      emailAccountId,
     },
   );
 

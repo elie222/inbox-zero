@@ -48,35 +48,8 @@ export function analyzeCalendarEvent(email: ParsedMessage): CalendarEventInfo {
   // Check body for calendar event indicators
   const body = email.textHtml || "";
 
-  // Check for iCalendar data
-  const hasiCalData =
-    body.includes("BEGIN:VCALENDAR") ||
-    body.includes("BEGIN:VEVENT") ||
-    body.includes("method=REQUEST");
-
-  // Check for Google Calendar links
-  const hasGoogleCalendarLinks = body.includes(
-    "calendar.google.com/calendar/event",
-  );
-
-  // Check for "RSVP" indicators
-  const hasRSVP =
-    body.includes("RSVP") ||
-    (body.includes("Yes") && body.includes("No") && body.includes("Maybe"));
-
-  // Check for calendar providers
-  const hasCalendarProviders =
-    body.includes("Google Calendar") ||
-    body.includes("Outlook Calendar") ||
-    body.includes("Apple Calendar");
-
   // Determine if it's a calendar event based on checks
-  result.isCalendarEvent =
-    hasCalendarSubject ||
-    hasiCalData ||
-    hasGoogleCalendarLinks ||
-    hasRSVP ||
-    hasCalendarProviders;
+  result.isCalendarEvent = hasCalendarSubject || hasIcsAttachment(email);
 
   if (result.isCalendarEvent) {
     // Extract event title
@@ -258,6 +231,21 @@ export function analyzeCalendarEvent(email: ParsedMessage): CalendarEventInfo {
   }
 
   return result;
+}
+
+/**
+ * Checks if an email has a .ics file attachment.
+ * @param email The email to check.
+ * @returns True if a .ics attachment is found, false otherwise.
+ */
+export function hasIcsAttachment(email: ParsedMessage): boolean {
+  if (!email.attachments || email.attachments.length === 0) {
+    return false;
+  }
+
+  return email.attachments.some((attachment) =>
+    attachment.filename?.toLowerCase().endsWith(".ics"),
+  );
 }
 
 export function isCalendarEventInPast(email: ParsedMessage) {

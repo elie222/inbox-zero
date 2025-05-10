@@ -16,13 +16,11 @@ const withMDX = nextMdx();
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
-  experimental: {
-    turbo: {
-      rules: {
-        "*.svg": {
-          loaders: ["@svgr/webpack"],
-          as: "*.js",
-        },
+  turbopack: {
+    rules: {
+      "*.svg": {
+        loaders: ["@svgr/webpack"],
+        as: "*.js",
       },
     },
   },
@@ -141,6 +139,11 @@ const nextConfig = {
         source: "/waitlist",
         destination: "https://airtable.com/shr7HNx6FXaIxR5q6",
         permanent: true,
+      },
+      {
+        source: "/waitlist-other",
+        destination: "https://airtable.com/applHl6PVBOa0Q8gD/pagRqrxRK1TChsAMp/form",
+        permanent: false,
       },
       {
         source: "/affiliates",

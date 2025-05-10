@@ -9,6 +9,7 @@ export function getEmailForLLM(
   return {
     id: message.id,
     from: message.headers.from,
+    to: message.headers.to,
     replyTo: message.headers["reply-to"],
     cc: message.headers.cc,
     subject: message.headers.subject,
