@@ -135,30 +135,6 @@ export function Rules() {
                         {conditionsToString(rule)}
                       </TableCell>
                       <TableCell>
-                        <Actions actions={rule.actions} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-center">
-                          <Toggle
-                            enabled={rule.runOnThreads}
-                            name="runOnThreads"
-                            onChange={async () => {
-                              const result = await setRuleRunOnThreads({
-                                ruleId: rule.id,
-                                runOnThreads: !rule.runOnThreads,
-                              });
-
-                              if (result?.serverError) {
-                                toastError({
-                                  description: `There was an error updating your rule. ${result.serverError || ""}`,
-                                });
-                              }
-                              mutate();
-                            }}
-                          />
-                        </div>
-                      </TableCell>
-                      <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -298,7 +274,14 @@ export function Rules() {
   );
 }
 
-function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
+export function ActionBadges({
+  actions,
+}: {
+  actions: {
+    id: string;
+    type: ActionType;
+  }[];
+}) {
   return (
     <div className="flex flex-1 space-x-2">
       {actions.map((action) => {

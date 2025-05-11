@@ -10,7 +10,10 @@ import { captureException } from "@/utils/error";
 export const revalidate = 60;
 
 export async function generateStaticParams() {
-  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === 'dummy-sanity-project-id-for-build') {
+  if (
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ===
+    "dummy-sanity-project-id-for-build"
+  ) {
     return [];
   }
   const posts = await client.fetch(postPathsQuery);

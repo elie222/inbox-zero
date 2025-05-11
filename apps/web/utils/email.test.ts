@@ -40,7 +40,9 @@ describe("email utils", () => {
     });
 
     it("handles simple email format", () => {
-      expect(extractEmailAddress("hello@example.com")).toBe("hello@example.com");
+      expect(extractEmailAddress("hello@example.com")).toBe(
+        "hello@example.com",
+      );
     });
 
     it("returns empty string for invalid format", () => {
