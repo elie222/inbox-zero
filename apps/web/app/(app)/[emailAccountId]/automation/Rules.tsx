@@ -172,6 +172,16 @@ export function Rules() {
                                 Edit
                               </Link>
                             </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={prefixPath(
+                                  emailAccountId,
+                                  `/automation?tab=history&ruleId=${rule.id}`,
+                                )}
+                              >
+                                History
+                              </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={async () => {
                                 const result = await setRuleEnabled({
