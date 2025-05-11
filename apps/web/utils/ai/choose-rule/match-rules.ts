@@ -193,7 +193,7 @@ function getMatchReason(matchReasons?: MatchReason[]): string | undefined {
         case ConditionType.STATIC:
           return "Matched static conditions";
         case ConditionType.GROUP:
-          return `Matched group item: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
+          return `Matched learned pattern: "${reason.groupItem.type}: ${reason.groupItem.value}"`;
         case ConditionType.CATEGORY:
           return `Matched category: "${reason.category.name}"`;
         case ConditionType.PRESET:

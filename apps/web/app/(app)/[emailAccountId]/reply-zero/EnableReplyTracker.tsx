@@ -84,7 +84,7 @@ export function EnableReplyTracker({ enabled }: { enabled: boolean }) {
 
         toast.promise(
           async () => {
-            processPreviousSentEmailsAction(emailAccountId);
+            await processPreviousSentEmailsAction(emailAccountId);
 
             router.push(prefixPath(emailAccountId, "/reply-zero?enabled=true"));
           },

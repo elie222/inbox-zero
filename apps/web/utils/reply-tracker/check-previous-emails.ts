@@ -40,6 +40,19 @@ export async function processPreviousSentEmails({
   for (const thread of result.threads) {
     const threadMessages = await getThreadMessages(thread.id, gmail);
 
+    // Check if the thread is archived by looking at its labels
+    const isArchived = threadMessages.every(
+      (message) => !message.labelIds?.includes(GmailLabel.INBOX),
+    );
+
+    if (isArchived) {
+      logger.trace("Skipping archived thread", {
+        email: emailAccount.email,
+        threadId: thread.id,
+      });
+      continue;
+    }
+
     const sortedMessages = threadMessages.sort(
       (a, b) => (Number(b.internalDate) || 0) - (Number(a.internalDate) || 0),
     );

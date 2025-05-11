@@ -70,7 +70,7 @@ function GroupTable({
       <TableHeader>
         <TableRow>
           <TableHead>Group</TableHead>
-          <TableHead className="text-center">Group Items</TableHead>
+          <TableHead className="text-center">Learned Patterns</TableHead>
           <TableHead>Rule</TableHead>
           <TableHead className="text-right">Actions</TableHead>
         </TableRow>
