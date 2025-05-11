@@ -67,9 +67,10 @@ export function RulesPrompt() {
             <ResizablePanelGroup direction="horizontal" className="h-full">
               <ResizablePanel>
                 <Chat
-                  id={emailAccountId}
+                  id={emailAccountId} // TODO:
                   initialMessages={[]}
                   selectedChatModel="gpt-4o-mini"
+                  emailAccountId={emailAccountId}
                 />
               </ResizablePanel>
               <ResizableHandle />

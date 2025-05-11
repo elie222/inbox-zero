@@ -1,4 +1,3 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
@@ -9,8 +8,12 @@ import {
 // import { getUserCategoriesForNames } from "@/utils/category.server";
 import prisma from "@/utils/prisma";
 import { createRule, partialUpdateRule } from "@/utils/rule/rule";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
+import { withEmailAccount } from "@/utils/middleware";
+import { saveAiUsage } from "@/utils/usage";
+import { getEmailAccountWithAi } from "@/utils/user/get";
+import { NextResponse } from "next/server";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("chat");
 
@@ -71,9 +74,7 @@ const updateRuleSchema = z.object({
 });
 export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
 
-const updateAboutSchema = z.object({
-  about: z.string(),
-});
+const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
 
 const enableColdEmailBlockerSchema = z.object({
@@ -94,15 +95,14 @@ const enableReplyZeroSchema = z.object({
 });
 export type EnableReplyZeroSchema = z.infer<typeof enableReplyZeroSchema>;
 
-export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user.id) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+export const POST = withEmailAccount(async (request) => {
+  const emailAccountId = request.auth.emailAccountId;
 
-  const userId = session.user.id;
+  const user = await getEmailAccountWithAi({ emailAccountId });
 
-  const { messages } = await req.json();
+  if (!user) return NextResponse.json({ error: "Not authenticated" });
+
+  const { messages } = await request.json();
 
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -350,8 +350,16 @@ Examples:
   </example>
 </examples>`;
 
+  // TODO: clean up
+  const { provider, model, llmModel, providerOptions } = getModel(
+    user.user,
+    false,
+  );
+
+  logger.trace("Input", { messages });
+
   const result = streamText({
-    model: anthropic("claude-3-5-sonnet-20240620"),
+    model: llmModel,
     messages,
     system,
     maxSteps: 10,
@@ -379,7 +387,7 @@ Examples:
 
             const rule = await createRule({
               result: { name, condition, actions },
-              userId,
+              emailAccountId,
               categoryIds: [],
             });
 
@@ -420,7 +428,7 @@ Examples:
         parameters: updateRuleSchema,
         execute: async ({ ruleName, condition, actions, learnedPatterns }) => {
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, userId },
+            where: { id: ruleName, emailAccountId },
           });
 
           if (!rule)
@@ -448,9 +456,9 @@ Examples:
         execute: async () => {
           // trackToolCall("list_rules", user.email);
           const [rules, user] = await Promise.all([
-            prisma.rule.findMany({ where: { userId } }),
-            prisma.user.findUnique({
-              where: { id: userId },
+            prisma.rule.findMany({ where: { emailAccountId } }),
+            prisma.emailAccount.findUnique({
+              where: { id: emailAccountId },
               select: { about: true, coldEmailBlocker: true },
             }),
           ]);
@@ -466,8 +474,8 @@ Examples:
         description: "Update the user's about information",
         parameters: updateAboutSchema,
         execute: async ({ about }) => {
-          await prisma.user.update({
-            where: { id: userId },
+          await prisma.emailAccount.update({
+            where: { id: emailAccountId },
             data: { about },
           });
 
@@ -478,8 +486,8 @@ Examples:
         description: "Enable the cold email blocker",
         parameters: enableColdEmailBlockerSchema,
         execute: async ({ action }) => {
-          await prisma.user.update({
-            where: { id: userId },
+          await prisma.emailAccount.update({
+            where: { id: emailAccountId },
             data: { coldEmailBlocker: action },
           });
 
@@ -503,7 +511,16 @@ Examples:
         },
       }),
     },
+    onFinish: async ({ usage, text }) => {
+      // await saveAiUsage({
+      //   email: userEmail,
+      //   provider,
+      //   model,
+      //   usage,
+      //   label,
+      // });
+    },
   });
 
   return result.toDataStreamResponse();
-}
+});

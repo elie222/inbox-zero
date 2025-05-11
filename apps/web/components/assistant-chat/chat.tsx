@@ -4,9 +4,10 @@ import type { Attachment, UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
+import { toast } from "sonner";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
-import { toast } from "sonner";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -20,10 +21,12 @@ export function Chat({
   id,
   initialMessages,
   selectedChatModel,
+  emailAccountId,
 }: {
   id: string;
   initialMessages: Array<UIMessage>;
   selectedChatModel: string;
+  emailAccountId: string;
 }) {
   const { mutate } = useSWRConfig();
 
@@ -39,11 +42,21 @@ export function Chat({
     reload,
   } = useChat({
     id,
-    body: { id, selectedChatModel: selectedChatModel },
+    body: { id, selectedChatModel },
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
+    // is SWR somehow messing with the request that we need pass the headers in like this?
+    fetch: (url, options) => {
+      return fetch(url, {
+        ...options,
+        headers: new Headers({
+          ...options?.headers,
+          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+        }),
+      });
+    },
     onFinish: () => {
       mutate("/api/chat/history");
     },

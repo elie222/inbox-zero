@@ -163,7 +163,7 @@ export const ThinkingMessage = () => {
 
         <div className="flex w-full flex-col gap-2">
           <div className="flex flex-col gap-4 text-muted-foreground">
-            Hmm...
+            Thinking...
           </div>
         </div>
       </div>
