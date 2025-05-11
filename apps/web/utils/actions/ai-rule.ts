@@ -245,13 +245,12 @@ export const rejectPlanAction = actionClient
  * 1. Authenticate user and validate input
  * 2. Compare new prompt with old prompt (if exists)
  * 3. If prompts differ:
- *    a. For existing prompt: Identify added, edited, and removed rules
+ *    a. For existing prompt: Identify added and edited rules
  *    b. For new prompt: Process all rules as additions
- * 4. Remove rules marked for deletion
- * 5. Edit existing rules that have changes
- * 6. Add new rules
- * 7. Update user's rules prompt in the database
- * 8. Return counts of created, edited, and removed rules
+ * 4. Edit existing rules that have changes
+ * 5. Add new rules
+ * 6. Update user's rules prompt in the database
+ * 7. Return counts of created and edited rules
  */
 export const saveRulesPromptAction = actionClient
   .metadata({ name: "saveRulesPrompt" })
@@ -291,12 +290,11 @@ export const saveRulesPromptAction = actionClient
       logger.info("No changes in rules prompt, returning early", {
         emailAccountId,
       });
-      return { createdRules: 0, editedRules: 0, removedRules: 0 };
+      return { createdRules: 0, editedRules: 0 };
     }
 
     let addedRules: Awaited<ReturnType<typeof aiPromptToRules>> | null = null;
     let editRulesCount = 0;
-    let removeRulesCount = 0;
 
     // check how the prompts have changed, and make changes to the rules accordingly
     if (oldPromptFile) {
@@ -311,18 +309,13 @@ export const saveRulesPromptAction = actionClient
         emailAccountId,
         addedRules: diff.addedRules.length,
         editedRules: diff.editedRules.length,
-        removedRules: diff.removedRules.length,
       });
 
-      if (
-        !diff.addedRules.length &&
-        !diff.editedRules.length &&
-        !diff.removedRules.length
-      ) {
+      if (!diff.addedRules.length && !diff.editedRules.length) {
         logger.info("No changes detected in rules, returning early", {
           emailAccountId,
         });
-        return { createdRules: 0, editedRules: 0, removedRules: 0 };
+        return { createdRules: 0, editedRules: 0 };
       }
 
       if (diff.addedRules.length) {
@@ -352,57 +345,8 @@ export const saveRulesPromptAction = actionClient
       const existingRules = await aiFindExistingRules({
         emailAccount,
         promptRulesToEdit: diff.editedRules,
-        promptRulesToRemove: diff.removedRules,
         databaseRules: userRules,
       });
-
-      // remove rules
-      logger.info("Processing rules for removal", {
-        emailAccountId,
-        count: existingRules.removedRules.length,
-      });
-      for (const rule of existingRules.removedRules) {
-        if (!rule.rule) {
-          logger.error("Rule not found.", { emailAccountId });
-          continue;
-        }
-
-        const executedRule = await prisma.executedRule.findFirst({
-          where: { emailAccountId, ruleId: rule.rule.id },
-        });
-
-        logger.info("Removing rule", {
-          emailAccountId,
-          promptRule: rule.promptRule,
-          ruleName: rule.rule.name,
-          ruleId: rule.rule.id,
-        });
-
-        if (executedRule) {
-          await prisma.rule.update({
-            where: { id: rule.rule.id, emailAccountId },
-            data: { enabled: false },
-          });
-        } else {
-          try {
-            await deleteRule({
-              ruleId: rule.rule.id,
-              emailAccountId,
-              groupId: rule.rule.groupId,
-            });
-          } catch (error) {
-            if (!isNotFoundError(error)) {
-              logger.error("Error deleting rule", {
-                emailAccountId,
-                ruleId: rule.rule.id,
-                error: error instanceof Error ? error.message : "Unknown error",
-              });
-            }
-          }
-        }
-
-        removeRulesCount++;
-      }
 
       // edit rules
       if (existingRules.editedRules.length > 0) {
@@ -486,13 +430,11 @@ export const saveRulesPromptAction = actionClient
       emailAccountId,
       createdRules: addedRules?.length || 0,
       editedRules: editRulesCount,
-      removedRules: removeRulesCount,
     });
 
     return {
       createdRules: addedRules?.length || 0,
       editedRules: editRulesCount,
-      removedRules: removeRulesCount,
     };
   });
 

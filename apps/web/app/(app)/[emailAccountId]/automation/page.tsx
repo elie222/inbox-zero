@@ -49,7 +49,7 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <Tabs defaultValue="prompt">
+        <Tabs defaultValue="prompt" className="h-full">
           <TabsToolbar>
             <div className="w-full overflow-x-auto">
               <TabsList>
@@ -85,7 +85,7 @@ export default async function AutomationPage({
             </div>
           </TabsToolbar>
 
-          <TabsContent value="prompt" className="content-container mb-10">
+          <TabsContent value="prompt" className="mt-0 h-full">
             <RulesPrompt />
           </TabsContent>
           <TabsContent value="rules" className="content-container mb-10">

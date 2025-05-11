@@ -13,24 +13,20 @@ interface SuggestedActionsProps {
 function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
   const suggestedActions = [
     {
-      title: "What can you",
-      label: "help me with?",
+      title: "What can you help me with?",
       action: "What can you help me with?",
     },
     {
-      title: "Add a rule to",
-      label: "archive and label newsletters",
+      title: "Add a rule to archive and label newsletters",
       action: "Add a rule to archive and label newsletters as 'Newsletter'",
     },
     {
-      title: "Set up",
-      label: "default rules",
-      action: "Set up default rules",
+      title: "Adjust a rule",
+      action: "Adjust a rule",
     },
     {
-      title: "Block cold emails",
-      label: "from hitting my inbox",
-      action: "Block cold emails from hitting my inbox",
+      title: "Give me examples",
+      action: "Give me ideas for example rules I could use",
     },
   ];
 
@@ -61,9 +57,9 @@ function PureSuggestedActions({ chatId, append }: SuggestedActionsProps) {
             className="h-auto w-full flex-1 items-start justify-start gap-1 rounded-xl border px-4 py-3.5 text-left text-sm sm:flex-col"
           >
             <span className="font-medium">{suggestedAction.title}</span>
-            <span className="text-muted-foreground">
+            {/* <span className="text-muted-foreground">
               {suggestedAction.label}
-            </span>
+            </span> */}
           </Button>
         </motion.div>
       ))}

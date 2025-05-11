@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
-import { MessageIcon, VercelIcon } from "./icons";
+import { MessageIcon } from "./icons";
+import { Button } from "@/components/ui/button";
 
 export const Overview = () => {
   return (
@@ -13,11 +14,11 @@ export const Overview = () => {
     >
       <div className="flex max-w-xl flex-col gap-8 rounded-xl p-6 text-center leading-relaxed">
         <p className="flex flex-row items-center justify-center gap-4">
-          <VercelIcon size={32} />
-          <span>+</span>
           <MessageIcon size={32} />
         </p>
         <p>Set up your AI assistant.</p>
+
+        <Button>Choose from examples</Button>
       </div>
     </motion.div>
   );

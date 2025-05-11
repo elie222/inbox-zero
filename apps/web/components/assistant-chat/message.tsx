@@ -1,15 +1,15 @@
 "use client";
 
+import { memo, useState } from "react";
 import type { UIMessage } from "ai";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { memo, useState } from "react";
-import { Markdown } from "./markdown";
+import { SparklesIcon } from "lucide-react";
 import equal from "fast-deep-equal";
+import { Markdown } from "./markdown";
 import { cn } from "@/utils";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
-import { SparklesIcon } from "lucide-react";
 import { ToolCard } from "@/components/assistant-chat/tools";
 import { Skeleton } from "@/components/ui/skeleton";
 

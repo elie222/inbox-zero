@@ -9,7 +9,7 @@ import type {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SparklesIcon, TrashIcon } from "lucide-react";
-import { ActionBadges } from "@/app/(app)/automation/Rules";
+import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
 import { toastSuccess } from "@/components/Toast";
 
 export function ToolCard({ toolName, args }: { toolName: string; args: any }) {

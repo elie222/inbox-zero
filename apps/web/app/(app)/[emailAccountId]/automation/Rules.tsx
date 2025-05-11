@@ -9,7 +9,6 @@ import {
   PlusIcon,
   HistoryIcon,
   Trash2Icon,
-  Settings2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
 } from "lucide-react";
@@ -57,7 +56,7 @@ import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 
-export function Rules() {
+export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
 
   const hasRules = !!data?.length;
@@ -84,14 +83,16 @@ export function Rules() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Threads</span>
-                      <ThreadsExplanation size="sm" />
-                    </div>
-                  </TableHead>
+                  {size === "md" && <TableHead>Condition</TableHead>}
+                  <TableHead>Action</TableHead>
+                  {size === "md" && (
+                    <TableHead>
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Threads</span>
+                        <ThreadsExplanation size="sm" />
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead>
                     <span className="sr-only">User Actions</span>
                   </TableHead>
@@ -131,9 +132,37 @@ export function Rules() {
                           )}
                         </Link>
                       </TableCell>
-                      <TableCell className="whitespace-pre-wrap">
-                        {conditionsToString(rule)}
+                      {size === "md" && (
+                        <TableCell className="whitespace-pre-wrap">
+                          {conditionsToString(rule)}
+                        </TableCell>
+                      )}
+                      <TableCell>
+                        <ActionBadges actions={rule.actions} />
                       </TableCell>
+                      {size === "md" && (
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Toggle
+                              enabled={rule.runOnThreads}
+                              name="runOnThreads"
+                              onChange={async () => {
+                                const result = await setRuleRunOnThreads({
+                                  ruleId: rule.id,
+                                  runOnThreads: !rule.runOnThreads,
+                                });
+
+                                if (result?.serverError) {
+                                  toastError({
+                                    description: `There was an error updating your rule. ${result.serverError || ""}`,
+                                  });
+                                }
+                                mutate();
+                              }}
+                            />
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -256,12 +285,12 @@ export function Rules() {
 
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
-          <Button asChild variant="outline">
+          {/* <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
             </Link>
-          </Button>
+          </Button> */}
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
               <PlusIcon className="mr-2 hidden size-4 md:block" />

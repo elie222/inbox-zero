@@ -27,15 +27,19 @@ import { Tooltip } from "@/components/Tooltip";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { AutomationOnboarding } from "@/app/(app)/[emailAccountId]/automation/AutomationOnboarding";
 import {
-  examplePrompts,
+  // examplePrompts,
   personas,
 } from "@/app/(app)/[emailAccountId]/automation/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/automation/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/automation/ProcessingPromptFileDialog";
-import { AlertBasic } from "@/components/Alert";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { Rules } from "@/app/(app)/[emailAccountId]/automation/Rules";
+import { Chat } from "@/components/assistant-chat/chat";
+import { ResizableHandle } from "@/components/ui/resizable";
+import { ResizablePanel } from "@/components/ui/resizable";
+import { ResizablePanelGroup } from "@/components/ui/resizable";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -60,13 +64,38 @@ export function RulesPrompt() {
       <LoadingContent loading={isLoading} error={error}>
         {data && (
           <>
-            <RulesPromptForm
-              emailAccountId={emailAccountId}
-              rulesPrompt={data.rulesPrompt}
-              personaPrompt={personaPrompt}
-              mutate={mutate}
-              onOpenPersonaDialog={onOpenPersonaDialog}
-            />
+            <ResizablePanelGroup direction="horizontal" className="h-full">
+              <ResizablePanel>
+                <Chat
+                  id={emailAccountId}
+                  initialMessages={[]}
+                  selectedChatModel="gpt-4o-mini"
+                />
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel>
+                <div className="p-4">
+                  <SectionHeader className="mb-4">Your rules</SectionHeader>
+                  <Rules size="sm" />
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+
+            {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <Chat
+                id={emailAccountId}
+                initialMessages={[]}
+                selectedChatModel="gpt-4o-mini"
+              />
+              <RulesPromptForm
+                emailAccountId={emailAccountId}
+                rulesPrompt={data.rulesPrompt}
+                personaPrompt={personaPrompt}
+                mutate={mutate}
+                onOpenPersonaDialog={onOpenPersonaDialog}
+              />
+              <Rules size="sm" />
+            </div> */}
             <AutomationOnboarding
               onComplete={() => {
                 if (!data.rulesPrompt) onOpenPersonaDialog();
@@ -103,9 +132,7 @@ function RulesPromptForm({
   const [result, setResult] = useState<{
     createdRules: number;
     editedRules: number;
-    removedRules: number;
   }>();
-  const [showClearWarning, setShowClearWarning] = useState(false);
 
   const [
     viewedProcessingPromptFileDialog,
@@ -118,17 +145,10 @@ function RulesPromptForm({
     formState: { errors },
     getValues,
     setValue,
-    watch,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt: rulesPrompt || undefined },
   });
-
-  const currentPrompt = watch("rulesPrompt");
-
-  useEffect(() => {
-    setShowClearWarning(!!rulesPrompt && currentPrompt === "");
-  }, [currentPrompt, rulesPrompt]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -171,17 +191,12 @@ function RulesPromptForm({
       toast.promise(() => saveRulesPromise(data), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
-          const {
-            createdRules = 0,
-            editedRules = 0,
-            removedRules = 0,
-          } = result?.data || {};
-          setResult({ createdRules, editedRules, removedRules });
+          const { createdRules = 0, editedRules = 0 } = result?.data || {};
+          setResult({ createdRules, editedRules });
 
           const message = [
             createdRules ? `${createdRules} rules created.` : "",
             editedRules ? `${editedRules} rules edited.` : "",
-            removedRules ? `${removedRules} rules removed.` : "",
           ]
             .filter(Boolean)
             .join(" ");
@@ -210,44 +225,35 @@ function RulesPromptForm({
     <div>
       <PremiumAlertWithData className="my-2" />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="sm:col-span-2">
-          <ProcessingPromptFileDialog
-            open={isDialogOpen}
-            result={result}
-            onOpenChange={setIsDialogOpen}
-            setViewedProcessingPromptFileDialog={
-              setViewedProcessingPromptFileDialog
-            }
-          />
+      {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-3"> */}
+      <div className="sm:col-span-2">
+        <ProcessingPromptFileDialog
+          open={isDialogOpen}
+          result={result}
+          onOpenChange={setIsDialogOpen}
+          setViewedProcessingPromptFileDialog={
+            setViewedProcessingPromptFileDialog
+          }
+        />
 
-          <CardHeader className="px-0 py-4">
-            <CardTitle>
-              How your AI personal assistant should handle incoming emails
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-0">
-            {showClearWarning && (
-              <AlertBasic
-                className="mb-2"
-                variant="blue"
-                title="Warning: Deleting text will remove or disable rules"
-                description="Add new rules at the end to keep your existing rules."
-              />
-            )}
-
-            <form onSubmit={handleSubmit(onSubmit)}>
-              <div className="space-y-4 sm:col-span-2">
-                <Input
-                  className="min-h-[300px]"
-                  registerProps={register("rulesPrompt", { required: true })}
-                  name="rulesPrompt"
-                  type="text"
-                  autosizeTextarea
-                  rows={30}
-                  maxRows={50}
-                  error={errors.rulesPrompt}
-                  placeholder={`Here's an example of what your prompt might look like:
+        <CardHeader className="px-0 py-4">
+          <CardTitle>
+            How your AI personal assistant should handle incoming emails
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-0">
+          <form onSubmit={handleSubmit(onSubmit)}>
+            <div className="space-y-4 sm:col-span-2">
+              <Input
+                className="min-h-[300px]"
+                registerProps={register("rulesPrompt", { required: true })}
+                name="rulesPrompt"
+                type="text"
+                autosizeTextarea
+                rows={30}
+                maxRows={50}
+                error={errors.rulesPrompt}
+                placeholder={`Here's an example of what your prompt might look like:
 
 ${personas.other.prompt}
 
@@ -259,78 +265,75 @@ I'm currently offering a 10% discount for the first 10 customers.
 
 Let me know if you're interested!
 ---`}
-                />
+              />
 
-                <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting || isGenerating}
+                  loading={isSubmitting}
+                >
+                  Save
+                </Button>
+
+                <Button variant="outline" onClick={onOpenPersonaDialog}>
+                  <UserPenIcon className="mr-2 size-4" />
+                  Choose persona
+                </Button>
+
+                <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
                   <Button
-                    type="submit"
+                    type="button"
+                    variant="outline"
                     disabled={isSubmitting || isGenerating}
-                    loading={isSubmitting}
-                  >
-                    Save
-                  </Button>
+                    onClick={async () => {
+                      if (isSubmitting || isGenerating) return;
+                      toast.promise(
+                        async () => {
+                          setIsGenerating(true);
+                          const result = await generateRulesPromptAction(
+                            emailAccountId,
+                            {},
+                          );
 
-                  <Button variant="outline" onClick={onOpenPersonaDialog}>
-                    <UserPenIcon className="mr-2 size-4" />
-                    Choose persona
-                  </Button>
-
-                  <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isSubmitting || isGenerating}
-                      onClick={async () => {
-                        if (isSubmitting || isGenerating) return;
-                        toast.promise(
-                          async () => {
-                            setIsGenerating(true);
-                            const result = await generateRulesPromptAction(
-                              emailAccountId,
-                              {},
-                            );
-
-                            if (result?.serverError) {
-                              setIsGenerating(false);
-                              throw new Error(result.serverError);
-                            }
-
-                            const currentPrompt = getValues("rulesPrompt");
-                            const updatedPrompt = currentPrompt
-                              ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
-                              : result?.data?.rulesPrompt;
-                            setValue(
-                              "rulesPrompt",
-                              updatedPrompt?.trim() || "",
-                            );
-
+                          if (result?.serverError) {
                             setIsGenerating(false);
+                            throw new Error(result.serverError);
+                          }
 
-                            return result;
+                          const currentPrompt = getValues("rulesPrompt");
+                          const updatedPrompt = currentPrompt
+                            ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
+                            : result?.data?.rulesPrompt;
+                          setValue("rulesPrompt", updatedPrompt?.trim() || "");
+
+                          setIsGenerating(false);
+
+                          return result;
+                        },
+                        {
+                          loading: "Generating prompt...",
+                          success: (result) => {
+                            return "Prompt generated successfully!";
                           },
-                          {
-                            loading: "Generating prompt...",
-                            success: (result) => {
-                              return "Prompt generated successfully!";
-                            },
-                            error: (err) => {
-                              return `Error generating prompt: ${err.message}`;
-                            },
+                          error: (err) => {
+                            return `Error generating prompt: ${err.message}`;
                           },
-                        );
-                      }}
-                      loading={isGenerating}
-                    >
-                      <SparklesIcon className="mr-2 size-4" />
-                      Give me ideas
-                    </Button>
-                  </Tooltip>
-                </div>
+                        },
+                      );
+                    }}
+                    loading={isGenerating}
+                  >
+                    <SparklesIcon className="mr-2 size-4" />
+                    Give me ideas
+                  </Button>
+                </Tooltip>
               </div>
-            </form>
-          </CardContent>
-        </div>
-        <div className="pb-4 sm:mt-4 sm:py-0">
+            </div>
+          </form>
+        </CardContent>
+      </div>
+      {/* <div className="pb-4 sm:mt-4 sm:py-0">
           <SectionHeader>Examples</SectionHeader>
 
           <ScrollArea className="mt-2 sm:h-[75vh] sm:max-h-[75vh]">
@@ -347,8 +350,8 @@ Let me know if you're interested!
               ))}
             </div>
           </ScrollArea>
-        </div>
-      </div>
+        </div> */}
+      {/* </div> */}
     </div>
   );
 }
