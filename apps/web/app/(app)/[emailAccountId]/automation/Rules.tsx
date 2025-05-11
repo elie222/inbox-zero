@@ -3,7 +3,16 @@
 import Link from "next/link";
 import { toast } from "sonner";
 import { capitalCase } from "capital-case";
-import { MoreHorizontalIcon, PenIcon, PlusIcon } from "lucide-react";
+import {
+  MoreHorizontalIcon,
+  PenIcon,
+  PlusIcon,
+  HistoryIcon,
+  Trash2Icon,
+  Settings2Icon,
+  ToggleRightIcon,
+  ToggleLeftIcon,
+} from "lucide-react";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
@@ -157,7 +166,7 @@ export function Rules() {
                               size="icon"
                               variant="ghost"
                             >
-                              <MoreHorizontalIcon className="h-4 w-4" />
+                              <MoreHorizontalIcon className="size-4" />
                               <span className="sr-only">Toggle menu</span>
                             </Button>
                           </DropdownMenuTrigger>
@@ -169,7 +178,19 @@ export function Rules() {
                                   `/automation/rule/${rule.id}`,
                                 )}
                               >
+                                <PenIcon className="mr-2 size-4" />
                                 Edit
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild>
+                              <Link
+                                href={prefixPath(
+                                  emailAccountId,
+                                  `/automation?tab=history&ruleId=${rule.id}`,
+                                )}
+                              >
+                                <HistoryIcon className="mr-2 size-4" />
+                                History
                               </Link>
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -196,6 +217,11 @@ export function Rules() {
                                 mutate();
                               }}
                             >
+                              {rule.enabled ? (
+                                <ToggleRightIcon className="mr-2 size-4" />
+                              ) : (
+                                <ToggleLeftIcon className="mr-2 size-4" />
+                              )}
                               {rule.enabled ? "Disable" : "Enable"}
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -236,6 +262,7 @@ export function Rules() {
                                 }
                               }}
                             >
+                              <Trash2Icon className="mr-2 size-4" />
                               Delete
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -255,13 +282,13 @@ export function Rules() {
         <div className="my-2 flex justify-end gap-2">
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
             </Link>
           </Button>
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
-              <PlusIcon className="mr-2 hidden h-4 w-4 md:block" />
+              <PlusIcon className="mr-2 hidden size-4 md:block" />
               Add Rule Manually
             </Link>
           </Button>
@@ -307,7 +334,7 @@ function NoRules() {
         <div className="flex gap-2">
           <Button asChild>
             <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden h-4 w-4 md:block" />
+              <PenIcon className="mr-2 hidden size-4 md:block" />
               Set Prompt
             </Link>
           </Button>

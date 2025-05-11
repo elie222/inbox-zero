@@ -184,7 +184,9 @@ describe("findMatchingRule", () => {
     });
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
+    expect(result.reason).toBe(
+      `Matched learned pattern: "FROM: test@example.com"`,
+    );
   });
 
   it("matches a smart category rule", async () => {
@@ -273,7 +275,9 @@ describe("findMatchingRule", () => {
     });
 
     expect(result.rule?.id).toBe(rule.id);
-    expect(result.reason).toBe(`Matched group item: "FROM: test@example.com"`);
+    expect(result.reason).toBe(
+      `Matched learned pattern: "FROM: test@example.com"`,
+    );
   });
 
   it("matches a rule with multiple conditions AND (category and AI)", async () => {

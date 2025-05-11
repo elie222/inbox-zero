@@ -575,7 +575,7 @@ function GroupMismatchRemove({
             async () => {
               const groupItemId = groupMatch.groupItem.id;
               if (!groupItemId) {
-                throw new Error("No group item ID found");
+                throw new Error("Learned pattern not found");
               }
               const result = await executeAsync({
                 id: groupItemId,
@@ -584,14 +584,15 @@ function GroupMismatchRemove({
               onClose();
             },
             {
-              loading: "Removing from group...",
-              success: "Removed from group",
-              error: (error) => `Failed to remove from group: ${error.message}`,
+              loading: "Removing learned pattern...",
+              success: "Removed learned pattern",
+              error: (error) =>
+                `Failed to remove learned pattern: ${error.message}`,
             },
           );
         }}
       >
-        Remove from "{groupMatch.group.name}" group
+        Remove learned pattern
       </Button>
 
       <div className="mt-2 flex gap-2">
