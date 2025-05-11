@@ -135,7 +135,7 @@ export function Rules() {
                         {conditionsToString(rule)}
                       </TableCell>
                       <TableCell>
-                        <Actions actions={rule.actions} />
+                        {/* <Actions actions={rule.actions} /> */}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-center">
@@ -298,7 +298,14 @@ export function Rules() {
   );
 }
 
-function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
+export function ActionBadges({
+  actions,
+}: {
+  actions: {
+    id: string;
+    type: ActionType;
+  }[];
+}) {
   return (
     <div className="flex flex-1 space-x-2">
       {actions.map((action) => {
