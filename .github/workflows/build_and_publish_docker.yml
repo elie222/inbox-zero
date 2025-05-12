@@ -3,7 +3,11 @@ run-name: "Build Inbox Zero Docker Image"
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
+
+permissions:
+  contents: write # Needed to commit version bump and push tags
+  packages: write # Needed to push Docker image to GHCR
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
@@ -98,11 +102,11 @@ jobs:
           git config --local user.email "github-actions@inboxzero.com"
           git config --local user.name "github-actions"
           git tag -a "${{ needs.set-version.outputs.version }}" -m "Release version ${{ needs.set-version.outputs.version }}"
-          git commit -a -m "Update base version to ${{needs.set-version.outputs.version}}"
-          echo "Version updated to ${{needs.set-version.outputs.version}} on main" >> $GITHUB_STEP_SUMMARY
+          git commit -a -m "Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
+          echo "Tagged version ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
 
       - name: Push changes
-        uses: ad-m/github-push-action@master
+        uses: ad-m/github-push-action@v0.8.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref }}
