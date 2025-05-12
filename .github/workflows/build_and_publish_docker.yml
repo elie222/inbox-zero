@@ -55,7 +55,7 @@ jobs:
         with:
           context: .
           file: docker/Dockerfile.prod
-          platforms: linux/arm64
+          platforms: linux/arm64, linux/amd64
           push: true
           cache-from: type=gha
           cache-to: type=gha, mode=max
@@ -74,7 +74,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
         with:
-          ref: trails
+          ref: main
           fetch-depth: 0
 
       - name: Bump version on main branch

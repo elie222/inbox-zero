@@ -42,7 +42,7 @@ services:
     pull_policy: always
     build:
       context: .
-      dockerfile: ./docker/Dockerfile.web
+      dockerfile: ./docker/Dockerfile.prod
     env_file:
       - ./apps/web/.env
     depends_on:
