@@ -1,0 +1,116 @@
+name: "Build Inbox Zero Docker Image"
+run-name: "Build Inbox Zero Docker Image"
+
+on:
+  push:
+    branches: ["main"]
+    paths-ignore:
+      - version.txt
+
+permissions:
+  contents: write # Needed to commit version bump and push tags
+  packages: write # Needed to push Docker image to GHCR
+
+env:
+  DOCKER_IMAGE_REGISTRY: "ghcr.io"
+  DOCKER_USERNAME: "elie222"
+
+jobs:
+  set-version:
+    if: github.repository == 'elie222/inbox-zero'
+    runs-on: ubuntu-latest
+
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+
+      - name: Set version
+        id: set_version
+        run: |
+          version=$(cat version.txt)
+          echo "version=$version" >> $GITHUB_OUTPUT
+
+  build-docker:
+    if: github.repository == 'elie222/inbox-zero'
+    name: "Build Docker Image"
+    runs-on: ubuntu-latest
+    needs:
+      - set-version
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.DOCKER_IMAGE_REGISTRY }}
+          username: ${{ env.DOCKER_USERNAME }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: docker/Dockerfile.prod
+          platforms: linux/arm64, linux/amd64
+          push: true
+          cache-from: type=gha
+          cache-to: type=gha, mode=max
+          tags: |
+            ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:latest
+            ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.set-version.outputs.version }}
+
+  update_version_txt:
+    if: github.repository == 'elie222/inbox-zero'
+    needs:
+      - set-version
+      - build-docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump version on main branch
+        id: update_version
+        shell: bash
+        run: |
+          set -x
+          BASE_VERSION=${{ needs.set-version.outputs.version }}
+          IFS='.' read -r -a version_parts <<< "$BASE_VERSION"
+          for i in {0..2}; do
+            version_parts[$i]=${version_parts[$i]:-0}
+          done
+          version_parts[2]=$((version_parts[2] + 1))
+          new_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
+          echo "$new_version" > version.txt
+          echo "new_version=${new_version}" >> $GITHUB_OUTPUT
+
+      - name: Commit updated version file
+        shell: bash
+        run: |
+          git config --local user.email "github-actions@inboxzero.com"
+          git config --local user.name "github-actions"
+          git tag -a "${{ needs.set-version.outputs.version }}" -m "Release version ${{ needs.set-version.outputs.version }}"
+          git commit -a -m "Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
+          echo "Tagged version ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
+
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+          force_with_lease: true
+          tags: true

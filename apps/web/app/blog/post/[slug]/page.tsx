@@ -1,16 +1,16 @@
-import type { ResolvingMetadata } from "next";
-import { sanityFetch } from "@/sanity/lib/fetch";
-import { postPathsQuery, postQuery } from "@/sanity/lib/queries";
-import { client } from "@/sanity/lib/client";
-import imageUrlBuilder from "@sanity/image-url";
 import { Post } from "@/app/blog/post/[slug]/Post";
 import type { Post as PostType } from "@/app/blog/types";
+import { client } from "@/sanity/lib/client";
+import { sanityFetch } from "@/sanity/lib/fetch";
+import { postPathsQuery, postQuery } from "@/sanity/lib/queries";
 import { captureException } from "@/utils/error";
+import imageUrlBuilder from "@sanity/image-url";
+import type { ResolvingMetadata } from "next";
 
 export const revalidate = 60;
 
 export async function generateStaticParams() {
-  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === 'dummy-sanity-project-id-for-build') {
+  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === "project123") {
     return [];
   }
   const posts = await client.fetch(postPathsQuery);
