@@ -4,6 +4,8 @@ run-name: "Build Inbox Zero Docker Image"
 on:
   push:
     branches: ["main"]
+    paths-ignore:
+      - version.txt
 
 permissions:
   contents: write # Needed to commit version bump and push tags
