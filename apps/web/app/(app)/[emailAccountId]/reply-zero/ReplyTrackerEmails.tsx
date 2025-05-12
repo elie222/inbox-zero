@@ -176,22 +176,26 @@ export function ReplyTrackerEmails({
     <>
       <Table>
         <TableBody>
-          {sortedThreads.map((thread, index) => (
-            <Row
-              key={thread.id}
-              message={thread.messages.at(-1)!}
-              userEmail={userEmail}
-              isResolved={isResolved}
-              type={type}
-              setSelectedEmail={setSelectedEmail}
-              isSplitViewOpen={!!selectedEmail}
-              isSelected={index === selectedIndex}
-              onResolve={handleResolve}
-              isResolving={resolvingThreads.has(thread.id)}
-              onSelect={() => setSelectedIndex(index)}
-              rowRef={getRefCallback(index)}
-            />
-          ))}
+          {sortedThreads.map((thread, index) => {
+            const message = thread.messages.at(-1);
+            if (!message) return null;
+            return (
+              <Row
+                key={thread.id}
+                message={message}
+                userEmail={userEmail}
+                isResolved={isResolved}
+                type={type}
+                setSelectedEmail={setSelectedEmail}
+                isSplitViewOpen={!!selectedEmail}
+                isSelected={index === selectedIndex}
+                onResolve={handleResolve}
+                isResolving={resolvingThreads.has(thread.id)}
+                onSelect={() => setSelectedIndex(index)}
+                rowRef={getRefCallback(index)}
+              />
+            );
+          })}
         </TableBody>
       </Table>
       <TablePagination totalPages={totalPages} />
