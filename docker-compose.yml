@@ -39,7 +39,7 @@ services:
 
   web:
     image: ghcr.io/elie222/inbox-zero:latest
-    pull_policy: always
+    pull_policy: if_not_present
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
