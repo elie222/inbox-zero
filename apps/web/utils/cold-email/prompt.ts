@@ -4,6 +4,7 @@ export const DEFAULT_COLD_EMAIL_PROMPT = `Examples of cold emails:
 - Request a partnership or collaboration
 
 Emails that are NOT cold emails include:
+- Email from an investor that wants to learn more or invest in the company
 - Email from a friend or colleague
 - Email from someone you met at a conference
 - Email from a customer
@@ -16,4 +17,4 @@ Emails that are NOT cold emails include:
 - Updates
 - Calendar invites
 
-Regular marketing or automated emails are not cold emails, even if unwanted.`;
+Regular marketing or automated emails are NOT cold emails, even if unwanted.`;
