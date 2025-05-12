@@ -89,7 +89,6 @@ jobs:
           done
           version_parts[2]=$((version_parts[2] + 1))
           new_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
-
           echo "$new_version" > version.txt
           echo "new_version=${new_version}" >> $GITHUB_OUTPUT
 
