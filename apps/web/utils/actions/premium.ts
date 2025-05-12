@@ -330,7 +330,6 @@ export const adminChangePremiumStatusAction = adminActionClient
         await cancelPremiumLemon({
           premiumId: userToUpgrade.user.premiumId,
           lemonSqueezyEndsAt: new Date(),
-          expired: true,
         });
       } else {
         throw new SafeError("User not premium.");

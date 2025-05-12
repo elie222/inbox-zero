@@ -82,12 +82,10 @@ export async function cancelPremiumLemon({
   premiumId,
   lemonSqueezyEndsAt,
   variantId,
-  expired,
 }: {
   premiumId: string;
   lemonSqueezyEndsAt: Date;
   variantId?: number;
-  expired: boolean;
 }) {
   if (variantId) {
     // Check if the premium exists for the given variant
@@ -102,21 +100,8 @@ export async function cancelPremiumLemon({
 
   return await prisma.premium.update({
     where: { id: premiumId },
-    data: {
-      lemonSqueezyRenewsAt: lemonSqueezyEndsAt,
-      ...(expired
-        ? {
-            bulkUnsubscribeAccess: null,
-            aiAutomationAccess: null,
-            coldEmailBlockerAccess: null,
-          }
-        : {}),
-    },
-    select: {
-      users: {
-        select: { email: true },
-      },
-    },
+    data: { lemonSqueezyRenewsAt: lemonSqueezyEndsAt },
+    select: { users: { select: { email: true } } },
   });
 }
 

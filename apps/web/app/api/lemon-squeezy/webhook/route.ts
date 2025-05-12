@@ -311,9 +311,6 @@ async function subscriptionCancelled({
     premiumId,
     variantId,
     lemonSqueezyEndsAt: new Date(endsAt),
-    expired:
-      payload.data.attributes.status === "expired" ||
-      new Date(endsAt) < new Date(),
   });
 
   if (!updatedPremium) return NextResponse.json({ ok: true });
