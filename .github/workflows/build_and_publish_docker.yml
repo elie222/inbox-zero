@@ -7,11 +7,11 @@ on:
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: "gowthamkishore3799"
+  DOCKER_USERNAME: "elie222"
 
 jobs:
   set-version:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     runs-on: ubuntu-latest
 
     outputs:
@@ -28,7 +28,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
   build-docker:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     needs:
@@ -64,7 +64,7 @@ jobs:
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.set-version.outputs.version }}
 
   update_version_txt:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     needs:
       - set-version
       - build-docker
