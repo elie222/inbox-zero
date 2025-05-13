@@ -16,7 +16,7 @@ env:
   DOCKER_USERNAME: "gowthamkishore3799"
 
 jobs:
-  set-version:
+  fetch-version:
     if: github.repository == 'gowthamkishore3799/inbox-zero'
     runs-on: ubuntu-latest
 
@@ -41,7 +41,7 @@ jobs:
   update_version_txt:
     if: github.repository == 'gowthamkishore3799/inbox-zero'
     needs:
-      - set-version
+      - fetch-version
     runs-on: ubuntu-latest
 
     steps:
@@ -56,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -x
-          BASE_VERSION=${{ needs.set-version.outputs.version }}
+          BASE_VERSION=${{ needs.fetch-version.outputs.version }}
           IFS='.' read -r -a version_parts <<< "$BASE_VERSION"
           for i in {0..2}; do
             version_parts[$i]=${version_parts[$i]:-0}
@@ -71,9 +71,9 @@ jobs:
           echo "${{steps.update_version.outputs.new_version}}" > version.txt
           git config --local user.email "github-actions@getinboxzero.com"
           git config --local user.name "github-actions"
-          git tag -a "${{ needs.set-version.outputs.version }}" -m " Release version  ${{ needs.set-version.outputs.version }}"
-          git commit -a -m "Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
-          echo "Tagged version  ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main. " >> $GITHUB_STEP_SUMMARY
+          git tag -a "${{ needs.fetch-version.outputs.version }}" -m " Release version  ${{ needs.fetch-version.outputs.version }}"
+          git commit -a -m "Bump version from ${{ needs.fetch-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
+          echo "Tagged version  ${{ needs.fetch-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
 
 
       - name: Push changes
@@ -89,7 +89,7 @@ jobs:
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     needs:
-      - set-version
+      - fetch-version
       - update_version_txt
 
     steps:
@@ -119,5 +119,5 @@ jobs:
           cache-to: type=gha, mode=max
           tags: |
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:latest
-            ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.set-version.outputs.version }}
+            ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.fetch-version.outputs.version }}
 
