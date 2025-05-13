@@ -67,14 +67,16 @@ jobs:
 
       - name: Commit updated version file
         shell: bash
+        env:
+          VERSION: ${{ needs.set-version.outputs.version }}
+          NEW_VERSION: ${{ steps.update_version.outputs.new_version }}
         run: |
-          echo "${{steps.update_version.outputs.new_version}}" > version.txt
+          echo "$NEW_VERSION" > version.txt
           git config --local user.email "github-actions@getinboxzero.com"
           git config --local user.name "github-actions"
-          git tag -a "${{ needs.fetch-version.outputs.version }}" -m "Release version  ${{ needs.fetch-version.outputs.version }}"
-          git commit -a -m "Bump version from ${{ needs.fetch-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
-          echo "Tagged version  ${{ needs.fetch-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
-
+          git tag -a "$VERSION" -m "Release version $VERSION"
+          git commit -a -m "Bump version from $VERSION to $NEW_VERSION"
+          echo "Tagged version $VERSION. Updated version.txt to $NEW_VERSION on main." >> $GITHUB_STEP_SUMMARY
 
       - name: Push changes
         uses: ad-m/github-push-action@v0.8.0
