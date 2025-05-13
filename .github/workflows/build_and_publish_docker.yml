@@ -13,11 +13,11 @@ permissions:
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: "gowthamkishore3799"
+  DOCKER_USERNAME: "elie222"
 
 jobs:
   fetch-version:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     runs-on: ubuntu-latest
 
     outputs:
@@ -39,7 +39,7 @@ jobs:
           echo "version=$version" >> $GITHUB_OUTPUT
 
   update_version_txt:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     needs:
       - fetch-version
     runs-on: ubuntu-latest
@@ -48,7 +48,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
         with:
-          ref: ${{ github.ref }}
+          ref: main
           fetch-depth: 0
 
       - name: Bump version on main branch
@@ -71,7 +71,7 @@ jobs:
           echo "${{steps.update_version.outputs.new_version}}" > version.txt
           git config --local user.email "github-actions@getinboxzero.com"
           git config --local user.name "github-actions"
-          git tag -a "${{ needs.fetch-version.outputs.version }}" -m " Release version  ${{ needs.fetch-version.outputs.version }}"
+          git tag -a "${{ needs.fetch-version.outputs.version }}" -m "Release version  ${{ needs.fetch-version.outputs.version }}"
           git commit -a -m "Bump version from ${{ needs.fetch-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
           echo "Tagged version  ${{ needs.fetch-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
 
@@ -85,7 +85,7 @@ jobs:
           tags: true
 
   build-docker:
-    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    if: github.repository == 'elie222/inbox-zero'
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     needs:
