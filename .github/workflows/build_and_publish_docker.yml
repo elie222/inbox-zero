@@ -73,7 +73,7 @@ jobs:
           git config --local user.name "github-actions"
           git tag -a "${{ needs.set-version.outputs.version }}" -m " Release version  ${{ needs.set-version.outputs.version }}"
           git commit -a -m "Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
-          echo "Tagged version  ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main. " >> $GITHUB_STEP_SUMMARY
+          echo "Tagged version  ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
 
 
       - name: Push changes
