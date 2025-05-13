@@ -68,7 +68,7 @@ jobs:
       - name: Commit updated version file
         shell: bash
         env:
-          VERSION: ${{ needs.set-version.outputs.version }}
+          VERSION: ${{ needs.fetch-version.outputs.version }}
           NEW_VERSION: ${{ steps.update_version.outputs.new_version }}
         run: |
           echo "$NEW_VERSION" > version.txt
