@@ -54,6 +54,7 @@ export default async function SetupPage(props: {
 }
 
 function FeatureCard({
+  emailAccountId,
   href,
   icon: Icon,
   iconBg,
@@ -61,7 +62,8 @@ function FeatureCard({
   title,
   description,
 }: {
-  href: string;
+  emailAccountId: string;
+  href: `/${string}`;
   icon: LucideIcon;
   iconBg: string;
   iconColor: string;
@@ -69,7 +71,7 @@ function FeatureCard({
   description: string;
 }) {
   return (
-    <Link href={href} className="block">
+    <Link href={prefixPath(emailAccountId, href)} className="block">
       <div className="h-full rounded-lg p-6 shadow transition-shadow hover:bg-muted/50 hover:shadow-md">
         <div
           className={`mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full ${iconBg}`}
@@ -120,11 +122,15 @@ const features = [
   },
 ] as const;
 
-function FeatureGrid() {
+function FeatureGrid({ emailAccountId }: { emailAccountId: string }) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
       {features.map((feature) => (
-        <FeatureCard key={feature.href} {...feature} />
+        <FeatureCard
+          key={feature.href}
+          emailAccountId={emailAccountId}
+          {...feature}
+        />
       ))}
     </div>
   );
@@ -167,7 +173,7 @@ function SetupContent({
       </div>
 
       {isSetupComplete ? (
-        <FeatureGrid />
+        <FeatureGrid emailAccountId={emailAccountId} />
       ) : (
         <Checklist
           emailAccountId={emailAccountId}
