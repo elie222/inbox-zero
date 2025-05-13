@@ -13,11 +13,11 @@ permissions:
 
 env:
   DOCKER_IMAGE_REGISTRY: "ghcr.io"
-  DOCKER_USERNAME: "elie222"
+  DOCKER_USERNAME: "gowthamkishore3799"
 
 jobs:
   set-version:
-    if: github.repository == 'elie222/inbox-zero'
+    if: github.repository == 'gowthamkishore3799/inbox-zero'
     runs-on: ubuntu-latest
 
     outputs:
@@ -27,18 +27,70 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
 
+      - name: Force Pull Latest Code
+        run: |
+          git fetch origin main
+          git pull origin main
+
       - name: Set version
         id: set_version
         run: |
           version=$(cat version.txt)
           echo "version=$version" >> $GITHUB_OUTPUT
 
+  update_version_txt:
+    if: github.repository == 'gowthamkishore3799/inbox-zero'
+    needs:
+      - set-version
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4.1.1
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Bump version on main branch
+        id: update_version
+        shell: bash
+        run: |
+          set -x
+          BASE_VERSION=${{ needs.set-version.outputs.version }}
+          IFS='.' read -r -a version_parts <<< "$BASE_VERSION"
+          for i in {0..2}; do
+            version_parts[$i]=${version_parts[$i]:-0}
+          done
+          version_parts[2]=$((version_parts[2] + 1))
+          new_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
+          echo "new_version=${new_version}" >> $GITHUB_OUTPUT
+
+      - name: Commit updated version file
+        shell: bash
+        run: |
+          echo "${{steps.update_version.outputs.new_version}}" > version.txt
+          git config --local user.email "github-actions@getinboxzero.com"
+          git config --local user.name "github-actions"
+          git tag -a "${{ needs.set-version.outputs.version }}" -m " Release version  ${{ needs.set-version.outputs.version }}"
+          git commit -a -m " Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
+          echo "Tagged version  ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
+
+
+      - name: Push changes
+        uses: ad-m/github-push-action@v0.8.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ github.ref }}
+          force: true
+          tags: true
+
   build-docker:
-    if: github.repository == 'elie222/inbox-zero'
+    if: github.repository == 'gowthamkishore3799/inbox-zero'
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     needs:
       - set-version
+      - update_version_txt
 
     steps:
       - name: Checkout code
@@ -69,48 +121,3 @@ jobs:
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:latest
             ghcr.io/${{ env.DOCKER_USERNAME }}/inbox-zero:${{ needs.set-version.outputs.version }}
 
-  update_version_txt:
-    if: github.repository == 'elie222/inbox-zero'
-    needs:
-      - set-version
-      - build-docker
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4.1.1
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Bump version on main branch
-        id: update_version
-        shell: bash
-        run: |
-          set -x
-          BASE_VERSION=${{ needs.set-version.outputs.version }}
-          IFS='.' read -r -a version_parts <<< "$BASE_VERSION"
-          for i in {0..2}; do
-            version_parts[$i]=${version_parts[$i]:-0}
-          done
-          version_parts[2]=$((version_parts[2] + 1))
-          new_version="${version_parts[0]}.${version_parts[1]}.${version_parts[2]}"
-          echo "$new_version" > version.txt
-          echo "new_version=${new_version}" >> $GITHUB_OUTPUT
-
-      - name: Commit updated version file
-        shell: bash
-        run: |
-          git config --local user.email "github-actions@getinboxzero.com"
-          git config --local user.name "github-actions"
-          git tag -a "${{ needs.set-version.outputs.version }}" -m "Release version ${{ needs.set-version.outputs.version }}"
-          git commit -a -m "Bump version from ${{ needs.set-version.outputs.version }} to ${{ steps.update_version.outputs.new_version }}"
-          echo "Tagged version ${{ needs.set-version.outputs.version }}. Updated version.txt to ${{ steps.update_version.outputs.new_version }} on main." >> $GITHUB_STEP_SUMMARY
-
-      - name: Push changes
-        uses: ad-m/github-push-action@v0.8.0
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ github.ref }}
-          force_with_lease: true
-          tags: true
