@@ -54,9 +54,11 @@ jobs:
       - name: Bump version on main branch
         id: update_version
         shell: bash
+        env:
+          FETCHED_BASE_VERSION: ${{ needs.fetch-version.outputs.version }}
         run: |
           set -x
-          BASE_VERSION=${{ needs.fetch-version.outputs.version }}
+          BASE_VERSION="$FETCHED_BASE_VERSION"
           IFS='.' read -r -a version_parts <<< "$BASE_VERSION"
           for i in {0..2}; do
             version_parts[$i]=${version_parts[$i]:-0}
