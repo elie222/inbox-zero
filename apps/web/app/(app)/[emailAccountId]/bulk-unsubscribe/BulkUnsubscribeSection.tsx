@@ -125,9 +125,7 @@ export function BulkUnsubscribeSection({
       search
         ? (item) =>
             item.name.toLowerCase().includes(search.toLowerCase()) ||
-            item.lastUnsubscribeLink
-              ?.toLowerCase()
-              .includes(search.toLowerCase())
+            item.unsubscribeLink?.toLowerCase().includes(search.toLowerCase())
         : Boolean,
     )
     .slice(0, expanded ? undefined : 50);
