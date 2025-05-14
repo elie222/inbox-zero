@@ -32,7 +32,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { onAutoArchive } from "@/utils/actions/client";
 
 export function NewsletterModal(props: {
-  newsletter?: Pick<Row, "name" | "lastUnsubscribeLink" | "autoArchived">;
+  newsletter?: Pick<Row, "name" | "unsubscribeLink" | "autoArchived">;
   onClose: (isOpen: boolean) => void;
   refreshInterval?: number;
 }) {
@@ -56,7 +56,7 @@ export function NewsletterModal(props: {
             <div className="flex space-x-2">
               <Button size="sm" variant="outline">
                 <a
-                  href={newsletter.lastUnsubscribeLink || undefined}
+                  href={newsletter.unsubscribeLink || undefined}
                   target="_blank"
                   rel="noreferrer"
                 >

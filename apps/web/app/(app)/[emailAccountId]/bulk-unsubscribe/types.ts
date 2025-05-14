@@ -4,7 +4,7 @@ import type { UserLabel } from "@/hooks/useLabels";
 
 export type Row = {
   name: string;
-  lastUnsubscribeLink?: string | null;
+  unsubscribeLink?: string | null;
   status?: NewsletterStatus | null;
   autoArchived?: { id?: string | null };
 };

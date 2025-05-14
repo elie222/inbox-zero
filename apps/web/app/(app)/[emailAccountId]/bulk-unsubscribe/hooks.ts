@@ -99,8 +99,8 @@ export function useUnsubscribe<T extends Row>({
     unsubscribeLoading,
     onUnsubscribe,
     unsubscribeLink:
-      hasUnsubscribeAccess && item.lastUnsubscribeLink
-        ? cleanUnsubscribeLink(item.lastUnsubscribeLink) || "#"
+      hasUnsubscribeAccess && item.unsubscribeLink
+        ? cleanUnsubscribeLink(item.unsubscribeLink) || "#"
         : "#",
   };
 }
@@ -654,8 +654,8 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
       if (e.key === "u") {
         // unsubscribe
         e.preventDefault();
-        if (!item.lastUnsubscribeLink) return;
-        window.open(cleanUnsubscribeLink(item.lastUnsubscribeLink), "_blank");
+        if (!item.unsubscribeLink) return;
+        window.open(cleanUnsubscribeLink(item.unsubscribeLink), "_blank");
         await setNewsletterStatusAction(emailAccountId, {
           newsletterEmail: item.name,
           status: NewsletterStatus.UNSUBSCRIBED,

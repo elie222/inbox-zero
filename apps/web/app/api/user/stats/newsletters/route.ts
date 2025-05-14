@@ -33,7 +33,7 @@ const newsletterStatsQuery = z.object({
 });
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
-  ReturnType<typeof getNewslettersTinybird>
+  ReturnType<typeof getEmailMessages>
 >;
 
 function getTypeFilters(types: NewsletterStatsQuery["types"]) {
@@ -66,7 +66,7 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
   };
 }
 
-async function getNewslettersTinybird(
+async function getEmailMessages(
   options: { emailAccountId: string } & NewsletterStatsQuery,
 ) {
   const { emailAccountId } = options;
@@ -74,24 +74,23 @@ async function getNewslettersTinybird(
 
   const gmail = await getGmailClientForEmail({ emailAccountId });
 
-  const [newsletterCounts, autoArchiveFilters, userNewsletters] =
-    await Promise.all([
-      getNewsletterCounts({
-        ...options,
-        ...types,
-      }),
-      getAutoArchiveFilters(gmail),
-      findNewsletterStatus({ emailAccountId }),
-    ]);
+  const [counts, autoArchiveFilters, userNewsletters] = await Promise.all([
+    getNewsletterCounts({
+      ...options,
+      ...types,
+    }),
+    getAutoArchiveFilters(gmail),
+    findNewsletterStatus({ emailAccountId }),
+  ]);
 
-  const newsletters = newsletterCounts.map((email: NewsletterCountResult) => {
+  const newsletters = counts.map((email) => {
     const from = extractEmailAddress(email.from);
     return {
       name: from,
       value: email.count,
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
-      lastUnsubscribeLink: email.lastUnsubscribeLink,
+      unsubscribeLink: email.unsubscribeLink,
       autoArchived: findAutoArchiveFilter(autoArchiveFilters, from),
       status: userNewsletters?.find((n) => n.email === from)?.status,
     };
@@ -109,7 +108,7 @@ type NewsletterCountResult = {
   count: number;
   inboxEmails: number;
   readEmails: number;
-  lastUnsubscribeLink: string | null;
+  unsubscribeLink: string | null;
 };
 
 type NewsletterCountRawResult = {
@@ -117,7 +116,7 @@ type NewsletterCountRawResult = {
   count: bigint;
   inboxEmails: bigint;
   readEmails: bigint;
-  lastUnsubscribeLink: string | null;
+  unsubscribeLink: string | null;
 };
 
 async function getNewsletterCounts(
@@ -183,18 +182,18 @@ async function getNewsletterCounts(
 
   // Wrap in a subquery so we can use aliases in ORDER BY
   const query = Prisma.sql`
-    WITH newsletter_stats AS (
+    WITH email_message_stats AS (
       SELECT 
         "from",
         COUNT(*) as "count",
         SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) as "inboxEmails",
         SUM(CASE WHEN read = true THEN 1 ELSE 0 END) as "readEmails",
-        MAX("unsubscribeLink") as "lastUnsubscribeLink"
+        MAX("unsubscribeLink") as "unsubscribeLink"
       FROM "EmailMessage"
       ${Prisma.raw(whereClause)}
       GROUP BY "from"
     )
-    SELECT * FROM newsletter_stats
+    SELECT * FROM email_message_stats
     ORDER BY ${Prisma.raw(orderByClause)}
     ${Prisma.raw(limitClause)}
   `;
@@ -212,7 +211,7 @@ async function getNewsletterCounts(
       count: Number(result.count),
       inboxEmails: Number(result.inboxEmails),
       readEmails: Number(result.readEmails),
-      lastUnsubscribeLink: result.lastUnsubscribeLink,
+      unsubscribeLink: result.unsubscribeLink,
     }));
   } catch (error) {
     logger.error("getNewsletterCounts error", { error });
@@ -248,7 +247,7 @@ export const GET = withEmailAccount(async (request) => {
       searchParams.get("includeMissingUnsubscribe") === "true",
   });
 
-  const result = await getNewslettersTinybird({
+  const result = await getEmailMessages({
     ...params,
     emailAccountId,
   });
