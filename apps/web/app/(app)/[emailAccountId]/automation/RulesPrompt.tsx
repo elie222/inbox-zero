@@ -69,7 +69,6 @@ export function RulesPrompt() {
                 <Chat
                   id={emailAccountId} // TODO:
                   initialMessages={[]}
-                  selectedChatModel="gpt-4o-mini"
                   emailAccountId={emailAccountId}
                 />
               </ResizablePanel>

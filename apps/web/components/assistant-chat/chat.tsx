@@ -3,7 +3,6 @@
 import type { Attachment, UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useState } from "react";
-import { useSWRConfig } from "swr";
 import { toast } from "sonner";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
@@ -20,15 +19,13 @@ function generateUUID(): string {
 export function Chat({
   id,
   initialMessages,
-  selectedChatModel,
   emailAccountId,
 }: {
   id: string;
   initialMessages: Array<UIMessage>;
-  selectedChatModel: string;
   emailAccountId: string;
 }) {
-  const { mutate } = useSWRConfig();
+  // const { mutate } = useSWRConfig();
 
   const {
     messages,
@@ -42,7 +39,7 @@ export function Chat({
     reload,
   } = useChat({
     id,
-    body: { id, selectedChatModel },
+    body: { id },
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
@@ -58,7 +55,7 @@ export function Chat({
       });
     },
     onFinish: () => {
-      mutate("/api/chat/history");
+      // mutate("/api/chat/history");
     },
     onError: () => {
       toast.error("An error occured, please try again!");

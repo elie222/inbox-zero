@@ -11,8 +11,8 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
+  SlidersIcon,
 } from "lucide-react";
-import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,6 +55,7 @@ import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/automation/Rule
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { ExpandableText } from "@/components/ExpandableText";
 
 export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
@@ -134,7 +135,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                       </TableCell>
                       {size === "md" && (
                         <TableCell className="whitespace-pre-wrap">
-                          {conditionsToString(rule)}
+                          <ExpandableText text={conditionsToString(rule)} />
                         </TableCell>
                       )}
                       <TableCell>
@@ -291,6 +292,13 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               Add Rule via Prompt
             </Link>
           </Button> */}
+          <Button asChild variant="outline">
+            <Link href={prefixPath(emailAccountId, "/automation/onboarding")}>
+              <SlidersIcon className="mr-2 hidden size-4 md:block" />
+              View Setup
+            </Link>
+          </Button>
+
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
               <PlusIcon className="mr-2 hidden size-4 md:block" />

@@ -18,7 +18,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowUpIcon, StopIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { SuggestedActions } from "./suggested-actions";
+// import { SuggestedActions } from "./suggested-actions";
 import { cn } from "@/utils";
 
 function PureMultimodalInput({
@@ -111,9 +111,9 @@ function PureMultimodalInput({
 
   return (
     <div className="relative flex w-full flex-col gap-4">
-      {messages.length === 0 && (
+      {/* {messages.length === 0 && (
         <SuggestedActions append={append} chatId={chatId} />
-      )}
+      )} */}
 
       <Textarea
         data-testid="multimodal-input"

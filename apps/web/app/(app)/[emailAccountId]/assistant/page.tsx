@@ -46,7 +46,6 @@ export default function AssistantPage() {
               ],
             },
           ]}
-          selectedChatModel="gpt-4o-mini"
           emailAccountId={emailAccountId}
         />
         {/* <Button
