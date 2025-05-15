@@ -16,12 +16,11 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
-import { Separator } from "@/components/ui/separator";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
-import { CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { ReportMistake } from "@/app/(app)/[emailAccountId]/automation/ReportMistake";
@@ -161,7 +160,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 border-b border-border px-6 pb-4">
+      <div className="flex items-center justify-between gap-2 pb-6">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
             <Button onClick={handleStop} variant="outline">
@@ -197,10 +196,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       {hasAiRules && showCustomForm && testMode && (
         <div className="mt-2">
-          <CardContent>
-            <TestCustomEmailForm />
-          </CardContent>
-          <Separator />
+          <TestCustomEmailForm />
         </div>
       )}
 
@@ -210,7 +206,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             No emails found
           </div>
         ) : (
-          <>
+          <Card>
             <Table>
               <TableBody>
                 {messages.map((message) => (
@@ -239,7 +235,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                 Load More
               </Button>
             </div>
-          </>
+          </Card>
         )}
       </LoadingContent>
     </div>
