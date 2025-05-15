@@ -44,6 +44,11 @@ export default async function AutomationPage({
     }
   }
 
+  const hasPendingRule = prisma.rule.findFirst({
+    where: { emailAccountId, automate: false },
+    select: { id: true },
+  });
+
   return (
     <GmailProvider>
       <Suspense>
@@ -57,7 +62,11 @@ export default async function AutomationPage({
                 <TabsTrigger value="rules">Rules</TabsTrigger>
                 <TabsTrigger value="test">Test</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
-                <TabsTrigger value="pending">Pending</TabsTrigger>
+                <Suspense>
+                  {(await hasPendingRule) && (
+                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                  )}
+                </Suspense>
                 <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
                 {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
               </TabsList>
