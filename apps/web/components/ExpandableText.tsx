@@ -23,6 +23,7 @@ export function ExpandableText({
       <div className="relative overflow-hidden">
         {/* Always render the full text but add a mask when collapsed */}
         <motion.div
+          initial={{ height: "4.5rem" }}
           animate={{ height: isExpanded ? "auto" : "4.5rem" }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className={isExpanded ? "" : "overflow-hidden"}
