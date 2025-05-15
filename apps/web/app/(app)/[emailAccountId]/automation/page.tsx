@@ -19,6 +19,7 @@ import { ResizableHandle } from "@/components/ui/resizable";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { Chat } from "@/components/assistant-chat/chat";
+import { TypographyP } from "@/components/Typography";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -66,7 +67,7 @@ export default async function AutomationPage({
           <ResizableHandle />
           <ResizablePanel>
             <div className="h-[calc(100vh-4rem)] overflow-y-auto">
-              <Tabs defaultValue="prompt">
+              <Tabs defaultValue="empty" className="h-full">
                 <TabsToolbar className="sticky top-0 z-10 bg-background">
                   <div className="w-full overflow-x-auto">
                     <TabsList>
@@ -110,6 +111,15 @@ export default async function AutomationPage({
                     />
                   </div> */}
                 </TabsToolbar>
+
+                <TabsContent value="empty" className="mt-0 h-full">
+                  <div className="flex h-full items-center justify-center">
+                    <TypographyP>
+                      Select a tab or chat with your AI assistant to create or
+                      fix rules
+                    </TypographyP>
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="prompt" className="mt-0 h-full">
                   <RulesPrompt />
