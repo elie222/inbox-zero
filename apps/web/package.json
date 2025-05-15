@@ -132,6 +132,7 @@
     "react-resizable-panels": "2.1.7",
     "react-textarea-autosize": "8.5.9",
     "react-youtube": "10.1.0",
+    "remark-gfm": "4.0.1",
     "sanity": "3.84.0",
     "server-only": "0.0.1",
     "sonner": "2.0.3",
