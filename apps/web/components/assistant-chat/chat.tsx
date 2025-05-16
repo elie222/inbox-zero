@@ -71,7 +71,7 @@ export function Chat({
           status={status}
           messages={messages}
           setMessages={setMessages}
-          append={append}
+          setInput={setInput}
           reload={reload}
           isArtifactVisible={false}
         />

@@ -4,7 +4,11 @@ import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 
-export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
+export const Overview = ({
+  setInput,
+}: {
+  setInput: UseChatHelpers["setInput"];
+}) => {
   return (
     <motion.div
       key="overview"
@@ -30,18 +34,18 @@ export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
         <div className="flex flex-col gap-3 pt-8">
           <OverviewButton
             label="Label all pitch decks and investor updates"
-            appendMessage="When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'"
-            append={append}
+            message="When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'"
+            setInput={setInput}
           />
           <OverviewButton
             label="Respond to sponsorship inquiries with my pricing"
-            appendMessage="When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck"
-            append={append}
+            message="When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck"
+            setInput={setInput}
           />
           <OverviewButton
             label="Forward all receipts to my accountant"
-            appendMessage="When I get an email with a receipt, forward it to my accountant: jane@example.com"
-            append={append}
+            message="When I get an email with a receipt, forward it to my accountant: jane@example.com"
+            setInput={setInput}
           />
         </div>
       </div>
@@ -51,19 +55,19 @@ export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
 
 function OverviewButton({
   label,
-  append,
-  appendMessage,
+  setInput,
+  message,
 }: {
   label: string;
-  append: UseChatHelpers["append"];
-  appendMessage: string;
+  setInput: UseChatHelpers["setInput"];
+  message: string;
 }) {
   return (
     <Button
       variant="outline"
       className="justify-start text-left"
       onClick={() => {
-        append({ role: "user", content: appendMessage });
+        setInput(message);
       }}
     >
       {label}
