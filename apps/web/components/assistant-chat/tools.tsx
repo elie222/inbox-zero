@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { SparklesIcon, TrashIcon } from "lucide-react";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
 import { toastSuccess } from "@/components/Toast";
+import { Tooltip } from "@/components/Tooltip";
 
 export function ToolCard({ toolName, args }: { toolName: string; args: any }) {
   switch (toolName) {
@@ -38,21 +39,25 @@ function CreatedRule({ args }: { args: CreateRuleSchema }) {
   return (
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Added Rule: {args.name}</h3>
+        <h3 className="text-lg font-medium">
+          <strong>New Rule Created:</strong> {args.name}
+        </h3>
 
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            const yes = confirm("Are you sure you want to delete this rule?");
-            if (yes) {
-              // deleteRule(args.id);
-              toastSuccess({ description: "The rule has been deleted." });
-            }
-          }}
-        >
-          <TrashIcon className="size-4" />
-        </Button>
+        <Tooltip content="Delete Rule">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => {
+              const yes = confirm("Are you sure you want to delete this rule?");
+              if (yes) {
+                // deleteRule(args.id);
+                toastSuccess({ description: "The rule has been deleted." });
+              }
+            }}
+          >
+            <TrashIcon className="size-4" />
+          </Button>
+        </Tooltip>
       </div>
 
       <div className="space-y-2">
