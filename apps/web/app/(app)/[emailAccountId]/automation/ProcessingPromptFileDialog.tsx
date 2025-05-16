@@ -27,7 +27,6 @@ type StepContentProps = StepProps & {
 type ResultProps = {
   createdRules: number;
   editedRules: number;
-  removedRules: number;
 };
 
 const STEPS = 5;
@@ -243,13 +242,6 @@ function FinalStepReady({
     if (result.editedRules > 0) {
       message += ` We edited ${result.editedRules} ${pluralize(
         result.editedRules,
-        "rule",
-      )}.`;
-    }
-
-    if (result.removedRules > 0) {
-      message += ` We removed ${result.removedRules} ${pluralize(
-        result.removedRules,
         "rule",
       )}.`;
     }
