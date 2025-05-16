@@ -30,14 +30,17 @@ export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
         <div className="flex flex-col gap-3 pt-8">
           <OverviewButton
             label="Label all pitch decks and investor updates"
+            appendMessage="When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'"
             append={append}
           />
           <OverviewButton
             label="Respond to sponsorship inquiries with my pricing"
+            appendMessage="When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck"
             append={append}
           />
           <OverviewButton
             label="Forward all receipts to my accountant"
+            appendMessage="When I get an email with a receipt, forward it to my accountant: jane@example.com"
             append={append}
           />
         </div>
@@ -49,16 +52,18 @@ export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
 function OverviewButton({
   label,
   append,
+  appendMessage,
 }: {
   label: string;
   append: UseChatHelpers["append"];
+  appendMessage: string;
 }) {
   return (
     <Button
       variant="outline"
       className="justify-start text-left"
       onClick={() => {
-        append({ role: "user", content: label });
+        append({ role: "user", content: appendMessage });
       }}
     >
       {label}
