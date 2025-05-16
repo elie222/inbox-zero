@@ -56,7 +56,7 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <ResizablePanelGroup direction="horizontal" className="h-screen">
+        <ResizablePanelGroup direction="horizontal">
           <ResizablePanel>
             <Chat
               id={emailAccountId} // TODO:
@@ -66,9 +66,9 @@ export default async function AutomationPage({
           </ResizablePanel>
           <ResizableHandle />
           <ResizablePanel>
-            <div className="h-[calc(100vh-4rem)] overflow-y-auto">
+            <div className="h-full overflow-y-auto">
               <Tabs defaultValue="empty" className="h-full">
-                <TabsToolbar className="sticky top-0 z-10 bg-background">
+                <TabsToolbar className="sticky top-0 z-10 border-none bg-background pb-0 shadow-none">
                   <div className="w-full overflow-x-auto">
                     <TabsList>
                       {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
@@ -114,9 +114,9 @@ export default async function AutomationPage({
 
                 <TabsContent value="empty" className="mt-0 h-full">
                   <div className="flex h-full items-center justify-center">
-                    <TypographyP>
-                      Select a tab or chat with your AI assistant to create or
-                      fix rules
+                    <TypographyP className="max-w-sm text-center">
+                      Select a tab or chat with your AI assistant to explain how
+                      it should handle your incoming emails
                     </TypographyP>
                   </div>
                 </TabsContent>
