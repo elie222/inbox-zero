@@ -12,6 +12,7 @@ interface MessagesProps {
   setMessages: UseChatHelpers["setMessages"];
   reload: UseChatHelpers["reload"];
   isArtifactVisible: boolean;
+  append: UseChatHelpers["append"];
 }
 
 function PureMessages({
@@ -19,6 +20,7 @@ function PureMessages({
   messages,
   setMessages,
   reload,
+  append,
 }: MessagesProps) {
   const [messagesContainerRef, messagesEndRef] =
     useScrollToBottom<HTMLDivElement>();
@@ -28,7 +30,7 @@ function PureMessages({
       ref={messagesContainerRef}
       className="flex min-w-0 flex-1 flex-col gap-6 overflow-y-scroll pt-4"
     >
-      {messages.length === 0 && <Overview />}
+      {messages.length === 0 && <Overview append={append} />}
 
       {messages.map((message, index) => (
         <PreviewMessage

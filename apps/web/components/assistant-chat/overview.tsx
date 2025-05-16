@@ -1,9 +1,10 @@
 import { motion } from "framer-motion";
+import type { UseChatHelpers } from "@ai-sdk/react";
 import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 
-export const Overview = () => {
+export const Overview = ({ append }: { append: UseChatHelpers["append"] }) => {
   return (
     <motion.div
       key="overview"
@@ -27,17 +28,40 @@ export const Overview = () => {
         </MessageText>
 
         <div className="flex flex-col gap-3 pt-8">
-          <Button variant="outline" className="justify-start text-left">
-            Label all pitch decks and investor updates
-          </Button>
-          <Button variant="outline" className="justify-start text-left">
-            Respond to sponsorship inquiries with my pricing
-          </Button>
-          <Button variant="outline" className="justify-start text-left">
-            Forward all receipts to my accountant
-          </Button>
+          <OverviewButton
+            label="Label all pitch decks and investor updates"
+            append={append}
+          />
+          <OverviewButton
+            label="Respond to sponsorship inquiries with my pricing"
+            append={append}
+          />
+          <OverviewButton
+            label="Forward all receipts to my accountant"
+            append={append}
+          />
         </div>
       </div>
     </motion.div>
   );
 };
+
+function OverviewButton({
+  label,
+  append,
+}: {
+  label: string;
+  append: UseChatHelpers["append"];
+}) {
+  return (
+    <Button
+      variant="outline"
+      className="justify-start text-left"
+      onClick={() => {
+        append({ role: "user", content: label });
+      }}
+    >
+      {label}
+    </Button>
+  );
+}
