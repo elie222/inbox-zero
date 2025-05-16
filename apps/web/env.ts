@@ -15,9 +15,9 @@ export const env = createEnv({
     DEFAULT_LLM_PROVIDER: z
       .enum([
         "anthropic",
+        // "bedrock",
         "google",
         "openai",
-        // "bedrock",
         "openrouter",
         "groq",
         "ollama",
