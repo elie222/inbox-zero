@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { EarlyAccessFeatures } from "@/app/(app)/[emailAccountId]/early-access/EarlyAccessFeatures";
+import { EarlyAccessFeatures } from "@/app/(app)/early-access/EarlyAccessFeatures";
 import { Button } from "@/components/ui/button";
 import {
   Card,
