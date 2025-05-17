@@ -1,5 +1,6 @@
 "use client";
 
+import { SWRConfig, useSWRConfig } from "swr";
 import type { Attachment, UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { useState } from "react";
@@ -16,17 +17,38 @@ function generateUUID(): string {
   });
 }
 
-export function Chat({
-  id,
-  initialMessages,
-  emailAccountId,
-}: {
+type ChatProps = {
   id: string;
   initialMessages: Array<UIMessage>;
   emailAccountId: string;
-}) {
-  // const { mutate } = useSWRConfig();
+};
 
+export function Chat(props: ChatProps) {
+  // Use parent SWR config for mutate
+  const { mutate } = useSWRConfig();
+
+  // AI SDK uses SWR too and this messes with the global SWR config
+  // Wrapping in SWRConfig to disable global fetcher for this component
+  // https://github.com/vercel/ai/issues/3214#issuecomment-2675872030
+  return (
+    <SWRConfig
+      value={{
+        fetcher: undefined, // Disable global fetcher for this component
+      }}
+    >
+      <ChatInner {...props} mutate={mutate} />
+    </SWRConfig>
+  );
+}
+
+function ChatInner({
+  id,
+  initialMessages,
+  emailAccountId,
+  mutate,
+}: ChatProps & {
+  mutate: (key: string) => Promise<any>;
+}) {
   const {
     messages,
     setMessages,
@@ -44,20 +66,14 @@ export function Chat({
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,
-    // is SWR somehow messing with the request that we need pass the headers in like this?
-    fetch: (url, options) => {
-      return fetch(url, {
-        ...options,
-        headers: new Headers({
-          ...options?.headers,
-          [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-        }),
-      });
+    headers: {
+      [EMAIL_ACCOUNT_HEADER]: emailAccountId,
     },
     onFinish: () => {
-      // mutate("/api/chat/history");
+      mutate("/api/user/rules");
     },
-    onError: () => {
+    onError: (error) => {
+      console.error(error);
       toast.error("An error occured, please try again!");
     },
   });
