@@ -15,9 +15,18 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { NextResponse } from "next/server";
 import { getModel } from "@/utils/llms/model";
 
-const logger = createScopedLogger("chat");
+const logger = createScopedLogger("api/chat");
 
 export const maxDuration = 120;
+
+const assistantInputSchema = z.object({
+  messages: z.array(
+    z.object({
+      role: z.enum(["user", "assistant"]),
+      content: z.string(),
+    }),
+  ),
+});
 
 // schemas
 export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
@@ -102,7 +111,14 @@ export const POST = withEmailAccount(async (request) => {
 
   if (!user) return NextResponse.json({ error: "Not authenticated" });
 
-  const { messages } = await request.json();
+  const json = await request.json();
+  const body = assistantInputSchema.safeParse(json);
+
+  if (body.error) {
+    return NextResponse.json({ error: body.error.message }, { status: 400 });
+  }
+
+  const { messages } = body.data;
 
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -511,14 +527,17 @@ Examples:
         },
       }),
     },
-    onFinish: async ({ usage, text }) => {
-      // await saveAiUsage({
-      //   email: userEmail,
-      //   provider,
-      //   model,
-      //   usage,
-      //   label,
-      // });
+    onFinish: async ({ usage }) => {
+      await saveAiUsage({
+        email: user.email,
+        provider,
+        model,
+        usage,
+        label: "Assistant chat",
+      });
+    },
+    onStepFinish: async ({ usage, text, toolCalls }) => {
+      logger.trace("Step finished", { usage, text, toolCalls });
     },
   });
 
