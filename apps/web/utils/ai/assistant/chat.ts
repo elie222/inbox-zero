@@ -13,7 +13,7 @@ import { saveAiUsage } from "@/utils/usage";
 import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 
-const logger = createScopedLogger("api/chat");
+const logger = createScopedLogger("ai/assistant/chat");
 
 export const maxDuration = 120;
 
@@ -476,34 +476,6 @@ Examples:
             where: { id: emailAccountId },
             data: { about },
           });
-
-          return { success: true };
-        },
-      }),
-      enable_cold_email_blocker: tool({
-        description: "Enable the cold email blocker",
-        parameters: enableColdEmailBlockerSchema,
-        execute: async ({ action }) => {
-          await prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data: { coldEmailBlocker: action },
-          });
-
-          return { success: true };
-        },
-      }),
-      enable_reply_zero: tool({
-        description: "Enable the reply zero feature",
-        parameters: enableReplyZeroSchema,
-        execute: async ({ enabled }) => {
-          // if (enabled) {
-          //   await enableReplyTrackerAction();
-          // } else {
-          //   // Maybe show a UI button so the user can confirm delete the rule instead
-          //   // await prisma.rule.delete({
-          //   //   where: { id: userId, trackReplies: true },
-          //   // });
-          // }
 
           return { success: true };
         },
