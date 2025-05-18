@@ -38,6 +38,8 @@ import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/automation/Pr
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/automation/FixWithChat";
+import { useChat } from "@/components/assistant-chat/ChatContext";
+import type { SetInputFunction } from "@/components/assistant-chat/types";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -159,6 +161,8 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     setIsRunningAll(false);
   };
 
+  const { setInput } = useChat();
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 pb-6">
@@ -220,6 +224,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     emailAccountId={emailAccountId}
+                    setInput={setInput}
                   />
                 ))}
               </TableBody>
@@ -251,6 +256,7 @@ function ProcessRulesRow({
   onRun,
   testMode,
   emailAccountId,
+  setInput,
 }: {
   message: Message;
   userEmail: string;
@@ -259,6 +265,7 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   emailAccountId: string;
+  setInput: SetInputFunction;
 }) {
   return (
     <TableRow
@@ -289,7 +296,11 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                <FixWithChat />
+                <FixWithChat
+                  setInput={setInput}
+                  message={message}
+                  result={result}
+                />
                 {/* <ReportMistake
                   result={result}
                   message={message}

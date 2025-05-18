@@ -8,9 +8,8 @@ import { RulesPrompt } from "@/app/(app)/[emailAccountId]/automation/RulesPrompt
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/automation/RuleTab";
-import type { SetInputFunction } from "@/components/assistant-chat/chat";
 
-export function AssistantTabs({ setInput }: { setInput: SetInputFunction }) {
+export function AssistantTabs() {
   return (
     <div className="h-full overflow-y-auto">
       <Tabs defaultValue="empty" className="h-full">
@@ -22,38 +21,37 @@ export function AssistantTabs({ setInput }: { setInput: SetInputFunction }) {
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               {/* <Suspense>
-                          {(await hasPendingRule) && (
-                            <TabsTrigger value="pending">Pending</TabsTrigger>
-                          )}
-                        </Suspense> */}
+                  {(await hasPendingRule) && (
+                    <TabsTrigger value="pending">Pending</TabsTrigger>
+                  )}
+                </Suspense> */}
               <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
-              {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
             </TabsList>
           </div>
 
           {/* <div className="flex items-center gap-2">
-                      <Button asChild variant="outline">
-                        <Link
-                          href={prefixPath(
-                            emailAccountId,
-                            "/automation/onboarding",
-                          )}
-                        >
-                          Set Up
-                        </Link>
-                      </Button>
+                <Button asChild variant="outline">
+                  <Link
+                    href={prefixPath(
+                      emailAccountId,
+                      "/automation/onboarding",
+                    )}
+                  >
+                    Set Up
+                  </Link>
+                </Button>
 
-                      <OnboardingModal
-                        title="Getting started with AI Personal Assistant"
-                        description={
-                          <>
-                            Learn how to use the AI Personal Assistant to
-                            automatically label, archive, and more.
-                          </>
-                        }
-                        videoId="SoeNDVr7ve4"
-                      />
-                    </div> */}
+                <OnboardingModal
+                  title="Getting started with AI Personal Assistant"
+                  description={
+                    <>
+                      Learn how to use the AI Personal Assistant to
+                      automatically label, archive, and more.
+                    </>
+                  }
+                  videoId="SoeNDVr7ve4"
+                />
+              </div> */}
         </TabsToolbar>
 
         <TabsContent value="empty" className="mt-0 h-full">
@@ -83,13 +81,6 @@ export function AssistantTabs({ setInput }: { setInput: SetInputFunction }) {
         <TabsContent value="knowledge" className="content-container mb-10">
           <KnowledgeBase />
         </TabsContent>
-        {/* no longer in use */}
-        {/* <TabsContent
-                    value="groups"
-                    className="content-container mb-10"
-                  >
-                    <Groups />
-                  </TabsContent> */}
         <TabsContent value="rule" className="content-container mb-10">
           <RuleTab />
         </TabsContent>

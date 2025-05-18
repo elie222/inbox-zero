@@ -12,9 +12,7 @@ import { ResizableHandle } from "@/components/ui/resizable";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
-
-// Export the setInput type for use in other components
-export type SetInputFunction = React.Dispatch<React.SetStateAction<string>>;
+import { ChatProvider } from "./ChatContext";
 
 type ChatProps = {
   id: string;
@@ -41,14 +39,9 @@ type ChatProps = {
 //   );
 // }
 
-export function Chat({
-  id,
-  initialMessages,
-  emailAccountId,
-  mutate,
-}: ChatProps & {
-  mutate: (key: string) => Promise<any>;
-}) {
+export function Chat({ id, initialMessages, emailAccountId }: ChatProps) {
+  const { mutate } = useSWRConfig();
+
   const chat = useChat({
     id,
     body: { id },
@@ -69,15 +62,17 @@ export function Chat({
   });
 
   return (
-    <ResizablePanelGroup direction="horizontal" className="flex-grow">
-      <ResizablePanel className="overflow-y-auto">
-        <ChatUI chat={chat} chatId={id} />
-      </ResizablePanel>
-      <ResizableHandle />
-      <ResizablePanel className="overflow-hidden">
-        <AssistantTabs setInput={chat.setInput} />
-      </ResizablePanel>
-    </ResizablePanelGroup>
+    <ChatProvider setInput={chat.setInput}>
+      <ResizablePanelGroup direction="horizontal" className="flex-grow">
+        <ResizablePanel className="overflow-y-auto">
+          <ChatUI chat={chat} chatId={id} />
+        </ResizablePanel>
+        <ResizableHandle />
+        <ResizablePanel className="overflow-hidden">
+          <AssistantTabs />
+        </ResizablePanel>
+      </ResizablePanelGroup>
+    </ChatProvider>
   );
 }
 

@@ -24,6 +24,7 @@ import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/automation/RulesSelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useChat } from "@/components/assistant-chat/ChatContext";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -73,6 +74,7 @@ function HistoryTable({
   totalPages: number;
 }) {
   const { userEmail, emailAccountId } = useAccount();
+  const { setInput } = useChat();
 
   return (
     <div>
@@ -107,6 +109,7 @@ function HistoryTable({
                   reason={p.reason}
                   message={p.message}
                   isTest={false}
+                  setInput={setInput}
                 />
               </TableCell>
               <TableCell>

@@ -18,6 +18,7 @@ import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { prefixPath } from "@/utils/path";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/automation/FixWithChat";
+import type { SetInputFunction } from "@/components/assistant-chat/types";
 
 export function EmailCell({
   from,
@@ -64,6 +65,7 @@ export function RuleCell({
   reason,
   message,
   isTest,
+  setInput,
 }: {
   emailAccountId: string;
   rule: PendingExecutedRules["executedRules"][number]["rule"];
@@ -71,6 +73,7 @@ export function RuleCell({
   reason?: string | null;
   message: ParsedMessage;
   isTest: boolean;
+  setInput: SetInputFunction;
 }) {
   return (
     <div className="flex gap-2">
@@ -127,7 +130,11 @@ export function RuleCell({
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
-      <FixWithChat />
+      <FixWithChat
+        setInput={setInput}
+        message={message}
+        result={{ rule, reason }}
+      />
 
       {/* <ReportMistake
         result={{ rule, reason }}
