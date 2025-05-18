@@ -5,7 +5,7 @@ import type {
   EnableReplyZeroSchema,
   UpdateAboutSchema,
   UpdateRuleSchema,
-} from "@/app/api/chat/route";
+} from "@/utils/ai/assistant/chat";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SparklesIcon, TrashIcon } from "lucide-react";
