@@ -11,8 +11,10 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon } from "lucide-react";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
-import { toastSuccess } from "@/components/Toast";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
+import { deleteRuleAction } from "@/utils/actions/rule";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ToolCard({
   toolName,
@@ -46,6 +48,8 @@ function CreatedRule({
   args: CreateRuleSchema;
   ruleId?: string;
 }) {
+  const { emailAccountId } = useAccount();
+
   const conditionsArray = [
     args.condition.aiInstructions,
     args.condition.static,
@@ -60,11 +64,12 @@ function CreatedRule({
     <Card className="space-y-3 p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-medium">
-          <strong>New Rule Created:</strong> {args.name}
+          <strong>{ruleId ? "New rule created:" : "Creating rule:"}</strong>{" "}
+          {args.name}
         </h3>
 
-        <div className="flex items-center gap-1">
-          {ruleId && (
+        {ruleId && (
+          <div className="flex items-center gap-1">
             <Tooltip content="View Rule">
               <Button
                 variant="ghost"
@@ -74,25 +79,31 @@ function CreatedRule({
                 <EyeIcon className="size-4" />
               </Button>
             </Tooltip>
-          )}
-          <Tooltip content="Delete Rule">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                const yes = confirm(
-                  "Are you sure you want to delete this rule?",
-                );
-                if (yes) {
-                  // deleteRule(args.id);
-                  toastSuccess({ description: "The rule has been deleted." });
-                }
-              }}
-            >
-              <TrashIcon className="size-4" />
-            </Button>
-          </Tooltip>
-        </div>
+            <Tooltip content="Delete Rule">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={async () => {
+                  const yes = confirm(
+                    "Are you sure you want to delete this rule?",
+                  );
+                  if (yes) {
+                    try {
+                      await deleteRuleAction(emailAccountId, { id: ruleId });
+                      toastSuccess({
+                        description: "The rule has been deleted.",
+                      });
+                    } catch (error) {
+                      toastError({ description: "Failed to delete rule." });
+                    }
+                  }
+                }}
+              >
+                <TrashIcon className="size-4" />
+              </Button>
+            </Tooltip>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
