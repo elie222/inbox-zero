@@ -389,7 +389,7 @@ Examples:
 
             // createdRules.set(rule.id, rule);
 
-            return { success: true };
+            return { success: true, ruleId: rule.id };
           } catch (error) {
             const message =
               error instanceof Error ? error.message : String(error);

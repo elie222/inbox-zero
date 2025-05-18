@@ -68,6 +68,17 @@ import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useRule } from "@/hooks/useRule";
+
+export function Rule({ ruleId }: { ruleId: string }) {
+  const { data, isLoading, error } = useRule(ruleId);
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <RuleForm rule={data.rule} />}
+    </LoadingContent>
+  );
+}
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const { emailAccountId } = useAccount();

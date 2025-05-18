@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import type {
   CreateRuleSchema,
   EnableColdEmailBlockerSchema,
@@ -8,15 +9,23 @@ import type {
 } from "@/utils/ai/assistant/chat";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SparklesIcon, TrashIcon } from "lucide-react";
+import { EyeIcon, SparklesIcon, TrashIcon } from "lucide-react";
 import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
 import { toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 
-export function ToolCard({ toolName, args }: { toolName: string; args: any }) {
+export function ToolCard({
+  toolName,
+  args,
+  ruleId,
+}: {
+  toolName: string;
+  args: any;
+  ruleId?: string;
+}) {
   switch (toolName) {
     case "create_rule":
-      return <CreatedRule args={args as CreateRuleSchema} />;
+      return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
     case "update_rule":
       return <UpdatedRule args={args as UpdateRuleSchema} />;
     case "update_about":
@@ -30,11 +39,22 @@ export function ToolCard({ toolName, args }: { toolName: string; args: any }) {
   }
 }
 
-function CreatedRule({ args }: { args: CreateRuleSchema }) {
+function CreatedRule({
+  args,
+  ruleId,
+}: {
+  args: CreateRuleSchema;
+  ruleId?: string;
+}) {
   const conditionsArray = [
     args.condition.aiInstructions,
     args.condition.static,
   ].filter(Boolean);
+
+  const [_, setRuleId] = useQueryStates({
+    tab: parseAsString,
+    ruleId: parseAsString,
+  });
 
   return (
     <Card className="space-y-3 p-4">
@@ -43,21 +63,36 @@ function CreatedRule({ args }: { args: CreateRuleSchema }) {
           <strong>New Rule Created:</strong> {args.name}
         </h3>
 
-        <Tooltip content="Delete Rule">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => {
-              const yes = confirm("Are you sure you want to delete this rule?");
-              if (yes) {
-                // deleteRule(args.id);
-                toastSuccess({ description: "The rule has been deleted." });
-              }
-            }}
-          >
-            <TrashIcon className="size-4" />
-          </Button>
-        </Tooltip>
+        <div className="flex items-center gap-1">
+          {ruleId && (
+            <Tooltip content="View Rule">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setRuleId({ ruleId, tab: "rule" })}
+              >
+                <EyeIcon className="size-4" />
+              </Button>
+            </Tooltip>
+          )}
+          <Tooltip content="Delete Rule">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                const yes = confirm(
+                  "Are you sure you want to delete this rule?",
+                );
+                if (yes) {
+                  // deleteRule(args.id);
+                  toastSuccess({ description: "The rule has been deleted." });
+                }
+              }}
+            >
+              <TrashIcon className="size-4" />
+            </Button>
+          </Tooltip>
+        </div>
       </div>
 
       <div className="space-y-2">

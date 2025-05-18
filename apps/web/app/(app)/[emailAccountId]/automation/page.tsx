@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rules } from "@/app/(app)/[emailAccountId]/automation/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/automation/Process";
 import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/automation/knowledge/KnowledgeBase";
-import { Groups } from "@/app/(app)/[emailAccountId]/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/[emailAccountId]/automation/RulesPrompt";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
@@ -20,6 +19,7 @@ import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { Chat } from "@/components/assistant-chat/chat";
 import { TypographyP } from "@/components/Typography";
+import { RuleTab } from "@/app/(app)/[emailAccountId]/automation/RuleTab";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -153,11 +153,14 @@ export default async function AutomationPage({
                     <KnowledgeBase />
                   </TabsContent>
                   {/* no longer in use */}
-                  <TabsContent
+                  {/* <TabsContent
                     value="groups"
                     className="content-container mb-10"
                   >
                     <Groups />
+                  </TabsContent> */}
+                  <TabsContent value="rule" className="content-container mb-10">
+                    <RuleTab />
                   </TabsContent>
                 </Tabs>
               </div>

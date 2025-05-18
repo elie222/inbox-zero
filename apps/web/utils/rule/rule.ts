@@ -10,6 +10,7 @@ import {
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("rule");
 
@@ -251,7 +252,7 @@ export async function addRuleCategories(ruleId: string, categoryIds: string[]) {
     include: { categoryFilters: true },
   });
 
-  if (!rule) throw new Error("Rule not found");
+  if (!rule) throw new SafeError("Rule not found");
 
   const existingIds = rule.categoryFilters.map((c) => c.id) || [];
   const newIds = [...new Set([...existingIds, ...categoryIds])];
@@ -272,7 +273,7 @@ export async function removeRuleCategories(
     include: { categoryFilters: true },
   });
 
-  if (!rule) throw new Error("Rule not found");
+  if (!rule) throw new SafeError("Rule not found");
 
   const existingIds = rule.categoryFilters.map((c) => c.id) || [];
   const newIds = existingIds.filter((id) => !categoryIds.includes(id));
