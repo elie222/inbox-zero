@@ -396,7 +396,7 @@ function AIFixView({
   );
 }
 
-function RuleMismatch({
+export function RuleMismatch({
   result,
   rules,
   emailAccountId,
