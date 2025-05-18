@@ -101,6 +101,7 @@ function CreatedRule({ args }: { args: CreateRuleSchema }) {
           actions={args.actions.map((action, i) => ({
             id: i.toString(),
             type: action.type,
+            label: action.fields?.label,
           }))}
         />
 

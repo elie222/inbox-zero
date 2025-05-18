@@ -317,6 +317,7 @@ export function ActionBadges({
   actions: {
     id: string;
     type: ActionType;
+    label?: string | null;
   }[];
 }) {
   return (
@@ -332,6 +333,7 @@ export function ActionBadges({
             className="text-nowrap"
           >
             {capitalCase(action.type)}
+            {action.label && `: ${action.label}`}
           </Badge>
         );
       })}
