@@ -93,9 +93,9 @@ function getFixMessage({
 Fix our rules so this type of email is handled correctly in the future.
 
 Email details:
-- From: ${message.headers.from}
-- Subject: ${message.headers.subject}
-- Content: ${getMessageContent()}
+*From*: ${message.headers.from}
+*Subject*: ${message.headers.subject}
+*Content*: ${getMessageContent()}
 
 Current rule applied: ${result?.rule?.name || "No rule"}
 ${result?.rule?.instructions ? `Rule instructions: ${result.rule.instructions}` : ""}
