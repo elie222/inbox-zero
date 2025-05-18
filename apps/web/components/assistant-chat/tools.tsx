@@ -39,8 +39,6 @@ function CreatedRule({
   args: CreateRuleSchema;
   ruleId?: string;
 }) {
-  const { emailAccountId } = useAccount();
-
   const conditionsArray = [
     args.condition.aiInstructions,
     args.condition.static,
@@ -59,42 +57,7 @@ function CreatedRule({
           {args.name}
         </h3>
 
-        {ruleId && (
-          <div className="flex items-center gap-1">
-            <Tooltip content="View Rule">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setRuleId({ ruleId, tab: "rule" })}
-              >
-                <EyeIcon className="size-4" />
-              </Button>
-            </Tooltip>
-            <Tooltip content="Delete Rule">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={async () => {
-                  const yes = confirm(
-                    "Are you sure you want to delete this rule?",
-                  );
-                  if (yes) {
-                    try {
-                      await deleteRuleAction(emailAccountId, { id: ruleId });
-                      toastSuccess({
-                        description: "The rule has been deleted.",
-                      });
-                    } catch (error) {
-                      toastError({ description: "Failed to delete rule." });
-                    }
-                  }
-                }}
-              >
-                <TrashIcon className="size-4" />
-              </Button>
-            </Tooltip>
-          </div>
-        )}
+        {ruleId && <RuleActions ruleId={ruleId} />}
       </div>
 
       <div className="space-y-2">
@@ -196,6 +159,8 @@ function UpdatedRule({ args }: { args: UpdateRuleSchema }) {
         <h3 className="text-lg font-medium">
           <strong>Updated rule:</strong> {args.ruleName}
         </h3>
+
+        <RuleActions ruleId={args.ruleName} />
       </div>
 
       {args.condition && (
@@ -338,5 +303,48 @@ function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
       </div>
       <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
     </Card>
+  );
+}
+
+function RuleActions({ ruleId }: { ruleId: string }) {
+  const { emailAccountId } = useAccount();
+  const [_, setRuleId] = useQueryStates({
+    tab: parseAsString,
+    ruleId: parseAsString,
+  });
+
+  return (
+    <div className="flex items-center gap-1">
+      <Tooltip content="View Rule">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setRuleId({ ruleId, tab: "rule" })}
+        >
+          <EyeIcon className="size-4" />
+        </Button>
+      </Tooltip>
+      <Tooltip content="Delete Rule">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={async () => {
+            const yes = confirm("Are you sure you want to delete this rule?");
+            if (yes) {
+              try {
+                await deleteRuleAction(emailAccountId, { id: ruleId });
+                toastSuccess({
+                  description: "The rule has been deleted.",
+                });
+              } catch (error) {
+                toastError({ description: "Failed to delete rule." });
+              }
+            }
+          }}
+        >
+          <TrashIcon className="size-4" />
+        </Button>
+      </Tooltip>
+    </div>
   );
 }
