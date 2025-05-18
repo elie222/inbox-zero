@@ -364,29 +364,15 @@ Examples:
     tools: {
       create_rule: tool({
         description: "Create a new rule",
-        // parameters: categories
-        //   ? getCreateRuleSchemaWithCategories(
-        //       categories.map((c) => c.name) as [string, ...string[]],
-        //     )
-        //   : createRuleSchema,
         parameters: createRuleSchema,
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
           // trackToolCall("create_rule", user.email);
 
-          // const conditions =
-          //   condition as CreateRuleSchemaWithCategories["condition"];
-
           try {
-            // const categoryIds = await getUserCategoriesForNames(
-            //   userId,
-            //   conditions.categories?.categoryFilters || [],
-            // );
-
             const rule = await createRule({
               result: { name, condition, actions },
               emailAccountId,
-              categoryIds: [],
             });
 
             if ("error" in rule) {
