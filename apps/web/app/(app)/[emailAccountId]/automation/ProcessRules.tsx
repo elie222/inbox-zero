@@ -37,6 +37,7 @@ import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/automation/Tes
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/automation/ProcessResultDisplay";
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { FixWithChat } from "@/app/(app)/[emailAccountId]/automation/FixWithChat";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -288,11 +289,12 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                <ReportMistake
+                <FixWithChat />
+                {/* <ReportMistake
                   result={result}
                   message={message}
                   isTest={testMode}
-                />
+                /> */}
                 <Tooltip content={testMode ? "Retest" : "Rerun"}>
                   <Button
                     variant="outline"

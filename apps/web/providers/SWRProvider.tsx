@@ -14,6 +14,9 @@ const fetcher = async (
   init?: RequestInit | undefined,
   emailAccountId?: string | null,
 ) => {
+  // https://github.com/vercel/ai/issues/3214#issuecomment-2585924349
+  if (url.startsWith("/api/chat")) return [];
+
   const headers = new Headers(init?.headers);
 
   if (emailAccountId) {
@@ -109,7 +112,14 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
 
   return (
     <SWRContext.Provider value={value}>
-      <SWRConfig value={{ fetcher: enhancedFetcher, provider: () => provider }}>
+      <SWRConfig
+        value={{
+          fetcher: enhancedFetcher,
+          provider: () => provider,
+          // TODO: Send to Sentry
+          onError: (error) => console.log("SWR error:", error),
+        }}
+      >
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>

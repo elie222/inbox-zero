@@ -27,9 +27,9 @@ function PureMultimodalInput({
   setInput,
   status,
   stop,
-  messages,
+  // messages,
   setMessages,
-  append,
+  // append,
   handleSubmit,
   className,
 }: {
@@ -38,11 +38,11 @@ function PureMultimodalInput({
   setInput: UseChatHelpers["setInput"];
   status: UseChatHelpers["status"];
   stop: () => void;
-  attachments: Array<Attachment>;
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
-  messages: Array<UIMessage>;
+  // attachments: Array<Attachment>;
+  // setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  // messages: Array<UIMessage>;
   setMessages: UseChatHelpers["setMessages"];
-  append: UseChatHelpers["append"];
+  // append: UseChatHelpers["append"];
   handleSubmit: UseChatHelpers["handleSubmit"];
   className?: string;
 }) {
@@ -160,7 +160,7 @@ export const MultimodalInput = memo(
   (prevProps, nextProps) => {
     if (prevProps.input !== nextProps.input) return false;
     if (prevProps.status !== nextProps.status) return false;
-    if (!equal(prevProps.attachments, nextProps.attachments)) return false;
+    // if (!equal(prevProps.attachments, nextProps.attachments)) return false;
 
     return true;
   },

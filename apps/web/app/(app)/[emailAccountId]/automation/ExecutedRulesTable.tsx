@@ -17,6 +17,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { prefixPath } from "@/utils/path";
+import { FixWithChat } from "@/app/(app)/[emailAccountId]/automation/FixWithChat";
 
 export function EmailCell({
   from,
@@ -126,11 +127,13 @@ export function RuleCell({
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
-      <ReportMistake
+      <FixWithChat />
+
+      {/* <ReportMistake
         result={{ rule, reason }}
         message={message}
         isTest={isTest}
-      />
+      /> */}
     </div>
   );
 }

@@ -20,7 +20,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -75,8 +74,6 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
   return (
     <div>
-      <PremiumAlertWithData className="my-2" />
-
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -346,41 +343,20 @@ function NoRules() {
   return (
     <>
       <CardHeader>
-        <CardTitle>AI Personal Assistant</CardTitle>
         <CardDescription>
-          Set up intelligent automations to let our AI handle your emails for
-          you.
+          You don't have any rules yet.
+          <br />
+          You can teach your AI assistant how to handle your emails by chatting
+          with it or create rules manually.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden size-4 md:block" />
-              Set Prompt
-            </Link>
-          </Button>
-
-          <Button type="button" variant="outline" asChild>
-            <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
-              Create a Rule Manually
-            </Link>
-          </Button>
-        </div>
+        <Button type="button" variant="outline" asChild>
+          <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
+            Add Rule Manually
+          </Link>
+        </Button>
       </CardContent>
     </>
   );
-}
-
-function getRiskLevelColor(level: RiskLevel) {
-  switch (level) {
-    case "low":
-      return null;
-    case "medium":
-      return "text-yellow-500";
-    case "high":
-      return "text-orange-500";
-    case "very-high":
-      return "text-red-500";
-  }
 }
