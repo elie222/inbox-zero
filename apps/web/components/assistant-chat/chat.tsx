@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { SWRConfig, useSWRConfig } from "swr";
+import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
@@ -13,35 +13,38 @@ import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
+import { SWRProvider } from "@/providers/SWRProvider";
+
+// Some mega hacky code used here to workaround AI SDK's use of SWR
+// AI SDK uses SWR too and this messes with the global SWR config
+// Wrapping in SWRConfig to disable global fetcher for this component
+// https://github.com/vercel/ai/issues/3214#issuecomment-2675872030
+// We then re-enable the regular SWRProvider in the AssistantTabs component
+// AI SDK v5 won't use SWR anymore so we can remove this workaround
 
 type ChatProps = {
   id: string;
   initialMessages: Array<UIMessage>;
   emailAccountId: string;
+  mutate: ScopedMutator;
 };
 
-// can't use as it messes with the real fetches we want to do
-// export function Chat(props: ChatProps) {
-//   // Use parent SWR config for mutate
-//   const { mutate } = useSWRConfig();
-
-//   // AI SDK uses SWR too and this messes with the global SWR config
-//   // Wrapping in SWRConfig to disable global fetcher for this component
-//   // https://github.com/vercel/ai/issues/3214#issuecomment-2675872030
-//   return (
-//     <SWRConfig
-//       value={{
-//         fetcher: undefined, // Disable global fetcher for this component
-//       }}
-//     >
-//       <ChatInner {...props} mutate={mutate} />
-//     </SWRConfig>
-//   );
-// }
-
-export function Chat({ id, initialMessages, emailAccountId }: ChatProps) {
+export function Chat(props: ChatProps) {
+  // Use parent SWR config for mutate
   const { mutate } = useSWRConfig();
 
+  return (
+    <SWRConfig
+      value={{
+        fetcher: undefined, // Disable global fetcher for this component
+      }}
+    >
+      <ChatInner {...props} mutate={mutate} />
+    </SWRConfig>
+  );
+}
+
+function ChatInner({ id, initialMessages, emailAccountId, mutate }: ChatProps) {
   const chat = useChat({
     id,
     body: { id },
@@ -69,7 +72,10 @@ export function Chat({ id, initialMessages, emailAccountId }: ChatProps) {
         </ResizablePanel>
         <ResizableHandle />
         <ResizablePanel className="overflow-hidden">
-          <AssistantTabs />
+          {/* re-enable the regular SWRProvider */}
+          <SWRProvider>
+            <AssistantTabs />
+          </SWRProvider>
         </ResizablePanel>
       </ResizablePanelGroup>
     </ChatProvider>

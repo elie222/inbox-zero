@@ -10,15 +10,10 @@ import { NO_REFRESH_TOKEN_ERROR_CODE } from "@/utils/config";
 
 // https://swr.vercel.app/docs/error-handling#status-code-and-error-object
 const fetcher = async (
-  url: string | [string],
+  url: string,
   init?: RequestInit | undefined,
   emailAccountId?: string | null,
 ) => {
-  // Fix chat requests
-  // https://github.com/vercel/ai/issues/3214#issuecomment-2585924349
-  if (Array.isArray(url)) return [];
-  if (url.startsWith("/api/chat")) return [];
-
   const headers = new Headers(init?.headers);
 
   if (emailAccountId) {
