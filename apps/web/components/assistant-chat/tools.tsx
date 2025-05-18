@@ -1,9 +1,6 @@
-import Link from "next/link";
-import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { parseAsString, useQueryStates } from "nuqs";
 import type {
   CreateRuleSchema,
-  EnableColdEmailBlockerSchema,
-  EnableReplyZeroSchema,
   UpdateAboutSchema,
   UpdateRuleSchema,
 } from "@/utils/ai/assistant/chat";
@@ -32,12 +29,6 @@ export function ToolCard({
       return <UpdatedRule args={args as UpdateRuleSchema} />;
     case "update_about":
       return <UpdateAbout args={args as UpdateAboutSchema} />;
-    case "enable_cold_email_blocker":
-      return (
-        <EnableColdEmailBlocker args={args as EnableColdEmailBlockerSchema} />
-      );
-    case "enable_reply_zero":
-      return <EnableReplyZero args={args as EnableReplyZeroSchema} />;
   }
 }
 
@@ -194,49 +185,158 @@ function CreatedRule({
 }
 
 function UpdatedRule({ args }: { args: UpdateRuleSchema }) {
-  return <Card className="p-4">UpdatedRule</Card>;
+  const conditionsArray = [
+    args.condition?.aiInstructions,
+    args.condition?.static ? "static conditions" : undefined,
+  ].filter(Boolean);
+
+  return (
+    <Card className="space-y-3 p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">
+          <strong>Updated rule:</strong> {args.ruleName}
+        </h3>
+      </div>
+
+      {args.condition && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Updated Conditions
+          </h3>
+          <div className="rounded-md bg-muted p-2 text-sm">
+            {args.condition.aiInstructions && (
+              <div className="flex">
+                <SparklesIcon className="mr-2 size-6" />
+                {args.condition.aiInstructions}
+              </div>
+            )}
+            {conditionsArray.length > 1 && (
+              <div className="my-2 font-mono text-xs">
+                {args.condition.conditionalOperator || "AND"}
+              </div>
+            )}
+            {args.condition.static && (
+              <div className="mt-1">
+                <span className="font-medium">Static Conditions:</span>
+                <ul className="mt-1 list-inside list-disc">
+                  {args.condition.static.from && (
+                    <li>From: {args.condition.static.from}</li>
+                  )}
+                  {args.condition.static.to && (
+                    <li>To: {args.condition.static.to}</li>
+                  )}
+                  {args.condition.static.subject && (
+                    <li>Subject: {args.condition.static.subject}</li>
+                  )}
+                  {args.condition.static.body && (
+                    <li>Body: {args.condition.static.body}</li>
+                  )}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {args.actions && args.actions.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Updated Actions
+          </h3>
+          <div className="space-y-2">
+            {args.actions.map((actionItem, i) => {
+              if (!actionItem) return null;
+
+              return (
+                <div key={i} className="rounded-md bg-muted p-2 text-sm">
+                  <div className="font-medium capitalize">
+                    {actionItem.type.toLowerCase().replace("_", " ")}
+                  </div>
+                  {actionItem.fields && (
+                    <div className="mt-1">
+                      <ul className="list-inside list-disc">
+                        {actionItem.fields.label && (
+                          <li>Label: {actionItem.fields.label}</li>
+                        )}
+                        {actionItem.fields.content && (
+                          <li>
+                            Content:{" "}
+                            <span className="font-mono text-xs">
+                              {actionItem.fields.content}
+                            </span>
+                          </li>
+                        )}
+                        {actionItem.fields.webhookUrl && (
+                          <li>Webhook URL: {actionItem.fields.webhookUrl}</li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {args.learnedPatterns && args.learnedPatterns.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Updated Learned Patterns
+          </h3>
+          <div className="space-y-2">
+            {args.learnedPatterns.map((pattern, i) => {
+              if (!pattern) return null;
+
+              return (
+                <div key={i} className="rounded-md bg-muted p-2 text-sm">
+                  {pattern.include &&
+                    Object.values(pattern.include).some(Boolean) && (
+                      <div className="mb-1">
+                        <span className="font-medium">Include:</span>
+                        <ul className="mt-1 list-inside list-disc">
+                          {pattern.include.from && (
+                            <li>From: {pattern.include.from}</li>
+                          )}
+                          {pattern.include.subject && (
+                            <li>Subject: {pattern.include.subject}</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  {pattern.exclude &&
+                    Object.values(pattern.exclude).some(Boolean) && (
+                      <div>
+                        <span className="font-medium">Exclude:</span>
+                        <ul className="mt-1 list-inside list-disc">
+                          {pattern.exclude.from && (
+                            <li>From: {pattern.exclude.from}</li>
+                          )}
+                          {pattern.exclude.subject && (
+                            <li>Subject: {pattern.exclude.subject}</li>
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </Card>
+  );
 }
 
 function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
-  return <Card className="p-4">UpdateAbout</Card>;
-}
-
-function EnableColdEmailBlocker({
-  args,
-}: {
-  args: EnableColdEmailBlockerSchema;
-}) {
   return (
-    <ToolWithLink href="/cold-email-blocker?tab=settings">
-      Cold Email Blocking is now set to {args.action}
-    </ToolWithLink>
-  );
-}
-
-function EnableReplyZero({ args }: { args: EnableReplyZeroSchema }) {
-  return (
-    <ToolWithLink href="/reply-zero">
-      Reply Zero is now {args.enabled ? "enabled" : "disabled"} and draft
-      replies are now {args.draft_replies ? "enabled" : "disabled"}
-    </ToolWithLink>
-  );
-}
-
-function ToolWithLink({
-  children,
-  href,
-}: {
-  children: React.ReactNode;
-  href: string;
-}) {
-  return (
-    <Card className="flex items-center justify-between p-4">
-      <p>{children}</p>
-      <Button variant="outline" size="sm" asChild>
-        <Link href={href} target="_blank">
-          View
-        </Link>
-      </Button>
+    <Card className="space-y-3 p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">
+          <strong>Updated About Information</strong>
+        </h3>
+      </div>
+      <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
     </Card>
   );
 }

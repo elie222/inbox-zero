@@ -75,24 +75,6 @@ export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
 const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
 
-const enableColdEmailBlockerSchema = z.object({
-  action: z.enum([
-    ColdEmailSetting.DISABLED,
-    ColdEmailSetting.LABEL,
-    ColdEmailSetting.ARCHIVE_AND_LABEL,
-    ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-  ]),
-});
-export type EnableColdEmailBlockerSchema = z.infer<
-  typeof enableColdEmailBlockerSchema
->;
-
-const enableReplyZeroSchema = z.object({
-  enabled: z.boolean(),
-  draft_replies: z.boolean(),
-});
-export type EnableReplyZeroSchema = z.infer<typeof enableReplyZeroSchema>;
-
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
