@@ -56,106 +56,114 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <ResizablePanelGroup direction="horizontal">
-          <ResizablePanel>
-            <Chat
-              id={emailAccountId} // TODO:
-              initialMessages={[]}
-              emailAccountId={emailAccountId}
-            />
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel>
-            <div className="h-full overflow-y-auto">
-              <Tabs defaultValue="empty" className="h-full">
-                <TabsToolbar className="sticky top-0 z-10 border-none bg-background pb-0 shadow-none">
-                  <div className="w-full overflow-x-auto">
-                    <TabsList>
-                      {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
-                      <TabsTrigger value="rules">Rules</TabsTrigger>
-                      <TabsTrigger value="test">Test</TabsTrigger>
-                      <TabsTrigger value="history">History</TabsTrigger>
-                      <Suspense>
-                        {(await hasPendingRule) && (
-                          <TabsTrigger value="pending">Pending</TabsTrigger>
-                        )}
-                      </Suspense>
-                      <TabsTrigger value="knowledge">
-                        Knowledge Base
-                      </TabsTrigger>
-                      {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
-                    </TabsList>
-                  </div>
+        <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col">
+          <ResizablePanelGroup direction="horizontal" className="flex-grow">
+            <ResizablePanel className="overflow-y-auto">
+              <Chat
+                id={emailAccountId} // TODO:
+                initialMessages={[]}
+                emailAccountId={emailAccountId}
+              />
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel className="overflow-hidden">
+              <div className="h-full overflow-y-auto">
+                <Tabs defaultValue="empty" className="h-full">
+                  <TabsToolbar className="sticky top-0 z-10 border-none bg-background pb-0 shadow-none">
+                    <div className="w-full overflow-x-auto">
+                      <TabsList>
+                        {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
+                        <TabsTrigger value="rules">Rules</TabsTrigger>
+                        <TabsTrigger value="test">Test</TabsTrigger>
+                        <TabsTrigger value="history">History</TabsTrigger>
+                        <Suspense>
+                          {(await hasPendingRule) && (
+                            <TabsTrigger value="pending">Pending</TabsTrigger>
+                          )}
+                        </Suspense>
+                        <TabsTrigger value="knowledge">
+                          Knowledge Base
+                        </TabsTrigger>
+                        {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
+                      </TabsList>
+                    </div>
 
-                  {/* <div className="flex items-center gap-2">
-                    <Button asChild variant="outline">
-                      <Link
-                        href={prefixPath(
-                          emailAccountId,
-                          "/automation/onboarding",
-                        )}
-                      >
-                        Set Up
-                      </Link>
-                    </Button>
+                    {/* <div className="flex items-center gap-2">
+                      <Button asChild variant="outline">
+                        <Link
+                          href={prefixPath(
+                            emailAccountId,
+                            "/automation/onboarding",
+                          )}
+                        >
+                          Set Up
+                        </Link>
+                      </Button>
 
-                    <OnboardingModal
-                      title="Getting started with AI Personal Assistant"
-                      description={
-                        <>
-                          Learn how to use the AI Personal Assistant to
-                          automatically label, archive, and more.
-                        </>
-                      }
-                      videoId="SoeNDVr7ve4"
-                    />
-                  </div> */}
-                </TabsToolbar>
+                      <OnboardingModal
+                        title="Getting started with AI Personal Assistant"
+                        description={
+                          <>
+                            Learn how to use the AI Personal Assistant to
+                            automatically label, archive, and more.
+                          </>
+                        }
+                        videoId="SoeNDVr7ve4"
+                      />
+                    </div> */}
+                  </TabsToolbar>
 
-                <TabsContent value="empty" className="mt-0 h-full">
-                  <div className="flex h-full items-center justify-center">
-                    <TypographyP className="max-w-sm text-center">
-                      Select a tab or chat with your AI assistant to explain how
-                      it should handle your incoming emails
-                    </TypographyP>
-                  </div>
-                </TabsContent>
+                  <TabsContent value="empty" className="mt-0 h-full">
+                    <div className="flex h-full items-center justify-center">
+                      <TypographyP className="max-w-sm text-center">
+                        Select a tab or chat with your AI assistant to explain
+                        how it should handle your incoming emails
+                      </TypographyP>
+                    </div>
+                  </TabsContent>
 
-                <TabsContent value="prompt" className="mt-0 h-full">
-                  <RulesPrompt />
-                </TabsContent>
-                <TabsContent value="rules" className="content-container mb-10">
-                  <Rules />
-                </TabsContent>
-                <TabsContent value="test" className="content-container mb-10">
-                  <Process />
-                </TabsContent>
-                <TabsContent
-                  value="history"
-                  className="content-container mb-10"
-                >
-                  <History />
-                </TabsContent>
-                <TabsContent
-                  value="pending"
-                  className="content-container mb-10"
-                >
-                  <Pending />
-                </TabsContent>
-                <TabsContent
-                  value="knowledge"
-                  className="content-container mb-10"
-                >
-                  <KnowledgeBase />
-                </TabsContent>
-                {/* no longer in use */}
-                <TabsContent value="groups" className="content-container mb-10">
-                  <Groups />
-                </TabsContent>
-              </Tabs>
-            </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+                  <TabsContent value="prompt" className="mt-0 h-full">
+                    <RulesPrompt />
+                  </TabsContent>
+                  <TabsContent
+                    value="rules"
+                    className="content-container mb-10"
+                  >
+                    <Rules />
+                  </TabsContent>
+                  <TabsContent value="test" className="content-container mb-10">
+                    <Process />
+                  </TabsContent>
+                  <TabsContent
+                    value="history"
+                    className="content-container mb-10"
+                  >
+                    <History />
+                  </TabsContent>
+                  <TabsContent
+                    value="pending"
+                    className="content-container mb-10"
+                  >
+                    <Pending />
+                  </TabsContent>
+                  <TabsContent
+                    value="knowledge"
+                    className="content-container mb-10"
+                  >
+                    <KnowledgeBase />
+                  </TabsContent>
+                  {/* no longer in use */}
+                  <TabsContent
+                    value="groups"
+                    className="content-container mb-10"
+                  >
+                    <Groups />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
       </Suspense>
     </GmailProvider>
   );
