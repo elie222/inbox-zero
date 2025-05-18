@@ -412,7 +412,7 @@ Examples:
             },
           });
 
-          return { success: true };
+          return { success: true, ruleId: rule.id };
         },
       }),
       get_user_rules_and_settings: tool({

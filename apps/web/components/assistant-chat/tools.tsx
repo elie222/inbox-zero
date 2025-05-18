@@ -26,7 +26,9 @@ export function ToolCard({
     case "create_rule":
       return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
     case "update_rule":
-      return <UpdatedRule args={args as UpdateRuleSchema} />;
+      return (
+        <UpdatedRule args={args as UpdateRuleSchema} ruleId={ruleId || ""} />
+      );
     case "update_about":
       return <UpdateAbout args={args as UpdateAboutSchema} />;
   }
@@ -43,11 +45,6 @@ function CreatedRule({
     args.condition.aiInstructions,
     args.condition.static,
   ].filter(Boolean);
-
-  const [_, setRuleId] = useQueryStates({
-    tab: parseAsString,
-    ruleId: parseAsString,
-  });
 
   return (
     <Card className="space-y-3 p-4">
@@ -147,10 +144,16 @@ function CreatedRule({
   );
 }
 
-function UpdatedRule({ args }: { args: UpdateRuleSchema }) {
+function UpdatedRule({
+  args,
+  ruleId,
+}: {
+  args: UpdateRuleSchema;
+  ruleId: string;
+}) {
   const conditionsArray = [
     args.condition?.aiInstructions,
-    args.condition?.static ? "static conditions" : undefined,
+    args.condition?.static,
   ].filter(Boolean);
 
   return (
@@ -160,7 +163,7 @@ function UpdatedRule({ args }: { args: UpdateRuleSchema }) {
           <strong>Updated rule:</strong> {args.ruleName}
         </h3>
 
-        <RuleActions ruleId={args.ruleName} />
+        <RuleActions ruleId={ruleId} />
       </div>
 
       {args.condition && (
