@@ -34,7 +34,11 @@ import {
   SystemType,
 } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
-import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
+import {
+  createRuleAction,
+  deleteRuleAction,
+  updateRuleAction,
+} from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
   createRuleBody,
@@ -276,7 +280,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <Input
           type="text"
           name="Name"
-          label="Rule name"
+          label="Name"
           registerProps={register("name")}
           error={errors.name}
           placeholder="e.g. Label receipts"
@@ -747,6 +751,40 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="flex justify-end space-x-2 py-6">
+        {rule.id && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            onClick={async () => {
+              const yes = confirm("Are you sure you want to delete this rule?");
+              if (yes) {
+                try {
+                  const result = await deleteRuleAction(emailAccountId, {
+                    id: rule.id!,
+                  });
+                  if (result?.serverError) {
+                    toastError({
+                      description: result.serverError,
+                    });
+                  } else {
+                    toastSuccess({
+                      description: "The rule has been deleted.",
+                    });
+                    router.push(
+                      prefixPath(emailAccountId, "/automation?tab=rules"),
+                    );
+                  }
+                } catch (error) {
+                  toastError({ description: "Failed to delete rule." });
+                }
+              }
+            }}
+          >
+            Delete
+          </Button>
+        )}
         {rule.id ? (
           <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
             Save

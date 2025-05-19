@@ -335,10 +335,16 @@ function RuleActions({ ruleId }: { ruleId: string }) {
             const yes = confirm("Are you sure you want to delete this rule?");
             if (yes) {
               try {
-                await deleteRuleAction(emailAccountId, { id: ruleId });
-                toastSuccess({
-                  description: "The rule has been deleted.",
+                const result = await deleteRuleAction(emailAccountId, {
+                  id: ruleId,
                 });
+                if (result?.serverError) {
+                  toastError({ description: result.serverError });
+                } else {
+                  toastSuccess({
+                    description: "The rule has been deleted.",
+                  });
+                }
               } catch (error) {
                 toastError({ description: "Failed to delete rule." });
               }
