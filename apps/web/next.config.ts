@@ -1,19 +1,19 @@
-import { fileURLToPath } from "node:url";
+// import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
-import { createJiti } from "jiti";
+// import { createJiti } from "jiti";
 import withSerwistInit from "@serwist/next";
-
-const jiti = createJiti(fileURLToPath(import.meta.url));
+import { env } from "./env";
+import type { NextConfig } from "next";
+// const jiti = createJiti(fileURLToPath(import.meta.url));
 
 // Import env here to validate during build. Using jiti we can import .ts files :)
-const { env } = await jiti.import("./env");
+// const { env } = await jiti.import("./env");
 
 const withMDX = nextMdx();
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@sentry/nextjs", "@sentry/node"],
   turbopack: {
@@ -142,7 +142,8 @@ const nextConfig = {
       },
       {
         source: "/waitlist-other",
-        destination: "https://airtable.com/applHl6PVBOa0Q8gD/pagRqrxRK1TChsAMp/form",
+        destination:
+          "https://airtable.com/applHl6PVBOa0Q8gD/pagRqrxRK1TChsAMp/form",
         permanent: false,
       },
       {
