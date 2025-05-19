@@ -76,7 +76,7 @@ function ChatInner({
         <ResizablePanel className="overflow-y-auto">
           <ChatUI chat={chat} chatId={id} />
         </ResizablePanel>
-        <ResizableHandle />
+        <ResizableHandle withHandle />
         <ResizablePanel className="overflow-hidden">
           {/* re-enable the regular SWRProvider */}
           <SWRProvider>
