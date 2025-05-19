@@ -73,7 +73,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   );
 
   return (
-    <div>
+    <div className="pb-4">
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
