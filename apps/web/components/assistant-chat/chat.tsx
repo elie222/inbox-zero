@@ -26,7 +26,6 @@ type ChatProps = {
   id: string;
   initialMessages: Array<UIMessage>;
   emailAccountId: string;
-  mutate: ScopedMutator;
 };
 
 export function Chat(props: ChatProps) {
@@ -44,7 +43,14 @@ export function Chat(props: ChatProps) {
   );
 }
 
-function ChatInner({ id, initialMessages, emailAccountId, mutate }: ChatProps) {
+function ChatInner({
+  id,
+  initialMessages,
+  emailAccountId,
+  mutate,
+}: ChatProps & {
+  mutate: ScopedMutator;
+}) {
   const chat = useChat({
     id,
     body: { id },
