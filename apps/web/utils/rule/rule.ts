@@ -204,6 +204,24 @@ async function updateRule({
   });
 }
 
+export async function updateRuleActions({
+  ruleId,
+  actions,
+}: {
+  ruleId: string;
+  actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
+}) {
+  return prisma.rule.update({
+    where: { id: ruleId },
+    data: {
+      actions: {
+        deleteMany: {},
+        createMany: { data: mapActionFields(actions) },
+      },
+    },
+  });
+}
+
 export async function deleteRule({
   emailAccountId,
   ruleId,
