@@ -5,7 +5,7 @@ import { ErrorMessage, ExplainText, Label } from "@/components/Input";
 
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   name: string;
-  label: string;
+  label?: string;
   tooltipText?: string;
   options: Array<{ label: string; value: string | number }>;
   explainText?: string;
