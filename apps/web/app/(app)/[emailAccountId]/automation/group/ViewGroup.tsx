@@ -107,7 +107,7 @@ export function ViewGroup({ groupId }: { groupId: string }) {
         <LoadingContent
           loading={!data && isLoading}
           error={error}
-          loadingComponent={<Skeleton className="h-24 rounded" />}
+          loadingComponent={<Skeleton className="m-4 h-24 rounded" />}
         >
           {data &&
             (group?.items.length ? (
