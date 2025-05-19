@@ -73,6 +73,13 @@ import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export function Rule({ ruleId }: { ruleId: string }) {
   const { data, isLoading, error } = useRule(ruleId);
@@ -702,6 +709,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   {action.type === ActionType.TRACK_THREAD && (
                     <ReplyTrackerAction />
                   )}
+
+                  {action.type === ActionType.DRAFT_EMAIL && <VariableProTip />}
                 </div>
               </div>
             </CardBasic>
@@ -875,6 +884,71 @@ function ReplyTrackerAction() {
   );
 }
 
+function showSystemTypeBadge(systemType?: SystemType | null): boolean {
+  if (systemType === SystemType.TO_REPLY) return true;
+  if (systemType === SystemType.CALENDAR) return true;
+  return false;
+}
+
+export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
+  return (
+    <TooltipExplanation
+      size={size}
+      text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
+    />
+  );
+}
+
+function VariableExamplesDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="xs" className="ml-auto">
+          See examples
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Variable Examples</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          <div>
+            <h4 className="font-medium">Example: Subject</h4>
+            <div className="mt-2 rounded-md bg-muted p-3">
+              <code className="text-sm">Hi {"{{name}}"}</code>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium">Example: Email Content</h4>
+            <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-sm">
+              {`Hi {{name}},
+
+{{answer the question in the email}}
+
+If you'd like to get on a call here's my cal link:
+cal.com/example`}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function VariableProTip() {
+  return (
+    <div className="mt-4 rounded-md bg-blue-50 p-3 dark:bg-blue-950/30">
+      <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+        <span>
+          ✨ Use {"{{"}variables{"}}"} in any field for personalized content
+        </span>
+        <VariableExamplesDialog />
+      </div>
+    </div>
+  );
+}
+
 function ActionField({
   field,
   action,
@@ -982,8 +1056,6 @@ function ActionField({
             className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
             minRows={3}
             rows={3}
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
-            value={value || ""}
             {...register(`actions.${i}.${field.name}.value`)}
           />
 
@@ -1004,7 +1076,6 @@ function ActionField({
           <input
             className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
             type="text"
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
             {...register(`actions.${i}.${field.name}.value`)}
           />
         </div>
@@ -1030,20 +1101,5 @@ function ActionField({
 
       {fieldError && <ErrorMessage message={fieldError.toString()} />}
     </div>
-  );
-}
-
-function showSystemTypeBadge(systemType?: SystemType | null): boolean {
-  if (systemType === SystemType.TO_REPLY) return true;
-  if (systemType === SystemType.CALENDAR) return true;
-  return false;
-}
-
-export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
-  return (
-    <TooltipExplanation
-      size={size}
-      text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
-    />
   );
 }
