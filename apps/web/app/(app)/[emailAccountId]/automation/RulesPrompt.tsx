@@ -181,6 +181,7 @@ function RulesPromptForm({
           const message = [
             createdRules ? `${createdRules} rules created.` : "",
             editedRules ? `${editedRules} rules edited.` : "",
+            removedRules ? `${removedRules} rules removed.` : "",
           ]
             .filter(Boolean)
             .join(" ");
