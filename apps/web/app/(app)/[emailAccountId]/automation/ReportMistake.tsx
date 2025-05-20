@@ -494,7 +494,11 @@ function GroupMismatchAdd({
           )}
         >
           <GroupItemDisplay
-            item={{ type: GroupItemType.FROM, value: message.headers.from }}
+            item={{
+              type: GroupItemType.FROM,
+              value: message.headers.from,
+              exclude: false,
+            }}
           />
         </div>
 
