@@ -2,7 +2,7 @@ import type { z } from "zod";
 import {
   APICallError,
   type CoreMessage,
-  type CoreTool,
+  type Tool,
   type JSONValue,
   generateObject,
   generateText,
@@ -165,13 +165,13 @@ export async function chatCompletionStream({
   system?: string;
   prompt?: string;
   messages?: CoreMessage[];
-  tools?: Record<string, CoreTool>;
+  tools?: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
   onFinish?: (text: string) => Promise<void>;
   onStepFinish?: (
-    stepResult: StepResult<Record<string, CoreTool>>,
+    stepResult: StepResult<Record<string, Tool>>,
   ) => Promise<void>;
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
@@ -208,7 +208,7 @@ export async function chatCompletionStream({
 type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
   useEconomyModel?: boolean;
-  tools: Record<string, CoreTool>;
+  tools: Record<string, Tool>;
   maxSteps?: number;
   label: string;
   userEmail: string;
@@ -291,7 +291,7 @@ async function streamCompletionTools({
   useEconomyModel?: boolean;
   prompt: string;
   system?: string;
-  tools: Record<string, CoreTool>;
+  tools: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
   label: string;

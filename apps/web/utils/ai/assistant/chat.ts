@@ -1,4 +1,4 @@
-import { streamText, tool } from "ai";
+import { tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -9,8 +9,6 @@ import {
   updateRuleActions,
 } from "@/utils/rule/rule";
 import { ActionType, GroupItemType, LogicalOperator } from "@prisma/client";
-import { saveAiUsage } from "@/utils/usage";
-import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
