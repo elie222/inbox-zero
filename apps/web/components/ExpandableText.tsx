@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 
 export function ExpandableText({
   text,
-  maxLength = 100,
+  maxLength = 280,
 }: {
   text: string;
   maxLength?: number;
@@ -23,8 +23,8 @@ export function ExpandableText({
       <div className="relative overflow-hidden">
         {/* Always render the full text but add a mask when collapsed */}
         <motion.div
-          initial={{ height: "4.5rem" }}
-          animate={{ height: isExpanded ? "auto" : "4.5rem" }}
+          initial={{ height: "4rem" }}
+          animate={{ height: isExpanded ? "auto" : "4rem" }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className={isExpanded ? "" : "overflow-hidden"}
         >
