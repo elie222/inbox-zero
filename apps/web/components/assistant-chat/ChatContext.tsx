@@ -21,10 +21,12 @@ export function ChatProvider({
   );
 }
 
-export function useChat() {
+export function useChat(): ChatContextType {
   const context = useContext(ChatContext);
   if (context === undefined) {
-    throw new Error("useChat must be used within a ChatProvider");
+    // TODO: throw error once this feature is live
+    // throw new Error("useChat must be used within a ChatProvider");
+    return { setInput: null };
   }
   return context;
 }

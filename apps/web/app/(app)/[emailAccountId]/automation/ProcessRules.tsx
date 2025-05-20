@@ -296,16 +296,19 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                <FixWithChat
-                  setInput={setInput}
-                  message={message}
-                  result={result}
-                />
-                {/* <ReportMistake
-                  result={result}
-                  message={message}
-                  isTest={testMode}
-                /> */}
+                {setInput ? (
+                  <FixWithChat
+                    setInput={setInput}
+                    message={message}
+                    result={result}
+                  />
+                ) : (
+                  <ReportMistake
+                    result={result}
+                    message={message}
+                    isTest={testMode}
+                  />
+                )}
                 <Tooltip content={testMode ? "Retest" : "Rerun"}>
                   <Button
                     variant="outline"

@@ -19,13 +19,18 @@ const parameters = z.object({
 export async function aiFindExistingRules({
   emailAccount,
   promptRulesToEdit,
+  promptRulesToRemove,
   databaseRules,
 }: {
   emailAccount: EmailAccountWithAI;
   promptRulesToEdit: { oldRule: string; newRule: string }[];
+  promptRulesToRemove: string[];
   databaseRules: (Rule & { actions: Action[] })[];
 }) {
-  const promptRules = [...promptRulesToEdit.map((r) => r.oldRule)];
+  const promptRules = [
+    ...promptRulesToEdit.map((r) => r.oldRule),
+    ...promptRulesToRemove,
+  ];
 
   const system =
     "You are an AI assistant that checks if the prompt rules are already in the database.";
@@ -62,6 +67,10 @@ Please return the existing rules that match the prompt rules.`;
       ? promptRules[rule.promptNumber - 1]
       : null;
 
+    const toRemove = promptRule
+      ? promptRulesToRemove.includes(promptRule)
+      : null;
+
     const toEdit = promptRule
       ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
       : null;
@@ -70,6 +79,7 @@ Please return the existing rules that match the prompt rules.`;
       rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
       promptNumber: rule.promptNumber,
       promptRule,
+      toRemove: !!toRemove,
       toEdit: !!toEdit,
       updatedPromptRule: toEdit?.newRule,
     };
@@ -77,5 +87,6 @@ Please return the existing rules that match the prompt rules.`;
 
   return {
     editedRules: existingRules.filter((rule) => rule.toEdit),
+    removedRules: existingRules.filter((rule) => rule.toRemove),
   };
 }

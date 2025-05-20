@@ -22,7 +22,7 @@ export function FixWithChat({
   message,
   result,
 }: {
-  setInput: SetInputFunction;
+  setInput: NonNullable<SetInputFunction>;
   message: ParsedMessage;
   result: RunRulesResult | null;
 }) {

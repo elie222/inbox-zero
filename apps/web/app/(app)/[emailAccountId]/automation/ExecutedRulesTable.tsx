@@ -130,17 +130,19 @@ export function RuleCell({
           <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
         </Badge>
       </HoverCard>
-      <FixWithChat
-        setInput={setInput}
-        message={message}
-        result={{ rule, reason }}
-      />
-
-      {/* <ReportMistake
-        result={{ rule, reason }}
-        message={message}
-        isTest={isTest}
-      /> */}
+      {setInput ? (
+        <FixWithChat
+          setInput={setInput}
+          message={message}
+          result={{ rule, reason }}
+        />
+      ) : (
+        <ReportMistake
+          result={{ rule, reason }}
+          message={message}
+          isTest={isTest}
+        />
+      )}
     </div>
   );
 }
