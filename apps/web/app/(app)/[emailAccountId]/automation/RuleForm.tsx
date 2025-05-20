@@ -80,6 +80,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { isDefined } from "@/utils/types";
 
 export function Rule({ ruleId }: { ruleId: string }) {
   const { data, isLoading, error } = useRule(ruleId);
@@ -219,13 +220,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return [
-      ConditionType.AI,
-      ConditionType.STATIC,
-      ConditionType.CATEGORY,
-    ].find((type) => !usedConditions.has(type)) as
-      | CoreConditionType
-      | undefined;
+    return [ConditionType.AI, ConditionType.STATIC].find(
+      (type) => !usedConditions.has(type),
+    ) as CoreConditionType | undefined;
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -385,8 +382,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   options={[
                     { label: "AI", value: ConditionType.AI },
                     { label: "Static", value: ConditionType.STATIC },
-                    { label: "Sender Category", value: ConditionType.CATEGORY },
-                  ]}
+                    // Deprecated: only show if this is the selected condition type
+                    condition.type === ConditionType.CATEGORY
+                      ? {
+                          label: "Sender Category",
+                          value: ConditionType.CATEGORY,
+                        }
+                      : null,
+                  ].filter(isDefined)}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
                   }
@@ -447,8 +450,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         (errors.conditions?.[index] as { from?: FieldError })
                           ?.from
                       }
-                      placeholder="e.g. hello@company.com"
-                      tooltipText="Only apply this rule to emails from this address."
+                      tooltipText="Only apply this rule to emails from this address. e.g. @company.com, or hello@company.com"
                     />
                     <Input
                       type="text"
@@ -458,8 +460,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       error={
                         (errors.conditions?.[index] as { to?: FieldError })?.to
                       }
-                      placeholder="e.g. hello@company.com"
-                      tooltipText="Only apply this rule to emails sent to this address."
+                      tooltipText="Only apply this rule to emails sent to this address. e.g. @company.com, or hello@company.com"
                     />
                     <Input
                       type="text"
@@ -473,8 +474,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           }
                         )?.subject
                       }
-                      placeholder="e.g. Receipt for your purchase"
-                      tooltipText="Only apply this rule to emails with this subject."
+                      tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
                     />
                   </>
                 )}
