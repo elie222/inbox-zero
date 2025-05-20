@@ -71,14 +71,6 @@ export default async function AutomationPage({
             </div>
 
             <div className="flex items-center gap-2">
-              <Button asChild variant="outline">
-                <Link
-                  href={prefixPath(emailAccountId, "/automation/onboarding")}
-                >
-                  Set Up
-                </Link>
-              </Button>
-
               <OnboardingModal
                 title="Getting started with AI Personal Assistant"
                 description={
