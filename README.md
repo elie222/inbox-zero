@@ -194,6 +194,8 @@ If you are using local ollama, you can set it to be default:
 DEFAULT_LLM_PROVIDER=ollama
 ```
 
+If this is the case you must also set the `ECONOMY_LLM_PROVIDER` environment variable.
+
 ### Redis and Postgres
 
 We use Postgres for the database.
