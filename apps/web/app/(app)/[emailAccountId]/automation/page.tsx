@@ -9,7 +9,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Rules } from "@/app/(app)/[emailAccountId]/automation/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/automation/Process";
 import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/automation/knowledge/KnowledgeBase";
-import { Groups } from "@/app/(app)/[emailAccountId]/automation/group/Groups";
 import { RulesPrompt } from "@/app/(app)/[emailAccountId]/automation/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
@@ -68,7 +67,6 @@ export default async function AutomationPage({
                   )}
                 </Suspense>
                 <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
-                {/* <TabsTrigger value="groups">Groups</TabsTrigger> */}
               </TabsList>
             </div>
 
@@ -106,15 +104,15 @@ export default async function AutomationPage({
           <TabsContent value="history" className="content-container mb-10">
             <History />
           </TabsContent>
-          <TabsContent value="pending" className="content-container mb-10">
-            <Pending />
-          </TabsContent>
+          <Suspense>
+            {(await hasPendingRule) && (
+              <TabsContent value="pending" className="content-container mb-10">
+                <Pending />
+              </TabsContent>
+            )}
+          </Suspense>
           <TabsContent value="knowledge" className="content-container mb-10">
             <KnowledgeBase />
-          </TabsContent>
-          {/* no longer in use */}
-          <TabsContent value="groups" className="content-container mb-10">
-            <Groups />
           </TabsContent>
         </Tabs>
       </Suspense>

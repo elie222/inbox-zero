@@ -243,9 +243,8 @@ export function hasIcsAttachment(email: ParsedMessage): boolean {
     return false;
   }
 
-  return email.attachments.some(
-    (attachment) =>
-      attachment.filename?.toLowerCase().endsWith(".ics"),
+  return email.attachments.some((attachment) =>
+    attachment.filename?.toLowerCase().endsWith(".ics"),
   );
 }
 

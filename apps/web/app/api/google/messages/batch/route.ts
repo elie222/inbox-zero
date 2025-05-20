@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
+import uniq from "lodash/uniq";
 import { withEmailAccount } from "@/utils/middleware";
-import { uniq } from "lodash";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { parseReply } from "@/utils/mail";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";

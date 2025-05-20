@@ -14,10 +14,6 @@ const fetcher = async (
   init?: RequestInit | undefined,
   emailAccountId?: string | null,
 ) => {
-  // Super hacky, if we use streaming endpoints we should do this:
-  // https://github.com/vercel/ai/issues/3214
-  // if (url.startsWith("/api/ai/")) return [];
-
   const headers = new Headers(init?.headers);
 
   if (emailAccountId) {
@@ -113,7 +109,14 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
 
   return (
     <SWRContext.Provider value={value}>
-      <SWRConfig value={{ fetcher: enhancedFetcher, provider: () => provider }}>
+      <SWRConfig
+        value={{
+          fetcher: enhancedFetcher,
+          provider: () => provider,
+          // TODO: Send to Sentry
+          onError: (error) => console.log("SWR error:", error),
+        }}
+      >
         {props.children}
       </SWRConfig>
     </SWRContext.Provider>

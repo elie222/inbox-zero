@@ -50,6 +50,7 @@ export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
         defaultReceiptSenders.map((sender) => ({
           type: GroupItemType.FROM,
           value: sender,
+          exclude: false,
         })),
       ) && !sender.includes(userEmail),
   );
@@ -64,6 +65,7 @@ export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
         defaultReceiptSubjects.map((subject) => ({
           type: GroupItemType.SUBJECT,
           value: subject,
+          exclude: false,
         })),
       ) &&
       !findMatchingGroupItem(
@@ -71,6 +73,7 @@ export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
         sendersList.map((sender) => ({
           type: GroupItemType.FROM,
           value: sender,
+          exclude: false,
         })),
       ),
   );

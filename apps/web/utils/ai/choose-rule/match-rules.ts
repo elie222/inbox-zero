@@ -110,11 +110,15 @@ async function findPotentialMatchingRules({
     // group - ignores conditional operator
     // if a match is found, return it
     if (rule.groupId) {
-      const { matchingItem, group } = await matchesGroupRule(
+      const { matchingItem, group, ruleExcluded } = await matchesGroupRule(
         rule,
         await getGroups({ emailAccountId: rule.emailAccountId }),
         message,
       );
+
+      // If this rule is excluded by an exclusion pattern, skip it entirely
+      if (ruleExcluded) continue;
+
       if (matchingItem) {
         matchReasons.push({
           type: ConditionType.GROUP,
@@ -298,8 +302,21 @@ async function matchesGroupRule(
   message: ParsedMessage,
 ) {
   const ruleGroup = groups.find((g) => g.rule?.id === rule.id);
-  if (!ruleGroup) return { group: null, matchingItem: null };
-  return findMatchingGroup(message, ruleGroup);
+  if (!ruleGroup)
+    return { group: null, matchingItem: null, ruleExcluded: false };
+
+  const result = findMatchingGroup(message, ruleGroup);
+
+  if (result.excluded) {
+    // Return a special flag to indicate this rule should be completely excluded
+    return { group: null, matchingItem: null, ruleExcluded: true };
+  }
+
+  if (result.matchingItem) {
+    return { ...result, ruleExcluded: false };
+  }
+
+  return { group: null, matchingItem: null, ruleExcluded: false };
 }
 
 async function matchesCategoryRule(

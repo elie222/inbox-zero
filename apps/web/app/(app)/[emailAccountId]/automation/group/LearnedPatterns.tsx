@@ -25,16 +25,6 @@ export function LearnedPatterns({ groupId }: { groupId: string }) {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* <div className="flex items-center space-x-1.5 border-r pr-4">
-            <TooltipExplanation text="Automatically detect and add new matching patterns from incoming emails." />
-            <Toggle
-              name="auto-learn"
-              label="Auto-learn"
-              enabled={autoLearn}
-              onChange={(enabled) => setAutoLearn(enabled)}
-            />
-          </div> */}
-
           <ChevronDownIcon
             size={16}
             className={`transform transition-transform ${

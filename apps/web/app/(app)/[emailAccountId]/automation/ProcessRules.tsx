@@ -16,12 +16,11 @@ import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
 import type { MessagesResponse } from "@/app/api/google/messages/route";
-import { Separator } from "@/components/ui/separator";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
-import { CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { ReportMistake } from "@/app/(app)/[emailAccountId]/automation/ReportMistake";
@@ -38,6 +37,9 @@ import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/automation/Tes
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/automation/ProcessResultDisplay";
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { FixWithChat } from "@/app/(app)/[emailAccountId]/automation/FixWithChat";
+import { useChat } from "@/components/assistant-chat/ChatContext";
+import type { SetInputFunction } from "@/components/assistant-chat/types";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -159,9 +161,11 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     setIsRunningAll(false);
   };
 
+  const { setInput } = useChat();
+
   return (
     <div>
-      <div className="flex items-center justify-between gap-2 border-b border-border px-6 pb-4">
+      <div className="flex items-center justify-between gap-2 pb-6">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
             <Button onClick={handleStop} variant="outline">
@@ -197,10 +201,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       {hasAiRules && showCustomForm && testMode && (
         <div className="mt-2">
-          <CardContent>
-            <TestCustomEmailForm />
-          </CardContent>
-          <Separator />
+          <TestCustomEmailForm />
         </div>
       )}
 
@@ -210,7 +211,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             No emails found
           </div>
         ) : (
-          <>
+          <Card>
             <Table>
               <TableBody>
                 {messages.map((message) => (
@@ -223,6 +224,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     emailAccountId={emailAccountId}
+                    setInput={setInput}
                   />
                 ))}
               </TableBody>
@@ -239,7 +241,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                 Load More
               </Button>
             </div>
-          </>
+          </Card>
         )}
       </LoadingContent>
     </div>
@@ -254,6 +256,7 @@ function ProcessRulesRow({
   onRun,
   testMode,
   emailAccountId,
+  setInput,
 }: {
   message: Message;
   userEmail: string;
@@ -262,6 +265,7 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   emailAccountId: string;
+  setInput: SetInputFunction;
 }) {
   return (
     <TableRow
@@ -292,11 +296,19 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                <ReportMistake
-                  result={result}
-                  message={message}
-                  isTest={testMode}
-                />
+                {setInput ? (
+                  <FixWithChat
+                    setInput={setInput}
+                    message={message}
+                    result={result}
+                  />
+                ) : (
+                  <ReportMistake
+                    result={result}
+                    message={message}
+                    isTest={testMode}
+                  />
+                )}
                 <Tooltip content={testMode ? "Retest" : "Rerun"}>
                   <Button
                     variant="outline"

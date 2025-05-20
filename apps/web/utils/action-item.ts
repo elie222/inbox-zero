@@ -12,6 +12,7 @@ export const actionInputs: Record<
       name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
       label: string;
       textArea?: boolean;
+      expandable?: boolean;
     }[];
   }
 > = {
@@ -29,6 +30,7 @@ export const actionInputs: Record<
       {
         name: "subject",
         label: "Subject",
+        expandable: true,
       },
       {
         name: "content",
@@ -38,14 +40,17 @@ export const actionInputs: Record<
       {
         name: "to",
         label: "To",
+        expandable: true,
       },
       {
         name: "cc",
         label: "CC",
+        expandable: true,
       },
       {
         name: "bcc",
         label: "BCC",
+        expandable: true,
       },
     ],
   },
@@ -59,10 +64,12 @@ export const actionInputs: Record<
       {
         name: "cc",
         label: "CC",
+        expandable: true,
       },
       {
         name: "bcc",
         label: "BCC",
+        expandable: true,
       },
     ],
   },
@@ -84,10 +91,12 @@ export const actionInputs: Record<
       {
         name: "cc",
         label: "CC",
+        expandable: true,
       },
       {
         name: "bcc",
         label: "BCC",
+        expandable: true,
       },
     ],
   },
@@ -105,10 +114,12 @@ export const actionInputs: Record<
       {
         name: "cc",
         label: "CC",
+        expandable: true,
       },
       {
         name: "bcc",
         label: "BCC",
+        expandable: true,
       },
     ],
   },

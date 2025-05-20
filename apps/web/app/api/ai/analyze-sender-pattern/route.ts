@@ -8,10 +8,10 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { GroupItemType } from "@prisma/client";
 import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const maxDuration = 60;
 
@@ -246,62 +246,6 @@ async function getThreadsFromSender(
   }
 
   return threadsWithMessages;
-}
-
-async function saveLearnedPattern({
-  emailAccountId,
-  from,
-  ruleName,
-}: {
-  emailAccountId: string;
-  from: string;
-  ruleName: string;
-}) {
-  const rule = await prisma.rule.findUnique({
-    where: {
-      name_emailAccountId: {
-        name: ruleName,
-        emailAccountId,
-      },
-    },
-    select: { id: true, groupId: true },
-  });
-
-  if (!rule) {
-    logger.error("Rule not found", { emailAccountId, ruleName });
-    return;
-  }
-
-  let groupId = rule.groupId;
-
-  if (!groupId) {
-    // Create a new group for this rule if one doesn't exist
-    const newGroup = await prisma.group.create({
-      data: {
-        emailAccountId,
-        name: ruleName,
-        rule: { connect: { id: rule.id } },
-      },
-    });
-
-    groupId = newGroup.id;
-  }
-
-  await prisma.groupItem.upsert({
-    where: {
-      groupId_type_value: {
-        groupId,
-        type: GroupItemType.FROM,
-        value: from,
-      },
-    },
-    update: {},
-    create: {
-      groupId,
-      type: GroupItemType.FROM,
-      value: from,
-    },
-  });
 }
 
 async function getEmailAccountWithRules({

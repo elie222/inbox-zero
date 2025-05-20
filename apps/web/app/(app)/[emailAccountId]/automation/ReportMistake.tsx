@@ -396,7 +396,7 @@ function AIFixView({
   );
 }
 
-function RuleMismatch({
+export function RuleMismatch({
   result,
   rules,
   emailAccountId,
@@ -494,7 +494,11 @@ function GroupMismatchAdd({
           )}
         >
           <GroupItemDisplay
-            item={{ type: GroupItemType.FROM, value: message.headers.from }}
+            item={{
+              type: GroupItemType.FROM,
+              value: message.headers.from,
+              exclude: false,
+            }}
           />
         </div>
 

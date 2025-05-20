@@ -542,6 +542,46 @@ describe("findMatchingRule", () => {
     expect(result.rule?.id).toBe("rule1");
     expect(result.reason).toContain("test@example.com");
   });
+
+  it("should exclude a rule when an exclusion pattern matches", async () => {
+    const rule = getRule({
+      id: "rule-with-exclusion",
+      groupId: "group-with-exclusion",
+    });
+
+    // Set up a group with an exclusion pattern
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group-with-exclusion",
+        items: [
+          getGroupItem({
+            groupId: "group-with-exclusion",
+            type: GroupItemType.FROM,
+            value: "test@example.com",
+            exclude: true, // This is an exclusion pattern
+          }),
+        ],
+        rule,
+      }),
+    ]);
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({ from: "test@example.com" }), // This matches the exclusion pattern
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
+
+    // The rule should be excluded (not matched)
+    expect(result.rule).toBeUndefined();
+    expect(result.reason).toBeUndefined();
+  });
 });
 
 function getRule(
@@ -616,6 +656,7 @@ function getGroupItem(overrides: Partial<GroupItem> = {}): GroupItem {
     groupId: "groupId",
     type: GroupItemType.FROM,
     value: "test@example.com",
+    exclude: false,
     ...overrides,
   };
 }

@@ -9,7 +9,7 @@ export type StaticMatch = {
 export type GroupMatch = {
   type: Extract<ConditionType, "GROUP">;
   group: Pick<Group, "id" | "name">;
-  groupItem: Pick<GroupItem, "id" | "type" | "value">;
+  groupItem: Pick<GroupItem, "id" | "type" | "value" | "exclude">;
 };
 
 export type CategoryMatch = {

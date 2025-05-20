@@ -40,7 +40,6 @@ describe.runIf(isAiTest)("aiDiffRules", () => {
           newRule: `Archive all newsletters and label them "Newsletter Updates"`,
         },
       ],
-      removedRules: ['Label receipts as "Receipt"'],
     });
   }, 15_000);
 

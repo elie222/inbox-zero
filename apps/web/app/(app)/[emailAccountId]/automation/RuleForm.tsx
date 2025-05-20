@@ -8,8 +8,6 @@ import {
   type SubmitHandler,
   useFieldArray,
   useForm,
-  type UseFormRegister,
-  type UseFormSetValue,
 } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -21,6 +19,8 @@ import {
   PlusIcon,
   FilterIcon,
   BrainIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,7 +34,11 @@ import {
   SystemType,
 } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
-import { createRuleAction, updateRuleAction } from "@/utils/actions/rule";
+import {
+  createRuleAction,
+  deleteRuleAction,
+  updateRuleAction,
+} from "@/utils/actions/rule";
 import {
   type CreateRuleBody,
   createRuleBody,
@@ -68,6 +72,25 @@ import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useRule } from "@/hooks/useRule";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { isDefined } from "@/utils/types";
+
+export function Rule({ ruleId }: { ruleId: string }) {
+  const { data, isLoading, error } = useRule(ruleId);
+
+  return (
+    <LoadingContent loading={isLoading} error={error}>
+      {data && <RuleForm rule={data.rule} />}
+    </LoadingContent>
+  );
+}
 
 export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const { emailAccountId } = useAccount();
@@ -197,13 +220,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const conditions = watch("conditions");
   const unusedCondition = useMemo(() => {
     const usedConditions = new Set(conditions?.map(({ type }) => type));
-    return [
-      ConditionType.AI,
-      ConditionType.STATIC,
-      ConditionType.CATEGORY,
-    ].find((type) => !usedConditions.has(type)) as
-      | CoreConditionType
-      | undefined;
+    return [ConditionType.AI, ConditionType.STATIC].find(
+      (type) => !usedConditions.has(type),
+    ) as CoreConditionType | undefined;
   }, [conditions]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -265,7 +284,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <Input
           type="text"
           name="Name"
-          label="Rule name"
+          label="Name"
           registerProps={register("name")}
           error={errors.name}
           placeholder="e.g. Label receipts"
@@ -363,8 +382,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                   options={[
                     { label: "AI", value: ConditionType.AI },
                     { label: "Static", value: ConditionType.STATIC },
-                    { label: "Sender Category", value: ConditionType.CATEGORY },
-                  ]}
+                    // Deprecated: only show if this is the selected condition type
+                    condition.type === ConditionType.CATEGORY
+                      ? {
+                          label: "Sender Category",
+                          value: ConditionType.CATEGORY,
+                        }
+                      : null,
+                  ].filter(isDefined)}
                   error={
                     errors.conditions?.[index]?.type as FieldError | undefined
                   }
@@ -425,8 +450,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                         (errors.conditions?.[index] as { from?: FieldError })
                           ?.from
                       }
-                      placeholder="e.g. hello@company.com"
-                      tooltipText="Only apply this rule to emails from this address."
+                      tooltipText="Only apply this rule to emails from this address. e.g. @company.com, or hello@company.com"
                     />
                     <Input
                       type="text"
@@ -436,8 +460,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                       error={
                         (errors.conditions?.[index] as { to?: FieldError })?.to
                       }
-                      placeholder="e.g. hello@company.com"
-                      tooltipText="Only apply this rule to emails sent to this address."
+                      tooltipText="Only apply this rule to emails sent to this address. e.g. @company.com, or hello@company.com"
                     />
                     <Input
                       type="text"
@@ -451,8 +474,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                           }
                         )?.subject
                       }
-                      placeholder="e.g. Receipt for your purchase"
-                      tooltipText="Only apply this rule to emails with this subject."
+                      tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
                     />
                   </>
                 )}
@@ -630,68 +652,23 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {watch("actions")?.map((action, i) => {
-          const fields = actionInputs[action.type].fields;
-
-          return (
-            <CardBasic key={i}>
-              <div className="grid gap-4 sm:grid-cols-4">
-                <div className="sm:col-span-1">
-                  <Select
-                    label="Type"
-                    options={typeOptions}
-                    {...register(`actions.${i}.type`)}
-                    error={errors.actions?.[i]?.type as FieldError | undefined}
-                  />
-
-                  <Button
-                    type="button"
-                    size="xs"
-                    variant="ghost"
-                    className="mt-2"
-                    onClick={() => remove(i)}
-                  >
-                    Remove
-                  </Button>
-                </div>
-                <div className="space-y-4 sm:col-span-3">
-                  {fields.map((field) => {
-                    const isAiGenerated = !!action[field.name]?.ai;
-
-                    const value =
-                      watch(`actions.${i}.${field.name}.value`) || "";
-                    const setManually = !!watch(
-                      `actions.${i}.${field.name}.setManually`,
-                    );
-
-                    return (
-                      <ActionField
-                        key={field.label}
-                        field={field}
-                        action={action}
-                        index={i}
-                        isAiGenerated={isAiGenerated}
-                        value={value}
-                        setManually={setManually}
-                        register={register}
-                        setValue={setValue}
-                        errors={errors}
-                        userLabels={userLabels}
-                        isLoading={isLoading}
-                        mutate={mutate}
-                        emailAccountId={emailAccountId}
-                      />
-                    );
-                  })}
-
-                  {action.type === ActionType.TRACK_THREAD && (
-                    <ReplyTrackerAction />
-                  )}
-                </div>
-              </div>
-            </CardBasic>
-          );
-        })}
+        {watch("actions")?.map((action, i) => (
+          <ActionCard
+            key={i}
+            action={action}
+            index={i}
+            register={register}
+            watch={watch}
+            setValue={setValue}
+            errors={errors}
+            userLabels={userLabels}
+            isLoading={isLoading}
+            mutate={mutate}
+            emailAccountId={emailAccountId}
+            remove={remove}
+            typeOptions={typeOptions}
+          />
+        ))}
       </div>
 
       <div className="mt-4">
@@ -736,6 +713,40 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       <div className="flex justify-end space-x-2 py-6">
+        {rule.id && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={isSubmitting}
+            loading={isSubmitting}
+            onClick={async () => {
+              const yes = confirm("Are you sure you want to delete this rule?");
+              if (yes) {
+                try {
+                  const result = await deleteRuleAction(emailAccountId, {
+                    id: rule.id!,
+                  });
+                  if (result?.serverError) {
+                    toastError({
+                      description: result.serverError,
+                    });
+                  } else {
+                    toastSuccess({
+                      description: "The rule has been deleted.",
+                    });
+                    router.push(
+                      prefixPath(emailAccountId, "/automation?tab=rules"),
+                    );
+                  }
+                } catch (error) {
+                  toastError({ description: "Failed to delete rule." });
+                }
+              }
+            }}
+          >
+            Delete
+          </Button>
+        )}
         {rule.id ? (
           <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
             Save
@@ -747,6 +758,289 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         )}
       </div>
     </form>
+  );
+}
+
+function ActionCard({
+  action,
+  index,
+  register,
+  watch,
+  setValue,
+  errors,
+  userLabels,
+  isLoading,
+  mutate,
+  emailAccountId,
+  remove,
+  typeOptions,
+}: {
+  action: CreateRuleBody["actions"][number];
+  index: number;
+  register: ReturnType<typeof useForm<CreateRuleBody>>["register"];
+  watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
+  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
+  errors: any;
+  userLabels: NonNullable<LabelsResponse["labels"]>;
+  isLoading: boolean;
+  mutate: () => void;
+  emailAccountId: string;
+  remove: (index: number) => void;
+  typeOptions: { label: string; value: ActionType }[];
+}) {
+  const fields = actionInputs[action.type].fields;
+  const [expandedFields, setExpandedFields] = useState(false);
+
+  // Get expandable fields that should be visible regardless of expanded state
+  const hasExpandableFields = fields.some((field) => field.expandable);
+
+  // Precompute content setManually state
+  const contentSetManually =
+    action.type === ActionType.DRAFT_EMAIL
+      ? !!watch(`actions.${index}.content.setManually`)
+      : false;
+
+  // Helper function to determine if a field can use variables based on context
+  const canFieldUseVariables = (
+    field: { name: string; expandable?: boolean },
+    value: string,
+    isFieldAiGenerated: boolean,
+  ) => {
+    // Check if the field is visible - this is handled before calling the function
+
+    // For label field, only allow variables if AI generated is toggled on
+    if (field.name === "label") {
+      return isFieldAiGenerated;
+    }
+
+    // For draft email content, only allow variables if set manually
+    if (field.name === "content" && action.type === ActionType.DRAFT_EMAIL) {
+      return contentSetManually;
+    }
+
+    // For other fields, allow variables
+    return true;
+  };
+
+  // Check if we should show the variable pro tip
+  const shouldShowProTip = fields.some((field) => {
+    // Get field value
+    const value = watch(`actions.${index}.${field.name}.value`);
+    const isFieldVisible = !field.expandable || expandedFields || !!value;
+
+    if (!isFieldVisible) return false;
+
+    // For label field, only show variables if AI generated is toggled on
+    if (field.name === "label") {
+      return !!action[field.name]?.ai;
+    }
+
+    // For draft email content, only show variables if set manually
+    if (field.name === "content" && action.type === ActionType.DRAFT_EMAIL) {
+      return contentSetManually;
+    }
+
+    // For other fields, show if they're visible
+    return true;
+  });
+
+  return (
+    <CardBasic>
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="sm:col-span-1">
+          <Select
+            options={typeOptions}
+            {...register(`actions.${index}.type`)}
+            error={errors.actions?.[index]?.type as FieldError | undefined}
+          />
+
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            className="mt-2"
+            onClick={() => remove(index)}
+          >
+            Remove
+          </Button>
+        </div>
+        <div className="space-y-4 sm:col-span-3">
+          {fields.map((field) => {
+            const isAiGenerated = !!action[field.name]?.ai;
+            const value = watch(`actions.${index}.${field.name}.value`) || "";
+            const setManually = !!watch(
+              `actions.${index}.${field.name}.setManually`,
+            );
+
+            // Show field if it's not expandable, or it's expanded, or it has a value
+            const showField = !field.expandable || expandedFields || !!value;
+
+            if (!showField) return null;
+
+            return (
+              <div
+                key={field.name}
+                className={field.expandable && !value ? "opacity-80" : ""}
+              >
+                <div className="flex items-center justify-between">
+                  <Label name={field.name} label={field.label} />
+
+                  {field.name === "label" && (
+                    <div className="flex items-center space-x-2">
+                      <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
+                      <Toggle
+                        name={`actions.${index}.${field.name}.ai`}
+                        label="AI generated"
+                        enabled={isAiGenerated || false}
+                        onChange={(enabled: boolean) => {
+                          setValue(
+                            `actions.${index}.${field.name}`,
+                            enabled
+                              ? { value: "", ai: true }
+                              : { value: "", ai: false },
+                          );
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {field.name === "label" && !isAiGenerated ? (
+                  <div className="mt-2">
+                    <LabelCombobox
+                      userLabels={userLabels}
+                      isLoading={isLoading}
+                      mutate={mutate}
+                      value={value}
+                      onChangeValue={(newValue: string) => {
+                        setValue(
+                          `actions.${index}.${field.name}.value`,
+                          newValue,
+                        );
+                      }}
+                      emailAccountId={emailAccountId}
+                    />
+                  </div>
+                ) : field.name === "content" &&
+                  action.type === ActionType.DRAFT_EMAIL &&
+                  !setManually ? (
+                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 rounded border py-8">
+                    <div className="max-w-sm text-center text-sm text-muted-foreground">
+                      Our AI will generate a reply using your knowledge base and
+                      previous conversations with the sender
+                    </div>
+
+                    <Button
+                      variant="link"
+                      size="xs"
+                      onClick={() => {
+                        setValue(`actions.${index}.content.setManually`, true);
+                      }}
+                    >
+                      Set manually
+                    </Button>
+                  </div>
+                ) : field.textArea ? (
+                  <div className="mt-2">
+                    <TextareaAutosize
+                      className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                      minRows={3}
+                      rows={3}
+                      {...register(`actions.${index}.${field.name}.value`)}
+                    />
+
+                    {field.name === "content" &&
+                      action.type === ActionType.DRAFT_EMAIL &&
+                      setManually && (
+                        <Button
+                          variant="link"
+                          size="xs"
+                          onClick={() => {
+                            setValue(
+                              `actions.${index}.content.setManually`,
+                              false,
+                            );
+                          }}
+                        >
+                          Auto draft
+                        </Button>
+                      )}
+                  </div>
+                ) : (
+                  <div className="mt-2">
+                    <input
+                      className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                      type="text"
+                      {...register(`actions.${index}.${field.name}.value`)}
+                    />
+                  </div>
+                )}
+
+                {hasVariables(value) &&
+                  canFieldUseVariables(field, value, isAiGenerated) && (
+                    <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
+                      {(value || "")
+                        .split(/(\{\{.*?\}\})/g)
+                        .map((part: string, idx: number) =>
+                          part.startsWith("{{") ? (
+                            <span
+                              key={idx}
+                              className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
+                            >
+                              <sub className="font-sans">AI</sub>
+                              {part}
+                            </span>
+                          ) : (
+                            <span key={idx}>{part}</span>
+                          ),
+                        )}
+                    </div>
+                  )}
+
+                {errors?.actions?.[index]?.[field.name]?.message && (
+                  <ErrorMessage
+                    message={
+                      errors.actions?.[index]?.[
+                        field.name
+                      ]?.message?.toString() || "Invalid value"
+                    }
+                  />
+                )}
+              </div>
+            );
+          })}
+
+          {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
+
+          {/* Show the variable pro tip when action has visible fields that can use variables */}
+          {shouldShowProTip && <VariableProTip />}
+
+          {hasExpandableFields && (
+            <div className="mt-2 flex justify-end">
+              <Button
+                type="button"
+                size="xs"
+                variant="ghost"
+                className="flex items-center gap-1 text-xs text-muted-foreground"
+                onClick={() => setExpandedFields(!expandedFields)}
+              >
+                {expandedFields ? (
+                  <>
+                    <ChevronDownIcon className="h-3.5 w-3.5" />
+                    Hide extra fields
+                  </>
+                ) : (
+                  <>
+                    <ChevronRightIcon className="h-3.5 w-3.5" />
+                    Show all fields
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    </CardBasic>
   );
 }
 
@@ -826,164 +1120,6 @@ function ReplyTrackerAction() {
   );
 }
 
-function ActionField({
-  field,
-  action,
-  index: i,
-  isAiGenerated,
-  value,
-  setManually,
-  register,
-  setValue,
-  errors,
-  userLabels,
-  isLoading,
-  mutate,
-  emailAccountId,
-}: {
-  field: {
-    name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
-    label: string;
-    textArea?: boolean;
-  };
-  action: CreateRuleBody["actions"][number];
-  index: number;
-  isAiGenerated: boolean;
-  value: string | undefined;
-  setManually: boolean;
-  register: UseFormRegister<CreateRuleBody>;
-  setValue: UseFormSetValue<CreateRuleBody>;
-  errors: any; // Unfortunately, we need to use any here for now
-  userLabels: NonNullable<LabelsResponse["labels"]>;
-  isLoading: boolean;
-  mutate: () => void;
-  emailAccountId: string;
-}) {
-  // Get the typed field value safely
-  const getFieldValue = (fieldName: string): string => {
-    // Type assertion to access the field by name
-    const fieldValue = action[fieldName as keyof typeof action];
-    if (fieldValue && typeof fieldValue === "object" && "value" in fieldValue) {
-      return (fieldValue.value as string) || "";
-    }
-    return "";
-  };
-
-  // Check if this field has an error
-  const fieldError = errors?.actions?.[i]?.[field.name]?.message;
-
-  const isDraftContent =
-    field.name === "content" && action.type === ActionType.DRAFT_EMAIL;
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <Label name={field.name} label={field.label} />
-        {field.name === "label" && (
-          <div className="flex items-center space-x-2">
-            <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
-            <Toggle
-              name={`actions.${i}.${field.name}.ai`}
-              label="AI generated"
-              enabled={isAiGenerated || false}
-              onChange={(enabled: boolean) => {
-                setValue(
-                  `actions.${i}.${field.name}`,
-                  enabled ? { value: "", ai: true } : { value: "", ai: false },
-                );
-              }}
-            />
-          </div>
-        )}
-      </div>
-
-      {field.name === "label" && !isAiGenerated ? (
-        <div className="mt-2">
-          <LabelCombobox
-            userLabels={userLabels}
-            isLoading={isLoading}
-            mutate={mutate}
-            value={getFieldValue(field.name)}
-            onChangeValue={(newValue: string) => {
-              setValue(`actions.${i}.${field.name}.value`, newValue);
-            }}
-            emailAccountId={emailAccountId}
-          />
-        </div>
-      ) : isDraftContent && !setManually ? (
-        <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 rounded border py-8">
-          <div className="max-w-sm text-center text-sm text-muted-foreground">
-            Our AI will generate a reply using your knowledge base and previous
-            conversations with the sender
-          </div>
-
-          <Button
-            variant="link"
-            size="xs"
-            onClick={() => {
-              setValue(`actions.${i}.content.setManually`, true);
-            }}
-          >
-            Set manually
-          </Button>
-        </div>
-      ) : field.textArea ? (
-        <div className="mt-2">
-          <TextareaAutosize
-            className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-            minRows={3}
-            rows={3}
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
-            value={value || ""}
-            {...register(`actions.${i}.${field.name}.value`)}
-          />
-
-          {isDraftContent && setManually && (
-            <Button
-              variant="link"
-              size="xs"
-              onClick={() => {
-                setValue(`actions.${i}.content.setManually`, false);
-              }}
-            >
-              Auto draft
-            </Button>
-          )}
-        </div>
-      ) : (
-        <div className="mt-2">
-          <input
-            className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-            type="text"
-            placeholder="Add text or use {{AI prompts}}. e.g. Hi {{name}}"
-            {...register(`actions.${i}.${field.name}.value`)}
-          />
-        </div>
-      )}
-
-      {hasVariables(value) && (
-        <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
-          {(value || "").split(/(\{\{.*?\}\})/g).map((part, idx) =>
-            part.startsWith("{{") ? (
-              <span
-                key={idx}
-                className="rounded bg-blue-100 px-1 text-blue-500 dark:bg-blue-950 dark:text-blue-400"
-              >
-                <sub className="font-sans">AI</sub>
-                {part}
-              </span>
-            ) : (
-              <span key={idx}>{part}</span>
-            ),
-          )}
-        </div>
-      )}
-
-      {fieldError && <ErrorMessage message={fieldError.toString()} />}
-    </div>
-  );
-}
-
 function showSystemTypeBadge(systemType?: SystemType | null): boolean {
   if (systemType === SystemType.TO_REPLY) return true;
   if (systemType === SystemType.CALENDAR) return true;
@@ -996,5 +1132,61 @@ export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
       size={size}
       text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
     />
+  );
+}
+
+function VariableExamplesDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="xs" className="ml-auto">
+          See examples
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Variable Examples</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6 py-4">
+          <div>
+            <h4 className="font-medium">Example: Subject</h4>
+            <div className="mt-2 rounded-md bg-muted p-3">
+              <code className="text-sm">Hi {"{{name}}"}</code>
+            </div>
+          </div>
+
+          <div>
+            <h4 className="font-medium">Example: Email Content</h4>
+            <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-sm">
+              {`Hi {{name}},
+
+{{answer the question in the email}}
+
+If you'd like to get on a call here's my cal link:
+cal.com/example`}
+            </div>
+          </div>
+          <div>
+            <h4 className="font-medium">Example: Label</h4>
+            <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted p-3 font-mono text-sm">
+              {`{{choose between "p1", "p2", "p3" depending on urgency. "p1" is highest urgency.}}`}
+            </div>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function VariableProTip() {
+  return (
+    <div className="mt-4 rounded-md bg-blue-50 p-3 dark:bg-blue-950/30">
+      <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+        <span>
+          ✨ Use {"{{"}variables{"}}"} for personalized content
+        </span>
+        <VariableExamplesDialog />
+      </div>
+    </div>
   );
 }

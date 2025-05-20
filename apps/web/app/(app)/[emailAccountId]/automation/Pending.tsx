@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/automation/RulesSelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useChat } from "@/components/assistant-chat/ChatContext";
 
 export function Pending() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
@@ -116,6 +117,8 @@ function PendingTable({
     setIsRejecting(false);
   }, [selected, pending, mutate, emailAccountId]);
 
+  const { setInput } = useChat();
+
   return (
     <div>
       {Array.from(selected.values()).filter(Boolean).length > 0 && (
@@ -189,6 +192,7 @@ function PendingTable({
                   reason={p.reason}
                   message={p.message}
                   isTest={true}
+                  setInput={setInput}
                 />
               </TableCell>
               <TableCell>

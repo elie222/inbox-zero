@@ -9,11 +9,10 @@ import {
   PlusIcon,
   HistoryIcon,
   Trash2Icon,
-  Settings2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
+  SlidersIcon,
 } from "lucide-react";
-import type { RulesResponse } from "@/app/api/user/rules/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -21,7 +20,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   DropdownMenu,
@@ -56,8 +54,9 @@ import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/automation/Rule
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { ExpandableText } from "@/components/ExpandableText";
 
-export function Rules() {
+export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
 
   const hasRules = !!data?.length;
@@ -74,9 +73,7 @@ export function Rules() {
   );
 
   return (
-    <div>
-      <PremiumAlertWithData className="my-2" />
-
+    <div className="pb-4">
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -84,14 +81,16 @@ export function Rules() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>
-                  <TableHead>Condition</TableHead>
-                  <TableHead>Actions</TableHead>
-                  <TableHead>
-                    <div className="flex items-center justify-center gap-1">
-                      <span>Threads</span>
-                      <ThreadsExplanation size="sm" />
-                    </div>
-                  </TableHead>
+                  {size === "md" && <TableHead>Condition</TableHead>}
+                  <TableHead>Action</TableHead>
+                  {size === "md" && (
+                    <TableHead>
+                      <div className="flex items-center justify-center gap-1">
+                        <span>Threads</span>
+                        <ThreadsExplanation size="sm" />
+                      </div>
+                    </TableHead>
+                  )}
                   <TableHead>
                     <span className="sr-only">User Actions</span>
                   </TableHead>
@@ -131,33 +130,37 @@ export function Rules() {
                           )}
                         </Link>
                       </TableCell>
-                      <TableCell className="whitespace-pre-wrap">
-                        {conditionsToString(rule)}
-                      </TableCell>
+                      {size === "md" && (
+                        <TableCell className="whitespace-pre-wrap">
+                          <ExpandableText text={conditionsToString(rule)} />
+                        </TableCell>
+                      )}
                       <TableCell>
-                        <Actions actions={rule.actions} />
+                        <ActionBadges actions={rule.actions} />
                       </TableCell>
-                      <TableCell>
-                        <div className="flex justify-center">
-                          <Toggle
-                            enabled={rule.runOnThreads}
-                            name="runOnThreads"
-                            onChange={async () => {
-                              const result = await setRuleRunOnThreads({
-                                ruleId: rule.id,
-                                runOnThreads: !rule.runOnThreads,
-                              });
-
-                              if (result?.serverError) {
-                                toastError({
-                                  description: `There was an error updating your rule. ${result.serverError || ""}`,
+                      {size === "md" && (
+                        <TableCell>
+                          <div className="flex justify-center">
+                            <Toggle
+                              enabled={rule.runOnThreads}
+                              name="runOnThreads"
+                              onChange={async () => {
+                                const result = await setRuleRunOnThreads({
+                                  ruleId: rule.id,
+                                  runOnThreads: !rule.runOnThreads,
                                 });
-                              }
-                              mutate();
-                            }}
-                          />
-                        </div>
-                      </TableCell>
+
+                                if (result?.serverError) {
+                                  toastError({
+                                    description: `There was an error updating your rule. ${result.serverError || ""}`,
+                                  });
+                                }
+                                mutate();
+                              }}
+                            />
+                          </div>
+                        </TableCell>
+                      )}
                       <TableCell>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -280,12 +283,19 @@ export function Rules() {
 
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
-          <Button asChild variant="outline">
+          {/* <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
             </Link>
+          </Button> */}
+          <Button asChild variant="outline">
+            <Link href={prefixPath(emailAccountId, "/automation/onboarding")}>
+              <SlidersIcon className="mr-2 hidden size-4 md:block" />
+              View Setup
+            </Link>
           </Button>
+
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
               <PlusIcon className="mr-2 hidden size-4 md:block" />
@@ -298,7 +308,15 @@ export function Rules() {
   );
 }
 
-function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
+export function ActionBadges({
+  actions,
+}: {
+  actions: {
+    id: string;
+    type: ActionType;
+    label?: string | null;
+  }[];
+}) {
   return (
     <div className="flex flex-1 space-x-2">
       {actions.map((action) => {
@@ -312,6 +330,7 @@ function Actions({ actions }: { actions: RulesResponse[number]["actions"] }) {
             className="text-nowrap"
           >
             {capitalCase(action.type)}
+            {action.label && `: ${action.label}`}
           </Badge>
         );
       })}
@@ -324,41 +343,20 @@ function NoRules() {
   return (
     <>
       <CardHeader>
-        <CardTitle>AI Personal Assistant</CardTitle>
         <CardDescription>
-          Set up intelligent automations to let our AI handle your emails for
-          you.
+          You don't have any rules yet.
+          <br />
+          You can teach your AI assistant how to handle your emails by chatting
+          with it or create rules manually.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex gap-2">
-          <Button asChild>
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden size-4 md:block" />
-              Set Prompt
-            </Link>
-          </Button>
-
-          <Button type="button" variant="outline" asChild>
-            <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
-              Create a Rule Manually
-            </Link>
-          </Button>
-        </div>
+        <Button type="button" variant="outline" asChild>
+          <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
+            Add Rule Manually
+          </Link>
+        </Button>
       </CardContent>
     </>
   );
-}
-
-function getRiskLevelColor(level: RiskLevel) {
-  switch (level) {
-    case "low":
-      return null;
-    case "medium":
-      return "text-yellow-500";
-    case "high":
-      return "text-orange-500";
-    case "very-high":
-      return "text-red-500";
-  }
 }
