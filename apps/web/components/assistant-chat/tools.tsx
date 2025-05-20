@@ -27,6 +27,8 @@ export function ToolCard({
   ruleId?: string;
 }) {
   switch (toolName) {
+    case "get_user_rules_and_settings":
+      return <BasicInfo text="Read rules and settings" />;
     case "create_rule":
       return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
     case "update_rule_conditions":
@@ -59,6 +61,14 @@ export function ToolCard({
   }
 }
 
+function BasicInfo({ text }: { text: string }) {
+  return (
+    <Card className="p-2">
+      <div className="text-sm">{text}</div>
+    </Card>
+  );
+}
+
 function CreatedRule({
   args,
   ruleId,
@@ -89,7 +99,7 @@ function CreatedRule({
         </h3> */}
         <div className="rounded-md bg-muted p-2 text-sm">
           {args.condition.aiInstructions && (
-            <div className="flex">
+            <div className="flex items-center">
               <SparklesIcon className="mr-2 size-6" />
               {args.condition.aiInstructions}
             </div>
@@ -185,46 +195,41 @@ function UpdatedRuleConditions({
   return (
     <Card className="space-y-3 p-4">
       <ToolCardHeader
-        title={<strong>Updated Conditions</strong>}
+        title={<>Updated Conditions</>}
         actions={<RuleActions ruleId={ruleId} />}
       />
 
-      <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Updated Conditions
-        </h3>
-        <div className="rounded-md bg-muted p-2 text-sm">
-          {args.condition.aiInstructions && (
-            <div className="flex">
-              <SparklesIcon className="mr-2 size-6" />
-              {args.condition.aiInstructions}
-            </div>
-          )}
-          {conditionsArray.length > 1 && (
-            <div className="my-2 font-mono text-xs">
-              {args.condition.conditionalOperator || "AND"}
-            </div>
-          )}
-          {args.condition.static && (
-            <div className="mt-1">
-              <span className="font-medium">Static Conditions:</span>
-              <ul className="mt-1 list-inside list-disc">
-                {args.condition.static.from && (
-                  <li>From: {args.condition.static.from}</li>
-                )}
-                {args.condition.static.to && (
-                  <li>To: {args.condition.static.to}</li>
-                )}
-                {args.condition.static.subject && (
-                  <li>Subject: {args.condition.static.subject}</li>
-                )}
-                {args.condition.static.body && (
-                  <li>Body: {args.condition.static.body}</li>
-                )}
-              </ul>
-            </div>
-          )}
-        </div>
+      <div className="rounded-md bg-muted p-2 text-sm">
+        {args.condition.aiInstructions && (
+          <div className="flex items-center">
+            <SparklesIcon className="mr-2 size-6" />
+            {args.condition.aiInstructions}
+          </div>
+        )}
+        {conditionsArray.length > 1 && (
+          <div className="my-2 font-mono text-xs">
+            {args.condition.conditionalOperator || "AND"}
+          </div>
+        )}
+        {args.condition.static && (
+          <div className="mt-1">
+            <span className="font-medium">Static Conditions:</span>
+            <ul className="mt-1 list-inside list-disc">
+              {args.condition.static.from && (
+                <li>From: {args.condition.static.from}</li>
+              )}
+              {args.condition.static.to && (
+                <li>To: {args.condition.static.to}</li>
+              )}
+              {args.condition.static.subject && (
+                <li>Subject: {args.condition.static.subject}</li>
+              )}
+              {args.condition.static.body && (
+                <li>Body: {args.condition.static.body}</li>
+              )}
+            </ul>
+          </div>
+        )}
       </div>
     </Card>
   );
@@ -240,47 +245,42 @@ function UpdatedRuleActions({
   return (
     <Card className="space-y-3 p-4">
       <ToolCardHeader
-        title={<strong>Updated Actions</strong>}
+        title={<>Updated Actions</>}
         actions={<RuleActions ruleId={ruleId} />}
       />
 
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Updated Actions
-        </h3>
-        <div className="space-y-2">
-          {args.actions.map((actionItem, i) => {
-            if (!actionItem) return null;
+        {args.actions.map((actionItem, i) => {
+          if (!actionItem) return null;
 
-            return (
-              <div key={i} className="rounded-md bg-muted p-2 text-sm">
-                <div className="font-medium capitalize">
-                  {actionItem.type.toLowerCase().replace("_", " ")}
-                </div>
-                {actionItem.fields && (
-                  <div className="mt-1">
-                    <ul className="list-inside list-disc">
-                      {actionItem.fields.label && (
-                        <li>Label: {actionItem.fields.label}</li>
-                      )}
-                      {actionItem.fields.content && (
-                        <li>
-                          Content:{" "}
-                          <span className="font-mono text-xs">
-                            {actionItem.fields.content}
-                          </span>
-                        </li>
-                      )}
-                      {actionItem.fields.webhookUrl && (
-                        <li>Webhook URL: {actionItem.fields.webhookUrl}</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
+          return (
+            <div key={i} className="rounded-md bg-muted p-2 text-sm">
+              <div className="font-medium capitalize">
+                {actionItem.type.toLowerCase().replace("_", " ")}
               </div>
-            );
-          })}
-        </div>
+              {actionItem.fields && (
+                <div className="mt-1">
+                  <ul className="list-inside list-disc">
+                    {actionItem.fields.label && (
+                      <li>Label: {actionItem.fields.label}</li>
+                    )}
+                    {actionItem.fields.content && (
+                      <li>
+                        Content:{" "}
+                        <span className="font-mono text-xs">
+                          {actionItem.fields.content}
+                        </span>
+                      </li>
+                    )}
+                    {actionItem.fields.webhookUrl && (
+                      <li>Webhook URL: {actionItem.fields.webhookUrl}</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
@@ -296,52 +296,47 @@ function UpdatedLearnedPatterns({
   return (
     <Card className="space-y-3 p-4">
       <ToolCardHeader
-        title={<strong>Updated Learned Patterns</strong>}
+        title={<>Updated Learned Patterns</>}
         actions={<RuleActions ruleId={ruleId} />}
       />
 
       <div className="space-y-2">
-        <h3 className="text-sm font-medium text-muted-foreground">
-          Updated Learned Patterns
-        </h3>
-        <div className="space-y-2">
-          {args.learnedPatterns.map((pattern, i) => {
-            if (!pattern) return null;
+        {args.learnedPatterns.map((pattern, i) => {
+          if (!pattern) return null;
 
-            return (
-              <div key={i} className="rounded-md bg-muted p-2 text-sm">
-                {pattern.include &&
-                  Object.values(pattern.include).some(Boolean) && (
-                    <div className="mb-1">
-                      <span className="font-medium">Include:</span>
-                      <ul className="mt-1 list-inside list-disc">
-                        {pattern.include.from && (
-                          <li>From: {pattern.include.from}</li>
-                        )}
-                        {pattern.include.subject && (
-                          <li>Subject: {pattern.include.subject}</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-                {pattern.exclude &&
-                  Object.values(pattern.exclude).some(Boolean) && (
-                    <div>
-                      <span className="font-medium">Exclude:</span>
-                      <ul className="mt-1 list-inside list-disc">
-                        {pattern.exclude.from && (
-                          <li>From: {pattern.exclude.from}</li>
-                        )}
-                        {pattern.exclude.subject && (
-                          <li>Subject: {pattern.exclude.subject}</li>
-                        )}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            );
-          })}
-        </div>
+          return (
+            <div key={i} className="rounded-md bg-muted p-2 text-sm">
+              {pattern.include &&
+                Object.values(pattern.include).some(Boolean) && (
+                  <div className="mb-1">
+                    <span className="font-medium">Include:</span>
+                    <ul className="mt-1 list-inside list-disc">
+                      {pattern.include.from && (
+                        <li>From: {pattern.include.from}</li>
+                      )}
+                      {pattern.include.subject && (
+                        <li>Subject: {pattern.include.subject}</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              {pattern.exclude &&
+                Object.values(pattern.exclude).some(Boolean) && (
+                  <div>
+                    <span className="font-medium">Exclude:</span>
+                    <ul className="mt-1 list-inside list-disc">
+                      {pattern.exclude.from && (
+                        <li>From: {pattern.exclude.from}</li>
+                      )}
+                      {pattern.exclude.subject && (
+                        <li>Subject: {pattern.exclude.subject}</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+            </div>
+          );
+        })}
       </div>
     </Card>
   );
@@ -350,7 +345,7 @@ function UpdatedLearnedPatterns({
 function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
   return (
     <Card className="space-y-3 p-4">
-      <ToolCardHeader title={<strong>Updated About Information</strong>} />
+      <ToolCardHeader title={<>Updated About Information</>} />
       <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
     </Card>
   );
@@ -362,7 +357,7 @@ function AddToKnowledgeBase({ args }: { args: AddToKnowledgeBaseSchema }) {
   return (
     <Card className="space-y-3 p-4">
       <ToolCardHeader
-        title={<strong>Added to Knowledge Base</strong>}
+        title={<>Added to Knowledge Base</>}
         actions={
           <Button variant="link" onClick={() => setTab("rules")}>
             View Knowledge Base
@@ -435,7 +430,7 @@ function ToolCardHeader({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <h3 className="text-lg font-medium">{title}</h3>
+      <h3 className="font-cal text-lg">{title}</h3>
       {actions}
     </div>
   );
