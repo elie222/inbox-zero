@@ -168,7 +168,7 @@ function SetupContent({
         <SectionDescription className="mt-2 text-center text-base">
           {isSetupComplete
             ? "What would you like to do?"
-            : "Complete these steps to get the most out of your email experience"}
+            : "Complete these steps to get the most out of Inbox Zero"}
         </SectionDescription>
       </div>
 
@@ -195,7 +195,7 @@ const StepItem = ({
   iconBg,
   iconColor,
   title,
-  description,
+  // description,
   timeEstimate,
   completed,
   actionText,
@@ -205,14 +205,14 @@ const StepItem = ({
   iconBg: string;
   iconColor: string;
   title: string;
-  description: string;
+  // description: string;
   timeEstimate: string;
   completed: boolean;
   actionText: string;
 }) => {
   return (
     <Link
-      className={`border-b border-border last:border-0 ${completed ? "opacity-50" : ""}`}
+      className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
       href={href}
     >
       <div className="flex items-center justify-between p-4">
@@ -224,9 +224,9 @@ const StepItem = ({
           </div>
           <div>
             <h3 className="font-medium text-foreground">{title}</h3>
-            <p className="text-sm text-muted-foreground">{description}</p>
-            <p className="mt-1 text-xs text-muted-foreground/75">
-              Estimated: {timeEstimate}
+            {/* <p className="text-sm text-muted-foreground">{description}</p> */}
+            <p className="mt-0.5 text-xs text-muted-foreground/75">
+              {timeEstimate}
             </p>
           </div>
         </div>
@@ -291,8 +291,8 @@ function Checklist({
         icon={<BotIcon size={20} />}
         iconBg="bg-green-100 dark:bg-green-900/50"
         iconColor="text-green-500 dark:text-green-400"
-        title="Set up AI Assistant"
-        description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
+        title="Set up your Personal Assistant"
+        // description="Your personal email assistant that organizes, archives, and drafts replies based on your rules"
         timeEstimate="5 minutes"
         completed={isAiAssistantConfigured}
         actionText="Set up"
@@ -304,7 +304,7 @@ function Checklist({
         iconBg="bg-purple-100 dark:bg-purple-900/50"
         iconColor="text-purple-500 dark:text-purple-400"
         title="Unsubscribe from emails you don't read"
-        description="Easily unsubscribe from unwanted newsletters"
+        // description="Easily unsubscribe from unwanted newsletters"
         timeEstimate="5 minutes"
         completed={isBulkUnsubscribeConfigured}
         actionText="View"
@@ -316,7 +316,7 @@ function Checklist({
         iconBg="bg-blue-100 dark:bg-blue-900/50"
         iconColor="text-blue-500 dark:text-blue-400"
         title="View emails needing replies"
-        description="Track emails needing replies & follow-ups. Get AI-drafted responses"
+        // description="Track emails needing replies & follow-ups. Get AI-drafted responses"
         timeEstimate="30 seconds"
         completed={isReplyTrackerConfigured}
         actionText="View"
