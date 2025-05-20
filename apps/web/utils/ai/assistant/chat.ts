@@ -13,6 +13,7 @@ import { saveAiUsage } from "@/utils/usage";
 import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { posthogCaptureEvent } from "@/utils/posthog";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -439,8 +440,12 @@ Examples:
           "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
         parameters: z.object({}),
         execute: async () => {
-          // trackToolCall("list_rules", user.email);
-          const [rules, user] = await Promise.all([
+          trackToolCall({
+            tool: "get_user_rules_and_settings",
+            email: user.email,
+          });
+
+          const [rules, emailAccount] = await Promise.all([
             prisma.rule.findMany({ where: { emailAccountId } }),
             prisma.emailAccount.findUnique({
               where: { id: emailAccountId },
@@ -450,8 +455,8 @@ Examples:
 
           return {
             rules,
-            about: user?.about || "Not set",
-            coldEmailBlocker: user?.coldEmailBlocker || "Not set",
+            about: emailAccount?.about || "Not set",
+            coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
           };
         },
       }),
@@ -460,8 +465,7 @@ Examples:
         description: "Create a new rule",
         parameters: createRuleSchema,
         execute: async ({ name, condition, actions }) => {
-          logger.info("Create Rule", { name, condition, actions });
-          // trackToolCall("create_rule", user.email);
+          trackToolCall({ tool: "create_rule", email: user.email });
 
           try {
             const rule = await createRule({
@@ -505,8 +509,10 @@ Examples:
         description: "Update the conditions of an existing rule",
         parameters: updateRuleConditionSchema,
         execute: async ({ ruleName, condition }) => {
+          trackToolCall({ tool: "update_rule_conditions", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -537,8 +543,9 @@ Examples:
           "Update the actions of an existing rule. This replaces the existing actions.",
         parameters: updateRuleActionsSchema,
         execute: async ({ ruleName, actions }) => {
+          trackToolCall({ tool: "update_rule_actions", email: user.email });
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -572,8 +579,10 @@ Examples:
         description: "Update the learned patterns of an existing rule",
         parameters: updateLearnedPatternsSchema,
         execute: async ({ ruleName, learnedPatterns }) => {
+          trackToolCall({ tool: "update_learned_patterns", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
@@ -641,6 +650,7 @@ Examples:
           "Update the user's about information. Read the user's about information first as this replaces the existing information.",
         parameters: updateAboutSchema,
         execute: async ({ about }) => {
+          trackToolCall({ tool: "update_about", email: user.email });
           const existing = await prisma.emailAccount.findUnique({
             where: { id: emailAccountId },
             select: { about: true },
@@ -665,6 +675,8 @@ Examples:
         description: "Add content to the knowledge base",
         parameters: addToKnowledgeBaseSchema,
         execute: async ({ title, content }) => {
+          trackToolCall({ tool: "add_to_knowledge_base", email: user.email });
+
           try {
             await prisma.knowledge.create({
               data: {
@@ -703,4 +715,9 @@ Examples:
   });
 
   return result;
+}
+
+async function trackToolCall({ tool, email }: { tool: string; email: string }) {
+  logger.info("Tracking tool call", { tool, email });
+  return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }
