@@ -2,6 +2,7 @@
 
 import useSWR, { type KeyedMutator } from "swr";
 import sortBy from "lodash/sortBy";
+import groupBy from "lodash/groupBy";
 import Link from "next/link";
 import { PlusIcon, ExternalLinkIcon, TrashIcon } from "lucide-react";
 import {
@@ -44,7 +45,6 @@ import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Toggle } from "@/components/Toggle";
-import { groupBy } from "lodash";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
   const { emailAccountId } = useAccount();
