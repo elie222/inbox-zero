@@ -8,6 +8,7 @@ import {
   generateText,
   RetryError,
   streamText,
+  type StepResult,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -149,19 +150,29 @@ async function chatCompletionObjectInternal<T>({
 export async function chatCompletionStream({
   userAi,
   useEconomyModel,
-  prompt,
   system,
+  prompt,
+  messages,
+  tools,
+  maxSteps,
   userEmail,
   usageLabel: label,
   onFinish,
+  onStepFinish,
 }: {
   userAi: UserAIFields;
   useEconomyModel?: boolean;
-  prompt: string;
   system?: string;
+  prompt?: string;
+  messages?: CoreMessage[];
+  tools?: Record<string, CoreTool>;
+  maxSteps?: number;
   userEmail: string;
   usageLabel: string;
   onFinish?: (text: string) => Promise<void>;
+  onStepFinish?: (
+    stepResult: StepResult<Record<string, CoreTool>>,
+  ) => Promise<void>;
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
@@ -170,10 +181,14 @@ export async function chatCompletionStream({
 
   const result = streamText({
     model: llmModel,
-    prompt,
     system,
+    prompt,
+    messages,
+    tools,
+    maxSteps,
     providerOptions,
     ...commonOptions,
+    onStepFinish,
     onFinish: async ({ usage, text }) => {
       await saveAiUsage({
         email: userEmail,

@@ -14,6 +14,7 @@ import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
+import { chatCompletionStream } from "@/utils/llms";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -421,18 +422,17 @@ Examples:
   </example>
 </examples>`;
 
-  // TODO: clean up
-  const { provider, model, llmModel, providerOptions } = getModel(
-    user.user,
-    false,
-  );
-
   logger.trace("Input", { messages });
 
-  const result = streamText({
-    model: llmModel,
-    messages,
+  const result = chatCompletionStream({
+    userAi: user.user,
+    userEmail: user.email,
+    usageLabel: "assistant-chat",
     system,
+    messages,
+    onStepFinish: async ({ text, toolCalls }) => {
+      logger.trace("Step finished", { text, toolCalls });
+    },
     maxSteps: 10,
     tools: {
       get_user_rules_and_settings: tool({
@@ -699,18 +699,6 @@ Examples:
           }
         },
       }),
-    },
-    onFinish: async ({ usage }) => {
-      await saveAiUsage({
-        email: user.email,
-        provider,
-        model,
-        usage,
-        label: "Assistant chat",
-      });
-    },
-    onStepFinish: async ({ usage, text, toolCalls }) => {
-      logger.trace("Step finished", { usage, text, toolCalls });
     },
   });
 
