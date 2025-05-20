@@ -2,7 +2,7 @@ import { streamText, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import prisma from "@/utils/prisma";
+import prisma, { isDuplicateError } from "@/utils/prisma";
 import {
   createRule,
   partialUpdateRule,
@@ -213,6 +213,10 @@ Learned patterns:
 - This avoids us having to use AI to process emails from the same sender over and over again.
 - There's some similarity to static rules, but you can only use one static condition for a rule. But you can use multiple learned patterns. And over time the list of learned patterns will grow.
 - You can use includes or excludes for learned patterns. Usually you will use includes, but if the user has explained that an email is being wrongly labelled, check if we have a learned pattern for it and then fix it to be an exclude instead.
+
+Knowledge base:
+- The knowledge base is used to draft reply content.
+- It is only used when an action of type DRAFT_REPLY is used AND the rule has no preset draft content.
 
 Examples:
 
@@ -648,6 +652,33 @@ Examples:
             previousAbout: existing.about,
             updatedAbout: about,
           };
+        },
+      }),
+
+      add_to_knowledge_base: tool({
+        description: "Add content to the knowledge base",
+        parameters: z.object({ title: z.string(), content: z.string() }),
+        execute: async ({ title, content }) => {
+          try {
+            await prisma.knowledge.create({
+              data: {
+                emailAccountId,
+                title,
+                content,
+              },
+            });
+
+            return { success: true };
+          } catch (error) {
+            if (isDuplicateError(error, "title")) {
+              return {
+                error: "A knowledge item with this title already exists",
+              };
+            }
+
+            logger.error("Failed to add to knowledge base", { error });
+            return { error: "Failed to add to knowledge base" };
+          }
         },
       }),
     },
