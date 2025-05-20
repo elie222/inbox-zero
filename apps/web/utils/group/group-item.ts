@@ -6,6 +6,7 @@ export async function addGroupItem(data: {
   groupId: string;
   type: GroupItemType;
   value: string;
+  exclude?: boolean;
 }) {
   try {
     return await prisma.groupItem.create({ data });

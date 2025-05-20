@@ -343,6 +343,7 @@ model GroupItem {
   group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
   type      GroupItemType
   value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
+  exclude   Boolean       @default(false) // Whether this pattern should be excluded rather than included
 
   @@unique([groupId, type, value])
 }

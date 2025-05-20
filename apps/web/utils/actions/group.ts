@@ -39,7 +39,7 @@ export const addGroupItemAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { groupId, type, value },
+      parsedInput: { groupId, type, value, exclude },
     }) => {
       const group = await prisma.group.findUnique({
         where: { id: groupId },
@@ -50,7 +50,7 @@ export const addGroupItemAction = actionClient
           error: "You don't have permission to add items to this group",
         };
 
-      await addGroupItem({ groupId, type, value });
+      await addGroupItem({ groupId, type, value, exclude });
     },
   );
 

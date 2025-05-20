@@ -10,5 +10,6 @@ export const addGroupItemBody = z.object({
   groupId: z.string(),
   type: z.enum([GroupItemType.FROM, GroupItemType.SUBJECT]),
   value: z.string(),
+  exclude: z.boolean().optional(),
 });
 export type AddGroupItemBody = z.infer<typeof addGroupItemBody>;

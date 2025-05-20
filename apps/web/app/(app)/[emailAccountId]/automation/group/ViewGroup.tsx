@@ -43,6 +43,8 @@ import { formatShortDate } from "@/utils/date";
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { Toggle } from "@/components/Toggle";
+import { groupBy } from "lodash";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
   const { emailAccountId } = useAccount();
@@ -133,6 +135,7 @@ const AddGroupItemForm = ({
   setShowAddItem: Dispatch<SetStateAction<boolean>>;
 }) => {
   const { emailAccountId } = useAccount();
+  const [exclude, setExclude] = useState(false);
 
   const {
     register,
@@ -140,7 +143,7 @@ const AddGroupItemForm = ({
     formState: { errors, isSubmitting },
   } = useForm<AddGroupItemBody>({
     resolver: zodResolver(addGroupItemBody),
-    defaultValues: { groupId },
+    defaultValues: { groupId, exclude: false },
   });
 
   const onClose = useCallback(() => {
@@ -149,7 +152,10 @@ const AddGroupItemForm = ({
 
   const onSubmit: SubmitHandler<AddGroupItemBody> = useCallback(
     async (data) => {
-      const result = await addGroupItemAction(emailAccountId, data);
+      const result = await addGroupItemAction(emailAccountId, {
+        ...data,
+        exclude,
+      });
       if (result?.serverError) {
         toastError({
           description: `Failed to add pattern. ${result.serverError || ""}`,
@@ -160,7 +166,7 @@ const AddGroupItemForm = ({
       mutate();
       onClose();
     },
-    [mutate, onClose, emailAccountId],
+    [mutate, onClose, emailAccountId, exclude],
   );
 
   const handleKeyDown = useCallback(
@@ -175,37 +181,52 @@ const AddGroupItemForm = ({
   );
 
   return (
-    <div className="flex gap-2" onKeyDown={handleKeyDown}>
-      <Select
-        label=""
-        options={[
-          { label: "From", value: GroupItemType.FROM },
-          { label: "Subject", value: GroupItemType.SUBJECT },
-        ]}
-        {...register("type", { required: true })}
-        error={errors.type}
-      />
-      <div className="flex-1">
-        <Input
-          type="text"
-          name="value"
-          placeholder="e.g. hello@company.com"
-          registerProps={register("value", { required: true })}
-          error={errors.value}
+    <div onKeyDown={handleKeyDown}>
+      <div className="flex gap-2">
+        <Select
+          label=""
+          options={[
+            { label: "From", value: GroupItemType.FROM },
+            { label: "Subject", value: GroupItemType.SUBJECT },
+          ]}
+          {...register("type", { required: true })}
+          error={errors.type}
+        />
+        <div className="flex-1">
+          <Input
+            type="text"
+            name="value"
+            placeholder="e.g. hello@company.com"
+            registerProps={register("value", { required: true })}
+            error={errors.value}
+          />
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            loading={isSubmitting}
+            onClick={() => {
+              handleSubmit(onSubmit)();
+            }}
+          >
+            Add
+          </Button>
+          <Button variant="outline" size="sm" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+
+      <div className="mt-4 flex justify-end">
+        <Toggle
+          name="exclude"
+          tooltipText="When enabled, never match this pattern."
+          label="Exclude"
+          enabled={exclude}
+          onChange={setExclude}
         />
       </div>
-      <Button
-        size="sm"
-        loading={isSubmitting}
-        onClick={() => {
-          handleSubmit(onSubmit)();
-        }}
-      >
-        Add
-      </Button>
-      <Button variant="outline" size="sm" onClick={onClose}>
-        Cancel
-      </Button>
     </div>
   );
 };
@@ -217,10 +238,9 @@ function GroupItems({
   items: GroupItem[];
   mutate: KeyedMutator<GroupItemsResponse>;
 }) {
-  // const groupedByStatus = groupBy(
-  //   items,
-  //   (item) => item.status || GroupItemStatus.APPROVED,
-  // );
+  const groupedByStatus = groupBy(items, (item) =>
+    item.exclude ? "exclude" : "include",
+  );
 
   return (
     <div className="space-y-4">
@@ -231,28 +251,20 @@ function GroupItems({
             match:
           </div>
         }
-        items={items}
+        items={groupedByStatus.include}
         mutate={mutate}
       />
-      {/* <GroupItemList
-        title={
-          <div className="flex items-center gap-x-1.5">
-            These patterns will never match:
-          </div>
-        }
-        items={groupedByStatus[GroupItemStatus.REJECTED] || []}
-        mutate={mutate}
-      />
-      <GroupItemList
-        title={
-          <div className="flex items-center gap-x-1.5">
-            These patterns will need evaluation (and the AI will not move them
-            to the Match or Never Match lists):
-          </div>
-        }
-        items={groupedByStatus[GroupItemStatus.EVALUATE] || []}
-        mutate={mutate}
-      /> */}
+      {groupedByStatus.exclude?.length > 0 && (
+        <GroupItemList
+          title={
+            <div className="flex items-center gap-x-1.5">
+              When these patterns are encountered, the rule will never match:
+            </div>
+          }
+          items={groupedByStatus.exclude}
+          mutate={mutate}
+        />
+      )}
     </div>
   );
 }
@@ -348,10 +360,15 @@ function GroupItemList({
 export function GroupItemDisplay({
   item,
 }: {
-  item: Pick<GroupItem, "type" | "value">;
+  item: Pick<GroupItem, "type" | "value" | "exclude">;
 }) {
   return (
     <>
+      {item.exclude && (
+        <Badge variant="destructive" className="mr-2">
+          Exclude
+        </Badge>
+      )}
       <Badge variant="secondary" className="mr-2">
         {capitalCase(item.type)}
       </Badge>
