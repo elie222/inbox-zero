@@ -151,6 +151,12 @@ export type UpdateLearnedPatternsSchema = z.infer<
 const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
 
+const addToKnowledgeBaseSchema = z.object({
+  title: z.string(),
+  content: z.string(),
+});
+export type AddToKnowledgeBaseSchema = z.infer<typeof addToKnowledgeBaseSchema>;
+
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
@@ -657,7 +663,7 @@ Examples:
 
       add_to_knowledge_base: tool({
         description: "Add content to the knowledge base",
-        parameters: z.object({ title: z.string(), content: z.string() }),
+        parameters: addToKnowledgeBaseSchema,
         execute: async ({ title, content }) => {
           try {
             await prisma.knowledge.create({

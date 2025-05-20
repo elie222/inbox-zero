@@ -1,10 +1,11 @@
-import { parseAsString, useQueryStates } from "nuqs";
+import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import type {
   CreateRuleSchema,
   UpdateAboutSchema,
   UpdateRuleConditionSchema,
   UpdateRuleActionsSchema,
   UpdateLearnedPatternsSchema,
+  AddToKnowledgeBaseSchema,
 } from "@/utils/ai/assistant/chat";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,7 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { ExpandableText } from "@/components/ExpandableText";
 
 export function ToolCard({
   toolName,
@@ -50,6 +52,8 @@ export function ToolCard({
       );
     case "update_about":
       return <UpdateAbout args={args as UpdateAboutSchema} />;
+    case "add_to_knowledge_base":
+      return <AddToKnowledgeBase args={args as AddToKnowledgeBaseSchema} />;
     default:
       return null;
   }
@@ -69,14 +73,15 @@ function CreatedRule({
 
   return (
     <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">
-          <strong>{ruleId ? "New rule created:" : "Creating rule:"}</strong>{" "}
-          {args.name}
-        </h3>
-
-        {ruleId && <RuleActions ruleId={ruleId} />}
-      </div>
+      <ToolCardHeader
+        title={
+          <>
+            <strong>{ruleId ? "New rule created:" : "Creating rule:"}</strong>{" "}
+            {args.name}
+          </>
+        }
+        actions={ruleId && <RuleActions ruleId={ruleId} />}
+      />
 
       <div className="space-y-2">
         {/* <h3 className="text-sm font-medium text-muted-foreground">
@@ -179,13 +184,10 @@ function UpdatedRuleConditions({
 
   return (
     <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">
-          <strong>Updated Conditions</strong>
-        </h3>
-
-        <RuleActions ruleId={ruleId} />
-      </div>
+      <ToolCardHeader
+        title={<strong>Updated Conditions</strong>}
+        actions={<RuleActions ruleId={ruleId} />}
+      />
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">
@@ -237,13 +239,10 @@ function UpdatedRuleActions({
 }) {
   return (
     <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">
-          <strong>Updated Actions</strong>
-        </h3>
-
-        <RuleActions ruleId={ruleId} />
-      </div>
+      <ToolCardHeader
+        title={<strong>Updated Actions</strong>}
+        actions={<RuleActions ruleId={ruleId} />}
+      />
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">
@@ -296,13 +295,10 @@ function UpdatedLearnedPatterns({
 }) {
   return (
     <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">
-          <strong>Updated Learned Patterns</strong>
-        </h3>
-
-        <RuleActions ruleId={ruleId} />
-      </div>
+      <ToolCardHeader
+        title={<strong>Updated Learned Patterns</strong>}
+        actions={<RuleActions ruleId={ruleId} />}
+      />
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">
@@ -354,12 +350,29 @@ function UpdatedLearnedPatterns({
 function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
   return (
     <Card className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">
-          <strong>Updated About Information</strong>
-        </h3>
-      </div>
+      <ToolCardHeader title={<strong>Updated About Information</strong>} />
       <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
+    </Card>
+  );
+}
+
+function AddToKnowledgeBase({ args }: { args: AddToKnowledgeBaseSchema }) {
+  const [_, setTab] = useQueryState("tab");
+
+  return (
+    <Card className="space-y-3 p-4">
+      <ToolCardHeader
+        title={<strong>Added to Knowledge Base</strong>}
+        actions={
+          <Button variant="link" onClick={() => setTab("rules")}>
+            View Knowledge Base
+          </Button>
+        }
+      />
+      <div className="rounded-md bg-muted p-3 text-sm">
+        <div className="font-medium">{args.title}</div>
+        <ExpandableText text={args.content} />
+      </div>
     </Card>
   );
 }
@@ -409,6 +422,21 @@ function RuleActions({ ruleId }: { ruleId: string }) {
           <TrashIcon className="size-4" />
         </Button>
       </Tooltip>
+    </div>
+  );
+}
+
+function ToolCardHeader({
+  title,
+  actions,
+}: {
+  title: React.ReactNode;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <h3 className="text-lg font-medium">{title}</h3>
+      {actions}
     </div>
   );
 }
