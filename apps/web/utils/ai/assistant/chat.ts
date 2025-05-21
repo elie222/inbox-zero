@@ -1,4 +1,4 @@
-import { type Message, tool } from "ai";
+import { type Message, type StepResult, type Tool, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -113,7 +113,12 @@ export async function aiProcessAssistantChat({
   messages: Message[];
   emailAccountId: string;
   user: EmailAccountWithAI;
-  onFinish: (messages: any) => void;
+  onFinish: (
+    response: Omit<
+      StepResult<Record<string, Tool>>,
+      "stepType" | "isContinued"
+    >,
+  ) => Promise<void>;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -380,9 +385,7 @@ Examples:
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
-    onFinish: async (_text, result) => {
-      if (onFinish) onFinish(result);
-    },
+    onFinish,
     maxSteps: 10,
     tools: {
       get_user_rules_and_settings: tool({

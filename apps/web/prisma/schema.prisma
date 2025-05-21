@@ -583,10 +583,9 @@ model ChatMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  role    String
-  content String
-  // attachments Json? // For storing message attachments if any
-  // metadata    Json? // For any additional metadata, like tool calls
+  role  String
+  parts Json
+  // attachments Json?
 
   chatId String
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)

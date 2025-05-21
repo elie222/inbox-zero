@@ -171,7 +171,9 @@ export async function chatCompletionStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
-  onFinish?: (text: string, result: any) => Promise<void>;
+  onFinish?: (
+    result: Omit<StepResult<Record<string, Tool>>, "stepType" | "isContinued">,
+  ) => Promise<void>;
   onStepFinish?: (
     stepResult: StepResult<Record<string, Tool>>,
   ) => Promise<void>;
@@ -192,16 +194,16 @@ export async function chatCompletionStream({
     ...commonOptions,
     experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
-    onFinish: async ({ usage, text }) => {
+    onFinish: async (result) => {
       await saveAiUsage({
         email: userEmail,
         provider,
         model,
-        usage,
+        usage: result.usage,
         label,
       });
 
-      if (onFinish) await onFinish(text, result);
+      if (onFinish) await onFinish(result);
     },
   });
 

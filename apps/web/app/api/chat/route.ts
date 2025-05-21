@@ -1,3 +1,9 @@
+import {
+  appendClientMessage,
+  appendResponseMessages,
+  type CoreAssistantMessage,
+  type CoreToolMessage,
+} from "ai";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -5,7 +11,7 @@ import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { appendClientMessage } from "ai";
+import { Prisma, type ChatMessage } from "@prisma/client";
 
 export const maxDuration = 120;
 
@@ -68,10 +74,12 @@ export const POST = withEmailAccount(async (request) => {
   }
 
   const { message } = data;
-  const mappedDbMessages = chat.messages.map((dbMsg) => {
+  const mappedDbMessages = chat.messages.map((dbMsg: ChatMessage) => {
     return {
       ...dbMsg,
       role: convertDbRoleToSdkRole(dbMsg.role),
+      content: "",
+      parts: dbMsg.parts as any,
     };
   });
 
@@ -80,14 +88,42 @@ export const POST = withEmailAccount(async (request) => {
     message,
   });
 
+  await saveChatMessage({
+    chat: { connect: { id: chat.id } },
+    id: message.id,
+    role: "user",
+    parts: message.parts,
+    // attachments: message.experimental_attachments ?? [],
+  });
+
   const result = await aiProcessAssistantChat({
     messages,
     emailAccountId,
     user,
-    onFinish: (messages: any) => {
-      saveChatMessages({
-        messagesToSave: messages,
-        chatId: chat.id,
+    onFinish: async ({ response }) => {
+      const assistantId = getTrailingMessageId({
+        messages: response.messages.filter(
+          (message: { role: string }) => message.role === "assistant",
+        ),
+      });
+
+      if (!assistantId) {
+        throw new Error("No assistant message found!");
+      }
+
+      const [, assistantMessage] = appendResponseMessages({
+        messages: [message],
+        responseMessages: response.messages,
+      });
+
+      await saveChatMessage({
+        id: assistantId,
+        chat: { connect: { id: chat.id } },
+        role: assistantMessage.role,
+        parts: assistantMessage.parts
+          ? (assistantMessage.parts as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+        // attachments: assistantMessage.experimental_attachments ?? [],
       });
     },
   });
@@ -109,66 +145,8 @@ async function createNewChat(emailAccountId: string) {
   }
 }
 
-async function saveChatMessages({
-  messagesToSave,
-  chatId,
-}: {
-  messagesToSave: {
-    role: "user" | "assistant" | "system" | "tool";
-    content: string;
-    attachments?: any[];
-    metadata?: Record<string, any>;
-  }[];
-  chatId: string;
-}): Promise<boolean> {
-  if (!chatId) {
-    logger.error("saveChatMessages called without a chatId.");
-    return false;
-  }
-  if (!messagesToSave || messagesToSave.length === 0) {
-    logger.warn("saveChatMessages called with no messages to save.", {
-      chatId,
-    });
-    return true; // No messages to save is not an error in this context
-  }
-
-  try {
-    const prismaMessagesData = messagesToSave.map((msg) => {
-      const mappedRole = msg.role.toUpperCase();
-
-      const attachmentsToSave =
-        msg.attachments && msg.attachments.length > 0
-          ? msg.attachments
-          : undefined;
-      const metadataToSave =
-        msg.metadata && Object.keys(msg.metadata).length > 0
-          ? msg.metadata
-          : undefined;
-
-      return {
-        chatId: chatId,
-        role: mappedRole,
-        content: msg.content,
-        attachments: attachmentsToSave,
-        metadata: metadataToSave,
-      };
-    });
-
-    await prisma.chatMessage.createMany({
-      data: prismaMessagesData,
-      skipDuplicates: false, // If a message might be re-processed, this could be true if unique IDs are part of input
-    });
-
-    logger.info("Successfully saved chat messages", { chatId });
-    return true;
-  } catch (error) {
-    logger.error("Failed to save chat messages to DB", {
-      error,
-      chatId: chatId,
-      numberOfMessages: messagesToSave.length,
-    });
-    return false;
-  }
+async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
+  return prisma.chatMessage.create({ data: message });
 }
 
 async function getChatById(chatId: string) {
@@ -194,4 +172,19 @@ function convertDbRoleToSdkRole(
     default:
       return "assistant";
   }
+}
+
+type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
+type ResponseMessage = ResponseMessageWithoutId & { id: string };
+
+function getTrailingMessageId({
+  messages,
+}: {
+  messages: Array<ResponseMessage>;
+}): string | null {
+  const trailingMessage = messages.at(-1);
+
+  if (!trailingMessage) return null;
+
+  return trailingMessage.id;
 }
