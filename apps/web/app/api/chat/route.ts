@@ -22,7 +22,7 @@ const textPartSchema = z.object({
   type: z.enum(["text"]),
 });
 
-export const assistantInputSchema = z.object({
+const assistantInputSchema = z.object({
   chatId: z.string().uuid(),
   message: z.object({
     id: z.string().uuid(),
@@ -111,6 +111,7 @@ export const POST = withEmailAccount(async (request) => {
         throw new Error("No assistant message found!");
       }
 
+      // handles all tool calls
       const [, assistantMessage] = appendResponseMessages({
         messages: [message],
         responseMessages: response.messages,
