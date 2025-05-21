@@ -4,11 +4,11 @@ import { chatCompletionObject } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { Braintrust } from "@/utils/braintrust";
+// import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai-choose-rule");
 
-const braintrust = new Braintrust("choose-rule-2");
+// const braintrust = new Braintrust("choose-rule-2");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -98,8 +98,8 @@ ${emailSection}
     ],
     schema: z.object({
       reason: z.string(),
-      ruleName: z.string(),
-      noMatchFound: z.boolean().optional(),
+      ruleName: z.string().nullish(),
+      noMatchFound: z.boolean().nullish(),
     }),
     userEmail: emailAccount.email,
     usageLabel: "Choose rule",
@@ -107,20 +107,20 @@ ${emailSection}
 
   logger.trace("Response", aiResponse.object);
 
-  braintrust.insertToDataset({
-    id: email.id,
-    input: {
-      email: emailSection,
-      rules: rules.map((rule) => ({
-        name: rule.name,
-        instructions: rule.instructions,
-      })),
-      hasAbout: !!emailAccount.about,
-      userAbout: emailAccount.about,
-      userEmail: emailAccount.email,
-    },
-    expected: aiResponse.object.ruleName,
-  });
+  // braintrust.insertToDataset({
+  //   id: email.id,
+  //   input: {
+  //     email: emailSection,
+  //     rules: rules.map((rule) => ({
+  //       name: rule.name,
+  //       instructions: rule.instructions,
+  //     })),
+  //     hasAbout: !!emailAccount.about,
+  //     userAbout: emailAccount.about,
+  //     userEmail: emailAccount.email,
+  //   },
+  //   expected: aiResponse.object.ruleName,
+  // });
 
   return aiResponse.object;
 }
@@ -149,7 +149,8 @@ export async function aiChooseRule<
 
   const selectedRule = aiResponse.ruleName
     ? rules.find(
-        (rule) => rule.name.toLowerCase() === aiResponse.ruleName.toLowerCase(),
+        (rule) =>
+          rule.name.toLowerCase() === aiResponse.ruleName?.toLowerCase(),
       )
     : undefined;
 

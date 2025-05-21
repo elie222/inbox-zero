@@ -129,6 +129,7 @@ export const testColdEmailAction = actionClient
       const response = await isColdEmail({
         email: {
           from,
+          to: "",
           subject,
           content,
           date: date ? new Date(date) : undefined,

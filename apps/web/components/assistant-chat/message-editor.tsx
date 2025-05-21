@@ -11,7 +11,7 @@ import {
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-// import { deleteTrailingMessages } from "@/app/(app)/automation/chat/actions";
+// import { deleteTrailingMessages } from "@/app/(app)/assistant/chat/actions";
 
 export type MessageEditorProps = {
   message: Message;

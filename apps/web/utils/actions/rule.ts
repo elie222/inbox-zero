@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import {
   createRuleBody,
   updateRuleBody,
@@ -42,7 +43,6 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
-import { after } from "next/server";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -110,7 +110,7 @@ export const createRuleAction = actionClient
           include: { actions: true, categoryFilters: true, group: true },
         });
 
-        await updatePromptFileOnRuleCreated({ emailAccountId, rule });
+        after(() => updatePromptFileOnRuleCreated({ emailAccountId, rule }));
 
         return { rule };
       } catch (error) {
@@ -153,7 +153,7 @@ export const updateRuleAction = actionClient
           where: { id, emailAccountId },
           include: { actions: true, categoryFilters: true, group: true },
         });
-        if (!currentRule) return { error: "Rule not found" };
+        if (!currentRule) throw new SafeError("Rule not found");
 
         const currentActions = currentRule.actions;
 
@@ -238,24 +238,27 @@ export const updateRuleAction = actionClient
         ]);
 
         // update prompt file
-        await updatePromptFileOnRuleUpdated({
-          emailAccountId,
-          currentRule,
-          updatedRule,
-        });
+        after(() =>
+          updatePromptFileOnRuleUpdated({
+            emailAccountId,
+            currentRule,
+            updatedRule,
+          }),
+        );
 
-        revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+        revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+        revalidatePath(prefixPath(emailAccountId, "/assistant"));
         revalidatePath(prefixPath(emailAccountId, "/automation"));
 
         return { rule: updatedRule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
-          return { error: "Rule name already exists" };
+          throw new SafeError("Rule name already exists");
         }
         if (isDuplicateError(error, "groupId")) {
-          return {
-            error: "Group already has a rule. Please use the existing rule.",
-          };
+          throw new SafeError(
+            "Group already has a rule. Please use the existing rule.",
+          );
         }
 
         logger.error("Error updating rule", { error });
@@ -273,16 +276,19 @@ export const updateRuleInstructionsAction = actionClient
         where: { id, emailAccountId },
         include: { actions: true, categoryFilters: true, group: true },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
-      await updateRuleInstructionsAndPromptFile({
-        emailAccountId,
-        ruleId: id,
-        instructions,
-        currentRule,
-      });
+      after(() =>
+        updateRuleInstructionsAndPromptFile({
+          emailAccountId,
+          ruleId: id,
+          instructions,
+          currentRule,
+        }),
+      );
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
       revalidatePath(prefixPath(emailAccountId, "/automation"));
     },
   );
@@ -295,14 +301,15 @@ export const updateRuleSettingsAction = actionClient
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
       await prisma.rule.update({
         where: { id, emailAccountId },
         data: { instructions },
       });
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
       revalidatePath(prefixPath(emailAccountId, "/automation"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
@@ -321,7 +328,7 @@ export const enableDraftRepliesAction = actionClient
       },
       select: { id: true, actions: true },
     });
-    if (!rule) return { error: "Rule not found" };
+    if (!rule) throw new SafeError("Rule not found");
 
     if (enable) {
       await enableDraftReplies(rule);
@@ -334,7 +341,8 @@ export const enableDraftRepliesAction = actionClient
       });
     }
 
-    revalidatePath(prefixPath(emailAccountId, `/automation/rule/${rule.id}`));
+    revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`));
+    revalidatePath(prefixPath(emailAccountId, "/assistant"));
     revalidatePath(prefixPath(emailAccountId, "/automation"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
   });
@@ -349,7 +357,7 @@ export const deleteRuleAction = actionClient
     });
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)
-      return { error: "You don't have permission to delete this rule" };
+      throw new SafeError("You don't have permission to delete this rule");
 
     try {
       await deleteRule({
@@ -358,7 +366,7 @@ export const deleteRuleAction = actionClient
         groupId: rule.groupId,
       });
 
-      revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
+      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
 
       after(async () => {
         const emailAccount = await prisma.emailAccount.findUnique({
@@ -378,7 +386,7 @@ export const deleteRuleAction = actionClient
             },
           },
         });
-        if (!emailAccount) return { error: "User not found" };
+        if (!emailAccount) throw new SafeError("User not found");
 
         if (!emailAccount.rulesPrompt) return;
 
@@ -437,22 +445,25 @@ export const createRulesOnboardingAction = actionClient
         where: { id: emailAccountId },
         select: { rulesPrompt: true },
       });
-      if (!emailAccount) return { error: "User not found" };
+      if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<any>[] = [];
 
-      const isSet = (value: string): value is "label" | "label_archive" =>
-        value !== "none";
+      const isSet = (
+        value: string | undefined,
+      ): value is "label" | "label_archive" =>
+        value !== "none" && value !== undefined;
 
       // cold email blocker
-      if (isSet(coldEmail)) {
+      if (isSet(coldEmail.action)) {
         const promise = prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: {
             coldEmailBlocker:
-              coldEmail === "label"
+              coldEmail.action === "label"
                 ? ColdEmailSetting.LABEL
                 : ColdEmailSetting.ARCHIVE_AND_LABEL,
+            coldEmailDigest: coldEmail.hasDigest,
           },
         });
         promises.push(promise);
@@ -461,8 +472,11 @@ export const createRulesOnboardingAction = actionClient
       const rules: string[] = [];
 
       // reply tracker
-      if (isSet(toReply)) {
-        const promise = enableReplyTracker({ emailAccountId }).then((res) => {
+      if (isSet(toReply.action)) {
+        const promise = enableReplyTracker({
+          emailAccountId,
+          addDigest: toReply.hasDigest,
+        }).then((res) => {
           if (res?.alreadyEnabled) return;
 
           // Load previous emails needing replies in background
@@ -494,6 +508,7 @@ export const createRulesOnboardingAction = actionClient
         label: string,
         systemType: SystemType,
         emailAccountId: string,
+        hasDigest: boolean,
       ) {
         const existingRule = await prisma.rule.findUnique({
           where: { emailAccountId_systemType: { emailAccountId, systemType } },
@@ -513,6 +528,7 @@ export const createRulesOnboardingAction = actionClient
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
                         : []),
+                      ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
                     ],
                   },
                 },
@@ -544,6 +560,7 @@ export const createRulesOnboardingAction = actionClient
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
                         : []),
+                      ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
                     ],
                   },
                 },
@@ -582,80 +599,85 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // newsletter
-      if (isSet(newsletter)) {
+      if (isSet(newsletter.action)) {
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
           "Label all newsletters as 'Newsletter'",
           false,
-          newsletter,
+          newsletter.action,
           "Newsletter",
           SystemType.NEWSLETTER,
           emailAccountId,
+          !!newsletter.hasDigest,
         );
       } else {
         deleteRule(SystemType.NEWSLETTER, emailAccountId);
       }
 
       // marketing
-      if (isSet(marketing)) {
+      if (isSet(marketing.action)) {
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
           "Label all marketing emails as 'Marketing'",
           false,
-          marketing,
+          marketing.action,
           "Marketing",
           SystemType.MARKETING,
           emailAccountId,
+          !!marketing.hasDigest,
         );
       } else {
         deleteRule(SystemType.MARKETING, emailAccountId);
       }
 
       // calendar
-      if (isSet(calendar)) {
+      if (isSet(calendar.action)) {
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
           "Label all calendar emails as 'Calendar'",
           false,
-          calendar,
+          calendar.action,
           "Calendar",
           SystemType.CALENDAR,
           emailAccountId,
+          !!calendar.hasDigest,
         );
       } else {
         deleteRule(SystemType.CALENDAR, emailAccountId);
       }
 
       // receipt
-      if (isSet(receipt)) {
+      if (isSet(receipt.action)) {
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
           "Label all receipts as 'Receipts'",
           false,
-          receipt,
+          receipt.action,
           "Receipt",
           SystemType.RECEIPT,
           emailAccountId,
+          !!receipt.hasDigest,
         );
       } else {
         deleteRule(SystemType.RECEIPT, emailAccountId);
       }
 
       // notification
-      if (isSet(notification)) {
+      if (isSet(notification.action)) {
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
           "Label all notifications as 'Notifications'",
           false,
-          notification,
+          notification.action,
           "Notification",
           SystemType.NOTIFICATION,
           emailAccountId,
+          !!notification.hasDigest,
         );
       } else {
         deleteRule(SystemType.NOTIFICATION, emailAccountId);

@@ -1,4 +1,4 @@
-import { streamText, tool } from "ai";
+import { type Message, type StepResult, type Tool, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -9,38 +9,61 @@ import {
   updateRuleActions,
 } from "@/utils/rule/rule";
 import { ActionType, GroupItemType, LogicalOperator } from "@prisma/client";
-import { saveAiUsage } from "@/utils/usage";
-import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { posthogCaptureEvent } from "@/utils/posthog";
+import { chatCompletionStream } from "@/utils/llms";
+import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
 export const maxDuration = 120;
 
 // schemas
-export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
-
 const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
     aiInstructions: z.string().optional(),
     static: z
       .object({
-        from: z.string().optional(),
-        to: z.string().optional(),
-        subject: z.string().optional(),
-        body: z.string().optional(),
+        from: z.string().nullish(),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
       })
-      .optional(),
+      .nullish(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .optional(),
+      .nullish(),
   }),
 });
 export type UpdateRuleConditionSchema = z.infer<
   typeof updateRuleConditionSchema
 >;
+
+// Tool result types
+export type UpdateRuleConditionsResult = {
+  success: boolean;
+  ruleId: string;
+  originalConditions?: {
+    aiInstructions: string | null;
+    static: Partial<{
+      from: string | null;
+      to: string | null;
+      subject: string | null;
+    }>;
+    conditionalOperator: string | null;
+  };
+  updatedConditions?: {
+    aiInstructions?: string;
+    static?: Partial<{
+      from: string | null;
+      to: string | null;
+      subject: string | null;
+    }>;
+    conditionalOperator?: string | null;
+  };
+  error?: string;
+};
 
 const updateRuleActionsSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
@@ -58,95 +81,66 @@ const updateRuleActionsSchema = z.object({
         ActionType.CALL_WEBHOOK,
       ]),
       fields: z.object({
-        label: z.string().optional(),
-        content: z.string().optional(),
-        webhookUrl: z.string().optional(),
-        to: z.string().optional(),
-        cc: z.string().optional(),
-        bcc: z.string().optional(),
-        subject: z.string().optional(),
+        label: z.string().nullish(),
+        content: z.string().nullish(),
+        webhookUrl: z.string().nullish(),
+        to: z.string().nullish(),
+        cc: z.string().nullish(),
+        bcc: z.string().nullish(),
+        subject: z.string().nullish(),
       }),
     }),
   ),
 });
 export type UpdateRuleActionsSchema = z.infer<typeof updateRuleActionsSchema>;
 
+export type UpdateRuleActionsResult = {
+  success: boolean;
+  ruleId: string;
+  originalActions?: Array<{
+    type: string;
+    fields: Partial<{
+      label: string | null;
+      content: string | null;
+      to: string | null;
+      cc: string | null;
+      bcc: string | null;
+      subject: string | null;
+      webhookUrl: string | null;
+    }>;
+  }>;
+  updatedActions?: Array<{
+    type: string;
+    fields: Record<string, string | null>;
+  }>;
+  error?: string;
+};
+
 // Schema for updating learned patterns
 const updateLearnedPatternsSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
-  learnedPatterns: z.array(
-    z.object({
-      include: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-      exclude: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-    }),
-  ),
+  learnedPatterns: z
+    .array(
+      z.object({
+        include: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+        exclude: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .min(1, "At least one learned pattern is required"),
 });
 export type UpdateLearnedPatternsSchema = z.infer<
   typeof updateLearnedPatternsSchema
 >;
-
-// // Keeping the original schema for backward compatibility
-// const updateRuleSchema = z.object({
-//   ruleName: z.string().describe("The name of the rule to update"),
-//   condition: z
-//     .object({
-//       aiInstructions: z.string(),
-//       static: z.object({
-//         from: z.string(),
-//         to: z.string(),
-//         subject: z.string(),
-//         body: z.string(),
-//       }),
-//       conditionalOperator: z.enum([LogicalOperator.AND, LogicalOperator.OR]),
-//     })
-//     .optional(),
-//   actions: z.array(
-//     z
-//       .object({
-//         type: z.enum([
-//           ActionType.ARCHIVE,
-//           ActionType.LABEL,
-//           ActionType.REPLY,
-//           ActionType.SEND_EMAIL,
-//           ActionType.FORWARD,
-//           ActionType.MARK_READ,
-//           ActionType.MARK_SPAM,
-//           ActionType.CALL_WEBHOOK,
-//         ]),
-//         fields: z.object({
-//           label: z.string().optional(),
-//           content: z.string().optional(),
-//           webhookUrl: z.string().optional(),
-//         }),
-//       })
-//       .optional(),
-//   ),
-//   learnedPatterns: z
-//     .array(
-//       z.object({
-//         include: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//         exclude: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//       }),
-//     )
-//     .optional(),
-// });
-// export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
 
 const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
@@ -161,10 +155,17 @@ export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  onFinish,
 }: {
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: Message[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  onFinish: (
+    response: Omit<
+      StepResult<Record<string, Tool>>,
+      "stepType" | "isContinued"
+    >,
+  ) => Promise<void>;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -194,7 +195,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Rule matching logic:
-- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
+- All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
@@ -213,6 +214,10 @@ You can set general infomation about the user too that will be passed as context
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The also is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
+
+Static conditions:
+- In FROM and TO fields, you can use the pipe symbol (|) to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
+- In the SUBJECT field, pipe symbols are treated as literal characters and must match exactly.
 
 Learned patterns:
 - Learned patterns override the conditional logic for a rule.
@@ -420,18 +425,18 @@ Examples:
   </example>
 </examples>`;
 
-  // TODO: clean up
-  const { provider, model, llmModel, providerOptions } = getModel(
-    user.user,
-    false,
-  );
-
   logger.trace("Input", { messages });
 
-  const result = streamText({
-    model: llmModel,
-    messages,
+  const result = chatCompletionStream({
+    userAi: user.user,
+    userEmail: user.email,
+    usageLabel: "assistant-chat",
     system,
+    messages,
+    onStepFinish: async ({ text, toolCalls }) => {
+      logger.trace("Step finished", { text, toolCalls });
+    },
+    onFinish,
     maxSteps: 10,
     tools: {
       get_user_rules_and_settings: tool({
@@ -439,19 +444,125 @@ Examples:
           "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
         parameters: z.object({}),
         execute: async () => {
-          // trackToolCall("list_rules", user.email);
-          const [rules, user] = await Promise.all([
-            prisma.rule.findMany({ where: { emailAccountId } }),
-            prisma.emailAccount.findUnique({
-              where: { id: emailAccountId },
-              select: { about: true, coldEmailBlocker: true },
-            }),
-          ]);
+          trackToolCall({
+            tool: "get_user_rules_and_settings",
+            email: user.email,
+          });
+
+          const emailAccount = await prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: {
+              about: true,
+              coldEmailBlocker: true,
+              rules: {
+                select: {
+                  name: true,
+                  instructions: true,
+                  from: true,
+                  to: true,
+                  subject: true,
+                  conditionalOperator: true,
+                  enabled: true,
+                  automate: true,
+                  runOnThreads: true,
+                  actions: {
+                    select: {
+                      type: true,
+                      content: true,
+                      label: true,
+                      to: true,
+                      cc: true,
+                      bcc: true,
+                      subject: true,
+                      url: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
 
           return {
-            rules,
-            about: user?.about || "Not set",
-            coldEmailBlocker: user?.coldEmailBlocker || "Not set",
+            about: emailAccount?.about || "Not set",
+            coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
+            rules: emailAccount?.rules.map((rule) => {
+              const staticFilter = filterNullProperties({
+                from: rule.from,
+                to: rule.to,
+                subject: rule.subject,
+              });
+
+              const staticConditions =
+                Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
+
+              return {
+                name: rule.name,
+                conditions: {
+                  aiInstructions: rule.instructions,
+                  static: staticConditions,
+                  // only need to show conditional operator if there are multiple conditions
+                  conditionalOperator:
+                    rule.instructions && staticConditions
+                      ? rule.conditionalOperator
+                      : undefined,
+                },
+                actions: rule.actions.map((action) => ({
+                  type: action.type,
+                  fields: filterNullProperties({
+                    label: action.label,
+                    content: action.content,
+                    to: action.to,
+                    cc: action.cc,
+                    bcc: action.bcc,
+                    subject: action.subject,
+                    url: action.url,
+                  }),
+                })),
+                enabled: rule.enabled,
+                automate: rule.automate,
+                runOnThreads: rule.runOnThreads,
+              };
+            }),
+          };
+        },
+      }),
+
+      get_learned_patterns: tool({
+        description: "Retrieve the learned patterns for a rule",
+        parameters: z.object({
+          ruleName: z
+            .string()
+            .describe("The name of the rule to get the learned patterns for"),
+        }),
+        execute: async ({ ruleName }) => {
+          trackToolCall({ tool: "get_learned_patterns", email: user.email });
+
+          const rule = await prisma.rule.findUnique({
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              group: {
+                select: {
+                  items: {
+                    select: {
+                      type: true,
+                      value: true,
+                      exclude: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!rule) {
+            return {
+              error:
+                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+            };
+          }
+
+          return {
+            patterns: rule.group?.items,
           };
         },
       }),
@@ -460,8 +571,7 @@ Examples:
         description: "Create a new rule",
         parameters: createRuleSchema,
         execute: async ({ name, condition, actions }) => {
-          logger.info("Create Rule", { name, condition, actions });
-          // trackToolCall("create_rule", user.email);
+          trackToolCall({ tool: "create_rule", email: user.email });
 
           try {
             const rule = await createRule({
@@ -504,17 +614,44 @@ Examples:
       update_rule_conditions: tool({
         description: "Update the conditions of an existing rule",
         parameters: updateRuleConditionSchema,
-        execute: async ({ ruleName, condition }) => {
+        execute: async ({
+          ruleName,
+          condition,
+        }): Promise<UpdateRuleConditionsResult> => {
+          trackToolCall({ tool: "update_rule_conditions", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              id: true,
+              name: true,
+              instructions: true,
+              from: true,
+              to: true,
+              subject: true,
+              conditionalOperator: true,
+            },
           });
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };
           }
+
+          // Store original state
+          const originalConditions = {
+            aiInstructions: rule.instructions,
+            static: filterNullProperties({
+              from: rule.from,
+              to: rule.to,
+              subject: rule.subject,
+            }),
+            conditionalOperator: rule.conditionalOperator,
+          };
 
           await partialUpdateRule({
             ruleId: rule.id,
@@ -523,12 +660,29 @@ Examples:
               from: condition.static?.from,
               to: condition.static?.to,
               subject: condition.static?.subject,
-              body: condition.static?.body,
-              conditionalOperator: condition.conditionalOperator,
+              conditionalOperator: condition.conditionalOperator ?? undefined,
             },
           });
 
-          return { success: true, ruleId: rule.id };
+          // Prepare updated state
+          const updatedConditions = {
+            aiInstructions: condition.aiInstructions,
+            static: condition.static
+              ? filterNullProperties({
+                  from: condition.static.from,
+                  to: condition.static.to,
+                  subject: condition.static.subject,
+                })
+              : undefined,
+            conditionalOperator: condition.conditionalOperator,
+          };
+
+          return {
+            success: true,
+            ruleId: rule.id,
+            originalConditions,
+            updatedConditions,
+          };
         },
       }),
 
@@ -536,17 +690,53 @@ Examples:
         description:
           "Update the actions of an existing rule. This replaces the existing actions.",
         parameters: updateRuleActionsSchema,
-        execute: async ({ ruleName, actions }) => {
+        execute: async ({
+          ruleName,
+          actions,
+        }): Promise<UpdateRuleActionsResult> => {
+          trackToolCall({ tool: "update_rule_actions", email: user.email });
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              id: true,
+              name: true,
+              actions: {
+                select: {
+                  type: true,
+                  content: true,
+                  label: true,
+                  to: true,
+                  cc: true,
+                  bcc: true,
+                  subject: true,
+                  url: true,
+                },
+              },
+            },
           });
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };
           }
+
+          // Store original actions
+          const originalActions = rule.actions.map((action) => ({
+            type: action.type,
+            fields: filterNullProperties({
+              label: action.label,
+              content: action.content,
+              to: action.to,
+              cc: action.cc,
+              bcc: action.bcc,
+              subject: action.subject,
+              webhookUrl: action.url,
+            }),
+          }));
 
           await updateRuleActions({
             ruleId: rule.id,
@@ -564,7 +754,12 @@ Examples:
             })),
           });
 
-          return { success: true, ruleId: rule.id };
+          return {
+            success: true,
+            ruleId: rule.id,
+            originalActions,
+            updatedActions: actions,
+          };
         },
       }),
 
@@ -572,12 +767,16 @@ Examples:
         description: "Update the learned patterns of an existing rule",
         parameters: updateLearnedPatternsSchema,
         execute: async ({ ruleName, learnedPatterns }) => {
+          trackToolCall({ tool: "update_learned_patterns", email: user.email });
+
           const rule = await prisma.rule.findUnique({
-            where: { id: ruleName, emailAccountId },
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
           });
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };
@@ -641,6 +840,7 @@ Examples:
           "Update the user's about information. Read the user's about information first as this replaces the existing information.",
         parameters: updateAboutSchema,
         execute: async ({ about }) => {
+          trackToolCall({ tool: "update_about", email: user.email });
           const existing = await prisma.emailAccount.findUnique({
             where: { id: emailAccountId },
             select: { about: true },
@@ -665,6 +865,8 @@ Examples:
         description: "Add content to the knowledge base",
         parameters: addToKnowledgeBaseSchema,
         execute: async ({ title, content }) => {
+          trackToolCall({ tool: "add_to_knowledge_base", email: user.email });
+
           try {
             await prisma.knowledge.create({
               data: {
@@ -688,19 +890,12 @@ Examples:
         },
       }),
     },
-    onFinish: async ({ usage }) => {
-      await saveAiUsage({
-        email: user.email,
-        provider,
-        model,
-        usage,
-        label: "Assistant chat",
-      });
-    },
-    onStepFinish: async ({ usage, text, toolCalls }) => {
-      logger.trace("Step finished", { usage, text, toolCalls });
-    },
   });
 
   return result;
+}
+
+async function trackToolCall({ tool, email }: { tool: string; email: string }) {
+  logger.info("Tracking tool call", { tool, email });
+  return posthogCaptureEvent(email, "AI Assistant Chat Tool Call", { tool });
 }

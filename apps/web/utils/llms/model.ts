@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
+// import sample from "lodash/sample";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -75,7 +76,13 @@ function selectModel(
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.CLAUDE_3_7_SONNET_OPENROUTER;
+      const model = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
+      // // choose random model to handle rate limits better
+      // sample([
+      //   Model.CLAUDE_3_5_SONNET_OPENROUTER,
+      //   Model.CLAUDE_3_7_SONNET_OPENROUTER,
+      //   Model.CLAUDE_4_SONNET_OPENROUTER,
+      // ]);
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -190,20 +197,23 @@ function selectDefaultModel(userAi: UserAIFields) {
   const providerOptions: Record<string, any> = {};
 
   // Add OpenRouter-specific provider options
-  // TODO: shouldn't be harded coded
+  // TODO: shouldn't be hard coded
   if (defaultProvider === Provider.OPENROUTER) {
     providerOptions.openrouter = {
+      // random order to make better use of stronger models with lower rate limits
       models: [
+        // "anthropic/claude-3.5-sonnet",
         "anthropic/claude-3.7-sonnet",
+        "anthropic/claude-sonnet-4",
         // "google/gemini-2.5-pro-preview-03-25",
       ],
-      provider: {
-        order: [
-          "Amazon Bedrock",
-          // "Google AI Studio",
-          "Anthropic",
-        ],
-      },
+      // provider: {
+      //   order: [
+      //     "Amazon Bedrock",
+      //     "Google AI Studio",
+      //     "Anthropic",
+      //   ],
+      // },
     };
   }
 

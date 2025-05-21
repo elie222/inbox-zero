@@ -51,8 +51,6 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
-ENV NEXT_PUBLIC_SANITY_PROJECT_ID="project123"
-ENV NEXT_PUBLIC_SANITY_DATASET="dummy-sanity-dataset-for-build"
 
 # Ensure prisma generate runs
 RUN pnpm --filter inbox-zero-ai exec -- next build

@@ -40,8 +40,8 @@ Each knowledge entry belongs to a specific user and is automatically deleted if 
 
 The knowledge base functionality is implemented in:
 
-- `apps/web/app/(app)/automation/knowledge/KnowledgeBase.tsx` - Main UI component
-- `apps/web/app/(app)/automation/knowledge/KnowledgeForm.tsx` - Form for creating/editing entries
+- `apps/web/app/(app)/assistant/knowledge/KnowledgeBase.tsx` - Main UI component
+- `apps/web/app/(app)/assistant/knowledge/KnowledgeForm.tsx` - Form for creating/editing entries
 - `apps/web/utils/actions/knowledge.ts` - Server actions for CRUD operations
 - `apps/web/utils/actions/knowledge.validation.ts` - Zod validation schemas
 - `apps/web/app/api/knowledge/route.ts` - API route for fetching entries

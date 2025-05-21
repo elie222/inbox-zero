@@ -44,7 +44,11 @@ function ProfileDropdown() {
   const { emailAccountId, emailAccount } = useAccount();
 
   const userNavigation = [
-    { name: "Usage", href: "/usage", icon: BarChartIcon },
+    {
+      name: "Usage",
+      href: prefixPath(emailAccountId, "/usage"),
+      icon: BarChartIcon,
+    },
     {
       name: "Mail (Beta)",
       href: prefixPath(emailAccountId, "/mail"),

@@ -12,7 +12,7 @@ export function ViewEmailButton({
   threadId: string;
   messageId: string;
   className?: string;
-  size?: "icon" | "xs";
+  size?: "icon" | "xs" | "sm";
 }) {
   const { showEmail } = useDisplayedEmail();
 

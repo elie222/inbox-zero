@@ -1,16 +1,24 @@
 import { type Premium, PremiumTier } from "@prisma/client";
 
+function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
+  if (!stripeSubscriptionStatus) return false;
+  const activeStatuses = ["active", "trialing"];
+  return activeStatuses.includes(stripeSubscriptionStatus);
+}
+
+function isPremiumLemonSqueezy(lemonSqueezyRenewsAt: Date | null): boolean {
+  if (!lemonSqueezyRenewsAt) return false;
+  return new Date(lemonSqueezyRenewsAt) > new Date();
+}
+
 export const isPremium = (
   lemonSqueezyRenewsAt: Date | null,
   stripeSubscriptionStatus: string | null,
 ): boolean => {
-  if (lemonSqueezyRenewsAt) return new Date(lemonSqueezyRenewsAt) > new Date();
-  if (stripeSubscriptionStatus) {
-    const activeStatuses = ["active", "trialing"];
-    return activeStatuses.includes(stripeSubscriptionStatus);
-  }
-
-  return false;
+  return (
+    isPremiumStripe(stripeSubscriptionStatus) ||
+    isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
+  );
 };
 
 export const getUserTier = (

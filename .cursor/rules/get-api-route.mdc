@@ -14,12 +14,13 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withAuth } from "@/utils/middleware";
 
+// Notice how we infer the response type. We don't need to manually type it out
 export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 
-export const GET = withAuth(async () => {
+// The middleware does the error handling and authentication for us already
+export const GET = withEmailAccount(async () => {
   const emailAccountId = request.auth.emailAccountId;
   
-
   const result = getData({ email });
   return NextResponse.json(result);
 });
@@ -37,8 +38,9 @@ See [data-fetching.mdc](mdc:.cursor/rules/data-fetching.mdc) as to how this woul
 
 Key Requirements:
 
-   - Always wrap the handler with `withAuth` for consistent error handling and authentication.
-   - We don't need try/catch as `withAuth` handles that.
-   - Infer and export response type.
+   - Always wrap the handler with `withAuth` or `withEmailAccount` for consistent error handling and authentication.
+   - `withAuth` gets the user. `withEmailAccount` gets the currently active email account. A user can have multiple email accounts under it.
+   - We don't need try/catch as `withAuth` and `withEmailAccount` handles that.
+   - Infer and export response type as in the example.
    - Use Prisma for database queries.
    - Return responses using `NextResponse.json()`

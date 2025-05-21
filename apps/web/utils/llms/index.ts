@@ -2,12 +2,15 @@ import type { z } from "zod";
 import {
   APICallError,
   type CoreMessage,
-  type CoreTool,
+  type Tool,
   type JSONValue,
   generateObject,
   generateText,
   RetryError,
   streamText,
+  type StepResult,
+  smoothStream,
+  type Message,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -15,6 +18,7 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
+  captureException,
   isAnthropicInsufficientBalanceError,
   isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
@@ -25,6 +29,9 @@ import {
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("llms");
 
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
@@ -149,19 +156,31 @@ async function chatCompletionObjectInternal<T>({
 export async function chatCompletionStream({
   userAi,
   useEconomyModel,
-  prompt,
   system,
+  prompt,
+  messages,
+  tools,
+  maxSteps,
   userEmail,
   usageLabel: label,
   onFinish,
+  onStepFinish,
 }: {
   userAi: UserAIFields;
   useEconomyModel?: boolean;
-  prompt: string;
   system?: string;
+  prompt?: string;
+  messages?: Message[];
+  tools?: Record<string, Tool>;
+  maxSteps?: number;
   userEmail: string;
   usageLabel: string;
-  onFinish?: (text: string) => Promise<void>;
+  onFinish?: (
+    result: Omit<StepResult<Record<string, Tool>>, "stepType" | "isContinued">,
+  ) => Promise<void>;
+  onStepFinish?: (
+    stepResult: StepResult<Record<string, Tool>>,
+  ) => Promise<void>;
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
@@ -170,20 +189,38 @@ export async function chatCompletionStream({
 
   const result = streamText({
     model: llmModel,
-    prompt,
     system,
+    prompt,
+    messages,
+    tools,
+    maxSteps,
     providerOptions,
     ...commonOptions,
-    onFinish: async ({ usage, text }) => {
+    experimental_transform: smoothStream({ chunking: "word" }),
+    onStepFinish,
+    onFinish: async (result) => {
       await saveAiUsage({
         email: userEmail,
         provider,
         model,
-        usage,
+        usage: result.usage,
         label,
       });
 
-      if (onFinish) await onFinish(text);
+      if (onFinish) await onFinish(result);
+    },
+    onError: (error) => {
+      logger.error("Error in chat completion stream", {
+        userEmail,
+        error,
+      });
+      captureException(
+        error,
+        {
+          extra: { label },
+        },
+        userEmail,
+      );
     },
   });
 
@@ -193,7 +230,7 @@ export async function chatCompletionStream({
 type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
   useEconomyModel?: boolean;
-  tools: Record<string, CoreTool>;
+  tools: Record<string, Tool>;
   maxSteps?: number;
   label: string;
   userEmail: string;
@@ -276,7 +313,7 @@ async function streamCompletionTools({
   useEconomyModel?: boolean;
   prompt: string;
   system?: string;
-  tools: Record<string, CoreTool>;
+  tools: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
   label: string;

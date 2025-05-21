@@ -18,7 +18,6 @@ import type { OpenAiModelsResponse } from "@/app/api/ai/models/route";
 import { AlertBasic, AlertError } from "@/components/Alert";
 import {
   DEFAULT_PROVIDER,
-  modelOptions,
   Provider,
   providerOptions,
 } from "@/utils/llms/config";
@@ -57,12 +56,6 @@ export function ModelSection() {
   );
 }
 
-function getDefaultModel(aiProvider: string | null) {
-  const provider = aiProvider || DEFAULT_PROVIDER;
-  const models = modelOptions[provider];
-  return models?.[0]?.value;
-}
-
 function ModelSectionForm(props: {
   aiProvider: SaveAiSettingsBody["aiProvider"] | null;
   aiModel: SaveAiSettingsBody["aiModel"] | null;
@@ -76,30 +69,17 @@ function ModelSectionForm(props: {
     register,
     handleSubmit,
     watch,
-    setValue,
     formState: { errors, isSubmitting },
   } = useForm<SaveAiSettingsBody>({
     resolver: zodResolver(saveAiSettingsBody),
     defaultValues: {
       aiProvider: props.aiProvider ?? DEFAULT_PROVIDER,
-      aiModel: props.aiModel ?? getDefaultModel(props.aiProvider),
+      aiModel: props.aiModel ?? "",
       aiApiKey: props.aiApiKey ?? undefined,
     },
   });
 
   const aiProvider = watch("aiProvider");
-
-  useEffect(() => {
-    const aiModel = watch("aiModel");
-
-    // if model not part of provider then switch to default model for provider
-    if (
-      modelOptions[aiProvider]?.length &&
-      !modelOptions[aiProvider].find((o) => o.value === aiModel)
-    ) {
-      setValue("aiModel", getDefaultModel(aiProvider));
-    }
-  }, [aiProvider, setValue, watch]);
 
   const onSubmit: SubmitHandler<SaveAiSettingsBody> = useCallback(
     async (data) => {
@@ -110,7 +90,10 @@ function ModelSectionForm(props: {
           description: "There was an error updating the settings.",
         });
       } else {
-        toastSuccess({ description: "Settings updated!" });
+        toastSuccess({
+          description:
+            "Settings updated! Please check it works on the Assistant page.",
+        });
       }
 
       refetchUser();
@@ -126,7 +109,7 @@ function ModelSectionForm(props: {
           label: m.id,
           value: m.id,
         })) || []
-      : modelOptions[aiProvider];
+      : [];
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

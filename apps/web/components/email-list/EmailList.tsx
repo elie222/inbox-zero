@@ -33,6 +33,7 @@ import {
 } from "@/store/archive-queue";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function List({
   emails,
@@ -129,7 +130,7 @@ export function List({
                         href={prefixPath(emailAccountId, "/automation")}
                         className="font-semibold hover:underline"
                       >
-                        Automation page
+                        Assistant page
                       </Link>{" "}
                       for our AI to handle incoming emails for you.
                     </>
@@ -544,10 +545,12 @@ function ResizeGroup({
   left: React.ReactNode;
   right?: React.ReactNode;
 }) {
+  const isMobile = useIsMobile();
+
   if (!right) return left;
 
   return (
-    <ResizablePanelGroup direction="horizontal">
+    <ResizablePanelGroup direction={isMobile ? "vertical" : "horizontal"}>
       <ResizablePanel style={{ overflow: "auto" }} defaultSize={50} minSize={0}>
         {left}
       </ResizablePanel>

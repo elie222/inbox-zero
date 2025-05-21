@@ -5,6 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { CleanThread } from "@/utils/redis/clean.types";
 
 export function useEmailStream(
+  emailAccountId: string,
   initialPaused = false,
   initialThreads: CleanThread[] = [],
   filter?: string | null,
@@ -36,7 +37,15 @@ export function useEmailStream(
 
       if (eventSourceRef.current) return;
 
-      const eventSource = new EventSource("/api/email-stream");
+      if (!emailAccountId) {
+        console.error("Email account ID is missing, cannot connect to SSE.");
+        return;
+      }
+
+      const eventSourceUrl = `/api/email-stream?emailAccountId=${encodeURIComponent(emailAccountId)}`;
+      const eventSource = new EventSource(eventSourceUrl, {
+        withCredentials: true,
+      });
       eventSourceRef.current = eventSource;
 
       // Handle thread events
@@ -95,7 +104,7 @@ export function useEmailStream(
     } catch (error) {
       console.error("Error establishing SSE connection:", error);
     }
-  }, [isPaused, emailOrder]);
+  }, [isPaused, emailOrder, emailAccountId]);
 
   // Connect or disconnect based on pause state
   useEffect(() => {

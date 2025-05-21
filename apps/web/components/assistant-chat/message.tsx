@@ -115,7 +115,8 @@ const PurePreviewMessage = ({
                       key={toolCallId}
                       toolName={toolName}
                       args={toolInvocation.args}
-                      ruleId={toolInvocation.result.ruleId}
+                      result={toolInvocation.result}
+                      ruleId={toolInvocation.result?.ruleId}
                     />
                   );
                 }

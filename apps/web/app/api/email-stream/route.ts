@@ -1,6 +1,8 @@
 import { createScopedLogger } from "@/utils/logger";
 import { RedisSubscriber } from "@/utils/redis/subscriber";
-import { withEmailAccount } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
+import { NextResponse } from "next/server";
+import { getEmailAccount } from "@/utils/redis/account-validation";
 
 export const maxDuration = 300;
 
@@ -9,10 +11,29 @@ const logger = createScopedLogger("email-stream");
 // 5 minutes in milliseconds
 const INACTIVITY_TIMEOUT = 5 * 60 * 1000;
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withAuth(async (request) => {
+  const { userId } = request.auth;
 
-  if (!emailAccountId) return new Response("Unauthorized", { status: 401 });
+  const url = new URL(request.url);
+  const emailAccountId = url.searchParams.get("emailAccountId");
+
+  if (!emailAccountId) {
+    logger.warn("Bad Request: Email Account ID missing from query parameters.");
+    return NextResponse.json(
+      { error: "Email account ID is required" },
+      { status: 400 },
+    );
+  }
+
+  const email = await getEmailAccount({ userId, emailAccountId });
+
+  if (!email)
+    return NextResponse.json({ error: "Invalid account ID" }, { status: 403 });
+
+  logger.info("Processing GET request for email stream", {
+    userId,
+    emailAccountId,
+  });
 
   const pattern = `thread:${emailAccountId}:*`;
   const redisSubscriber = RedisSubscriber.getInstance();

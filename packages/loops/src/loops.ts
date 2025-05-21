@@ -40,7 +40,7 @@ export async function deleteContact(
   return resp;
 }
 
-export async function upgradedToPremium(
+export async function startedTrial(
   email: string,
   tier: string,
 ): Promise<{ success: boolean }> {
@@ -48,6 +48,21 @@ export async function upgradedToPremium(
   if (!loops) return { success: false };
   const resp = await loops.sendEvent({
     eventName: "upgraded",
+    email,
+    contactProperties: { tier },
+    eventProperties: { tier },
+  });
+  return resp;
+}
+
+export async function completedTrial(
+  email: string,
+  tier: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent({
+    eventName: "completed_trial",
     email,
     contactProperties: { tier },
     eventProperties: { tier },

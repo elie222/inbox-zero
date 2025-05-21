@@ -11,8 +11,10 @@ import { SafeError } from "@/utils/error";
 
 export async function enableReplyTracker({
   emailAccountId,
+  addDigest,
 }: {
   emailAccountId: string;
+  addDigest?: boolean;
 }) {
   const logger = createScopedLogger("reply-tracker/enable").with({
     emailAccountId,
@@ -60,11 +62,34 @@ export async function enableReplyTracker({
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
+  const digestAction = rule?.actions.find((a) => a.type === ActionType.DIGEST);
+
+  // Add or remove digest action based on existing actions and addDigest flag
+  if (rule && !digestAction && addDigest) {
+    await prisma.action.create({
+      data: {
+        type: ActionType.DIGEST,
+        rule: { connect: { id: rule.id } },
+      },
+    });
+  } else if (rule && digestAction && !addDigest) {
+    await prisma.action.delete({
+      where: { id: digestAction.id },
+    });
+  }
+
   if (rule?.actions.find((a) => a.type === ActionType.TRACK_THREAD)) {
     return { success: true, alreadyEnabled: true };
   }
 
   let ruleId: string | null = rule?.id || null;
+
+  // Remove digest action if not needed
+  if (digestAction && !addDigest) {
+    await prisma.action.delete({
+      where: { id: digestAction.id },
+    });
+  }
 
   // If rule found, update/create the label action to NEEDS_REPLY_LABEL
   if (rule) {
@@ -93,6 +118,8 @@ export async function enableReplyTracker({
         name: RuleName.ToReply,
         condition: {
           aiInstructions: defaultReplyTrackerInstructions,
+          conditionalOperator: null,
+          static: null,
         },
         actions: [
           {
@@ -107,6 +134,7 @@ export async function enableReplyTracker({
               webhookUrl: null,
             },
           },
+          ...(addDigest ? [{ type: ActionType.DIGEST }] : []),
         ],
       },
       emailAccountId: emailAccount.id,

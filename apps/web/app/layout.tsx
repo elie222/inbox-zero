@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 // import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -81,6 +81,7 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
+        suppressHydrationWarning
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
         <PostHogProvider>

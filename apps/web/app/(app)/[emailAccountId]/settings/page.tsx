@@ -15,11 +15,14 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { LoadingContent } from "@/components/LoadingContent";
+import { DigestMailFrequencySection } from "@/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection";
+import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 
 export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
+  const digestEnabled = useDigestEnabled();
 
   return (
     <Tabs defaultValue="email">
@@ -40,10 +43,16 @@ export default function SettingsPage(_props: {
               {/* this is only used in Gmail when sending a new message. disabling for now. */}
               {/* <SignatureSectionForm signature={user.signature} /> */}
               {/* <LabelsSection /> */}
-              <EmailUpdatesSection
+              {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
-              />
+              /> */}
+              {digestEnabled && (
+                <DigestMailFrequencySection
+                  digestFrequency={data?.digestFrequency ?? undefined}
+                  mutate={mutate}
+                />
+              )}
               <ResetAnalyticsSection />
             </FormWrapper>
           )}

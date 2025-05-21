@@ -6,6 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("Admin Action");
 
@@ -40,14 +41,14 @@ export const adminDeleteAccountAction = adminActionClient
   .action(async ({ parsedInput: { email } }) => {
     try {
       const userToDelete = await prisma.user.findUnique({ where: { email } });
-      if (!userToDelete) return { error: "User not found" };
+      if (!userToDelete) throw new SafeError("User not found");
 
       await deleteUser({ userId: userToDelete.id });
     } catch (error) {
       logger.error("Failed to delete user", { email, error });
-      return {
-        error: `Failed to delete user: ${error instanceof Error ? error.message : String(error)}`,
-      };
+      throw new SafeError(
+        `Failed to delete user: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
 
     return { success: "User deleted" };

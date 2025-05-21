@@ -20,7 +20,9 @@ export const Model = {
   // BEDROCK_ANTHROPIC_BACKUP_MODEL:
   //   env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
   CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
+  CLAUDE_3_5_SONNET_OPENROUTER: "anthropic/claude-3.5-sonnet",
   CLAUDE_3_7_SONNET_OPENROUTER: "anthropic/claude-3.7-sonnet",
+  CLAUDE_4_SONNET_OPENROUTER: "anthropic/claude-sonnet-4",
   GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
   GEMINI_2_0_FLASH_LITE: "gemini-2.0-flash-lite",
@@ -42,47 +44,3 @@ export const providerOptions: { label: string; value: string }[] = [
     ? [{ label: "Ollama", value: Provider.OLLAMA }]
     : []),
 ];
-
-export const modelOptions: Record<string, { label: string; value: string }[]> =
-  {
-    [Provider.OPEN_AI]: [
-      { label: "GPT-4o", value: Model.GPT_4O },
-      { label: "GPT-4o Mini", value: Model.GPT_4O_MINI },
-    ],
-    [Provider.ANTHROPIC]: [
-      {
-        label: "Claude 3.7 Sonnet",
-        value: "claude-3-7-sonnet", // used in ui only. can be either anthropic or bedrock
-      },
-    ],
-    [Provider.GOOGLE]: [
-      {
-        label: "Gemini 2.0 Flash",
-        value: Model.GEMINI_2_0_FLASH,
-      },
-      {
-        label: "Gemini 2.0 Flash Lite",
-        value: Model.GEMINI_2_0_FLASH_LITE,
-      },
-      {
-        label: "Gemini 1.5 Pro",
-        value: Model.GEMINI_1_5_PRO,
-      },
-      {
-        label: "Gemini 1.5 Flash",
-        value: Model.GEMINI_1_5_FLASH,
-      },
-    ],
-    [Provider.GROQ]: [
-      {
-        label: "Groq Llama 3.3 70B",
-        value: Model.GROQ_LLAMA_3_3_70B,
-      },
-    ],
-    [Provider.OPENROUTER]: [],
-    ...(Provider.OLLAMA && Model.OLLAMA
-      ? {
-          [Provider.OLLAMA]: [{ label: "Ollama", value: Model.OLLAMA }],
-        }
-      : {}),
-  };

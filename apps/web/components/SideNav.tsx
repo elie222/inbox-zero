@@ -72,7 +72,7 @@ export const useNavigation = () => {
   const assistantItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Personal Assistant",
+        name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
@@ -82,7 +82,7 @@ export const useNavigation = () => {
         icon: MessageCircleReplyIcon,
       },
       {
-        name: "Cold Email Blocker",
+        name: "Cold Emails",
         href: prefixPath(emailAccountId, "/cold-email-blocker"),
         icon: ShieldCheckIcon,
       },
@@ -115,7 +115,8 @@ export const useNavigation = () => {
   const cleanItemsFiltered = useMemo(
     () =>
       cleanItems.filter((item) => {
-        if (item.href === `/${emailAccountId}/clean`) return showCleaner;
+        if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
+          return showCleaner;
         return true;
       }),
     [showCleaner, emailAccountId, cleanItems],
@@ -264,7 +265,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-0 pb-0">
         {state === "expanded" ? (
           <Link href="/setup">
-            <div className="flex items-center rounded-md p-3 text-white">
+            <div className="flex items-center rounded-md p-3 text-foreground">
               <Logo className="h-3.5" />
             </div>
           </Link>

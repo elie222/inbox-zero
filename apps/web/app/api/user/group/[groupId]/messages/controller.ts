@@ -7,7 +7,7 @@ import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { parseMessage } from "@/utils/mail";
 import { extractEmailAddress } from "@/utils/email";
 import { type GroupItem, GroupItemType } from "@prisma/client";
-import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/automation/rule/[ruleId]/examples/types";
+import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
 import { SafeError } from "@/utils/error";
 
 const PAGE_SIZE = 20;

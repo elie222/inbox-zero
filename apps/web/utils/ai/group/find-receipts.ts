@@ -52,7 +52,7 @@ export async function findReceipts(gmail: gmail_v1.Gmail, userEmail: string) {
           value: sender,
           exclude: false,
         })),
-      ) && !sender.includes(userEmail),
+      ) && !sender?.includes(userEmail),
   );
 
   const sendersList = uniq([...filteredSenders, ...defaultReceiptSenders]);
@@ -134,13 +134,13 @@ async function findReceiptSubjects(gmail: gmail_v1.Gmail) {
 }
 
 export function isReceiptSender(sender: string) {
-  return defaultReceiptSenders.some((receipt) => sender.includes(receipt));
+  return defaultReceiptSenders.some((receipt) => sender?.includes(receipt));
 }
 
 export function isReceiptSubject(subject: string) {
-  const lowerSubject = subject.toLowerCase();
+  const lowerSubject = subject?.toLowerCase();
   return defaultReceiptSubjects.some((receipt) =>
-    lowerSubject.includes(receipt.toLowerCase()),
+    lowerSubject?.includes(receipt?.toLowerCase()),
   );
 }
 
@@ -152,8 +152,8 @@ export function isReceipt(message: ParsedMessage) {
 }
 
 export function isMaybeReceipt(message: ParsedMessage) {
-  const lowerSubject = message.headers.subject.toLowerCase();
+  const lowerSubject = message.headers.subject?.toLowerCase();
   return receiptSubjects.some((subject) =>
-    lowerSubject.includes(subject.toLowerCase()),
+    lowerSubject?.includes(subject?.toLowerCase()),
   );
 }

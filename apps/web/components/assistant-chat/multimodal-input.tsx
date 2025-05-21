@@ -1,28 +1,19 @@
 "use client";
 
-import type { Attachment, UIMessage } from "ai";
 import type React from "react";
-import {
-  useRef,
-  useEffect,
-  useCallback,
-  type Dispatch,
-  type SetStateAction,
-  memo,
-} from "react";
+import { useRef, useEffect, useCallback, memo } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
-import equal from "fast-deep-equal";
 import type { UseChatHelpers } from "@ai-sdk/react";
-
-import { ArrowUpIcon, StopIcon } from "./icons";
+import { ArrowUpIcon } from "lucide-react";
+import { StopIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 // import { SuggestedActions } from "./suggested-actions";
 import { cn } from "@/utils";
 
 function PureMultimodalInput({
-  chatId,
+  // chatId,
   input,
   setInput,
   status,
@@ -33,7 +24,7 @@ function PureMultimodalInput({
   handleSubmit,
   className,
 }: {
-  chatId: string;
+  // chatId?: string;
   input: UseChatHelpers["input"];
   setInput: UseChatHelpers["setInput"];
   status: UseChatHelpers["status"];
@@ -55,12 +46,18 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const adjustHeight = () => {
+  const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
     }
-  };
+  }, []);
+
+  // Adjust height whenever input changes (from any source)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: We want to adjust height when input changes
+  useEffect(() => {
+    adjustHeight();
+  }, [input]);
 
   const resetHeight = () => {
     if (textareaRef.current) {
@@ -92,7 +89,7 @@ function PureMultimodalInput({
 
   const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(event.target.value);
-    adjustHeight();
+    // adjustHeight(); // handled in useEffect
   };
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
@@ -107,7 +104,7 @@ function PureMultimodalInput({
     if (width && width > 768) {
       textareaRef.current?.focus();
     }
-  }, [handleSubmit, setLocalStorageInput, width, chatId]);
+  }, [handleSubmit, setLocalStorageInput, width]);
 
   return (
     <div className="relative flex w-full flex-col gap-4">

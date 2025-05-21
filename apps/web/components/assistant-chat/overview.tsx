@@ -3,6 +3,7 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
+import { ExamplesDialog } from "./examples-dialog";
 
 export const Overview = ({
   setInput,
@@ -31,46 +32,12 @@ export const Overview = ({
           Teach me how to handle your incoming emails for you
         </MessageText>
 
-        <div className="flex flex-col gap-3 pt-8">
-          <OverviewButton
-            label="Label all pitch decks and investor updates"
-            message="When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'"
-            setInput={setInput}
-          />
-          <OverviewButton
-            label="Respond to sponsorship inquiries with my pricing"
-            message="When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck"
-            setInput={setInput}
-          />
-          <OverviewButton
-            label="Forward all receipts to my accountant"
-            message="When I get an email with a receipt, forward it to my accountant: jane@example.com"
-            setInput={setInput}
-          />
+        <div className="pt-8">
+          <ExamplesDialog setInput={setInput}>
+            <Button variant="primaryBlue">Choose from examples</Button>
+          </ExamplesDialog>
         </div>
       </div>
     </motion.div>
   );
 };
-
-function OverviewButton({
-  label,
-  setInput,
-  message,
-}: {
-  label: string;
-  setInput: UseChatHelpers["setInput"];
-  message: string;
-}) {
-  return (
-    <Button
-      variant="outline"
-      className="justify-start text-left"
-      onClick={() => {
-        setInput(message);
-      }}
-    >
-      {label}
-    </Button>
-  );
-}

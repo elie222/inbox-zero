@@ -7,7 +7,6 @@ import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
-import clsx from "clsx";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
@@ -27,16 +26,20 @@ import {
 } from "@/utils/actions/premium";
 import type { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { cn } from "@/utils";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
   { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export function Pricing(props: {
+export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
-}) {
+  className?: string;
+};
+
+export default function Pricing(props: PricingProps) {
   const { isPremium, premium, isLoading, error, data } = usePremium();
 
   const isLoggedIn = !!data?.id;
@@ -95,7 +98,10 @@ export function Pricing(props: {
     <LoadingContent loading={isLoading} error={error}>
       <div
         id="pricing"
-        className="relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8"
+        className={cn(
+          "relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8",
+          props.className,
+        )}
       >
         {header}
 
@@ -115,9 +121,9 @@ export function Pricing(props: {
                         result?.serverError ||
                         "Error loading billing portal. Please contact support.",
                     });
+                  } else {
+                    window.location.href = url;
                   }
-
-                  window.open(url);
                 }}
               >
                 <CreditCardIcon className="mr-2 h-4 w-4" />
@@ -182,7 +188,7 @@ export function Pricing(props: {
                 key={option.value}
                 value={option}
                 className={({ checked }) =>
-                  clsx(
+                  cn(
                     checked ? "bg-black text-white" : "text-gray-500",
                     "cursor-pointer rounded-full px-2.5 py-1",
                   )
@@ -252,7 +258,7 @@ function PriceTier({
         <div className="flex items-center justify-between gap-x-4">
           <h3
             id={tier.name}
-            className={clsx(
+            className={cn(
               tier.mostPopular ? "text-blue-600" : "text-gray-900",
               "font-cal text-lg leading-8",
             )}
@@ -339,7 +345,7 @@ function PriceTier({
               return;
             }
 
-            window.open(result.data.url);
+            window.location.href = result.data.url;
           }
 
           try {
@@ -351,7 +357,7 @@ function PriceTier({
           }
         }}
         aria-describedby={tier.name}
-        className={clsx(
+        className={cn(
           tier.mostPopular
             ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
             : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
@@ -434,7 +440,7 @@ function PriceTier({
 //   className?: string;
 // }) {
 //   return (
-//     <div className={clsx("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
+//     <div className={cn("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
 //       {children}
 //     </div>
 //   );
@@ -448,7 +454,7 @@ function TwoColLayout({
   className?: string;
 }) {
   return (
-    <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
+    <div className={cn("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
       {children}
     </div>
   );
@@ -465,7 +471,7 @@ function TwoColLayout({
 // }) {
 //   return (
 //     <div
-//       className={clsx(
+//       className={cn(
 //         index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
 //         index === 0 ? "lg:rounded-r-none" : "",
 //         index === 2 ? "lg:rounded-l-none" : "",
@@ -485,7 +491,7 @@ function TwoColItem({
   className?: string;
 }) {
   return (
-    <div className={clsx("flex flex-col justify-between", className)}>
+    <div className={cn("flex flex-col justify-between", className)}>
       {children}
     </div>
   );

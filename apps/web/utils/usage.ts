@@ -43,6 +43,11 @@ export async function saveAiUsage({
   }
 }
 
+const sonnet = {
+  input: 3 / 1_000_000,
+  output: 15 / 1_000_000,
+};
+
 const costs: Record<
   string,
   {
@@ -68,39 +73,17 @@ const costs: Record<
     output: 15 / 1_000_000,
   },
   // https://www.anthropic.com/pricing#anthropic-api
-  "claude-3-5-sonnet-20240620": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "claude-3-5-sonnet-20241022": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "claude-3-7-sonnet-20250219": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "anthropic/claude-3.7-sonnet": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
+  "claude-3-5-sonnet-20240620": sonnet,
+  "claude-3-5-sonnet-20241022": sonnet,
+  "claude-3-7-sonnet-20250219": sonnet,
+  "anthropic/claude-3.5-sonnet": sonnet,
+  "anthropic/claude-3.7-sonnet": sonnet,
+  "anthropic/claude-sonnet-4": sonnet,
   // https://aws.amazon.com/bedrock/pricing/
-  "anthropic.claude-3-5-sonnet-20240620-v1:0": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "anthropic.claude-3-5-sonnet-20241022-v2:0": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
-  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": {
-    input: 3 / 1_000_000,
-    output: 15 / 1_000_000,
-  },
+  "anthropic.claude-3-5-sonnet-20240620-v1:0": sonnet,
+  "anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
+  "us.anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
+  "us.anthropic.claude-3-7-sonnet-20250219-v1:0": sonnet,
   "anthropic.claude-3-5-haiku-20241022-v1:0": {
     input: 0.8 / 1_000_000,
     output: 4 / 1_000_000,

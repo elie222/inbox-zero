@@ -14,7 +14,6 @@ import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined } from "@/utils/types";
 import {
   createAutomationBody,
-  reportAiMistakeBody,
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
@@ -26,7 +25,6 @@ import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
 import { getLabelById, getLabels } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
-import { aiRuleFix } from "@/utils/ai/rule/rule-fix";
 import { labelVisibility } from "@/utils/gmail/constants";
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
@@ -96,7 +94,6 @@ export const runRulesAction = actionClient
         where: {
           emailAccountId,
           enabled: true,
-          instructions: { not: null },
         },
         include: { actions: true, categoryFilters: true },
       });
@@ -214,7 +211,7 @@ export const approvePlanAction = actionClient
         where: { id: executedRuleId },
         include: { actionItems: true },
       });
-      if (!executedRule) return { error: "Item not found" };
+      if (!executedRule) throw new SafeError("Plan not found");
 
       await executeAct({
         gmail,
@@ -278,7 +275,7 @@ export const saveRulesPromptAction = actionClient
 
     if (!emailAccount) {
       logger.error("Email account not found");
-      return { error: "Email account not found" };
+      throw new SafeError("Email account not found");
     }
 
     const oldPromptFile = emailAccount.rulesPrompt;
@@ -510,7 +507,7 @@ export const generateRulesPromptAction = actionClient
   .action(async ({ ctx: { emailAccountId } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    if (!emailAccount) return { error: "Email account not found" };
+    if (!emailAccount) throw new SafeError("Email account not found");
 
     const gmail = await getGmailClientForEmail({ emailAccountId });
     const lastSent = await getMessages(gmail, {
@@ -552,6 +549,7 @@ export const generateRulesPromptAction = actionClient
       sentEmails: lastSentMessages.map((message) => ({
         id: message.id,
         from: message.headers.from,
+        to: "",
         replyTo: message.headers["reply-to"],
         cc: message.headers.cc,
         subject: message.headers.subject,
@@ -566,7 +564,7 @@ export const generateRulesPromptAction = actionClient
       userLabels: labelsWithCounts.map((label) => label.label),
     });
 
-    if (!result) return { error: "Error generating rules prompt" };
+    if (!result) throw new SafeError("Error generating rules prompt");
 
     return { rulesPrompt: result.join("\n\n") };
   });
@@ -580,67 +578,5 @@ export const setRuleEnabledAction = actionClient
         where: { id: ruleId, emailAccountId },
         data: { enabled },
       });
-    },
-  );
-
-export const reportAiMistakeAction = actionClient
-  .metadata({ name: "reportAiMistake" })
-  .schema(reportAiMistakeBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { expectedRuleId, actualRuleId, explanation, message },
-    }) => {
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-      if (!emailAccount) return { error: "Email account not found" };
-
-      if (!expectedRuleId && !actualRuleId)
-        return { error: "Either correct or incorrect rule ID is required" };
-
-      const [expectedRule, actualRule] = await Promise.all([
-        expectedRuleId
-          ? prisma.rule.findUnique({
-              where: { id: expectedRuleId, emailAccountId },
-            })
-          : null,
-        actualRuleId
-          ? prisma.rule.findUnique({
-              where: { id: actualRuleId, emailAccountId },
-            })
-          : null,
-      ]);
-
-      if (expectedRuleId && !expectedRule)
-        return { error: "Expected rule not found" };
-
-      if (actualRuleId && !actualRule)
-        return { error: "Actual rule not found" };
-
-      const content = emailToContent({
-        textHtml: message.textHtml || undefined,
-        textPlain: message.textPlain || undefined,
-        snippet: message.snippet || "",
-      });
-
-      const result = await aiRuleFix({
-        emailAccount,
-        actualRule,
-        expectedRule,
-        email: {
-          id: "",
-          ...message,
-          content,
-        },
-        explanation: explanation?.trim() || undefined,
-      });
-
-      if (!result) return { error: "Error fixing rule" };
-
-      return {
-        ruleId:
-          result.ruleToFix === "actual_rule" ? actualRuleId : expectedRuleId,
-        fixedInstructions: result.fixedInstructions,
-      };
     },
   );

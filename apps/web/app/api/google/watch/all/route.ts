@@ -48,13 +48,14 @@ async function watchAllEmails() {
     },
   });
 
-  logger.info("Watching emails for users", {
-    count: emailAccounts.length,
-  });
+  logger.info("Watching email accounts", { count: emailAccounts.length });
 
   for (const emailAccount of emailAccounts) {
     try {
-      logger.info("Watching emails for user", { email: emailAccount.email });
+      logger.info("Watching emails for account", {
+        emailAccountId: emailAccount.id,
+        email: emailAccount.email,
+      });
 
       const userHasAiAccess = hasAiAccess(
         emailAccount.user.premium?.tier || null,

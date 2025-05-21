@@ -24,9 +24,9 @@ export const AdminUpgradeUserForm = () => {
           description: "Premium status changed",
         });
       },
-      onError: () => {
+      onError: ({ error }) => {
         toastError({
-          description: "Error changing premium status",
+          description: `Error changing premium status: ${error.serverError}`,
         });
       },
     },

@@ -272,26 +272,48 @@ export function matchesStaticRule(
 
   if (!from && !to && !subject && !body) return false;
 
-  const safeRegexTest = (pattern: string, text: string) => {
+  const safeRegexTest = (
+    pattern: string,
+    text: string,
+    allowPipeAsOr = false,
+  ) => {
     try {
-      const regexPattern = pattern.startsWith("*")
-        ? // Convert *@gmail.com to .*@gmail.com
-          `.*${pattern.slice(1)}`
-        : pattern;
+      // Split by pipe to handle OR conditions only for email fields (from/to)
+      const patterns = allowPipeAsOr ? pattern.split("|") : [pattern];
 
-      return new RegExp(regexPattern).test(text);
+      // Test each pattern individually
+      for (const individualPattern of patterns) {
+        // Escape regex special characters except for * which we want to support as wildcards
+        const escapedPattern = individualPattern.replace(
+          /[.+?^${}()[\]\\]/g,
+          "\\$&",
+        );
+
+        // Convert all * to .* for wildcard matching
+        const regexPattern = escapedPattern.replace(/\*/g, ".*");
+
+        if (new RegExp(regexPattern).test(text)) {
+          return true;
+        }
+      }
+
+      return false;
     } catch (error) {
       logger.error("Invalid regex pattern", { pattern, error });
       return false;
     }
   };
 
-  const fromMatch = from ? safeRegexTest(from, message.headers.from) : true;
-  const toMatch = to ? safeRegexTest(to, message.headers.to) : true;
-  const subjectMatch = subject
-    ? safeRegexTest(subject, message.headers.subject)
+  const fromMatch = from
+    ? safeRegexTest(from, message.headers.from, true)
     : true;
-  const bodyMatch = body ? safeRegexTest(body, message.textPlain || "") : true;
+  const toMatch = to ? safeRegexTest(to, message.headers.to, true) : true;
+  const subjectMatch = subject
+    ? safeRegexTest(subject, message.headers.subject, false)
+    : true;
+  const bodyMatch = body
+    ? safeRegexTest(body, message.textPlain || "", false)
+    : true;
 
   return fromMatch && toMatch && subjectMatch && bodyMatch;
 }

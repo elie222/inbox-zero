@@ -18,7 +18,7 @@ alwaysApply: false
 │   ├── web/             # Main Next.js application
 │   │   ├── app/         # Next.js App Router
 │   │   │   ├── (app)/   # Main application pages
-│   │   │   │   ├── automation/     # AI assistant feature
+│   │   │   │   ├── assistant/     # AI assistant feature
 │   │   │   │   ├── reply-zero/     # Reply Zero feature
 │   │   │   │   ├── settings/       # User settings
 │   │   │   │   ├── setup/          # Main onboarding

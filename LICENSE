@@ -5,6 +5,40 @@
  Everyone is permitted to copy and distribute verbatim copies
  of this license document, but changing it is not allowed.
 
+===============================================================================
+                        ADDITIONAL TERMS FOR INBOX ZERO
+===============================================================================
+
+This software is licensed under the GNU Affero General Public License v3.0
+with the following additional terms:
+
+COMMERCIAL MONETIZATION RESTRICTION:
+You may not use this Program or any derivative work based on this Program for 
+commercial purposes that involve monetizing the software itself, including but 
+not limited to selling access to the software, offering it as a paid service, 
+or incorporating it into a commercial product that is sold or licensed for 
+profit, without explicit written permission from Inbox Zero Inc.
+
+ENTERPRISE USE LIMITATION:
+If you are an organization with five (5) or more employees, contractors, or 
+users who will use this Program for business purposes, you must obtain an 
+enterprise license from Inbox Zero Inc. before using this Program.
+
+EXEMPTIONS:
+These restrictions do not apply to personal use, educational use, research 
+purposes, or use by organizations with fewer than five (5) business users.
+
+ENTERPRISE LICENSING:
+For enterprise licensing inquiries, contact:
+  Inbox Zero Inc.
+  Email: elie@getinboxzero.com
+  Website: https://www.getinboxzero.com
+
+COPYRIGHT:
+Copyright (C) 2025 Inbox Zero Inc.
+
+===============================================================================
+
                             Preamble
 
   The GNU Affero General Public License is a free, copyleft license for
@@ -629,8 +663,8 @@ to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
-    <one line to give the program's name and a brief idea of what it does.>
-    Copyright (C) <year>  <name of author>
+    Inbox Zero - AI-powered email management
+    Copyright (C) 2025  Inbox Zero Inc.
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published
@@ -644,6 +678,9 @@ the "copyright" line and a pointer to where the full notice is found.
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+    Additional terms apply to this program. See the LICENSE file for details
+    regarding commercial use and enterprise licensing requirements.
 
 Also add information on how to contact you by electronic and paper mail.
 
@@ -659,3 +696,8 @@ specific requirements.
 if any, to sign a "copyright disclaimer" for the program, if necessary.
 For more information on this, and how to apply and follow the GNU AGPL, see
 <https://www.gnu.org/licenses/>.
+
+  For enterprise licensing inquiries regarding Inbox Zero, contact:
+  Inbox Zero Inc.
+  Email: enterprise@inboxzero.com
+  Website: https://www.inboxzero.com

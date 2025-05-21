@@ -31,6 +31,7 @@ import { formatShortDate, internalDateToDate } from "@/utils/date";
 import { cn } from "@/utils";
 import { CommandShortcut } from "@/components/ui/command";
 import { useTableKeyboardNavigation } from "@/hooks/useTableKeyboardNavigation";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export function ReplyTrackerEmails({
   trackers,
@@ -160,6 +161,8 @@ export function ReplyTrackerEmails({
     [type],
   );
 
+  const isMobile = useIsMobile();
+
   if (isLoading && !data) {
     return <Loading />;
   }
@@ -209,7 +212,10 @@ export function ReplyTrackerEmails({
   return (
     // hacky. this will break if other parts of the layout change
     <div className="h-[calc(100vh-7.5rem)]">
-      <ResizablePanelGroup direction="horizontal" className="h-full">
+      <ResizablePanelGroup
+        direction={isMobile ? "vertical" : "horizontal"}
+        className="h-full"
+      >
         <ResizablePanel defaultSize={35} minSize={0}>
           <div className="h-full overflow-y-auto">{listView}</div>
         </ResizablePanel>

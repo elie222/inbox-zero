@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { ViewGroup } from "@/app/(app)/[emailAccountId]/automation/group/ViewGroup";
+import { ViewGroup } from "@/app/(app)/[emailAccountId]/assistant/group/ViewGroup";
 import type { GroupsResponse } from "@/app/api/user/group/route";
 import { LoadingContent } from "@/components/LoadingContent";
 

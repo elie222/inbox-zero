@@ -3,28 +3,31 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon } from "lucide-react";
 import { motion } from "framer-motion";
+import { cn } from "@/utils";
 
 export function ExpandableText({
   text,
-  maxLength = 100,
+  maxLength = 280,
+  className,
 }: {
   text: string;
   maxLength?: number;
+  className?: string;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Only add expand/collapse if content is long enough
   if (text.length < maxLength) {
-    return text;
+    return <TextWrapper className={className}>{text}</TextWrapper>;
   }
 
   return (
-    <div>
+    <TextWrapper className={className}>
       <div className="relative overflow-hidden">
         {/* Always render the full text but add a mask when collapsed */}
         <motion.div
-          initial={{ height: "4.5rem" }}
-          animate={{ height: isExpanded ? "auto" : "4.5rem" }}
+          initial={{ height: "4rem" }}
+          animate={{ height: isExpanded ? "auto" : "4rem" }}
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className={isExpanded ? "" : "overflow-hidden"}
         >
@@ -56,6 +59,20 @@ export function ExpandableText({
           </>
         )}
       </motion.button>
+    </TextWrapper>
+  );
+}
+
+function TextWrapper({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("whitespace-pre-wrap break-words", className)}>
+      {children}
     </div>
   );
 }

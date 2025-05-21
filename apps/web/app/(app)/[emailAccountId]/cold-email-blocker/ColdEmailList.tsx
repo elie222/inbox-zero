@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DateCell } from "@/app/(app)/[emailAccountId]/automation/ExecutedRulesTable";
+import { DateCell } from "@/app/(app)/[emailAccountId]/assistant/ExecutedRulesTable";
 import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
 import { Button } from "@/components/ui/button";

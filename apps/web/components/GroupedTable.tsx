@@ -434,7 +434,7 @@ function GroupRow({
                 <Link
                   href={prefixPath(
                     emailAccountId,
-                    `/automation/rule/${rule.id}`,
+                    `/assistant?tab=rule&ruleId=${rule.id}`,
                   )}
                   target="_blank"
                 >
@@ -449,7 +449,7 @@ function GroupRow({
             <Link
               href={prefixPath(
                 emailAccountId,
-                `/automation/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`,
+                `/assistant/rule/create?type=${ConditionType.CATEGORY}&categoryId=${category.id}&label=${category.name}`,
               )}
               target="_blank"
             >

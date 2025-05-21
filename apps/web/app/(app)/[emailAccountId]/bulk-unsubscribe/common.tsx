@@ -545,7 +545,7 @@ export function HeaderButton(props: {
 //       {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
 //       <DropdownMenuSeparator />
 //       <DropdownMenuItem asChild>
-//         <Link href={prefixPath(emailAccountId, "/automation?tab=groups")} target="_blank">
+//         <Link href={prefixPath(emailAccountId, "/assistant?tab=groups")} target="_blank">
 //           <PlusCircle className="mr-2 size-4" />
 //           <span>New Group</span>
 //         </Link>

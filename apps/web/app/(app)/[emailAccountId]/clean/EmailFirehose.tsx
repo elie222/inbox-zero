@@ -32,7 +32,12 @@ export function EmailFirehose({
     Record<string, "undoing" | "undone">
   >({});
 
-  const { emails, togglePause } = useEmailStream(isPaused, threads, tab);
+  const { emails, togglePause } = useEmailStream(
+    emailAccountId,
+    isPaused,
+    threads,
+    tab,
+  );
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);

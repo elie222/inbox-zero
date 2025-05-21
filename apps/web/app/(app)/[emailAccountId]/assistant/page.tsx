@@ -29,14 +29,9 @@ export default async function AssistantPage({
     });
 
     if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/automation/onboarding"));
+      redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
     }
   }
-
-  // const hasPendingRule = prisma.rule.findFirst({
-  //   where: { emailAccountId, automate: false },
-  //   select: { id: true },
-  // });
 
   return (
     <GmailProvider>
@@ -44,11 +39,7 @@ export default async function AssistantPage({
         <PermissionsCheck />
 
         <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col">
-          <Chat
-            id={emailAccountId}
-            initialMessages={[]}
-            emailAccountId={emailAccountId}
-          />
+          <Chat emailAccountId={emailAccountId} />
         </div>
       </Suspense>
     </GmailProvider>

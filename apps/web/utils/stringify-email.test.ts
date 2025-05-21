@@ -16,6 +16,7 @@ describe("stringifyEmail", () => {
     content: "Hello world",
     replyTo: "reply@example.com",
     cc: "cc@example.com",
+    to: "to@example.com",
     date: new Date("2025-04-06T13:37:14.413Z"),
   };
 
@@ -24,6 +25,7 @@ describe("stringifyEmail", () => {
     expect(result).toBe(
       "<from>test@example.com</from>\n" +
         "<replyTo>reply@example.com</replyTo>\n" +
+        "<to>to@example.com</to>\n" +
         "<cc>cc@example.com</cc>\n" +
         "<date>2025-04-06T13:37:14.413Z</date>\n" +
         "<subject>Test Subject</subject>\n" +
@@ -38,13 +40,14 @@ describe("stringifyEmail", () => {
       {
         id: "1",
         from: "test@example.com",
+        to: "to@example.com",
         subject: "Test Subject",
         content: longContent,
       },
       maxLength,
     );
     expect(result).toBe(
-      `<from>test@example.com</from>\n<subject>Test Subject</subject>\n<body>${"a".repeat(50)}...</body>`,
+      `<from>test@example.com</from>\n<to>to@example.com</to>\n<subject>Test Subject</subject>\n<body>${"a".repeat(50)}...</body>`,
     );
   });
 
@@ -54,10 +57,12 @@ describe("stringifyEmail", () => {
       from: "test@example.com",
       subject: "Test Subject",
       content: "Hello world",
+      to: "to@example.com",
     };
     const result = stringifyEmail(minimalEmail, 1000);
     expect(result).toBe(
       "<from>test@example.com</from>\n" +
+        "<to>to@example.com</to>\n" +
         "<subject>Test Subject</subject>\n" +
         "<body>Hello world</body>",
     );
@@ -73,6 +78,7 @@ describe("stringifyEmailSimple", () => {
       content: "Hello world",
       replyTo: "reply@example.com", // Should be ignored
       cc: "cc@example.com", // Should be ignored
+      to: "to@example.com",
     };
 
     const result = stringifyEmailSimple(email);
@@ -93,6 +99,7 @@ describe("stringifyEmailFromBody", () => {
       content: "Hello world",
       replyTo: "reply@example.com", // Should be ignored
       cc: "cc@example.com", // Should be ignored
+      to: "to@example.com",
     };
 
     const result = stringifyEmailFromBody(email);
