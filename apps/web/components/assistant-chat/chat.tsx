@@ -175,7 +175,7 @@ function ChatUI({
 function ChatHistoryDropdown() {
   const [_chatId, setChatId] = useQueryState("chatId");
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
-  const { data, error, isLoading } = useChats(shouldLoadChats);
+  const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
 
   return (
     <DropdownMenu>
@@ -184,6 +184,7 @@ function ChatHistoryDropdown() {
           variant="ghost"
           size="icon"
           onMouseEnter={() => setShouldLoadChats(true)}
+          onClick={() => mutate()}
         >
           <HistoryIcon className="size-5" />
           <span className="sr-only">Chat History</span>
