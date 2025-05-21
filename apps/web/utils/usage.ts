@@ -80,6 +80,10 @@ const costs: Record<
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,
   },
+  "anthropic/claude-3.5-sonnet": {
+    input: 3 / 1_000_000,
+    output: 15 / 1_000_000,
+  },
   "anthropic/claude-3.7-sonnet": {
     input: 3 / 1_000_000,
     output: 15 / 1_000_000,

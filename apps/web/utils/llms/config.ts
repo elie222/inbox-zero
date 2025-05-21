@@ -20,6 +20,7 @@ export const Model = {
   // BEDROCK_ANTHROPIC_BACKUP_MODEL:
   //   env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
   CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
+  CLAUDE_3_5_SONNET_OPENROUTER: "anthropic/claude-3.5-sonnet",
   CLAUDE_3_7_SONNET_OPENROUTER: "anthropic/claude-3.7-sonnet",
   GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
