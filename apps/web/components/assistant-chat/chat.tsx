@@ -35,7 +35,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 // AI SDK v5 won't use SWR anymore so we can remove this workaround
 
 type ChatProps = {
-  id: string;
+  id?: string;
   initialMessages: Array<UIMessage>;
   emailAccountId: string;
 };
@@ -65,7 +65,11 @@ function ChatInner({
 }) {
   const chat = useChat({
     id,
-    body: { id },
+    api: "/api/chat",
+    experimental_prepareRequestBody: (body) => ({
+      id,
+      message: body.messages.at(-1),
+    }),
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
@@ -78,7 +82,7 @@ function ChatInner({
     },
     onError: (error) => {
       console.error(error);
-      toast.error("An error occured, please try again!");
+      toast.error(`An error occured! ${error.message || ""}`);
     },
   });
 
@@ -105,7 +109,7 @@ function ChatUI({
   chatId,
 }: {
   chat: ReturnType<typeof useChat>;
-  chatId: string;
+  chatId?: string;
 }) {
   const {
     messages,
@@ -121,7 +125,9 @@ function ChatUI({
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-end px-2 pt-2">
-        <ChatHistoryDropdown />
+        <SWRProvider>
+          <ChatHistoryDropdown />
+        </SWRProvider>
       </div>
       <Messages
         status={status}

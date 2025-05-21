@@ -44,11 +44,7 @@ export default async function AssistantPage({
         <PermissionsCheck />
 
         <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col">
-          <Chat
-            id={emailAccountId}
-            initialMessages={[]}
-            emailAccountId={emailAccountId}
-          />
+          <Chat initialMessages={[]} emailAccountId={emailAccountId} />
         </div>
       </Suspense>
     </GmailProvider>

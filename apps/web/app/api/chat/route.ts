@@ -23,9 +23,9 @@ const textPartSchema = z.object({
 });
 
 const assistantInputSchema = z.object({
-  chatId: z.string().uuid(),
+  id: z.string().optional(),
   message: z.object({
-    id: z.string().uuid(),
+    id: z.string(),
     createdAt: z.coerce.date(),
     role: z.enum(["user"]),
     content: z.string().min(1).max(2000),
@@ -52,11 +52,10 @@ export const POST = withEmailAccount(async (request) => {
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
 
-  if (error)
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.errors }, { status: 400 });
 
-  const chat = data.chatId
-    ? await getChatById(data.chatId)
+  const chat = data.id
+    ? await getChatById(data.id)
     : await createNewChat(emailAccountId);
 
   if (!chat) {
