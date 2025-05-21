@@ -1,10 +1,13 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
+import { HistoryIcon, Loader2 } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -14,6 +17,15 @@ import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
 import { SWRProvider } from "@/providers/SWRProvider";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useChats } from "@/hooks/useChats";
+import { LoadingContent } from "@/components/LoadingContent";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -108,6 +120,9 @@ function ChatUI({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
+      <div className="flex items-center justify-end px-2 pt-2">
+        <ChatHistoryDropdown />
+      </div>
       <Messages
         status={status}
         messages={messages}
@@ -148,6 +163,62 @@ function ChatUI({
         reload={reload}
       /> */}
     </div>
+  );
+}
+
+function ChatHistoryDropdown() {
+  const [_chatId, setChatId] = useQueryState("chatId");
+  const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const { data, error, isLoading } = useChats(shouldLoadChats);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onMouseEnter={() => setShouldLoadChats(true)}
+        >
+          <HistoryIcon className="size-5" />
+          <span className="sr-only">Chat History</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <LoadingContent
+          loading={isLoading}
+          error={error}
+          loadingComponent={
+            <DropdownMenuItem
+              disabled
+              className="flex items-center justify-center"
+            >
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Loading chats...
+            </DropdownMenuItem>
+          }
+          errorComponent={
+            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+          }
+        >
+          {data && data.chats.length > 0 ? (
+            data.chats.map((chatItem) => (
+              <DropdownMenuItem
+                key={chatItem.id}
+                onSelect={() => {
+                  setChatId(chatItem.id);
+                }}
+              >
+                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled>
+              No previous chats found
+            </DropdownMenuItem>
+          )}
+        </LoadingContent>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
