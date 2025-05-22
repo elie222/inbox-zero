@@ -115,9 +115,9 @@ export function Pricing(props: {
                         result?.serverError ||
                         "Error loading billing portal. Please contact support.",
                     });
+                  } else {
+                    window.location.href = url;
                   }
-
-                  window.open(url);
                 }}
               >
                 <CreditCardIcon className="mr-2 h-4 w-4" />
@@ -339,7 +339,7 @@ function PriceTier({
               return;
             }
 
-            window.open(result.data.url);
+            window.location.href = result.data.url;
           }
 
           try {
