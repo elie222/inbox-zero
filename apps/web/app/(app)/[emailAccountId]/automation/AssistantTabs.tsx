@@ -1,3 +1,6 @@
+"use client";
+
+import useSWR from "swr";
 import { History } from "@/app/(app)/[emailAccountId]/automation/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/automation/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,8 +11,14 @@ import { RulesPrompt } from "@/app/(app)/[emailAccountId]/automation/RulesPrompt
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/automation/RuleTab";
+import type { GetPendingRulesResponse } from "@/app/api/rules/pending/route";
 
 export function AssistantTabs() {
+  const { data: pendingData } =
+    useSWR<GetPendingRulesResponse>("/api/rules/pending");
+
+  const hasPendingRule = pendingData?.hasPending ?? false;
+
   return (
     <div className="h-full overflow-y-auto">
       <Tabs defaultValue="empty" className="h-full">
@@ -20,11 +29,9 @@ export function AssistantTabs() {
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
-              {/* <Suspense>
-                  {(await hasPendingRule) && (
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
-                  )}
-                </Suspense> */}
+              {hasPendingRule && (
+                <TabsTrigger value="pending">Pending</TabsTrigger>
+              )}
               <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
             </TabsList>
           </div>
@@ -75,12 +82,15 @@ export function AssistantTabs() {
         <TabsContent value="history" className="content-container mb-10">
           <History />
         </TabsContent>
-        <TabsContent value="pending" className="content-container mb-10">
-          <Pending />
-        </TabsContent>
+        {hasPendingRule && (
+          <TabsContent value="pending" className="content-container mb-10">
+            <Pending />
+          </TabsContent>
+        )}
         <TabsContent value="knowledge" className="content-container mb-10">
           <KnowledgeBase />
         </TabsContent>
+        {/* Set via search params. Not a visible tab. */}
         <TabsContent value="rule" className="content-container mb-10">
           <RuleTab />
         </TabsContent>

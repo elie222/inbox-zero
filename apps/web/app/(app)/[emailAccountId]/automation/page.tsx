@@ -1,5 +1,4 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -15,7 +14,6 @@ import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck"
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
-import { Button } from "@/components/ui/button";
 import { prefixPath } from "@/utils/path";
 
 export const maxDuration = 300; // Applies to the actions

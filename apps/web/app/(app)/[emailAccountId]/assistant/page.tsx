@@ -33,12 +33,6 @@ export default async function AssistantPage({
     }
   }
 
-  // TODO:
-  // const hasPendingRule = prisma.rule.findFirst({
-  //   where: { emailAccountId, automate: false },
-  //   select: { id: true },
-  // });
-
   return (
     <GmailProvider>
       <Suspense>
