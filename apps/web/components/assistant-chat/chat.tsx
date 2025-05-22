@@ -30,6 +30,7 @@ import { useChatMessages } from "@/hooks/useChatMessages";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
+import { Tooltip } from "@/components/Tooltip";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -197,10 +198,12 @@ function NewChatButton() {
   const handleNewChat = () => setChatId(null);
 
   return (
-    <Button variant="ghost" size="icon" onClick={handleNewChat}>
-      <PlusIcon className="size-5" />
-      <span className="sr-only">New Chat</span>
-    </Button>
+    <Tooltip content="Start a new conversation">
+      <Button variant="ghost" size="icon" onClick={handleNewChat}>
+        <PlusIcon className="size-5" />
+        <span className="sr-only">New Chat</span>
+      </Button>
+    </Tooltip>
   );
 }
 
@@ -211,17 +214,19 @@ function ChatHistoryDropdown() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          onMouseEnter={() => setShouldLoadChats(true)}
-          onClick={() => mutate()}
-        >
-          <HistoryIcon className="size-5" />
-          <span className="sr-only">Chat History</span>
-        </Button>
-      </DropdownMenuTrigger>
+      <Tooltip content="View previous conversations">
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onMouseEnter={() => setShouldLoadChats(true)}
+            onClick={() => mutate()}
+          >
+            <HistoryIcon className="size-5" />
+            <span className="sr-only">Chat History</span>
+          </Button>
+        </DropdownMenuTrigger>
+      </Tooltip>
       <DropdownMenuContent align="end">
         <LoadingContent
           loading={isLoading}

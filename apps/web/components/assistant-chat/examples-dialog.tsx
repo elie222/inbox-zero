@@ -16,6 +16,7 @@ import {
   examplePrompts,
   initialChatExamples,
 } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { Tooltip } from "@/components/Tooltip";
 
 interface ExamplesDialogProps {
   setInput: UseChatHelpers["setInput"];
@@ -47,16 +48,18 @@ export function ExamplesDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      {children ? (
-        <DialogTrigger asChild>{children}</DialogTrigger>
-      ) : (
-        <DialogTrigger asChild>
-          <Button variant="ghost" size="icon">
-            <LightbulbIcon className="size-5" />
-            <span className="sr-only">Show Examples</span>
-          </Button>
-        </DialogTrigger>
-      )}
+      <Tooltip content="Choose from examples">
+        {children ? (
+          <DialogTrigger asChild>{children}</DialogTrigger>
+        ) : (
+          <DialogTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <LightbulbIcon className="size-5" />
+              <span className="sr-only">Show Examples</span>
+            </Button>
+          </DialogTrigger>
+        )}
+      </Tooltip>
       <DialogContent className="max-h-[80vh] max-w-2xl">
         <DialogHeader>
           <DialogTitle>Email Automation Examples</DialogTitle>
