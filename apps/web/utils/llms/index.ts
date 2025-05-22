@@ -9,6 +9,8 @@ import {
   RetryError,
   streamText,
   type StepResult,
+  smoothStream,
+  type Message,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -164,12 +166,14 @@ export async function chatCompletionStream({
   useEconomyModel?: boolean;
   system?: string;
   prompt?: string;
-  messages?: CoreMessage[];
+  messages?: Message[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
-  onFinish?: (text: string) => Promise<void>;
+  onFinish?: (
+    result: Omit<StepResult<Record<string, Tool>>, "stepType" | "isContinued">,
+  ) => Promise<void>;
   onStepFinish?: (
     stepResult: StepResult<Record<string, Tool>>,
   ) => Promise<void>;
@@ -188,17 +192,18 @@ export async function chatCompletionStream({
     maxSteps,
     providerOptions,
     ...commonOptions,
+    experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
-    onFinish: async ({ usage, text }) => {
+    onFinish: async (result) => {
       await saveAiUsage({
         email: userEmail,
         provider,
         model,
-        usage,
+        usage: result.usage,
         label,
       });
 
-      if (onFinish) await onFinish(text);
+      if (onFinish) await onFinish(result);
     },
   });
 

@@ -33,22 +33,13 @@ export default async function AssistantPage({
     }
   }
 
-  // const hasPendingRule = prisma.rule.findFirst({
-  //   where: { emailAccountId, automate: false },
-  //   select: { id: true },
-  // });
-
   return (
     <GmailProvider>
       <Suspense>
         <PermissionsCheck />
 
         <div className="flex h-[calc(100vh-theme(spacing.16))] flex-col">
-          <Chat
-            id={emailAccountId}
-            initialMessages={[]}
-            emailAccountId={emailAccountId}
-          />
+          <Chat emailAccountId={emailAccountId} />
         </div>
       </Suspense>
     </GmailProvider>

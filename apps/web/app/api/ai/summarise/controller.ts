@@ -24,8 +24,8 @@ export async function summarise({
     prompt,
     userEmail,
     usageLabel: "Summarise",
-    onFinish: async (completion) => {
-      await saveSummary(prompt, completion);
+    onFinish: async (result) => {
+      await saveSummary(prompt, result.text);
       await expire(prompt, 60 * 60 * 24);
     },
   });

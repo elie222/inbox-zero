@@ -1,4 +1,4 @@
-import { tool } from "ai";
+import { type Message, type StepResult, type Tool, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -95,59 +95,6 @@ export type UpdateLearnedPatternsSchema = z.infer<
   typeof updateLearnedPatternsSchema
 >;
 
-// // Keeping the original schema for backward compatibility
-// const updateRuleSchema = z.object({
-//   ruleName: z.string().describe("The name of the rule to update"),
-//   condition: z
-//     .object({
-//       aiInstructions: z.string(),
-//       static: z.object({
-//         from: z.string(),
-//         to: z.string(),
-//         subject: z.string(),
-//         body: z.string(),
-//       }),
-//       conditionalOperator: z.enum([LogicalOperator.AND, LogicalOperator.OR]),
-//     })
-//     .optional(),
-//   actions: z.array(
-//     z
-//       .object({
-//         type: z.enum([
-//           ActionType.ARCHIVE,
-//           ActionType.LABEL,
-//           ActionType.REPLY,
-//           ActionType.SEND_EMAIL,
-//           ActionType.FORWARD,
-//           ActionType.MARK_READ,
-//           ActionType.MARK_SPAM,
-//           ActionType.CALL_WEBHOOK,
-//         ]),
-//         fields: z.object({
-//           label: z.string().optional(),
-//           content: z.string().optional(),
-//           webhookUrl: z.string().optional(),
-//         }),
-//       })
-//       .optional(),
-//   ),
-//   learnedPatterns: z
-//     .array(
-//       z.object({
-//         include: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//         exclude: z.object({
-//           from: z.string(),
-//           subject: z.string(),
-//         }),
-//       }),
-//     )
-//     .optional(),
-// });
-// export type UpdateRuleSchema = z.infer<typeof updateRuleSchema>;
-
 const updateAboutSchema = z.object({ about: z.string() });
 export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
 
@@ -161,10 +108,17 @@ export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
+  onFinish,
 }: {
-  messages: { role: "user" | "assistant"; content: string }[];
+  messages: Message[];
   emailAccountId: string;
   user: EmailAccountWithAI;
+  onFinish: (
+    response: Omit<
+      StepResult<Record<string, Tool>>,
+      "stepType" | "isContinued"
+    >,
+  ) => Promise<void>;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -431,6 +385,7 @@ Examples:
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
+    onFinish,
     maxSteps: 10,
     tools: {
       get_user_rules_and_settings: tool({

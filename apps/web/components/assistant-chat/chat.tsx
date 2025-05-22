@@ -1,10 +1,13 @@
 "use client";
 
 import type React from "react";
+import { useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
+import { HistoryIcon, Loader2 } from "lucide-react";
+import { useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -14,6 +17,17 @@ import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
 import { SWRProvider } from "@/providers/SWRProvider";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useChats } from "@/hooks/useChats";
+import { LoadingContent } from "@/components/LoadingContent";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -23,8 +37,6 @@ import { SWRProvider } from "@/providers/SWRProvider";
 // AI SDK v5 won't use SWR anymore so we can remove this workaround
 
 type ChatProps = {
-  id: string;
-  initialMessages: Array<UIMessage>;
   emailAccountId: string;
 };
 
@@ -32,28 +44,42 @@ export function Chat(props: ChatProps) {
   // Use parent SWR config for mutate
   const { mutate } = useSWRConfig();
 
+  const [chatId] = useQueryState("chatId");
+  const { data } = useChatMessages(chatId ?? undefined);
+
   return (
     <SWRConfig
       value={{
         fetcher: undefined, // Disable global fetcher for this component
       }}
     >
-      <ChatInner {...props} mutate={mutate} />
+      <ChatInner
+        {...props}
+        mutate={mutate}
+        initialMessages={data ? convertToUIMessages(data) : []}
+        chatId={chatId || undefined}
+      />
     </SWRConfig>
   );
 }
 
 function ChatInner({
-  id,
+  chatId,
   initialMessages,
   emailAccountId,
   mutate,
 }: ChatProps & {
+  chatId?: string;
   mutate: ScopedMutator;
+  initialMessages: Array<UIMessage>;
 }) {
   const chat = useChat({
-    id,
-    body: { id },
+    id: chatId,
+    api: "/api/chat",
+    experimental_prepareRequestBody: (body) => ({
+      id: chatId,
+      message: body.messages.at(-1),
+    }),
     initialMessages,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
@@ -66,7 +92,7 @@ function ChatInner({
     },
     onError: (error) => {
       console.error(error);
-      toast.error("An error occured, please try again!");
+      toast.error(`An error occured! ${error.message || ""}`);
     },
   });
 
@@ -74,7 +100,7 @@ function ChatInner({
     <ChatProvider setInput={chat.setInput}>
       <ResizablePanelGroup direction="horizontal" className="flex-grow">
         <ResizablePanel className="overflow-y-auto">
-          <ChatUI chat={chat} chatId={id} />
+          <ChatUI chat={chat} chatId={chatId} />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel className="overflow-hidden">
@@ -93,7 +119,7 @@ function ChatUI({
   chatId,
 }: {
   chat: ReturnType<typeof useChat>;
-  chatId: string;
+  chatId?: string;
 }) {
   const {
     messages,
@@ -108,6 +134,11 @@ function ChatUI({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
+      <div className="flex items-center justify-end px-2 pt-2">
+        <SWRProvider>
+          <ChatHistoryDropdown />
+        </SWRProvider>
+      </div>
       <Messages
         status={status}
         messages={messages}
@@ -151,6 +182,63 @@ function ChatUI({
   );
 }
 
+function ChatHistoryDropdown() {
+  const [_chatId, setChatId] = useQueryState("chatId");
+  const [shouldLoadChats, setShouldLoadChats] = useState(false);
+  const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          onMouseEnter={() => setShouldLoadChats(true)}
+          onClick={() => mutate()}
+        >
+          <HistoryIcon className="size-5" />
+          <span className="sr-only">Chat History</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <LoadingContent
+          loading={isLoading}
+          error={error}
+          loadingComponent={
+            <DropdownMenuItem
+              disabled
+              className="flex items-center justify-center"
+            >
+              <Loader2 className="mr-2 size-4 animate-spin" />
+              Loading chats...
+            </DropdownMenuItem>
+          }
+          errorComponent={
+            <DropdownMenuItem disabled>Error loading chats</DropdownMenuItem>
+          }
+        >
+          {data && data.chats.length > 0 ? (
+            data.chats.map((chatItem) => (
+              <DropdownMenuItem
+                key={chatItem.id}
+                onSelect={() => {
+                  setChatId(chatItem.id);
+                }}
+              >
+                {`Chat from ${new Date(chatItem.createdAt).toLocaleString()}`}
+              </DropdownMenuItem>
+            ))
+          ) : (
+            <DropdownMenuItem disabled>
+              No previous chats found
+            </DropdownMenuItem>
+          )}
+        </LoadingContent>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // NOTE: not sure why we don't just use the default from AI SDK
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -158,4 +246,18 @@ function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function convertToUIMessages(chat: GetChatResponse): Array<UIMessage> {
+  return (
+    chat?.messages.map((message) => ({
+      id: message.id,
+      parts: message.parts as UIMessage["parts"],
+      role: message.role as UIMessage["role"],
+      // Note: content will soon be deprecated in @ai-sdk/react
+      content: "",
+      createdAt: message.createdAt,
+      // experimental_attachments: (message.attachments as Array<Attachment>) ?? [],
+    })) || []
+  );
 }

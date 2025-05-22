@@ -33,7 +33,7 @@ function PureMultimodalInput({
   handleSubmit,
   className,
 }: {
-  chatId: string;
+  chatId?: string;
   input: UseChatHelpers["input"];
   setInput: UseChatHelpers["setInput"];
   status: UseChatHelpers["status"];
@@ -107,7 +107,7 @@ function PureMultimodalInput({
     if (width && width > 768) {
       textareaRef.current?.focus();
     }
-  }, [handleSubmit, setLocalStorageInput, width, chatId]);
+  }, [handleSubmit, setLocalStorageInput, width]);
 
   return (
     <div className="relative flex w-full flex-col gap-4">

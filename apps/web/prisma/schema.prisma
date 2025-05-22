@@ -52,18 +52,18 @@ model User {
   sessions      Session[]
 
   // additional fields
-  completedOnboardingAt     DateTime? // questions about the user. e.g. their role
-  completedAppOnboardingAt  DateTime? // how to use the app
-  onboardingAnswers         Json?
-  lastLogin                 DateTime?
-  utms                      Json?
-  errorMessages             Json? // eg. user set incorrect AI API key
+  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
+  completedAppOnboardingAt DateTime? // how to use the app
+  onboardingAnswers        Json?
+  lastLogin                DateTime?
+  utms                     Json?
+  errorMessages            Json? // eg. user set incorrect AI API key
 
   // settings
-  aiProvider            String?
-  aiModel               String?
-  aiApiKey              String?
-  webhookSecret         String?
+  aiProvider    String?
+  aiModel       String?
+  aiApiKey      String?
+  webhookSecret String?
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -121,6 +121,7 @@ model EmailAccount {
   emailMessages  EmailMessage[]
   emailTokens    EmailToken[]
   knowledge      Knowledge[]
+  chats          Chat[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -563,6 +564,33 @@ model DraftSendLog {
   similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
 
   @@index([executedActionId])
+}
+
+model Chat {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages       ChatMessage[]
+  emailAccountId String
+  emailAccount   EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@index([emailAccountId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  role  String
+  parts Json
+  // attachments Json?
+
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
 }
 
 enum ActionType {
