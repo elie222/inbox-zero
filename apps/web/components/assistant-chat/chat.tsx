@@ -28,6 +28,7 @@ import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -96,9 +97,14 @@ function ChatInner({
     },
   });
 
+  const isMobile = useIsMobile();
+
   return (
     <ChatProvider setInput={chat.setInput}>
-      <ResizablePanelGroup direction="horizontal" className="flex-grow">
+      <ResizablePanelGroup
+        direction={isMobile ? "vertical" : "horizontal"}
+        className="flex-grow"
+      >
         <ResizablePanel className="overflow-y-auto">
           <ChatUI chat={chat} chatId={chatId} />
         </ResizablePanel>
