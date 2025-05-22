@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -35,8 +37,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 // AI SDK v5 won't use SWR anymore so we can remove this workaround
 
 type ChatProps = {
-  id?: string;
-  initialMessages: Array<UIMessage>;
   emailAccountId: string;
 };
 
@@ -44,30 +44,40 @@ export function Chat(props: ChatProps) {
   // Use parent SWR config for mutate
   const { mutate } = useSWRConfig();
 
+  const [chatId] = useQueryState("chatId");
+  const { data } = useChatMessages(chatId ?? undefined);
+
   return (
     <SWRConfig
       value={{
         fetcher: undefined, // Disable global fetcher for this component
       }}
     >
-      <ChatInner {...props} mutate={mutate} />
+      <ChatInner
+        {...props}
+        mutate={mutate}
+        initialMessages={data ? convertToUIMessages(data) : []}
+        chatId={chatId || undefined}
+      />
     </SWRConfig>
   );
 }
 
 function ChatInner({
-  id,
+  chatId,
   initialMessages,
   emailAccountId,
   mutate,
 }: ChatProps & {
+  chatId?: string;
   mutate: ScopedMutator;
+  initialMessages: Array<UIMessage>;
 }) {
   const chat = useChat({
-    id,
+    id: chatId,
     api: "/api/chat",
     experimental_prepareRequestBody: (body) => ({
-      id,
+      id: chatId,
       message: body.messages.at(-1),
     }),
     initialMessages,
@@ -90,7 +100,7 @@ function ChatInner({
     <ChatProvider setInput={chat.setInput}>
       <ResizablePanelGroup direction="horizontal" className="flex-grow">
         <ResizablePanel className="overflow-y-auto">
-          <ChatUI chat={chat} chatId={id} />
+          <ChatUI chat={chat} chatId={chatId} />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel className="overflow-hidden">
@@ -236,4 +246,18 @@ function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function convertToUIMessages(chat: GetChatResponse): Array<UIMessage> {
+  return (
+    chat?.messages.map((message) => ({
+      id: message.id,
+      parts: message.parts as UIMessage["parts"],
+      role: message.role as UIMessage["role"],
+      // Note: content will soon be deprecated in @ai-sdk/react
+      content: "",
+      createdAt: message.createdAt,
+      // experimental_attachments: (message.attachments as Array<Attachment>) ?? [],
+    })) || []
+  );
 }

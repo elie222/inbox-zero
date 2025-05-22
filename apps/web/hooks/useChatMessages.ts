@@ -1,6 +1,6 @@
 import useSWR from "swr";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 
-export function useChat(chatId?: string) {
+export function useChatMessages(chatId?: string) {
   return useSWR<GetChatResponse>(chatId ? `/api/chats/${chatId}` : null);
 }

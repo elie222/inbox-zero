@@ -56,7 +56,7 @@ export function AssistantTabs() {
 
         <TabsContent value="empty" className="mt-0 h-full">
           <div className="flex h-full items-center justify-center">
-            <TypographyP className="max-w-sm text-center">
+            <TypographyP className="max-w-sm px-4 text-center">
               Select a tab or chat with your AI assistant to explain how it
               should handle incoming emails
             </TypographyP>
