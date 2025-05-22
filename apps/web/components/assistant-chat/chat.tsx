@@ -6,7 +6,7 @@ import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
-import { HistoryIcon, Loader2 } from "lucide-react";
+import { HistoryIcon, Loader2, PlusIcon } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
@@ -29,6 +29,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -140,7 +141,9 @@ function ChatUI({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center justify-end px-2 pt-2">
+      <div className="flex items-center justify-end gap-1 px-2 pt-2">
+        <NewChatButton />
+        <ExamplesDialog setInput={setInput} />
         <SWRProvider>
           <ChatHistoryDropdown />
         </SWRProvider>
@@ -185,6 +188,19 @@ function ChatUI({
         reload={reload}
       /> */}
     </div>
+  );
+}
+
+function NewChatButton() {
+  const [_chatId, setChatId] = useQueryState("chatId");
+
+  const handleNewChat = () => setChatId(null);
+
+  return (
+    <Button variant="ghost" size="icon" onClick={handleNewChat}>
+      <PlusIcon className="size-5" />
+      <span className="sr-only">New Chat</span>
+    </Button>
   );
 }
 
