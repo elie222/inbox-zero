@@ -6,6 +6,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
+import shuffle from "lodash/shuffle";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -190,14 +191,16 @@ function selectDefaultModel(userAi: UserAIFields) {
   const providerOptions: Record<string, any> = {};
 
   // Add OpenRouter-specific provider options
-  // TODO: shouldn't be harded coded
+  // TODO: shouldn't be hard coded
   if (defaultProvider === Provider.OPENROUTER) {
     providerOptions.openrouter = {
-      models: [
+      // random order to make better use of stronger models with lower rate limits
+      models: shuffle([
         "anthropic/claude-3.5-sonnet",
         "anthropic/claude-3.7-sonnet",
+        // "anthropic/claude-4-sonnet",
         // "google/gemini-2.5-pro-preview-03-25",
-      ],
+      ]),
       provider: {
         order: ["Amazon Bedrock", "Google AI Studio", "Anthropic"],
       },

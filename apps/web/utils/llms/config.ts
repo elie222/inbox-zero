@@ -22,6 +22,7 @@ export const Model = {
   CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
   CLAUDE_3_5_SONNET_OPENROUTER: "anthropic/claude-3.5-sonnet",
   CLAUDE_3_7_SONNET_OPENROUTER: "anthropic/claude-3.7-sonnet",
+  CLAUDE_4_SONNET_OPENROUTER: "anthropic/claude-sonnet-4",
   GEMINI_1_5_PRO: "gemini-1.5-pro-latest",
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
   GEMINI_2_0_FLASH_LITE: "gemini-2.0-flash-lite",
