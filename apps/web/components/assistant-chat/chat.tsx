@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -44,11 +44,24 @@ type ChatProps = {
 };
 
 export function Chat(props: ChatProps) {
+  const [chatId, setChatId] = useQueryState("chatId");
+
+  useEffect(() => {
+    if (!chatId) {
+      setChatId(generateUUID());
+    }
+  }, [chatId, setChatId]);
+
+  if (!chatId) return null;
+
+  return <ChatWithEmptySWR {...props} chatId={chatId} />;
+}
+
+function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
   // Use parent SWR config for mutate
   const { mutate } = useSWRConfig();
 
-  const [chatId] = useQueryState("chatId");
-  const { data } = useChatMessages(chatId ?? undefined);
+  const { data } = useChatMessages(props.chatId);
 
   return (
     <SWRConfig
@@ -60,7 +73,7 @@ export function Chat(props: ChatProps) {
         {...props}
         mutate={mutate}
         initialMessages={data ? convertToUIMessages(data) : []}
-        chatId={chatId || undefined}
+        chatId={props.chatId}
       />
     </SWRConfig>
   );
@@ -72,9 +85,9 @@ function ChatInner({
   emailAccountId,
   mutate,
 }: ChatProps & {
-  chatId?: string;
-  mutate: ScopedMutator;
+  chatId: string;
   initialMessages: Array<UIMessage>;
+  mutate: ScopedMutator;
 }) {
   const chat = useChat({
     id: chatId,
