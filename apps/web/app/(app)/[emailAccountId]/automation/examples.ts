@@ -24,6 +24,24 @@ const commonPrompts = [
 
 const common = `${commonPrompts.map((prompt) => `* ${prompt}`).join(".\n")}.`;
 
+export const initialChatExamples = [
+  {
+    label: "Label all pitch decks and investor updates",
+    message:
+      "When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'",
+  },
+  {
+    label: "Respond to sponsorship inquiries with my pricing",
+    message:
+      "When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck",
+  },
+  {
+    label: "Forward all receipts to my accountant",
+    message:
+      "When I get an email with a receipt, forward it to my accountant: jane@example.com",
+  },
+];
+
 export const examplePrompts = [
   ...commonPrompts,
   'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',
@@ -33,7 +51,7 @@ export const examplePrompts = [
   "If a founder asks to set up a call, send them my calendar link: https://cal.com/example",
   "If someone asks to cancel a plan, ask to set up a call by sending my calendar link",
   'If a founder sends me an investor update, label it "Investor Update" and archive it',
-  'If someone pitches me their startup, label it as "Investing", archive it, and respond with a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
+  'If someone pitches me their startup, label it as "Investing", archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
   "If someone asks for a discount, reply with the discount code INBOX20",
   "If someone asks for help with Product or Company, tell them I no longer work there, but they should reach out to Company for support",
   "Review any emails from questions@pr.com and see if any are about finance. If so, draft a friendly reply that answers the question",
