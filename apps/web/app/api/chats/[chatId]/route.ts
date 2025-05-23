@@ -17,12 +17,6 @@ export const GET = withEmailAccount(async (request, { params }) => {
 
   const chat = await getChat({ chatId, emailAccountId });
 
-  if (!chat) {
-    return NextResponse.json(
-      { error: "Chat not found or access denied." },
-      { status: 404 },
-    );
-  }
   return NextResponse.json(chat);
 });
 
