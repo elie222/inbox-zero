@@ -82,7 +82,7 @@ function selectModel(
         sample([
           Model.CLAUDE_3_5_SONNET_OPENROUTER,
           Model.CLAUDE_3_7_SONNET_OPENROUTER,
-          // Model.CLAUDE_4_SONNET_OPENROUTER,
+          Model.CLAUDE_4_SONNET_OPENROUTER,
         ]);
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
@@ -205,7 +205,7 @@ function selectDefaultModel(userAi: UserAIFields) {
       models: [
         "anthropic/claude-3.5-sonnet",
         "anthropic/claude-3.7-sonnet",
-        // "anthropic/claude-4-sonnet",
+        "anthropic/claude-4-sonnet",
         // "google/gemini-2.5-pro-preview-03-25",
       ],
       provider: {
