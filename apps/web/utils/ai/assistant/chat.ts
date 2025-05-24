@@ -28,15 +28,14 @@ const updateRuleConditionSchema = z.object({
     aiInstructions: z.string().optional(),
     static: z
       .object({
-        from: z.string().optional(),
-        to: z.string().optional(),
-        subject: z.string().optional(),
-        body: z.string().optional(),
+        from: z.string().nullable(),
+        to: z.string().nullable(),
+        subject: z.string().nullable(),
       })
-      .optional(),
+      .nullable(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .optional(),
+      .nullable(),
   }),
 });
 export type UpdateRuleConditionSchema = z.infer<
@@ -151,7 +150,7 @@ You can use {{variables}} in the fields to insert AI generated content. For exam
 "Hi {{name}}, {{write a friendly reply}}, Best regards, Alice"
 
 Rule matching logic:
-- All static conditions (from, to, subject, body) use AND logic - meaning all static conditions must match
+- All static conditions (from, to, subject) use AND logic - meaning all static conditions must match
 - Top level conditions (AI instructions, static) can use either AND or OR logic, controlled by the "conditionalOperator" setting
 
 Best practices:
@@ -413,7 +412,6 @@ Examples:
                   from: true,
                   to: true,
                   subject: true,
-                  body: true,
                   conditionalOperator: true,
                   enabled: true,
                   automate: true,
@@ -452,7 +450,6 @@ Examples:
                 from: rule.from,
                 to: rule.to,
                 subject: rule.subject,
-                body: rule.body,
               });
 
               const staticConditions =
@@ -599,8 +596,7 @@ Examples:
               from: condition.static?.from,
               to: condition.static?.to,
               subject: condition.static?.subject,
-              body: condition.static?.body,
-              conditionalOperator: condition.conditionalOperator,
+              conditionalOperator: condition.conditionalOperator ?? undefined,
             },
           });
 
