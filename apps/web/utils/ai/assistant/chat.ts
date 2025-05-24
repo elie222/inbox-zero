@@ -75,22 +75,24 @@ export type UpdateRuleActionsSchema = z.infer<typeof updateRuleActionsSchema>;
 // Schema for updating learned patterns
 const updateLearnedPatternsSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
-  learnedPatterns: z.array(
-    z.object({
-      include: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-      exclude: z
-        .object({
-          from: z.string().optional(),
-          subject: z.string().optional(),
-        })
-        .optional(),
-    }),
-  ),
+  learnedPatterns: z
+    .array(
+      z.object({
+        include: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+        exclude: z
+          .object({
+            from: z.string().optional(),
+            subject: z.string().optional(),
+          })
+          .optional(),
+      }),
+    )
+    .min(1, "At least one learned pattern is required"),
 });
 export type UpdateLearnedPatternsSchema = z.infer<
   typeof updateLearnedPatternsSchema
