@@ -189,9 +189,16 @@ function UpdatedRuleConditions({
   args: UpdateRuleConditionSchema;
   ruleId: string;
 }) {
+  const staticConditions =
+    args.condition.static?.from ||
+    args.condition.static?.to ||
+    args.condition.static?.subject
+      ? args.condition.static
+      : null;
+
   const conditionsArray = [
     args.condition.aiInstructions,
-    args.condition.static,
+    staticConditions,
   ].filter(Boolean);
 
   return (
@@ -225,9 +232,6 @@ function UpdatedRuleConditions({
               )}
               {args.condition.static.subject && (
                 <li>Subject: {args.condition.static.subject}</li>
-              )}
-              {args.condition.static.body && (
-                <li>Body: {args.condition.static.body}</li>
               )}
             </ul>
           </div>

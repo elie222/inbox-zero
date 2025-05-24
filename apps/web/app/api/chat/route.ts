@@ -1,9 +1,4 @@
-import {
-  appendClientMessage,
-  appendResponseMessages,
-  type CoreAssistantMessage,
-  type CoreToolMessage,
-} from "ai";
+import { appendClientMessage, appendResponseMessages } from "ai";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -101,13 +96,13 @@ export const POST = withEmailAccount(async (request) => {
     emailAccountId,
     user,
     onFinish: async ({ response }) => {
-      const assistantId = getTrailingMessageId({
-        messages: response.messages.filter(
-          (message: { role: string }) => message.role === "assistant",
-        ),
-      });
+      const assistantMessages = response.messages.filter(
+        (message) => message.role === "assistant",
+      );
+      const assistantId = getTrailingMessageId(assistantMessages);
 
       if (!assistantId) {
+        logger.error("No assistant message found!", { response });
         throw new Error("No assistant message found!");
       }
 
@@ -181,14 +176,9 @@ function convertDbRoleToSdkRole(
   }
 }
 
-type ResponseMessageWithoutId = CoreToolMessage | CoreAssistantMessage;
-type ResponseMessage = ResponseMessageWithoutId & { id: string };
-
-function getTrailingMessageId({
-  messages,
-}: {
-  messages: Array<ResponseMessage>;
-}): string | null {
+function getTrailingMessageId<T extends { id: string }>(
+  messages: Array<T>,
+): string | null {
   const trailingMessage = messages.at(-1);
 
   if (!trailingMessage) return null;
