@@ -39,6 +39,8 @@ import { Tooltip } from "@/components/Tooltip";
 // We then re-enable the regular SWRProvider in the AssistantTabs component
 // AI SDK v5 won't use SWR anymore so we can remove this workaround
 
+const MAX_MESSAGES = 20;
+
 type ChatProps = {
   emailAccountId: string;
 };
@@ -155,12 +157,22 @@ function ChatUI({
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center justify-end gap-1 px-2 pt-2">
-        <NewChatButton />
-        <ExamplesDialog setInput={setInput} />
-        <SWRProvider>
-          <ChatHistoryDropdown />
-        </SWRProvider>
+      <div className="flex items-center justify-between px-2 pt-2">
+        {messages.length > MAX_MESSAGES ? (
+          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+            The chat is too long. Please start a new conversation.
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <div className="flex items-center gap-1">
+          <NewChatButton />
+          <ExamplesDialog setInput={setInput} />
+          <SWRProvider>
+            <ChatHistoryDropdown />
+          </SWRProvider>
+        </div>
       </div>
       <Messages
         status={status}
