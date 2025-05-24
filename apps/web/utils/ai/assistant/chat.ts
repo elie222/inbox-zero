@@ -428,15 +428,6 @@ Examples:
                       url: true,
                     },
                   },
-                  group: {
-                    select: {
-                      _count: {
-                        select: {
-                          items: true,
-                        },
-                      },
-                    },
-                  },
                 },
               },
             },
@@ -481,7 +472,6 @@ Examples:
                 enabled: rule.enabled,
                 automate: rule.automate,
                 runOnThreads: rule.runOnThreads,
-                learnedPatterns: rule.group?._count.items || 0,
               };
             }),
           };
