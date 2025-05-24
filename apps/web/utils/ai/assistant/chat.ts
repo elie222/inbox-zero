@@ -13,6 +13,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
+import { filterNullProperties } from "@/utils";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -398,18 +399,132 @@ Examples:
             email: user.email,
           });
 
-          const [rules, emailAccount] = await Promise.all([
-            prisma.rule.findMany({ where: { emailAccountId } }),
-            prisma.emailAccount.findUnique({
-              where: { id: emailAccountId },
-              select: { about: true, coldEmailBlocker: true },
-            }),
-          ]);
+          const emailAccount = await prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: {
+              about: true,
+              coldEmailBlocker: true,
+              rules: {
+                select: {
+                  name: true,
+                  instructions: true,
+                  from: true,
+                  to: true,
+                  subject: true,
+                  body: true,
+                  conditionalOperator: true,
+                  enabled: true,
+                  automate: true,
+                  runOnThreads: true,
+                  actions: {
+                    select: {
+                      type: true,
+                      content: true,
+                      label: true,
+                      to: true,
+                      cc: true,
+                      bcc: true,
+                      subject: true,
+                      url: true,
+                    },
+                  },
+                  group: {
+                    select: {
+                      _count: {
+                        select: {
+                          items: true,
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          });
 
           return {
-            rules,
             about: emailAccount?.about || "Not set",
             coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
+            rules: emailAccount?.rules.map((rule) => {
+              const staticFilter = filterNullProperties({
+                from: rule.from,
+                to: rule.to,
+                subject: rule.subject,
+                body: rule.body,
+              });
+
+              const staticConditions =
+                Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
+
+              return {
+                name: rule.name,
+                conditions: {
+                  aiInstructions: rule.instructions,
+                  static: staticConditions,
+                  // only need to show conditional operator if there are multiple conditions
+                  conditionalOperator:
+                    rule.instructions && staticConditions
+                      ? rule.conditionalOperator
+                      : undefined,
+                },
+                actions: rule.actions.map((action) => ({
+                  type: action.type,
+                  fields: filterNullProperties({
+                    label: action.label,
+                    content: action.content,
+                    to: action.to,
+                    cc: action.cc,
+                    bcc: action.bcc,
+                    subject: action.subject,
+                    url: action.url,
+                  }),
+                })),
+                enabled: rule.enabled,
+                automate: rule.automate,
+                runOnThreads: rule.runOnThreads,
+                learnedPatterns: rule.group?._count.items || 0,
+              };
+            }),
+          };
+        },
+      }),
+
+      get_learned_patterns: tool({
+        description: "Retrieve the learned patterns for a rule",
+        parameters: z.object({
+          ruleName: z
+            .string()
+            .describe("The name of the rule to get the learned patterns for"),
+        }),
+        execute: async ({ ruleName }) => {
+          trackToolCall({ tool: "get_learned_patterns", email: user.email });
+
+          const rule = await prisma.rule.findUnique({
+            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              group: {
+                select: {
+                  items: {
+                    select: {
+                      type: true,
+                      value: true,
+                      exclude: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+
+          if (!rule) {
+            return {
+              error:
+                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+            };
+          }
+
+          return {
+            patterns: rule.group?.items,
           };
         },
       }),

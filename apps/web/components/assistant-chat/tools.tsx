@@ -29,6 +29,8 @@ export function ToolCard({
   switch (toolName) {
     case "get_user_rules_and_settings":
       return <BasicInfo text="Read rules and settings" />;
+    case "get_learned_patterns":
+      return <BasicInfo text={`Read learned patterns for ${args.ruleName}`} />;
     case "create_rule":
       return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
     case "update_rule_conditions":
