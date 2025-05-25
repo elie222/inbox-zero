@@ -264,7 +264,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-0 pb-0">
         {state === "expanded" ? (
           <Link href="/setup">
-            <div className="flex items-center rounded-md p-3 text-white">
+            <div className="flex items-center rounded-md p-3 text-foreground">
               <Logo className="h-3.5" />
             </div>
           </Link>
