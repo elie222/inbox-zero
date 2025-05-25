@@ -82,7 +82,7 @@ export const useNavigation = () => {
         icon: MessageCircleReplyIcon,
       },
       {
-        name: "Cold Blocker",
+        name: "Cold Emails",
         href: prefixPath(emailAccountId, "/cold-email-blocker"),
         icon: ShieldCheckIcon,
       },
