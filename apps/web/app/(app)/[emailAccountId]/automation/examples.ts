@@ -80,7 +80,9 @@ export const personas = {
   founder: {
     label: "🚀 Founder",
     promptArray: founderPromptArray,
-    prompt: formatPromptArray(founderPromptArray),
+    get prompt() {
+      return formatPromptArray(this.promptArray);
+    },
   },
   influencer: {
     label: "📹 Influencer",
@@ -144,7 +146,9 @@ I've attached my media kit and pricing.
   assistant: {
     label: "📋 Assistant",
     promptArray: founderPromptArray,
-    prompt: formatPromptArray(founderPromptArray),
+    get prompt() {
+      return formatPromptArray(this.promptArray);
+    },
   },
   developer: {
     label: "👨‍💻 Developer",
@@ -291,6 +295,8 @@ I've attached my media kit and pricing.
   other: {
     label: "🤖 Other",
     promptArray: commonPrompts,
-    prompt: common,
+    get prompt() {
+      return formatPromptArray(this.promptArray);
+    },
   },
 };
