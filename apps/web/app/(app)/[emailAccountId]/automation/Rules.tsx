@@ -13,6 +13,7 @@ import {
   ToggleLeftIcon,
   SlidersIcon,
 } from "lucide-react";
+import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -44,22 +45,25 @@ import { Toggle } from "@/components/Toggle";
 import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
 import { getActionColor } from "@/components/PlanBadge";
-import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import type { RiskLevel } from "@/utils/risk";
 import { useRules } from "@/hooks/useRules";
-import { ActionType } from "@prisma/client";
+import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import { ThreadsExplanation } from "@/app/(app)/[emailAccountId]/automation/RuleForm";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ExpandableText } from "@/components/ExpandableText";
+import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
+import type { RulesResponse } from "@/app/api/user/rules/route";
+import { inboxZeroLabels } from "@/utils/label";
+import { isDefined } from "@/utils/types";
+
+const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
 export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
-
-  const hasRules = !!data?.length;
+  const { data: emailAccountData } = useEmailAccountFull();
 
   const { emailAccountId } = useAccount();
   const { executeAsync: setRuleRunOnThreads } = useAction(
@@ -71,6 +75,93 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { executeAsync: deleteRule } = useAction(
     deleteRuleAction.bind(null, emailAccountId),
   );
+
+  const baseRules: RulesResponse = useMemo(() => {
+    return (
+      data?.sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0)) || []
+    );
+  }, [data]);
+
+  const rules: RulesResponse = useMemo(() => {
+    const enabled: ColdEmailSetting[] = [
+      ColdEmailSetting.LABEL,
+      ColdEmailSetting.ARCHIVE_AND_LABEL,
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+    ];
+
+    const shouldArchived: ColdEmailSetting[] = [
+      ColdEmailSetting.ARCHIVE_AND_LABEL,
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
+    ];
+
+    const coldEmailBlockerEnabled =
+      emailAccountData?.coldEmailBlocker &&
+      enabled.includes(emailAccountData?.coldEmailBlocker);
+
+    if (!coldEmailBlockerEnabled) return baseRules;
+
+    const showArchiveAction =
+      emailAccountData?.coldEmailBlocker &&
+      shouldArchived.includes(emailAccountData?.coldEmailBlocker);
+
+    // Works differently to rules, but we want to show it in the list for user simplicity
+    const coldEmailBlockerRule: RulesResponse[number] = {
+      id: COLD_EMAIL_BLOCKER_RULE_ID,
+      name: "Block Cold Emails",
+      instructions: emailAccountData?.coldEmailPrompt || null,
+      automate: true,
+      enabled: true,
+      runOnThreads: false,
+      actions: [
+        {
+          id: "cold-email-blocker-label",
+          type: ActionType.LABEL,
+          label: inboxZeroLabels.cold_email.name.split("/")[1],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
+          to: null,
+          subject: null,
+          content: null,
+          cc: null,
+          bcc: null,
+          url: null,
+        },
+        showArchiveAction
+          ? {
+              id: "cold-email-blocker-archive",
+              type: ActionType.ARCHIVE,
+              label: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              url: null,
+            }
+          : null,
+      ].filter(isDefined),
+      categoryFilters: [],
+      group: null,
+      emailAccountId: emailAccountId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      categoryFilterType: null,
+      conditionalOperator: LogicalOperator.OR,
+      groupId: null,
+      systemType: null,
+      to: null,
+      from: null,
+      subject: null,
+      body: null,
+    };
+    return [...(baseRules || []), coldEmailBlockerRule];
+  }, [baseRules, emailAccountData, emailAccountId]);
+
+  const hasRules = !!rules?.length;
 
   return (
     <div className="pb-4">
@@ -97,21 +188,23 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data
-                  ?.sort((a, b) => (b.enabled ? 1 : 0) - (a.enabled ? 1 : 0))
-                  .map((rule) => (
+                {rules.map((rule) => {
+                  const isColdEmailBlocker =
+                    rule.id === COLD_EMAIL_BLOCKER_RULE_ID;
+                  const href = isColdEmailBlocker
+                    ? prefixPath(
+                        emailAccountId,
+                        "/cold-email-blocker?tab=settings",
+                      )
+                    : prefixPath(emailAccountId, `/automation/rule/${rule.id}`);
+
+                  return (
                     <TableRow
                       key={rule.id}
                       className={!rule.enabled ? "bg-muted opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
-                        <Link
-                          href={prefixPath(
-                            emailAccountId,
-                            `/automation/rule/${rule.id}`,
-                          )}
-                          className="flex items-center gap-2"
-                        >
+                        <Link href={href} className="flex items-center gap-2">
                           {!rule.enabled && (
                             <Badge color="red" className="mr-2">
                               Disabled
@@ -145,6 +238,8 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                               enabled={rule.runOnThreads}
                               name="runOnThreads"
                               onChange={async () => {
+                                if (isColdEmailBlocker) return;
+
                                 const result = await setRuleRunOnThreads({
                                   ruleId: rule.id,
                                   runOnThreads: !rule.runOnThreads,
@@ -176,10 +271,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem asChild>
                               <Link
-                                href={prefixPath(
-                                  emailAccountId,
-                                  `/automation/rule/${rule.id}`,
-                                )}
+                                href={href}
+                                target={
+                                  isColdEmailBlocker ? "_blank" : undefined
+                                }
                               >
                                 <PenIcon className="mr-2 size-4" />
                                 Edit
@@ -187,92 +282,109 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                               <Link
-                                href={prefixPath(
-                                  emailAccountId,
-                                  `/automation?tab=history&ruleId=${rule.id}`,
-                                )}
+                                href={
+                                  isColdEmailBlocker
+                                    ? prefixPath(
+                                        emailAccountId,
+                                        "/cold-email-blocker",
+                                      )
+                                    : prefixPath(
+                                        emailAccountId,
+                                        `/automation?tab=history&ruleId=${rule.id}`,
+                                      )
+                                }
+                                target={
+                                  isColdEmailBlocker ? "_blank" : undefined
+                                }
                               >
                                 <HistoryIcon className="mr-2 size-4" />
                                 History
                               </Link>
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                const result = await setRuleEnabled({
-                                  ruleId: rule.id,
-                                  enabled: !rule.enabled,
-                                });
+                            {!isColdEmailBlocker && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    const result = await setRuleEnabled({
+                                      ruleId: rule.id,
+                                      enabled: !rule.enabled,
+                                    });
 
-                                if (result?.serverError) {
-                                  toastError({
-                                    description: `There was an error ${
-                                      rule.enabled ? "disabling" : "enabling"
-                                    } your rule. ${result.serverError || ""}`,
-                                  });
-                                } else {
-                                  toastSuccess({
-                                    description: `Rule ${
-                                      rule.enabled ? "disabled" : "enabled"
-                                    }!`,
-                                  });
-                                }
-
-                                mutate();
-                              }}
-                            >
-                              {rule.enabled ? (
-                                <ToggleRightIcon className="mr-2 size-4" />
-                              ) : (
-                                <ToggleLeftIcon className="mr-2 size-4" />
-                              )}
-                              {rule.enabled ? "Disable" : "Enable"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={async () => {
-                                const yes = confirm(
-                                  "Are you sure you want to delete this rule?",
-                                );
-                                if (yes) {
-                                  toast.promise(
-                                    async () => {
-                                      const res = await deleteRule({
-                                        id: rule.id,
+                                    if (result?.serverError) {
+                                      toastError({
+                                        description: `There was an error ${
+                                          rule.enabled
+                                            ? "disabling"
+                                            : "enabling"
+                                        } your rule. ${result.serverError || ""}`,
                                       });
+                                    } else {
+                                      toastSuccess({
+                                        description: `Rule ${
+                                          rule.enabled ? "disabled" : "enabled"
+                                        }!`,
+                                      });
+                                    }
 
-                                      if (
-                                        res?.serverError ||
-                                        res?.validationErrors ||
-                                        res?.bindArgsValidationErrors
-                                      ) {
-                                        throw new Error(
-                                          res?.serverError ||
-                                            "There was an error deleting your rule",
-                                        );
-                                      }
+                                    mutate();
+                                  }}
+                                >
+                                  {rule.enabled ? (
+                                    <ToggleRightIcon className="mr-2 size-4" />
+                                  ) : (
+                                    <ToggleLeftIcon className="mr-2 size-4" />
+                                  )}
+                                  {rule.enabled ? "Disable" : "Enable"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={async () => {
+                                    const yes = confirm(
+                                      "Are you sure you want to delete this rule?",
+                                    );
+                                    if (yes) {
+                                      toast.promise(
+                                        async () => {
+                                          const res = await deleteRule({
+                                            id: rule.id,
+                                          });
 
-                                      mutate();
-                                    },
-                                    {
-                                      loading: "Deleting rule...",
-                                      success: "Rule deleted",
-                                      error: (error) =>
-                                        `Error deleting rule. ${error.message}`,
-                                      finally: () => {
-                                        mutate();
-                                      },
-                                    },
-                                  );
-                                }
-                              }}
-                            >
-                              <Trash2Icon className="mr-2 size-4" />
-                              Delete
-                            </DropdownMenuItem>
+                                          if (
+                                            res?.serverError ||
+                                            res?.validationErrors ||
+                                            res?.bindArgsValidationErrors
+                                          ) {
+                                            throw new Error(
+                                              res?.serverError ||
+                                                "There was an error deleting your rule",
+                                            );
+                                          }
+
+                                          mutate();
+                                        },
+                                        {
+                                          loading: "Deleting rule...",
+                                          success: "Rule deleted",
+                                          error: (error) =>
+                                            `Error deleting rule. ${error.message}`,
+                                          finally: () => {
+                                            mutate();
+                                          },
+                                        },
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <Trash2Icon className="mr-2 size-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  );
+                })}
               </TableBody>
             </Table>
           ) : (
