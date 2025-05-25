@@ -72,7 +72,7 @@ export const useNavigation = () => {
   const assistantItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Personal Assistant",
+        name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
@@ -82,7 +82,7 @@ export const useNavigation = () => {
         icon: MessageCircleReplyIcon,
       },
       {
-        name: "Cold Email Blocker",
+        name: "Cold Blocker",
         href: prefixPath(emailAccountId, "/cold-email-blocker"),
         icon: ShieldCheckIcon,
       },
@@ -94,7 +94,7 @@ export const useNavigation = () => {
   const cleanItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Bulk Unsubscribe",
+        name: "Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
