@@ -6,7 +6,13 @@ import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
-import { HistoryIcon, Loader2, PlusIcon } from "lucide-react";
+import {
+  FileIcon,
+  HistoryIcon,
+  Loader2,
+  MessageCircleIcon,
+  PlusIcon,
+} from "lucide-react";
 import { useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
@@ -31,6 +37,10 @@ import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
+import {
+  PromptFile,
+  RulesPrompt,
+} from "@/app/(app)/[emailAccountId]/automation/RulesPrompt";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -123,7 +133,7 @@ function ChatInner({
         className="flex-grow"
       >
         <ResizablePanel className="overflow-y-auto">
-          <ChatUI chat={chat} chatId={chatId} />
+          <ChatUI chat={chat} />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel className="overflow-hidden">
@@ -137,13 +147,7 @@ function ChatInner({
   );
 }
 
-function ChatUI({
-  chat,
-  chatId,
-}: {
-  chat: ReturnType<typeof useChat>;
-  chatId?: string;
-}) {
+function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
   const {
     messages,
     setMessages,
@@ -155,64 +159,92 @@ function ChatUI({
     reload,
   } = chat;
 
+  const [mode, setMode] = useQueryState("mode");
+
+  const isDocumentMode = mode === "document";
+
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
-        {messages.length > MAX_MESSAGES ? (
-          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-            The chat is too long. Please start a new conversation.
-          </div>
-        ) : (
-          <div />
-        )}
+        <div>
+          {isDocumentMode ? (
+            <Tooltip content="Switch to chat mode">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMode("chat")}
+              >
+                <MessageCircleIcon className="size-5" />
+                <span className="sr-only">Switch to chat mode</span>
+              </Button>
+            </Tooltip>
+          ) : (
+            <Tooltip content="Switch to the old document mode">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setMode("document")}
+              >
+                <FileIcon className="size-5" />
+                <span className="sr-only">Switch to the old document mode</span>
+              </Button>
+            </Tooltip>
+          )}
+
+          {!isDocumentMode && messages.length > MAX_MESSAGES && (
+            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+              The chat is too long. Please start a new conversation.
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-1">
-          <NewChatButton />
-          <ExamplesDialog setInput={setInput} />
-          <SWRProvider>
-            <ChatHistoryDropdown />
-          </SWRProvider>
+          {!isDocumentMode && (
+            <>
+              <NewChatButton />
+              <ExamplesDialog setInput={setInput} />
+              <SWRProvider>
+                <ChatHistoryDropdown />
+              </SWRProvider>
+            </>
+          )}
         </div>
       </div>
-      <Messages
-        status={status}
-        messages={messages}
-        setMessages={setMessages}
-        setInput={setInput}
-        reload={reload}
-        isArtifactVisible={false}
-      />
 
-      <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
-        <MultimodalInput
-          // chatId={chatId}
-          input={input}
-          setInput={setInput}
-          handleSubmit={handleSubmit}
-          status={status}
-          stop={stop}
-          // attachments={attachments}
-          // setAttachments={setAttachments}
-          // messages={messages}
-          setMessages={setMessages}
-          // append={append}
-        />
-      </form>
+      {isDocumentMode ? (
+        <SWRProvider>
+          <div className="p-2">
+            <PromptFile />
+          </div>
+        </SWRProvider>
+      ) : (
+        <>
+          <Messages
+            status={status}
+            messages={messages}
+            setMessages={setMessages}
+            setInput={setInput}
+            reload={reload}
+            isArtifactVisible={false}
+          />
 
-      {/* <Artifact
-        chatId={id}
-        input={input}
-        setInput={setInput}
-        handleSubmit={handleSubmit}
-        status={status}
-        stop={stop}
-        attachments={attachments}
-        setAttachments={setAttachments}
-        append={append}
-        messages={messages}
-        setMessages={setMessages}
-        reload={reload}
-      /> */}
+          <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
+            <MultimodalInput
+              // chatId={chatId}
+              input={input}
+              setInput={setInput}
+              handleSubmit={handleSubmit}
+              status={status}
+              stop={stop}
+              // attachments={attachments}
+              // setAttachments={setAttachments}
+              // messages={messages}
+              setMessages={setMessages}
+              // append={append}
+            />
+          </form>
+        </>
+      )}
     </div>
   );
 }
