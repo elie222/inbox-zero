@@ -44,7 +44,7 @@ export const Overview = ({
           ))}
 
           <ExamplesDialog setInput={setInput}>
-            <Button variant="ghost">Show more examples</Button>
+            <Button variant="ghost">Choose from examples</Button>
           </ExamplesDialog>
         </div>
       </div>
