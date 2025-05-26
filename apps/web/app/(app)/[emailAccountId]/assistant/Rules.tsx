@@ -66,14 +66,17 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
-  const { executeAsync: setRuleRunOnThreads } = useAction(
-    setRuleRunOnThreadsAction.bind(null, emailAccountId),
-  );
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
+    {
+      onSettled: () => mutate(),
+    },
   );
   const { executeAsync: deleteRule } = useAction(
     deleteRuleAction.bind(null, emailAccountId),
+    {
+      onSettled: () => mutate(),
+    },
   );
 
   const baseRules: RulesResponse = useMemo(() => {
