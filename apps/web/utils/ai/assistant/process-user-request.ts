@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { after } from "next/server";
 import { chatCompletionTools } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
 import {
@@ -7,7 +8,6 @@ import {
   GroupItemType,
   LogicalOperator,
   type Rule,
-  type User,
 } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
@@ -615,12 +615,14 @@ ${senderCategory || "No category"}
   // Upon completion, check what changes were made and make sure the prompt file is updated
 
   // Update prompt file for newly created rules
-  for (const rule of createdRules.values()) {
-    await updatePromptFileOnRuleCreated({
-      emailAccountId: emailAccount.id,
-      rule,
-    });
-  }
+  after(async () => {
+    for (const rule of createdRules.values()) {
+      await updatePromptFileOnRuleCreated({
+        emailAccountId: emailAccount.id,
+        rule,
+      });
+    }
+  });
 
   // Update prompt file for modified rules
   for (const updatedRule of updatedRules.values()) {
@@ -638,10 +640,12 @@ ${senderCategory || "No category"}
       continue; // Skip if original rule not found (should not happen ideally)
     }
 
-    await updatePromptFileOnRuleUpdated({
-      emailAccountId: emailAccount.id,
-      currentRule: originalRule,
-      updatedRule: updatedRule,
+    after(async () => {
+      await updatePromptFileOnRuleUpdated({
+        emailAccountId: emailAccount.id,
+        currentRule: originalRule,
+        updatedRule: updatedRule,
+      });
     });
   }
 
