@@ -42,6 +42,31 @@ export type UpdateRuleConditionSchema = z.infer<
   typeof updateRuleConditionSchema
 >;
 
+// Tool result types
+export type UpdateRuleConditionsResult = {
+  success: boolean;
+  ruleId: string;
+  originalConditions?: {
+    aiInstructions: string | null;
+    static: Partial<{
+      from: string | null;
+      to: string | null;
+      subject: string | null;
+    }>;
+    conditionalOperator: string | null;
+  };
+  updatedConditions?: {
+    aiInstructions?: string;
+    static?: Partial<{
+      from: string | null;
+      to: string | null;
+      subject: string | null;
+    }>;
+    conditionalOperator?: string | null;
+  };
+  error?: string;
+};
+
 const updateRuleActionsSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   actions: z.array(
@@ -70,6 +95,28 @@ const updateRuleActionsSchema = z.object({
   ),
 });
 export type UpdateRuleActionsSchema = z.infer<typeof updateRuleActionsSchema>;
+
+export type UpdateRuleActionsResult = {
+  success: boolean;
+  ruleId: string;
+  originalActions?: Array<{
+    type: string;
+    fields: Partial<{
+      label: string | null;
+      content: string | null;
+      to: string | null;
+      cc: string | null;
+      bcc: string | null;
+      subject: string | null;
+      webhookUrl: string | null;
+    }>;
+  }>;
+  updatedActions?: Array<{
+    type: string;
+    fields: Record<string, string | undefined>;
+  }>;
+  error?: string;
+};
 
 // Schema for updating learned patterns
 const updateLearnedPatternsSchema = z.object({
@@ -565,19 +612,44 @@ Examples:
       update_rule_conditions: tool({
         description: "Update the conditions of an existing rule",
         parameters: updateRuleConditionSchema,
-        execute: async ({ ruleName, condition }) => {
+        execute: async ({
+          ruleName,
+          condition,
+        }): Promise<UpdateRuleConditionsResult> => {
           trackToolCall({ tool: "update_rule_conditions", email: user.email });
 
           const rule = await prisma.rule.findUnique({
             where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              id: true,
+              name: true,
+              instructions: true,
+              from: true,
+              to: true,
+              subject: true,
+              conditionalOperator: true,
+            },
           });
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };
           }
+
+          // Store original state
+          const originalConditions = {
+            aiInstructions: rule.instructions,
+            static: filterNullProperties({
+              from: rule.from,
+              to: rule.to,
+              subject: rule.subject,
+            }),
+            conditionalOperator: rule.conditionalOperator,
+          };
 
           await partialUpdateRule({
             ruleId: rule.id,
@@ -590,7 +662,25 @@ Examples:
             },
           });
 
-          return { success: true, ruleId: rule.id };
+          // Prepare updated state
+          const updatedConditions = {
+            aiInstructions: condition.aiInstructions,
+            static: condition.static
+              ? filterNullProperties({
+                  from: condition.static.from,
+                  to: condition.static.to,
+                  subject: condition.static.subject,
+                })
+              : undefined,
+            conditionalOperator: condition.conditionalOperator,
+          };
+
+          return {
+            success: true,
+            ruleId: rule.id,
+            originalConditions,
+            updatedConditions,
+          };
         },
       }),
 
@@ -598,18 +688,53 @@ Examples:
         description:
           "Update the actions of an existing rule. This replaces the existing actions.",
         parameters: updateRuleActionsSchema,
-        execute: async ({ ruleName, actions }) => {
+        execute: async ({
+          ruleName,
+          actions,
+        }): Promise<UpdateRuleActionsResult> => {
           trackToolCall({ tool: "update_rule_actions", email: user.email });
           const rule = await prisma.rule.findUnique({
             where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+            select: {
+              id: true,
+              name: true,
+              actions: {
+                select: {
+                  type: true,
+                  content: true,
+                  label: true,
+                  to: true,
+                  cc: true,
+                  bcc: true,
+                  subject: true,
+                  url: true,
+                },
+              },
+            },
           });
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };
           }
+
+          // Store original actions
+          const originalActions = rule.actions.map((action) => ({
+            type: action.type,
+            fields: filterNullProperties({
+              label: action.label,
+              content: action.content,
+              to: action.to,
+              cc: action.cc,
+              bcc: action.bcc,
+              subject: action.subject,
+              webhookUrl: action.url,
+            }),
+          }));
 
           await updateRuleActions({
             ruleId: rule.id,
@@ -627,7 +752,12 @@ Examples:
             })),
           });
 
-          return { success: true, ruleId: rule.id };
+          return {
+            success: true,
+            ruleId: rule.id,
+            originalActions,
+            updatedActions: actions,
+          };
         },
       }),
 
@@ -643,6 +773,8 @@ Examples:
 
           if (!rule) {
             return {
+              success: false,
+              ruleId: "",
               error:
                 "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
             };

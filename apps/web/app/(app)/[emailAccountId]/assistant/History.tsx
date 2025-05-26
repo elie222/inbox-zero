@@ -15,7 +15,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  ActionItemsCell,
   EmailCell,
   RuleCell,
 } from "@/app/(app)/[emailAccountId]/assistant/ExecutedRulesTable";
@@ -94,8 +93,6 @@ function HistoryTable({
                   threadId={p.message.threadId}
                   messageId={p.message.id}
                   userEmail={userEmail}
-                  hideAvatar
-                  showDate
                   createdAt={p.createdAt}
                 />
                 {!p.automated && (
@@ -114,7 +111,7 @@ function HistoryTable({
                   isTest={false}
                   setInput={setInput}
                 />
-                <ActionItemsCell actionItems={p.actionItems} />
+                {/* <ActionItemsCell actionItems={p.actionItems} /> */}
               </TableCell>
             </TableRow>
           ))}
