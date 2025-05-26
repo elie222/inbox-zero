@@ -4,13 +4,13 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SparklesIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
-import { History } from "@/app/(app)/[emailAccountId]/automation/History";
-import { Pending } from "@/app/(app)/[emailAccountId]/automation/Pending";
+import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
+import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Rules } from "@/app/(app)/[emailAccountId]/automation/Rules";
-import { Process } from "@/app/(app)/[emailAccountId]/automation/Process";
-import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/automation/knowledge/KnowledgeBase";
-import { RulesPrompt } from "@/app/(app)/[emailAccountId]/automation/RulesPrompt";
+import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
+import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
+import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase";
+import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
@@ -58,7 +58,7 @@ export default async function AutomationPage({
         <div className="content-container mt-2">
           <AlertWithButton
             title="Try our new AI Assistant experience"
-            description="This is the legacy automation interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
+            description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
             icon={<SparklesIcon className="h-4 w-4" />}
             variant="blue"
             button={

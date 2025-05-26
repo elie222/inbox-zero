@@ -17,7 +17,7 @@ import {
   PlusIcon,
   CheckCircle2Icon,
 } from "lucide-react";
-import { personas } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { Tooltip } from "@/components/Tooltip";
 import { ButtonList } from "@/components/ButtonList";
 import { parseAsStringEnum, useQueryState } from "nuqs";

@@ -29,7 +29,7 @@ import {
   rulesExamplesBody,
   type RulesExamplesBody,
 } from "@/utils/actions/rule.validation";
-import { examplePrompts } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { examplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 type RulesExamplesResponse = InferSafeActionFnResult<
