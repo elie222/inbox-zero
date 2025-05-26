@@ -26,25 +26,23 @@ const commonPrompts = [
   "Label emails from @mycompany.com addresses as 'Team'",
 ];
 
-const common = `${commonPrompts.map((prompt) => `* ${prompt}`).join(".\n")}.`;
-
-export const initialChatExamples = [
-  {
-    label: "Label all pitch decks and investor updates",
-    message:
-      "When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'",
-  },
-  {
-    label: "Respond to sponsorship inquiries with my pricing",
-    message:
-      "When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck",
-  },
-  {
-    label: "Forward all receipts to my accountant",
-    message:
-      "When I get an email with a receipt, forward it to my accountant: jane@example.com",
-  },
-];
+// export const initialChatExamples = [
+//   {
+//     label: "Label all pitch decks and investor updates",
+//     message:
+//       "When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'",
+//   },
+//   {
+//     label: "Respond to sponsorship inquiries with my pricing",
+//     message:
+//       "When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck",
+//   },
+//   {
+//     label: "Forward all receipts to my accountant",
+//     message:
+//       "When I get an email with a receipt, forward it to my accountant: jane@example.com",
+//   },
+// ];
 
 export const examplePrompts = [
   ...commonPrompts,
@@ -67,6 +65,7 @@ export const examplePrompts = [
 ];
 
 const founderPromptArray = [
+  ...commonPrompts,
   "If someone asks to set up a call, draft a reply with my calendar link: https://cal.com/example",
   'Label customer feedback emails as "Customer Feedback"',
   'Label customer support emails as "Customer Support"',
@@ -87,6 +86,7 @@ export const personas = {
   influencer: {
     label: "📹 Influencer",
     promptArray: [
+      ...commonPrompts,
       `Label sponsorship inquiries as "Sponsorship" and draft a reply as follows:
 ---
 Hey NAME,
@@ -107,6 +107,7 @@ I've attached my media kit and pricing.
   realtor: {
     label: "🏠 Realtor",
     promptArray: [
+      ...commonPrompts,
       'Label emails from potential buyers as "Buyer Lead" and draft a reply asking about their budget and preferred neighborhoods',
       'Label emails from potential sellers as "Seller Lead" and draft a reply with my calendar link to schedule a home evaluation: https://cal.com/example',
       'If someone asks about home prices in a specific area, label as "Market Inquiry" and draft a reply with recent comparable sales data',
@@ -124,6 +125,7 @@ I've attached my media kit and pricing.
   investor: {
     label: "💰 Investor",
     promptArray: [
+      ...commonPrompts,
       "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example",
       'If a founder sends me an investor update, label it "Investor Update" and archive it',
       'If a founder pitches me their startup, label it "Pitch Deck", and forward it to analyst@vc.com that asks them to review it',
@@ -153,6 +155,7 @@ I've attached my media kit and pricing.
   developer: {
     label: "👨‍💻 Developer",
     promptArray: [
+      ...commonPrompts,
       'Label server errors, deployment failures, and other server alerts as "Alert" and forward to oncall@company.com',
       'Label emails from GitHub as "GitHub" and archive them',
       'Label emails from Figma as "Design" and archive them',
@@ -170,6 +173,7 @@ I've attached my media kit and pricing.
   designer: {
     label: "🎨 Designer",
     promptArray: [
+      ...commonPrompts,
       'Label emails from Figma, Adobe, Sketch, and other design tools as "Design" and archive them',
       'Label emails from clients as "Client"',
       'If someone sends design assets, label as "Design Assets" and forward to assets@company.com',
@@ -187,6 +191,7 @@ I've attached my media kit and pricing.
   sales: {
     label: "🤝 Sales",
     promptArray: [
+      ...commonPrompts,
       'Label emails from prospects as "Prospect"',
       'Label emails from customers as "Customer"',
       'Label emails about deal negotiations as "Deal Discussion"',
@@ -207,6 +212,7 @@ I've attached my media kit and pricing.
   marketer: {
     label: "📢 Marketer",
     promptArray: [
+      ...commonPrompts,
       'Label emails from influencers as "Influencer"',
       'Label emails from ad platforms (Google, Meta, LinkedIn) as "Advertising"',
       'Label press inquiries as "Press" and forward to pr@company.com',
@@ -223,6 +229,7 @@ I've attached my media kit and pricing.
   support: {
     label: "🛠️ Support",
     promptArray: [
+      ...commonPrompts,
       'Label customer support tickets as "Support Ticket"',
       'If someone reports a critical issue, label as "Urgent Support" and forward to urgent@company.com',
       'Label bug reports as "Bug" and forward to engineering@company.com',
@@ -243,6 +250,7 @@ I've attached my media kit and pricing.
   recruiter: {
     label: "👥 Recruiter",
     promptArray: [
+      ...commonPrompts,
       'Label emails from candidates as "Candidate"',
       'Label emails from hiring managers as "Hiring Manager"',
       'Label emails from recruiters as "Recruiter" and draft a reply with our hiring process overview link: https://company.com/hiring-process',
@@ -294,7 +302,7 @@ I've attached my media kit and pricing.
   },
   other: {
     label: "🤖 Other",
-    promptArray: commonPrompts,
+    promptArray: examplePrompts,
     get prompt() {
       return formatPromptArray(this.promptArray);
     },

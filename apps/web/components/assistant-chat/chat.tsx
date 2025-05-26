@@ -37,10 +37,7 @@ import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
-import {
-  PromptFile,
-  RulesPrompt,
-} from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { PromptFile } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -136,7 +133,7 @@ function ChatInner({
           <ChatUI chat={chat} />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel className="overflow-hidden">
+        <ResizablePanel>
           {/* re-enable the regular SWRProvider */}
           <SWRProvider>
             <AssistantTabs />
@@ -213,7 +210,7 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
 
       {isDocumentMode ? (
         <SWRProvider>
-          <div className="p-2">
+          <div className="content-container py-2">
             <PromptFile />
           </div>
         </SWRProvider>

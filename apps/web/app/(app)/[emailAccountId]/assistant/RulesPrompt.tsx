@@ -330,10 +330,10 @@ export function PromptFile() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <>
-          <Label>
+          <Label className="text-lg font-semibold">
             How your AI personal assistant should handle incoming emails
           </Label>
-          <div className="mt-1">
+          <div className="mt-1.5">
             <RulesPromptForm
               emailAccountId={emailAccountId}
               rulesPrompt={data.rulesPrompt}
