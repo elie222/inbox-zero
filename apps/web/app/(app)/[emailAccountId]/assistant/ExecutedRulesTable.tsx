@@ -27,8 +27,6 @@ export function EmailCell({
   threadId,
   messageId,
   userEmail,
-  hideAvatar,
-  showDate,
   createdAt,
 }: {
   from: string;
@@ -37,24 +35,19 @@ export function EmailCell({
   threadId: string;
   messageId: string;
   userEmail: string;
-  hideAvatar?: boolean;
-  showDate?: boolean;
-  createdAt?: Date;
+  createdAt: Date;
 }) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
 
   return (
     <div className="flex items-center gap-4">
-      {!hideAvatar && (
-        <Avatar>
-          <AvatarFallback>{firstLetter}</AvatarFallback>
-        </Avatar>
-      )}
+      <ViewEmailButton threadId={threadId} messageId={messageId} size="sm" />
+
       <div className="flex flex-1 flex-col justify-center">
         <div className="flex items-center justify-between">
           <div className="font-semibold">{from}</div>
-          {showDate && createdAt && <DateCell createdAt={createdAt} />}
+          <DateCell createdAt={createdAt} />
         </div>
         <div className="mt-1 flex items-center font-medium">
           {subject}{" "}
@@ -64,7 +57,6 @@ export function EmailCell({
           {decodeSnippet(snippet)}
         </div>
       </div>
-      <ViewEmailButton threadId={threadId} messageId={messageId} />
     </div>
   );
 }
@@ -89,60 +81,64 @@ export function RuleCell({
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
 
   return (
-    <div className="flex gap-2">
-      <HoverCard
-        className="w-80"
-        content={
-          <div>
-            <div className="flex justify-between font-medium">
-              {rule ? (
-                <>
-                  {rule.name}
-                  <Badge color="blue">{conditionTypesToString(rule)}</Badge>
-                </>
-              ) : (
-                <div className="text-muted-foreground">
-                  {status === ExecutedRuleStatus.SKIPPED && (
-                    <Badge color="yellow">Skipped</Badge>
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="mt-2">{rule ? conditionsToString(rule) : null}</div>
-            <div className="mt-2">
-              {!!rule && (
-                <Button size="sm" asChild>
-                  <Link
-                    href={createAssistantUrl({
-                      tab: "rule",
-                      ruleId: rule.id,
-                    })}
-                  >
-                    View
-                  </Link>
-                </Button>
-              )}
-            </div>
-            {!!reason && (
-              <div className="mt-4 space-y-2">
-                <div className="font-medium">
-                  Reason for choosing this rule:
-                </div>
-                <MessageText>{reason}</MessageText>
+    <div className="flex items-center gap-2">
+      <div>
+        <HoverCard
+          className="w-80"
+          content={
+            <div>
+              <div className="flex justify-between font-medium">
+                {rule ? (
+                  <>
+                    {rule.name}
+                    <Badge color="blue">{conditionTypesToString(rule)}</Badge>
+                  </>
+                ) : (
+                  <div className="text-muted-foreground">
+                    {status === ExecutedRuleStatus.SKIPPED && (
+                      <Badge color="yellow">Skipped</Badge>
+                    )}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        }
-      >
-        <Badge color={rule ? "green" : "yellow"}>
-          {rule
-            ? rule.name
-            : status === ExecutedRuleStatus.SKIPPED
-              ? "Skipped"
-              : `Unknown rule. Status: ${status}`}
-          <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
-        </Badge>
-      </HoverCard>
+              <div className="mt-2">
+                {rule ? conditionsToString(rule) : null}
+              </div>
+              <div className="mt-2">
+                {!!rule && (
+                  <Button size="sm" asChild>
+                    <Link
+                      href={createAssistantUrl({
+                        tab: "rule",
+                        ruleId: rule.id,
+                      })}
+                    >
+                      View
+                    </Link>
+                  </Button>
+                )}
+              </div>
+              {!!reason && (
+                <div className="mt-4 space-y-2">
+                  <div className="font-medium">
+                    Reason for choosing this rule:
+                  </div>
+                  <MessageText>{reason}</MessageText>
+                </div>
+              )}
+            </div>
+          }
+        >
+          <Badge color={rule ? "green" : "yellow"}>
+            {rule
+              ? rule.name
+              : status === ExecutedRuleStatus.SKIPPED
+                ? "Skipped"
+                : `Unknown rule. Status: ${status}`}
+            <EyeIcon className="ml-1.5 size-3.5 opacity-70" />
+          </Badge>
+        </HoverCard>
+      </div>
       {setInput ? (
         <FixWithChat
           setInput={setInput}
@@ -156,6 +152,7 @@ export function RuleCell({
           isTest={isTest}
         />
       )}
+      {/* <ActionItemsCell actionItems={p.actionItems} /> */}
     </div>
   );
 }

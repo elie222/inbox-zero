@@ -182,6 +182,7 @@ function PendingTable({
                   threadId={p.message.threadId}
                   messageId={p.message.id}
                   userEmail={userEmail}
+                  createdAt={p.createdAt}
                 />
               </TableCell>
               <TableCell>

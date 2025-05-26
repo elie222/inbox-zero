@@ -1,4 +1,4 @@
-import { HammerIcon } from "lucide-react";
+import { MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -34,9 +34,9 @@ export function FixWithChat({
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline">
-          <HammerIcon className="mr-2 size-4" />
-          Fix in chat
+        <Button variant="outline" size="sm">
+          <MessageCircleIcon className="mr-2 size-4" />
+          Fix
         </Button>
       </DialogTrigger>
 
