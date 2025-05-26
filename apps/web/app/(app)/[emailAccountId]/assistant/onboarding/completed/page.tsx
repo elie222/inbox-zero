@@ -29,15 +29,15 @@ export default function CompletedPage(props: {
             </TypographyP>
 
             <TypographyP>
-              Want to customize further? You can create custom rules, and
-              fine-tune your preferences anytime.
+              Want to customize further? You can chat with the assistant to
+              create custom rules and fine-tune your preferences anytime.
             </TypographyP>
           </div>
 
           <div className="mt-8 flex flex-col gap-4">
             <Button size="lg" asChild>
               <Link href={prefixPath(emailAccountId, "/assistant")}>
-                Go to AI Assistant
+                Go to Assistant
               </Link>
             </Button>
           </div>
