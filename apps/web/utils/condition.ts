@@ -202,7 +202,7 @@ export function conditionsToString(rule: RuleConditions) {
   if (staticConditions.length) conditions.push(staticConditions.join(", "));
 
   // AI condition
-  if (rule.instructions) conditions.push(`AI: ${rule.instructions}`);
+  if (rule.instructions) conditions.push(rule.instructions);
 
   // Category condition
   const categoryFilters = rule.categoryFilters;
