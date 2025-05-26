@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import { SparklesIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/automation/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/automation/Pending";
@@ -15,6 +17,8 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import { AlertWithButton } from "@/components/Alert";
+import { Button } from "@/components/ui/button";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -37,7 +41,7 @@ export default async function AutomationPage({
     });
 
     if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/automation/onboarding"));
+      redirect(prefixPath(emailAccountId, "/assistant/onboarding"));
     }
   }
 
@@ -50,6 +54,22 @@ export default async function AutomationPage({
     <GmailProvider>
       <Suspense>
         <PermissionsCheck />
+
+        <div className="content-container mt-2">
+          <AlertWithButton
+            title="Try our new AI Assistant experience"
+            description="This is the legacy automation interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
+            icon={<SparklesIcon className="h-4 w-4" />}
+            variant="blue"
+            button={
+              <Button asChild variant="blue">
+                <Link href={prefixPath(emailAccountId, "/assistant")}>
+                  Try New Assistant
+                </Link>
+              </Button>
+            }
+          />
+        </div>
 
         <Tabs defaultValue="prompt">
           <TabsToolbar>

@@ -290,7 +290,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                       )
                                     : prefixPath(
                                         emailAccountId,
-                                        `/automation?tab=history&ruleId=${rule.id}`,
+                                        `/assistant?tab=history&ruleId=${rule.id}`,
                                       )
                                 }
                                 target={
@@ -396,13 +396,13 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
           {/* <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
+            <Link href={prefixPath(emailAccountId, "/assistant?tab=prompt")}>
               <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
             </Link>
           </Button> */}
           <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation/onboarding")}>
+            <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
               <SlidersIcon className="mr-2 hidden size-4 md:block" />
               View Setup
             </Link>

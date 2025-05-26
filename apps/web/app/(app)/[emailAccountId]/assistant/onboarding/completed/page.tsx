@@ -36,7 +36,7 @@ export default function CompletedPage(props: {
 
           <div className="mt-8 flex flex-col gap-4">
             <Button size="lg" asChild>
-              <Link href={prefixPath(emailAccountId, "/automation")}>
+              <Link href={prefixPath(emailAccountId, "/assistant")}>
                 Go to AI Assistant
               </Link>
             </Button>

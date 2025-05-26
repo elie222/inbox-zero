@@ -127,10 +127,10 @@ export function List({
                     <>
                       Set rules on the{" "}
                       <Link
-                        href={prefixPath(emailAccountId, "/automation")}
+                        href={prefixPath(emailAccountId, "/assistant")}
                         className="font-semibold hover:underline"
                       >
-                        Automation page
+                        Assistant page
                       </Link>{" "}
                       for our AI to handle incoming emails for you.
                     </>
