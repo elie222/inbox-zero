@@ -1,4 +1,4 @@
-// this is a copy/paste of the automation/TestRules.tsx file
+// this is a copy/paste of the assistant/TestRules.tsx file
 // can probably extract some common components from it
 
 "use client";

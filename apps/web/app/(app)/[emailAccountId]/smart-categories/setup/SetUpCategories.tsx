@@ -117,7 +117,7 @@ export function SetUpCategories({
           <CardTitle>Set up sender categories</CardTitle>
           <CardDescription className="max-w-sm">
             Automatically categorize senders for bulk archiving and AI
-            automation.
+            assistant.
           </CardDescription>
         </CardHeader>
 

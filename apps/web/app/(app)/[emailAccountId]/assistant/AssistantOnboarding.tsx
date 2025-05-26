@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ListChecksIcon, ReplyIcon, SlidersIcon } from "lucide-react";
 import { YouTubeVideo } from "@/components/YouTubeVideo";
 
-export function AutomationOnboarding({
+export function AssistantOnboarding({
   onComplete,
 }: {
   onComplete: () => void;

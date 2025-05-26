@@ -113,7 +113,7 @@ export function RuleCell({
                   <Link
                     href={prefixPath(
                       emailAccountId,
-                      `/automation/rule/${rule.id}`,
+                      `/assistant/rule/${rule.id}`,
                     )}
                   >
                     View

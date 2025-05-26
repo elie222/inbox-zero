@@ -58,7 +58,7 @@ export default async function AutomationPage({
         <div className="content-container mt-2">
           <AlertWithButton
             title="Try our new AI Assistant experience"
-            description="This is the legacy automation interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
+            description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
             icon={<SparklesIcon className="h-4 w-4" />}
             variant="blue"
             button={

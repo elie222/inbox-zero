@@ -92,7 +92,7 @@ export function ViewGroup({ groupId }: { groupId: string }) {
                   <Link
                     href={prefixPath(
                       emailAccountId,
-                      `/automation/group/${groupId}/examples`,
+                      `/assistant/group/${groupId}/examples`,
                     )}
                     target="_blank"
                   >

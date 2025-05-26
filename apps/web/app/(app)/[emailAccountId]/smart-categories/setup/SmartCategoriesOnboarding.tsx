@@ -37,7 +37,7 @@ export function SmartCategoriesOnboarding() {
           </CardBasic>
           <CardBasic className="flex items-center">
             <ZapIcon className="mr-3 h-5 w-5" />
-            Use categories to optimize AI automation
+            Use categories to optimize the AI assistant
           </CardBasic>
         </div>
         <div>

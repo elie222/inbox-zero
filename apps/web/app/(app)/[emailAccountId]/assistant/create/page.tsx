@@ -42,17 +42,17 @@ export default function AutomationSettingsPage() {
 
         if (result?.serverError) {
           toastError({
-            description: `There was an error creating your automation. ${result.serverError || ""}`,
+            description: `There was an error creating the rule. ${result.serverError || ""}`,
           });
         } else if (!result) {
           toastError({
-            description: "There was an error creating your automation.",
+            description: "There was an error creating the rule.",
           });
         } else {
           router.push(
             prefixPath(
               emailAccountId,
-              `/automation/rule/${result.data?.id}?new=true`,
+              `/assistant/rule/${result.data?.id}?new=true`,
             ),
           );
         }
@@ -123,7 +123,7 @@ export default function AutomationSettingsPage() {
                       className="block w-full text-left"
                       href={prefixPath(
                         emailAccountId,
-                        `/automation/rule/create?example=${i}`,
+                        `/assistant/rule/create?example=${i}`,
                       )}
                     >
                       <AlertBasic
@@ -143,7 +143,7 @@ export default function AutomationSettingsPage() {
               <div className="flex space-x-2 pb-8">
                 <Button variant="outline" asChild>
                   <Link
-                    href={prefixPath(emailAccountId, "/automation/rule/create")}
+                    href={prefixPath(emailAccountId, "/assistant/rule/create")}
                   >
                     Create rule
                   </Link>

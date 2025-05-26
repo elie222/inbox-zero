@@ -28,7 +28,7 @@ export default function RuleExamplesPage(props: {
   return (
     <div>
       <TopSection
-        title="Your automation has been created!"
+        title="Your rule has been created!"
         descriptionComponent={
           <>
             {hasExamples ? (
@@ -44,7 +44,7 @@ export default function RuleExamplesPage(props: {
               <Link
                 href={prefixPath(
                   emailAccountId,
-                  `/automation/rule/${params.ruleId}`,
+                  `/assistant/rule/${params.ruleId}`,
                 )}
               >
                 View Rule

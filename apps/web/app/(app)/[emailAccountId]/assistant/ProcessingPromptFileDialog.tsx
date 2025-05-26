@@ -136,12 +136,12 @@ function Step1({ back, next }: StepProps) {
       <p>
         We're turning your instructions into clear rules.
         <br />
-        This makes your automations more reliable and gives you better control
+        This makes your assistant more reliable and gives you better control
         over how each rule is applied.
       </p>
 
       <Image
-        src="/images/automation/rules.png"
+        src="/images/assistant/rules.png"
         alt="Analyzing prompt file"
         width={500}
         height={300}
@@ -156,7 +156,7 @@ function Step2({ back, next }: StepProps) {
     <Step back={back} next={next} title="Customize Your Rules">
       <p>Once created, you can fine-tune each rule to your needs.</p>
       <Image
-        src="/images/automation/rule-edit.png"
+        src="/images/assistant/rule-edit.png"
         alt="Editing a rule"
         width={500}
         height={300}
@@ -175,7 +175,7 @@ function Step3({ back, next }: StepProps) {
       </p>
 
       <Image
-        src="/images/automation/process.png"
+        src="/images/assistant/process.png"
         alt="Test Rules"
         width={500}
         height={300}
@@ -194,7 +194,7 @@ function Step4({ back, next }: StepProps) {
       </p>
 
       <Image
-        src="/images/automation/fix.png"
+        src="/images/assistant/fix.png"
         alt="Fix rule"
         width={500}
         height={300}

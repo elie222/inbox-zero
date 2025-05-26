@@ -21,7 +21,7 @@ import {
 import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { AutomationOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AutomationOnboarding";
+import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
@@ -61,7 +61,7 @@ export function RulesPrompt() {
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
             />
-            <AutomationOnboarding
+            <AssistantOnboarding
               onComplete={() => {
                 if (!data.rulesPrompt) onOpenPersonaDialog();
               }}

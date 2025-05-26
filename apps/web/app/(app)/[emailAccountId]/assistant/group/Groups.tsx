@@ -83,7 +83,7 @@ function GroupTable({
                 <Link
                   href={prefixPath(
                     emailAccountId,
-                    `/automation/group/${group.id}`,
+                    `/assistant/group/${group.id}`,
                   )}
                   className="font-semibold"
                 >
@@ -98,7 +98,7 @@ function GroupTable({
                   <Link
                     href={prefixPath(
                       emailAccountId,
-                      `/automation/rule/${group.rule.id}`,
+                      `/assistant/rule/${group.rule.id}`,
                     )}
                     className="hover:underline"
                   >
@@ -109,7 +109,7 @@ function GroupTable({
                     <Link
                       href={prefixPath(
                         emailAccountId,
-                        `/automation/rule/create?groupId=${group.id}&type=${ConditionType.GROUP}`,
+                        `/assistant/rule/create?groupId=${group.id}&type=${ConditionType.GROUP}`,
                       )}
                     >
                       Attach
@@ -123,7 +123,7 @@ function GroupTable({
                     <Link
                       href={prefixPath(
                         emailAccountId,
-                        `/automation/group/${group.id}/examples`,
+                        `/assistant/group/${group.id}/examples`,
                       )}
                     >
                       Matching Emails
@@ -133,7 +133,7 @@ function GroupTable({
                     <Link
                       href={prefixPath(
                         emailAccountId,
-                        `/automation/group/${group.id}`,
+                        `/assistant/group/${group.id}`,
                       )}
                     >
                       View

@@ -170,7 +170,7 @@ function Content({
       // Handle "New rule" option
       if (expectedRuleId === NEW_RULE_ID) {
         window.open(
-          prefixPath(emailAccountId, "/automation/rule/create"),
+          prefixPath(emailAccountId, "/assistant/rule/create"),
           "_blank",
         );
         return;
@@ -1100,7 +1100,7 @@ function EditRuleButton({
   return (
     <Button variant="outline" size="sm" asChild>
       <Link
-        href={prefixPath(emailAccountId, `/automation/rule/${ruleId}`)}
+        href={prefixPath(emailAccountId, `/assistant/rule/${ruleId}`)}
         target="_blank"
       >
         <ExternalLinkIcon className="mr-2 size-4" />

@@ -208,7 +208,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             runOnThreads: data.runOnThreads,
           });
           router.replace(
-            prefixPath(emailAccountId, `/automation/rule/${res.data.rule.id}`),
+            prefixPath(emailAccountId, `/assistant/rule/${res.data.rule.id}`),
           );
           router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
         }

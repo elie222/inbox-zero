@@ -196,7 +196,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                         emailAccountId,
                         "/cold-email-blocker?tab=settings",
                       )
-                    : prefixPath(emailAccountId, `/automation/rule/${rule.id}`);
+                    : prefixPath(emailAccountId, `/assistant/rule/${rule.id}`);
 
                   return (
                     <TableRow
@@ -409,7 +409,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
           </Button>
 
           <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
+            <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
               <PlusIcon className="mr-2 hidden size-4 md:block" />
               Add Rule Manually
             </Link>
@@ -464,7 +464,7 @@ function NoRules() {
       </CardHeader>
       <CardContent>
         <Button type="button" variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/automation/rule/create")}>
+          <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
             Add Rule Manually
           </Link>
         </Button>
