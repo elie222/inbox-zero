@@ -1100,7 +1100,10 @@ function EditRuleButton({
   return (
     <Button variant="outline" size="sm" asChild>
       <Link
-        href={prefixPath(emailAccountId, `/assistant/rule/${ruleId}`)}
+        href={prefixPath(
+          emailAccountId,
+          `/assistant?tab=rule&ruleId=${ruleId}`,
+        )}
         target="_blank"
       >
         <ExternalLinkIcon className="mr-2 size-4" />
