@@ -20,7 +20,7 @@ import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ResizableHandle } from "@/components/ui/resizable";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
-import { AssistantTabs } from "@/app/(app)/[emailAccountId]/automation/AssistantTabs";
+import { AssistantTabs } from "@/app/(app)/[emailAccountId]/assistant/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
 import { SWRProvider } from "@/providers/SWRProvider";
 import { Button } from "@/components/ui/button";
@@ -40,7 +40,7 @@ import { Tooltip } from "@/components/Tooltip";
 import {
   PromptFile,
   RulesPrompt,
-} from "@/app/(app)/[emailAccountId]/automation/RulesPrompt";
+} from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config

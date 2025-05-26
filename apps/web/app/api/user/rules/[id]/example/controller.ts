@@ -4,7 +4,7 @@ import { getMessage, getMessages } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
   RuleWithGroup,
-} from "@/app/(app)/[emailAccountId]/automation/rule/[ruleId]/examples/types";
+} from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";
 import { matchesStaticRule } from "@/utils/ai/choose-rule/match-rules";
 import { fetchPaginatedMessages } from "@/app/api/user/group/[groupId]/messages/controller";
 import {

@@ -4,7 +4,7 @@ import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { ExamplesDialog } from "./examples-dialog";
-import { initialChatExamples } from "@/app/(app)/[emailAccountId]/automation/examples";
+import { initialChatExamples } from "@/app/(app)/[emailAccountId]/assistant/examples";
 
 export const Overview = ({
   setInput,

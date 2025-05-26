@@ -10,7 +10,7 @@ import type {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon } from "lucide-react";
-import { ActionBadges } from "@/app/(app)/[emailAccountId]/automation/Rules";
+import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
