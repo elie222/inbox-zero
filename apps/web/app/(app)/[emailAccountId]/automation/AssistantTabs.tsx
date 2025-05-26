@@ -73,25 +73,25 @@ export function AssistantTabs() {
         <TabsContent value="prompt" className="mt-0 h-full">
           <RulesPrompt />
         </TabsContent>
-        <TabsContent value="rules" className="content-container mb-10">
+        <TabsContent value="rules" className="content-container pb-4">
           <Rules />
         </TabsContent>
-        <TabsContent value="test" className="content-container mb-10">
+        <TabsContent value="test" className="content-container pb-4">
           <Process />
         </TabsContent>
-        <TabsContent value="history" className="content-container mb-10">
+        <TabsContent value="history" className="content-container pb-4">
           <History />
         </TabsContent>
         {hasPendingRule && (
-          <TabsContent value="pending" className="content-container mb-10">
+          <TabsContent value="pending" className="content-container pb-4">
             <Pending />
           </TabsContent>
         )}
-        <TabsContent value="knowledge" className="content-container mb-10">
+        <TabsContent value="knowledge" className="content-container pb-4">
           <KnowledgeBase />
         </TabsContent>
         {/* Set via search params. Not a visible tab. */}
-        <TabsContent value="rule" className="content-container mb-10">
+        <TabsContent value="rule" className="content-container pb-4">
           <RuleTab />
         </TabsContent>
       </Tabs>

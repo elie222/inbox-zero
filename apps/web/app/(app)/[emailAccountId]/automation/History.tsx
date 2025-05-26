@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/table";
 import {
   ActionItemsCell,
-  DateCell,
   EmailCell,
   RuleCell,
 } from "@/app/(app)/[emailAccountId]/automation/ExecutedRulesTable";
@@ -82,9 +81,6 @@ function HistoryTable({
           <TableRow>
             <TableHead>Email</TableHead>
             <TableHead>Rule</TableHead>
-            <TableHead>Actions</TableHead>
-            <TableHead>Automated</TableHead>
-            <TableHead>Date</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -98,7 +94,15 @@ function HistoryTable({
                   threadId={p.message.threadId}
                   messageId={p.message.id}
                   userEmail={userEmail}
+                  hideAvatar
+                  showDate
+                  createdAt={p.createdAt}
                 />
+                {!p.automated && (
+                  <Badge color="yellow" className="mt-2">
+                    Applied manually
+                  </Badge>
+                )}
               </TableCell>
               <TableCell>
                 <RuleCell
@@ -110,19 +114,7 @@ function HistoryTable({
                   isTest={false}
                   setInput={setInput}
                 />
-              </TableCell>
-              <TableCell>
                 <ActionItemsCell actionItems={p.actionItems} />
-              </TableCell>
-              <TableCell>
-                {p.automated ? (
-                  <Badge color="green">Automated</Badge>
-                ) : (
-                  <Badge color="yellow">Manual</Badge>
-                )}
-              </TableCell>
-              <TableCell>
-                <DateCell createdAt={p.createdAt} />
               </TableCell>
             </TableRow>
           ))}

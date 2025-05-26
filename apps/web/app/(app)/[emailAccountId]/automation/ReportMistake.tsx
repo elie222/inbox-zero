@@ -63,10 +63,10 @@ import { useModal } from "@/hooks/useModal";
 import { ConditionType } from "@/utils/config";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/automation/consts";
+import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/automation/consts";
 
 type ReportMistakeView = "select-expected-rule" | "ai-fix" | "manual-fix";
-
-const NONE_RULE_ID = "__NONE__";
 
 export function ReportMistake({
   message,
@@ -167,6 +167,15 @@ function Content({
 
   const onSelectExpectedRule = useCallback(
     async (expectedRuleId: string | null) => {
+      // Handle "New rule" option
+      if (expectedRuleId === NEW_RULE_ID) {
+        window.open(
+          prefixPath(emailAccountId, "/automation/rule/create"),
+          "_blank",
+        );
+        return;
+      }
+
       setExpectedRuleId(expectedRuleId);
 
       const expectedRule = rules.find((rule) => rule.id === expectedRuleId);
@@ -214,7 +223,15 @@ function Content({
         onSetView("manual-fix");
       }
     },
-    [message, result?.rule?.id, onSetView, actualRule, rules, executeAsync],
+    [
+      message,
+      result?.rule?.id,
+      onSetView,
+      actualRule,
+      rules,
+      executeAsync,
+      emailAccountId,
+    ],
   );
 
   if (view === "select-expected-rule") {
@@ -424,9 +441,11 @@ export function RuleMismatch({
         <ButtonList
           title="Which rule did you expect it to match?"
           emptyMessage="You haven't created any rules yet!"
-          items={[{ id: NONE_RULE_ID, name: "None" }, ...rules].filter(
-            (rule) => rule.id !== (result?.rule?.id || NONE_RULE_ID),
-          )}
+          items={[
+            { id: NONE_RULE_ID, name: "❌ None" },
+            { id: NEW_RULE_ID, name: "✨ New rule" },
+            ...rules,
+          ]}
           onSelect={onSelectExpectedRuleId}
         />
       </div>
