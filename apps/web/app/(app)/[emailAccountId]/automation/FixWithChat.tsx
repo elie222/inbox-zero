@@ -16,6 +16,7 @@ import { RuleMismatch } from "./ReportMistake";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useModal } from "@/hooks/useModal";
+import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/automation/consts";
 
 export function FixWithChat({
   setInput,
@@ -51,17 +52,27 @@ export function FixWithChat({
               result={result}
               rules={data}
               onSelectExpectedRuleId={(expectedRuleId) => {
-                const expectedRule = data.find(
-                  (rule) => rule.id === expectedRuleId,
-                );
+                if (expectedRuleId === NEW_RULE_ID) {
+                  setInput(
+                    getFixMessage({
+                      message,
+                      result,
+                      expectedRuleName: NEW_RULE_ID,
+                    }),
+                  );
+                } else {
+                  const expectedRule = data.find(
+                    (rule) => rule.id === expectedRuleId,
+                  );
 
-                setInput(
-                  getFixMessage({
-                    message,
-                    result,
-                    expectedRuleName: expectedRule?.name ?? null,
-                  }),
-                );
+                  setInput(
+                    getFixMessage({
+                      message,
+                      result,
+                      expectedRuleName: expectedRule?.name ?? null,
+                    }),
+                  );
+                }
 
                 setIsModalOpen(false);
               }}
@@ -86,7 +97,7 @@ function getFixMessage({
   // TODO: HTML text / text plain
   const getMessageContent = () => {
     const content = message.snippet || message.textPlain || "";
-    return truncate(content, 500);
+    return truncate(content, 500).trim();
   };
 
   return `You applied the wrong rule to this email.
@@ -98,14 +109,16 @@ Email details:
 *Content*: ${getMessageContent()}
 
 Current rule applied: ${result?.rule?.name || "No rule"}
-${result?.rule?.instructions ? `Rule instructions: ${result.rule.instructions}` : ""}
 
 Reason the rule was chosen:
 ${result?.reason || "-"}
 
 ${
-  expectedRuleName
-    ? `The rule that should have been applied was: "${expectedRuleName}"`
-    : "What should have happened instead is that no rule should have been applied."
-}`;
+  expectedRuleName === NEW_RULE_ID
+    ? "I'd like to create a new rule to handle this type of email."
+    : expectedRuleName
+      ? `The rule that should have been applied was: "${expectedRuleName}"`
+      : "Instead, no rule should have been applied."
+}
+`.trim();
 }

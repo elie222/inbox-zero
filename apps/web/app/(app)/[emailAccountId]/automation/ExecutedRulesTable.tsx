@@ -27,6 +27,9 @@ export function EmailCell({
   threadId,
   messageId,
   userEmail,
+  hideAvatar,
+  showDate,
+  createdAt,
 }: {
   from: string;
   subject: string;
@@ -34,17 +37,25 @@ export function EmailCell({
   threadId: string;
   messageId: string;
   userEmail: string;
+  hideAvatar?: boolean;
+  showDate?: boolean;
+  createdAt?: Date;
 }) {
   // use regex to find first letter
   const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
 
   return (
     <div className="flex items-center gap-4">
-      <Avatar>
-        <AvatarFallback>{firstLetter}</AvatarFallback>
-      </Avatar>
+      {!hideAvatar && (
+        <Avatar>
+          <AvatarFallback>{firstLetter}</AvatarFallback>
+        </Avatar>
+      )}
       <div className="flex flex-1 flex-col justify-center">
-        <div className="font-semibold">{from}</div>
+        <div className="flex items-center justify-between">
+          <div className="font-semibold">{from}</div>
+          {showDate && createdAt && <DateCell createdAt={createdAt} />}
+        </div>
         <div className="mt-1 flex items-center font-medium">
           {subject}{" "}
           <OpenInGmailButton messageId={messageId} userEmail={userEmail} />
