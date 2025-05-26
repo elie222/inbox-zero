@@ -98,7 +98,7 @@ function GroupTable({
                   <Link
                     href={prefixPath(
                       emailAccountId,
-                      `/assistant/rule/${group.rule.id}`,
+                      `/assistant?tab=rule&ruleId=${group.rule.id}`,
                     )}
                     className="hover:underline"
                   >

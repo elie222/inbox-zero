@@ -16,9 +16,9 @@ import { ReportMistake } from "@/app/(app)/[emailAccountId]/assistant/ReportMist
 import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
-import { prefixPath } from "@/utils/path";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
+import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 
 export function EmailCell({
   from,
@@ -86,6 +86,8 @@ export function RuleCell({
   isTest: boolean;
   setInput: SetInputFunction;
 }) {
+  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
+
   return (
     <div className="flex gap-2">
       <HoverCard
@@ -111,10 +113,10 @@ export function RuleCell({
               {!!rule && (
                 <Button size="sm" asChild>
                   <Link
-                    href={prefixPath(
-                      emailAccountId,
-                      `/assistant/rule/${rule.id}`,
-                    )}
+                    href={createAssistantUrl({
+                      tab: "rule",
+                      ruleId: rule.id,
+                    })}
                   >
                     View
                   </Link>

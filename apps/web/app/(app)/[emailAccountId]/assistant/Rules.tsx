@@ -58,6 +58,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
+import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -66,6 +67,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data: emailAccountData } = useEmailAccountFull();
 
   const { emailAccountId } = useAccount();
+  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleRunOnThreads } = useAction(
     setRuleRunOnThreadsAction.bind(null, emailAccountId),
   );
@@ -196,7 +198,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                         emailAccountId,
                         "/cold-email-blocker?tab=settings",
                       )
-                    : prefixPath(emailAccountId, `/assistant/rule/${rule.id}`);
+                    : createAssistantUrl({
+                        tab: "rule",
+                        ruleId: rule.id,
+                      });
 
                   return (
                     <TableRow
@@ -288,10 +293,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                         emailAccountId,
                                         "/cold-email-blocker",
                                       )
-                                    : prefixPath(
-                                        emailAccountId,
-                                        `/assistant?tab=history&ruleId=${rule.id}`,
-                                      )
+                                    : createAssistantUrl({
+                                        tab: "history",
+                                        ruleId: rule.id,
+                                      })
                                 }
                                 target={
                                   isColdEmailBlocker ? "_blank" : undefined

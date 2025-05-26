@@ -208,7 +208,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             runOnThreads: data.runOnThreads,
           });
           router.replace(
-            prefixPath(emailAccountId, `/assistant/rule/${res.data.rule.id}`),
+            prefixPath(
+              emailAccountId,
+              `/assistant?tab=rule&ruleId=${res.data.rule.id}`,
+            ),
           );
           router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
         }
@@ -283,8 +286,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="mt-4">
         <Input
           type="text"
-          name="Name"
-          label="Name"
+          name="name"
+          label="Rule name"
           registerProps={register("name")}
           error={errors.name}
           placeholder="e.g. Label receipts"
