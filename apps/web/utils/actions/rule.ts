@@ -245,11 +245,7 @@ export const updateRuleAction = actionClient
         });
 
         revalidatePath(
-          prefixPath(
-            emailAccountId,
-            `/        revalidatePath(prefixPath(emailAccountId, "/assistant"));
-/rule/${id}`,
-          ),
+          prefixPath(emailAccountId, `/assistant/rule/${id}`),
         );
         revalidatePath(prefixPath(emailAccountId, "/assistant"));
 
