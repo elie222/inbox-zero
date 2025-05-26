@@ -29,7 +29,7 @@ export default async function AssistantPage({
     });
 
     if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/automation/onboarding"));
+      redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
     }
   }
 

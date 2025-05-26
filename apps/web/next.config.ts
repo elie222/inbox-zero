@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/",
-        destination: "/automation",
+        destination: "/assistant",
         has: [
           {
             type: "cookie",

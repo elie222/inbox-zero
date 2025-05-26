@@ -148,7 +148,7 @@ function RulesPromptForm({
         }
 
         if (viewedProcessingPromptFileDialog) {
-          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
+          router.push(prefixPath(emailAccountId, "/assistant?tab=test"));
         }
 
         mutate();

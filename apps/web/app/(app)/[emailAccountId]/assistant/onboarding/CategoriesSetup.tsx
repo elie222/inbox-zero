@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -38,7 +37,7 @@ import {
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 
-const NEXT_URL = "/automation/onboarding/draft-replies";
+const NEXT_URL = "/assistant/onboarding/draft-replies";
 
 export function CategoriesSetup({
   emailAccountId,
@@ -148,7 +147,7 @@ export function CategoriesSetup({
             variant="outline"
             onClick={() => {
               markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-              router.push(prefixPath(emailAccountId, "/automation"));
+              router.push(prefixPath(emailAccountId, "/assistant"));
             }}
           >
             Skip

@@ -27,7 +27,11 @@ const CrispChat = ({ email }: { email?: string }) => {
   useEffect(() => {
     if (!env.NEXT_PUBLIC_CRISP_WEBSITE_ID || !isConfigured) return;
 
-    if (pathname.includes("/automation") || pathname.includes("/reply-zero")) {
+    if (
+      pathname.includes("/assistant") ||
+      pathname.includes("/automation") ||
+      pathname.includes("/reply-zero")
+    ) {
       Crisp.chat.hide();
     } else {
       Crisp.chat.show();

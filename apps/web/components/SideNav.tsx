@@ -73,7 +73,7 @@ export const useNavigation = () => {
     () => [
       {
         name: "Assistant",
-        href: prefixPath(emailAccountId, "/automation"),
+        href: prefixPath(emailAccountId, "/assistant"),
         icon: SparklesIcon,
       },
       {
@@ -248,7 +248,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ? [
             {
               name: "Back",
-              href: "/automation",
+              href: "/assistant",
               icon: ArrowLeftIcon,
             },
             ...bottomLinks.filter((l) => !l.hideInMail),

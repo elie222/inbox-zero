@@ -41,7 +41,7 @@ export function AssistantTabs() {
                   <Link
                     href={prefixPath(
                       emailAccountId,
-                      "/automation/onboarding",
+                      "/assistant/onboarding",
                     )}
                   >
                     Set Up

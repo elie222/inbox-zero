@@ -245,7 +245,7 @@ export const updateRuleAction = actionClient
         });
 
         revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-        revalidatePath(prefixPath(emailAccountId, "/automation"));
+        revalidatePath(prefixPath(emailAccountId, "/assistant"));
 
         return { rule: updatedRule };
       } catch (error) {
@@ -283,7 +283,7 @@ export const updateRuleInstructionsAction = actionClient
       });
 
       revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
     },
   );
 
@@ -303,7 +303,7 @@ export const updateRuleSettingsAction = actionClient
       });
 
       revalidatePath(prefixPath(emailAccountId, `/automation/rule/${id}`));
-      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
@@ -335,7 +335,7 @@ export const enableDraftRepliesAction = actionClient
     }
 
     revalidatePath(prefixPath(emailAccountId, `/automation/rule/${rule.id}`));
-    revalidatePath(prefixPath(emailAccountId, "/automation"));
+    revalidatePath(prefixPath(emailAccountId, "/assistant"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
   });
 

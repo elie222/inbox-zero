@@ -271,7 +271,7 @@ function FinalStepReady({
           Back
         </Button>
         <Button asChild onClick={next}>
-          <Link href={prefixPath(emailAccountId, "/automation?tab=test")}>
+          <Link href={prefixPath(emailAccountId, "/assistant?tab=test")}>
             Try them out!
           </Link>
         </Button>
