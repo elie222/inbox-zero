@@ -113,7 +113,7 @@ export function ExamplesDialog({
               </Button>
             )}
             <DialogTitle>
-              {selectedPersona ? "Choose Examples" : "Choose Persona"}
+              {selectedPersona ? "Choose examples" : "Choose persona"}
             </DialogTitle>
           </div>
         </DialogHeader>

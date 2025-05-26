@@ -136,7 +136,7 @@ function ChatInner({
           <ChatUI chat={chat} />
         </ResizablePanel>
         <ResizableHandle withHandle />
-        <ResizablePanel className="overflow-hidden">
+        <ResizablePanel>
           {/* re-enable the regular SWRProvider */}
           <SWRProvider>
             <AssistantTabs />

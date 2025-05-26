@@ -4,7 +4,7 @@ import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { ExamplesDialog } from "./examples-dialog";
-import { initialChatExamples } from "@/app/(app)/[emailAccountId]/assistant/examples";
+// import { initialChatExamples } from "@/app/(app)/[emailAccountId]/assistant/examples";
 
 export const Overview = ({
   setInput,
@@ -34,17 +34,17 @@ export const Overview = ({
         </MessageText>
 
         <div className="flex flex-col gap-3 pt-8">
-          {initialChatExamples.map((example) => (
+          {/* {initialChatExamples.map((example) => (
             <OverviewButton
               key={example.label}
               label={example.label}
               message={example.message}
               setInput={setInput}
             />
-          ))}
+          ))} */}
 
           <ExamplesDialog setInput={setInput}>
-            <Button variant="ghost">Choose from examples</Button>
+            <Button variant="default">Choose from examples</Button>
           </ExamplesDialog>
         </div>
       </div>

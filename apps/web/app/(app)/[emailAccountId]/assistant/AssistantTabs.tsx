@@ -20,9 +20,9 @@ export function AssistantTabs() {
   const hasPendingRule = pendingData?.hasPending ?? false;
 
   return (
-    <div className="h-full overflow-y-auto">
-      <Tabs defaultValue="empty" className="h-full">
-        <TabsToolbar className="sticky top-0 z-10 border-none bg-background pb-0 shadow-none">
+    <div className="flex h-full flex-col overflow-hidden">
+      <Tabs defaultValue="empty" className="flex h-full flex-col">
+        <TabsToolbar className="shrink-0 border-none pb-0 shadow-none">
           <div className="w-full overflow-x-auto">
             <TabsList>
               {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
@@ -61,39 +61,40 @@ export function AssistantTabs() {
               </div> */}
         </TabsToolbar>
 
-        <TabsContent value="empty" className="mt-0 h-full">
-          <div className="flex h-full items-center justify-center">
-            <TypographyP className="max-w-sm px-4 text-center">
-              Select a tab or chat with your AI assistant to explain how it
-              should handle incoming emails
-            </TypographyP>
-          </div>
-        </TabsContent>
-
-        <TabsContent value="prompt" className="mt-0 h-full">
-          <RulesPrompt />
-        </TabsContent>
-        <TabsContent value="rules" className="content-container pb-4">
-          <Rules />
-        </TabsContent>
-        <TabsContent value="test" className="content-container pb-4">
-          <Process />
-        </TabsContent>
-        <TabsContent value="history" className="content-container pb-4">
-          <History />
-        </TabsContent>
-        {hasPendingRule && (
-          <TabsContent value="pending" className="content-container pb-4">
-            <Pending />
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent value="empty" className="mt-0 h-full">
+            <div className="flex h-full items-center justify-center">
+              <TypographyP className="max-w-sm px-4 text-center">
+                Select a tab or add rules via the assistant
+              </TypographyP>
+            </div>
           </TabsContent>
-        )}
-        <TabsContent value="knowledge" className="content-container pb-4">
-          <KnowledgeBase />
-        </TabsContent>
-        {/* Set via search params. Not a visible tab. */}
-        <TabsContent value="rule" className="content-container pb-4">
-          <RuleTab />
-        </TabsContent>
+
+          <TabsContent value="prompt" className="mt-0 h-full">
+            <RulesPrompt />
+          </TabsContent>
+          <TabsContent value="rules" className="content-container pb-4">
+            <Rules />
+          </TabsContent>
+          <TabsContent value="test" className="content-container pb-4">
+            <Process />
+          </TabsContent>
+          <TabsContent value="history" className="content-container pb-4">
+            <History />
+          </TabsContent>
+          {hasPendingRule && (
+            <TabsContent value="pending" className="content-container pb-4">
+              <Pending />
+            </TabsContent>
+          )}
+          <TabsContent value="knowledge" className="content-container pb-4">
+            <KnowledgeBase />
+          </TabsContent>
+          {/* Set via search params. Not a visible tab. */}
+          <TabsContent value="rule" className="content-container pb-4">
+            <RuleTab />
+          </TabsContent>
+        </div>
       </Tabs>
     </div>
   );
