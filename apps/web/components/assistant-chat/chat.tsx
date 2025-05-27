@@ -165,27 +165,19 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
       <div className="flex items-center justify-between px-2 pt-2">
         <div>
           {isDocumentMode ? (
-            <Tooltip content="Switch to chat mode">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMode("chat")}
-              >
-                <MessageCircleIcon className="size-5" />
-                <span className="sr-only">Switch to chat mode</span>
-              </Button>
-            </Tooltip>
+            <ModeButton
+              tooltip="Switch to chat mode"
+              icon={<MessageCircleIcon className="size-5" />}
+              label="Chat"
+              onClick={() => setMode("chat")}
+            />
           ) : (
-            <Tooltip content="Switch to the old document mode">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setMode("document")}
-              >
-                <FileIcon className="size-5" />
-                <span className="sr-only">Switch to the old document mode</span>
-              </Button>
-            </Tooltip>
+            <ModeButton
+              tooltip="Switch to document mode"
+              icon={<FileIcon className="size-5" />}
+              label="Doc"
+              onClick={() => setMode("document")}
+            />
           )}
 
           {!isDocumentMode && messages.length > MAX_MESSAGES && (
@@ -243,6 +235,27 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
         </>
       )}
     </div>
+  );
+}
+
+function ModeButton({
+  tooltip,
+  icon,
+  label,
+  onClick,
+}: {
+  tooltip: string;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip content={tooltip}>
+      <Button variant="ghost" size="sm" onClick={onClick}>
+        {icon}
+        <span className="ml-2">{label}</span>
+      </Button>
+    </Tooltip>
   );
 }
 

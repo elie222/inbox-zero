@@ -622,7 +622,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
           <Button
             type="button"
             variant="secondary"
-            className="w-full"
             onClick={() => appendCondition(getEmptyCondition(unusedCondition))}
           >
             <PlusIcon className="mr-2 h-4 w-4" />
@@ -678,7 +677,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <Button
           type="button"
           variant="secondary"
-          className="w-full"
           onClick={() => append({ type: ActionType.LABEL })}
         >
           <PlusIcon className="mr-2 h-4 w-4" />
