@@ -19,6 +19,7 @@ import { Button as ShadButton } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
+import { Notice } from "@/components/Notice";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
 import { TestActionButton } from "@/app/(landing)/components/TestAction";
 import {
@@ -152,6 +153,27 @@ export default function Components() {
               description="Alert description"
               variant="blue"
             />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Notices</div>
+          <div className="mt-4 space-y-2">
+            <Notice variant="info">
+              <strong>Info:</strong> This is an informational notice with some
+              helpful context.
+            </Notice>
+            <Notice variant="warning">
+              <strong>Warning:</strong> Please be cautious when proceeding with
+              this action.
+            </Notice>
+            <Notice variant="success">
+              <strong>Success:</strong> Your changes have been saved
+              successfully!
+            </Notice>
+            <Notice variant="error">
+              <strong>Error:</strong> Something went wrong. Please try again.
+            </Notice>
           </div>
         </div>
 

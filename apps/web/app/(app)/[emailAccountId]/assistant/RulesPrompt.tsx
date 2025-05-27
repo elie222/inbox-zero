@@ -29,13 +29,13 @@ import {
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
-import { AlertBasic } from "@/components/Alert";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
+import { Notice } from "@/components/Notice";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -222,15 +222,6 @@ function RulesPromptForm({
         }
       />
 
-      {showClearWarning && (
-        <AlertBasic
-          className="mb-2"
-          variant="blue"
-          title="Warning: Deleting text will remove or disable rules"
-          description="Add new rules at the end to keep your existing rules."
-        />
-      )}
-
       <div
         className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
       >
@@ -254,7 +245,7 @@ function RulesPromptForm({
               error={errors.rulesPrompt}
               placeholder={`Here's an example of what your prompt might look like:
 
-${personas.other.prompt}
+${personas.other.promptArray.slice(0, 1).join("\n")}
 
 If someone asks about pricing, reply with:
 ---
@@ -326,6 +317,13 @@ Let me know if you're interested!
                 </Button>
               </Tooltip>
             </div>
+
+            {showClearWarning && (
+              <Notice>
+                <strong>Note:</strong> Deleting text will delete rules. Add new
+                rules at the end to keep your existing rules.
+              </Notice>
+            )}
           </div>
         </form>
 
