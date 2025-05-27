@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
@@ -38,6 +38,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { PromptFile } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { useSearchParams } from "next/navigation";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -72,6 +73,14 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
 
   const { data } = useChatMessages(props.chatId);
 
+  const searchParams = useSearchParams();
+
+  const initialInput = useMemo(() => {
+    const input = searchParams.get("input");
+    if (!input) return undefined;
+    return decodeURIComponent(input);
+  }, [searchParams]);
+
   return (
     <SWRConfig
       value={{
@@ -82,6 +91,7 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
         {...props}
         mutate={mutate}
         initialMessages={data ? convertToUIMessages(data) : []}
+        initialInput={initialInput}
         chatId={props.chatId}
       />
     </SWRConfig>
@@ -93,10 +103,12 @@ function ChatInner({
   initialMessages,
   emailAccountId,
   mutate,
+  initialInput,
 }: ChatProps & {
   chatId: string;
   initialMessages: Array<UIMessage>;
   mutate: ScopedMutator;
+  initialInput?: string;
 }) {
   const chat = useChat({
     id: chatId,
@@ -106,6 +118,7 @@ function ChatInner({
       message: body.messages.at(-1),
     }),
     initialMessages,
+    initialInput,
     experimental_throttle: 100,
     sendExtraMessageFields: true,
     generateId: generateUUID,

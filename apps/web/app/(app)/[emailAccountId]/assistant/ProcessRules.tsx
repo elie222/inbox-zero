@@ -23,7 +23,6 @@ import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
-import { ReportMistake } from "@/app/(app)/[emailAccountId]/assistant/ReportMistake";
 import { Badge } from "@/components/Badge";
 import {
   isAIRule,
@@ -296,22 +295,15 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                {setInput ? (
-                  <FixWithChat
-                    setInput={setInput}
-                    message={message}
-                    result={result}
-                  />
-                ) : (
-                  <ReportMistake
-                    result={result}
-                    message={message}
-                    isTest={testMode}
-                  />
-                )}
+                <FixWithChat
+                  setInput={setInput}
+                  message={message}
+                  result={result}
+                />
                 <Tooltip content={testMode ? "Retest" : "Rerun"}>
                   <Button
                     variant="outline"
+                    size="sm"
                     disabled={isRunning}
                     onClick={() => onRun(true)}
                   >
@@ -325,6 +317,7 @@ function ProcessRulesRow({
             ) : (
               <Button
                 variant="default"
+                size="sm"
                 loading={isRunning}
                 onClick={() => onRun()}
               >

@@ -1,3 +1,4 @@
+import { useRouter } from "next/navigation";
 import { MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
@@ -12,24 +13,31 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { LoadingContent } from "@/components/LoadingContent";
-import { RuleMismatch } from "./ReportMistake";
 import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useModal } from "@/hooks/useModal";
 import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
+import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
+import { Label } from "@/components/Input";
+import { ButtonList } from "@/components/ButtonList";
+import type { RulesResponse } from "@/app/api/user/rules/route";
+import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
+import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 
 export function FixWithChat({
   setInput,
   message,
   result,
 }: {
-  setInput: NonNullable<SetInputFunction>;
+  setInput: SetInputFunction;
   message: ParsedMessage;
   result: RunRulesResult | null;
 }) {
   const { data, isLoading, error } = useRules();
   const { emailAccountId } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
+  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
+  const router = useRouter();
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -52,26 +60,32 @@ export function FixWithChat({
               result={result}
               rules={data}
               onSelectExpectedRuleId={(expectedRuleId) => {
+                let input: string;
+
                 if (expectedRuleId === NEW_RULE_ID) {
-                  setInput(
-                    getFixMessage({
-                      message,
-                      result,
-                      expectedRuleName: NEW_RULE_ID,
-                    }),
-                  );
+                  input = getFixMessage({
+                    message,
+                    result,
+                    expectedRuleName: NEW_RULE_ID,
+                  });
                 } else {
                   const expectedRule = data.find(
                     (rule) => rule.id === expectedRuleId,
                   );
 
-                  setInput(
-                    getFixMessage({
-                      message,
-                      result,
-                      expectedRuleName: expectedRule?.name ?? null,
-                    }),
-                  );
+                  input = getFixMessage({
+                    message,
+                    result,
+                    expectedRuleName: expectedRule?.name ?? null,
+                  });
+                }
+
+                if (setInput) {
+                  // this is only set if we're in the correct context
+                  setInput(input);
+                } else {
+                  // redirect to the assistant page
+                  router.push(createAssistantUrl({ input, tab: "history" }));
                 }
 
                 setIsModalOpen(false);
@@ -121,4 +135,44 @@ ${
       : "Instead, no rule should have been applied."
 }
 `.trim();
+}
+
+function RuleMismatch({
+  result,
+  rules,
+  emailAccountId,
+  onSelectExpectedRuleId,
+}: {
+  result: RunRulesResult | null;
+  rules: RulesResponse;
+  emailAccountId: string;
+  onSelectExpectedRuleId: (ruleId: string | null) => void;
+}) {
+  return (
+    <div>
+      <Label name="matchedRule" label="Matched:" />
+      <div className="mt-1">
+        {result ? (
+          <ProcessResultDisplay
+            result={result}
+            emailAccountId={emailAccountId}
+          />
+        ) : (
+          <p>No rule matched</p>
+        )}
+      </div>
+      <div className="mt-4">
+        <ButtonList
+          title="Which rule did you expect it to match?"
+          emptyMessage="You haven't created any rules yet!"
+          items={[
+            { id: NONE_RULE_ID, name: "❌ None" },
+            { id: NEW_RULE_ID, name: "✨ New rule" },
+            ...rules,
+          ]}
+          onSelect={onSelectExpectedRuleId}
+        />
+      </div>
+    </div>
+  );
 }
