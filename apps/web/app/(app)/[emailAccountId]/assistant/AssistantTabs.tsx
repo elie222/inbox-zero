@@ -32,7 +32,7 @@ export function AssistantTabs() {
               {hasPendingRule && (
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               )}
-              <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+              <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             </TabsList>
           </div>
 

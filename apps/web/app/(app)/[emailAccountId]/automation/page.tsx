@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import Link from "next/link";
-import { SparklesIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -17,8 +15,6 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { AlertWithButton } from "@/components/Alert";
-import { Button } from "@/components/ui/button";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -55,7 +51,7 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="content-container mt-2">
+        {/* <div className="content-container mt-2">
           <AlertWithButton
             title="Try our new AI Assistant experience"
             description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
@@ -69,7 +65,7 @@ export default async function AutomationPage({
               </Button>
             }
           />
-        </div>
+        </div> */}
 
         <Tabs defaultValue="prompt">
           <TabsToolbar>
@@ -84,7 +80,7 @@ export default async function AutomationPage({
                     <TabsTrigger value="pending">Pending</TabsTrigger>
                   )}
                 </Suspense>
-                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
               </TabsList>
             </div>
 
@@ -106,23 +102,33 @@ export default async function AutomationPage({
             <RulesPrompt />
           </TabsContent>
           <TabsContent value="rules" className="content-container mb-10">
-            <Rules />
+            <div className="max-w-screen-lg">
+              <Rules />
+            </div>
           </TabsContent>
           <TabsContent value="test" className="content-container mb-10">
-            <Process />
+            <div className="max-w-screen-lg">
+              <Process />
+            </div>
           </TabsContent>
           <TabsContent value="history" className="content-container mb-10">
-            <History />
+            <div className="max-w-screen-lg">
+              <History />
+            </div>
           </TabsContent>
           <Suspense>
             {(await hasPendingRule) && (
               <TabsContent value="pending" className="content-container mb-10">
-                <Pending />
+                <div className="max-w-screen-lg">
+                  <Pending />
+                </div>
               </TabsContent>
             )}
           </Suspense>
           <TabsContent value="knowledge" className="content-container mb-10">
-            <KnowledgeBase />
+            <div className="max-w-screen-lg">
+              <KnowledgeBase />
+            </div>
           </TabsContent>
         </Tabs>
       </Suspense>

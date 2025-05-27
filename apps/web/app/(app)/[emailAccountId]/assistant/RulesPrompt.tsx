@@ -59,7 +59,7 @@ export function RulesPrompt() {
     <>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <>
+          <div className="mt-2">
             <RulesPromptForm
               emailAccountId={emailAccountId}
               rulesPrompt={data.rulesPrompt}
@@ -73,7 +73,7 @@ export function RulesPrompt() {
                 if (!data.rulesPrompt) onOpenPersonaDialog();
               }}
             />
-          </>
+          </div>
         )}
       </LoadingContent>
       <PersonaDialog
@@ -229,7 +229,7 @@ function RulesPromptForm({
           onSubmit={handleSubmit(onSubmit)}
           className={showExamples ? "sm:col-span-2" : ""}
         >
-          <Label className="font-cal text-base leading-7 dark:text-foreground">
+          <Label className="font-cal text-lg leading-7">
             How your assistant should handle incoming emails
           </Label>
 
@@ -373,7 +373,7 @@ export function PromptFile() {
 function Examples({ onSelect }: { onSelect: (example: string) => void }) {
   return (
     <div>
-      <SectionHeader>Examples</SectionHeader>
+      <SectionHeader className="text-lg">Examples</SectionHeader>
 
       <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
         <div className="grid grid-cols-1 gap-2">

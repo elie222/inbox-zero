@@ -11,6 +11,7 @@ const assistantSearchParamsSerializer = createSerializer({
   page: parseAsString,
   search: parseAsString,
   custom: parseAsString,
+  input: parseAsString,
 });
 
 export function useAssistantNavigation(emailAccountId: string) {
