@@ -81,7 +81,7 @@ export function RuleCell({
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center justify-end gap-2">
       <div>
         <HoverCard
           className="w-80"

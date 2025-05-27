@@ -31,7 +31,6 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-  SystemType,
 } from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
@@ -294,13 +293,14 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         />
       </div>
 
-      {showSystemTypeBadge(rule.systemType) && (
+      {/* removed for now to keep things simpler */}
+      {/* {showSystemTypeBadge(rule.systemType) && (
         <div className="mt-2 flex items-center gap-2">
           <Badge color="green">
             This rule has special preset logic that may impact your conditions
           </Badge>
         </div>
-      )}
+      )} */}
 
       <div className="mt-6 flex items-end justify-between">
         <TypographyH3>Conditions</TypographyH3>
@@ -1123,11 +1123,11 @@ function ReplyTrackerAction() {
   );
 }
 
-function showSystemTypeBadge(systemType?: SystemType | null): boolean {
-  if (systemType === SystemType.TO_REPLY) return true;
-  if (systemType === SystemType.CALENDAR) return true;
-  return false;
-}
+// function showSystemTypeBadge(systemType?: SystemType | null): boolean {
+//   if (systemType === SystemType.TO_REPLY) return true;
+//   if (systemType === SystemType.CALENDAR) return true;
+//   return false;
+// }
 
 export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
   return (
