@@ -13,7 +13,7 @@ import {
 import type {
   StatsByWeekParams,
   StatsByWeekResponse,
-} from "@/app/api/user/stats/by-period/route";
+} from "@/app/api/user/stats/by-period/controller";
 import { getDateRangeParams } from "./params";
 import { formatStat } from "@/utils/stats";
 import { StatsCards } from "@/components/StatsCards";
