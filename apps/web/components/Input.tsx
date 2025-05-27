@@ -43,9 +43,14 @@ export const Input = (props: InputProps) => {
     name: props.name,
     id: props.name,
     placeholder: props.placeholder,
-    rows: props.rows,
-    minRows: props.autosizeTextarea ? props.rows : undefined,
-    maxRows: props.autosizeTextarea ? props.maxRows : undefined,
+    ...(props.autosizeTextarea
+      ? {
+          minRows: props.rows,
+          maxRows: props.maxRows,
+        }
+      : {
+          rows: props.rows,
+        }),
     min: props.min,
     max: props.max,
     step: props.step,
