@@ -35,6 +35,7 @@ import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/utils";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -230,7 +231,9 @@ function RulesPromptForm({
         />
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div
+        className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
+      >
         <form
           onSubmit={handleSubmit(onSubmit)}
           className={showExamples ? "sm:col-span-2" : ""}
