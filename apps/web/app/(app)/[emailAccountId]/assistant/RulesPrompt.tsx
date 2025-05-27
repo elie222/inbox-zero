@@ -65,6 +65,7 @@ export function RulesPrompt() {
               personaPrompt={personaPrompt}
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
+              showExamples
             />
             <AssistantOnboarding
               onComplete={() => {
@@ -89,12 +90,14 @@ function RulesPromptForm({
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
+  showExamples,
 }: {
   emailAccountId: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
+  showExamples?: boolean;
 }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -205,6 +208,8 @@ function RulesPromptForm({
     [setValue, getValues],
   );
 
+  // const [showExamples, setShowExamples] = useState(false);
+
   return (
     <div>
       <ProcessingPromptFileDialog
@@ -226,7 +231,10 @@ function RulesPromptForm({
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <form onSubmit={handleSubmit(onSubmit)} className="sm:col-span-2">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          className={showExamples ? "sm:col-span-2" : ""}
+        >
           <Label className="font-cal text-base leading-7 dark:text-foreground">
             How your assistant should handle incoming emails
           </Label>
@@ -318,7 +326,7 @@ Let me know if you're interested!
           </div>
         </form>
 
-        <Examples onSelect={addExamplePrompt} />
+        {showExamples && <Examples onSelect={addExamplePrompt} />}
       </div>
     </div>
   );

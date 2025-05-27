@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ExternalLinkIcon, EyeIcon } from "lucide-react";
 import type { PendingExecutedRules } from "@/app/api/user/planned/route";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
 import { EmailDate } from "@/components/email-list/EmailDate";
@@ -37,26 +36,23 @@ export function EmailCell({
   userEmail: string;
   createdAt: Date;
 }) {
-  // use regex to find first letter
-  const firstLetter = from.match(/[a-zA-Z]/)?.[0] || "-";
-
   return (
-    <div className="flex items-center gap-4">
-      <ViewEmailButton threadId={threadId} messageId={messageId} size="sm" />
-
-      <div className="flex flex-1 flex-col justify-center">
-        <div className="flex items-center justify-between">
-          <div className="font-semibold">{from}</div>
-          <DateCell createdAt={createdAt} />
-        </div>
-        <div className="mt-1 flex items-center font-medium">
-          {subject}{" "}
-          <OpenInGmailButton messageId={messageId} userEmail={userEmail} />
-        </div>
-        <div className="mt-1 text-muted-foreground">
-          {decodeSnippet(snippet)}
-        </div>
+    <div className="flex flex-1 flex-col justify-center">
+      <div className="flex items-center justify-between">
+        <div className="font-semibold">{from}</div>
+        <DateCell createdAt={createdAt} />
       </div>
+      <div className="mt-1 flex items-center font-medium">
+        <span>{subject}</span>
+        <OpenInGmailButton messageId={messageId} userEmail={userEmail} />
+        <ViewEmailButton
+          threadId={threadId}
+          messageId={messageId}
+          size="xs"
+          className="ml-2"
+        />
+      </div>
+      <div className="mt-1 text-muted-foreground">{decodeSnippet(snippet)}</div>
     </div>
   );
 }
@@ -152,7 +148,6 @@ export function RuleCell({
           isTest={isTest}
         />
       )}
-      {/* <ActionItemsCell actionItems={p.actionItems} /> */}
     </div>
   );
 }
