@@ -26,24 +26,6 @@ const commonPrompts = [
   "Label emails from @mycompany.com addresses as 'Team'",
 ];
 
-// export const initialChatExamples = [
-//   {
-//     label: "Label all pitch decks and investor updates",
-//     message:
-//       "When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'",
-//   },
-//   {
-//     label: "Respond to sponsorship inquiries with my pricing",
-//     message:
-//       "When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck",
-//   },
-//   {
-//     label: "Forward all receipts to my accountant",
-//     message:
-//       "When I get an email with a receipt, forward it to my accountant: jane@example.com",
-//   },
-// ];
-
 export const examplePrompts = [
   ...commonPrompts,
   'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',

@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { MessageCircleIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -15,6 +17,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import { Button } from "@/components/ui/button";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -94,7 +97,15 @@ export default async function AutomationPage({
                   </>
                 }
                 videoId="SoeNDVr7ve4"
+                buttonProps={{ size: "sm", variant: "outline" }}
               />
+
+              <Button size="sm" variant="primaryBlue" asChild>
+                <Link href={prefixPath(emailAccountId, "/assistant")}>
+                  <MessageCircleIcon className="mr-2 size-4" />
+                  AI Chat
+                </Link>
+              </Button>
             </div>
           </TabsToolbar>
 

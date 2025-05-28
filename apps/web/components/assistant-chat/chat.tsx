@@ -7,13 +7,12 @@ import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { toast } from "sonner";
 import {
-  FileIcon,
+  ArrowLeftToLineIcon,
   HistoryIcon,
   Loader2,
-  MessageCircleIcon,
   PlusIcon,
 } from "lucide-react";
-import { useQueryState } from "nuqs";
+import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -38,7 +37,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { PromptFile } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
-import { useSearchParams } from "next/navigation";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -73,13 +71,15 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
 
   const { data } = useChatMessages(props.chatId);
 
-  const searchParams = useSearchParams();
+  const [{ input, tab }] = useQueryStates({
+    input: parseAsString,
+    tab: parseAsString,
+  });
 
   const initialInput = useMemo(() => {
-    const input = searchParams.get("input");
     if (!input) return undefined;
     return decodeURIComponent(input);
-  }, [searchParams]);
+  }, [input]);
 
   return (
     <SWRConfig
@@ -93,6 +93,7 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
         initialMessages={data ? convertToUIMessages(data) : []}
         initialInput={initialInput}
         chatId={props.chatId}
+        tab={tab || undefined}
       />
     </SWRConfig>
   );
@@ -104,11 +105,13 @@ function ChatInner({
   emailAccountId,
   mutate,
   initialInput,
+  tab,
 }: ChatProps & {
   chatId: string;
   initialMessages: Array<UIMessage>;
   mutate: ScopedMutator;
   initialInput?: string;
+  tab?: string;
 }) {
   const chat = useChat({
     id: chatId,
@@ -136,23 +139,29 @@ function ChatInner({
 
   const isMobile = useIsMobile();
 
+  const chatPanel = <ChatUI chat={chat} />;
+
   return (
     <ChatProvider setInput={chat.setInput}>
-      <ResizablePanelGroup
-        direction={isMobile ? "vertical" : "horizontal"}
-        className="flex-grow"
-      >
-        <ResizablePanel className="overflow-y-auto" defaultSize={55}>
-          <ChatUI chat={chat} />
-        </ResizablePanel>
-        <ResizableHandle withHandle />
-        <ResizablePanel defaultSize={45}>
-          {/* re-enable the regular SWRProvider */}
-          <SWRProvider>
-            <AssistantTabs />
-          </SWRProvider>
-        </ResizablePanel>
-      </ResizablePanelGroup>
+      {tab ? (
+        <ResizablePanelGroup
+          direction={isMobile ? "vertical" : "horizontal"}
+          className="flex-grow"
+        >
+          <ResizablePanel className="overflow-y-auto" defaultSize={40}>
+            {chatPanel}
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={60}>
+            {/* re-enable the regular SWRProvider */}
+            <SWRProvider>
+              <AssistantTabs />
+            </SWRProvider>
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      ) : (
+        chatPanel
+      )}
     </ChatProvider>
   );
 }
@@ -169,106 +178,50 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
     reload,
   } = chat;
 
-  const [mode, setMode] = useQueryState("mode");
-
-  const isDocumentMode = mode === "document";
-
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
-        <div>
-          {isDocumentMode ? (
-            <ModeButton
-              tooltip="Switch to chat mode"
-              icon={<MessageCircleIcon className="size-5" />}
-              label="Chat"
-              onClick={() => setMode("chat")}
-            />
-          ) : (
-            <ModeButton
-              tooltip="Switch to document mode"
-              icon={<FileIcon className="size-5" />}
-              label="Doc"
-              onClick={() => setMode("document")}
-            />
-          )}
-
-          {!isDocumentMode && messages.length > MAX_MESSAGES && (
-            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-              The chat is too long. Please start a new conversation.
-            </div>
-          )}
-        </div>
+        {messages.length > MAX_MESSAGES && (
+          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+            The chat is too long. Please start a new conversation.
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
-          {!isDocumentMode && (
-            <>
-              <NewChatButton />
-              <ExamplesDialog setInput={setInput} />
-              <SWRProvider>
-                <ChatHistoryDropdown />
-              </SWRProvider>
-            </>
-          )}
+          <NewChatButton />
+          <ExamplesDialog setInput={setInput} />
+          <SWRProvider>
+            <ChatHistoryDropdown />
+          </SWRProvider>
+          <OpenArtifactButton />
         </div>
       </div>
 
-      {isDocumentMode ? (
-        <SWRProvider>
-          <div className="content-container py-2">
-            <PromptFile />
-          </div>
-        </SWRProvider>
-      ) : (
-        <>
-          <Messages
-            status={status}
-            messages={messages}
-            setMessages={setMessages}
-            setInput={setInput}
-            reload={reload}
-            isArtifactVisible={false}
-          />
+      <Messages
+        status={status}
+        messages={messages}
+        setMessages={setMessages}
+        setInput={setInput}
+        reload={reload}
+        isArtifactVisible={false}
+      />
 
-          <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
-            <MultimodalInput
-              // chatId={chatId}
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              status={status}
-              stop={stop}
-              // attachments={attachments}
-              // setAttachments={setAttachments}
-              // messages={messages}
-              setMessages={setMessages}
-              // append={append}
-            />
-          </form>
-        </>
-      )}
+      <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
+        <MultimodalInput
+          // chatId={chatId}
+          input={input}
+          setInput={setInput}
+          handleSubmit={handleSubmit}
+          status={status}
+          stop={stop}
+          // attachments={attachments}
+          // setAttachments={setAttachments}
+          // messages={messages}
+          setMessages={setMessages}
+          // append={append}
+        />
+      </form>
     </div>
-  );
-}
-
-function ModeButton({
-  tooltip,
-  icon,
-  label,
-  onClick,
-}: {
-  tooltip: string;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <Tooltip content={tooltip}>
-      <Button variant="ghost" size="sm" onClick={onClick}>
-        {icon}
-        <span className="ml-2">{label}</span>
-      </Button>
-    </Tooltip>
   );
 }
 
@@ -282,6 +235,23 @@ function NewChatButton() {
       <Button variant="ghost" size="icon" onClick={handleNewChat}>
         <PlusIcon className="size-5" />
         <span className="sr-only">New Chat</span>
+      </Button>
+    </Tooltip>
+  );
+}
+
+function OpenArtifactButton() {
+  const [tab, setTab] = useQueryState("tab");
+
+  if (tab) return null;
+
+  const handleOpenArtifact = () => setTab("rules");
+
+  return (
+    <Tooltip content="Open side panel">
+      <Button variant="ghost" size="icon" onClick={handleOpenArtifact}>
+        <ArrowLeftToLineIcon className="size-5" />
+        <span className="sr-only">Open side panel</span>
       </Button>
     </Tooltip>
   );
