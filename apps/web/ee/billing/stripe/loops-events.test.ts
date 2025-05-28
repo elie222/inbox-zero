@@ -4,7 +4,8 @@ import { handleLoopsEvents } from "./loops-events";
 // Mock the Loops functions
 vi.mock("@inboxzero/loops", () => ({
   createContact: vi.fn(),
-  upgradedToPremium: vi.fn(),
+  completedTrial: vi.fn(),
+  startedTrial: vi.fn(),
   cancelledPremium: vi.fn(),
 }));
 
@@ -19,7 +20,8 @@ vi.mock("@/utils/logger", () => ({
 
 import {
   createContact,
-  upgradedToPremium,
+  completedTrial,
+  startedTrial,
   cancelledPremium,
 } from "@inboxzero/loops";
 
@@ -124,12 +126,12 @@ describe("handleLoopsEvents", () => {
     });
   });
 
-  describe("First real payment scenarios", () => {
-    it("should call upgradedToPremium when trial ends and subscription becomes active", async () => {
+  describe("Trial completion scenarios", () => {
+    it("should call completedTrial when trial ends and subscription becomes active", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: "trialing",
-        stripeTrialEnd: new Date(Date.now() + 1000 * 60 * 60), // 1 hour in future
+        stripeTrialEnd: new Date(Date.now() + 1000 * 60 * 60), // 1 hour in future (was in trial)
       };
 
       const newSubscription = {
@@ -143,16 +145,41 @@ describe("handleLoopsEvents", () => {
         newTier: "BUSINESS_MONTHLY",
       });
 
-      expect(upgradedToPremium).toHaveBeenCalledWith(
+      expect(completedTrial).toHaveBeenCalledWith(
         "user@example.com",
         "BUSINESS_MONTHLY",
       );
+      expect(startedTrial).not.toHaveBeenCalled(); // Should not call direct upgrade
     });
 
-    it("should call upgradedToPremium for first subscription (no previous status)", async () => {
+    it("should not call completedTrial when tier is null", async () => {
+      const currentPremium = {
+        ...mockCurrentPremium,
+        stripeSubscriptionStatus: "trialing",
+        stripeTrialEnd: new Date(Date.now() + 1000 * 60 * 60),
+      };
+
+      const newSubscription = {
+        status: "active",
+        trial_end: Math.floor(Date.now() / 1000) - 1000,
+      };
+
+      await handleLoopsEvents({
+        currentPremium,
+        newSubscription,
+        newTier: null, // No tier
+      });
+
+      expect(completedTrial).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Direct upgrade scenarios", () => {
+    it("should call startedTrial for first subscription (no previous status, no trial)", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: null, // First subscription
+        stripeTrialEnd: null, // No trial
       };
 
       const newSubscription = {
@@ -166,16 +193,18 @@ describe("handleLoopsEvents", () => {
         newTier: "BUSINESS_MONTHLY",
       });
 
-      expect(upgradedToPremium).toHaveBeenCalledWith(
+      expect(startedTrial).toHaveBeenCalledWith(
         "user@example.com",
         "BUSINESS_MONTHLY",
       );
+      expect(completedTrial).not.toHaveBeenCalled(); // Should not call trial completion
     });
 
-    it("should call upgradedToPremium when transitioning from incomplete", async () => {
+    it("should call startedTrial when transitioning from incomplete", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: "incomplete",
+        stripeTrialEnd: null, // No trial
       };
 
       const newSubscription = {
@@ -189,13 +218,14 @@ describe("handleLoopsEvents", () => {
         newTier: "BUSINESS_MONTHLY",
       });
 
-      expect(upgradedToPremium).toHaveBeenCalledWith(
+      expect(startedTrial).toHaveBeenCalledWith(
         "user@example.com",
         "BUSINESS_MONTHLY",
       );
+      expect(completedTrial).not.toHaveBeenCalled();
     });
 
-    it("should not call upgradedToPremium when tier is null", async () => {
+    it("should not call startedTrial when tier is null", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: null,
@@ -212,10 +242,10 @@ describe("handleLoopsEvents", () => {
         newTier: null, // No tier
       });
 
-      expect(upgradedToPremium).not.toHaveBeenCalled();
+      expect(startedTrial).not.toHaveBeenCalled();
     });
 
-    it("should not call upgradedToPremium when subscription is not active", async () => {
+    it("should not call startedTrial when subscription is not active", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: null,
@@ -232,7 +262,30 @@ describe("handleLoopsEvents", () => {
         newTier: "BUSINESS_MONTHLY",
       });
 
-      expect(upgradedToPremium).not.toHaveBeenCalled();
+      expect(startedTrial).not.toHaveBeenCalled();
+    });
+
+    it("should not call startedTrial for users who were in trial", async () => {
+      const currentPremium = {
+        ...mockCurrentPremium,
+        stripeSubscriptionStatus: "trialing",
+        stripeTrialEnd: new Date(Date.now() + 1000 * 60 * 60), // Was in trial
+      };
+
+      const newSubscription = {
+        status: "active",
+        trial_end: null,
+      };
+
+      await handleLoopsEvents({
+        currentPremium,
+        newSubscription,
+        newTier: "BUSINESS_MONTHLY",
+      });
+
+      // Should call completedTrial, not startedTrial
+      expect(startedTrial).not.toHaveBeenCalled();
+      expect(completedTrial).toHaveBeenCalled();
     });
   });
 
@@ -327,7 +380,8 @@ describe("handleLoopsEvents", () => {
       });
 
       expect(createContact).not.toHaveBeenCalled();
-      expect(upgradedToPremium).not.toHaveBeenCalled();
+      expect(completedTrial).not.toHaveBeenCalled();
+      expect(startedTrial).not.toHaveBeenCalled();
       expect(cancelledPremium).not.toHaveBeenCalled();
     });
 
@@ -345,7 +399,8 @@ describe("handleLoopsEvents", () => {
       });
 
       expect(createContact).not.toHaveBeenCalled();
-      expect(upgradedToPremium).not.toHaveBeenCalled();
+      expect(completedTrial).not.toHaveBeenCalled();
+      expect(startedTrial).not.toHaveBeenCalled();
       expect(cancelledPremium).not.toHaveBeenCalled();
     });
 
@@ -399,14 +454,14 @@ describe("handleLoopsEvents", () => {
   });
 
   describe("Complex scenarios", () => {
-    it("should handle trial start and immediate payment in same sync", async () => {
+    it("should handle trial start and not trigger payment events", async () => {
       const currentPremium = {
         ...mockCurrentPremium,
         stripeSubscriptionStatus: null,
       };
 
       const newSubscription = {
-        status: "active",
+        status: "trialing", // Still in trial
         trial_end: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60, // Future trial end
       };
 
@@ -418,11 +473,9 @@ describe("handleLoopsEvents", () => {
 
       // Should create contact for trial start
       expect(createContact).toHaveBeenCalledWith("user@example.com", "John");
-      // Should also upgrade for first payment
-      expect(upgradedToPremium).toHaveBeenCalledWith(
-        "user@example.com",
-        "BUSINESS_MONTHLY",
-      );
+      // Should NOT trigger payment events since still trialing
+      expect(completedTrial).not.toHaveBeenCalled();
+      expect(startedTrial).not.toHaveBeenCalled();
     });
 
     it("should handle user with multiple spaces in name", async () => {

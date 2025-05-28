@@ -1,6 +1,7 @@
 import {
   createContact,
-  upgradedToPremium,
+  completedTrial,
+  startedTrial,
   cancelledPremium,
 } from "@inboxzero/loops";
 import { createScopedLogger } from "@/utils/logger";
@@ -46,7 +47,7 @@ export async function handleLoopsEvents({
       await createContact(email, name?.split(" ")[0]);
     }
 
-    // 2. First real payment - transition from trial to active or direct to active
+    // 2. Payment scenarios - distinguish between trial completion and direct purchase
     const wasInTrial =
       currentPremium.stripeTrialEnd &&
       currentPremium.stripeTrialEnd > new Date();
@@ -55,16 +56,27 @@ export async function handleLoopsEvents({
       !newSubscription.trial_end ||
       newSubscription.trial_end <= Date.now() / 1000;
 
-    const isFirstPayment =
-      isNowActive &&
-      ((wasInTrial && noLongerInTrial) || // Completed trial
-        !currentPremium.stripeSubscriptionStatus || // First subscription
-        currentPremium.stripeSubscriptionStatus === "incomplete");
+    // 2a. Trial completed and converted to paid subscription
+    const trialCompleted = isNowActive && wasInTrial && noLongerInTrial;
 
-    if (isFirstPayment) {
-      logger.info("First real payment", { email, tier: newTier });
+    if (trialCompleted) {
+      logger.info("Trial completed", { email, tier: newTier });
       if (newTier) {
-        await upgradedToPremium(email, newTier);
+        await completedTrial(email, newTier);
+      }
+    }
+
+    // 2b. Direct upgrade (no trial) or upgrade from incomplete status
+    const directUpgrade =
+      isNowActive &&
+      !wasInTrial &&
+      (!currentPremium.stripeSubscriptionStatus || // First subscription without trial
+        currentPremium.stripeSubscriptionStatus === "incomplete"); // Completing incomplete payment
+
+    if (directUpgrade) {
+      logger.info("Direct upgrade to premium", { email, tier: newTier });
+      if (newTier) {
+        await startedTrial(email, newTier);
       }
     }
 

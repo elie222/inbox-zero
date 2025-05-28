@@ -40,7 +40,7 @@ export async function deleteContact(
   return resp;
 }
 
-export async function upgradedToPremium(
+export async function startedTrial(
   email: string,
   tier: string,
 ): Promise<{ success: boolean }> {
