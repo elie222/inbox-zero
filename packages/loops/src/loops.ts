@@ -55,6 +55,21 @@ export async function upgradedToPremium(
   return resp;
 }
 
+export async function completedTrial(
+  email: string,
+  tier: string,
+): Promise<{ success: boolean }> {
+  const loops = getLoopsClient();
+  if (!loops) return { success: false };
+  const resp = await loops.sendEvent({
+    eventName: "completed_trial",
+    email,
+    contactProperties: { tier },
+    eventProperties: { tier },
+  });
+  return resp;
+}
+
 export async function switchedPremiumPlan(
   email: string,
   tier: string,
