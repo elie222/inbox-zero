@@ -178,110 +178,52 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
     reload,
   } = chat;
 
-  // const [mode, setMode] = useQueryState("mode");
-
-  // const isDocumentMode = mode === "document";
-  const isDocumentMode = false;
-
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
-        <div>
-          {/* {isDocumentMode ? (
-            <ModeButton
-              tooltip="Switch to chat mode"
-              icon={<MessageCircleIcon className="size-5" />}
-              label="Chat"
-              onClick={() => setMode("chat")}
-            />
-          ) : (
-            <ModeButton
-              tooltip="Switch to document mode"
-              icon={<FileIcon className="size-5" />}
-              label="Doc"
-              onClick={() => setMode("document")}
-            />
-          )} */}
-
-          {!isDocumentMode && messages.length > MAX_MESSAGES && (
-            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-              The chat is too long. Please start a new conversation.
-            </div>
-          )}
-        </div>
+        {messages.length > MAX_MESSAGES && (
+          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+            The chat is too long. Please start a new conversation.
+          </div>
+        )}
 
         <div className="flex items-center gap-1">
-          {!isDocumentMode && (
-            <>
-              <NewChatButton />
-              <ExamplesDialog setInput={setInput} />
-              <SWRProvider>
-                <ChatHistoryDropdown />
-              </SWRProvider>
-              <OpenArtifactButton />
-            </>
-          )}
+          <NewChatButton />
+          <ExamplesDialog setInput={setInput} />
+          <SWRProvider>
+            <ChatHistoryDropdown />
+          </SWRProvider>
+          <OpenArtifactButton />
         </div>
       </div>
 
-      {isDocumentMode ? (
-        <SWRProvider>
-          <div className="content-container py-2">
-            <PromptFile />
-          </div>
-        </SWRProvider>
-      ) : (
-        <>
-          <Messages
-            status={status}
-            messages={messages}
-            setMessages={setMessages}
-            setInput={setInput}
-            reload={reload}
-            isArtifactVisible={false}
-          />
+      <Messages
+        status={status}
+        messages={messages}
+        setMessages={setMessages}
+        setInput={setInput}
+        reload={reload}
+        isArtifactVisible={false}
+      />
 
-          <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
-            <MultimodalInput
-              // chatId={chatId}
-              input={input}
-              setInput={setInput}
-              handleSubmit={handleSubmit}
-              status={status}
-              stop={stop}
-              // attachments={attachments}
-              // setAttachments={setAttachments}
-              // messages={messages}
-              setMessages={setMessages}
-              // append={append}
-            />
-          </form>
-        </>
-      )}
+      <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
+        <MultimodalInput
+          // chatId={chatId}
+          input={input}
+          setInput={setInput}
+          handleSubmit={handleSubmit}
+          status={status}
+          stop={stop}
+          // attachments={attachments}
+          // setAttachments={setAttachments}
+          // messages={messages}
+          setMessages={setMessages}
+          // append={append}
+        />
+      </form>
     </div>
   );
 }
-
-// function ModeButton({
-//   tooltip,
-//   icon,
-//   label,
-//   onClick,
-// }: {
-//   tooltip: string;
-//   icon: React.ReactNode;
-//   label: string;
-//   onClick: () => void;
-// }) {
-//   return (
-//     <Tooltip content={tooltip}>
-//       <Button variant="ghost" size="sm" onClick={onClick}>
-//         {icon}
-//         <span className="ml-2">{label}</span>
-//       </Button>
-//     </Tooltip>
-//   );
-// }
 
 function NewChatButton() {
   const [_chatId, setChatId] = useQueryState("chatId");
