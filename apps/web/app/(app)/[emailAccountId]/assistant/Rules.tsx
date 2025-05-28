@@ -230,8 +230,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                         </Link>
                       </TableCell>
                       {size === "md" && (
-                        <TableCell className="whitespace-pre-wrap">
-                          <ExpandableText text={conditionsToString(rule)} />
+                        <TableCell>
+                          <ExpandableText
+                            text={conditionsToString(rule)}
+                            className="max-w-xs"
+                          />
                         </TableCell>
                       )}
                       <TableCell>

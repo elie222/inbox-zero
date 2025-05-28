@@ -195,9 +195,9 @@ export function conditionsToString(rule: RuleConditions) {
 
   // Static conditions - grouped with commas
   const staticConditions: string[] = [];
-  if (rule.from) staticConditions.push(`From: "${rule.from}"`);
+  if (rule.from) staticConditions.push(`From: ${rule.from}`);
   if (rule.subject) staticConditions.push(`Subject: "${rule.subject}"`);
-  if (rule.to) staticConditions.push(`To: "${rule.to}"`);
+  if (rule.to) staticConditions.push(`To: ${rule.to}`);
   if (rule.body) staticConditions.push(`Body: "${rule.body}"`);
   if (staticConditions.length) conditions.push(staticConditions.join(", "));
 
