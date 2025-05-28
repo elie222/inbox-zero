@@ -99,7 +99,9 @@ export default async function AutomationPage({
           </TabsToolbar>
 
           <TabsContent value="prompt" className="content-container mb-10">
-            <RulesPrompt />
+            <div className="max-w-screen-xl">
+              <RulesPrompt />
+            </div>
           </TabsContent>
           <TabsContent value="rules" className="content-container mb-10">
             <div className="max-w-screen-lg">
