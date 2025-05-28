@@ -3,7 +3,7 @@ import { deleteContact as deleteResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
-import { deletePosthogUser } from "@/utils/posthog";
+import { deletePosthogUser, trackUserDeleted } from "@/utils/posthog";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/google/watch/controller";
 import { createScopedLogger } from "@/utils/logger";
@@ -109,8 +109,12 @@ async function deleteResources({
     // If we try do this in one go for a user with a lot of executed rules, this will fail
     logger.info("Deleting ExecutedRules in batches");
     await deleteExecutedRulesInBatches({ emailAccountId });
+
     logger.info("Deleting user");
     await prisma.user.delete({ where: { id: userId } });
+
+    // posthod track deleted events
+    await trackUserDeleted(userId);
   } catch (error) {
     logger.error("Error during database user deletion process", {
       error,
