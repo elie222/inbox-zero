@@ -104,7 +104,7 @@ const features = [
     description: "Easily unsubscribe from unwanted newsletters in one click",
   },
   {
-    href: "/assistant",
+    href: "/automation",
     icon: BotIcon,
     iconBg: "bg-green-100 dark:bg-green-900/50",
     iconColor: "text-green-600 dark:text-green-400",

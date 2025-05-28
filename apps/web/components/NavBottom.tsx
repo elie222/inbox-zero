@@ -49,7 +49,7 @@ function NavBarBottom({
 
 const links = [
   {
-    path: "/assistant",
+    path: "/automation",
     label: "Assistant",
     icon: SparklesIcon,
   },

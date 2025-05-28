@@ -127,7 +127,7 @@ export function List({
                     <>
                       Set rules on the{" "}
                       <Link
-                        href={prefixPath(emailAccountId, "/assistant")}
+                        href={prefixPath(emailAccountId, "/automation")}
                         className="font-semibold hover:underline"
                       >
                         Assistant page

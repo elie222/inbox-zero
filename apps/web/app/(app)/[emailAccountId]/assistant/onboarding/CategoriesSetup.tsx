@@ -147,7 +147,7 @@ export function CategoriesSetup({
             variant="outline"
             onClick={() => {
               markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-              router.push(prefixPath(emailAccountId, "/assistant"));
+              router.push(prefixPath(emailAccountId, "/automation"));
             }}
           >
             Skip
