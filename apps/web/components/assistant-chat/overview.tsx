@@ -34,7 +34,7 @@ export const Overview = ({
 
         <div className="pt-8">
           <ExamplesDialog setInput={setInput}>
-            <Button variant="default">Choose from examples</Button>
+            <Button variant="primaryBlue">Choose from examples</Button>
           </ExamplesDialog>
         </div>
       </div>

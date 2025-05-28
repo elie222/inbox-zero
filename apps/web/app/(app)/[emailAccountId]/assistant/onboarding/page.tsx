@@ -7,7 +7,10 @@ import {
   SystemType,
   type Prisma,
 } from "@prisma/client";
-import type { CategoryAction } from "@/utils/actions/rule.validation";
+import type {
+  CategoryAction,
+  CreateRulesOnboardingBody,
+} from "@/utils/actions/rule.validation";
 
 export default async function OnboardingPage({
   params,
@@ -45,7 +48,7 @@ async function getUserPreferences({
   emailAccountId,
 }: {
   emailAccountId: string;
-}) {
+}): Promise<Partial<CreateRulesOnboardingBody> | undefined> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -66,7 +69,7 @@ async function getUserPreferences({
 
   return {
     toReply: getToReplySetting(emailAccount.rules),
-    coldEmails: getColdEmailSetting(emailAccount.coldEmailBlocker),
+    coldEmail: getColdEmailSetting(emailAccount.coldEmailBlocker),
     newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
     marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
     calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
