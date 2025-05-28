@@ -94,7 +94,7 @@ export const useNavigation = () => {
   const cleanItems: NavItem[] = useMemo(
     () => [
       {
-        name: "Unsubscribe",
+        name: "Bulk Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
