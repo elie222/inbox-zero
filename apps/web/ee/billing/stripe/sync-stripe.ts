@@ -2,6 +2,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
+import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -12,6 +13,18 @@ export async function syncStripeDataToDb({
 }) {
   try {
     const stripe = getStripe();
+
+    // Get current state before updating
+    const currentPremium = await prisma.premium.findUnique({
+      where: { stripeCustomerId: customerId },
+      select: {
+        stripeSubscriptionStatus: true,
+        stripeTrialEnd: true,
+        tier: true,
+        users: { select: { email: true, name: true } },
+        admins: { select: { email: true, name: true } },
+      },
+    });
 
     // Fetch latest subscription data from Stripe, expanding necessary fields
     const subscriptions = await stripe.subscriptions.list({
@@ -76,6 +89,10 @@ export async function syncStripeDataToDb({
 
     const tier = getStripeSubscriptionTier({ priceId: price.id });
 
+    const newTrialEnd = subscription.trial_end
+      ? new Date(subscription.trial_end * 1000)
+      : null;
+
     await prisma.premium.update({
       where: { stripeCustomerId: customerId },
       data: {
@@ -89,9 +106,7 @@ export async function syncStripeDataToDb({
           ? new Date(subscriptionItem.current_period_end * 1000)
           : null,
         stripeCancelAtPeriodEnd: subscription.cancel_at_period_end,
-        stripeTrialEnd: subscription.trial_end
-          ? new Date(subscription.trial_end * 1000)
-          : null,
+        stripeTrialEnd: newTrialEnd,
         stripeCanceledAt: subscription.canceled_at
           ? new Date(subscription.canceled_at * 1000)
           : null,
@@ -99,6 +114,13 @@ export async function syncStripeDataToDb({
           ? new Date(subscription.ended_at * 1000)
           : null,
       },
+    });
+
+    // Handle Loops events based on state changes
+    await handleLoopsEvents({
+      currentPremium,
+      newSubscription: subscription,
+      newTier: tier,
     });
 
     logger.info("Successfully updated Premium record from Stripe data", {
