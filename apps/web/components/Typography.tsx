@@ -23,10 +23,7 @@ const SectionHeader = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h4
     ref={ref}
-    className={cn(
-      "font-cal text-base leading-7 dark:text-foreground",
-      className,
-    )}
+    className={cn("font-cal text-base leading-7 text-foreground", className)}
     {...props}
   />
 ));

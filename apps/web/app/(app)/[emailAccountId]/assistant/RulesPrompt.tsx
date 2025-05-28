@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -59,7 +59,7 @@ export function RulesPrompt() {
     <>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <div className="mt-2">
+          <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
               rulesPrompt={data.rulesPrompt}
@@ -229,7 +229,7 @@ function RulesPromptForm({
           onSubmit={handleSubmit(onSubmit)}
           className={showExamples ? "sm:col-span-2" : ""}
         >
-          <Label className="font-cal text-lg leading-7">
+          <Label className="font-cal text-xl leading-7">
             How your assistant should handle incoming emails
           </Label>
 
@@ -260,6 +260,7 @@ Let me know if you're interested!
             <div className="flex flex-wrap gap-2">
               <Button
                 type="submit"
+                variant="primaryBlue"
                 disabled={isSubmitting || isGenerating}
                 loading={isSubmitting}
               >
@@ -370,25 +371,62 @@ export function PromptFile() {
   );
 }
 
-function Examples({ onSelect }: { onSelect: (example: string) => void }) {
+function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
   return (
     <div>
-      <SectionHeader className="text-lg">Examples</SectionHeader>
+      <SectionHeader className="text-xl">Examples</SectionHeader>
 
       <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
         <div className="grid grid-cols-1 gap-2">
-          {examplePrompts.map((example) => (
-            <Button
-              key={example}
-              variant="outline"
-              onClick={() => onSelect(example)}
-              className="h-auto w-full justify-start text-wrap py-2 text-left"
-            >
-              {example}
-            </Button>
-          ))}
+          {examplePrompts.map((example) => {
+            const { color } = getActionType(example);
+
+            return (
+              <Button
+                key={example}
+                variant="outline"
+                onClick={() => onSelect(example)}
+                className="h-auto w-full justify-start text-wrap py-2 text-left"
+              >
+                <div className="flex w-full items-start gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
+                  />
+                  <span className="flex-1">{example}</span>
+                </div>
+              </Button>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
   );
+}
+
+const Examples = memo(PureExamples);
+
+function getActionType(example: string): {
+  type: string;
+  color: string;
+} {
+  const lowerExample = example.toLowerCase();
+
+  if (lowerExample.includes("forward")) {
+    return { type: "forward", color: "bg-purple-500" };
+  }
+  if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
+    return { type: "reply", color: "bg-green-500" };
+  }
+  if (lowerExample.includes("archive")) {
+    return { type: "archive", color: "bg-yellow-500" };
+  }
+  if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
+    return { type: "mark", color: "bg-red-500" };
+  }
+  if (lowerExample.includes("label")) {
+    return { type: "label", color: "bg-blue-500" };
+  }
+
+  // Default fallback
+  return { type: "other", color: "bg-orange-500" };
 }
