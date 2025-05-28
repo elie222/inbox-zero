@@ -181,10 +181,12 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
-        {messages.length > MAX_MESSAGES && (
+        {messages.length > MAX_MESSAGES ? (
           <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
             The chat is too long. Please start a new conversation.
           </div>
+        ) : (
+          <div />
         )}
 
         <div className="flex items-center gap-1">
