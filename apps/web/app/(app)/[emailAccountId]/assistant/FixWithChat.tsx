@@ -85,7 +85,13 @@ export function FixWithChat({
                   setInput(input);
                 } else {
                   // redirect to the assistant page
-                  router.push(createAssistantUrl({ input, tab: "history" }));
+                  router.push(
+                    createAssistantUrl({
+                      input,
+                      tab: "history",
+                      path: "/assistant?tab=history",
+                    }),
+                  );
                 }
 
                 setIsModalOpen(false);

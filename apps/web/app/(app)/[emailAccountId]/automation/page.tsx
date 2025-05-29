@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MessageCircleIcon } from "lucide-react";
+import { MessageCircleIcon, SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -88,6 +88,15 @@ export default async function AutomationPage({
             </div>
 
             <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={prefixPath(emailAccountId, "/assistant/onboarding")}
+                >
+                  <SlidersIcon className="mr-2 hidden size-4 md:block" />
+                  View Setup
+                </Link>
+              </Button>
+
               <OnboardingModal
                 title="Getting started with AI Personal Assistant"
                 description={

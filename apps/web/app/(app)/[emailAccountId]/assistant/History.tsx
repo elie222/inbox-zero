@@ -108,7 +108,6 @@ function HistoryTable({
                   status={p.status}
                   reason={p.reason}
                   message={p.message}
-                  isTest={false}
                   setInput={setInput}
                 />
                 {/* <ActionItemsCell actionItems={p.actionItems} /> */}
