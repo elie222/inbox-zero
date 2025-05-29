@@ -25,7 +25,7 @@ export function useAssistantNavigation(emailAccountId: string) {
     (params: {
       tab?: string;
       ruleId?: string;
-      path?: `/${string}`;
+      path: `/${string}`;
       input?: string;
       // [key: string]: string | undefined;
     }) => {
@@ -37,7 +37,7 @@ export function useAssistantNavigation(emailAccountId: string) {
         );
       } else {
         // If we're not on the assistant page, just use the set path
-        return prefixPath(emailAccountId, params.path || "/");
+        return prefixPath(emailAccountId, params.path);
       }
     },
     [emailAccountId, isOnAssistantPage, searchParams],
