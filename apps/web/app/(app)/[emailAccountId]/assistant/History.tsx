@@ -79,7 +79,7 @@ function HistoryTable({
         <TableHeader>
           <TableRow>
             <TableHead>Email</TableHead>
-            <TableHead>Rule</TableHead>
+            <TableHead className="text-right">Rule</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
