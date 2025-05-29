@@ -23,11 +23,7 @@ export default function BlockColdEmails() {
       />
       <Testimonials />
       <FeaturesColdEmailBlocker />
-      <Suspense>
-        <div className="pb-32">
-          <Pricing />
-        </div>
-      </Suspense>
+      <Pricing className="pb-32" />
       <FAQs />
       <CTA />
     </BasicLayout>

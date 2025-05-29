@@ -25,11 +25,7 @@ export default function EmailAnalytics() {
       />
       <Testimonials />
       <FeaturesStats />
-      <Suspense>
-        <div className="pb-32">
-          <Pricing />
-        </div>
-      </Suspense>
+      <Pricing className="pb-32" />
       <FAQs />
       <CTA />
     </BasicLayout>

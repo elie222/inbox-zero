@@ -35,16 +35,21 @@ export function Hero(props: {
   title?: React.ReactNode;
   subtitle?: React.ReactNode;
   image?: string;
+  CTAComponent?: React.ComponentType;
+  hideProductHuntBadge?: boolean;
 }) {
+  const CTAComponent = props.CTAComponent || CTAButtons;
+
   return (
     <div className="relative pt-14">
       <SquaresPattern />
       <div className="pt-24 sm:pb-12 sm:pt-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
-          {/* <HeroTag /> */}
-          <div className="mb-10">
-            <ProductHuntBadge />
-          </div>
+          {!props.hideProductHuntBadge && (
+            <div className="mb-10">
+              <ProductHuntBadge />
+            </div>
+          )}
 
           <div className="mx-auto max-w-xl text-center">
             <HeroText>
@@ -54,7 +59,7 @@ export function Hero(props: {
               {props.subtitle ||
                 "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source."}
             </HeroSubtitle>
-            <CTAButtons />
+            <CTAComponent />
           </div>
 
           <LogoCloud />
@@ -73,26 +78,6 @@ export function Hero(props: {
     </div>
   );
 }
-
-// function HeroTag() {
-//   return (
-//     <div className="mb-8 flex justify-center bg-white">
-//       <div className="relative flex items-center gap-x-4 rounded-full px-4 py-1 text-sm leading-6 text-gray-600 ring-1 ring-gray-900/10 hover:ring-gray-900/20">
-//         <a
-//           href="/product-hunt"
-//           className="flex items-center gap-x-1 font-semibold text-blue-600"
-//         >
-//           <span className="absolute inset-0" aria-hidden="true" />
-//           We are live on Product Hunt!
-//           <ChevronRightIcon
-//             className="-mr-2 h-5 w-5 text-gray-400"
-//             aria-hidden="true"
-//           />
-//         </a>
-//       </div>
-//     </div>
-//   );
-// }
 
 function ProductHuntBadge() {
   return (

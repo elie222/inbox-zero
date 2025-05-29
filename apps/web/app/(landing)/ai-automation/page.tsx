@@ -25,11 +25,7 @@ export default function AiAutomation() {
       />
       <Testimonials />
       <FeaturesAiAssistant />
-      <Suspense>
-        <div className="pb-32">
-          <Pricing />
-        </div>
-      </Suspense>
+      <Pricing className="pb-32" />
       <FAQs />
       <CTA />
     </BasicLayout>

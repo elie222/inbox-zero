@@ -18,11 +18,7 @@ export default function Home() {
       <Testimonials />
       <Privacy />
       <FeaturesHome />
-      <Suspense>
-        <div className="pb-32">
-          <Pricing />
-        </div>
-      </Suspense>
+      <Pricing className="pb-32" />
       <FAQs />
       <CTA />
     </BasicLayout>
