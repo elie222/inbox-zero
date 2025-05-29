@@ -192,7 +192,6 @@ function PendingTable({
                   status={p.status}
                   reason={p.reason}
                   message={p.message}
-                  isTest={true}
                   setInput={setInput}
                 />
               </TableCell>

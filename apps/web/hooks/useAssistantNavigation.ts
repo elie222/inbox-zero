@@ -25,7 +25,9 @@ export function useAssistantNavigation(emailAccountId: string) {
     (params: {
       tab?: string;
       ruleId?: string;
-      [key: string]: string | undefined;
+      path?: `/${string}`;
+      input?: string;
+      // [key: string]: string | undefined;
     }) => {
       if (isOnAssistantPage) {
         // If we're on the assistant page, use current search params as base to preserve existing params
@@ -34,11 +36,8 @@ export function useAssistantNavigation(emailAccountId: string) {
           `/assistant${assistantSearchParamsSerializer(searchParams, params)}`,
         );
       } else {
-        // If we're not on the assistant page, just use the new params
-        return prefixPath(
-          emailAccountId,
-          `/assistant${assistantSearchParamsSerializer(params)}`,
-        );
+        // If we're not on the assistant page, just use the set path
+        return prefixPath(emailAccountId, params.path || "/");
       }
     },
     [emailAccountId, isOnAssistantPage, searchParams],

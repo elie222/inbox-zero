@@ -62,7 +62,6 @@ export function RuleCell({
   status,
   reason,
   message,
-  isTest,
   setInput,
 }: {
   emailAccountId: string;
@@ -70,7 +69,6 @@ export function RuleCell({
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
-  isTest: boolean;
   setInput: SetInputFunction;
 }) {
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -106,6 +104,7 @@ export function RuleCell({
                       href={createAssistantUrl({
                         tab: "rule",
                         ruleId: rule.id,
+                        path: `/assistant/rule/${rule.id}`,
                       })}
                     >
                       View

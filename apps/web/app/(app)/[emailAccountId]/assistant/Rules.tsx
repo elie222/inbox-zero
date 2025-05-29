@@ -11,7 +11,6 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
-  SlidersIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -36,10 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  setRuleRunOnThreadsAction,
-  setRuleEnabledAction,
-} from "@/utils/actions/ai-rule";
+import { setRuleEnabledAction } from "@/utils/actions/ai-rule";
 import { deleteRuleAction } from "@/utils/actions/rule";
 import { conditionsToString } from "@/utils/condition";
 import { Badge } from "@/components/Badge";
@@ -202,6 +198,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     : createAssistantUrl({
                         tab: "rule",
                         ruleId: rule.id,
+                        path: `/assistant/rule/${rule.id}`,
                       });
 
                   return (
@@ -300,6 +297,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                     : createAssistantUrl({
                                         tab: "history",
                                         ruleId: rule.id,
+                                        path: "/assistant?tab=history",
                                       })
                                 }
                                 target={
@@ -404,19 +402,12 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
-          {/* <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/assistant?tab=prompt")}>
+          <Button asChild variant="outline">
+            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
             </Link>
-          </Button> */}
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
-              <SlidersIcon className="mr-2 hidden size-4 md:block" />
-              View Setup
-            </Link>
           </Button>
-
           <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
               <PlusIcon className="mr-2 hidden size-4 md:block" />
