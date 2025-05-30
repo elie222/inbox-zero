@@ -217,13 +217,15 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https:",
               // Add this line to allow data: fonts
               "font-src 'self' data: https:",
-              // For images including avatars
+              // For images including avatars and Mux thumbnails
               "img-src 'self' data: https: blob:",
+              // For Mux video and audio content
+              "media-src 'self' https://stream.mux.com https://image.mux.com blob:",
               // If you use web workers or service workers
               "worker-src 'self' blob:",
-              // For API calls, SWR, external services
+              // For API calls, SWR, external services, and Mux
               "connect-src 'self' https: wss:",
-              // iframes
+              // iframes for Mux player
               "frame-src 'self' https:",
               // Prevent embedding in iframes
               "frame-ancestors 'none'",
