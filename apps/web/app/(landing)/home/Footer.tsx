@@ -10,6 +10,7 @@ const navigation = {
     { name: "Open Source", href: "/github", target: "_blank" },
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
+    { name: "Email assistant for realtors", href: "/real-estate" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
