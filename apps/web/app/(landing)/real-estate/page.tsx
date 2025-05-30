@@ -95,7 +95,7 @@ const responseFeatures = [
   },
 ];
 
-export function RealEstateFeatures() {
+function RealEstateFeatures() {
   return (
     <div className="bg-gray-50">
       <FeaturesWithImage
