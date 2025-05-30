@@ -34,6 +34,7 @@
     "@lemonsqueezy/lemonsqueezy.js": "4.0.0",
     "@mdx-js/loader": "3.1.0",
     "@mdx-js/react": "3.1.0",
+    "@mux/mux-player-react": "3.4.0",
     "@next/mdx": "15.3.0",
     "@next/third-parties": "15.3.0",
     "@openrouter/ai-sdk-provider": "0.4.5",
