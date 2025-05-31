@@ -1,0 +1,3 @@
+[submodule "apps/web/app/(marketing)"]
+	path = apps/web/app/(marketing)
+	url = https://github.com/inbox-zero/marketing.git
