@@ -54,7 +54,7 @@ export const modelOptions: Record<string, { label: string; value: string }[]> =
     [Provider.ANTHROPIC]: [
       {
         label: "Claude 3.7 Sonnet",
-        value: "claude-3-7-sonnet", // used in ui only. can be either anthropic or bedrock. TODO: bug. this was being set
+        value: "claude-3-7-sonnet", // used in ui only. can be either anthropic or bedrock.
       },
     ],
     [Provider.GOOGLE]: [
