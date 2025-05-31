@@ -11,7 +11,8 @@
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
     "format-and-lint": "biome check .",
-    "format-and-lint:fix": "biome check . --write"
+    "format-and-lint:fix": "biome check . --write",
+    "vercel-install": "./setup-private-marketing.sh && pnpm install --ignore-scripts"
   },
   "devDependencies": {
     "@biomejs/biome": "1.9.4",

@@ -70,3 +70,6 @@ apps/web/generated
 # docker compose override file
 docker-compose.override.yaml
 docker-compose.override.yml
+
+# Private submodule configuration (generated at build time)
+.gitmodules
