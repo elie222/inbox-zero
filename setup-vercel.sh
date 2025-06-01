@@ -30,4 +30,4 @@ if [ -n "$GITMODULES" ]; then
     echo "✅ Private marketing setup complete!"
 else
     echo "ℹ️  No GITMODULES environment variable found - skipping private marketing setup"
-fi 
+fi
