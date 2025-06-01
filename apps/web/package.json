@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
+    "build:with-blog": "pnpm install:sanity && cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
+    "install:sanity": "pnpm add @sanity/client @sanity/icons @sanity/image-url @sanity/vision next-sanity sanity",
     "start": "next start",
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",
@@ -58,10 +60,6 @@
     "@radix-ui/react-tabs": "1.1.4",
     "@radix-ui/react-toggle": "1.1.3",
     "@radix-ui/react-tooltip": "1.2.0",
-    "@sanity/client": "6.29.0",
-    "@sanity/icons": "3.7.0",
-    "@sanity/image-url": "1",
-    "@sanity/vision": "3",
     "@sentry/nextjs": "9.12.0",
     "@serwist/next": "9.0.13",
     "@stripe/stripe-js": "7.3.0",
@@ -111,7 +109,6 @@
     "next-auth": "5.0.0-beta.27",
     "next-axiom": "1.9.1",
     "next-safe-action": "7.10.5",
-    "next-sanity": "9",
     "next-themes": "0.4.6",
     "nodemailer": "6.10.1",
     "nuqs": "2.4.2",
@@ -133,7 +130,6 @@
     "react-textarea-autosize": "8.5.9",
     "react-youtube": "10.1.0",
     "remark-gfm": "4.0.1",
-    "sanity": "3.84.0",
     "server-only": "0.0.1",
     "sonner": "2.0.3",
     "string-similarity": "4.0.4",
@@ -178,6 +174,34 @@
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.1.1",
     "vitest-mock-extended": "3.1.0"
+  },
+  "peerDependencies": {
+    "@sanity/client": "6.29.0",
+    "@sanity/icons": "3.7.0",
+    "@sanity/image-url": "1",
+    "@sanity/vision": "3",
+    "next-sanity": "9",
+    "sanity": "3.84.0"
+  },
+  "peerDependenciesMeta": {
+    "@sanity/client": {
+      "optional": true
+    },
+    "@sanity/icons": {
+      "optional": true
+    },
+    "@sanity/image-url": {
+      "optional": true
+    },
+    "@sanity/vision": {
+      "optional": true
+    },
+    "next-sanity": {
+      "optional": true
+    },
+    "sanity": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22.0.0"
