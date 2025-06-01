@@ -5,8 +5,6 @@
   "scripts": {
     "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
-    "build:with-blog": "pnpm install:sanity && cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
-    "install:sanity": "pnpm add @sanity/client @sanity/icons @sanity/image-url @sanity/vision next-sanity sanity",
     "start": "next start",
     "lint": "next lint",
     "test": "cross-env RUN_AI_TESTS=false vitest",
@@ -175,35 +173,15 @@
     "vitest": "3.1.1",
     "vitest-mock-extended": "3.1.0"
   },
-  "peerDependencies": {
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "optionalDependencies": {
     "@sanity/client": "6.29.0",
     "@sanity/icons": "3.7.0",
     "@sanity/image-url": "1",
     "@sanity/vision": "3",
     "next-sanity": "9",
     "sanity": "3.84.0"
-  },
-  "peerDependenciesMeta": {
-    "@sanity/client": {
-      "optional": true
-    },
-    "@sanity/icons": {
-      "optional": true
-    },
-    "@sanity/image-url": {
-      "optional": true
-    },
-    "@sanity/vision": {
-      "optional": true
-    },
-    "next-sanity": {
-      "optional": true
-    },
-    "sanity": {
-      "optional": true
-    }
-  },
-  "engines": {
-    "node": ">=22.0.0"
   }
 }
