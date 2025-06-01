@@ -12,7 +12,9 @@ async function getBlogPosts() {
 
   try {
     // Dynamic imports to handle cases where marketing submodule is not available
+    // @ts-ignore - Marketing submodule may not be available during build
     const { sanityFetch } = await import("@/app/(marketing)/sanity/lib/fetch");
+    // @ts-ignore - Marketing submodule may not be available during build
     const { postSlugsQuery } = await import(
       "@/app/(marketing)/sanity/lib/queries"
     );
