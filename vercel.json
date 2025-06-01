@@ -1,5 +1,5 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
-  "installCommand": "cd ../.. && pnpm install",
+  "installCommand": "cd ../.. && [ -n \"$GITMODULES\" ] && echo \"$GITMODULES\" > .gitmodules || true && pnpm install",
   "ignoreCommand": ""
 }
