@@ -15,7 +15,7 @@ if [ -n "$GITMODULES" ]; then
     if [ -d "apps/web/app/(marketing)" ]; then
         echo "✅ Marketing directory exists!"
         echo "📋 Contents of marketing directory:"
-        ls -la apps/web/app/(marketing)/
+        ls -la "apps/web/app/(marketing)/"
         
         # Check for specific directories
         if [ -d "apps/web/app/(marketing)/(landing)/real-estate" ]; then
