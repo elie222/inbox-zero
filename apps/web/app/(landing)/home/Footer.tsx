@@ -11,6 +11,7 @@ const navigation = {
     { name: "OSS Friends", href: "/oss-friends" },
     { name: "Email Blaster", href: "/game" },
     { name: "Email assistant for realtors", href: "/real-estate" },
+    { name: "Email assistant for influencers", href: "/influencer" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
