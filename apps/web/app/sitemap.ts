@@ -1,5 +1,5 @@
-import { sanityFetch } from "@/sanity/lib/fetch";
-import { postSlugsQuery } from "@/sanity/lib/queries";
+import { sanityFetch } from "@/app/(marketing)/sanity/lib/fetch";
+import { postSlugsQuery } from "@/app/(marketing)/sanity/lib/queries";
 import type { MetadataRoute } from "next";
 import { unstable_noStore } from "next/cache";
 
