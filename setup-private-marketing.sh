@@ -3,6 +3,15 @@ set -e
 
 echo "🔧 Setting up private marketing content..."
 
+# Ensure cleanup happens even if script fails
+cleanup() {
+    if [ -f .gitmodules ]; then
+        echo "🧹 Cleaning up .gitmodules..."
+        rm -f .gitmodules
+    fi
+}
+trap cleanup EXIT
+
 # Check if GitHub token is available
 if [ -z "${GITHUB_ACCESS_TOKEN}" ]; then
     echo "⚠️  No GITHUB_ACCESS_TOKEN found - skipping private marketing setup"
@@ -24,9 +33,5 @@ EOF
 # Initialize and update the submodule
 echo "🔄 Initializing marketing submodule..."
 git submodule update --init --recursive
-
-# Clean up .gitmodules after cloning
-echo "🧹 Cleaning up .gitmodules..."
-rm -f .gitmodules
 
 echo "✅ Private marketing setup complete!" 
