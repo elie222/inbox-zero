@@ -5,7 +5,10 @@ import { unstable_noStore } from "next/cache";
 
 async function getBlogPosts() {
   // Skip Sanity fetch during build with dummy credentials
-  if (process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === "project123") {
+  if (
+    !process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
+    process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === "project123"
+  ) {
     return []; // Return empty array directly
   }
   const posts = await sanityFetch<{ slug: string; date: string }[]>({
