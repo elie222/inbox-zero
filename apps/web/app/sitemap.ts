@@ -1,23 +1,37 @@
-import { sanityFetch } from "@/app/(marketing)/sanity/lib/fetch";
-import { postSlugsQuery } from "@/app/(marketing)/sanity/lib/queries";
 import type { MetadataRoute } from "next";
 import { unstable_noStore } from "next/cache";
 
 async function getBlogPosts() {
-  // Skip Sanity fetch during build with dummy credentials
+  // Skip Sanity fetch during build with dummy credentials or if marketing submodule is not available
   if (
     !process.env.NEXT_PUBLIC_SANITY_PROJECT_ID ||
     process.env.NEXT_PUBLIC_SANITY_PROJECT_ID === "project123"
   ) {
     return []; // Return empty array directly
   }
-  const posts = await sanityFetch<{ slug: string; date: string }[]>({
-    query: postSlugsQuery,
-  });
-  return posts.map((post) => ({
-    url: `https://www.getinboxzero.com/blog/post/${post.slug}`,
-    lastModified: new Date(post.date),
-  }));
+
+  try {
+    // Dynamic imports to handle cases where marketing submodule is not available
+    const { sanityFetch } = await import("@/app/(marketing)/sanity/lib/fetch");
+    const { postSlugsQuery } = await import(
+      "@/app/(marketing)/sanity/lib/queries"
+    );
+
+    const posts = await sanityFetch<{ slug: string; date: string }[]>({
+      query: postSlugsQuery,
+    });
+    return posts.map((post) => ({
+      url: `https://www.getinboxzero.com/blog/post/${post.slug}`,
+      lastModified: new Date(post.date),
+    }));
+  } catch (error) {
+    // If marketing submodule is not available, return empty array
+    console.warn(
+      "Marketing submodule not available, skipping blog posts in sitemap:",
+      error,
+    );
+    return [];
+  }
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
