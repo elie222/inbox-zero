@@ -317,6 +317,7 @@ const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
   disable: env.NODE_ENV !== "production",
+  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
 });
 
 export default withAxiom(withSerwist(exportConfig));
