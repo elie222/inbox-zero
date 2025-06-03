@@ -69,7 +69,7 @@ const useCases = [
   },
   {
     title: "Customer Support",
-    href: "/customer-support",
+    href: "/support",
     description: "Deliver faster support with AI-powered responses",
     icon: HeadphonesIcon,
     gradient: "from-orange-500 to-red-500",
