@@ -217,7 +217,9 @@ Reply Zero is a feature that labels emails that need a reply "To Reply". And lab
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
 
-In static conditions, you can use the pipe symbol (|) to represent OR logic. For example, "Alert|System" in a subject condition will match emails containing either "Alert" OR "System" in the subject line.
+Static conditions:
+- In FROM and TO fields, you can use the pipe symbol (|) to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
+- In the SUBJECT field, pipe symbols are treated as literal characters and must match exactly.
 
 Learned patterns:
 - Learned patterns override the conditional logic for a rule.

@@ -244,6 +244,244 @@ describe("matchesStaticRule", () => {
 
     expect(matchesStaticRule(rule, message)).toBe(true);
   });
+
+  it("should match multiple domains separated by pipe characters", () => {
+    const rule = getStaticRule({
+      from: "@company-a.com|@company-b.org|@startup-x.io|@agency-y.net|@brand-z.co",
+    });
+
+    // Should match first domain
+    const message1 = getMessage({
+      headers: getHeaders({ from: "user@company-a.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match middle domain
+    const message2 = getMessage({
+      headers: getHeaders({ from: "contact@startup-x.io" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match last domain
+    const message3 = getMessage({
+      headers: getHeaders({ from: "info@brand-z.co" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match domain not in list
+    const message4 = getMessage({
+      headers: getHeaders({ from: "test@other-company.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should treat pipes as OR operator in 'to' field", () => {
+    const rule = getStaticRule({
+      to: "support@company.com|help@company.com|contact@company.com",
+    });
+
+    // Should match first email
+    const message1 = getMessage({
+      headers: getHeaders({ to: "support@company.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match second email
+    const message2 = getMessage({
+      headers: getHeaders({ to: "help@company.com" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match third email
+    const message3 = getMessage({
+      headers: getHeaders({ to: "contact@company.com" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match other email
+    const message4 = getMessage({
+      headers: getHeaders({ to: "sales@company.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should combine wildcards with pipe OR logic in from field", () => {
+    const rule = getStaticRule({
+      from: "*@newsletter.com|*@marketing.org|notifications@*",
+    });
+
+    // Should match wildcard + first domain
+    const message1 = getMessage({
+      headers: getHeaders({ from: "weekly@newsletter.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match wildcard + second domain
+    const message2 = getMessage({
+      headers: getHeaders({ from: "campaign@marketing.org" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match third pattern with wildcard
+    const message3 = getMessage({
+      headers: getHeaders({ from: "notifications@example.com" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match pattern not in list
+    const message4 = getMessage({
+      headers: getHeaders({ from: "test@other.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should treat pipes as literal characters in subject field", () => {
+    const rule = getStaticRule({
+      subject: "Status: Active | Pending | Completed",
+    });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Status: Active | Pending | Completed" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+
+    // Should not match partial pipe patterns
+    const message2 = getMessage({
+      headers: getHeaders({ subject: "Status: Active" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(false);
+  });
+
+  it("should treat pipes as literal characters in body field", () => {
+    const rule = getStaticRule({
+      body: "Choose option A | B | C from the menu",
+    });
+    const message = getMessage({
+      headers: getHeaders(),
+      textPlain: "Please choose option A | B | C from the menu to continue",
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+
+    // Should not match partial pipe patterns
+    const message2 = getMessage({
+      headers: getHeaders(),
+      textPlain: "Please choose option A to continue",
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(false);
+  });
+
+  it("should handle empty patterns between pipes gracefully", () => {
+    const rule = getStaticRule({ from: "@domain1.com||@domain2.com" });
+
+    // Should still match valid domains
+    const message1 = getMessage({
+      headers: getHeaders({ from: "test@domain1.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    const message2 = getMessage({
+      headers: getHeaders({ from: "test@domain2.com" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+  });
+
+  it("should handle single pattern without pipes in from field", () => {
+    const rule = getStaticRule({ from: "@single-domain.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "user@single-domain.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should handle pipes at beginning and end of from pattern", () => {
+    const rule = getStaticRule({ from: "|@domain1.com|@domain2.com|" });
+
+    // Should still match valid domains despite leading/trailing pipes
+    const message1 = getMessage({
+      headers: getHeaders({ from: "test@domain1.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    const message2 = getMessage({
+      headers: getHeaders({ from: "test@domain2.com" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+  });
+
+  it("should handle mixed conditions with pipes in from and literal pipes in subject", () => {
+    const rule = getStaticRule({
+      from: "@company1.com|@company2.com",
+      subject: "Alert | System Status",
+    });
+
+    // Should match when both conditions are met
+    const message1 = getMessage({
+      headers: getHeaders({
+        from: "admin@company1.com",
+        subject: "Alert | System Status",
+      }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match with second domain
+    const message2 = getMessage({
+      headers: getHeaders({
+        from: "admin@company2.com",
+        subject: "Alert | System Status",
+      }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should not match with wrong domain
+    const message3 = getMessage({
+      headers: getHeaders({
+        from: "admin@company3.com",
+        subject: "Alert | System Status",
+      }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(false);
+
+    // Should not match with partial subject
+    const message4 = getMessage({
+      headers: getHeaders({
+        from: "admin@company1.com",
+        subject: "Alert",
+      }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
+
+  it("should handle complex email patterns with pipes", () => {
+    const rule = getStaticRule({
+      from: "noreply@*|*-notifications@company.com|alerts+*@service.io",
+    });
+
+    // Should match first pattern with wildcard
+    const message1 = getMessage({
+      headers: getHeaders({ from: "noreply@newsletter.com" }),
+    });
+    expect(matchesStaticRule(rule, message1)).toBe(true);
+
+    // Should match second pattern
+    const message2 = getMessage({
+      headers: getHeaders({ from: "system-notifications@company.com" }),
+    });
+    expect(matchesStaticRule(rule, message2)).toBe(true);
+
+    // Should match third pattern with plus and wildcard
+    const message3 = getMessage({
+      headers: getHeaders({ from: "alerts+billing@service.io" }),
+    });
+    expect(matchesStaticRule(rule, message3)).toBe(true);
+
+    // Should not match unrelated pattern
+    const message4 = getMessage({
+      headers: getHeaders({ from: "user@other.com" }),
+    });
+    expect(matchesStaticRule(rule, message4)).toBe(false);
+  });
 });
 
 describe("findMatchingRule", () => {
