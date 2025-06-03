@@ -74,7 +74,7 @@ We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://ge
 
 ### Setup
 
-[Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
+[Here&#39;s a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
 
 ### Requirements
 
@@ -125,45 +125,102 @@ Go to [Google Cloud](https://console.cloud.google.com/). Create a new project if
 
 Create [new credentials](https://console.cloud.google.com/apis/credentials):
 
-1.  If the banner shows up, configure **consent screen** (if not, you can do this later)
-    1. Click the banner, then Click `Get Started`.
-    2. Choose a name for your app, and enter your email.
-    3. In Audience, choose `External`
-    4. Enter your contact information
-    5. Agree to the User Data policy and then click `Create`.
-    6. Return to APIs and Services using the left sidebar.
-2.  Create new [credentials](https://console.cloud.google.com/apis/credentials):
-    1. Click the `+Create Credentials` button. Choose OAuth Client ID.
-    2. In `Application Type`, Choose `Web application`
-    3. Choose a name for your web client
-    4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
-    6. Click `Create`.
-    7. A popup will show up with the new credentials, including the Client ID and secret.
-3.  Update .env file:
-    1. Copy the Client ID to `GOOGLE_CLIENT_ID`
-    2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
-4.  Update [scopes](https://console.cloud.google.com/auth/scopes)
+1. If the banner shows up, configure **consent screen** (if not, you can do this later)
 
-    1. Go to `Data Access` in the left sidebar (or click link above)
-    2. Click `Add or remove scopes`
-    3. Copy paste the below into the `Manually add scopes` box:
+   1. Click the banner, then Click `Get Started`.
+   2. Choose a name for your app, and enter your email.
+   3. In Audience, choose `External`
+   4. Enter your contact information
+   5. Agree to the User Data policy and then click `Create`.
+   6. Return to APIs and Services using the left sidebar.
 
-    ```plaintext
-    https://www.googleapis.com/auth/userinfo.profile
-    https://www.googleapis.com/auth/userinfo.email
-    https://www.googleapis.com/auth/gmail.modify
-    https://www.googleapis.com/auth/gmail.settings.basic
-    https://www.googleapis.com/auth/contacts
-    ```
+2. Create new [credentials](https://console.cloud.google.com/apis/credentials):
 
-    4. Click `Update`
-    5. Click `Save` in the Data Access page.
+   1. Click the `+Create Credentials` button. Choose OAuth Client ID.
+   2. In `Application Type`, Choose `Web application`
+   3. Choose a name for your web client
+   4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
+   5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
+   6. Click `Create`.
+   7. A popup will show up with the new credentials, including the Client ID and secret.
 
-5.  Add yourself as a test user
-    1. Go to [Audience](https://console.cloud.google.com/auth/audience)
-    2. In the `Test users` section, click `+Add users`
-    3. Enter your email and press `Save`
+3. Update .env file:
+
+   1. Copy the Client ID to `GOOGLE_CLIENT_ID`
+   2. Copy the Client secret to `GOOGLE_CLIENT_SECRET`
+
+4. Update [scopes](https://console.cloud.google.com/auth/scopes)
+
+   1. Go to `Data Access` in the left sidebar (or click link above)
+   2. Click `Add or remove scopes`
+   3. Copy paste the below into the `Manually add scopes` box:
+
+   ```plaintext
+   https://www.googleapis.com/auth/userinfo.profile
+   https://www.googleapis.com/auth/userinfo.email
+   https://www.googleapis.com/auth/gmail.modify
+   https://www.googleapis.com/auth/gmail.settings.basic
+   https://www.googleapis.com/auth/contacts
+   ```
+
+   4. Click `Update`
+   5. Click `Save` in the Data Access page.
+
+5. Add yourself as a test user
+
+   1. Go to [Audience](https://console.cloud.google.com/auth/audience)
+   2. In the `Test users` section, click `+Add users`
+   3. Enter your email and press `Save`
+
+### Updating .env file with Azure credentials:
+
+- `MICROSOFT_CLIENT_ID` -- Google OAuth client ID. More info [here](https://authjs.dev/getting-started/providers/microsoft-entra-id)
+- `MICROSOFT_CLIENT_SECRET` -- Google OAuth client secret. More info [here](https://authjs.dev/getting-started/providers/microsoft-entra-id)
+- `MICROSOFT_ISSUER` -- Google OAuth client secret. More info [here](https://authjs.dev/getting-started/providers/microsoft-entra-id)
+
+Go to [Azure Portal](https://portal.azure.com/). Create a new application if necessary.
+
+Create the [application](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/CreateApplicationBlade):
+
+1. Register an application in [Azure Portal](https://portal.azure.com/):
+
+1. Go to **Azure Active Directory** > **App registrations** > **New registration**.
+1. Enter a name for your app.
+1. Set **Supported account types** as needed (e.g., "Accounts in any organizational directory and personal Microsoft accounts").
+1. In **Redirect URI**, select "Web" and enter: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+1. Click **Register**.
+
+1. Configure authentication:
+
+1. In your app registration, go to **Authentication**.
+1. Ensure the redirect URI `http://localhost:3000/api/auth/callback/microsoft-entra-id` is listed.
+1. (Optional) Enable **Access tokens** and **ID tokens**.
+
+1. Create a client secret:
+
+1. Go to **Certificates & secrets** > **New client secret**.
+1. Add a description and set an expiry.
+1. Click **Add** and copy the generated value (you won't see it again).
+
+1. Update your `.env` file:
+
+- Set `MICROSOFT_CLIENT_ID` to the **Application (client) ID** from the app registration overview.
+- Set `MICROSOFT_CLIENT_SECRET` to the value of the client secret you just created.
+- Set `MICROSOFT_ISSUER` to your **Directory (tenant) ID** or use `https://login.microsoftonline.com/common/v2.0` for multi-tenant.
+
+5. Add API permissions:
+
+1. Go to **API permissions** > **Add a permission**.
+1. Choose **Microsoft Graph** > **Delegated permissions**.
+1. Add permissions such as `User.Read`, `Mail.ReadWrite`, `Mail.Send`, `offline_access`, and any others your app requires.
+1. Click **Add permissions**.
+1. (If needed) Click **Grant admin consent**.
+
+1. (Optional) Add yourself as a test user:
+
+- If your app is restricted, ensure your Microsoft account is added as a user in the Azure AD tenant.
+
+For more details, see the [Auth.js Microsoft Entra ID provider docs](https://authjs.dev/getting-started/providers/microsoft-entra-id).
 
 ### Updating .env file with LLM parameters
 
