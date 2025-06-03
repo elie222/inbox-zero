@@ -94,6 +94,156 @@ describe("matchesStaticRule", () => {
 
     expect(matchesStaticRule(rule, message)).toBe(true);
   });
+
+  it("should match Creator Message subject pattern", () => {
+    const rule = getStaticRule({ subject: "[Creator Message]*" });
+    const message = getMessage({
+      headers: getHeaders({
+        subject: "[Creator Message] Contact - new submission",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match exact Creator Message subject", () => {
+    const rule = getStaticRule({
+      subject: "[Creator Message] Contact - new submission",
+    });
+    const message = getMessage({
+      headers: getHeaders({
+        subject: "[Creator Message] Contact - new submission",
+      }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match parentheses in subject", () => {
+    const rule = getStaticRule({ subject: "Invoice (PDF)" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Invoice (PDF)" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match plus sign in email address", () => {
+    const rule = getStaticRule({ from: "user+tag@gmail.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "user+tag@gmail.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match dots in subject", () => {
+    const rule = getStaticRule({ subject: "Order #123.456" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Order #123.456" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match dollar signs in subject", () => {
+    const rule = getStaticRule({ subject: "Payment $100" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Payment $100" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match curly braces in subject", () => {
+    const rule = getStaticRule({ subject: "Template {name}" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Template {name}" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match pipe symbol in subject", () => {
+    const rule = getStaticRule({ subject: "Alert | System" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Alert | System" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match question mark in subject", () => {
+    const rule = getStaticRule({ subject: "Are you ready?" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Are you ready?" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match caret symbol in subject", () => {
+    const rule = getStaticRule({ subject: "Version ^1.0" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Version ^1.0" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match wildcards with special characters", () => {
+    const rule = getStaticRule({ subject: "*[Important]*" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "URGENT [Important] Notice" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match common notification patterns", () => {
+    const rule = getStaticRule({ from: "*notification*@*" });
+    const message = getMessage({
+      headers: getHeaders({ from: "noreply-notification@company.com" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should match receipt patterns", () => {
+    const rule = getStaticRule({ subject: "*receipt*" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Your receipt from store" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
+
+  it("should be case sensitive", () => {
+    const rule = getStaticRule({ subject: "URGENT" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "urgent" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(false);
+  });
+
+  it("should handle empty header values gracefully", () => {
+    const rule = getStaticRule({ from: "test@example.com" });
+    const message = getMessage({
+      headers: getHeaders({ from: "" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(false);
+  });
+
+  it("should match backslash characters", () => {
+    const rule = getStaticRule({ subject: "Path: C:\\Users\\Name" });
+    const message = getMessage({
+      headers: getHeaders({ subject: "Path: C:\\Users\\Name" }),
+    });
+
+    expect(matchesStaticRule(rule, message)).toBe(true);
+  });
 });
 
 describe("findMatchingRule", () => {
