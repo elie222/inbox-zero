@@ -274,10 +274,11 @@ export function matchesStaticRule(
 
   const safeRegexTest = (pattern: string, text: string) => {
     try {
-      const regexPattern = pattern.startsWith("*")
-        ? // Convert *@gmail.com to .*@gmail.com
-          `.*${pattern.slice(1)}`
-        : pattern;
+      // Escape regex special characters except for * which we want to support as wildcards
+      const escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
+
+      // Convert all * to .* for wildcard matching
+      const regexPattern = escapedPattern.replace(/\*/g, ".*");
 
       return new RegExp(regexPattern).test(text);
     } catch (error) {
