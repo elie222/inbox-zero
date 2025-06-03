@@ -28,7 +28,6 @@ import {
 } from "@/components/ui/navigation-menu";
 
 const navigation = [
-  { name: "Features", href: "/#features" },
   { name: "FAQ", href: "/#faq" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
   { name: "Affiliates", href: "/affiliates", target: "_blank" as const },
@@ -54,7 +53,7 @@ const useCases = [
   },
   {
     title: "Content Creators",
-    href: "/influencer",
+    href: "/creator",
     description: "Streamline brand partnerships and collaborations",
     icon: UserIcon,
     gradient: "from-blue-500 to-cyan-500",
@@ -123,7 +122,7 @@ export function Header({ className }: { className?: string }) {
                   Solutions
                 </NavigationMenuTrigger>
                 <NavigationMenuContent>
-                  <ul className="grid w-[600px] grid-cols-2 gap-2 p-4">
+                  <ul className="grid w-[640px] grid-cols-2 gap-2 p-4">
                     {useCases.map((useCase) => (
                       <EnhancedListItem
                         key={useCase.title}
@@ -299,7 +298,7 @@ function EnhancedListItem({
         <Link
           href={href}
           className={cn(
-            "group block select-none space-y-1 rounded-xl border border-transparent p-3 leading-none no-underline outline-none transition-all duration-200 hover:border-gray-200 hover:bg-gradient-to-r focus:bg-accent focus:text-accent-foreground",
+            "group block select-none space-y-1 rounded-xl p-4 leading-none no-underline outline-none transition-all duration-200 hover:bg-gradient-to-r focus:bg-accent focus:text-accent-foreground",
             hoverBg,
           )}
         >
