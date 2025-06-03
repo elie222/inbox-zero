@@ -6,6 +6,7 @@ export function stringifyEmail(email: EmailForLLM, maxLength: number) {
   const emailParts = [
     `<from>${email.from}</from>`,
     email.replyTo && `<replyTo>${email.replyTo}</replyTo>`,
+    email.to && `<to>${email.to}</to>`,
     email.cc && `<cc>${email.cc}</cc>`,
     email.date && `<date>${email.date.toISOString()}</date>`,
     `<subject>${email.subject}</subject>`,

@@ -123,7 +123,6 @@ async function generateDraftContent(
   if (reply) return reply;
 
   const messages = threadMessages.map((msg, index) => ({
-    to: msg.headers.to,
     date: internalDateToDate(msg.internalDate),
     ...getEmailForLLM(msg, {
       // give more context for the message we're processing
