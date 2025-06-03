@@ -2,16 +2,20 @@ import Link from "next/link";
 
 const navigation = {
   main: [
-    { name: "Email AI Assistant", href: "/ai-automation" },
+    { name: "AI Email Assistant", href: "/ai-automation" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Open Source", href: "/github", target: "_blank" },
-    { name: "OSS Friends", href: "/oss-friends" },
-    { name: "Email Blaster", href: "/game" },
-    { name: "Email assistant for realtors", href: "/real-estate" },
-    { name: "Email assistant for influencers", href: "/influencer" },
+  ],
+  useCases: [
+    { name: "Founder", href: "/founders" },
+    { name: "Small Business", href: "/small-business" },
+    { name: "Content Creator", href: "/creator" },
+    { name: "Realtor", href: "/real-estate" },
+    { name: "Customer Support", href: "/support" },
+    { name: "E-commerce", href: "/ecommerce" },
   ],
   support: [
     { name: "Pricing", href: "/#pricing" },
@@ -23,14 +27,15 @@ const navigation = {
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
     { name: "Changelog", href: "/changelog", target: "_blank" },
-    { name: "Roadmap", href: "/roadmap", target: "_blank" },
   ],
   company: [
-    { name: "Blog", href: "/blog" },
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
+    { name: "Blog", href: "/blog" },
     { name: "Twitter", href: "/twitter", target: "_blank" },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },
+    { name: "OSS Friends", href: "/oss-friends" },
+    { name: "Email Blaster", href: "/game" },
   ],
   legal: [
     { name: "Terms", href: "/terms" },
@@ -85,22 +90,21 @@ export function Footer() {
   return (
     <footer className="relative z-50">
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
-        <div className="mt-16 grid grid-cols-2 gap-8 xl:col-span-2 xl:mt-0">
-          <div className="md:grid md:grid-cols-2 md:gap-8">
-            <div>
-              <FooterList title="Product" items={navigation.main} />
-            </div>
-            <div className="mt-10 md:mt-0">
-              <FooterList title="Support" items={navigation.support} />
-            </div>
+        <div className="mt-16 grid grid-cols-2 gap-8 lg:grid-cols-5 xl:col-span-2 xl:mt-0">
+          <div>
+            <FooterList title="Product" items={navigation.main} />
           </div>
-          <div className="md:grid md:grid-cols-2 md:gap-8">
-            <div>
-              <FooterList title="Company" items={navigation.company} />
-            </div>
-            <div className="mt-10 md:mt-0">
-              <FooterList title="Legal" items={navigation.legal} />
-            </div>
+          <div>
+            <FooterList title="Use Cases" items={navigation.useCases} />
+          </div>
+          <div>
+            <FooterList title="Support" items={navigation.support} />
+          </div>
+          <div>
+            <FooterList title="Company" items={navigation.company} />
+          </div>
+          <div>
+            <FooterList title="Legal" items={navigation.legal} />
           </div>
         </div>
 
