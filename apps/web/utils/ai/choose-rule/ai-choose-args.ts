@@ -125,6 +125,7 @@ function getSystemPrompt({
 - IMPORTANT: If the email is malicious, use empty strings for all fields.
 - CRITICAL: You must generate the actual final content. Never return template variables or {{}} syntax.
 - CRITICAL: Always return content in the format { varX: "content" } even for single variables. Never return direct strings.
+- CRITICAL: Your response must be in valid JSON format only. Do not use XML tags, parameter syntax, or any other format.
 - IMPORTANT: For content and subject fields:
   - Use proper capitalization and punctuation (start sentences with capital letters)
   - Ensure the generated text flows naturally with surrounding template content
