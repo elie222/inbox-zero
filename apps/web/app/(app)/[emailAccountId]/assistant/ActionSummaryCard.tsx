@@ -2,8 +2,10 @@ import { TagIcon } from "lucide-react";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ActionType } from "@prisma/client";
 import { CardBasic } from "@/components/ui/card";
-import { ACTION_TYPE_TEXT_COLORS } from "@/utils/actions/constants";
-import { ACTION_TYPE_ICONS } from "@/utils/actions/constants";
+import {
+  ACTION_TYPE_TEXT_COLORS,
+  ACTION_TYPE_ICONS,
+} from "@/app/(app)/[emailAccountId]/assistant/constants";
 
 export function ActionSummaryCard({
   action,

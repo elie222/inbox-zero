@@ -36,7 +36,7 @@ import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
-import { getActionTypeColor } from "@/utils/actions/constants";
+import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();

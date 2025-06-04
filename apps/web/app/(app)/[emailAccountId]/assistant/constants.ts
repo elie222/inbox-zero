@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { ActionType } from "@prisma/client";
 
-export const ACTION_TYPE_COLORS = {
+const ACTION_TYPE_COLORS = {
   [ActionType.LABEL]: "bg-blue-500",
   [ActionType.DRAFT_EMAIL]: "bg-green-500",
   [ActionType.REPLY]: "bg-green-500",
