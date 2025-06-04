@@ -3,7 +3,7 @@ run-name: "Build Inbox Zero Docker Image"
 
 on:
   push:
-    branches: ["main", "newtrail"]
+    branches: ["main", "newtrail", "v2"]
     paths-ignore:
       - version.txt
 
