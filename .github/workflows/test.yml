@@ -1,5 +1,4 @@
 name: Run Tests
-run-name: "Run Tests"
 
 on:
   push:
