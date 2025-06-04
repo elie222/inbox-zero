@@ -18,6 +18,7 @@ import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
+  captureException,
   isAnthropicInsufficientBalanceError,
   isAWSThrottlingError,
   isIncorrectOpenAIAPIKeyError,
@@ -28,6 +29,9 @@ import {
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
 import { getModel } from "@/utils/llms/model";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("llms");
 
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
@@ -204,6 +208,19 @@ export async function chatCompletionStream({
       });
 
       if (onFinish) await onFinish(result);
+    },
+    onError: (error) => {
+      logger.error("Error in chat completion stream", {
+        userEmail,
+        error,
+      });
+      captureException(
+        error,
+        {
+          extra: { label },
+        },
+        userEmail,
+      );
     },
   });
 
