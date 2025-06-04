@@ -14,7 +14,6 @@ import type { CreateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon, FileDiffIcon } from "lucide-react";
-import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
@@ -144,13 +143,16 @@ function CreatedRule({
 
       <div className="space-y-2">
         <h3 className="text-sm font-medium text-muted-foreground">Actions</h3>
-        <ActionBadges
-          actions={args.actions.map((action, i) => ({
-            id: i.toString(),
-            type: action.type,
-            label: action.fields?.label,
-          }))}
-        />
+        <div className="space-y-2">
+          {args.actions.map((action, i) => (
+            <div key={i} className="rounded-md bg-muted p-2 text-sm">
+              <div className="font-medium capitalize">
+                {action.type.toLowerCase().replace("_", " ")}
+              </div>
+              {action.fields && renderActionFields(action.fields)}
+            </div>
+          ))}
+        </div>
       </div>
     </Card>
   );
@@ -276,8 +278,10 @@ function UpdatedRuleActions({
         if (action.fields?.bcc) parts.push(`BCC: ${action.fields.bcc}`);
         if (action.fields?.subject)
           parts.push(`Subject: ${action.fields.subject}`);
-        if (action.fields?.webhookUrl)
-          parts.push(`Webhook: ${action.fields.webhookUrl}`);
+        if (action.fields?.webhookUrl || action.fields?.url)
+          parts.push(
+            `Webhook: ${action.fields.webhookUrl || action.fields.url}`,
+          );
         return parts.join(", ");
       })
       .join("\n");
@@ -309,38 +313,7 @@ function UpdatedRuleActions({
               <div className="font-medium capitalize">
                 {actionItem.type.toLowerCase().replace("_", " ")}
               </div>
-              {actionItem.fields && (
-                <div className="mt-1">
-                  <ul className="list-inside list-disc">
-                    {actionItem.fields.label && (
-                      <li>Label: {actionItem.fields.label}</li>
-                    )}
-                    {actionItem.fields.content && (
-                      <li>
-                        Content:{" "}
-                        <span className="font-mono text-xs">
-                          {actionItem.fields.content}
-                        </span>
-                      </li>
-                    )}
-                    {actionItem.fields.to && (
-                      <li>To: {actionItem.fields.to}</li>
-                    )}
-                    {actionItem.fields.cc && (
-                      <li>CC: {actionItem.fields.cc}</li>
-                    )}
-                    {actionItem.fields.bcc && (
-                      <li>BCC: {actionItem.fields.bcc}</li>
-                    )}
-                    {actionItem.fields.subject && (
-                      <li>Subject: {actionItem.fields.subject}</li>
-                    )}
-                    {actionItem.fields.webhookUrl && (
-                      <li>Webhook URL: {actionItem.fields.webhookUrl}</li>
-                    )}
-                  </ul>
-                </div>
-              )}
+              {actionItem.fields && renderActionFields(actionItem.fields)}
             </div>
           );
         })}
@@ -576,5 +549,48 @@ function CollapsibleDiff({
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+// Helper function to render action fields
+function renderActionFields(fields: {
+  label?: string | null;
+  content?: string | null;
+  to?: string | null;
+  cc?: string | null;
+  bcc?: string | null;
+  subject?: string | null;
+  url?: string | null;
+  webhookUrl?: string | null;
+}) {
+  const fieldEntries = [];
+
+  // Only add fields that have actual values
+  if (fields.label) fieldEntries.push(["Label", fields.label]);
+  if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
+  if (fields.to) fieldEntries.push(["To", fields.to]);
+  if (fields.cc) fieldEntries.push(["CC", fields.cc]);
+  if (fields.bcc) fieldEntries.push(["BCC", fields.bcc]);
+  if (fields.content) fieldEntries.push(["Content", fields.content]);
+  if (fields.url || fields.webhookUrl)
+    fieldEntries.push(["URL", fields.url || fields.webhookUrl]);
+
+  if (fieldEntries.length === 0) return null;
+
+  return (
+    <div className="mt-1">
+      <ul className="list-inside list-disc">
+        {fieldEntries.map(([key, value]) => (
+          <li key={key}>
+            {key}:{" "}
+            {key === "Content" ? (
+              <span className="font-mono text-xs">{value}</span>
+            ) : (
+              value
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   BrainIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  PencilIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { isDefined } from "@/utils/types";
+import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
 
 export function Rule({ ruleId }: { ruleId: string }) {
   const { data, isLoading, error } = useRule(ruleId);
@@ -264,6 +266,11 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
     rule.groupId,
   );
+  const [isEditMode, setIsEditMode] = useState(false);
+
+  const toggleEditMode = useCallback(() => {
+    setIsEditMode((prev) => !prev);
+  }, []);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -605,7 +612,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             </div>
 
             <Button
-              type="button"
               size="xs"
               variant="ghost"
               className="mt-2"
@@ -620,7 +626,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       {unusedCondition && (
         <div className="mt-4">
           <Button
-            type="button"
             variant="secondary"
             onClick={() => appendCondition(getEmptyCondition(unusedCondition))}
           >
@@ -636,7 +641,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <TypographyH3 className="mt-6">Actions</TypographyH3>
+      <div className="mt-6 flex items-center justify-between">
+        <TypographyH3>Actions</TypographyH3>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={toggleEditMode}
+          Icon={!isEditMode ? PencilIcon : undefined}
+        >
+          {isEditMode ? "View" : "Edit"}
+        </Button>
+      </div>
 
       {actionErrors.length > 0 && (
         <div className="mt-4">
@@ -654,37 +669,47 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {watch("actions")?.map((action, i) => (
-          <ActionCard
-            key={i}
-            action={action}
-            index={i}
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            errors={errors}
-            userLabels={userLabels}
-            isLoading={isLoading}
-            mutate={mutate}
-            emailAccountId={emailAccountId}
-            remove={remove}
-            typeOptions={typeOptions}
-          />
-        ))}
+        {watch("actions")?.map((action, i) =>
+          isEditMode ? (
+            <ActionCard
+              key={i}
+              action={action}
+              index={i}
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              userLabels={userLabels}
+              isLoading={isLoading}
+              mutate={mutate}
+              emailAccountId={emailAccountId}
+              remove={remove}
+              typeOptions={typeOptions}
+            />
+          ) : (
+            <ActionSummaryCard
+              key={i}
+              action={action}
+              typeOptions={typeOptions}
+            />
+          ),
+        )}
       </div>
 
       <div className="mt-4">
         <Button
-          type="button"
           variant="secondary"
-          onClick={() => append({ type: ActionType.LABEL })}
+          onClick={() => {
+            append({ type: ActionType.LABEL });
+            setIsEditMode(true);
+          }}
         >
-          <PlusIcon className="mr-2 h-4 w-4" />
+          <PlusIcon className="mr-2 size-4" />
           Add Action
         </Button>
       </div>
 
-      <div className="mt-4 flex items-center justify-end space-x-2">
+      <div className="mt-8 flex items-center justify-end space-x-2">
         <TooltipExplanation
           size="md"
           text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
@@ -716,7 +741,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="flex justify-end space-x-2 py-6">
         {rule.id && (
           <Button
-            type="button"
             variant="outline"
             disabled={isSubmitting}
             loading={isSubmitting}
@@ -856,7 +880,6 @@ function ActionCard({
           />
 
           <Button
-            type="button"
             size="xs"
             variant="ghost"
             className="mt-2"
@@ -1019,7 +1042,6 @@ function ActionCard({
           {hasExpandableFields && (
             <div className="mt-2 flex justify-end">
               <Button
-                type="button"
                 size="xs"
                 variant="ghost"
                 className="flex items-center gap-1 text-xs text-muted-foreground"
