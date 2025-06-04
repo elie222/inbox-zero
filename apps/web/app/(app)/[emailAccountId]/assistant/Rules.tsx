@@ -106,7 +106,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
     // Works differently to rules, but we want to show it in the list for user simplicity
     const coldEmailBlockerRule: RulesResponse[number] = {
       id: COLD_EMAIL_BLOCKER_RULE_ID,
-      name: "Block Cold Emails",
+      name: "Cold Emails",
       instructions: emailAccountData?.coldEmailPrompt || null,
       automate: true,
       enabled: true,

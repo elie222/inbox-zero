@@ -21,6 +21,7 @@ import {
   BrainIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  PencilIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { isDefined } from "@/utils/types";
+import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
+import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 
 export function Rule({ ruleId }: { ruleId: string }) {
   const { data, isLoading, error } = useRule(ruleId);
@@ -264,6 +267,17 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
     rule.groupId,
   );
+  const [showLearnedPatterns, setShowLearnedPatterns] = useState(false);
+  const [isActionsEditMode, setIsActionsEditMode] = useState(false);
+  const [isConditionsEditMode, setIsConditionsEditMode] = useState(false);
+
+  const toggleActionsEditMode = useCallback(() => {
+    setIsActionsEditMode((prev) => !prev);
+  }, []);
+
+  const toggleConditionsEditMode = useCallback(() => {
+    setIsConditionsEditMode((prev) => !prev);
+  }, []);
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
@@ -306,35 +320,37 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <TypographyH3>Conditions</TypographyH3>
 
         <div className="flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <FilterIcon className="mr-2 h-4 w-4" />
-                Match{" "}
-                {!conditionalOperator ||
-                conditionalOperator === LogicalOperator.AND
-                  ? "all"
-                  : "any"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuRadioGroup
-                value={conditionalOperator}
-                onValueChange={(value) =>
-                  setValue("conditionalOperator", value as LogicalOperator)
-                }
-              >
-                <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                  Match all conditions
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                  Match any condition
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isConditionsEditMode && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FilterIcon className="mr-2 h-4 w-4" />
+                  Match{" "}
+                  {!conditionalOperator ||
+                  conditionalOperator === LogicalOperator.AND
+                    ? "all"
+                    : "any"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuRadioGroup
+                  value={conditionalOperator}
+                  onValueChange={(value) =>
+                    setValue("conditionalOperator", value as LogicalOperator)
+                  }
+                >
+                  <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                    Match all conditions
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                    Match any condition
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-          {!learnedPatternGroupId && !!rule.id && (
+          {!!rule.id && (
             <Tooltip content="Show learned patterns">
               <Button
                 variant="outline"
@@ -342,6 +358,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 className="h-9 w-9"
                 onClick={async () => {
                   if (!rule.id) return;
+
+                  setShowLearnedPatterns((b) => !b);
+                  if (learnedPatternGroupId) return;
 
                   const result = await createGroupAction(emailAccountId, {
                     ruleId: rule.id,
@@ -356,6 +375,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                     });
                   } else {
                     setLearnedPatternGroupId(result.data.groupId);
+                    setShowLearnedPatterns(true);
                   }
                 }}
               >
@@ -363,6 +383,15 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
               </Button>
             </Tooltip>
           )}
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleConditionsEditMode}
+            Icon={!isConditionsEditMode ? PencilIcon : undefined}
+          >
+            {isConditionsEditMode ? "View" : "Edit"}
+          </Button>
         </div>
       </div>
 
@@ -375,254 +404,290 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-4">
         {conditionFields.map((condition, index) => (
-          <CardBasic key={condition.id} className="mt-4">
-            <div className="grid gap-4 sm:grid-cols-4">
-              <div className="sm:col-span-1">
-                <Select
-                  label="Type"
-                  options={[
-                    { label: "AI", value: ConditionType.AI },
-                    { label: "Static", value: ConditionType.STATIC },
-                    // Deprecated: only show if this is the selected condition type
-                    condition.type === ConditionType.CATEGORY
-                      ? {
-                          label: "Sender Category",
-                          value: ConditionType.CATEGORY,
-                        }
-                      : null,
-                  ].filter(isDefined)}
-                  error={
-                    errors.conditions?.[index]?.type as FieldError | undefined
-                  }
-                  {...register(`conditions.${index}.type`, {
-                    onChange: (e) => {
-                      const selectedType = e.target.value;
-
-                      // check if we have duplicate condition types
-                      const conditionTypes = new Set(
-                        conditions.map((condition) => condition.type),
-                      );
-
-                      if (conditionTypes.size !== conditions.length) {
-                        toastError({
-                          description:
-                            "You can only have one condition of each type.",
-                        });
-                      }
-
-                      const emptyCondition = getEmptyCondition(selectedType);
-                      if (emptyCondition) {
-                        setValue(`conditions.${index}`, emptyCondition);
-                      }
-                    },
-                  })}
-                />
+          <div key={condition.id}>
+            {index > 0 && (
+              <div className="flex items-center justify-center py-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-px w-12 bg-border" />
+                  <div className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
+                    {conditionalOperator === LogicalOperator.OR ? "OR" : "AND"}
+                  </div>
+                  <div className="h-px w-12 bg-border" />
+                </div>
               </div>
-
-              <div className="space-y-4 sm:col-span-3">
-                {watch(`conditions.${index}.type`) === ConditionType.AI && (
-                  <Input
-                    type="text"
-                    autosizeTextarea
-                    rows={3}
-                    name={`conditions.${index}.instructions`}
-                    label="Instructions"
-                    registerProps={register(`conditions.${index}.instructions`)}
-                    error={
-                      (
-                        errors.conditions?.[index] as {
-                          instructions?: FieldError;
-                        }
-                      )?.instructions
-                    }
-                    placeholder='e.g. Apply this rule to all "receipts"'
-                    tooltipText="The instructions that will be passed to the AI."
-                  />
-                )}
-
-                {watch(`conditions.${index}.type`) === ConditionType.STATIC && (
-                  <>
-                    <Input
-                      type="text"
-                      name={`conditions.${index}.from`}
-                      label="From"
-                      registerProps={register(`conditions.${index}.from`)}
+            )}
+            {isConditionsEditMode ? (
+              <CardBasic>
+                <div className="grid gap-4 sm:grid-cols-4">
+                  <div className="sm:col-span-1">
+                    <Select
+                      label="Type"
+                      options={[
+                        { label: "AI", value: ConditionType.AI },
+                        { label: "Static", value: ConditionType.STATIC },
+                        // Deprecated: only show if this is the selected condition type
+                        condition.type === ConditionType.CATEGORY
+                          ? {
+                              label: "Sender Category",
+                              value: ConditionType.CATEGORY,
+                            }
+                          : null,
+                      ].filter(isDefined)}
                       error={
-                        (errors.conditions?.[index] as { from?: FieldError })
-                          ?.from
+                        errors.conditions?.[index]?.type as
+                          | FieldError
+                          | undefined
                       }
-                      tooltipText="Only apply this rule to emails from this address. e.g. @company.com, or hello@company.com"
-                    />
-                    <Input
-                      type="text"
-                      name={`conditions.${index}.to`}
-                      label="To"
-                      registerProps={register(`conditions.${index}.to`)}
-                      error={
-                        (errors.conditions?.[index] as { to?: FieldError })?.to
-                      }
-                      tooltipText="Only apply this rule to emails sent to this address. e.g. @company.com, or hello@company.com"
-                    />
-                    <Input
-                      type="text"
-                      name={`conditions.${index}.subject`}
-                      label="Subject"
-                      registerProps={register(`conditions.${index}.subject`)}
-                      error={
-                        (
-                          errors.conditions?.[index] as {
-                            subject?: FieldError;
+                      {...register(`conditions.${index}.type`, {
+                        onChange: (e) => {
+                          const selectedType = e.target.value;
+
+                          // check if we have duplicate condition types
+                          const conditionTypes = new Set(
+                            conditions.map((condition) => condition.type),
+                          );
+
+                          if (conditionTypes.size !== conditions.length) {
+                            toastError({
+                              description:
+                                "You can only have one condition of each type.",
+                            });
                           }
-                        )?.subject
-                      }
-                      tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
+
+                          const emptyCondition =
+                            getEmptyCondition(selectedType);
+                          if (emptyCondition) {
+                            setValue(`conditions.${index}`, emptyCondition);
+                          }
+                        },
+                      })}
                     />
-                  </>
-                )}
+                  </div>
 
-                {watch(`conditions.${index}.type`) ===
-                  ConditionType.CATEGORY && (
-                  <>
-                    <div className="flex items-center gap-4">
-                      <RadioGroup
-                        defaultValue={CategoryFilterType.INCLUDE}
-                        value={
-                          watch(`conditions.${index}.categoryFilterType`) ||
-                          undefined
+                  <div className="space-y-4 sm:col-span-3">
+                    {watch(`conditions.${index}.type`) === ConditionType.AI && (
+                      <Input
+                        type="text"
+                        autosizeTextarea
+                        rows={3}
+                        name={`conditions.${index}.instructions`}
+                        label="Instructions"
+                        registerProps={register(
+                          `conditions.${index}.instructions`,
+                        )}
+                        error={
+                          (
+                            errors.conditions?.[index] as {
+                              instructions?: FieldError;
+                            }
+                          )?.instructions
                         }
-                        onValueChange={(value) =>
-                          setValue(
-                            `conditions.${index}.categoryFilterType`,
-                            value as CategoryFilterType,
-                          )
-                        }
-                        className="flex gap-6"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem
-                            value={CategoryFilterType.INCLUDE}
-                            id="include"
-                          />
-                          <Label name="include" label="Match" />
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem
-                            value={CategoryFilterType.EXCLUDE}
-                            id="exclude"
-                          />
-                          <Label name="exclude" label="Skip" />
-                        </div>
-                      </RadioGroup>
+                        placeholder='e.g. Apply this rule to all "receipts"'
+                        tooltipText="The instructions that will be passed to the AI."
+                      />
+                    )}
 
-                      <TooltipExplanation text="This stops the AI from applying this rule to emails that don't match your criteria." />
-                    </div>
+                    {watch(`conditions.${index}.type`) ===
+                      ConditionType.STATIC && (
+                      <>
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.from`}
+                          label="From"
+                          registerProps={register(`conditions.${index}.from`)}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                from?: FieldError;
+                              }
+                            )?.from
+                          }
+                          tooltipText="Only apply this rule to emails from this address. e.g. @company.com, or hello@company.com"
+                        />
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.to`}
+                          label="To"
+                          registerProps={register(`conditions.${index}.to`)}
+                          error={
+                            (errors.conditions?.[index] as { to?: FieldError })
+                              ?.to
+                          }
+                          tooltipText="Only apply this rule to emails sent to this address. e.g. @company.com, or hello@company.com"
+                        />
+                        <Input
+                          type="text"
+                          name={`conditions.${index}.subject`}
+                          label="Subject"
+                          registerProps={register(
+                            `conditions.${index}.subject`,
+                          )}
+                          error={
+                            (
+                              errors.conditions?.[index] as {
+                                subject?: FieldError;
+                              }
+                            )?.subject
+                          }
+                          tooltipText="Only apply this rule to emails with this subject. e.g. Receipt for your purchase"
+                        />
+                      </>
+                    )}
 
-                    <LoadingContent
-                      loading={categoriesLoading}
-                      error={categoriesError}
-                    >
-                      {categories.length ? (
-                        <>
-                          <MultiSelectFilter
-                            title="Categories"
-                            maxDisplayedValues={8}
-                            options={categories.map((category) => ({
-                              label: capitalCase(category.name),
-                              value: category.id,
-                            }))}
-                            selectedValues={
-                              new Set(
-                                watch(`conditions.${index}.categoryFilters`),
+                    {watch(`conditions.${index}.type`) ===
+                      ConditionType.CATEGORY && (
+                      <>
+                        <div className="flex items-center gap-4">
+                          <RadioGroup
+                            defaultValue={CategoryFilterType.INCLUDE}
+                            value={
+                              watch(`conditions.${index}.categoryFilterType`) ||
+                              undefined
+                            }
+                            onValueChange={(value) =>
+                              setValue(
+                                `conditions.${index}.categoryFilterType`,
+                                value as CategoryFilterType,
                               )
                             }
-                            setSelectedValues={(selectedValues) => {
-                              setValue(
-                                `conditions.${index}.categoryFilters`,
-                                Array.from(selectedValues),
-                              );
-                            }}
-                          />
-                          {(
-                            errors.conditions?.[index] as {
-                              categoryFilters?: { message?: string };
-                            }
-                          )?.categoryFilters?.message && (
-                            <ErrorMessage
-                              message={
-                                (
-                                  errors.conditions?.[index] as {
-                                    categoryFilters?: { message?: string };
-                                  }
-                                )?.categoryFilters?.message || ""
-                              }
-                            />
-                          )}
-
-                          <Button
-                            asChild
-                            variant="ghost"
-                            size="sm"
-                            className="ml-2"
+                            className="flex gap-6"
                           >
-                            <Link
-                              href={prefixPath(
-                                emailAccountId,
-                                "/smart-categories/setup",
-                              )}
-                              target="_blank"
-                            >
-                              Create category
-                              <ExternalLinkIcon className="ml-1.5 size-4" />
-                            </Link>
-                          </Button>
-                        </>
-                      ) : (
-                        <div>
-                          <SectionDescription>
-                            No sender categories found.
-                          </SectionDescription>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value={CategoryFilterType.INCLUDE}
+                                id="include"
+                              />
+                              <Label name="include" label="Match" />
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value={CategoryFilterType.EXCLUDE}
+                                id="exclude"
+                              />
+                              <Label name="exclude" label="Skip" />
+                            </div>
+                          </RadioGroup>
 
-                          <Button asChild className="mt-1">
-                            <Link
-                              href={prefixPath(
-                                emailAccountId,
-                                "/smart-categories",
-                              )}
-                              target="_blank"
-                            >
-                              Set up Sender Categories
-                              <ExternalLinkIcon className="ml-1.5 size-4" />
-                            </Link>
-                          </Button>
+                          <TooltipExplanation text="This stops the AI from applying this rule to emails that don't match your criteria." />
                         </div>
-                      )}
-                    </LoadingContent>
-                  </>
-                )}
-              </div>
-            </div>
 
-            <Button
-              type="button"
-              size="xs"
-              variant="ghost"
-              className="mt-2"
-              onClick={() => removeCondition(index)}
-            >
-              Remove
-            </Button>
-          </CardBasic>
+                        <LoadingContent
+                          loading={categoriesLoading}
+                          error={categoriesError}
+                        >
+                          {categories.length ? (
+                            <>
+                              <MultiSelectFilter
+                                title="Categories"
+                                maxDisplayedValues={8}
+                                options={categories.map((category) => ({
+                                  label: capitalCase(category.name),
+                                  value: category.id,
+                                }))}
+                                selectedValues={
+                                  new Set(
+                                    watch(
+                                      `conditions.${index}.categoryFilters`,
+                                    ),
+                                  )
+                                }
+                                setSelectedValues={(selectedValues) => {
+                                  setValue(
+                                    `conditions.${index}.categoryFilters`,
+                                    Array.from(selectedValues),
+                                  );
+                                }}
+                              />
+                              {(
+                                errors.conditions?.[index] as {
+                                  categoryFilters?: { message?: string };
+                                }
+                              )?.categoryFilters?.message && (
+                                <ErrorMessage
+                                  message={
+                                    (
+                                      errors.conditions?.[index] as {
+                                        categoryFilters?: { message?: string };
+                                      }
+                                    )?.categoryFilters?.message || ""
+                                  }
+                                />
+                              )}
+
+                              <Button
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                                className="ml-2"
+                              >
+                                <Link
+                                  href={prefixPath(
+                                    emailAccountId,
+                                    "/smart-categories/setup",
+                                  )}
+                                  target="_blank"
+                                >
+                                  Create category
+                                  <ExternalLinkIcon className="ml-1.5 size-4" />
+                                </Link>
+                              </Button>
+                            </>
+                          ) : (
+                            <div>
+                              <SectionDescription>
+                                No sender categories found.
+                              </SectionDescription>
+
+                              <Button asChild className="mt-1">
+                                <Link
+                                  href={prefixPath(
+                                    emailAccountId,
+                                    "/smart-categories",
+                                  )}
+                                  target="_blank"
+                                >
+                                  Set up Sender Categories
+                                  <ExternalLinkIcon className="ml-1.5 size-4" />
+                                </Link>
+                              </Button>
+                            </div>
+                          )}
+                        </LoadingContent>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="mt-2"
+                  onClick={() => removeCondition(index)}
+                >
+                  Remove
+                </Button>
+              </CardBasic>
+            ) : (
+              <ConditionSummaryCard
+                condition={watch(`conditions.${index}`)}
+                categories={categories}
+              />
+            )}
+          </div>
         ))}
       </div>
 
       {unusedCondition && (
         <div className="mt-4">
           <Button
-            type="button"
             variant="secondary"
-            onClick={() => appendCondition(getEmptyCondition(unusedCondition))}
+            size="sm"
+            onClick={() => {
+              appendCondition(getEmptyCondition(unusedCondition));
+              setIsConditionsEditMode(true);
+            }}
           >
             <PlusIcon className="mr-2 h-4 w-4" />
             Add Condition
@@ -630,13 +695,23 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      {learnedPatternGroupId && (
+      {showLearnedPatterns && learnedPatternGroupId && (
         <div className="mt-4">
           <LearnedPatterns groupId={learnedPatternGroupId} />
         </div>
       )}
 
-      <TypographyH3 className="mt-6">Actions</TypographyH3>
+      <div className="mt-6 flex items-center justify-between">
+        <TypographyH3>Actions</TypographyH3>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={toggleActionsEditMode}
+          Icon={!isActionsEditMode ? PencilIcon : undefined}
+        >
+          {isActionsEditMode ? "View" : "Edit"}
+        </Button>
+      </div>
 
       {actionErrors.length > 0 && (
         <div className="mt-4">
@@ -654,37 +729,48 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       )}
 
       <div className="mt-4 space-y-4">
-        {watch("actions")?.map((action, i) => (
-          <ActionCard
-            key={i}
-            action={action}
-            index={i}
-            register={register}
-            watch={watch}
-            setValue={setValue}
-            errors={errors}
-            userLabels={userLabels}
-            isLoading={isLoading}
-            mutate={mutate}
-            emailAccountId={emailAccountId}
-            remove={remove}
-            typeOptions={typeOptions}
-          />
-        ))}
+        {watch("actions")?.map((action, i) =>
+          isActionsEditMode ? (
+            <ActionCard
+              key={i}
+              action={action}
+              index={i}
+              register={register}
+              watch={watch}
+              setValue={setValue}
+              errors={errors}
+              userLabels={userLabels}
+              isLoading={isLoading}
+              mutate={mutate}
+              emailAccountId={emailAccountId}
+              remove={remove}
+              typeOptions={typeOptions}
+            />
+          ) : (
+            <ActionSummaryCard
+              key={i}
+              action={action}
+              typeOptions={typeOptions}
+            />
+          ),
+        )}
       </div>
 
       <div className="mt-4">
         <Button
-          type="button"
           variant="secondary"
-          onClick={() => append({ type: ActionType.LABEL })}
+          size="sm"
+          onClick={() => {
+            append({ type: ActionType.LABEL });
+            setIsActionsEditMode(true);
+          }}
         >
-          <PlusIcon className="mr-2 h-4 w-4" />
+          <PlusIcon className="mr-2 size-4" />
           Add Action
         </Button>
       </div>
 
-      <div className="mt-4 flex items-center justify-end space-x-2">
+      <div className="mt-8 flex items-center justify-end space-x-2">
         <TooltipExplanation
           size="md"
           text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
@@ -716,7 +802,6 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       <div className="flex justify-end space-x-2 py-6">
         {rule.id && (
           <Button
-            type="button"
             variant="outline"
             disabled={isSubmitting}
             loading={isSubmitting}
@@ -856,7 +941,6 @@ function ActionCard({
           />
 
           <Button
-            type="button"
             size="xs"
             variant="ghost"
             className="mt-2"
@@ -1019,7 +1103,6 @@ function ActionCard({
           {hasExpandableFields && (
             <div className="mt-2 flex justify-end">
               <Button
-                type="button"
                 size="xs"
                 variant="ghost"
                 className="flex items-center gap-1 text-xs text-muted-foreground"
