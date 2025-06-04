@@ -280,7 +280,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   }, []);
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form
+      onSubmit={handleSubmit(onSubmit)}
+      className="mx-auto w-full max-w-3xl"
+    >
       {isSubmitted && Object.keys(errors).length > 0 && (
         <div className="mt-4">
           <AlertError
@@ -679,7 +682,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         ))}
       </div>
 
-      {unusedCondition && (
+      {isConditionsEditMode && unusedCondition && (
         <div className="mt-4">
           <Button
             variant="secondary"
@@ -756,19 +759,21 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         )}
       </div>
 
-      <div className="mt-4">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {
-            append({ type: ActionType.LABEL });
-            setIsActionsEditMode(true);
-          }}
-        >
-          <PlusIcon className="mr-2 size-4" />
-          Add Action
-        </Button>
-      </div>
+      {isActionsEditMode && (
+        <div className="mt-4">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              append({ type: ActionType.LABEL });
+              setIsActionsEditMode(true);
+            }}
+          >
+            <PlusIcon className="mr-2 size-4" />
+            Add Action
+          </Button>
+        </div>
+      )}
 
       <div className="mt-8 flex items-center justify-end space-x-2">
         <TooltipExplanation
