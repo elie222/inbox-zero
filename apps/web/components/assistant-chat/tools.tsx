@@ -426,44 +426,41 @@ function RuleActions({ ruleId }: { ruleId: string }) {
 
   return (
     <div className="flex items-center gap-1">
-      <Tooltip content="View Rule">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={() => setRuleId({ ruleId, tab: "rule" })}
-        >
-          <EyeIcon className="size-4" />
-        </Button>
-      </Tooltip>
-      <Tooltip content="Delete Rule">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 w-8 p-0"
-          onClick={async () => {
-            const yes = confirm("Are you sure you want to delete this rule?");
-            if (yes) {
-              try {
-                const result = await deleteRuleAction(emailAccountId, {
-                  id: ruleId,
+      {/* Don't use tooltips as they force scroll to bottom. Real fix is to adjust useScrollToBottom hook to not do that */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={() => setRuleId({ ruleId, tab: "rule" })}
+      >
+        <EyeIcon className="size-4" />
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 w-8 p-0"
+        onClick={async () => {
+          const yes = confirm("Are you sure you want to delete this rule?");
+          if (yes) {
+            try {
+              const result = await deleteRuleAction(emailAccountId, {
+                id: ruleId,
+              });
+              if (result?.serverError) {
+                toastError({ description: result.serverError });
+              } else {
+                toastSuccess({
+                  description: "The rule has been deleted.",
                 });
-                if (result?.serverError) {
-                  toastError({ description: result.serverError });
-                } else {
-                  toastSuccess({
-                    description: "The rule has been deleted.",
-                  });
-                }
-              } catch (error) {
-                toastError({ description: "Failed to delete rule." });
               }
+            } catch (error) {
+              toastError({ description: "Failed to delete rule." });
             }
-          }}
-        >
-          <TrashIcon className="size-4" />
-        </Button>
-      </Tooltip>
+          }
+        }}
+      >
+        <TrashIcon className="size-4" />
+      </Button>
     </div>
   );
 }
