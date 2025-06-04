@@ -99,7 +99,7 @@ ${emailSection}
     schema: z.object({
       reason: z.string(),
       ruleName: z.string(),
-      noMatchFound: z.boolean().nullable(),
+      noMatchFound: z.boolean().nullish(),
     }),
     userEmail: emailAccount.email,
     usageLabel: "Choose rule",
