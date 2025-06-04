@@ -970,6 +970,55 @@ describe("findMatchingRule", () => {
     expect(result.rule).toBeUndefined();
     expect(result.reason).toBeUndefined();
   });
+
+  it("should match learned pattern when email has display name format", async () => {
+    const rule = getRule({
+      id: "rule-with-display-name",
+      groupId: "group-with-display-name",
+      instructions:
+        "This is an AI instruction; should not be used if group matches.",
+      conditionalOperator: LogicalOperator.OR,
+    });
+
+    // Set up a group with a learned pattern for just the email address
+    prisma.group.findMany.mockResolvedValue([
+      getGroup({
+        id: "group-with-display-name",
+        items: [
+          getGroupItem({
+            groupId: "group-with-display-name",
+            type: GroupItemType.FROM,
+            value: "central@example.com",
+          }),
+        ],
+        rule,
+      }),
+    ]);
+    (aiChooseRule as ReturnType<typeof vi.fn>).mockClear();
+
+    const rules = [rule];
+    const message = getMessage({
+      headers: getHeaders({
+        from: "Central Channel <central@example.com>",
+        subject: "A benign subject",
+      }),
+    });
+    const emailAccount = getEmailAccount();
+
+    const result = await findMatchingRule({
+      rules,
+      message,
+      emailAccount,
+      gmail,
+    });
+
+    // Should match despite the display name format, due to the group rule
+    expect(result.rule?.id).toBe(rule.id);
+    expect(result.reason).toBe(
+      `Matched learned pattern: "FROM: central@example.com"`,
+    );
+    expect(aiChooseRule).not.toHaveBeenCalled();
+  });
 });
 
 function getRule(

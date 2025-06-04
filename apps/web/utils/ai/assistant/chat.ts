@@ -20,8 +20,6 @@ const logger = createScopedLogger("ai/assistant/chat");
 export const maxDuration = 120;
 
 // schemas
-export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
-
 const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
@@ -83,13 +81,13 @@ const updateRuleActionsSchema = z.object({
         ActionType.CALL_WEBHOOK,
       ]),
       fields: z.object({
-        label: z.string().optional(),
-        content: z.string().optional(),
-        webhookUrl: z.string().optional(),
-        to: z.string().optional(),
-        cc: z.string().optional(),
-        bcc: z.string().optional(),
-        subject: z.string().optional(),
+        label: z.string().nullable(),
+        content: z.string().nullable(),
+        webhookUrl: z.string().nullable(),
+        to: z.string().nullable(),
+        cc: z.string().nullable(),
+        bcc: z.string().nullable(),
+        subject: z.string().nullable(),
       }),
     }),
   ),
@@ -113,7 +111,7 @@ export type UpdateRuleActionsResult = {
   }>;
   updatedActions?: Array<{
     type: string;
-    fields: Record<string, string | undefined>;
+    fields: Record<string, string | null>;
   }>;
   error?: string;
 };

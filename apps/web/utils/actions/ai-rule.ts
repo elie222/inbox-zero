@@ -94,7 +94,6 @@ export const runRulesAction = actionClient
         where: {
           emailAccountId,
           enabled: true,
-          instructions: { not: null },
         },
         include: { actions: true, categoryFilters: true },
       });
