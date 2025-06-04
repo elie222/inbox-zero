@@ -270,6 +270,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const [showLearnedPatterns, setShowLearnedPatterns] = useState(false);
   const [isActionsEditMode, setIsActionsEditMode] = useState(false);
   const [isConditionsEditMode, setIsConditionsEditMode] = useState(false);
+  const [isNameEditMode, setIsNameEditMode] = useState(false);
 
   const toggleActionsEditMode = useCallback(() => {
     setIsActionsEditMode((prev) => !prev);
@@ -277,6 +278,10 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
   const toggleConditionsEditMode = useCallback(() => {
     setIsConditionsEditMode((prev) => !prev);
+  }, []);
+
+  const toggleNameEditMode = useCallback(() => {
+    setIsNameEditMode((prev) => !prev);
   }, []);
 
   return (
@@ -299,15 +304,25 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <div className="mt-4">
-        <Input
-          type="text"
-          name="name"
-          label="Rule name"
-          registerProps={register("name")}
-          error={errors.name}
-          placeholder="e.g. Label receipts"
-        />
+      <div className="mt-8">
+        {isNameEditMode ? (
+          <Input
+            type="text"
+            name="name"
+            label="Rule name"
+            registerProps={register("name")}
+            error={errors.name}
+            placeholder="e.g. Label receipts"
+          />
+        ) : (
+          <TypographyH3
+            onClick={toggleNameEditMode}
+            className="group flex cursor-pointer items-center"
+          >
+            {watch("name")}
+            <PencilIcon className="ml-2 size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+          </TypographyH3>
+        )}
       </div>
 
       {/* removed for now to keep things simpler */}
@@ -319,8 +334,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )} */}
 
-      <div className="mt-6 flex items-end justify-between">
-        <TypographyH3>Conditions</TypographyH3>
+      <div className="mt-4 flex items-end justify-between">
+        <TypographyH3 className="text-xl">Conditions</TypographyH3>
 
         <div className="flex items-center gap-1.5">
           {isConditionsEditMode && (
@@ -399,7 +414,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       {errors.conditions?.root?.message && (
-        <div className="mt-4">
+        <div className="mt-2">
           <AlertError
             title="Error"
             description={errors.conditions.root.message}
@@ -407,7 +422,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-2">
         {conditionFields.map((condition, index) => (
           <div key={condition.id}>
             {index > 0 && (
@@ -704,8 +719,8 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <div className="mt-6 flex items-center justify-between">
-        <TypographyH3>Actions</TypographyH3>
+      <div className="mt-4 flex items-center justify-between">
+        <TypographyH3 className="text-xl">Actions</TypographyH3>
         <Button
           size="sm"
           variant="outline"
@@ -717,7 +732,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       </div>
 
       {actionErrors.length > 0 && (
-        <div className="mt-4">
+        <div className="mt-2">
           <AlertError
             title="Error"
             description={
@@ -731,7 +746,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-2 space-y-4">
         {watch("actions")?.map((action, i) =>
           isActionsEditMode ? (
             <ActionCard
