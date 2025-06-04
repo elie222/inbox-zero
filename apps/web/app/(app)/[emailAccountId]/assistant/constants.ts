@@ -58,8 +58,11 @@ export function getActionTypeColor(example: string): string {
   if (lowerExample.includes("forward")) {
     return ACTION_TYPE_COLORS[ActionType.FORWARD];
   }
-  if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
+  if (lowerExample.includes("draft")) {
     return ACTION_TYPE_COLORS[ActionType.DRAFT_EMAIL];
+  }
+  if (lowerExample.includes("reply")) {
+    return ACTION_TYPE_COLORS[ActionType.REPLY];
   }
   if (lowerExample.includes("archive")) {
     return ACTION_TYPE_COLORS[ActionType.ARCHIVE];
