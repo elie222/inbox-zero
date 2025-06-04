@@ -26,14 +26,14 @@ const updateRuleConditionSchema = z.object({
     aiInstructions: z.string().optional(),
     static: z
       .object({
-        from: z.string().nullable(),
-        to: z.string().nullable(),
-        subject: z.string().nullable(),
+        from: z.string().nullish(),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
       })
-      .nullable(),
+      .nullish(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullable(),
+      .nullish(),
   }),
 });
 export type UpdateRuleConditionSchema = z.infer<
@@ -81,13 +81,13 @@ const updateRuleActionsSchema = z.object({
         ActionType.CALL_WEBHOOK,
       ]),
       fields: z.object({
-        label: z.string().nullable(),
-        content: z.string().nullable(),
-        webhookUrl: z.string().nullable(),
-        to: z.string().nullable(),
-        cc: z.string().nullable(),
-        bcc: z.string().nullable(),
-        subject: z.string().nullable(),
+        label: z.string().nullish(),
+        content: z.string().nullish(),
+        webhookUrl: z.string().nullish(),
+        to: z.string().nullish(),
+        cc: z.string().nullish(),
+        bcc: z.string().nullish(),
+        subject: z.string().nullish(),
       }),
     }),
   ),
