@@ -86,7 +86,6 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           branch: ${{ github.ref }}
           force_with_lease: true
-          tags: true
 
   build-docker:
     if: github.repository == 'elie222/inbox-zero'
