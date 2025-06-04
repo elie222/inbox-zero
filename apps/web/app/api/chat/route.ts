@@ -13,7 +13,7 @@ export const maxDuration = 120;
 const logger = createScopedLogger("api/chat");
 
 const textPartSchema = z.object({
-  text: z.string().min(1).max(2000),
+  text: z.string().min(1).max(3000),
   type: z.enum(["text"]),
 });
 
@@ -23,13 +23,13 @@ const assistantInputSchema = z.object({
     id: z.string(),
     createdAt: z.coerce.date(),
     role: z.enum(["user"]),
-    content: z.string().min(1).max(2000),
+    content: z.string().min(1).max(3000),
     parts: z.array(textPartSchema),
     // experimental_attachments: z
     //   .array(
     //     z.object({
     //       url: z.string().url(),
-    //       name: z.string().min(1).max(2000),
+    //       name: z.string().min(1).max(100),
     //       contentType: z.enum(["image/png", "image/jpg", "image/jpeg"]),
     //     }),
     //   )
