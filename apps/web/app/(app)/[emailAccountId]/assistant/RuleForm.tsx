@@ -267,6 +267,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
     rule.groupId,
   );
+  const [showLearnedPatterns, setShowLearnedPatterns] = useState(false);
   const [isActionsEditMode, setIsActionsEditMode] = useState(false);
   const [isConditionsEditMode, setIsConditionsEditMode] = useState(false);
 
@@ -319,35 +320,37 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <TypographyH3>Conditions</TypographyH3>
 
         <div className="flex items-center gap-1.5">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">
-                <FilterIcon className="mr-2 h-4 w-4" />
-                Match{" "}
-                {!conditionalOperator ||
-                conditionalOperator === LogicalOperator.AND
-                  ? "all"
-                  : "any"}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuRadioGroup
-                value={conditionalOperator}
-                onValueChange={(value) =>
-                  setValue("conditionalOperator", value as LogicalOperator)
-                }
-              >
-                <DropdownMenuRadioItem value={LogicalOperator.AND}>
-                  Match all conditions
-                </DropdownMenuRadioItem>
-                <DropdownMenuRadioItem value={LogicalOperator.OR}>
-                  Match any condition
-                </DropdownMenuRadioItem>
-              </DropdownMenuRadioGroup>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {isConditionsEditMode && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <FilterIcon className="mr-2 h-4 w-4" />
+                  Match{" "}
+                  {!conditionalOperator ||
+                  conditionalOperator === LogicalOperator.AND
+                    ? "all"
+                    : "any"}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuRadioGroup
+                  value={conditionalOperator}
+                  onValueChange={(value) =>
+                    setValue("conditionalOperator", value as LogicalOperator)
+                  }
+                >
+                  <DropdownMenuRadioItem value={LogicalOperator.AND}>
+                    Match all conditions
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value={LogicalOperator.OR}>
+                    Match any condition
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-          {!learnedPatternGroupId && !!rule.id && (
+          {!!rule.id && (
             <Tooltip content="Show learned patterns">
               <Button
                 variant="outline"
@@ -355,6 +358,9 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                 className="h-9 w-9"
                 onClick={async () => {
                   if (!rule.id) return;
+
+                  setShowLearnedPatterns((b) => !b);
+                  if (learnedPatternGroupId) return;
 
                   const result = await createGroupAction(emailAccountId, {
                     ruleId: rule.id,
@@ -369,6 +375,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
                     });
                   } else {
                     setLearnedPatternGroupId(result.data.groupId);
+                    setShowLearnedPatterns(true);
                   }
                 }}
               >
@@ -379,7 +386,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
             onClick={toggleConditionsEditMode}
             Icon={!isConditionsEditMode ? PencilIcon : undefined}
           >
@@ -688,7 +695,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         </div>
       )}
 
-      {learnedPatternGroupId && (
+      {showLearnedPatterns && learnedPatternGroupId && (
         <div className="mt-4">
           <LearnedPatterns groupId={learnedPatternGroupId} />
         </div>
@@ -698,7 +705,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
         <TypographyH3>Actions</TypographyH3>
         <Button
           size="sm"
-          variant="ghost"
+          variant="outline"
           onClick={toggleActionsEditMode}
           Icon={!isActionsEditMode ? PencilIcon : undefined}
         >
