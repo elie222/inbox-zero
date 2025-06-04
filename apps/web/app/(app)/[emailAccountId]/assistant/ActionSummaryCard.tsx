@@ -77,18 +77,25 @@ export function ActionSummaryCard({
     }
 
     case ActionType.REPLY: {
-      const replyContent = action.content?.value;
-      if (replyContent) {
+      if (action.content?.setManually) {
+        const contentValue = action.content?.value || "";
         summaryContent = (
           <>
             <span>Reply</span>
-            <span className="text-muted-foreground">
-              {`: "${
-                replyContent.length > 50
-                  ? `${replyContent.substring(0, 50)}...`
-                  : replyContent
-              }"`}
-            </span>
+            {action.to?.value && (
+              <span className="text-muted-foreground">
+                {" "}
+                to {action.to.value}
+              </span>
+            )}
+            {contentValue && (
+              <>
+                <span>:</span>
+                <span className="mt-2 block text-muted-foreground">
+                  {contentValue}
+                </span>
+              </>
+            )}
             <OptionalEmailFields
               cc={action.cc?.value}
               bcc={action.bcc?.value}
@@ -99,6 +106,12 @@ export function ActionSummaryCard({
         summaryContent = (
           <>
             <span>AI reply</span>
+            {action.to?.value && (
+              <span className="text-muted-foreground">
+                {" "}
+                to {action.to.value}
+              </span>
+            )}
             <OptionalEmailFields
               cc={action.cc?.value}
               bcc={action.bcc?.value}
