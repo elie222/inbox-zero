@@ -8,12 +8,12 @@ export function hasExampleParams(rule: {
       from?: string | null;
     } | null;
   };
-  actions: { fields?: { content?: string | null } }[];
+  actions: { content?: string | null }[];
 }) {
   return (
     rule.condition.static?.to?.includes("@company.com") ||
     rule.condition.static?.from?.includes("@mycompany.com") ||
-    rule.actions.some((a) => a.fields?.content?.includes("cal.com/example"))
+    rule.actions.some((a) => a.content?.includes("cal.com/example"))
   );
 }
 

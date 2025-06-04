@@ -93,6 +93,8 @@ export async function enableReplyTracker({
         name: RuleName.ToReply,
         condition: {
           aiInstructions: defaultReplyTrackerInstructions,
+          conditionalOperator: null,
+          static: null,
         },
         actions: [
           {

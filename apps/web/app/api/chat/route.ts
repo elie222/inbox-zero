@@ -91,40 +91,48 @@ export const POST = withEmailAccount(async (request) => {
     // attachments: message.experimental_attachments ?? [],
   });
 
-  const result = await aiProcessAssistantChat({
-    messages,
-    emailAccountId,
-    user,
-    onFinish: async ({ response }) => {
-      const assistantMessages = response.messages.filter(
-        (message) => message.role === "assistant",
-      );
-      const assistantId = getTrailingMessageId(assistantMessages);
+  try {
+    const result = await aiProcessAssistantChat({
+      messages,
+      emailAccountId,
+      user,
+      onFinish: async ({ response }) => {
+        const assistantMessages = response.messages.filter(
+          (message) => message.role === "assistant",
+        );
+        const assistantId = getTrailingMessageId(assistantMessages);
 
-      if (!assistantId) {
-        logger.error("No assistant message found!", { response });
-        throw new Error("No assistant message found!");
-      }
+        if (!assistantId) {
+          logger.error("No assistant message found!", { response });
+          throw new Error("No assistant message found!");
+        }
 
-      // handles all tool calls
-      const [, assistantMessage] = appendResponseMessages({
-        messages: [message],
-        responseMessages: response.messages,
-      });
+        // handles all tool calls
+        const [, assistantMessage] = appendResponseMessages({
+          messages: [message],
+          responseMessages: response.messages,
+        });
 
-      await saveChatMessage({
-        id: assistantId,
-        chat: { connect: { id: chat.id } },
-        role: assistantMessage.role,
-        parts: assistantMessage.parts
-          ? (assistantMessage.parts as Prisma.InputJsonValue)
-          : Prisma.JsonNull,
-        // attachments: assistantMessage.experimental_attachments ?? [],
-      });
-    },
-  });
+        await saveChatMessage({
+          id: assistantId,
+          chat: { connect: { id: chat.id } },
+          role: assistantMessage.role,
+          parts: assistantMessage.parts
+            ? (assistantMessage.parts as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+          // attachments: assistantMessage.experimental_attachments ?? [],
+        });
+      },
+    });
 
-  return result.toDataStreamResponse();
+    return result.toDataStreamResponse();
+  } catch (error) {
+    logger.error("Error in assistant chat", { error });
+    return NextResponse.json(
+      { error: "Error in assistant chat" },
+      { status: 500 },
+    );
+  }
 });
 
 async function createNewChat({

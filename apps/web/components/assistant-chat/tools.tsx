@@ -2,7 +2,6 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { parseAsString, useQueryState, useQueryStates } from "nuqs";
 import type {
-  CreateRuleSchema,
   UpdateAboutSchema,
   UpdateRuleConditionSchema,
   UpdateRuleActionsSchema,
@@ -11,6 +10,7 @@ import type {
   UpdateRuleConditionsResult,
   UpdateRuleActionsResult,
 } from "@/utils/ai/assistant/chat";
+import type { CreateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon, FileDiffIcon } from "lucide-react";
