@@ -9,13 +9,13 @@ import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import {
   cancelPremiumLemon,
+  updateAccountSeatsForPremium,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
-  updateSubscriptionItemQuantity,
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
@@ -33,6 +33,7 @@ import {
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
+import { updateAccountSeats } from "@/utils/premium/server";
 
 const logger = createScopedLogger("actions/premium");
 
@@ -104,6 +105,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             id: true,
             tier: true,
             lemonSqueezySubscriptionItemId: true,
+            stripeSubscriptionItemId: true,
             emailAccountsAccess: true,
             admins: { select: { id: true } },
             pendingInvites: true,
@@ -139,17 +141,15 @@ export const updateMultiAccountPremiumAction = actionClientUser
     }
 
     if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
-      // TODO lifetime users
-      if (!premium.lemonSqueezySubscriptionItemId) {
+      // Check if user has an active subscription
+      if (
+        !premium.lemonSqueezySubscriptionItemId &&
+        !premium.stripeSubscriptionItemId
+      ) {
         return {
           error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
         };
       }
-
-      await updateSubscriptionItemQuantity({
-        id: premium.lemonSqueezySubscriptionItemId,
-        quantity: uniqueEmails.length,
-      });
     }
 
     // delete premium for other users when adding them to this premium plan
@@ -173,14 +173,26 @@ export const updateMultiAccountPremiumAction = actionClientUser
     const nonExistingUsers = uniqueEmails.filter(
       (email) => !users.some((u) => u.email === email),
     );
-    await prisma.premium.update({
+    const updatedPremium = await prisma.premium.update({
       where: { id: premium.id },
       data: {
         pendingInvites: {
           set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
         },
       },
+      select: {
+        users: { select: { _count: { select: { emailAccounts: true } } } },
+        pendingInvites: true,
+      },
     });
+
+    // total seats = premium users + pending invites
+    const totalSeats =
+      sumBy(updatedPremium.users, (u) => u._count.emailAccounts) +
+      (updatedPremium.pendingInvites?.length || 0);
+
+    // Update subscription quantity to reflect the actual total seats
+    await updateAccountSeatsForPremium(premium, totalSeats);
   });
 
 // export const switchLemonPremiumPlanAction = actionClientUser

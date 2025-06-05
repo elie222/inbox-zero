@@ -135,6 +135,16 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
   // Count all email accounts for all users
   const totalSeats = sumBy(premium.users, (user) => user._count.emailAccounts);
 
+  await updateAccountSeatsForPremium(premium, totalSeats);
+}
+
+export async function updateAccountSeatsForPremium(
+  premium: {
+    lemonSqueezySubscriptionItemId: number | null;
+    stripeSubscriptionItemId: string | null;
+  },
+  totalSeats: number,
+) {
   if (premium.stripeSubscriptionItemId) {
     await updateStripeSubscriptionItemQuantity({
       subscriptionItemId: premium.stripeSubscriptionItemId,
