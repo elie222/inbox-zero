@@ -19,9 +19,7 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
-import { threadId } from "worker_threads";
-import { aiSummarizeEmail } from "@/utils/ai/digest/summarize-email";
-import { getEmailAccountWithAi } from "@/utils/user/get";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -227,18 +225,15 @@ const track_thread: ActionFunction<any> = async ({
   });
 };
 
-const digest: ActionFunction<any> = async ({ email, emailAccountId }) => {
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-  if (!emailAccount) throw new Error("Email account not found");
-
-  return await aiSummarizeEmail({
-    emailAccount,
-    messageToSummarize: {
-      id: email.id,
-      from: email.headers.from,
-      subject: email.headers.subject,
-      content: email.textPlain || "",
-    },
-  });
+const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
+  const actionId = args.id;
+  const message = {
+    messageId: email.id,
+    threadId: email.threadId,
+    from: email.headers.from,
+    to: email.headers.to || "",
+    subject: email.headers.subject,
+    content: email.textPlain || "",
+  };
+  await enqueueDigestItem(message, emailAccountId, actionId);
 };

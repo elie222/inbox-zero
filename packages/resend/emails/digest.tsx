@@ -1,19 +1,18 @@
 import {
-  Button,
-  Text,
-  Html,
-  Head,
-  Preview,
-  Tailwind,
   Body,
-  Container,
-  Link,
-  Section,
-  Img,
-  Heading,
-  Row,
   Column,
+  Container,
+  Head,
+  Heading,
   Hr,
+  Html,
+  Img,
+  Link,
+  Preview,
+  Row,
+  Section,
+  Tailwind,
+  Text,
 } from "@react-email/components";
 
 export interface DigestEmailProps {
@@ -60,15 +59,301 @@ export interface DigestEmailProps {
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
-    newsletters = [],
-    receipts = [],
+    newsletter = [],
+    receipt = [],
     marketing = [],
     calendar = [],
-    coldEmails = [],
+    coldEmail = [],
     notification = [],
     toReply = [],
     unsubscribeToken,
   } = props;
+
+  const availableCategories = {
+    newsletter: {
+      name: "Newsletter",
+      emoji: "📰",
+      color: "blue",
+      href: "#newsletters",
+    },
+    receipt: {
+      name: "Receipt",
+      emoji: "🧾",
+      color: "green",
+      href: "#receipts",
+    },
+    marketing: {
+      name: "Marketing",
+      emoji: "🔊",
+      color: "purple",
+      href: "#marketing",
+    },
+    calendar: {
+      name: "Calendar",
+      emoji: "📅",
+      color: "amber",
+      href: "#calendar",
+    },
+    coldEmail: {
+      name: "Cold Email",
+      emoji: "🧊",
+      color: "gray",
+      href: "#cold-emails",
+    },
+    notification: {
+      name: "Notification",
+      emoji: "🔔",
+      color: "pink",
+      href: "#notifications",
+    },
+    toReply: { name: "To Reply", emoji: "⏰", color: "red", href: "#to-reply" },
+  };
+
+  const getCategoryInfo = (key: keyof typeof availableCategories) => {
+    return availableCategories[key];
+  };
+
+  const getCategoriesWithItemsCount = () => {
+    return Object.entries(availableCategories).filter(
+      ([key]) =>
+        Array.isArray(props[key as keyof DigestEmailProps]) &&
+        (props[key as keyof DigestEmailProps] as any[]).length > 0,
+    ).length;
+  };
+
+  /**
+   * Renders a grid of categories with a count of the number of emails in each category.
+   * This is needed because we have a total of 7 categories that can be displayed varying from 1 to 7.
+   * The grid is rendered differently depending on the number of categories.
+   *
+   * 1-2 categories: single row
+   * 3-4 categories: 2x2 grid
+   * 5-7 categories: 2x2 grid + bottom row
+   *
+   * @returns A React component that renders a grid of categories with a count of the number of emails in each category.
+   */
+  const renderCategoryGrid = () => {
+    const categories = Object.entries(availableCategories)
+      .map(([key, value]) => ({
+        key,
+        ...value,
+        count: Array.isArray(props[key as keyof DigestEmailProps])
+          ? (props[key as keyof DigestEmailProps] as any[]).length
+          : 0,
+      }))
+      .filter((cat) => cat.count > 0);
+
+    const categoryCount = categories.length;
+
+    if (categoryCount <= 1) return null;
+
+    // For 2 categories: single row
+    if (categoryCount === 2) {
+      return (
+        <Row className="mb-[0px]">
+          {categories.map((category, index) => (
+            <Column
+              key={category.key}
+              className={`w-[50%] ${index === 0 ? "pr-[4px]" : "pl-[4px]"}`}
+            >
+              <Link href={category.href} className="no-underline">
+                <div
+                  className={`bg-${category.color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+                >
+                  <Text
+                    className={`text-[13px] font-medium text-${category.color}-800 m-0`}
+                  >
+                    {category.emoji} {category.name}
+                  </Text>
+                  <div
+                    className={`bg-${category.color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                  >
+                    <Text
+                      className={`text-[12px] font-bold text-${category.color}-800 m-0`}
+                    >
+                      {category.count}
+                    </Text>
+                  </div>
+                </div>
+              </Link>
+            </Column>
+          ))}
+        </Row>
+      );
+    }
+
+    // For 3-4 categories: 2x2 grid
+    if (categoryCount <= 4) {
+      const rows = [];
+      for (let i = 0; i < categoryCount; i += 2) {
+        const isLastRow = i + 2 >= categoryCount;
+        rows.push(
+          <Row key={i} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
+            <Column className="w-[50%] pr-[4px]">
+              <Link href={categories[i].href} className="no-underline">
+                <div
+                  className={`bg-${categories[i].color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+                >
+                  <Text
+                    className={`text-[13px] font-medium text-${categories[i].color}-800 m-0`}
+                  >
+                    {categories[i].emoji} {categories[i].name}
+                  </Text>
+                  <div
+                    className={`bg-${categories[i].color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                  >
+                    <Text
+                      className={`text-[12px] font-bold text-${categories[i].color}-800 m-0`}
+                    >
+                      {categories[i].count}
+                    </Text>
+                  </div>
+                </div>
+              </Link>
+            </Column>
+            {i + 1 < categoryCount && (
+              <Column className="w-[50%] pl-[4px]">
+                <Link href={categories[i + 1].href} className="no-underline">
+                  <div
+                    className={`bg-${categories[i + 1].color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+                  >
+                    <Text
+                      className={`text-[13px] font-medium text-${categories[i + 1].color}-800 m-0`}
+                    >
+                      {categories[i + 1].emoji} {categories[i + 1].name}
+                    </Text>
+                    <div
+                      className={`bg-${categories[i + 1].color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                    >
+                      <Text
+                        className={`text-[12px] font-bold text-${categories[i + 1].color}-800 m-0`}
+                      >
+                        {categories[i + 1].count}
+                      </Text>
+                    </div>
+                  </div>
+                </Link>
+              </Column>
+            )}
+          </Row>,
+        );
+      }
+      return rows;
+    }
+
+    // For 5-7 categories: 2x2 grid + bottom row
+    const rows = [];
+    // First two rows (4 categories)
+    for (let i = 0; i < 4; i += 2) {
+      rows.push(
+        <Row key={i} className="mb-[6px]">
+          <Column className="w-[50%] pr-[4px]">
+            <Link href={categories[i].href} className="no-underline">
+              <div
+                className={`bg-${categories[i].color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+              >
+                <Text
+                  className={`text-[13px] font-medium text-${categories[i].color}-800 m-0`}
+                >
+                  {categories[i].emoji} {categories[i].name}
+                </Text>
+                <div
+                  className={`bg-${categories[i].color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                >
+                  <Text
+                    className={`text-[12px] font-bold text-${categories[i].color}-800 m-0`}
+                  >
+                    {categories[i].count}
+                  </Text>
+                </div>
+              </div>
+            </Link>
+          </Column>
+          <Column className="w-[50%] pl-[4px]">
+            <Link href={categories[i + 1].href} className="no-underline">
+              <div
+                className={`bg-${categories[i + 1].color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+              >
+                <Text
+                  className={`text-[13px] font-medium text-${categories[i + 1].color}-800 m-0`}
+                >
+                  {categories[i + 1].emoji} {categories[i + 1].name}
+                </Text>
+                <div
+                  className={`bg-${categories[i + 1].color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                >
+                  <Text
+                    className={`text-[12px] font-bold text-${categories[i + 1].color}-800 m-0`}
+                  >
+                    {categories[i + 1].count}
+                  </Text>
+                </div>
+              </div>
+            </Link>
+          </Column>
+        </Row>,
+      );
+    }
+
+    // Bottom row for remaining categories
+    const remainingCategories = categories.slice(4);
+    const remainingCount = remainingCategories.length;
+
+    if (remainingCount > 0) {
+      const widthClass =
+        remainingCount === 1
+          ? "w-[100%]"
+          : remainingCount === 2
+            ? "w-[50%]"
+            : "w-[33.33%]";
+
+      rows.push(
+        <Row key="bottom" className="mb-[0px]">
+          {remainingCategories.map((category, index) => (
+            <Column
+              key={category.key}
+              className={`${widthClass} ${
+                remainingCount === 1
+                  ? ""
+                  : remainingCount === 2
+                    ? index === 0
+                      ? "pr-[4px]"
+                      : "pl-[4px]"
+                    : index === 0
+                      ? "pr-[4px]"
+                      : index === remainingCount - 1
+                        ? "pl-[4px]"
+                        : "px-[2px]"
+              }`}
+            >
+              <Link href={category.href} className="no-underline">
+                <div
+                  className={`bg-${category.color}-50 p-[8px] rounded-[4px] flex justify-between items-center`}
+                >
+                  <Text
+                    className={`text-[13px] font-medium text-${category.color}-800 m-0`}
+                  >
+                    {category.emoji} {category.name}
+                  </Text>
+                  <div
+                    className={`bg-${category.color}-100 px-[8px] py-[2px] rounded-[12px]`}
+                  >
+                    <Text
+                      className={`text-[12px] font-bold text-${category.color}-800 m-0`}
+                    >
+                      {category.count}
+                    </Text>
+                  </div>
+                </div>
+              </Link>
+            </Column>
+          ))}
+        </Row>,
+      );
+    }
+
+    return rows;
+  };
 
   return (
     <Html>
@@ -97,287 +382,225 @@ export default function DigestEmail(props: DigestEmailProps) {
                 Your Digest
               </Heading>
               <Text className="mb-8 text-lg leading-8">
-                Here's a summary of important emails that were auto-archived.
+                Here's a summary of your important emails.
               </Text>
             </Section>
 
-            {/* Category Countdown - Colored Background Rows with Hyperlinks */}
-            <Section className="mb-[32px]">
-              <Heading className="text-[18px] font-bold text-gray-800 mt-[0px] mb-[16px]">
-                Email Categories
-              </Heading>
-              <div className="bg-blue-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-blue-800 m-0">
-                  📰 Newsletters
-                </Text>
-                <div className="bg-blue-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-blue-800 m-0">
-                    {newsletters.length}
-                  </Text>
+            {getCategoriesWithItemsCount() > 1 && (
+              <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
+            )}
+
+            {newsletter.length > 0 && (
+              <Section className="mb-[20px]" id="newsletters">
+                <div className="bg-blue-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-blue-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("newsletter").emoji}{" "}
+                    {getCategoryInfo("newsletter").name} ({newsletter.length})
+                  </Heading>
+
+                  {newsletter.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-blue-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
                 </div>
-              </div>
-
-              <div className="bg-green-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-green-800 m-0">
-                  🧾 Receipts
-                </Text>
-                <div className="bg-green-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-green-800 m-0">
-                    {receipts.length}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="bg-purple-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-purple-800 m-0">
-                  🔊 Marketing
-                </Text>
-                <div className="bg-purple-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-purple-800 m-0">
-                    {marketing.length}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="bg-amber-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-amber-800 m-0">
-                  📅 Calendar
-                </Text>
-                <div className="bg-amber-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-amber-800 m-0">
-                    {calendar.length}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-gray-800 m-0">
-                  🧊 Cold E-mails
-                </Text>
-                <div className="bg-gray-200 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-gray-800 m-0">
-                    {coldEmails.length}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="bg-pink-50 p-[12px] rounded-[4px] mb-[8px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-pink-800 m-0">
-                  🔔 Notification
-                </Text>
-                <div className="bg-pink-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-pink-800 m-0">
-                    {notification.length}
-                  </Text>
-                </div>
-              </div>
-
-              <div className="bg-red-50 p-[12px] rounded-[4px] mb-[0px] flex justify-between items-center">
-                <Text className="text-[14px] font-medium text-red-800 m-0">
-                  ⏰ To Reply
-                </Text>
-                <div className="bg-red-100 px-[12px] py-[4px] rounded-[16px]">
-                  <Text className="text-[14px] font-bold text-red-800 m-0">
-                    {toReply.length}
-                  </Text>
-                </div>
-              </div>
-            </Section>
-
-            {/* Newsletters Section */}
-            <Section className="mb-[24px]" id="newsletters">
-              <div className="bg-blue-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-blue-800 mt-[0px] mb-[16px]">
-                  📰 Newsletters ({newsletters.length})
-                </Heading>
-
-                {newsletters.map((email, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-blue-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {email.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {email.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+              </Section>
+            )}
 
             {/* Receipts Section */}
-            <Section className="mb-[24px]" id="receipts">
-              <div className="bg-green-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-green-800 mt-[0px] mb-[16px]">
-                  🧾 Receipts ({receipts.length})
-                </Heading>
+            {receipt.length > 0 && (
+              <Section className="mb-[20px]" id="receipts">
+                <div className="bg-green-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-green-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("receipt").emoji}{" "}
+                    {getCategoryInfo("receipt").name} ({receipt.length})
+                  </Heading>
 
-                {receipts.map((receipt, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-green-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {receipt.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {receipt.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {receipt.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+                  {receipt.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-green-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Marketing Section */}
-            <Section className="mb-[24px]" id="marketing">
-              <div className="bg-purple-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-purple-800 mt-[0px] mb-[16px]">
-                  🔊 Marketing ({marketing.length})
-                </Heading>
+            {marketing.length > 0 && (
+              <Section className="mb-[20px]" id="marketing">
+                <div className="bg-purple-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-purple-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("marketing").emoji}{" "}
+                    {getCategoryInfo("marketing").name} ({marketing.length})
+                  </Heading>
 
-                {marketing.map((email, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-purple-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {email.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {email.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+                  {marketing.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-purple-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Calendar Section */}
-            <Section className="mb-[24px]" id="calendar">
-              <div className="bg-amber-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-amber-800 mt-[0px] mb-[16px]">
-                  📅 Calendar ({calendar.length})
-                </Heading>
+            {calendar.length > 0 && (
+              <Section className="mb-[20px]" id="calendar">
+                <div className="bg-amber-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-amber-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("calendar").emoji}{" "}
+                    {getCategoryInfo("calendar").name} ({calendar.length})
+                  </Heading>
 
-                {calendar.map((event, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-amber-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {event.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {event.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {event.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+                  {calendar.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-amber-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* Cold Emails Section */}
-            <Section className="mb-[24px]" id="cold-emails">
-              <div className="bg-gray-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-gray-800 mt-[0px] mb-[16px]">
-                  🧊 Cold E-mails ({coldEmails.length})
-                </Heading>
+            {coldEmail.length > 0 && (
+              <Section className="mb-[20px]" id="cold-emails">
+                <div className="bg-gray-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-gray-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("coldEmail").emoji}{" "}
+                    {getCategoryInfo("coldEmail").name} ({coldEmail.length})
+                  </Heading>
 
-                {coldEmails.map((email, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-gray-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {email.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {email.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+                  {coldEmail.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-gray-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
-            {/* Notification Section */}
-            <Section className="mb-[24px]" id="notification">
-              <div className="bg-pink-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-pink-800 mt-[0px] mb-[16px]">
-                  🔔 Notification ({notification.length})
-                </Heading>
+            {/* Notifications Section */}
+            {notification.length > 0 && (
+              <Section className="mb-[20px]" id="notifications">
+                <div className="bg-pink-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-pink-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("notification").emoji}{" "}
+                    {getCategoryInfo("notification").name} (
+                    {notification.length})
+                  </Heading>
 
-                {notification.map((notification, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-pink-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {notification.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {notification.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {notification.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
+                  {notification.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-pink-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* To Reply Section */}
-            <Section className="mb-[24px]" id="to-reply">
-              <div className="bg-red-50 rounded-[8px] p-[16px]">
-                <Heading className="text-[18px] font-bold text-red-800 mt-[0px] mb-[16px]">
-                  ⏰ To Reply ({toReply.length})
-                </Heading>
+            {toReply.length > 0 && (
+              <Section className="mb-[20px]" id="to-reply">
+                <div className="bg-red-50 rounded-[6px] p-[12px]">
+                  <Heading className="text-[16px] font-bold text-red-800 mt-[0px] mb-[12px]">
+                    {getCategoryInfo("toReply").emoji}{" "}
+                    {getCategoryInfo("toReply").name} ({toReply.length})
+                  </Heading>
 
-                {toReply.map((email, index) => (
-                  <div
-                    key={index}
-                    className="mb-[12px] bg-white rounded-[8px] p-[12px] border-solid border-[1px] border-red-200"
-                  >
-                    <Text className="text-[16px] font-bold text-gray-800 m-0">
-                      {email.from}
-                    </Text>
-                    <Text className="text-[14px] text-gray-700 mt-[4px] mb-[4px]">
-                      {email.subject}
-                    </Text>
-                    <Text className="text-[13px] text-gray-500 m-0">
-                      {email.content}
-                    </Text>
-                  </div>
-                ))}
-              </div>
-            </Section>
-
-            {/* Action Button */}
-            <Section className="text-center mb-[24px]">
-              <Button
-                href="https://example.com/inbox"
-                className="bg-blue-600 text-white px-[24px] py-[12px] rounded-[4px] text-[16px] font-medium no-underline inline-block box-border"
-              >
-                View Complete Inbox
-              </Button>
-            </Section>
+                  {toReply.map((item, index) => (
+                    <div
+                      key={index}
+                      className="mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] border-red-200"
+                    >
+                      <Text className="text-[14px] font-bold text-gray-800 m-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                        {item.from}
+                      </Text>
+                      <div
+                        className="text-[12px] text-gray-500 mt-[2px] m-0"
+                        dangerouslySetInnerHTML={{ __html: item.content }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             <Hr className="border-solid border-gray-200 my-[24px]" />
-
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
         </Body>
@@ -389,7 +612,7 @@ export default function DigestEmail(props: DigestEmailProps) {
 DigestEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   unsubscribeToken: "123",
-  newsletters: [
+  newsletter: [
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
@@ -409,7 +632,7 @@ DigestEmail.PreviewProps = {
         "Discover the newest apps, websites, and tech products that launched today...",
     },
   ],
-  receipts: [
+  receipt: [
     {
       from: "Amazon",
       subject: "Order #112-3456789-0123456",
@@ -460,7 +683,7 @@ DigestEmail.PreviewProps = {
       content: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
     },
   ],
-  coldEmails: [
+  coldEmail: [
     {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
@@ -516,10 +739,6 @@ DigestEmail.PreviewProps = {
       content: "Received: Tuesday, 9:00 AM • Due: Friday",
     },
   ],
-  executedRules: {
-    rule1: [{ content: "Rule 1 content", type: "text" }],
-    rule2: [{ content: "Rule 2 content", type: "text" }],
-  },
 };
 
 function Footer({

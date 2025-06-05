@@ -6,6 +6,12 @@ import { ExecutedRuleStatus, ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
+import { env } from "@/env";
+import { getCronSecretHeader } from "@/utils/cron";
+import { publishToQstashQueue } from "@/utils/upstash";
+import { logger } from "@sentry/nextjs";
+import { DigestBody } from "@/app/api/ai/digest/validation";
+import { enqueueDigest } from "@/utils/digest";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -71,15 +77,6 @@ export async function executeAct({
           logger,
         });
       }
-
-      if (action.type === ActionType.DIGEST) {
-        await upsertDigest({
-          message,
-          emailAccountId,
-          actionId: action.id,
-          actionResult,
-        });
-      }
     } catch (error) {
       await prisma.executedRule.update({
         where: { id: executedRule.id },
@@ -97,44 +94,4 @@ export async function executeAct({
     .catch((error) => {
       logger.error("Failed to update executed rule", { error });
     });
-}
-
-// TODO: move to utils
-async function upsertDigest({
-  message,
-  emailAccountId,
-  actionId,
-  actionResult,
-}: {
-  message: ParsedMessage;
-  emailAccountId: string;
-  actionId: string;
-  actionResult: any;
-}) {
-  const existingDigest = await prisma.digest.findFirst({
-    where: {
-      messageId: message.id,
-      threadId: message.threadId,
-      emailAccountId,
-    },
-  });
-  if (existingDigest) {
-    await prisma.digest.update({
-      where: { id: existingDigest.id },
-      data: {
-        summary: actionResult.summary,
-        actionId,
-      },
-    });
-  } else {
-    await prisma.digest.create({
-      data: {
-        messageId: message.id,
-        threadId: message.threadId,
-        summary: actionResult.summary,
-        emailAccountId,
-        actionId,
-      },
-    });
-  }
 }

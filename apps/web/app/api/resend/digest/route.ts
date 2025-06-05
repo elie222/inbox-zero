@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
@@ -10,13 +9,17 @@ import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { camelCase } from "lodash";
 import { calculateNextDigestDate } from "@/utils/digest";
-import { C } from "vitest/dist/chunks/reporters.d.CfRkRKN2.js";
+import { getGmailAndAccessTokenForEmail } from "@/utils/account";
+import { getMessagesBatch } from "@/utils/gmail/message";
+import {
+  digestCategorySchema,
+  sendDigestEmailBody,
+  type Digest,
+} from "./validation";
 
 export const maxDuration = 60;
 
 const logger = createScopedLogger("resend/digest");
-
-const sendDigestEmailBody = z.object({ emailAccountId: z.string() });
 
 async function sendEmail({
   emailAccountId,
@@ -28,6 +31,10 @@ async function sendEmail({
   const loggerOptions = { emailAccountId, force };
 
   logger.info("Sending digest email", loggerOptions);
+
+  const { accessToken } = await getGmailAndAccessTokenForEmail({
+    emailAccountId,
+  });
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -43,20 +50,19 @@ async function sendEmail({
   const digests = await prisma.digest.findMany({
     where: {
       emailAccountId,
-      action: {
-        executedRule: {
-          status: "APPLIED",
-        },
-      },
     },
     include: {
-      action: {
+      items: {
         include: {
-          executedRule: {
+          action: {
             include: {
-              rule: {
-                select: {
-                  name: true,
+              executedRule: {
+                include: {
+                  rule: {
+                    select: {
+                      name: true,
+                    },
+                  },
                 },
               },
             },
@@ -66,51 +72,43 @@ async function sendEmail({
     },
   });
 
-  // Transform the data to match the expected format
-  const executedRules = digests.map((digest) => ({
-    ...digest.action?.executedRule,
-    content: digest.summary,
-  }));
-
-  /**
-   * Group actions by rule name using camelCase
-   * So the output will be:
-   * {
-   *   "toReply": [
-   *     { content: "Action content" }
-   *   ],
-   *   "newsletters": [
-   *     { content: "Action content" }
-   *   ],
-   *   ...
-   * */
-  const executedRulesByRule = executedRules.reduce(
-    (acc, executedRule) => {
-      const ruleName = camelCase(executedRule.rule?.name || "Unknown Rule");
-      if (!acc[ruleName]) {
-        acc[ruleName] = [];
-      }
-      acc[ruleName].push({ content: executedRule.content });
-      return acc;
-    },
-    {} as Record<string, { content: string | null }[]>,
-  );
-
-  const token = await createUnsubscribeToken({ emailAccountId });
-
-  console.log(executedRulesByRule);
-
-  await sendDigestEmail({
-    to: emailAccount.email,
-    emailProps: {
-      ...executedRulesByRule,
-      baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      unsubscribeToken: token,
-      date: new Date(),
-    },
+  const messages = await getMessagesBatch({
+    messageIds: digests.flatMap((digest) =>
+      digest.items.map((item) => item.messageId),
+    ),
+    accessToken,
   });
 
-  return;
+  // Create a message lookup map for O(1) access
+  const messageMap = new Map(messages.map((m) => [m.id, m]));
+
+  // Transform and group in a single pass
+  const executedRulesByRule = digests.reduce((acc, digest) => {
+    digest.items.forEach((item) => {
+      const message = messageMap.get(item.messageId);
+      const ruleName = camelCase(
+        item.action?.executedRule?.rule?.name || "Unknown Rule",
+      );
+
+      // Only include if it's one of our known categories
+      const categoryResult = digestCategorySchema.safeParse(ruleName);
+      if (categoryResult.success) {
+        const category = categoryResult.data;
+        if (!acc[category]) {
+          acc[category] = [];
+        }
+
+        acc[category].push({
+          content: item.summary || "",
+          from: message?.headers?.from || "",
+          subject: message?.headers?.subject || "",
+        });
+      }
+    });
+    return acc;
+  }, {} as Digest);
+
+  const token = await createUnsubscribeToken({ emailAccountId });
 
   await Promise.all([
     sendDigestEmail({
@@ -138,6 +136,16 @@ async function sendEmail({
           }),
         ]
       : []),
+    // Mark all digests as sent
+    prisma.digest.updateMany({
+      where: {
+        emailAccountId,
+        sent: false,
+      },
+      data: {
+        sent: true,
+      },
+    }),
   ]);
 
   return { success: true };
@@ -179,7 +187,6 @@ export const POST = withError(async (request) => {
     await sendEmail({ emailAccountId });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log(error);
     logger.error("Error sending digest email", { error });
     captureException(error);
     return NextResponse.json(

@@ -12,7 +12,7 @@ const schema = z.object({
 });
 export type AICheckResult = z.infer<typeof schema>;
 
-export async function aiSummarizeEmail({
+export async function aiSummarizeEmailForDigest({
   emailAccount,
   messageToSummarize,
 }: {
@@ -28,10 +28,25 @@ export async function aiSummarizeEmail({
 
   const prompt = `
 
-Summarize the following email into a daily digest format. 
-Include key points or action items, and any important dates.
-Keep summaries concise (2 - 4 sentences per email).
-The tone should be professional and easy to scan quickly
+Summarize the following email for inclusion in a daily digest email.
+	•	Use a concise, professional format that is easy to scan.
+	•	Choose the most appropriate output style:
+	•	Use bullet points for general summaries with 2 ~ 4 key items.
+	•	Use an HTML table (with width="100%") if the email includes any monetary values (e.g., $, €, £, R$).
+	•	Use a plain text paragraph if neither bullet points nor a table makes sense.
+	•	Highlight critical information using <strong> tags — such as amounts, dates, deadlines, quantities, order numbers, or payment methods.
+	•	Do not highlight labels or descriptions — only highlight the actual values.
+	•	Ensure tables are minimalist and email-friendly, with:
+	•	Left-aligned header rows
+	•	No unnecessary borders or visual clutter
+	•	Only useful columns included (omit any unhelpful headers)
+	•	Align the last column and its content to the right (especially for numeric or monetary values)
+	•	Limit each summary to the essentials: no more than 4 bullet points or 5 table rows.
+	•	Output must be clean, valid HTML, ready for direct use in an email client.
+
+When summarizing receipts, invoices, or purchase confirmations:
+	•	Always use a table layout, and include key fields like item, amount, date, and payment method.
+
 
 <message>
 ${stringifyEmailSimple(userMessageForPrompt)}

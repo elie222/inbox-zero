@@ -26,10 +26,8 @@ async function sendDigestAllUpdate() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       digestFrequency: {
-        is: {
-          nextOcurrenceAt: {
-            lte: now,
-          },
+        nextOcurrenceAt: {
+          lte: now,
         },
       },
       // Only send to premium users
