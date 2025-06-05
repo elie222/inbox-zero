@@ -138,15 +138,6 @@ export const updateMultiAccountPremiumAction = actionClientUser
       }
     }
 
-    console.log(
-      "🚀 ~ .action ~ premium.emailAccountsAccess:",
-      premium.emailAccountsAccess,
-    );
-    console.log("🚀 ~ .action ~ uniqueEmails.length:", uniqueEmails.length);
-    console.log(
-      "🚀 ~ .action ~ premium.stripeSubscriptionItemId:",
-      premium.stripeSubscriptionItemId,
-    );
     if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
       // Check if user has an active subscription
       if (
