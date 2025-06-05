@@ -26,6 +26,7 @@ import {
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { Suspense } from "react";
 
 export const maxDuration = 3;
 
@@ -119,14 +120,16 @@ export default function Components() {
         <div>
           <div className="underline">Tabs</div>
           <div className="mt-4">
-            <Tabs defaultValue="account" className="w-[400px]">
-              <TabsList>
-                <TabsTrigger value="account">Account</TabsTrigger>
-                <TabsTrigger value="password">Password</TabsTrigger>
-              </TabsList>
-              <TabsContent value="account">Account content</TabsContent>
-              <TabsContent value="password">Password content</TabsContent>
-            </Tabs>
+            <Suspense>
+              <Tabs defaultValue="account" className="w-[400px]">
+                <TabsList>
+                  <TabsTrigger value="account">Account</TabsTrigger>
+                  <TabsTrigger value="password">Password</TabsTrigger>
+                </TabsList>
+                <TabsContent value="account">Account content</TabsContent>
+                <TabsContent value="password">Password content</TabsContent>
+              </Tabs>
+            </Suspense>
           </div>
         </div>
 
