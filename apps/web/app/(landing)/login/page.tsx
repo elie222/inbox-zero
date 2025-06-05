@@ -1,4 +1,3 @@
-import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -38,9 +37,7 @@ export default async function AuthenticationPage(props: {
           </p>
         </div>
         <div className="mt-4">
-          <Suspense>
-            <LoginForm />
-          </Suspense>
+          <LoginForm />
         </div>
 
         {searchParams?.error && (
@@ -108,9 +105,7 @@ function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
         title="Error logging in"
         description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
       />
-      <Suspense>
-        <AutoLogOut loggedIn={loggedIn} />
-      </Suspense>
+      <AutoLogOut loggedIn={loggedIn} />
     </>
   );
 }
