@@ -1,7 +1,7 @@
+import groupBy from "lodash/groupBy";
 import subDays from "date-fns/subDays";
 import prisma from "@/utils/prisma";
-import { ActionType, SystemType } from "@prisma/client";
-import { captureException } from "@/utils/error";
+import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
 const MAX_DRAFTS_TO_CHECK = 10;
@@ -15,120 +15,121 @@ const logger = createScopedLogger("auto-draft/disable-unused");
 export async function disableUnusedAutoDrafts() {
   logger.info("Starting to check for unused auto-drafts");
 
-  const oneDayAgo = subDays(new Date(), 1);
-
-  // TODO: may need to make this more efficient
   // Find all users who have the auto-draft feature enabled (have an Action of type DRAFT_EMAIL)
-  const emailAccountsWithAutoDraft = await prisma.emailAccount.findMany({
-    where: {
-      rules: {
-        some: {
-          systemType: SystemType.TO_REPLY,
-          actions: {
-            some: {
-              type: ActionType.DRAFT_EMAIL,
-            },
-          },
-        },
-      },
-    },
-    select: {
-      id: true,
-      rules: {
-        where: {
-          systemType: SystemType.TO_REPLY,
-        },
-        select: {
-          id: true,
-        },
-      },
-    },
-  });
+  const autoDraftActions = await findAutoDraftActions();
 
-  logger.info(
-    `Found ${emailAccountsWithAutoDraft.length} users with auto-draft enabled`,
+  logger.info("Found auto-draft actions", { count: autoDraftActions.length });
+
+  const groupedByEmailAccount = groupBy(
+    autoDraftActions,
+    (action) => action.rule.emailAccountId,
   );
 
+  logger.info("Grouped by email account", {
+    count: Object.keys(groupedByEmailAccount).length,
+  });
+
   const results = {
-    usersChecked: emailAccountsWithAutoDraft.length,
+    usersChecked: Object.keys(groupedByEmailAccount).length,
     usersDisabled: 0,
     errors: 0,
   };
 
   // Process each user
-  for (const emailAccount of emailAccountsWithAutoDraft) {
-    const emailAccountId = emailAccount.id;
+  const entries = Object.entries(groupedByEmailAccount);
 
+  for (const [emailAccountId, actions] of entries) {
     try {
-      // Find the last 10 drafts created for the user
-      const lastTenDrafts = await prisma.executedAction.findMany({
-        where: {
-          executedRule: {
-            emailAccountId,
-            rule: {
-              systemType: SystemType.TO_REPLY,
-            },
-          },
-          type: ActionType.DRAFT_EMAIL,
-          draftId: { not: null },
-          createdAt: { lt: oneDayAgo }, // Only check drafts older than a day
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        take: MAX_DRAFTS_TO_CHECK,
-        select: {
-          id: true,
-          wasDraftSent: true,
-          draftSendLog: {
-            select: {
-              id: true,
-            },
-          },
-        },
-      });
+      logger.info("Processing email account", { emailAccountId });
 
-      // Skip if user has fewer than 10 drafts (not enough data to make a decision)
-      if (lastTenDrafts.length < MAX_DRAFTS_TO_CHECK) {
-        logger.info("Skipping user - only has few drafts", {
+      const ruleIds = actions.map((action) => action.rule.id);
+
+      const executedDraftActions = await findExecutedDraftActions(ruleIds);
+
+      if (executedDraftActions.length < MAX_DRAFTS_TO_CHECK) {
+        logger.info("Skipping email account - not enough drafts", {
           emailAccountId,
-          numDrafts: lastTenDrafts.length,
         });
         continue;
       }
 
-      // Check if any of the drafts were sent
-      const anyDraftsSent = lastTenDrafts.some(
-        (draft) => draft.wasDraftSent === true || draft.draftSendLog,
+      logger.info("Found executed draft actions", {
+        count: executedDraftActions.length,
+      });
+
+      const anyDraftsSent = executedDraftActions.some(
+        (action) => action.wasDraftSent === true,
       );
 
-      // If none of the drafts were sent, disable auto-draft
-      if (!anyDraftsSent) {
-        logger.info("Disabling auto-draft for user - last 10 drafts not used", {
+      if (anyDraftsSent) {
+        logger.info("Skipping email account - drafts were sent", {
           emailAccountId,
         });
-
-        // Delete the DRAFT_EMAIL actions from all TO_REPLY rules
-        await prisma.action.deleteMany({
-          where: {
-            rule: {
-              emailAccountId,
-              systemType: SystemType.TO_REPLY,
-            },
-            type: ActionType.DRAFT_EMAIL,
-            content: null,
-          },
+      } else {
+        logger.info("Disabling auto-draft for email account", {
+          emailAccountId,
         });
-
+        const actionIds = actions.map((action) => action.id);
+        await deleteAutoDraftActions(actionIds);
         results.usersDisabled++;
       }
     } catch (error) {
-      logger.error("Error processing user", { emailAccountId, error });
-      captureException(error);
+      logger.error("Error processing email account", {
+        emailAccountId,
+        error,
+      });
       results.errors++;
     }
   }
 
   logger.info("Completed auto-draft usage check", results);
   return results;
+}
+
+async function findAutoDraftActions() {
+  return prisma.action.findMany({
+    where: {
+      type: ActionType.DRAFT_EMAIL,
+      content: null, // if empty then we're auto-drafting
+    },
+    select: {
+      id: true,
+      rule: {
+        select: {
+          id: true,
+          emailAccountId: true,
+        },
+      },
+    },
+  });
+}
+
+async function findExecutedDraftActions(ruleIds: string[]) {
+  const oneDayAgo = subDays(new Date(), 1);
+
+  return prisma.executedAction.findMany({
+    where: {
+      executedRule: { ruleId: { in: ruleIds } },
+      draftId: { not: null },
+      createdAt: { lt: oneDayAgo }, // Only check drafts older than a day
+    },
+    select: {
+      id: true,
+      wasDraftSent: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: MAX_DRAFTS_TO_CHECK,
+  });
+}
+
+async function deleteAutoDraftActions(actionIds: string[]) {
+  return prisma.action.deleteMany({
+    where: {
+      id: { in: actionIds },
+      type: ActionType.DRAFT_EMAIL,
+      content: null,
+    },
+  });
 }

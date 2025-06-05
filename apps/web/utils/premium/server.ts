@@ -2,7 +2,7 @@ import sumBy from "lodash/sumBy";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import { PremiumTier } from "@prisma/client";
+import type { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { hasTierAccess, isPremium } from "@/utils/premium";
 import { SafeError } from "@/utils/error";
@@ -25,12 +25,7 @@ export async function upgradeToPremiumLemon(options: {
   lemonLicenseInstanceId?: string;
   emailAccountsAccess?: number;
 }) {
-  const { userId, ...rest } = options;
-
-  const lemonSqueezyRenewsAt =
-    options.tier === PremiumTier.LIFETIME
-      ? new Date(Date.now() + TEN_YEARS)
-      : options.lemonSqueezyRenewsAt;
+  const { userId, ...data } = options;
 
   const user = await prisma.user.findUnique({
     where: { id: options.userId },
@@ -38,11 +33,6 @@ export async function upgradeToPremiumLemon(options: {
   });
 
   if (!user) throw new Error(`User not found for id ${options.userId}`);
-
-  const data = {
-    ...rest,
-    lemonSqueezyRenewsAt,
-  };
 
   if (user.premiumId) {
     return await prisma.premium.update({

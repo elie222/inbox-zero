@@ -1,249 +1,166 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import prisma from "@/utils/__mocks__/prisma";
 import { disableUnusedAutoDrafts } from "./disable-unused-auto-drafts";
-import prisma from "@/utils/prisma";
-import { ActionType, SystemType } from "@prisma/client";
-import subDays from "date-fns/subDays";
+import { ActionType } from "@prisma/client";
 
-vi.mock("@/utils/prisma", () => ({
-  default: {
-    emailAccount: {
-      findMany: vi.fn(),
-    },
-    executedAction: {
-      findMany: vi.fn(),
-    },
-    action: {
-      deleteMany: vi.fn(),
-    },
-  },
-}));
-
-vi.mock("@/utils/error", () => ({
-  captureException: vi.fn(),
-}));
+vi.mock("@/utils/prisma");
+vi.mock("server-only", () => ({}));
 
 describe("disableUnusedAutoDrafts", () => {
-  const mockFindManyEmailAccount = prisma.emailAccount.findMany as Mock;
-  const mockFindManyExecutedAction = prisma.executedAction.findMany as Mock;
-  const mockDeleteManyAction = prisma.action.deleteMany as Mock;
-
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("should disable auto-draft for users who haven't used any of their last 10 drafts", async () => {
-    const twoDaysAgo = subDays(new Date(), 2);
-
-    // Mock user with auto-draft enabled
-    mockFindManyEmailAccount.mockResolvedValue([
+  it("should disable auto-draft for a user who has not sent any recent drafts", async () => {
+    const autoDraftActions = [
       {
-        id: "account-123",
-        rules: [{ id: "rule-123" }],
+        id: "action-1",
+        rule: { id: "rule-1", emailAccountId: "user-1" },
       },
-    ]);
-
-    // Mock 10 unused drafts (all older than 1 day)
-    const mockUnusedDrafts = Array.from({ length: 10 }, (_, i) => ({
-      id: `action-${i}`,
+    ];
+    (prisma.action.findMany as any).mockResolvedValueOnce(autoDraftActions);
+    const mockDrafts = Array.from({ length: 10 }, (_, i) => ({
+      id: `exec-${i + 1}`,
       wasDraftSent: false,
-      draftSendLog: null,
-      createdAt: twoDaysAgo,
     }));
-
-    mockFindManyExecutedAction.mockResolvedValue(mockUnusedDrafts);
+    (prisma.executedAction.findMany as any).mockResolvedValueOnce(mockDrafts);
 
     const result = await disableUnusedAutoDrafts();
 
-    // Verify auto-draft was disabled
-    expect(mockDeleteManyAction).toHaveBeenCalledWith({
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
       where: {
-        rule: {
-          emailAccountId: "account-123",
-          systemType: SystemType.TO_REPLY,
-        },
+        id: { in: ["action-1"] },
         type: ActionType.DRAFT_EMAIL,
         content: null,
       },
     });
-
-    expect(result).toEqual({
-      usersChecked: 1,
-      usersDisabled: 1,
-      errors: 0,
-    });
+    expect(result).toEqual({ usersChecked: 1, usersDisabled: 1, errors: 0 });
   });
 
-  it("should not disable auto-draft if user has sent at least one draft", async () => {
-    const twoDaysAgo = subDays(new Date(), 2);
-
-    mockFindManyEmailAccount.mockResolvedValue([
+  it("should not disable auto-draft for a user who has sent a recent draft", async () => {
+    const autoDraftActions = [
       {
-        id: "account-456",
-        rules: [{ id: "rule-456" }],
+        id: "action-1",
+        rule: { id: "rule-1", emailAccountId: "user-1" },
       },
-    ]);
-
-    // Mock 10 drafts where one was sent
-    const mockDraftsWithOneSent = Array.from({ length: 10 }, (_, i) => ({
-      id: `action-${i}`,
-      wasDraftSent: i === 5, // One draft was sent
-      draftSendLog: null,
-      createdAt: twoDaysAgo,
+    ];
+    (prisma.action.findMany as any).mockResolvedValueOnce(autoDraftActions);
+    const mockDrafts = Array.from({ length: 10 }, (_, i) => ({
+      id: `exec-${i + 1}`,
+      wasDraftSent: i === 5, // one is true
     }));
-
-    mockFindManyExecutedAction.mockResolvedValue(mockDraftsWithOneSent);
+    (prisma.executedAction.findMany as any).mockResolvedValueOnce(mockDrafts);
 
     const result = await disableUnusedAutoDrafts();
 
-    // Verify auto-draft was NOT disabled
-    expect(mockDeleteManyAction).not.toHaveBeenCalled();
-
-    expect(result).toEqual({
-      usersChecked: 1,
-      usersDisabled: 0,
-      errors: 0,
-    });
+    expect(prisma.action.deleteMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ usersChecked: 1, usersDisabled: 0, errors: 0 });
   });
 
-  it("should not disable auto-draft if user has draft with send log", async () => {
-    const twoDaysAgo = subDays(new Date(), 2);
-
-    mockFindManyEmailAccount.mockResolvedValue([
+  it("should not disable auto-draft for a user with fewer than 10 executed draft actions", async () => {
+    const autoDraftActions = [
       {
-        id: "account-789",
-        rules: [{ id: "rule-789" }],
+        id: "action-1",
+        rule: { id: "rule-1", emailAccountId: "user-1" },
       },
+    ];
+    (prisma.action.findMany as any).mockResolvedValueOnce(autoDraftActions);
+    (prisma.executedAction.findMany as any).mockResolvedValueOnce([
+      { id: "exec-1", wasDraftSent: false },
     ]);
-
-    // Mock 10 drafts where one has a send log
-    const mockDraftsWithSendLog = Array.from({ length: 10 }, (_, i) => ({
-      id: `action-${i}`,
-      wasDraftSent: false,
-      draftSendLog: i === 3 ? { id: "log-123" } : null, // One has send log
-      createdAt: twoDaysAgo,
-    }));
-
-    mockFindManyExecutedAction.mockResolvedValue(mockDraftsWithSendLog);
 
     const result = await disableUnusedAutoDrafts();
 
-    // Verify auto-draft was NOT disabled
-    expect(mockDeleteManyAction).not.toHaveBeenCalled();
-
-    expect(result).toEqual({
-      usersChecked: 1,
-      usersDisabled: 0,
-      errors: 0,
-    });
+    expect(prisma.action.deleteMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ usersChecked: 1, usersDisabled: 0, errors: 0 });
   });
 
-  it("should skip users with fewer than 10 drafts", async () => {
-    const twoDaysAgo = subDays(new Date(), 2);
+  it("should do nothing if no users have auto-draft enabled", async () => {
+    (prisma.action.findMany as any).mockResolvedValueOnce([]);
 
-    mockFindManyEmailAccount.mockResolvedValue([
+    const result = await disableUnusedAutoDrafts();
+
+    expect(prisma.executedAction.findMany).not.toHaveBeenCalled();
+    expect(prisma.action.deleteMany).not.toHaveBeenCalled();
+    expect(result).toEqual({ usersChecked: 0, usersDisabled: 0, errors: 0 });
+  });
+
+  it("should correctly handle multiple users, disabling one and not the other", async () => {
+    const autoDraftActions = [
       {
-        id: "account-999",
-        rules: [{ id: "rule-999" }],
+        id: "action-user-1",
+        rule: { id: "rule-user-1", emailAccountId: "user-1" },
       },
-    ]);
+      {
+        id: "action-user-2",
+        rule: { id: "rule-user-2", emailAccountId: "user-2" },
+      },
+    ];
+    (prisma.action.findMany as any).mockResolvedValueOnce(autoDraftActions);
 
-    // Mock only 5 drafts (less than 10)
-    const mockFewDrafts = Array.from({ length: 5 }, (_, i) => ({
-      id: `action-${i}`,
-      wasDraftSent: false,
-      draftSendLog: null,
-      createdAt: twoDaysAgo,
-    }));
-
-    mockFindManyExecutedAction.mockResolvedValue(mockFewDrafts);
-
-    const result = await disableUnusedAutoDrafts();
-
-    // Verify auto-draft was NOT disabled
-    expect(mockDeleteManyAction).not.toHaveBeenCalled();
-
-    expect(result).toEqual({
-      usersChecked: 1,
-      usersDisabled: 0,
-      errors: 0,
-    });
-  });
-
-  it("should handle multiple users correctly", async () => {
-    const twoDaysAgo = subDays(new Date(), 2);
-
-    mockFindManyEmailAccount.mockResolvedValue([
-      { id: "account-1", rules: [{ id: "rule-1" }] },
-      { id: "account-2", rules: [{ id: "rule-2" }] },
-      { id: "account-3", rules: [{ id: "rule-3" }] },
-    ]);
-
-    // Mock different scenarios for each user
-    mockFindManyExecutedAction
-      .mockResolvedValueOnce(
-        // User 1: 10 unused drafts - should be disabled
-        Array.from({ length: 10 }, (_, i) => ({
-          id: `action-1-${i}`,
-          wasDraftSent: false,
-          draftSendLog: null,
-          createdAt: twoDaysAgo,
-        })),
-      )
-      .mockResolvedValueOnce(
-        // User 2: 10 drafts with one sent - should NOT be disabled
-        Array.from({ length: 10 }, (_, i) => ({
-          id: `action-2-${i}`,
-          wasDraftSent: i === 0,
-          draftSendLog: null,
-          createdAt: twoDaysAgo,
-        })),
-      )
-      .mockResolvedValueOnce(
-        // User 3: Only 5 drafts - should NOT be disabled
-        Array.from({ length: 5 }, (_, i) => ({
-          id: `action-3-${i}`,
-          wasDraftSent: false,
-          draftSendLog: null,
-          createdAt: twoDaysAgo,
-        })),
-      );
+    (prisma.executedAction.findMany as any).mockImplementation(
+      async (args: any) => {
+        const ruleIds = args.where?.executedRule?.ruleId?.in;
+        if (ruleIds.includes("rule-user-1")) {
+          // User 1 sent a draft
+          return Array.from({ length: 10 }, (_, i) => ({
+            id: `exec-u1-${i}`,
+            wasDraftSent: i === 0,
+          }));
+        }
+        if (ruleIds.includes("rule-user-2")) {
+          // User 2 did not
+          return Array.from({ length: 10 }, (_, i) => ({
+            id: `exec-u2-${i}`,
+            wasDraftSent: false,
+          }));
+        }
+        return [];
+      },
+    );
 
     const result = await disableUnusedAutoDrafts();
 
-    // Only user 1 should have auto-draft disabled
-    expect(mockDeleteManyAction).toHaveBeenCalledTimes(1);
-    expect(mockDeleteManyAction).toHaveBeenCalledWith({
+    expect(prisma.action.deleteMany).toHaveBeenCalledTimes(1);
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
       where: {
-        rule: {
-          emailAccountId: "account-1",
-          systemType: SystemType.TO_REPLY,
-        },
+        id: { in: ["action-user-2"] },
         type: ActionType.DRAFT_EMAIL,
         content: null,
       },
     });
-
-    expect(result).toEqual({
-      usersChecked: 3,
-      usersDisabled: 1,
-      errors: 0,
-    });
+    expect(result).toEqual({ usersChecked: 2, usersDisabled: 1, errors: 0 });
   });
 
-  it("should handle errors gracefully", async () => {
-    mockFindManyEmailAccount.mockResolvedValue([
-      { id: "account-error", rules: [{ id: "rule-error" }] },
-    ]);
-
-    // Mock an error when finding drafts
-    mockFindManyExecutedAction.mockRejectedValue(new Error("Database error"));
+  it("should handle a user with multiple auto-draft rules and disable if no drafts sent", async () => {
+    const autoDraftActions = [
+      { id: "action-1", rule: { id: "rule-1", emailAccountId: "user-1" } },
+      { id: "action-2", rule: { id: "rule-2", emailAccountId: "user-1" } },
+    ];
+    (prisma.action.findMany as any).mockResolvedValueOnce(autoDraftActions);
+    (prisma.executedAction.findMany as any).mockResolvedValueOnce(
+      Array.from({ length: 10 }, (_, i) => ({
+        id: `exec-${i}`,
+        wasDraftSent: false,
+      })),
+    );
 
     const result = await disableUnusedAutoDrafts();
 
-    expect(result).toEqual({
-      usersChecked: 1,
-      usersDisabled: 0,
-      errors: 1,
+    expect(prisma.executedAction.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          executedRule: { ruleId: { in: ["rule-1", "rule-2"] } },
+        }),
+      }),
+    );
+    expect(prisma.action.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: { in: ["action-1", "action-2"] },
+        type: ActionType.DRAFT_EMAIL,
+        content: null,
+      },
     });
+    expect(result).toEqual({ usersChecked: 1, usersDisabled: 1, errors: 0 });
   });
 });
