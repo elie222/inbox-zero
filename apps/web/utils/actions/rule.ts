@@ -153,7 +153,7 @@ export const updateRuleAction = actionClient
           where: { id, emailAccountId },
           include: { actions: true, categoryFilters: true, group: true },
         });
-        if (!currentRule) return { error: "Rule not found" };
+        if (!currentRule) throw new SafeError("Rule not found");
 
         const currentActions = currentRule.actions;
 
@@ -253,12 +253,12 @@ export const updateRuleAction = actionClient
         return { rule: updatedRule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
-          return { error: "Rule name already exists" };
+          throw new SafeError("Rule name already exists");
         }
         if (isDuplicateError(error, "groupId")) {
-          return {
-            error: "Group already has a rule. Please use the existing rule.",
-          };
+          throw new SafeError(
+            "Group already has a rule. Please use the existing rule.",
+          );
         }
 
         logger.error("Error updating rule", { error });
@@ -276,7 +276,7 @@ export const updateRuleInstructionsAction = actionClient
         where: { id, emailAccountId },
         include: { actions: true, categoryFilters: true, group: true },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
       after(() =>
         updateRuleInstructionsAndPromptFile({
@@ -301,7 +301,7 @@ export const updateRuleSettingsAction = actionClient
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
       await prisma.rule.update({
         where: { id, emailAccountId },
@@ -328,7 +328,7 @@ export const enableDraftRepliesAction = actionClient
       },
       select: { id: true, actions: true },
     });
-    if (!rule) return { error: "Rule not found" };
+    if (!rule) throw new SafeError("Rule not found");
 
     if (enable) {
       await enableDraftReplies(rule);
@@ -357,7 +357,7 @@ export const deleteRuleAction = actionClient
     });
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)
-      return { error: "You don't have permission to delete this rule" };
+      throw new SafeError("You don't have permission to delete this rule");
 
     try {
       await deleteRule({
@@ -386,7 +386,7 @@ export const deleteRuleAction = actionClient
             },
           },
         });
-        if (!emailAccount) return { error: "User not found" };
+        if (!emailAccount) throw new SafeError("User not found");
 
         if (!emailAccount.rulesPrompt) return;
 
@@ -445,7 +445,7 @@ export const createRulesOnboardingAction = actionClient
         where: { id: emailAccountId },
         select: { rulesPrompt: true },
       });
-      if (!emailAccount) return { error: "User not found" };
+      if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<any>[] = [];
 

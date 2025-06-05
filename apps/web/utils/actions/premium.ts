@@ -9,13 +9,13 @@ import { env } from "@/env";
 import { isAdminForPremium, isOnHigherTier, isPremium } from "@/utils/premium";
 import {
   cancelPremiumLemon,
+  updateAccountSeatsForPremium,
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import { changePremiumStatusSchema } from "@/app/(app)/admin/validation";
 import {
   activateLemonLicenseKey,
   getLemonCustomer,
-  updateSubscriptionItemQuantity,
 } from "@/ee/billing/lemon/index";
 import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
@@ -54,7 +54,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
       },
     });
 
-    if (!user) return { error: "User not found" };
+    if (!user) throw new SafeError("User not found");
 
     const isUserPremium = isPremium(
       user.premium?.lemonSqueezyRenewsAt || null,
@@ -104,6 +104,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             id: true,
             tier: true,
             lemonSqueezySubscriptionItemId: true,
+            stripeSubscriptionItemId: true,
             emailAccountsAccess: true,
             admins: { select: { id: true } },
             pendingInvites: true,
@@ -112,10 +113,10 @@ export const updateMultiAccountPremiumAction = actionClientUser
       },
     });
 
-    if (!user) return { error: "User not found" };
+    if (!user) throw new SafeError("User not found");
 
     if (!isAdminForPremium(user.premium?.admins || [], userId))
-      return { error: "Not admin" };
+      throw new SafeError("Not admin");
 
     // check all users exist
     const uniqueEmails = uniq(emails);
@@ -131,25 +132,22 @@ export const updateMultiAccountPremiumAction = actionClientUser
     // make sure that the users being added to this plan are not on higher tiers already
     for (const userToAdd of otherUsers) {
       if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
-        return {
-          error:
-            "One of the users you are adding to your plan already has premium and cannot be added.",
-        };
+        throw new SafeError(
+          "One of the users you are adding to your plan already has premium and cannot be added.",
+        );
       }
     }
 
     if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
-      // TODO lifetime users
-      if (!premium.lemonSqueezySubscriptionItemId) {
-        return {
-          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-        };
+      // Check if user has an active subscription
+      if (
+        !premium.lemonSqueezySubscriptionItemId &&
+        !premium.stripeSubscriptionItemId
+      ) {
+        throw new SafeError(
+          "You must upgrade to premium before adding more users to your account.",
+        );
       }
-
-      await updateSubscriptionItemQuantity({
-        id: premium.lemonSqueezySubscriptionItemId,
-        quantity: uniqueEmails.length,
-      });
     }
 
     // delete premium for other users when adding them to this premium plan
@@ -173,14 +171,26 @@ export const updateMultiAccountPremiumAction = actionClientUser
     const nonExistingUsers = uniqueEmails.filter(
       (email) => !users.some((u) => u.email === email),
     );
-    await prisma.premium.update({
+    const updatedPremium = await prisma.premium.update({
       where: { id: premium.id },
       data: {
         pendingInvites: {
           set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
         },
       },
+      select: {
+        users: { select: { _count: { select: { emailAccounts: true } } } },
+        pendingInvites: true,
+      },
     });
+
+    // total seats = premium users + pending invites
+    const totalSeats =
+      sumBy(updatedPremium.users, (u) => u._count.emailAccounts) +
+      (updatedPremium.pendingInvites?.length || 0);
+
+    // Update subscription quantity to reflect the actual total seats
+    await updateAccountSeatsForPremium(premium, totalSeats);
   });
 
 // export const switchLemonPremiumPlanAction = actionClientUser
@@ -196,9 +206,9 @@ export const updateMultiAccountPremiumAction = actionClientUser
 //       },
 //     });
 
-//     if (!user) return { error: "User not found" };
+//     if (!user) throw new SafeError("User not found");
 //     if (!user.premium?.lemonSqueezySubscriptionId)
-//       return { error: "You do not have a premium subscription" };
+//       throw new SafeError("You do not have a premium subscription");
 
 //     const variantId = getVariantId({ tier: premiumTier });
 
