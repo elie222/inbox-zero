@@ -45,6 +45,13 @@ export async function disableUnusedAutoDrafts() {
 
     const executedDraftActions = await findExecutedDraftActions(ruleIds);
 
+    if (executedDraftActions.length < MAX_DRAFTS_TO_CHECK) {
+      logger.info("Skipping email account - not enough drafts", {
+        emailAccountId,
+      });
+      continue;
+    }
+
     logger.info("Found executed draft actions", {
       count: executedDraftActions.length,
     });
@@ -101,6 +108,9 @@ async function findExecutedDraftActions(ruleIds: string[]) {
     select: {
       id: true,
       wasDraftSent: true,
+    },
+    orderBy: {
+      createdAt: "desc",
     },
     take: MAX_DRAFTS_TO_CHECK,
   });
