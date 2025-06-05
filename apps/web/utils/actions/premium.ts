@@ -36,6 +36,8 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("actions/premium");
 
+const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
+
 export const decrementUnsubscribeCreditAction = actionClientUser
   .metadata({ name: "decrementUnsubscribeCredit" })
   .action(async ({ ctx: { userId } }) => {
@@ -252,7 +254,7 @@ export const activateLicenseKeyAction = actionClientUser
       lemonSqueezyVariantId: lemonSqueezyLicense.data?.meta.variant_id || null,
       lemonSqueezySubscriptionId: null,
       lemonSqueezySubscriptionItemId: null,
-      lemonSqueezyRenewsAt: null,
+      lemonSqueezyRenewsAt: new Date(Date.now() + TEN_YEARS),
     });
   });
 
@@ -310,15 +312,19 @@ export const adminChangePremiumStatusAction = adminActionClient
         const getRenewsAt = (period: PremiumTier): Date | null => {
           const now = new Date();
           switch (period) {
+            case PremiumTier.BASIC_ANNUALLY:
             case PremiumTier.PRO_ANNUALLY:
             case PremiumTier.BUSINESS_ANNUALLY:
-            case PremiumTier.BASIC_ANNUALLY:
+            case PremiumTier.BUSINESS_PLUS_ANNUALLY:
               return new Date(now.getTime() + ONE_YEAR_MS * (count || 1));
+            case PremiumTier.BASIC_MONTHLY:
             case PremiumTier.PRO_MONTHLY:
             case PremiumTier.BUSINESS_MONTHLY:
-            case PremiumTier.BASIC_MONTHLY:
+            case PremiumTier.BUSINESS_PLUS_MONTHLY:
             case PremiumTier.COPILOT_MONTHLY:
               return new Date(now.getTime() + ONE_MONTH_MS * (count || 1));
+            case PremiumTier.LIFETIME:
+              return new Date(now.getTime() + TEN_YEARS);
             default:
               return null;
           }
