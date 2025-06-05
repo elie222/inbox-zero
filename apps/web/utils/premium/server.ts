@@ -34,7 +34,6 @@ export async function upgradeToPremiumLemon(options: {
 
   if (!user) throw new Error(`User not found for id ${options.userId}`);
 
-  console.log("🚀 ~ data:", data);
   if (user.premiumId) {
     return await prisma.premium.update({
       where: { id: user.premiumId },
