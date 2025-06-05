@@ -1,11 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo } from "react";
+import { useCallback, useEffect, useState, memo, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
+import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -116,31 +117,31 @@ function RulesPromptForm({
     setViewedProcessingPromptFileDialog,
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
+  const editorRef = useRef<TiptapHandle>(null);
+
   const {
     register,
     handleSubmit,
     formState: { errors },
     getValues,
     setValue,
-    watch,
+    control,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt: rulesPrompt || undefined },
   });
 
-  const currentPrompt = watch("rulesPrompt");
-
-  useEffect(() => {
-    setShowClearWarning(!!rulesPrompt && currentPrompt === "");
-  }, [currentPrompt, rulesPrompt]);
-
   useEffect(() => {
     if (!personaPrompt) return;
 
-    const currentPrompt = getValues("rulesPrompt") || "";
+    const currentPrompt = editorRef.current?.getMarkdown() || "";
     const updatedPrompt = `${currentPrompt}\n\n${personaPrompt}`.trim();
-    setValue("rulesPrompt", updatedPrompt);
-  }, [personaPrompt, getValues, setValue]);
+    
+    // Append the persona prompt to the editor
+    if (editorRef.current && personaPrompt) {
+      editorRef.current.appendContent(`\n\n${personaPrompt}`);
+    }
+  }, [personaPrompt]);
 
   const router = useRouter();
 
@@ -148,9 +149,16 @@ function RulesPromptForm({
     async (data: SaveRulesPromptBody) => {
       setIsSubmitting(true);
 
-      const saveRulesPromise = async (data: SaveRulesPromptBody) => {
+      // Get markdown content from editor
+      const markdownContent = editorRef.current?.getMarkdown();
+      const submitData = {
+        ...data,
+        rulesPrompt: markdownContent ?? "",
+      };
+
+      const saveRulesPromise = async (submitData: SaveRulesPromptBody) => {
         setIsSubmitting(true);
-        const result = await saveRulesPromptAction(emailAccountId, data);
+        const result = await saveRulesPromptAction(emailAccountId, submitData);
 
         if (result?.serverError) {
           setIsSubmitting(false);
@@ -172,7 +180,7 @@ function RulesPromptForm({
       }
       setResult(undefined);
 
-      toast.promise(() => saveRulesPromise(data), {
+      toast.promise(() => saveRulesPromise(submitData), {
         loading: "Saving rules... This may take a while to process...",
         success: (result) => {
           const {
@@ -202,12 +210,11 @@ function RulesPromptForm({
 
   const addExamplePrompt = useCallback(
     (example: string) => {
-      setValue(
-        "rulesPrompt",
-        `${getValues("rulesPrompt")}\n* ${example.trim()}`.trim(),
-      );
+      if (editorRef.current) {
+        editorRef.current.appendContent(`\n* ${example.trim()}`);
+      }
     },
-    [setValue, getValues],
+    [],
   );
 
   // const [showExamples, setShowExamples] = useState(false);
@@ -233,30 +240,35 @@ function RulesPromptForm({
           <Label className="font-cal text-xl leading-7">
             How your assistant should handle incoming emails
           </Label>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Write rules for your AI assistant. For example: "{personas.other.promptArray.slice(0, 1).join("\n")}"
+          </p>
 
           <div className="mt-1.5 space-y-4">
-            <Input
-              className="min-h-[300px] border-input"
-              registerProps={register("rulesPrompt", { required: true })}
-              name="rulesPrompt"
-              type="text"
-              autosizeTextarea
-              rows={30}
-              maxRows={50}
-              error={errors.rulesPrompt}
-              placeholder={`Here's an example of what your prompt might look like:
-
-${personas.other.promptArray.slice(0, 1).join("\n")}
-
-If someone asks about pricing, reply with:
----
-Hi NAME!
-
-I'm currently offering a 10% discount for the first 10 customers.
-
-Let me know if you're interested!
----`}
-            />
+            <div>
+              <Controller
+                name="rulesPrompt"
+                control={control}
+                render={({ field }) => (
+                  <div className="relative">
+                    <Tiptap
+                      ref={editorRef}
+                      initialContent={field.value ?? ""}
+                      onChange={() => {
+                        // We'll handle the content via ref in onSubmit
+                      }}
+                      className="min-h-[300px]"
+                      autofocus={false}
+                    />
+                    {errors.rulesPrompt && (
+                      <p className="mt-1 text-sm text-destructive">
+                        {errors.rulesPrompt.message}
+                      </p>
+                    )}
+                  </div>
+                )}
+              />
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button
@@ -293,11 +305,15 @@ Let me know if you're interested!
                           throw new Error(result.serverError);
                         }
 
-                        const currentPrompt = getValues("rulesPrompt");
-                        const updatedPrompt = currentPrompt
-                          ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
-                          : result?.data?.rulesPrompt;
-                        setValue("rulesPrompt", updatedPrompt?.trim() || "");
+                        if (editorRef.current && result?.data?.rulesPrompt) {
+                          const currentContent = editorRef.current.getMarkdown() || "";
+                          const updatedContent = currentContent
+                            ? `${currentContent}\n\n${result.data.rulesPrompt}`
+                            : result.data.rulesPrompt;
+                          
+                          // Clear current content and set new content
+                          editorRef.current.appendContent(`\n\n${result.data.rulesPrompt}`);
+                        }
 
                         setIsGenerating(false);
 
