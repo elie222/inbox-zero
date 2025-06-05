@@ -42,3 +42,4 @@ describe("example", () => {
 - Mock external dependencies
 - Clean up mocks between tests
 - Avoid testing implementation details
+- Do not mock the Logger
