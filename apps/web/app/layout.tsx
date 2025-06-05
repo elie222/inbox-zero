@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
 // import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -84,9 +83,7 @@ export default async function RootLayout({
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
         <PostHogProvider>
-          <Suspense>
-            <PostHogPageview />
-          </Suspense>
+          <PostHogPageview />
           <GlobalProviders>{children}</GlobalProviders>
         </PostHogProvider>
         {/* <Analytics /> */}

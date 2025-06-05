@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Container } from "@/components/Container";
@@ -120,16 +119,14 @@ export default function Components() {
         <div>
           <div className="underline">Tabs</div>
           <div className="mt-4">
-            <Suspense>
-              <Tabs defaultValue="account" className="w-[400px]">
-                <TabsList>
-                  <TabsTrigger value="account">Account</TabsTrigger>
-                  <TabsTrigger value="password">Password</TabsTrigger>
-                </TabsList>
-                <TabsContent value="account">Account content</TabsContent>
-                <TabsContent value="password">Password content</TabsContent>
-              </Tabs>
-            </Suspense>
+            <Tabs defaultValue="account" className="w-[400px]">
+              <TabsList>
+                <TabsTrigger value="account">Account</TabsTrigger>
+                <TabsTrigger value="password">Password</TabsTrigger>
+              </TabsList>
+              <TabsContent value="account">Account content</TabsContent>
+              <TabsContent value="password">Password content</TabsContent>
+            </Tabs>
           </div>
         </div>
 

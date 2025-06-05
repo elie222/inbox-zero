@@ -33,11 +33,13 @@ const frequencies = [
   { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export function Pricing(props: {
+export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
   className?: string;
-}) {
+};
+
+export default function Pricing(props: PricingProps) {
   const { isPremium, premium, isLoading, error, data } = usePremium();
 
   const isLoggedIn = !!data?.id;
