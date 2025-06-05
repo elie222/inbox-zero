@@ -28,6 +28,7 @@ import { activateLicenseKeySchema } from "@/utils/actions/premium.validation";
 import { SafeError } from "@/utils/error";
 import { createPremiumForUser } from "@/utils/premium/create-premium";
 import { getStripe } from "@/ee/billing/stripe";
+import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe";
 import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
@@ -104,6 +105,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             id: true,
             tier: true,
             lemonSqueezySubscriptionItemId: true,
+            stripeSubscriptionItemId: true,
             emailAccountsAccess: true,
             admins: { select: { id: true } },
             pendingInvites: true,
@@ -139,17 +141,26 @@ export const updateMultiAccountPremiumAction = actionClientUser
     }
 
     if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
-      // TODO lifetime users
-      if (!premium.lemonSqueezySubscriptionItemId) {
+      // Handle LemonSqueezy subscriptions
+      if (premium.lemonSqueezySubscriptionItemId) {
+        await updateSubscriptionItemQuantity({
+          id: premium.lemonSqueezySubscriptionItemId,
+          quantity: uniqueEmails.length,
+        });
+      }
+      // Handle Stripe subscriptions
+      else if (premium.stripeSubscriptionItemId) {
+        await updateStripeSubscriptionItemQuantity({
+          subscriptionItemId: premium.stripeSubscriptionItemId,
+          quantity: uniqueEmails.length,
+        });
+      }
+      // Handle lifetime users and other cases
+      else {
         return {
           error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
         };
       }
-
-      await updateSubscriptionItemQuantity({
-        id: premium.lemonSqueezySubscriptionItemId,
-        quantity: uniqueEmails.length,
-      });
     }
 
     // delete premium for other users when adding them to this premium plan
