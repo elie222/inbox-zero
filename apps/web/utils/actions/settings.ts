@@ -14,13 +14,20 @@ export const updateEmailSettingsAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { statsEmailFrequency, summaryEmailFrequency },
+      parsedInput: {
+        statsEmailFrequency,
+        summaryEmailFrequency,
+        digestEmailFrequency,
+        digestEmailDayOfWeek,
+      },
     }) => {
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
           statsEmailFrequency,
           summaryEmailFrequency,
+          digestEmailFrequency,
+          digestEmailDayOfWeek,
         },
       });
     },

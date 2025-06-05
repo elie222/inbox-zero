@@ -19,6 +19,7 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -75,6 +76,8 @@ export const runActionFunction = async (options: {
       return mark_read(opts);
     case ActionType.TRACK_THREAD:
       return track_thread(opts);
+    case ActionType.DIGEST:
+      return digest(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -220,4 +223,17 @@ const track_thread: ActionFunction<any> = async ({
   }).catch((error) => {
     logger.error("Failed to create reply tracker", { error });
   });
+};
+
+const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
+  const actionId = args.id;
+  const message = {
+    messageId: email.id,
+    threadId: email.threadId,
+    from: email.headers.from,
+    to: email.headers.to || "",
+    subject: email.headers.subject,
+    content: email.textPlain || "",
+  };
+  await enqueueDigestItem(message, emailAccountId, actionId);
 };

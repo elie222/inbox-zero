@@ -6,4 +6,5 @@ export const RuleName = {
   Calendar: "Calendar",
   Receipt: "Receipt",
   Notification: "Notification",
+  ColdEmail: "Cold Email",
 };

@@ -5,6 +5,12 @@ import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 export const saveEmailUpdateSettingsBody = z.object({
   statsEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),
   summaryEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),
+  digestEmailFrequency: z.enum([
+    Frequency.DAILY,
+    Frequency.WEEKLY,
+    Frequency.NEVER,
+  ]),
+  digestEmailDayOfWeek: z.number().min(0).max(6).optional(),
 });
 export type SaveEmailUpdateSettingsBody = z.infer<
   typeof saveEmailUpdateSettingsBody

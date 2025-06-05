@@ -42,6 +42,8 @@ export default function SettingsPage(_props: {
               {/* <LabelsSection /> */}
               <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
+                digestEmailFrequency={data?.digestEmailFrequency}
+                digestEmailDayOfWeek={data?.digestEmailDayOfWeek || undefined}
                 mutate={mutate}
               />
               <ResetAnalyticsSection />
