@@ -115,7 +115,8 @@ export const useNavigation = () => {
   const cleanItemsFiltered = useMemo(
     () =>
       cleanItems.filter((item) => {
-        if (item.href === `/${emailAccountId}/clean`) return showCleaner;
+        if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
+          return showCleaner;
         return true;
       }),
     [showCleaner, emailAccountId, cleanItems],
