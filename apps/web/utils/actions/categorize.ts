@@ -253,7 +253,7 @@ async function upsertCategory({
     }
   } catch (error) {
     if (isDuplicateError(error, "name"))
-      return { error: "Category with this name already exists" };
+      throw new SafeError("Category with this name already exists");
 
     throw error;
   }

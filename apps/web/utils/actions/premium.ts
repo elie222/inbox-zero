@@ -33,7 +33,6 @@ import {
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
 import { createScopedLogger } from "@/utils/logger";
-import { updateAccountSeats } from "@/utils/premium/server";
 
 const logger = createScopedLogger("actions/premium");
 
@@ -55,7 +54,7 @@ export const decrementUnsubscribeCreditAction = actionClientUser
       },
     });
 
-    if (!user) return { error: "User not found" };
+    if (!user) throw new SafeError("User not found");
 
     const isUserPremium = isPremium(
       user.premium?.lemonSqueezyRenewsAt || null,
@@ -114,10 +113,10 @@ export const updateMultiAccountPremiumAction = actionClientUser
       },
     });
 
-    if (!user) return { error: "User not found" };
+    if (!user) throw new SafeError("User not found");
 
     if (!isAdminForPremium(user.premium?.admins || [], userId))
-      return { error: "Not admin" };
+      throw new SafeError("Not admin");
 
     // check all users exist
     const uniqueEmails = uniq(emails);
@@ -133,22 +132,30 @@ export const updateMultiAccountPremiumAction = actionClientUser
     // make sure that the users being added to this plan are not on higher tiers already
     for (const userToAdd of otherUsers) {
       if (isOnHigherTier(userToAdd.premium?.tier, premium.tier)) {
-        return {
-          error:
-            "One of the users you are adding to your plan already has premium and cannot be added.",
-        };
+        throw new SafeError(
+          "One of the users you are adding to your plan already has premium and cannot be added.",
+        );
       }
     }
 
+    console.log(
+      "🚀 ~ .action ~ premium.emailAccountsAccess:",
+      premium.emailAccountsAccess,
+    );
+    console.log("🚀 ~ .action ~ uniqueEmails.length:", uniqueEmails.length);
+    console.log(
+      "🚀 ~ .action ~ premium.stripeSubscriptionItemId:",
+      premium.stripeSubscriptionItemId,
+    );
     if ((premium.emailAccountsAccess || 0) < uniqueEmails.length) {
       // Check if user has an active subscription
       if (
         !premium.lemonSqueezySubscriptionItemId &&
         !premium.stripeSubscriptionItemId
       ) {
-        return {
-          error: `You must upgrade to premium before adding more users to your account. If you already have a premium plan, please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
-        };
+        throw new SafeError(
+          "You must upgrade to premium before adding more users to your account.",
+        );
       }
     }
 
@@ -208,9 +215,9 @@ export const updateMultiAccountPremiumAction = actionClientUser
 //       },
 //     });
 
-//     if (!user) return { error: "User not found" };
+//     if (!user) throw new SafeError("User not found");
 //     if (!user.premium?.lemonSqueezySubscriptionId)
-//       return { error: "You do not have a premium subscription" };
+//       throw new SafeError("You do not have a premium subscription");
 
 //     const variantId = getVariantId({ tier: premiumTier });
 
