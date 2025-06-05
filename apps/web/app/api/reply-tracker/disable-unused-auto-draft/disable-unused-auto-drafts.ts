@@ -39,38 +39,46 @@ export async function disableUnusedAutoDrafts() {
   const entries = Object.entries(groupedByEmailAccount);
 
   for (const [emailAccountId, actions] of entries) {
-    logger.info("Processing email account", { emailAccountId });
+    try {
+      logger.info("Processing email account", { emailAccountId });
 
-    const ruleIds = actions.map((action) => action.rule.id);
+      const ruleIds = actions.map((action) => action.rule.id);
 
-    const executedDraftActions = await findExecutedDraftActions(ruleIds);
+      const executedDraftActions = await findExecutedDraftActions(ruleIds);
 
-    if (executedDraftActions.length < MAX_DRAFTS_TO_CHECK) {
-      logger.info("Skipping email account - not enough drafts", {
-        emailAccountId,
+      if (executedDraftActions.length < MAX_DRAFTS_TO_CHECK) {
+        logger.info("Skipping email account - not enough drafts", {
+          emailAccountId,
+        });
+        continue;
+      }
+
+      logger.info("Found executed draft actions", {
+        count: executedDraftActions.length,
       });
-      continue;
-    }
 
-    logger.info("Found executed draft actions", {
-      count: executedDraftActions.length,
-    });
+      const anyDraftsSent = executedDraftActions.some(
+        (action) => action.wasDraftSent === true,
+      );
 
-    const anyDraftsSent = executedDraftActions.some(
-      (action) => action.wasDraftSent === true,
-    );
-
-    if (anyDraftsSent) {
-      logger.info("Skipping email account - drafts were sent", {
+      if (anyDraftsSent) {
+        logger.info("Skipping email account - drafts were sent", {
+          emailAccountId,
+        });
+      } else {
+        logger.info("Disabling auto-draft for email account", {
+          emailAccountId,
+        });
+        const actionIds = actions.map((action) => action.id);
+        await deleteAutoDraftActions(actionIds);
+        results.usersDisabled++;
+      }
+    } catch (error) {
+      logger.error("Error processing email account", {
         emailAccountId,
+        error,
       });
-    } else {
-      logger.info("Disabling auto-draft for email account", {
-        emailAccountId,
-      });
-      const actionIds = actions.map((action) => action.id);
-      await deleteAutoDraftActions(actionIds);
-      results.usersDisabled++;
+      results.errors++;
     }
   }
 
