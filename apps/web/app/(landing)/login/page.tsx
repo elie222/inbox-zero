@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -37,7 +38,9 @@ export default async function AuthenticationPage(props: {
           </p>
         </div>
         <div className="mt-4">
-          <LoginForm />
+          <Suspense>
+            <LoginForm />
+          </Suspense>
         </div>
 
         {searchParams?.error && (

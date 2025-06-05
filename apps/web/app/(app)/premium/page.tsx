@@ -1,9 +1,9 @@
-import { Pricing } from "@/app/(app)/premium/Pricing";
+import { PricingLazy } from "@/app/(app)/premium/PricingLazy";
 
 export default function Premium() {
   return (
     <div className="bg-white pb-20">
-      <Pricing />
+      <PricingLazy />
     </div>
   );
 }

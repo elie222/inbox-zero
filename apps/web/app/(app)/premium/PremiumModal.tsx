@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Pricing } from "@/app/(app)/premium/Pricing";
+import Pricing from "@/app/(app)/premium/Pricing";
 
 export function usePremiumModal() {
   const [isOpen, setIsOpen] = useState(false);
