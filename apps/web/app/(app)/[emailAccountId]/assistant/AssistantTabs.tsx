@@ -16,8 +16,21 @@ import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/assistant/RuleTab";
 import type { GetPendingRulesResponse } from "@/app/api/rules/pending/route";
 import { Button } from "@/components/ui/button";
+import {
+  SparklesIcon,
+  LibraryIcon,
+  RocketIcon,
+  ClockIcon,
+  HistoryIcon,
+} from "lucide-react";
+import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import { prefixPath } from "@/utils/path";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
 
 export function AssistantTabs() {
+  const { emailAccountId } = useAccount();
   const { data: pendingData } =
     useSWR<GetPendingRulesResponse>("/api/rules/pending");
 
@@ -28,41 +41,42 @@ export function AssistantTabs() {
       <Tabs defaultValue="empty" className="flex h-full flex-col">
         <TabsToolbar className="shrink-0 border-none pb-0 shadow-none">
           <div className="w-full overflow-x-auto">
-            <TabsList>
-              {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
-              <TabsTrigger value="rules">Rules</TabsTrigger>
-              <TabsTrigger value="test">Test</TabsTrigger>
-              <TabsTrigger value="history">History</TabsTrigger>
-              {hasPendingRule && (
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-              )}
-              <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-5">
+              <TabsTrigger value="rules">
+                <SparklesIcon className="mr-2 size-4" />
+                Rules
+              </TabsTrigger>
+              <TabsTrigger value="knowledge">
+                <LibraryIcon className="mr-2 size-4" />
+                Knowledge Base
+              </TabsTrigger>
+              <TabsTrigger value="onboarding">
+                <RocketIcon className="mr-2 size-4" />
+                Onboarding
+              </TabsTrigger>
+              <TabsTrigger value="pending" className="relative">
+                <ClockIcon className="mr-2 size-4" />
+                Pending
+              </TabsTrigger>
+              <TabsTrigger value="history">
+                <HistoryIcon className="mr-2 size-4" />
+                History
+              </TabsTrigger>
+              <TabsTrigger value="rules-editor-demo">
+                Rules Editor (Demo)
+              </TabsTrigger>
             </TabsList>
           </div>
 
-          {/* <div className="flex items-center gap-2">
-                <Button asChild variant="outline">
-                  <Link
-                    href={prefixPath(
-                      emailAccountId,
-                      "/assistant/onboarding",
-                    )}
-                  >
-                    Set Up
-                  </Link>
-                </Button>
-
-                <OnboardingModal
-                  title="Getting started with AI Personal Assistant"
-                  description={
-                    <>
-                      Learn how to use the AI Personal Assistant to
-                      automatically label, archive, and more.
-                    </>
-                  }
-                  videoId="SoeNDVr7ve4"
-                />
-              </div> */}
+          <Button size="sm" variant="outline" asChild>
+            <a
+              href="https://docs.getinboxzero.com/product-manual/assistants"
+              target="_blank"
+              rel="noreferrer"
+            >
+              How it works
+            </a>
+          </Button>
 
           <CloseArtifactButton />
         </TabsToolbar>
@@ -83,7 +97,7 @@ export function AssistantTabs() {
             <Rules />
           </TabsContent>
           <TabsContent value="test" className="content-container pb-4">
-            <Process />
+            <TestCustomEmailForm />
           </TabsContent>
           <TabsContent value="history" className="content-container pb-4">
             <History />
@@ -96,7 +110,24 @@ export function AssistantTabs() {
           <TabsContent value="knowledge" className="content-container pb-4">
             <KnowledgeBase />
           </TabsContent>
-          {/* Set via search params. Not a visible tab. */}
+          <TabsContent
+            value="rules-editor-demo"
+            className="content-container pb-4"
+          >
+            <div className="flex flex-col items-center justify-center py-8">
+              <h2 className="mb-4 text-2xl font-bold">Rules Editor Demo</h2>
+              <p className="mb-6 text-gray-600">
+                Try our new document-style rules editor with custom TipTap nodes
+              </p>
+              <Button asChild>
+                <Link
+                  href={prefixPath(emailAccountId, "/assistant/rules-editor")}
+                >
+                  Open Rules Editor
+                </Link>
+              </Button>
+            </div>
+          </TabsContent>
           <TabsContent value="rule" className="content-container pb-4">
             <RuleTab />
           </TabsContent>

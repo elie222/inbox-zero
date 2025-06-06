@@ -43,6 +43,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
+import { z } from "zod";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -679,5 +680,46 @@ export const createRulesOnboardingAction = actionClient
             .join("\n")}`.trim(),
         },
       });
+    },
+  );
+
+export const generateRuleMetadataAction = actionClient
+  .metadata({ name: "generateRuleMetadata" })
+  .schema(z.object({ ruleContent: z.string() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { ruleContent } }) => {
+    // TODO: Replace with actual AI call to generate metadata
+    // For now, return mock data
+    const mockMetadata = {
+      name: `Rule based on: ${ruleContent.substring(0, 50)}...`,
+      actions: [
+        {
+          type: ActionType.LABEL,
+          label: "Important",
+        },
+      ],
+    };
+
+    return { data: mockMetadata };
+  });
+
+export const createRulesDocumentAction = actionClient
+  .metadata({ name: "createRulesDocument" })
+  .schema(
+    z.object({
+      title: z.string(),
+      content: z.any(),
+      documentId: z.string().optional(),
+    }),
+  )
+  .action(
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { title, content, documentId },
+    }) => {
+      // TODO: Implement actual database save
+      // For now, return a mock document ID
+      const newDocumentId = documentId || `doc-${Date.now()}`;
+
+      return { data: { documentId: newDocumentId } };
     },
   );
