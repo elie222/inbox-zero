@@ -13,6 +13,12 @@ import {
   replyTrackerQuerySchema,
   replyTrackerResponseSchema,
 } from "@/app/api/v1/reply-tracker/validation";
+import {
+  summaryStatsQuerySchema,
+  summaryStatsResponseSchema,
+  dayStatsQuerySchema,
+  dayStatsResponseSchema,
+} from "@/app/api/v1/stats/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
 
 extendZodWithOpenApi(z);
@@ -66,6 +72,48 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: replyTrackerResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/summary",
+  description:
+    "Get email summary statistics with totals and time-based breakdowns",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: summaryStatsQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: summaryStatsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/day",
+  description:
+    "Get daily email statistics for the past 7 days by type (inbox, sent, archived)",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: dayStatsQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Successful response",
+      content: {
+        "application/json": {
+          schema: dayStatsResponseSchema,
         },
       },
     },
