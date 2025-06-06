@@ -1,0 +1,77 @@
+/* TipTap Rules Editor Styles */
+
+/* Show all metadata when class is present */
+.show-all-metadata .rule-metadata {
+  display: block !important;
+}
+
+/* Slash menu positioning */
+#slash-menu {
+  position: absolute;
+  z-index: 50;
+  min-width: 200px;
+  max-width: 320px;
+}
+
+/* Editor content styling */
+.ProseMirror {
+  min-height: 400px;
+  outline: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Basic prose styling */
+.ProseMirror p {
+  margin: 1em 0;
+}
+
+.ProseMirror p:first-child {
+  margin-top: 0;
+}
+
+.ProseMirror p:last-child {
+  margin-bottom: 0;
+}
+
+/* Rule and Context node specific styles */
+.ProseMirror .rule-node,
+.ProseMirror .context-node {
+  position: relative;
+  margin: 1rem 0;
+}
+
+/* Placeholder text */
+.ProseMirror p.is-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* Selection styles */
+.ProseMirror ::selection {
+  background-color: rgba(34, 139, 230, 0.2);
+}
+
+/* Node selection styles */
+.ProseMirror-selectednode {
+  outline: 2px solid #4299e1;
+  outline-offset: 2px;
+}
+
+/* Responsive styles for mobile */
+@media (max-width: 640px) {
+  #slash-menu {
+    width: calc(100vw - 2rem);
+    max-width: none;
+    left: 1rem !important;
+  }
+  
+  .rule-metadata-expanded {
+    padding: 0.75rem;
+  }
+}

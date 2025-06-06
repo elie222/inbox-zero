@@ -93,3 +93,6 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Additional styles */
+@import "./tiptap-rules.css";

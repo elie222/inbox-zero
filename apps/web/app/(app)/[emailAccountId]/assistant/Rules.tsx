@@ -403,6 +403,12 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       {hasRules && (
         <div className="my-2 flex justify-end gap-2">
           <Button asChild variant="outline">
+            <Link href={prefixPath(emailAccountId, "/automation/rules-editor")}>
+              <PenIcon className="mr-2 hidden size-4 md:block" />
+              Document Editor
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
             <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
               <PenIcon className="mr-2 hidden size-4 md:block" />
               Add Rule via Prompt
