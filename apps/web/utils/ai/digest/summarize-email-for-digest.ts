@@ -49,16 +49,21 @@ ${stringifyEmailSimple(userMessageForPrompt)}
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    system,
-    prompt,
-    schema,
-    userEmail: emailAccount.email,
-    usageLabel: "Summarize email",
-  });
+  try {
+    const aiResponse = await chatCompletionObject({
+      userAi: emailAccount.user,
+      system,
+      prompt,
+      schema,
+      userEmail: emailAccount.email,
+      usageLabel: "Summarize email",
+    });
 
-  logger.trace("Result", { response: aiResponse.object });
+    logger.trace("Result", { response: aiResponse.object });
 
-  return aiResponse.object as AICheckResult;
+    return aiResponse.object as AICheckResult;
+  } catch (error) {
+    logger.error("Failed to summarize email", { error });
+    return { summary: null };
+  }
 }
