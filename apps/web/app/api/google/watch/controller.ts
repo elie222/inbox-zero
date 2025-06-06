@@ -14,6 +14,7 @@ export async function watchEmails({
   emailAccountId: string;
   gmail: gmail_v1.Gmail;
 }) {
+  logger.info("Watching emails", { emailAccountId });
   const res = await watchGmail(gmail);
 
   if (res.expiration) {
@@ -44,6 +45,7 @@ export async function unwatchEmails({
   expiresAt: number | null;
 }) {
   try {
+    logger.info("Unwatching emails", { emailAccountId });
     const gmail = await getGmailClientWithRefresh({
       accessToken,
       refreshToken,
