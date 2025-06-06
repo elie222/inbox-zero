@@ -12,7 +12,7 @@ import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { SCOPES as GOOGLE_SCOPES } from "@/utils/gmail/scopes";
-import { SCOPES as MICROSOFT_SCOPES } from "@/utils/microsoft/scopes";
+import { SCOPES as MICROSOFT_SCOPES } from "@/utils/outlook/scopes";
 import { getContactsClient } from "@/utils/gmail/client";
 import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
