@@ -26,7 +26,7 @@ async function sendDigestAllUpdate() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       digestFrequency: {
-        nextOcurrenceAt: {
+        nextOccurrenceAt: {
           lte: now,
         },
       },

@@ -4,6 +4,34 @@ import { digestBody } from "@/app/api/ai/digest/validation";
 import { NextResponse } from "next/server";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { upsertDigest } from "@/utils/digest/index";
+import prisma from "@/utils/prisma";
+
+async function getRuleNamesByExecutedAction(
+  actionId: string,
+): Promise<string[]> {
+  const executedAction = await prisma.executedAction.findUnique({
+    where: { id: actionId },
+    include: {
+      executedRule: {
+        include: {
+          rule: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!executedAction) {
+    throw new Error("Executed action not found");
+  }
+
+  return executedAction.executedRule?.rule?.name
+    ? [executedAction.executedRule.rule.name]
+    : [];
+}
 
 export async function handleDigestRequest(request: Request) {
   const json = await request.json();
@@ -19,7 +47,11 @@ export async function handleDigestRequest(request: Request) {
     );
   }
 
-  const aiActionResult = await aiSummarizeEmailForDigest({
+  const actionId = body.actionId;
+  const ruleNames = await getRuleNamesByExecutedAction(actionId);
+
+  const aiOutput = await aiSummarizeEmailForDigest({
+    ruleNames,
     emailAccount,
     messageToSummarize: {
       id: body.message.messageId,
@@ -30,9 +62,7 @@ export async function handleDigestRequest(request: Request) {
     },
   });
 
-  const summary = aiActionResult.summary;
-
-  if (!summary) {
+  if (!aiOutput) {
     return NextResponse.json(
       { error: "Failed to summarize email" },
       { status: 500 },
@@ -44,7 +74,7 @@ export async function handleDigestRequest(request: Request) {
     threadId: body.message.threadId,
     emailAccountId: body.emailAccountId,
     actionId: body.actionId,
-    summary,
+    content: aiOutput,
   });
 
   return NextResponse.json({ success: true });

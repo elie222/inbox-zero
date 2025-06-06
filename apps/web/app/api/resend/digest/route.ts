@@ -15,7 +15,9 @@ import {
   digestCategorySchema,
   sendDigestEmailBody,
   type Digest,
+  digestSummarySchema,
 } from "./validation";
+import { DigestStatus } from "@prisma/client";
 
 export const maxDuration = 60;
 
@@ -47,20 +49,23 @@ async function sendEmail({
     throw new Error("Email account not found");
   }
 
-  const digests = await prisma.digest.findMany({
-    where: {
-      emailAccountId,
-    },
-    include: {
-      items: {
-        include: {
-          action: {
-            include: {
-              executedRule: {
-                include: {
-                  rule: {
-                    select: {
-                      name: true,
+  const digests = await prisma.$transaction(async (tx) => {
+    const pendingDigests = await tx.digest.findMany({
+      where: {
+        emailAccountId,
+        status: DigestStatus.PENDING,
+      },
+      include: {
+        items: {
+          include: {
+            action: {
+              include: {
+                executedRule: {
+                  include: {
+                    rule: {
+                      select: {
+                        name: true,
+                      },
                     },
                   },
                 },
@@ -69,8 +74,32 @@ async function sendEmail({
           },
         },
       },
-    },
+    });
+
+    if (pendingDigests.length) {
+      // Mark all found digests as processing
+      await tx.digest.updateMany({
+        where: {
+          id: {
+            in: pendingDigests.map((d) => d.id),
+          },
+        },
+        data: {
+          status: DigestStatus.PROCESSING,
+        },
+      });
+    }
+
+    return pendingDigests;
   });
+
+  // Return early if no digests were found
+  if (digests.length === 0) {
+    return new Response("No digests to process", { status: 200 });
+  }
+
+  // Store the digest IDs for the final update
+  const processedDigestIds = digests.map((d) => d.id);
 
   const messages = await getMessagesBatch({
     messageIds: digests.flatMap((digest) =>
@@ -98,8 +127,12 @@ async function sendEmail({
           acc[category] = [];
         }
 
+        const parsedContent = digestSummarySchema.parse(item.content);
         acc[category].push({
-          content: item.summary || "",
+          content: {
+            entries: parsedContent?.entries || [],
+            summary: parsedContent?.summary,
+          },
           from: message?.headers?.from || "",
           subject: message?.headers?.subject || "",
         });
@@ -128,22 +161,32 @@ async function sendEmail({
               emailAccountId,
             },
             data: {
-              lastOcurrenceAt: new Date(),
-              nextOcurrenceAt: calculateNextDigestDate(
+              lastOccurrenceAt: new Date(),
+              nextOccurrenceAt: calculateNextDigestDate(
                 emailAccount.digestFrequency!,
               ),
             },
           }),
         ]
       : []),
-    // Mark all digests as sent
+    // Mark only the processed digests as sent
     prisma.digest.updateMany({
       where: {
-        emailAccountId,
-        sent: false,
+        id: {
+          in: processedDigestIds,
+        },
       },
       data: {
-        sent: true,
+        status: DigestStatus.SENT,
+        sentAt: new Date(),
+      },
+    }),
+    // Delete all DigestItems for the processed digests
+    prisma.digestItem.deleteMany({
+      where: {
+        digestId: {
+          in: processedDigestIds,
+        },
       },
     }),
   ]);

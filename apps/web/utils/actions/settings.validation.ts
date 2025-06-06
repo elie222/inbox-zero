@@ -2,6 +2,21 @@ import { z } from "zod";
 import { Frequency } from "@prisma/client";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 
+const userFrequencySchema = z.object({
+  intervalDays: z.number().nullable(),
+  daysOfWeek: z.number().nullable(),
+  timeOfDay: z.date().nullable(),
+});
+
+export const saveDigestFrequencyBody = z.object({
+  digestEmailFrequency: z.enum([
+    Frequency.DAILY,
+    Frequency.WEEKLY,
+    Frequency.NEVER,
+  ]),
+});
+export type SaveDigestFrequencyBody = z.infer<typeof saveDigestFrequencyBody>;
+
 export const saveEmailUpdateSettingsBody = z.object({
   statsEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),
   summaryEmailFrequency: z.enum([Frequency.WEEKLY, Frequency.NEVER]),
@@ -10,7 +25,7 @@ export const saveEmailUpdateSettingsBody = z.object({
     Frequency.WEEKLY,
     Frequency.NEVER,
   ]),
-  digestEmailDayOfWeek: z.number().min(0).max(6).optional(),
+  userFrequency: userFrequencySchema.nullable(),
 });
 export type SaveEmailUpdateSettingsBody = z.infer<
   typeof saveEmailUpdateSettingsBody

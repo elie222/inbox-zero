@@ -4,6 +4,8 @@ import { getCronSecretHeader } from "@/utils/cron";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
+import { DigestStatus } from "@prisma/client";
+import { type DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 
 const logger = createScopedLogger("digest");
 
@@ -44,7 +46,7 @@ async function findOldestUnsentDigest(emailAccountId: string) {
   return prisma.digest.findFirst({
     where: {
       emailAccountId,
-      sent: false,
+      status: DigestStatus.PENDING,
     },
     orderBy: {
       createdAt: "asc",
@@ -57,13 +59,13 @@ export async function upsertDigest({
   threadId,
   emailAccountId,
   actionId,
-  summary,
+  content,
 }: {
   messageId: string;
   threadId: string;
   emailAccountId: string;
   actionId: string;
-  summary: string;
+  content: DigestEmailSummarySchema;
 }) {
   // First, find the oldest unsent digest or create a new one if none exist
   const oldestUnsentDigest = await findOldestUnsentDigest(emailAccountId);
@@ -73,6 +75,7 @@ export async function upsertDigest({
     (await prisma.digest.create({
       data: {
         emailAccountId,
+        status: DigestStatus.PENDING,
       },
     }));
 
@@ -85,11 +88,14 @@ export async function upsertDigest({
     },
   });
 
+  // Convert content to string
+  const contentString = JSON.stringify(content);
+
   if (existingDigestItem) {
     await prisma.digestItem.update({
       where: { id: existingDigestItem.id },
       data: {
-        summary,
+        content: contentString,
         actionId,
       },
     });
@@ -98,7 +104,7 @@ export async function upsertDigest({
       data: {
         messageId,
         threadId,
-        summary,
+        content: contentString,
         digestId: digest.id,
         actionId,
       },

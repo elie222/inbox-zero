@@ -132,6 +132,12 @@ model EmailAccount {
   @@index([lastSummaryEmailAt])
 }
 
+enum DigestStatus {
+  PENDING
+  PROCESSING
+  SENT
+}
+
 model Digest {
   id             String   @id @default(cuid())
   createdAt      DateTime @default(now())
@@ -139,7 +145,8 @@ model Digest {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   items          DigestItem[]
-  sent           Boolean  @default(false)
+  sentAt         DateTime?
+  status         DigestStatus @default(PENDING)
 
   @@index([emailAccountId])
 }
@@ -150,7 +157,7 @@ model DigestItem {
   updatedAt      DateTime @updatedAt
   messageId      String
   threadId       String
-  summary        String   @db.Text
+  content        String   @db.Text
   digestId       String
   digest         Digest   @relation(fields: [digestId], references: [id], onDelete: Cascade)
   actionId       String
@@ -179,8 +186,8 @@ model UserFrequency {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  lastOcurrenceAt DateTime?
-  nextOcurrenceAt DateTime?
+  lastOccurrenceAt DateTime?
+  nextOccurrenceAt DateTime?
 
   @@unique([emailAccountId])
 }

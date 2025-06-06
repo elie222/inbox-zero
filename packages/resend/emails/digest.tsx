@@ -15,45 +15,32 @@ import {
   Text,
 } from "@react-email/components";
 
+type DigestEntry = {
+  label: string;
+  value: string;
+};
+
+type DigestContent =
+  | { entries: DigestEntry[]; summary?: never }
+  | { entries?: never; summary: string };
+
+type DigestItem = {
+  from: string;
+  subject: string;
+  content: DigestContent;
+};
+
 export interface DigestEmailProps {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  newsletter?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  receipt?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  marketing?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  calendar?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  coldEmail?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  notification?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
-  toReply?: {
-    content: string;
-    subject: string;
-    from: string;
-  }[];
+  newsletter?: DigestItem[];
+  receipt?: DigestItem[];
+  marketing?: DigestItem[];
+  calendar?: DigestItem[];
+  coldEmail?: DigestItem[];
+  notification?: DigestItem[];
+  toReply?: DigestItem[];
 }
 
 export default function DigestEmail(props: DigestEmailProps) {
@@ -106,7 +93,12 @@ export default function DigestEmail(props: DigestEmailProps) {
       color: "pink",
       href: "#notifications",
     },
-    toReply: { name: "To Reply", emoji: "⏰", color: "red", href: "#to-reply" },
+    toReply: {
+      name: "To Reply",
+      emoji: "⏰",
+      color: "red",
+      href: "#to-reply",
+    },
   };
 
   const getCategoryInfo = (key: keyof typeof availableCategories) => {
@@ -123,14 +115,14 @@ export default function DigestEmail(props: DigestEmailProps) {
 
   /**
    * Renders a grid of categories with a count of the number of emails in each category.
-   * This is needed because we have a total of 7 categories that can be displayed varying from 1 to 7.
+   * This is needed because we have a total of 7 categories that can be displayed varying from 2 to 7.
    * The grid is rendered differently depending on the number of categories.
    *
-   * 1-2 categories: single row
+   * 2 categories: single row
    * 3-4 categories: 2x2 grid
    * 5-7 categories: 2x2 grid + bottom row
    *
-   * @returns A React component that renders a grid of categories with a count of the number of emails in each category.
+   * @returns Renders a grid of categories with a count of the number of emails in each category.
    */
   const renderCategoryGrid = () => {
     const categories = Object.entries(availableCategories)
@@ -406,13 +398,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -436,13 +447,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -466,13 +496,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -496,13 +545,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -526,13 +594,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -557,13 +644,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -587,13 +693,32 @@ export default function DigestEmail(props: DigestEmailProps) {
                       <Text className="text-[14px] font-bold text-gray-800 m-0">
                         {item.subject}
                       </Text>
-                      <Text className="text-[12px] text-gray-600 mt-[1px] mb-[10px] leading-[15px]">
+                      <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                         {item.from}
                       </Text>
-                      <div
-                        className="text-[12px] text-gray-500 mt-[2px] m-0"
-                        dangerouslySetInnerHTML={{ __html: item.content }}
-                      />
+                      {Array.isArray(item.content.entries) &&
+                      item.content.entries.length > 0 ? (
+                        <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
+                          {item.content.entries.map((entry, idx) => (
+                            <Row key={idx} className="mb-0 p-0">
+                              <Column>
+                                <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                                  {entry.label}
+                                </Text>
+                              </Column>
+                              <Column align="right">
+                                <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                                  {entry.value}
+                                </Text>
+                              </Column>
+                            </Row>
+                          ))}
+                        </Section>
+                      ) : (
+                        <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
+                          {item.content.summary}
+                        </Text>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -616,127 +741,230 @@ DigestEmail.PreviewProps = {
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
-      content:
-        "The latest on tech layoffs, market trends, and startup funding rounds...",
+      content: {
+        summary:
+          "The latest on tech layoffs, market trends, and startup funding rounds...",
+      },
     },
     {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
-      content:
-        "Stay informed with the latest headlines and analysis from around the world...",
+      content: {
+        summary:
+          "Stay informed with the latest headlines and analysis from around the world...",
+      },
     },
     {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
-      content:
-        "Discover the newest apps, websites, and tech products that launched today...",
+      content: {
+        summary:
+          "Discover the newest apps, websites, and tech products that launched today...",
+      },
     },
   ],
   receipt: [
     {
       from: "Amazon",
       subject: "Order #112-3456789-0123456",
-      content: "Order total: $42.99 • Time: 9:15 AM",
+      content: {
+        entries: [
+          { label: "Merchant", value: "Amazon" },
+          { label: "Amount", value: "$42.99" },
+          { label: "Date", value: "9:15 AM" },
+        ],
+        summary: "Order total: $42.99 • Time: 9:15 AM",
+      },
     },
     {
       from: "Uber Eats",
       subject: "Order #EAT-123456789",
-      content: "Order total: $23.45 • Time: 1:20 PM",
+      content: {
+        entries: [
+          { label: "Merchant", value: "Uber Eats" },
+          { label: "Amount", value: "$23.45" },
+          { label: "Date", value: "1:20 PM" },
+        ],
+        summary: "Order total: $23.45 • Time: 1:20 PM",
+      },
     },
     {
       from: "Netflix",
       subject: "Monthly subscription",
-      content: "Subscription: $15.99 • Time: 4:30 AM",
+      content: {
+        entries: [
+          { label: "Merchant", value: "Netflix" },
+          { label: "Amount", value: "$15.99" },
+          { label: "Date", value: "4:30 AM" },
+        ],
+        summary: "Subscription: $15.99 • Time: 4:30 AM",
+      },
     },
   ],
   marketing: [
     {
       from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
-      content: "Upgrade your music experience with this exclusive deal",
+      content: {
+        summary: "Upgrade your music experience with this exclusive deal",
+      },
     },
     {
       from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
-      content: "Be the first to shop our latest styles before they sell out",
+      content: {
+        summary: "Be the first to shop our latest styles before they sell out",
+      },
     },
     {
       from: "Airbnb",
       subject: "Weekend getaway ideas near you",
-      content: "Discover unique stays within a 2-hour drive from your location",
+      content: {
+        summary:
+          "Discover unique stays within a 2-hour drive from your location",
+      },
     },
   ],
   calendar: [
     {
       from: "Sarah Johnson",
       subject: "Team Weekly Sync",
-      content: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
+      content: {
+        entries: [
+          { label: "Title", value: "Team Weekly Sync" },
+          {
+            label: "Date",
+            value: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
+          },
+        ],
+        summary: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
+      },
     },
     {
       from: "Michael Chen",
       subject: "Quarterly Review",
-      content: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
+      content: {
+        entries: [
+          { label: "Title", value: "Quarterly Review" },
+          {
+            label: "Date",
+            value: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
+          },
+        ],
+        summary: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
+      },
     },
     {
       from: "Personal Calendar",
       subject: "Dentist Appointment",
-      content: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
+      content: {
+        entries: [
+          { label: "Title", value: "Dentist Appointment" },
+          {
+            label: "Date",
+            value: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
+          },
+        ],
+        summary: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
+      },
     },
   ],
   coldEmail: [
     {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
-      content: "Growth Solutions Inc.",
+      content: {
+        summary: "Growth Solutions Inc.",
+      },
     },
     {
       from: "Jennifer Lee",
       subject: "Request for a quick call this week",
-      content: "Venture Capital Partners",
+      content: {
+        summary: "Venture Capital Partners",
+      },
     },
     {
       from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
-      content: "Enterprise Tech Solutions",
+      content: {
+        summary: "Enterprise Tech Solutions",
+      },
     },
   ],
   notification: [
     {
       from: "LinkedIn",
       subject: "Profile Views",
-      content: "5 people viewed your profile this week • 11:00 AM",
+      content: {
+        entries: [
+          { label: "Title", value: "Profile Views" },
+          {
+            label: "Date",
+            value: "5 people viewed your profile this week • 11:00 AM",
+          },
+        ],
+        summary: "5 people viewed your profile this week • 11:00 AM",
+      },
     },
     {
       from: "Slack",
       subject: "Unread Messages",
-      content: "3 unread messages in #general channel • 2:45 PM",
+      content: {
+        entries: [
+          { label: "Title", value: "Unread Messages" },
+          {
+            label: "Date",
+            value: "3 unread messages in #general channel • 2:45 PM",
+          },
+        ],
+        summary: "3 unread messages in #general channel • 2:45 PM",
+      },
     },
     {
       from: "GitHub",
       subject: "Pull Request Update",
-      content: "Pull request #123 was approved • 5:30 PM",
+      content: {
+        entries: [
+          { label: "Title", value: "Pull Request Update" },
+          { label: "Date", value: "Pull request #123 was approved • 5:30 PM" },
+        ],
+        summary: "Pull request #123 was approved • 5:30 PM",
+      },
     },
     {
       from: "Twitter",
       subject: "New Followers",
-      content: "You have 7 new followers • 6:15 PM",
+      content: {
+        entries: [
+          { label: "Title", value: "New Followers" },
+          { label: "Date", value: "You have 7 new followers • 6:15 PM" },
+        ],
+        summary: "You have 7 new followers • 6:15 PM",
+      },
     },
   ],
   toReply: [
     {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
-      content: "Received: Yesterday, 4:30 PM • Due: Today",
+      content: {
+        summary: "Received: Yesterday, 4:30 PM • Due: Today",
+      },
     },
     {
       from: "Client XYZ",
       subject: "Questions about the latest deliverable",
-      content: "Received: Monday, 10:15 AM • Due: Tomorrow",
+      content: {
+        summary: "Received: Monday, 10:15 AM • Due: Tomorrow",
+      },
     },
     {
       from: "HR Department",
       subject: "Annual review scheduling",
-      content: "Received: Tuesday, 9:00 AM • Due: Friday",
+      content: {
+        summary: "Received: Tuesday, 9:00 AM • Due: Friday",
+      },
     },
   ],
 };

@@ -4,49 +4,43 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
+import { DigestEmailSummarySchema as schema } from "@/app/api/resend/digest/validation";
 
-const logger = createScopedLogger("summarize-email");
+const logger = createScopedLogger("summarize-digest-email");
 
-const schema = z.object({
-  summary: z.string().nullish().describe("The summary of the email."),
-});
 export type AICheckResult = z.infer<typeof schema>;
 
 export async function aiSummarizeEmailForDigest({
+  ruleNames,
   emailAccount,
   messageToSummarize,
 }: {
+  ruleNames: string[];
   emailAccount: EmailAccountWithAI;
   messageToSummarize: EmailForLLM;
 }): Promise<AICheckResult> {
   // If messageToSummarize somehow is null/undefined, default to null.
-  if (!messageToSummarize) return { summary: null };
+  if (!messageToSummarize) return null;
 
   const userMessageForPrompt = messageToSummarize;
 
   const system = "You are an AI assistant that summarizes emails for a digest.";
 
   const prompt = `
-
 Summarize the following email for inclusion in a daily digest email.
-	•	Use a concise, professional format that is easy to scan.
-	•	Choose the most appropriate output style:
-	•	Use bullet points for general summaries with 2 ~ 4 key items.
-	•	Use an HTML table (with width="100%") if the email includes any monetary values (e.g., $, €, £, R$).
-	•	Use a plain text paragraph if neither bullet points nor a table makes sense.
-	•	Highlight critical information using <strong> tags — such as amounts, dates, deadlines, quantities, order numbers, or payment methods.
-	•	Do not highlight labels or descriptions — only highlight the actual values.
-	•	Ensure tables are minimalist and email-friendly, with:
-	•	Left-aligned header rows
-	•	No unnecessary borders or visual clutter
-	•	Only useful columns included (omit any unhelpful headers)
-	•	Align the last column and its content to the right (especially for numeric or monetary values)
-	•	Limit each summary to the essentials: no more than 4 bullet points or 5 table rows.
-	•	Output must be clean, valid HTML, ready for direct use in an email client.
+	•	This email has already been categorized. Use the provided categories: ${ruleNames.join(", ")}.
 
-When summarizing receipts, invoices, or purchase confirmations:
-	•	Always use a table layout, and include key fields like item, amount, date, and payment method.
+Formatting rules:
+	•	If the email contains structured or extractable data (e.g. amounts, dates, event names, order numbers), return an object with an 'entries' field: a list of 2 ~ 6 important 'label' and 'value' pairs.
+  •	Order the entries by relevance: start with contextual or identifying information, and always place financial totals or final key amounts (e.g. 'Total', 'Amount Paid', 'Amount Due') at the end.
+	•	Use short, descriptive labels and clear values. Example: { 'label': 'Total', 'value': '$19.99' }.
+	•	Do not include unnecessary or repetitive fields.
+	•	If the email does not contain structured data, return a 'summary' field with a short plain-text paragraph instead.
+	•	Never return both 'entries' and 'summary' — choose only one.
 
+Style and output rules:
+	•	Output must be plain text only — no HTML, no tables.
+	•	Be concise and clear. The final output should be clean, minimal, and easy to read in a plain text email.
 
 <message>
 ${stringifyEmailSimple(userMessageForPrompt)}
