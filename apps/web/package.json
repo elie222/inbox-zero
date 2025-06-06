@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev",
+    "dev": "cross-env NODE_OPTIONS=--max_old_space_size=16384 next dev --turbo",
     "build": "cross-env NODE_OPTIONS=--max_old_space_size=16384 prisma migrate deploy && next build",
     "start": "next start",
     "lint": "next lint",
@@ -34,6 +34,7 @@
     "@lemonsqueezy/lemonsqueezy.js": "4.0.0",
     "@mdx-js/loader": "3.1.0",
     "@mdx-js/react": "3.1.0",
+    "@microsoft/microsoft-graph-client": "^3.0.7",
     "@next/mdx": "15.3.0",
     "@next/third-parties": "15.3.0",
     "@openrouter/ai-sdk-provider": "0.4.5",

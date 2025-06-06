@@ -75,6 +75,59 @@ export function LoginForm() {
         </DialogContent>
       </Dialog>
 
+      {/* TODO: Check the best way to filter for the waitlist users */}
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button size="2xl">
+            <span className="flex items-center justify-center">
+              <Image
+                src="/images/microsoft.svg"
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+              />
+              <span className="ml-2">Sign in with Microsoft</span>
+            </span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in</DialogTitle>
+          </DialogHeader>
+          <SectionDescription>
+            Inbox Zero{"'"}s use and transfer of information received from
+            Microsoft Entra ID will adhere to{" "}
+            <a
+              href="https://learn.microsoft.com/en-us/legal/microsoft-entra-privacy"
+              className="underline underline-offset-4 hover:text-gray-900"
+            >
+              Microsoft Entra Privacy Policy
+            </a>{" "}
+            and other applicable requirements.
+          </SectionDescription>
+          <div>
+            <Button
+              loading={loading}
+              onClick={() => {
+                setLoading(true);
+                signIn(
+                  "microsoft-entra-id",
+                  {
+                    ...(next && next.length > 0
+                      ? { callbackUrl: next }
+                      : { callbackUrl: "/welcome" }),
+                  },
+                  error === "RequiresReconsent" ? { consent: true } : undefined,
+                );
+              }}
+            >
+              I agree
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Button
         color="white"
         size="2xl"

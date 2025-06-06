@@ -6,6 +6,7 @@ import {
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { notFound } from "next/navigation";
+import { Client } from "@microsoft/microsoft-graph-client";
 
 export async function getGmailClientForEmail({
   emailAccountId,
@@ -93,4 +94,82 @@ export async function redirectToEmailAccountPath(path: `/${string}`) {
   const redirectUrl = `/${emailAccount.id}${path}`;
 
   redirect(redirectUrl);
+}
+
+export async function getOutlookClientForEmail({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const tokens = await getTokens({ emailAccountId });
+  const gmail = getOutlookClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
+  return gmail;
+}
+
+export async function getOutlookAndAccessTokenForEmail({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const tokens = await getTokens({ emailAccountId });
+  const outlook = await getOutlookClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
+  const accessToken = getAccessTokenFromClient(outlook);
+  return { outlook, accessToken, tokens };
+}
+
+export async function getOutlookClientForEmailId({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { access_token: true, refresh_token: true, expires_at: true },
+      },
+    },
+  });
+  const outlook = getGmailClientWithRefresh({
+    accessToken: account?.account.access_token,
+    refreshToken: account?.account.refresh_token || "",
+    expiresAt: account?.account.expires_at ?? null,
+    emailAccountId,
+  });
+  return outlook;
+}
+
+export async function getGraphClientAndAccessTokenForEmail({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const tokens = await getTokens({ emailAccountId });
+
+  if (!tokens.accessToken) {
+    throw new Error("No access token found for this account");
+  }
+
+  // Create Microsoft Graph client
+  const graphClient = Client.init({
+    authProvider: (done) => {
+      done(null, tokens.accessToken as string);
+    },
+  });
+
+  return {
+    graphClient,
+    accessToken: tokens.accessToken,
+    tokens,
+  };
 }
