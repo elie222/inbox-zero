@@ -1,111 +1,59 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import useSWR from "swr";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Share2, Users, Trophy, Clock, CheckCircle } from "lucide-react";
-import { toast } from "@/utils/toast";
-
-interface ReferralCode {
-  code: string;
-  link: string;
-  isActive: boolean;
-}
-
-interface ReferralStats {
-  referralCode: { code: string } | null;
-  stats: {
-    totalReferrals: number;
-    pendingReferrals: number;
-    activeTrials: number;
-    completedReferrals: number;
-    totalRewards: number;
-    activeRewards: number;
-  };
-  referrals: Array<{
-    id: string;
-    status: string;
-    createdAt: string;
-    referredUser: {
-      email: string;
-      name: string | null;
-      createdAt: string;
-    };
-    reward: {
-      id: string;
-      rewardType: string;
-      rewardValue: number;
-      appliedAt: string;
-      expiresAt: string | null;
-    } | null;
-  }>;
-}
+import { Copy, Share2, Users, Trophy, Clock } from "lucide-react";
+import { toastError, toastSuccess } from "@/components/Toast";
+import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
+import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
+import type { ReferralStatus } from "@prisma/client";
 
 export function ReferralDashboard() {
-  const [referralCode, setReferralCode] = useState<ReferralCode | null>(null);
-  const [stats, setStats] = useState<ReferralStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [copying, setCopying] = useState(false);
+  const { data: referralCodeData, isLoading: loadingCode } = useSWR<GetReferralCodeResponse>(
+    "/api/referrals/code"
+  );
+  
+  const { data: statsData, isLoading: loadingStats } = useSWR<GetReferralStatsResponse>(
+    "/api/referrals/stats"
+  );
 
-  useEffect(() => {
-    fetchReferralData();
-  }, []);
-
-  const fetchReferralData = async () => {
-    try {
-      const [codeResponse, statsResponse] = await Promise.all([
-        fetch("/api/referrals/code"),
-        fetch("/api/referrals/stats"),
-      ]);
-
-      if (codeResponse.ok) {
-        const codeData = await codeResponse.json();
-        setReferralCode(codeData);
-      }
-
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData);
-      }
-    } catch (error) {
-      console.error("Error fetching referral data:", error);
-      toast.error("Failed to load referral data");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const loading = loadingCode || loadingStats;
 
   const copyToClipboard = async (text: string, type: "code" | "link") => {
-    setCopying(true);
     try {
       await navigator.clipboard.writeText(text);
-      toast.success(`Referral ${type} copied to clipboard!`);
+      toastSuccess({ description: `Referral ${type} copied to clipboard!` });
     } catch (error) {
-      toast.error(`Failed to copy ${type}`);
-    } finally {
-      setCopying(false);
+      toastError({
+        title: `Failed to copy ${type}`,
+        description: "Please try again",
+      });
     }
   };
 
   const shareReferralLink = async () => {
-    if (!referralCode) return;
+    if (!referralCodeData) return;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: "Join Inbox Zero with my referral",
-          text: `Use my referral code ${referralCode.code} to get started with Inbox Zero!`,
-          url: referralCode.link,
+          text: `Use my referral code ${referralCodeData.code} to get started with Inbox Zero!`,
+          url: referralCodeData.link,
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
-          toast.error("Failed to share");
+          toastError({
+            title: "Failed to share",
+            description: "Please try again",
+          });
         }
       }
     } else {
-      copyToClipboard(referralCode.link, "link");
+      copyToClipboard(referralCodeData.link, "link");
     }
   };
 
@@ -133,15 +81,14 @@ export function ReferralDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {referralCode ? (
+          {referralCodeData ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
                 <span className="text-2xl font-mono font-bold text-gray-900">
-                  {referralCode.code}
+                  {referralCodeData.code}
                 </span>
                 <Button
-                  onClick={() => copyToClipboard(referralCode.code, "code")}
-                  disabled={copying}
+                  onClick={() => copyToClipboard(referralCodeData.code, "code")}
                   variant="outline"
                   size="sm"
                 >
@@ -152,8 +99,7 @@ export function ReferralDashboard() {
 
               <div className="flex gap-2">
                 <Button
-                  onClick={() => copyToClipboard(referralCode.link, "link")}
-                  disabled={copying}
+                  onClick={() => copyToClipboard(referralCodeData.link, "link")}
                   variant="outline"
                   className="flex-1"
                 >
@@ -177,7 +123,7 @@ export function ReferralDashboard() {
       </Card>
 
       {/* Stats Cards */}
-      {stats && (
+      {statsData && (
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -187,7 +133,7 @@ export function ReferralDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.stats.totalReferrals}</div>
+              <div className="text-2xl font-bold">{statsData.stats.totalReferrals}</div>
               <p className="text-xs text-muted-foreground">
                 Friends you've referred
               </p>
@@ -202,7 +148,7 @@ export function ReferralDashboard() {
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.stats.activeTrials}</div>
+              <div className="text-2xl font-bold">{statsData.stats.activeTrials}</div>
               <p className="text-xs text-muted-foreground">
                 Friends in trial period
               </p>
@@ -217,7 +163,7 @@ export function ReferralDashboard() {
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.stats.totalRewards}</div>
+              <div className="text-2xl font-bold">{statsData.stats.totalRewards}</div>
               <p className="text-xs text-muted-foreground">
                 Free months earned
               </p>
@@ -227,7 +173,7 @@ export function ReferralDashboard() {
       )}
 
       {/* Referrals List */}
-      {stats && stats.referrals.length > 0 && (
+      {statsData && statsData.referrals.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Your Referrals</CardTitle>
@@ -237,7 +183,7 @@ export function ReferralDashboard() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stats.referrals.map((referral) => (
+              {statsData.referrals.map((referral) => (
                 <div
                   key={referral.id}
                   className="flex items-center justify-between border-b pb-4 last:border-0"
@@ -250,8 +196,8 @@ export function ReferralDashboard() {
                       Joined {new Date(referral.referredUser.createdAt).toLocaleDateString()}
                     </p>
                   </div>
-                  <Badge variant={getReferralStatusVariant(referral.status)}>
-                    {getReferralStatusLabel(referral.status)}
+                  <Badge variant={getReferralStatusVariant(referral.status as ReferralStatus)}>
+                    {getReferralStatusLabel(referral.status as ReferralStatus)}
                   </Badge>
                 </div>
               ))}
@@ -302,7 +248,7 @@ function ReferralDashboardSkeleton() {
   );
 }
 
-function getReferralStatusVariant(status: string) {
+function getReferralStatusVariant(status: ReferralStatus): "secondary" | "default" | "success" | "destructive" {
   switch (status) {
     case "PENDING":
       return "secondary";
@@ -317,7 +263,7 @@ function getReferralStatusVariant(status: string) {
   }
 }
 
-function getReferralStatusLabel(status: string) {
+function getReferralStatusLabel(status: ReferralStatus) {
   switch (status) {
     case "PENDING":
       return "Pending";

@@ -1,46 +1,38 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
 
-export const GET = withError(async () => {
-  const session = await auth();
-  const userId = session?.user.id;
+export type GetReferralsResponse = Awaited<ReturnType<typeof getReferrals>>;
 
-  if (!userId) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
+export const GET = withAuth(async (request) => {
+  const userId = request.auth.userId;
+  const result = await getReferrals({ userId });
+  return NextResponse.json(result);
+});
 
-  try {
-    const referrals = await prisma.referral.findMany({
-      where: { referrerUserId: userId },
-      include: {
-        referredUser: {
-          select: {
-            email: true,
-            name: true,
-            createdAt: true,
-          },
-        },
-        reward: {
-          select: {
-            id: true,
-            rewardType: true,
-            rewardValue: true,
-            appliedAt: true,
-            expiresAt: true,
-          },
+async function getReferrals({ userId }: { userId: string }) {
+  const referrals = await prisma.referral.findMany({
+    where: { referrerUserId: userId },
+    include: {
+      referredUser: {
+        select: {
+          email: true,
+          name: true,
+          createdAt: true,
         },
       },
-      orderBy: { createdAt: "desc" },
-    });
+      reward: {
+        select: {
+          id: true,
+          rewardType: true,
+          rewardValue: true,
+          appliedAt: true,
+          expiresAt: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
-    return NextResponse.json({ referrals });
-  } catch (error) {
-    console.error("Error getting referrals:", error);
-    return NextResponse.json(
-      { error: "Failed to get referrals" },
-      { status: 500 }
-    );
-  }
-});
+  return { referrals };
+}
