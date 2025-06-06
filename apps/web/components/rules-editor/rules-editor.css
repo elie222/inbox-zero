@@ -1,0 +1,92 @@
+/* Rules Editor Custom Styles */
+
+/* Rule Node Styles */
+.rule-node {
+  @apply relative mb-4 rounded-lg border-2 border-green-200 bg-green-50/50 p-4 transition-all;
+  @apply hover:border-green-300 hover:shadow-sm;
+}
+
+.rule-node.processing {
+  @apply animate-pulse;
+}
+
+.rule-node-pending::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px dashed #10b981;
+  border-radius: 0.5rem;
+  opacity: 0.5;
+  animation: pulse 2s infinite;
+}
+
+.rule-content {
+  @apply text-gray-700;
+  min-height: 1.5rem;
+}
+
+/* Context Node Styles */
+.context-node {
+  @apply relative mb-4 rounded-lg border-2 border-blue-200 bg-blue-50/50 p-4 transition-all;
+  @apply hover:border-blue-300 hover:shadow-sm;
+}
+
+.context-content {
+  @apply text-gray-700;
+  min-height: 1.5rem;
+}
+
+/* Editor Styles */
+.ProseMirror {
+  @apply outline-none;
+}
+
+.ProseMirror p {
+  @apply mb-4 text-gray-700;
+}
+
+.ProseMirror:focus {
+  @apply outline-none;
+}
+
+/* Slash Command Menu */
+.slash-command-trigger {
+  @apply text-blue-600 font-medium;
+}
+
+.slash-command-menu {
+  @apply absolute z-50 mt-2 rounded-md border bg-white shadow-lg;
+  @apply min-w-[200px] p-1;
+}
+
+.slash-command-item {
+  @apply flex items-center gap-2 rounded px-3 py-2 text-sm;
+  @apply hover:bg-gray-100 cursor-pointer;
+}
+
+.slash-command-item.active {
+  @apply bg-blue-50 text-blue-700;
+}
+
+/* Animations */
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 0.5; 
+  }
+  50% { 
+    opacity: 0.8; 
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .rule-node,
+  .context-node {
+    @apply p-3;
+  }
+  
+  .rule-node .expand-button,
+  .context-node .delete-button {
+    @apply opacity-100;
+  }
+}
