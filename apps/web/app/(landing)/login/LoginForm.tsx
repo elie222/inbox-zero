@@ -75,6 +75,58 @@ export function LoginForm() {
         </DialogContent>
       </Dialog>
 
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button size="2xl" color="white">
+            <span className="flex items-center justify-center">
+              <Image
+                src="/images/microsoft.svg"
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+              />
+              <span className="ml-2">Sign in with Microsoft</span>
+            </span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in with Microsoft</DialogTitle>
+          </DialogHeader>
+          <SectionDescription>
+            Inbox Zero{"'"}s use and transfer of information received from
+            Microsoft APIs to any other app will adhere to{" "}
+            <a
+              href="https://learn.microsoft.com/en-us/legal/microsoft-apis/terms-of-use"
+              className="underline underline-offset-4 hover:text-gray-900"
+            >
+              Microsoft{"'"}s API terms of service and data privacy
+              requirements.
+            </a>
+          </SectionDescription>
+          <div>
+            <Button
+              loading={loading}
+              onClick={() => {
+                setLoading(true);
+                signIn(
+                  "microsoft-entra-id",
+                  {
+                    ...(next && next.length > 0
+                      ? { callbackUrl: next }
+                      : { callbackUrl: "/welcome" }),
+                  },
+                  error === "RequiresReconsent" ? { consent: true } : undefined,
+                );
+              }}
+            >
+              I agree
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Button
         color="white"
         size="2xl"
