@@ -19,6 +19,7 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
+import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -120,8 +121,22 @@ const label: ActionFunction<{ label: string } | any> = async ({
 //   content: string;
 //   attachments?: Attachment[];
 // },
-const draft: ActionFunction<any> = async ({ gmail, email, args }) => {
-  const result = await draftEmail(gmail, email, args);
+const draft: ActionFunction<any> = async ({
+  gmail,
+  email,
+  args,
+  executedRule,
+}) => {
+  // Run draft creation and previous draft deletion in parallel
+  const [result] = await Promise.all([
+    draftEmail(gmail, email, args),
+    handlePreviousDraftDeletion({
+      gmail,
+      executedRule,
+      logger,
+    }),
+  ]);
+
   return { draftId: result.data.message?.id };
 };
 

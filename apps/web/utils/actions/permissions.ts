@@ -6,6 +6,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("actions/permissions");
 
@@ -17,13 +18,13 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
       });
 
-      if (!accessToken) return { error: "No access token" };
+      if (!accessToken) throw new SafeError("No access token");
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
         emailAccountId,
       });
-      if (error) return { error };
+      if (error) throw new SafeError(error);
 
       if (!hasAllPermissions) return { hasAllPermissions: false };
 
@@ -36,7 +37,7 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
         error,
       });
-      return { error: "Failed to check permissions" };
+      throw new SafeError("Failed to check permissions");
     }
   });
 
@@ -51,22 +52,22 @@ export const adminCheckPermissionsAction = adminActionClient
           id: true,
         },
       });
-      if (!emailAccount) return { error: "Email account not found" };
+      if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;
 
       const { accessToken } = await getGmailAndAccessTokenForEmail({
         emailAccountId,
       });
-      if (!accessToken) return { error: "No Gmail access token" };
+      if (!accessToken) throw new SafeError("No Gmail access token");
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
         emailAccountId,
       });
-      if (error) return { error };
+      if (error) throw new SafeError(error);
       return { hasAllPermissions };
     } catch (error) {
       logger.error("Admin failed to check permissions", { email, error });
-      return { error: "Failed to check permissions" };
+      throw new SafeError("Failed to check permissions");
     }
   });

@@ -217,13 +217,15 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline' https:",
               // Add this line to allow data: fonts
               "font-src 'self' data: https:",
-              // For images including avatars
-              "img-src 'self' data: https: blob:",
+              // For images including avatars and Mux thumbnails
+              "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
+              // For Mux video and audio content
+              "media-src 'self' blob: https://*.mux.com",
               // If you use web workers or service workers
               "worker-src 'self' blob:",
-              // For API calls, SWR, external services
-              "connect-src 'self' https: wss:",
-              // iframes
+              // For API calls, SWR, external services, and Mux
+              "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
+              // iframes for Mux player
               "frame-src 'self' https:",
               // Prevent embedding in iframes
               "frame-ancestors 'none'",
@@ -315,6 +317,7 @@ const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",
   disable: env.NODE_ENV !== "production",
+  maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3MB
 });
 
 export default withAxiom(withSerwist(exportConfig));

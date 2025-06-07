@@ -6,6 +6,7 @@ import { emailToContent } from "@/utils/mail";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
+import { SafeError } from "@/utils/error";
 
 export const generateNudgeReplyAction = actionClient
   .metadata({ name: "generateNudgeReply" })
@@ -17,11 +18,11 @@ export const generateNudgeReplyAction = actionClient
     }) => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-      if (!emailAccount) return { error: "User not found" };
+      if (!emailAccount) throw new SafeError("User not found");
 
       const lastMessage = inputMessages.at(-1);
 
-      if (!lastMessage) return { error: "No message provided" };
+      if (!lastMessage) throw new SafeError("No message provided");
 
       const reply = await getReply({
         emailAccountId,

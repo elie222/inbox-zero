@@ -37,6 +37,7 @@ export function Hero(props: {
   image?: string;
   CTAComponent?: React.ComponentType;
   hideProductHuntBadge?: boolean;
+  video?: React.ReactNode;
 }) {
   const CTAComponent = props.CTAComponent || CTAButtons;
 
@@ -65,13 +66,17 @@ export function Hero(props: {
           <LogoCloud />
 
           <div className="relative mt-16 flow-root sm:mt-24">
-            <HeroVideoDialog
-              className="block"
-              animationStyle="top-in-bottom-out"
-              videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
-              thumbnailSrc={props.image || "/images/home/bulk-unsubscriber.png"}
-              thumbnailAlt="Bulk Unsubscriber Screenshot"
-            />
+            {props.video || (
+              <HeroVideoDialog
+                className="block"
+                animationStyle="top-in-bottom-out"
+                videoSrc="https://www.youtube.com/embed/hfvKvTHBjG0?autoplay=1&rel=0"
+                thumbnailSrc={
+                  props.image || "/images/home/bulk-unsubscriber.png"
+                }
+                thumbnailAlt="Bulk Unsubscriber Screenshot"
+              />
+            )}
           </div>
         </div>
       </div>

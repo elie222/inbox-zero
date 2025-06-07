@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 // import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";

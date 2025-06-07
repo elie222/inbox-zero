@@ -55,6 +55,7 @@
         "API_KEY_SALT",
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",
+        "GITHUB_MARKETING_TOKEN",
 
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",

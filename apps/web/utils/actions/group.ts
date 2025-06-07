@@ -8,6 +8,7 @@ import {
 } from "@/utils/actions/group.validation";
 import { addGroupItem, deleteGroupItem } from "@/utils/group/group-item";
 import { actionClient } from "@/utils/actions/safe-action";
+import { SafeError } from "@/utils/error";
 
 export const createGroupAction = actionClient
   .metadata({ name: "createGroup" })
@@ -18,7 +19,7 @@ export const createGroupAction = actionClient
       select: { name: true, groupId: true },
     });
     if (rule?.groupId) return { groupId: rule.groupId };
-    if (!rule) return { error: "Rule not found" };
+    if (!rule) throw new SafeError("Rule not found");
 
     const group = await prisma.group.create({
       data: {
@@ -44,11 +45,11 @@ export const addGroupItemAction = actionClient
       const group = await prisma.group.findUnique({
         where: { id: groupId },
       });
-      if (!group) return { error: "Group not found" };
+      if (!group) throw new SafeError("Learned patterns group not found");
       if (group.emailAccountId !== emailAccountId)
-        return {
-          error: "You don't have permission to add items to this group",
-        };
+        throw new SafeError(
+          "You don't have permission to add this learned pattern",
+        );
 
       await addGroupItem({ groupId, type, value, exclude });
     },

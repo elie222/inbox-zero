@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
 import type { UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { toast } from "sonner";
 import {
   ArrowLeftToLineIcon,
   HistoryIcon,
@@ -36,7 +35,7 @@ import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
-import { PromptFile } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
+import { toastError } from "@/components/Toast";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -133,7 +132,10 @@ function ChatInner({
     },
     onError: (error) => {
       console.error(error);
-      toast.error(`An error occured! ${error.message || ""}`);
+      toastError({
+        title: "An error occured!",
+        description: error.message || "",
+      });
     },
   });
 

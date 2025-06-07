@@ -36,6 +36,7 @@ import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
+import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -410,23 +411,24 @@ function getActionType(example: string): {
   color: string;
 } {
   const lowerExample = example.toLowerCase();
+  const color = getActionTypeColor(example);
 
   if (lowerExample.includes("forward")) {
-    return { type: "forward", color: "bg-purple-500" };
+    return { type: "forward", color };
   }
   if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
-    return { type: "reply", color: "bg-green-500" };
+    return { type: "reply", color };
   }
   if (lowerExample.includes("archive")) {
-    return { type: "archive", color: "bg-yellow-500" };
+    return { type: "archive", color };
   }
   if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
-    return { type: "mark", color: "bg-red-500" };
+    return { type: "mark", color };
   }
   if (lowerExample.includes("label")) {
-    return { type: "label", color: "bg-blue-500" };
+    return { type: "label", color };
   }
 
   // Default fallback
-  return { type: "other", color: "bg-orange-500" };
+  return { type: "other", color };
 }

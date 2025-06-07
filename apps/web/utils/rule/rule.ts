@@ -147,7 +147,7 @@ export async function createRule({
         })),
       ),
       runOnThreads: true,
-      conditionalOperator: result.condition.conditionalOperator,
+      conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
@@ -187,7 +187,7 @@ async function updateRule({
         deleteMany: {},
         createMany: { data: mapActionFields(result.actions) },
       },
-      conditionalOperator: result.condition.conditionalOperator,
+      conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
       from: result.condition.static?.from,
       to: result.condition.static?.to,
@@ -246,7 +246,13 @@ function shouldAutomate(
   actions: RiskAction[],
 ) {
   // Don't automate if it's an example rule that should have been edited by the user
-  if (hasExampleParams(rule)) return false;
+  if (
+    hasExampleParams({
+      condition: rule.condition,
+      actions: rule.actions.map((a) => ({ content: a.fields?.content })),
+    })
+  )
+    return false;
 
   // Don't automate sending or replying to emails
   if (

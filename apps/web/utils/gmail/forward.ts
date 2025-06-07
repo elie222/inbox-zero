@@ -45,8 +45,8 @@ ${message.textPlain}`;
 };
 
 const formatFromEmailWithName = (emailHeader: string) => {
-  const match = emailHeader.match(/(.*?)\s*<([^>]+)>/);
-  if (!match) return emailHeader;
+  const match = emailHeader?.match(/(.*?)\s*<([^>]+)>/);
+  if (!match) return emailHeader || "";
 
   const [, name, email] = match;
   const trimmedName = name.trim();
@@ -55,8 +55,8 @@ const formatFromEmailWithName = (emailHeader: string) => {
 };
 
 const formatToEmailWithName = (emailHeader: string) => {
-  const match = emailHeader.match(/(.*?)\s*<([^>]+)>/);
-  if (!match) return emailHeader;
+  const match = emailHeader?.match(/(.*?)\s*<([^>]+)>/);
+  if (!match) return emailHeader || "";
 
   const [, name, email] = match;
   const trimmedName = name.trim();

@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Container } from "@/components/Container";
@@ -27,6 +26,7 @@ import {
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { Suspense } from "react";
 
 export const maxDuration = 3;
 
