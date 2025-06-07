@@ -72,6 +72,9 @@ model User {
   aiApiKey      String?
   webhookSecret String?
 
+  // referral system
+  referralCode     String? @unique // User's own referral code
+
   // premium can be shared among multiple users
   premiumId      String?
   premium        Premium? @relation(name: "userPremium", fields: [premiumId], references: [id])
@@ -84,10 +87,8 @@ model User {
   emailAccounts EmailAccount[]
 
   // Referral relationships
-  referralCode      ReferralCode?
   referralsMade     Referral[]      @relation("ReferrerUser")
   referralReceived  Referral?       @relation("ReferredUser")
-  referralRewards   ReferralReward[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -507,7 +508,7 @@ model Knowledge {
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([title, emailAccountId])
+  @@unique([emailAccountId, title])
 }
 
 model ApiKey {
@@ -711,8 +712,6 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
-  COLD_EMAIL_SENDER
-  GROUP_THREAD_REPLIES
   // COLD_EMAIL // handled separately. we may unify in the future
 }
 
@@ -725,21 +724,6 @@ enum ReferralStatus {
 }
 
 // Referral System Models
-model ReferralCode {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  code      String   @unique // Unique referral code (e.g., "JOHN2024")
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  isActive  Boolean  @default(true)
-
-  referrals Referral[]
-
-  @@unique([userId]) // Each user has only one referral code
-  @@index([code])
-}
-
 model Referral {
   id                String           @id @default(cuid())
   createdAt         DateTime         @default(now())
@@ -753,38 +737,19 @@ model Referral {
   referredUserId    String           @unique // Each user can only be referred once
   referredUser      User             @relation(name: "ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
   
-  // The referral code used
-  referralCodeId    String
-  referralCode      ReferralCode     @relation(fields: [referralCodeId], references: [id])
+  // The referral code used (stored as string)
+  referralCodeUsed  String
   
   // Status tracking
   status            ReferralStatus   @default(PENDING)
   trialStartedAt    DateTime?
   trialCompletedAt  DateTime?
   
-  // Reward tracking
-  rewardGranted     Boolean          @default(false)
-  reward            ReferralReward?
+  // Reward tracking - using Stripe balance transactions
+  rewardGranted              Boolean  @default(false)
+  stripeBalanceTransactionId String?  // Store Stripe txn ID for reference
+  rewardAmount               Int?     // Amount in cents (e.g., 2000 for $20)
 
   @@index([referrerUserId])
   @@index([status])
-}
-
-model ReferralReward {
-  id              String   @id @default(cuid())
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  referralId      String   @unique
-  referral        Referral @relation(fields: [referralId], references: [id], onDelete: Cascade)
-  
-  userId          String   // The user who received the reward (referrer)
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  rewardType      String   @default("FREE_MONTH") // Type of reward
-  rewardValue     Int      @default(1) // Number of months (or other unit)
-  appliedAt       DateTime @default(now())
-  expiresAt       DateTime? // When the free month expires
-  
-  @@index([userId])
 }

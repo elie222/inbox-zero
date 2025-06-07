@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import addMonths from "date-fns/addMonths";
+import { getStripe } from "@/ee/billing/stripe";
 
 const logger = createScopedLogger("referral-tracking");
 
@@ -47,7 +47,7 @@ export async function markTrialStarted(userId: string) {
 }
 
 /**
- * Mark a referral as completed and grant the reward
+ * Mark a referral as completed and grant the reward via Stripe balance transaction
  * Called when the referred user completes their 7-day trial
  */
 export async function completeReferralAndGrantReward(userId: string) {
@@ -59,7 +59,12 @@ export async function completeReferralAndGrantReward(userId: string) {
           select: {
             id: true,
             email: true,
-            premiumId: true,
+            premium: {
+              select: {
+                id: true,
+                stripeCustomerId: true,
+              },
+            },
           },
         },
       },
@@ -79,17 +84,25 @@ export async function completeReferralAndGrantReward(userId: string) {
     }
 
     if (referral.status !== "TRIAL_STARTED") {
-      logger.warn("Attempting to complete referral not in TRIAL_STARTED status", {
-        userId,
-        referralId: referral.id,
-        status: referral.status,
-      });
+      logger.warn(
+        "Attempting to complete referral not in TRIAL_STARTED status",
+        {
+          userId,
+          referralId: referral.id,
+          status: referral.status,
+        },
+      );
     }
 
-    // Start a transaction to update referral and create reward
-    const result = await prisma.$transaction(async (tx) => {
-      // Update referral status
-      const updatedReferral = await tx.referral.update({
+    // Check if referrer has a Stripe customer ID
+    const stripeCustomerId = referral.referrerUser.premium?.stripeCustomerId;
+    if (!stripeCustomerId) {
+      logger.warn("Referrer has no Stripe customer ID", {
+        referralId: referral.id,
+        referrerUserId: referral.referrerUserId,
+      });
+      // Still mark as rewarded but don't apply credit
+      const updatedReferral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
           status: "REWARDED",
@@ -97,40 +110,76 @@ export async function completeReferralAndGrantReward(userId: string) {
           rewardGranted: true,
         },
       });
+      return { referral: updatedReferral, stripeBalanceTransaction: null };
+    }
 
-      // Calculate reward expiration (1 month from now)
-      const expiresAt = addMonths(new Date(), 1);
+    // Define reward amount (e.g., $20 = 2000 cents)
+    const rewardAmountCents = 2000; // $20 credit
 
-      // Create the reward
-      const reward = await tx.referralReward.create({
+    try {
+      const stripe = getStripe();
+
+      // Create Stripe balance transaction (credit)
+      const balanceTransaction =
+        await stripe.customers.createBalanceTransaction(
+          stripeCustomerId,
+          {
+            amount: -rewardAmountCents, // Negative amount for credit
+            currency: "usd",
+            description: `Referral credit - ${referral.id}`,
+            metadata: {
+              referral_id: referral.id,
+              referrer_user_id: referral.referrerUserId,
+              referred_user_id: referral.referredUserId,
+            },
+          },
+          {
+            idempotencyKey: `referral_${stripeCustomerId}_${referral.id}`,
+          },
+        );
+
+      // Update referral with reward information
+      const updatedReferral = await prisma.referral.update({
+        where: { id: referral.id },
         data: {
-          referralId: referral.id,
-          userId: referral.referrerUserId,
-          rewardType: "FREE_MONTH",
-          rewardValue: 1,
-          expiresAt,
+          status: "REWARDED",
+          trialCompletedAt: new Date(),
+          rewardGranted: true,
+          stripeBalanceTransactionId: balanceTransaction.id,
+          rewardAmount: rewardAmountCents,
         },
       });
 
-      // If the referrer has a premium account, extend it
-      if (referral.referrerUser.premiumId) {
-        await extendPremiumSubscription(
-          referral.referrerUser.premiumId,
-          1,
-          tx
-        );
-      }
+      logger.info("Completed referral and granted Stripe credit", {
+        referralId: referral.id,
+        stripeBalanceTransactionId: balanceTransaction.id,
+        rewardAmount: rewardAmountCents,
+        referrerUserId: referral.referrerUserId,
+      });
 
-      return { referral: updatedReferral, reward };
-    });
+      return {
+        referral: updatedReferral,
+        stripeBalanceTransaction: balanceTransaction,
+      };
+    } catch (stripeError) {
+      logger.error("Failed to create Stripe balance transaction", {
+        error: stripeError,
+        referralId: referral.id,
+        stripeCustomerId,
+      });
 
-    logger.info("Completed referral and granted reward", {
-      referralId: referral.id,
-      rewardId: result.reward.id,
-      referrerUserId: referral.referrerUserId,
-    });
+      // Still mark as completed but note the failure
+      const updatedReferral = await prisma.referral.update({
+        where: { id: referral.id },
+        data: {
+          status: "TRIAL_COMPLETED", // Different status to indicate completion but failed reward
+          trialCompletedAt: new Date(),
+          rewardGranted: false,
+        },
+      });
 
-    return result;
+      throw stripeError;
+    }
   } catch (error) {
     logger.error("Error completing referral", { error, userId });
     throw error;
@@ -138,60 +187,13 @@ export async function completeReferralAndGrantReward(userId: string) {
 }
 
 /**
- * Extend a premium subscription by the specified number of months
- */
-async function extendPremiumSubscription(
-  premiumId: string,
-  months: number,
-  tx: any
-) {
-  const premium = await tx.premium.findUnique({
-    where: { id: premiumId },
-    select: {
-      stripeRenewsAt: true,
-      lemonSqueezyRenewsAt: true,
-    },
-  });
-
-  if (!premium) {
-    logger.error("Premium not found", { premiumId });
-    return;
-  }
-
-  // Determine which payment provider is being used
-  const currentRenewDate = premium.stripeRenewsAt || premium.lemonSqueezyRenewsAt;
-  
-  if (!currentRenewDate) {
-    logger.warn("No renewal date found for premium", { premiumId });
-    return;
-  }
-
-  const newRenewDate = addMonths(currentRenewDate, months);
-
-  // Update the appropriate renewal date based on provider
-  const updateData = premium.stripeRenewsAt
-    ? { stripeRenewsAt: newRenewDate }
-    : { lemonSqueezyRenewsAt: newRenewDate };
-
-  await tx.premium.update({
-    where: { id: premiumId },
-    data: updateData,
-  });
-
-  logger.info("Extended premium subscription", {
-    premiumId,
-    months,
-    newRenewDate,
-  });
-}
-
-/**
  * Get referral statistics for a user
  */
 export async function getReferralStats(userId: string) {
-  const [referralCode, referrals, rewards] = await Promise.all([
-    prisma.referralCode.findUnique({
-      where: { userId },
+  const [user, referrals] = await Promise.all([
+    prisma.user.findUnique({
+      where: { id: userId },
+      select: { referralCode: true },
     }),
     prisma.referral.findMany({
       where: { referrerUserId: userId },
@@ -199,14 +201,11 @@ export async function getReferralStats(userId: string) {
         referredUser: {
           select: {
             email: true,
+            name: true,
             createdAt: true,
           },
         },
       },
-      orderBy: { createdAt: "desc" },
-    }),
-    prisma.referralReward.findMany({
-      where: { userId },
       orderBy: { createdAt: "desc" },
     }),
   ]);
@@ -216,14 +215,15 @@ export async function getReferralStats(userId: string) {
     pendingReferrals: referrals.filter((r) => r.status === "PENDING").length,
     activeTrials: referrals.filter((r) => r.status === "TRIAL_STARTED").length,
     completedReferrals: referrals.filter((r) => r.status === "REWARDED").length,
-    totalRewards: rewards.length,
-    activeRewards: rewards.filter((r) => !r.expiresAt || r.expiresAt > new Date()).length,
+    totalRewards: referrals.filter((r) => r.rewardGranted).length,
+    totalRewardAmount: referrals
+      .filter((r) => r.rewardGranted && r.rewardAmount)
+      .reduce((sum, r) => sum + (r.rewardAmount || 0), 0),
   };
 
   return {
-    referralCode,
+    referralCode: user?.referralCode ? { code: user.referralCode } : null,
     referrals,
-    rewards,
     stats,
   };
 }

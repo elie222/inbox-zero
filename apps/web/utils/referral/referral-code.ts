@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 
@@ -6,18 +6,12 @@ import { env } from "@/env";
  * Generate a unique referral code for a user
  * Format: USERNAME + 4 random characters (e.g., JOHN2X4K)
  */
-export async function generateReferralCode(userId: string): Promise<string> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true, email: true },
-  });
-
-  if (!user) {
-    throw new Error("User not found");
-  }
-
+export async function generateReferralCode(
+  email: string,
+  name?: string | null,
+): Promise<string> {
   // Extract base name from user's name or email
-  const baseName = (user.name || user.email.split("@")[0])
+  const baseName = (name || email.split("@")[0])
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 6);
@@ -33,11 +27,11 @@ export async function generateReferralCode(userId: string): Promise<string> {
     code = `${baseName}${randomPart}`;
 
     // Check if code already exists
-    const existingCode = await prisma.referralCode.findUnique({
-      where: { code },
+    const existingUser = await prisma.user.findUnique({
+      where: { referralCode: code },
     });
 
-    if (!existingCode) {
+    if (!existingUser) {
       isUnique = true;
     }
     attempts++;
@@ -52,59 +46,60 @@ export async function generateReferralCode(userId: string): Promise<string> {
 }
 
 /**
- * Create or get a referral code for a user
+ * Get or create a referral code for a user
  */
 export async function getOrCreateReferralCode(userId: string) {
-  // Check if user already has a referral code
-  const existingCode = await prisma.referralCode.findUnique({
-    where: { userId },
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      referralCode: true,
+      email: true,
+      name: true,
+    },
   });
 
-  if (existingCode) {
-    return existingCode;
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // If user already has a code, return it
+  if (user.referralCode) {
+    return { code: user.referralCode };
   }
 
   // Generate a new code
-  const code = await generateReferralCode(userId);
+  const code = await generateReferralCode(user.email, user.name);
 
-  // Create the referral code in the database
-  return prisma.referralCode.create({
-    data: {
-      code,
-      userId,
-    },
+  // Update the user with the new code
+  await prisma.user.update({
+    where: { id: userId },
+    data: { referralCode: code },
   });
+
+  return { code };
 }
 
 /**
  * Validate a referral code
  */
 export async function validateReferralCode(code: string) {
-  const referralCode = await prisma.referralCode.findUnique({
-    where: { code: code.toUpperCase() },
-    include: {
-      user: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-        },
-      },
+  const user = await prisma.user.findUnique({
+    where: { referralCode: code.toUpperCase() },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      referralCode: true,
     },
   });
 
-  if (!referralCode) {
+  if (!user) {
     return { valid: false, error: "Invalid referral code" };
-  }
-
-  if (!referralCode.isActive) {
-    return { valid: false, error: "Referral code is no longer active" };
   }
 
   return {
     valid: true,
-    referralCode,
-    referrer: referralCode.user,
+    referrer: user,
   };
 }
 
@@ -128,9 +123,9 @@ export async function checkUserReferral(userId: string) {
           id: true,
           name: true,
           email: true,
+          referralCode: true,
         },
       },
-      referralCode: true,
     },
   });
 
@@ -142,12 +137,12 @@ export async function checkUserReferral(userId: string) {
  */
 export async function createReferral(
   referredUserId: string,
-  referralCodeString: string
+  referralCodeString: string,
 ) {
   // Validate the referral code
   const validation = await validateReferralCode(referralCodeString);
-  
-  if (!validation.valid || !validation.referralCode) {
+
+  if (!validation.valid || !validation.referrer) {
     throw new Error(validation.error || "Invalid referral code");
   }
 
@@ -158,16 +153,16 @@ export async function createReferral(
   }
 
   // Check if user is trying to refer themselves
-  if (validation.referralCode.userId === referredUserId) {
+  if (validation.referrer.id === referredUserId) {
     throw new Error("You cannot refer yourself");
   }
 
   // Create the referral
   const referral = await prisma.referral.create({
     data: {
-      referrerUserId: validation.referralCode.userId,
+      referrerUserId: validation.referrer.id,
       referredUserId,
-      referralCodeId: validation.referralCode.id,
+      referralCodeUsed: referralCodeString.toUpperCase(),
       status: "PENDING",
     },
   });

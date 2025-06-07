@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
-import { getOrCreateReferralCode, generateReferralLink } from "@/utils/referral/referral-code";
+import {
+  getOrCreateReferralCode,
+  generateReferralLink,
+} from "@/utils/referral/referral-code";
 
-export type GetReferralCodeResponse = Awaited<ReturnType<typeof getReferralCode>>;
+export type GetReferralCodeResponse = Awaited<
+  ReturnType<typeof getReferralCode>
+>;
 
 export const GET = withAuth(async (request) => {
   const userId = request.auth.userId;
@@ -11,12 +16,11 @@ export const GET = withAuth(async (request) => {
 });
 
 async function getReferralCode({ userId }: { userId: string }) {
-  const referralCode = await getOrCreateReferralCode(userId);
-  const referralLink = generateReferralLink(referralCode.code);
+  const { code } = await getOrCreateReferralCode(userId);
+  const referralLink = generateReferralLink(code);
 
   return {
-    code: referralCode.code,
+    code,
     link: referralLink,
-    isActive: referralCode.isActive,
   };
 }
