@@ -28,11 +28,6 @@ export async function watchEmails({
   logger.error("Error watching inbox", { emailAccountId });
 }
 
-async function unwatch(gmail: gmail_v1.Gmail) {
-  logger.info("Unwatching emails");
-  await unwatchGmail(gmail);
-}
-
 export async function unwatchEmails({
   emailAccountId,
   accessToken,
@@ -52,7 +47,7 @@ export async function unwatchEmails({
       expiresAt,
       emailAccountId,
     });
-    await unwatch(gmail);
+    await unwatchGmail(gmail);
   } catch (error) {
     if (error instanceof Error && error.message.includes("invalid_grant")) {
       logger.warn("Error unwatching emails, invalid grant", { emailAccountId });
