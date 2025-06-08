@@ -59,6 +59,13 @@ model User {
   utms                     Json?
   errorMessages            Json? // eg. user set incorrect AI API key
 
+  // survey answers (extracted from onboardingAnswers for easier querying)
+  surveyFeatures     String[] // multiple choice: features user is interested in
+  surveyRole         String? // single choice: user's role
+  surveyGoal         String? // single choice: what user wants to achieve
+  surveySource       String? // single choice: how user heard about Inbox Zero
+  surveyImprovements String? // open text: what user wants to improve
+
   // settings
   aiProvider    String?
   aiModel       String?

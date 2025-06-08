@@ -218,13 +218,13 @@ const nextConfig: NextConfig = {
               // Add this line to allow data: fonts
               "font-src 'self' data: https:",
               // For images including avatars and Mux thumbnails
-              "img-src 'self' data: https: blob:",
+              "img-src 'self' data: https: blob: https://image.mux.com https://*.litix.io",
               // For Mux video and audio content
-              "media-src 'self' https://stream.mux.com https://image.mux.com blob:",
+              "media-src 'self' blob: https://*.mux.com",
               // If you use web workers or service workers
               "worker-src 'self' blob:",
               // For API calls, SWR, external services, and Mux
-              "connect-src 'self' https: wss:",
+              "connect-src 'self' https: wss: https://*.mux.com https://*.litix.io",
               // iframes for Mux player
               "frame-src 'self' https:",
               // Prevent embedding in iframes
