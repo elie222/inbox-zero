@@ -156,6 +156,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       from: null,
       subject: null,
       body: null,
+      promptText: null,
     };
     return [...(baseRules || []), coldEmailBlockerRule];
   }, [baseRules, emailAccountData, emailAccountId]);
