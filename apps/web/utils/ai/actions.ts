@@ -19,8 +19,8 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
-import { enqueueDigestItem } from "@/utils/digest/index";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 const logger = createScopedLogger("ai-actions");
 
