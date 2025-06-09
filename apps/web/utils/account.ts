@@ -3,6 +3,10 @@ import {
   getGmailClientWithRefresh,
   getAccessTokenFromClient,
 } from "@/utils/gmail/client";
+import {
+  getOutlookClientWithRefresh,
+  getAccessTokenFromClient as getOutlookAccessToken,
+} from "@/utils/outlook/client";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { notFound } from "next/navigation";
@@ -58,6 +62,59 @@ export async function getGmailClientForEmailId({
     emailAccountId,
   });
   return gmail;
+}
+
+export async function getOutlookClientForEmail({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const tokens = await getTokens({ emailAccountId });
+  const outlook = await getOutlookClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
+  return outlook;
+}
+
+export async function getOutlookAndAccessTokenForEmail({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const tokens = await getTokens({ emailAccountId });
+  const outlook = await getOutlookClientWithRefresh({
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken || "",
+    expiresAt: tokens.expiresAt ?? null,
+    emailAccountId,
+  });
+  const accessToken = getOutlookAccessToken(outlook);
+  return { outlook, accessToken, tokens };
+}
+
+export async function getOutlookClientForEmailId({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  const account = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { access_token: true, refresh_token: true, expires_at: true },
+      },
+    },
+  });
+  const outlook = await getOutlookClientWithRefresh({
+    accessToken: account?.account.access_token,
+    refreshToken: account?.account.refresh_token || "",
+    expiresAt: account?.account.expires_at ?? null,
+    emailAccountId,
+  });
+  return outlook;
 }
 
 async function getTokens({ emailAccountId }: { emailAccountId: string }) {

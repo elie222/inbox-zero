@@ -152,7 +152,8 @@ async function emailAccountMiddleware(
   const userId = authReq.auth.userId;
 
   // Check for X-Email-Account-ID header
-  const emailAccountId = req.headers.get(EMAIL_ACCOUNT_HEADER);
+  const emailAccountId =
+    req.headers.get(EMAIL_ACCOUNT_HEADER) ?? "cmbov6i4z000493isx4jlskpu"; // TODO: remove this just for testing
 
   if (!emailAccountId) {
     return NextResponse.json(
