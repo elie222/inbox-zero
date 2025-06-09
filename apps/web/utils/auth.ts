@@ -110,23 +110,6 @@ export const getAuthOptions: (options?: {
           scope: OUTLOOK_SCOPES.join(" "),
         },
       },
-      profile(profile) {
-        const profileData = {
-          id: profile.sub,
-          name: profile.name,
-          email: profile.email || profile.preferred_username,
-          image: profile.picture,
-        };
-
-        if (!profileData.email) {
-          logger.error("[MicrosoftProvider] No email found in profile data", {
-            profile,
-          });
-          throw new Error("No email found in Microsoft profile data");
-        }
-
-        return profileData;
-      },
     }),
   ],
   // logger: {
