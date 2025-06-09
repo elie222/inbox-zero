@@ -18,6 +18,7 @@ import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 import { Button } from "@/components/ui/button";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -69,6 +70,8 @@ export default async function AutomationPage({
             }
           />
         </div> */}
+
+        <PremiumAlertWithData className="content-container mt-2" />
 
         <Tabs defaultValue="prompt">
           <TabsToolbar>
