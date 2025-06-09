@@ -265,7 +265,7 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
       { label: "Track reply", value: ActionType.TRACK_THREAD },
       ...(digestEnabled ? [{ label: "Digest", value: ActionType.DIGEST }] : []),
     ];
-  }, []);
+  }, [digestEnabled]);
 
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
     rule.groupId,

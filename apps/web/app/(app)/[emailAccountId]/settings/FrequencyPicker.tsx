@@ -45,9 +45,9 @@ export type FrequencyPickerFormValues = {
 };
 
 export function getInitialFrequencyProps(digestFrequency?: {
-  intervalDays?: number;
-  daysOfWeek?: number;
-  timeOfDay?: string | Date;
+  intervalDays?: number | null;
+  daysOfWeek?: number | null;
+  timeOfDay?: string | Date | null;
 }): FrequencyPickerFormValues {
   const initialFrequency = (() => {
     if (!digestFrequency) return "daily";
@@ -72,15 +72,16 @@ export function getInitialFrequencyProps(digestFrequency?: {
     }
     return "1";
   })();
-  const initialTimeOfDay =
-    digestFrequency && digestFrequency.timeOfDay
-      ? new Date(digestFrequency.timeOfDay).toISOString().slice(11, 16)
-      : "09:00";
+  const initialTimeOfDay = digestFrequency?.timeOfDay
+    ? new Date(digestFrequency.timeOfDay).toISOString().slice(11, 16)
+    : "09:00";
   const [initHour24, initMinute] = initialTimeOfDay.split(":");
-  let hour12 = (parseInt(initHour24, 10) % 12 || 12)
+  const hour12 = (Number.parseInt(initHour24, 10) % 12 || 12)
     .toString()
     .padStart(2, "0");
-  let ampm = (parseInt(initHour24, 10) < 12 ? "AM" : "PM") as "AM" | "PM";
+  const ampm = (Number.parseInt(initHour24, 10) < 12 ? "AM" : "PM") as
+    | "AM"
+    | "PM";
   return {
     frequency: initialFrequency,
     dayOfWeek: initialDayOfWeek,
@@ -97,7 +98,7 @@ export function mapToUserFrequency({
   minute,
   ampm,
 }: FrequencyPickerFormValues) {
-  let intervalDays;
+  let intervalDays: number;
   switch (frequency) {
     case "daily":
       intervalDays = 1;
@@ -114,7 +115,7 @@ export function mapToUserFrequency({
     default:
       intervalDays = 1;
   }
-  let hour24 = parseInt(hour, 10) % 12;
+  let hour24 = Number.parseInt(hour, 10) % 12;
   if (ampm === "PM") hour24 += 12;
   if (ampm === "AM" && hour24 === 12) hour24 = 0;
 
@@ -125,13 +126,13 @@ export function mapToUserFrequency({
     today.getMonth(),
     today.getDate(),
     hour24,
-    parseInt(minute, 10),
+    Number.parseInt(minute, 10),
   );
 
   return {
     intervalDays,
     occurrences: 1,
-    daysOfWeek: 1 << (6 - parseInt(dayOfWeek, 10)),
+    daysOfWeek: 1 << (6 - Number.parseInt(dayOfWeek, 10)),
     timeOfDay,
   };
 }

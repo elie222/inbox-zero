@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import type { FormEvent } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   FormSection,
@@ -8,8 +9,8 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
-import { type UserFrequency } from "@prisma/client";
-import { type SaveDigestFrequencyBody } from "@/utils/actions/settings.validation";
+import type { UserFrequency } from "@prisma/client";
+import type { SaveDigestFrequencyBody } from "@/utils/actions/settings.validation";
 import { updateDigestFrequencyAction } from "@/utils/actions/settings";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
@@ -69,7 +70,7 @@ function DigestUpdateSectionForm({
     },
   );
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     execute({
       userFrequency: digestFrequencyValue,
