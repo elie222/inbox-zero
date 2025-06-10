@@ -67,6 +67,7 @@ export async function createRuleHistory({
       actions: actionsSnapshot,
       categoryFilters: categoryFiltersSnapshot,
       triggerType,
+      // Note: this is unique and can fail in race conditions. Not a big deal for now.
       version: nextVersion,
     },
   });
