@@ -5,21 +5,27 @@ import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { prefixPath } from "@/utils/path";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadingContent } from "@/components/LoadingContent";
 import { AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
-export default function RuleHistorySelectPage({ 
-  params: { emailAccountId } 
-}: { 
-  params: { emailAccountId: string } 
-}) {
+export default function RuleHistorySelectPage() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error } = useRules();
 
   if (isLoading) {
-    return <LoadingContent />;
+    return (
+      <LoadingContent loading={isLoading}>Loading rules...</LoadingContent>
+    );
   }
 
   if (error) {
@@ -36,14 +42,14 @@ export default function RuleHistorySelectPage({
     );
   }
 
-  const rules = data?.rules || [];
+  const rules = data || [];
 
   return (
     <div className="container mx-auto p-4">
       <PageHeading>Select Rule to View History</PageHeading>
-      
+
       {rules.length === 0 ? (
-        <p className="text-muted-foreground mt-4">No rules found.</p>
+        <p className="mt-4 text-muted-foreground">No rules found.</p>
       ) : (
         <div className="mt-4 space-y-4">
           {rules.map((rule) => (
@@ -55,9 +61,7 @@ export default function RuleHistorySelectPage({
                     {rule.systemType && (
                       <Badge variant="secondary">{rule.systemType}</Badge>
                     )}
-                    {!rule.enabled && (
-                      <Badge variant="outline">Disabled</Badge>
-                    )}
+                    {!rule.enabled && <Badge variant="outline">Disabled</Badge>}
                     {rule.automate && (
                       <Badge variant="default">Automated</Badge>
                     )}
@@ -71,7 +75,12 @@ export default function RuleHistorySelectPage({
               </CardHeader>
               <CardContent>
                 <Button asChild>
-                  <Link href={prefixPath(emailAccountId, `/debug/rule-history/${rule.id}`)}>
+                  <Link
+                    href={prefixPath(
+                      emailAccountId,
+                      `/debug/rule-history/${rule.id}`,
+                    )}
+                  >
                     View History
                   </Link>
                 </Button>
