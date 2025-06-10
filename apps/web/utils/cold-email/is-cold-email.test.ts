@@ -4,8 +4,9 @@ import prisma from "@/utils/prisma";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import * as labelUtils from "@/utils/gmail/label";
-import { blockColdEmail } from "./is-cold-email";
+import { blockColdEmail, isColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
+import { hasPreviousCommunicationsWithSenderOrDomain } from "@/utils/gmail/message";
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));
@@ -14,6 +15,7 @@ vi.mock("@/utils/prisma", () => ({
   default: {
     coldEmail: {
       upsert: vi.fn(),
+      findUnique: vi.fn(),
     },
   },
 }));
@@ -26,6 +28,14 @@ vi.mock("@/utils/gmail/label", async () => {
     labelMessage: vi.fn(),
   };
 });
+
+vi.mock("@/utils/gmail/message", () => ({
+  hasPreviousCommunicationsWithSenderOrDomain: vi.fn(),
+}));
+
+vi.mock("@/utils/llms", () => ({
+  chatCompletionObject: vi.fn(),
+}));
 
 describe("blockColdEmail", () => {
   const mockGmail = {} as gmail_v1.Gmail;
@@ -191,5 +201,106 @@ describe("blockColdEmail", () => {
 
     expect(labelUtils.getOrCreateInboxZeroLabel).not.toHaveBeenCalled();
     expect(labelUtils.labelMessage).not.toHaveBeenCalled();
+  });
+});
+
+describe("isColdEmail", () => {
+  const mockGmail = {} as gmail_v1.Gmail;
+  const mockEmailAccount = {
+    ...getEmailAccount(),
+    coldEmailBlocker: ColdEmailSetting.LABEL,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should return false when sender is marked as USER_REJECTED_COLD", async () => {
+    vi.mocked(prisma.coldEmail.findUnique).mockResolvedValue({
+      id: "test-id",
+      status: ColdEmailStatus.USER_REJECTED_COLD,
+    } as any);
+    
+    // Mock hasPreviousCommunicationsWithSenderOrDomain to return false
+    vi.mocked(hasPreviousCommunicationsWithSenderOrDomain).mockResolvedValue(false);
+    
+    // Mock AI response
+    const mockChatCompletionObject = vi.fn().mockResolvedValue({
+      object: { coldEmail: false, reason: "Not a cold email" },
+    });
+    vi.doMock("@/utils/llms", () => ({
+      chatCompletionObject: mockChatCompletionObject,
+    }));
+
+    const result = await isColdEmail({
+      email: {
+        from: "sender@example.com",
+        to: "",
+        subject: "Test",
+        content: "Test content",
+        id: "123",
+        date: new Date(),
+      },
+      emailAccount: mockEmailAccount,
+      gmail: mockGmail,
+    });
+
+    expect(result.isColdEmail).toBe(false);
+    expect(result.reason).toBe("ai");
+    expect(result.aiReason).toBe("Not a cold email");
+  });
+
+  it("should return true when sender is marked as AI_LABELED_COLD", async () => {
+    vi.mocked(prisma.coldEmail.findUnique).mockResolvedValue({
+      id: "test-id",
+      status: ColdEmailStatus.AI_LABELED_COLD,
+    } as any);
+
+    const result = await isColdEmail({
+      email: {
+        from: "sender@example.com",
+        to: "",
+        subject: "Test",
+        content: "Test content",
+        id: "123",
+      },
+      emailAccount: mockEmailAccount,
+      gmail: mockGmail,
+    });
+
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai-already-labeled");
+  });
+
+  it("should check AI when sender is not in database", async () => {
+    vi.mocked(prisma.coldEmail.findUnique).mockResolvedValue(null);
+    
+    // Mock hasPreviousCommunicationsWithSenderOrDomain
+    vi.mocked(hasPreviousCommunicationsWithSenderOrDomain).mockResolvedValue(false);
+    
+    // Mock AI response
+    const mockChatCompletionObject = vi.fn().mockResolvedValue({
+      object: { coldEmail: true, reason: "This is a cold email" },
+    });
+    vi.doMock("@/utils/llms", () => ({
+      chatCompletionObject: mockChatCompletionObject,
+    }));
+
+    const result = await isColdEmail({
+      email: {
+        from: "sender@example.com",
+        to: "",
+        subject: "Test",
+        content: "Test content",
+        id: "123",
+        date: new Date(),
+      },
+      emailAccount: mockEmailAccount,
+      gmail: mockGmail,
+    });
+
+    expect(result.isColdEmail).toBe(true);
+    expect(result.reason).toBe("ai");
+    expect(result.aiReason).toBe("This is a cold email");
   });
 });

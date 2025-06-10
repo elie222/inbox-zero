@@ -97,11 +97,17 @@ async function isKnownColdEmailSender({
         emailAccountId,
         fromEmail: from,
       },
-      status: ColdEmailStatus.AI_LABELED_COLD,
     },
-    select: { id: true },
+    select: { id: true, status: true },
   });
-  return !!coldEmail;
+  
+  // If the user has rejected this as a cold email, it's not a cold emailer
+  if (coldEmail?.status === ColdEmailStatus.USER_REJECTED_COLD) {
+    return false;
+  }
+  
+  // Only return true if it's labeled as cold by AI
+  return coldEmail?.status === ColdEmailStatus.AI_LABELED_COLD;
 }
 
 async function aiIsColdEmail(
