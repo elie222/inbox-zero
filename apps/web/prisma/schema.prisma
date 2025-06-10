@@ -250,6 +250,10 @@ model Rule {
 
   systemType SystemType?
 
+  promptText String? // natural language for this rule for prompt file. prompt file is combination of these fields
+
+  history RuleHistory[]
+
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
 }
@@ -270,6 +274,35 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
+}
+
+model RuleHistory {
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  ruleId      String
+  rule        Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  version     Int
+  triggerType String // "ai_update" (AI), "manual_update" (user), "ai_creation" (AI), "manual_creation" (user), "system_creation" (system), "system_update" (system)
+  promptText  String? // The prompt text that generated this version
+
+  name                String
+  instructions        String?
+  enabled             Boolean
+  automate            Boolean
+  runOnThreads        Boolean
+  conditionalOperator String
+  from                String?
+  to                  String?
+  subject             String?
+  body                String?
+  categoryFilterType  String?
+  systemType          String?
+
+  actions         Json
+  categoryFilters Json?
+
+  @@unique([ruleId, version])
+  @@index([ruleId, createdAt])
 }
 
 // Rule/Action models represent the rules and actions that the AI can take.
