@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { capitalCase } from "capital-case";
 import {
   MoreHorizontalIcon,
   PenIcon,
@@ -53,6 +52,7 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
+import { getActionDisplay } from "@/utils/action-display";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -431,7 +431,7 @@ export function ActionBadges({
   }[];
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-2">
       {actions.map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
@@ -442,8 +442,7 @@ export function ActionBadges({
             color={getActionColor(action.type)}
             className="w-fit text-nowrap"
           >
-            {capitalCase(action.type)}
-            {action.label && `: ${action.label}`}
+            {getActionDisplay(action)}
           </Badge>
         );
       })}

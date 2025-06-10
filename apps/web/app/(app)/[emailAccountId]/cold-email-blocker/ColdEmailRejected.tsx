@@ -27,7 +27,7 @@ export function ColdEmailRejected() {
     `/api/user/cold-email?page=${page}&status=${ColdEmailStatus.USER_REJECTED_COLD}`,
   );
 
-  const { emailAccountId, userEmail } = useAccount();
+  const { userEmail } = useAccount();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
