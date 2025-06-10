@@ -1,19 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo } from "react";
+import { useCallback, useEffect, useState, memo, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import useSWR from "swr";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import { Button } from "@/components/ui/button";
 import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { Input } from "@/components/Input";
 import {
   saveRulesPromptBody,
   type SaveRulesPromptBody,
@@ -123,6 +124,7 @@ function RulesPromptForm({
     getValues,
     setValue,
     watch,
+    control,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt: rulesPrompt || undefined },
@@ -235,16 +237,17 @@ function RulesPromptForm({
           </Label>
 
           <div className="mt-1.5 space-y-4">
-            <Input
-              className="min-h-[300px] border-input"
-              registerProps={register("rulesPrompt", { required: true })}
-              name="rulesPrompt"
-              type="text"
-              autosizeTextarea
-              rows={30}
-              maxRows={50}
-              error={errors.rulesPrompt}
-              placeholder={`Here's an example of what your prompt might look like:
+            <div>
+              <Controller
+                name="rulesPrompt"
+                control={control}
+                rules={{ required: "Rules prompt is required" }}
+                render={({ field, fieldState }) => (
+                  <>
+                    <RulesEditor
+                      value={field.value || ""}
+                      onChange={field.onChange}
+                      placeholder={`Here's an example of what your prompt might look like:
 
 ${personas.other.promptArray.slice(0, 1).join("\n")}
 
@@ -256,7 +259,16 @@ I'm currently offering a 10% discount for the first 10 customers.
 
 Let me know if you're interested!
 ---`}
-            />
+                    />
+                    {fieldState.error && (
+                      <p className="mt-1 text-sm text-destructive">
+                        {fieldState.error.message}
+                      </p>
+                    )}
+                  </>
+                )}
+              />
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button
@@ -431,4 +443,69 @@ function getActionType(example: string): {
 
   // Default fallback
   return { type: "other", color };
+}
+
+// Simple Tiptap editor for rules prompt
+function RulesEditor({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        // Disable most formatting to keep it plain text-like
+        bold: false,
+        italic: false,
+        strike: false,
+        code: false,
+        codeBlock: false,
+        heading: false,
+        blockquote: false,
+        bulletList: false,
+        orderedList: false,
+        listItem: false,
+        horizontalRule: false,
+      }),
+    ],
+    content: value || "",
+    onUpdate: ({ editor }) => {
+      // Get plain text content preserving line breaks
+      const text = editor.getText({ blockSeparator: "\n" });
+      onChange(text);
+    },
+    editorProps: {
+      attributes: {
+        class: cn(
+          "min-h-[300px] max-h-[600px] overflow-y-auto",
+          "px-3 py-3 focus:outline-none",
+          "prose prose-sm max-w-none",
+        ),
+      },
+    },
+  });
+
+  // Update editor content when value changes externally
+  useEffect(() => {
+    if (!editor || editor.isDestroyed) return;
+    const currentText = editor.getText({ blockSeparator: "\n" });
+    if (currentText !== value) {
+      editor.commands.setContent(value || "");
+    }
+  }, [value, editor]);
+
+  return (
+    <div className="relative w-full rounded-md border border-input bg-background">
+      <EditorContent editor={editor} />
+      {!value && placeholder && (
+        <div className="pointer-events-none absolute left-3 top-3 text-muted-foreground">
+          <pre className="whitespace-pre-wrap font-sans text-sm">{placeholder}</pre>
+        </div>
+      )}
+    </div>
+  );
 }
