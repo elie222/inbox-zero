@@ -192,7 +192,21 @@ function selectDefaultModel(userAi: UserAIFields) {
     }
   } else {
     aiProvider = defaultProvider;
-    aiModel = env.DEFAULT_LLM_MODEL || null;
+
+    function selectRandomModel() {
+      // TODO: remove hard coding
+      // to avoid rate limits, we'll select a random model
+      const models = [
+        env.DEFAULT_LLM_MODEL,
+        "anthropic/claude-3.7-sonnet",
+        "anthropic/claude-sonnet-4",
+        "google/gemini-2.5-pro-preview-03-25",
+        "google/gemini-2.5-pro-preview-05-06",
+      ];
+      return models[Math.floor(Math.random() * models.length)];
+    }
+
+    aiModel = selectRandomModel() || null;
   }
 
   const providerOptions: Record<string, any> = {};
