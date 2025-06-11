@@ -192,6 +192,7 @@ function selectDefaultModel(userAi: UserAIFields) {
     }
   } else {
     aiProvider = defaultProvider;
+    aiModel = env.DEFAULT_LLM_MODEL || null;
   }
 
   const providerOptions: Record<string, any> = {};

@@ -23,6 +23,24 @@ export const env = createEnv({
         "ollama",
       ])
       .default("anthropic"),
+    DEFAULT_LLM_MODEL: z.string().optional(),
+    // Economy LLM configuration (for large context windows where cost efficiency matters)
+    ECONOMY_LLM_PROVIDER: z
+      .enum([
+        "anthropic",
+        "google",
+        "openai",
+        "bedrock",
+        "openrouter",
+        "groq",
+        "ollama",
+      ])
+      .optional()
+      .default("openrouter"),
+    ECONOMY_LLM_MODEL: z
+      .string()
+      .optional()
+      .default("google/gemini-2.5-flash-preview-05-20"),
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
@@ -71,24 +89,6 @@ export const env = createEnv({
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
-
-    // Economy LLM configuration (for large context windows where cost efficiency matters)
-    ECONOMY_LLM_PROVIDER: z
-      .enum([
-        "anthropic",
-        "google",
-        "openai",
-        "bedrock",
-        "openrouter",
-        "groq",
-        "ollama",
-      ])
-      .optional()
-      .default("openrouter"),
-    ECONOMY_LLM_MODEL: z
-      .string()
-      .optional()
-      .default("google/gemini-2.0-flash-001"),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
