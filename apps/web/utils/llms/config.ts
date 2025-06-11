@@ -10,6 +10,7 @@ export const Provider = {
   GOOGLE: "google",
   GROQ: "groq",
   OPENROUTER: "openrouter",
+  CUSTOM: "custom",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
 
@@ -17,6 +18,7 @@ export const Model = {
   GPT_4O: "gpt-4o",
   GPT_4O_MINI: "gpt-4o-mini",
   CLAUDE_3_7_SONNET_BEDROCK: env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
+  CLAUDE_4_SONNET_BEDROCK: "us.anthropic.claude-sonnet-4-20250514-v1:0",
   // BEDROCK_ANTHROPIC_BACKUP_MODEL:
   //   env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
   CLAUDE_3_7_SONNET_ANTHROPIC: "claude-3-7-sonnet-20250219",
