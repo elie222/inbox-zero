@@ -86,12 +86,6 @@ export default function Pricing(props: PricingProps) {
 
   const Layout = TwoColLayout;
 
-  const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
-
-  const hasBothStripeAndLemon = !!(
-    premium?.stripeSubscriptionId && premium?.lemonSqueezyCustomerId
-  );
-
   const router = useRouter();
 
   return (
@@ -109,41 +103,7 @@ export default function Pricing(props: PricingProps) {
           premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId
         ) && (
           <div className="mb-8 mt-8 text-center">
-            {premium?.stripeSubscriptionId && (
-              <Button
-                loading={loadingBillingPortal}
-                onClick={async () => {
-                  setLoadingBillingPortal(true);
-                  const result = await getBillingPortalUrlAction({});
-                  setLoadingBillingPortal(false);
-                  const url = result?.data?.url;
-                  if (result?.serverError || !url) {
-                    toastError({
-                      description:
-                        result?.serverError ||
-                        "Error loading billing portal. Please contact support.",
-                    });
-                  } else {
-                    window.location.href = url;
-                  }
-                }}
-              >
-                <CreditCardIcon className="mr-2 h-4 w-4" />
-                Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
-              </Button>
-            )}
-
-            {premium?.lemonSqueezyCustomerId && (
-              <Button asChild>
-                <Link
-                  href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
-                  target="_blank"
-                >
-                  <CreditCardIcon className="mr-2 h-4 w-4" />
-                  Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
-                </Link>
-              </Button>
-            )}
+            <ManageSubscription premium={premium} />
 
             {userPremiumTier && (
               <>
@@ -513,4 +473,59 @@ function Badge({ children }: { children: React.ReactNode }) {
 function formatPrice(price: number) {
   if (price - Math.floor(price) > 0) return price.toFixed(2);
   return price;
+}
+
+export function ManageSubscription({
+  premium: { stripeSubscriptionId, lemonSqueezyCustomerId },
+}: {
+  premium: {
+    stripeSubscriptionId: string | null | undefined;
+    lemonSqueezyCustomerId: number | null | undefined;
+  };
+}) {
+  const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
+
+  const hasBothStripeAndLemon = !!(
+    stripeSubscriptionId && lemonSqueezyCustomerId
+  );
+
+  return (
+    <>
+      {stripeSubscriptionId && (
+        <Button
+          loading={loadingBillingPortal}
+          onClick={async () => {
+            setLoadingBillingPortal(true);
+            const result = await getBillingPortalUrlAction({});
+            setLoadingBillingPortal(false);
+            const url = result?.data?.url;
+            if (result?.serverError || !url) {
+              toastError({
+                description:
+                  result?.serverError ||
+                  "Error loading billing portal. Please contact support.",
+              });
+            } else {
+              window.location.href = url;
+            }
+          }}
+        >
+          <CreditCardIcon className="mr-2 h-4 w-4" />
+          Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
+        </Button>
+      )}
+
+      {lemonSqueezyCustomerId && (
+        <Button asChild>
+          <Link
+            href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
+            target="_blank"
+          >
+            <CreditCardIcon className="mr-2 h-4 w-4" />
+            Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
+          </Link>
+        </Button>
+      )}
+    </>
+  );
 }
