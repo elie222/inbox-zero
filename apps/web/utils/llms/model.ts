@@ -198,8 +198,8 @@ function selectDefaultModel(userAi: UserAIFields) {
       // to avoid rate limits, we'll select a random model
       const models = [
         env.DEFAULT_LLM_MODEL,
-        "anthropic/claude-3.7-sonnet",
-        "anthropic/claude-sonnet-4",
+        // "anthropic/claude-3.7-sonnet",
+        // "anthropic/claude-sonnet-4",
         "google/gemini-2.5-pro-preview-03-25",
         "google/gemini-2.5-pro-preview-05-06",
       ];
@@ -218,13 +218,13 @@ function selectDefaultModel(userAi: UserAIFields) {
       // random order to make better use of stronger models with lower rate limits
       models: [
         "google/gemini-2.5-pro-preview-05-06",
-        // "google/gemini-2.5-pro-preview-03-25",
-        "anthropic/claude-sonnet-4",
-        "anthropic/claude-3.7-sonnet",
+        "google/gemini-2.5-pro-preview-03-25",
+        // "anthropic/claude-sonnet-4",
+        // "anthropic/claude-3.7-sonnet",
       ],
       provider: {
         order: [
-          "Amazon Bedrock",
+          // "Amazon Bedrock",
           "Google Vertex",
           "Google AI Studio",
           // "Anthropic",
