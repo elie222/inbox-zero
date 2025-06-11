@@ -21,6 +21,7 @@ export const env = createEnv({
         "openrouter",
         "groq",
         "ollama",
+        "custom",
       ])
       .default("anthropic"),
     DEFAULT_LLM_MODEL: z.string().optional(),

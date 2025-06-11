@@ -93,6 +93,7 @@ const costs: Record<
   "anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
   "us.anthropic.claude-3-5-sonnet-20241022-v2:0": sonnet,
   "us.anthropic.claude-3-7-sonnet-20250219-v1:0": sonnet,
+  "us.anthropic.claude-sonnet-4-20250514-v1:0": sonnet,
   "anthropic.claude-3-5-haiku-20241022-v1:0": {
     input: 0.8 / 1_000_000,
     output: 4 / 1_000_000,
