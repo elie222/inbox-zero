@@ -105,7 +105,9 @@ export default function Pricing(props: PricingProps) {
       >
         {header}
 
-        {isPremium && (
+        {!!(
+          premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId
+        ) && (
           <div className="mb-8 mt-8 text-center">
             {premium?.stripeSubscriptionId && (
               <Button
@@ -143,35 +145,36 @@ export default function Pricing(props: PricingProps) {
               </Button>
             )}
 
-            <Button variant="primaryBlue" className="ml-2" asChild>
-              <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Go to app
-              </Link>
-            </Button>
-
             {userPremiumTier && (
-              <div className="mx-auto mt-4 max-w-md">
-                <AlertWithButton
-                  className="bg-background"
-                  variant="blue"
-                  title="Add extra users to your account!"
-                  description={`You can upgrade extra accounts to ${capitalCase(
-                    userPremiumTier,
-                  )} for $${
-                    pricingAdditonalEmail[userPremiumTier]
-                  } per email address!`}
-                  icon={null}
-                  button={
-                    <div className="ml-4 whitespace-nowrap">
-                      <Button variant="primaryBlue" asChild>
-                        {/* <Link href="/settings#manage-users">Add users</Link> */}
-                        <Link href="/accounts">Add users</Link>
-                      </Button>
-                    </div>
-                  }
-                />
-              </div>
+              <>
+                <Button variant="primaryBlue" className="ml-2" asChild>
+                  <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+                    <SparklesIcon className="mr-2 h-4 w-4" />
+                    Go to app
+                  </Link>
+                </Button>
+                <div className="mx-auto mt-4 max-w-md">
+                  <AlertWithButton
+                    className="bg-background"
+                    variant="blue"
+                    title="Add extra users to your account!"
+                    description={`You can upgrade extra accounts to ${capitalCase(
+                      userPremiumTier,
+                    )} for $${
+                      pricingAdditonalEmail[userPremiumTier]
+                    } per email address!`}
+                    icon={null}
+                    button={
+                      <div className="ml-4 whitespace-nowrap">
+                        <Button variant="primaryBlue" asChild>
+                          {/* <Link href="/settings#manage-users">Add users</Link> */}
+                          <Link href="/accounts">Add users</Link>
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
+              </>
             )}
           </div>
         )}
