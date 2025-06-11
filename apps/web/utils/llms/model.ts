@@ -224,10 +224,10 @@ function selectDefaultModel(userAi: UserAIFields) {
       ],
       provider: {
         order: [
+          "Amazon Bedrock",
           "Google Vertex",
           "Google AI Studio",
-          "Anthropic",
-          // "Amazon Bedrock",
+          // "Anthropic",
         ],
       },
     };
