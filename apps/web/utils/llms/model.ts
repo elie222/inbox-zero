@@ -203,18 +203,19 @@ function selectDefaultModel(userAi: UserAIFields) {
     providerOptions.openrouter = {
       // random order to make better use of stronger models with lower rate limits
       models: [
-        // "anthropic/claude-3.5-sonnet",
-        "anthropic/claude-3.7-sonnet",
+        "google/gemini-2.5-pro-preview-05-06",
+        "google/gemini-2.5-pro-preview-03-25",
         "anthropic/claude-sonnet-4",
-        // "google/gemini-2.5-pro-preview-03-25",
+        "anthropic/claude-3.7-sonnet",
       ],
-      // provider: {
-      //   order: [
-      //     "Amazon Bedrock",
-      //     "Google AI Studio",
-      //     "Anthropic",
-      //   ],
-      // },
+      provider: {
+        order: [
+          "Google Vertex",
+          "Google AI Studio",
+          "Anthropic",
+          // "Amazon Bedrock",
+        ],
+      },
     };
   }
 
