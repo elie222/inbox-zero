@@ -134,12 +134,28 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       const currentBatch = currentData?.[page]?.messages || [];
 
-      for (const message of currentBatch) {
+      // Filter messages that should be processed
+      const messagesToProcess = currentBatch.filter((message) => {
+        if (results[message.id]) return false;
+        if (handledThreadsRef.current.has(message.threadId)) return false;
+        return true;
+      });
+
+      // Process messages in parallel batches of 3
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < messagesToProcess.length; i += BATCH_SIZE) {
         if (!isRunningAllRef.current) break;
-        if (results[message.id]) continue;
-        if (handledThreadsRef.current.has(message.threadId)) continue;
-        await onRun(message);
-        handledThreadsRef.current.add(message.threadId);
+
+        const batch = messagesToProcess.slice(i, i + BATCH_SIZE);
+
+        // Process batch in parallel
+        await Promise.all(
+          batch.map(async (message) => {
+            if (!isRunningAllRef.current) return;
+            await onRun(message);
+            handledThreadsRef.current.add(message.threadId);
+          }),
+        );
       }
 
       // Check if we got new data in the last request
