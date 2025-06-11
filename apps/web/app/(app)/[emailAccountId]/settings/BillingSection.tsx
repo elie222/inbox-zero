@@ -2,9 +2,9 @@
 
 import { FormSection, FormSectionLeft } from "@/components/Form";
 import { usePremium } from "@/components/PremiumAlert";
-import { ManageSubscription } from "@/app/(app)/premium/Pricing";
+import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 import { LoadingContent } from "@/components/LoadingContent";
-import { MessageText, TypographyP } from "@/components/Typography";
+import { MessageText } from "@/components/Typography";
 
 export function BillingSection() {
   const { premium, isLoading } = usePremium();
