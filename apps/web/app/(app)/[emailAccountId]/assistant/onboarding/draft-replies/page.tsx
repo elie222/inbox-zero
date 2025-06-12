@@ -7,10 +7,6 @@ import { TypographyH3, TypographyP } from "@/components/Typography";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
-import {
-  ASSISTANT_ONBOARDING_COOKIE,
-  markOnboardingAsCompleted,
-} from "@/utils/cookies";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 
@@ -28,8 +24,6 @@ export default function DraftRepliesPage() {
           description: `There was an error: ${result.serverError || ""}`,
         });
       }
-
-      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
       router.push(
         prefixPath(emailAccountId, "/assistant/onboarding/digest-frequency"),

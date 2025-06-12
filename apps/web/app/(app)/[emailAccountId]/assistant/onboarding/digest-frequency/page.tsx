@@ -10,6 +10,10 @@ import { toastError, toastSuccess } from "@/components/Toast";
 import { prefixPath } from "@/utils/path";
 import type { SaveDigestFrequencyBody } from "@/utils/actions/settings.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  markOnboardingAsCompleted,
+  ASSISTANT_ONBOARDING_COOKIE,
+} from "@/utils/cookies";
 
 export default function DigestFrequencyPage() {
   const { emailAccountId } = useAccount();
@@ -43,6 +47,7 @@ export default function DigestFrequencyPage() {
         });
       } else {
         toastSuccess({ description: "Digest frequency saved!" });
+        markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
         router.push(
           prefixPath(emailAccountId, "/assistant/onboarding/completed"),
         );

@@ -67,67 +67,79 @@ export async function upsertDigest({
   threadId,
   emailAccountId,
   actionId,
+  coldEmailId,
   content,
 }: {
   messageId: string;
   threadId: string;
   emailAccountId: string;
-  actionId: string;
+  actionId?: string;
+  coldEmailId?: string;
   content: DigestEmailSummarySchema;
 }) {
-  // First, find the oldest unsent digest or create a new one if none exist
-  const oldestUnsentDigest = await findOldestUnsentDigest(emailAccountId);
-
-  const digest =
-    oldestUnsentDigest ||
-    (await prisma.digest.create({
-      data: {
-        emailAccountId,
-        status: DigestStatus.PENDING,
-      },
-    }));
-
   const logger = createScopedLogger("upsert-digest").with({
     messageId,
     threadId,
     emailAccountId,
     actionId,
+    coldEmailId,
   });
 
   try {
-    // Then, find or create the DigestItem
-    const existingDigestItem = await prisma.digestItem.findFirst({
-      where: {
-        digestId: digest.id,
-        messageId,
-        threadId,
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      // Find or create the digest atomically
+      const digest =
+        (await tx.digest.findFirst({
+          where: {
+            emailAccountId,
+            status: DigestStatus.PENDING,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        })) ||
+        (await tx.digest.create({
+          data: {
+            emailAccountId,
+            status: DigestStatus.PENDING,
+          },
+        }));
 
-    // Convert content to string
-    const contentString = JSON.stringify(content);
-
-    if (existingDigestItem) {
-      logger.info("Updating existing digest");
-      await prisma.digestItem.update({
-        where: { id: existingDigestItem.id },
-        data: {
-          content: contentString,
-          actionId,
-        },
-      });
-    } else {
-      logger.info("Creating new digest");
-      await prisma.digestItem.create({
-        data: {
+      // Find or create the DigestItem atomically
+      const digestItem = await tx.digestItem.findFirst({
+        where: {
+          digestId: digest.id,
           messageId,
           threadId,
-          content: contentString,
-          digestId: digest.id,
-          actionId,
         },
       });
-    }
+
+      const contentString = JSON.stringify(content);
+
+      if (digestItem) {
+        logger.info("Updating existing digest");
+        await tx.digestItem.update({
+          where: { id: digestItem.id },
+          data: {
+            content: contentString,
+            ...(actionId ? { actionId } : {}),
+            ...(coldEmailId ? { coldEmailId } : {}),
+          },
+        });
+      } else {
+        logger.info("Creating new digest");
+        await tx.digestItem.create({
+          data: {
+            messageId,
+            threadId,
+            content: contentString,
+            digestId: digest.id,
+            ...(actionId ? { actionId } : {}),
+            ...(coldEmailId ? { coldEmailId } : {}),
+          },
+        });
+      }
+    });
   } catch (error) {
     logger.error("Failed to upsert digest", { error });
     throw error;
