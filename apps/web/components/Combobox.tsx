@@ -41,7 +41,7 @@ export function Combobox(props: {
           // biome-ignore lint/a11y/useSemanticElements: <explanation>
           role="combobox"
           aria-expanded={open}
-          className="w-full justify-between sm:w-[500px]"
+          className="w-full justify-between"
         >
           {(value &&
             props.options.find((option) => option.value === value)?.label) ||
