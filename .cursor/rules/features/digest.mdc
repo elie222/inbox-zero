@@ -1,0 +1,400 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Digest Feature - Developer Guide
+
+## What is the Digest Feature?
+
+The Digest feature is an email summarization system that helps users manage inbox overload by:
+- **Batching emails** into periodic summary emails instead of individual notifications
+- **AI-powered summarization** that extracts key information from emails
+- **Smart categorization** that groups similar content together
+- **Flexible scheduling** that respects user preferences for timing and frequency
+
+**Key Benefits:**
+- Reduces inbox noise while maintaining visibility
+- Provides structured summaries of receipts, orders, and events
+- Handles cold emails without blocking them entirely
+- Integrates seamlessly with the existing rule system
+
+---
+
+## How It Works - The Complete Flow
+
+### 1. Email Triggers Digest Creation
+```mermaid
+graph LR
+    A[Email Arrives] --> B{Rule Matches?}
+    B -->|Yes| C[DIGEST Action]
+    B -->|Cold Email| D[Cold Email Detector]
+    C --> E[Queue for Processing]
+    D -->|coldEmailDigest=true| E
+```
+
+**Two ways emails enter the digest system:**
+- **Rule-based**: User rules trigger `DIGEST` actions
+- **Cold email detection**: `runColdEmailBlocker()` detects cold emails and queues them when `coldEmailDigest: true`
+
+### 2. AI Summarization Pipeline
+```typescript
+// Queue processes each email
+enqueueDigestItem({ email, emailAccountId, actionId }) 
+  ↓
+aiSummarizeEmailForDigest(ruleName, emailAccount, email)
+  ↓
+// Returns either structured data or unstructured summary
+{ entries: [{label: "Order #", value: "12345"}] } // Structured
+{ summary: "Meeting notes about project timeline" }  // Unstructured
+```
+
+### 3. Storage & Batching
+- Summaries are stored as `DigestItem`s within a `Digest`
+- Multiple emails accumulate in a `PENDING` digest
+- Atomic upserts prevent duplicates and race conditions
+
+### 4. Scheduled Sending
+- Cron job checks user frequency preferences
+- Generates email with categorized summaries
+- Marks digest as `SENT` and redacts content for privacy
+
+---
+
+## Implementation Guide
+
+### Adding Digest Support to a Rule
+
+**Step 1: Configure the action**
+```typescript
+// In your rule definition
+{
+  name: "Newsletter Digest",
+  actions: [
+    {
+      type: "DIGEST" as const,
+      // Rule name becomes the category
+    }
+  ]
+}
+```
+
+**Step 2: The system handles the rest**
+- Action triggers `enqueueDigestItem()`
+- AI summarizes based on rule name
+- Content gets categorized automatically
+
+### Working with Cold Email Digests
+
+```typescript
+// In cold email detection
+if (isColdEmail && user.coldEmailDigest) {
+  await enqueueDigestItem({ 
+    email, 
+    emailAccountId, 
+    coldEmailId 
+  });
+  // Email goes to digest instead of being blocked
+}
+```
+
+### Creating Custom Digest Categories
+
+**Supported categories** (defined in email template):
+```typescript
+const categories = [
+  "newsletter",   // Publications, blogs
+  "receipt",      // Orders, invoices, payments  
+  "marketing",    // Promotional content
+  "calendar",     // Events, meetings
+  "coldEmail",    // Unsolicited emails
+  "notification", // System alerts
+  "toReply"       // Action required
+];
+```
+
+**Adding a new category:**
+1. Add to the categories array in `packages/resend/emails/digest.tsx`
+2. Define color scheme and icon
+3. Update AI prompts to recognize the category
+
+### Frequency Configuration
+
+Users control digest timing via the `UserFrequency` model:
+```typescript
+// Example: Daily at 11 AM
+{
+  intervalDays: 1,
+  timeOfDay: "11:00",
+  occurrences: 1,
+  daysOfWeek: null // Every day
+}
+
+// Example: Twice weekly on Mon/Wed
+{
+  intervalDays: 7,
+  timeOfDay: "09:00", 
+  occurrences: 2,
+  daysOfWeek: [1, 3] // Monday, Wednesday
+}
+```
+
+---
+
+## Key Components & APIs
+
+### Core Functions
+
+**`enqueueDigestItem()`** - Adds email to digest queue
+```typescript
+await enqueueDigestItem({
+  email: ParsedMessage,
+  emailAccountId: string,
+  actionId?: string,      // For rule-triggered digests
+  coldEmailId?: string    // For cold email digests
+});
+```
+
+**`aiSummarizeEmailForDigest()`** - AI summarization
+```typescript
+const summary = await aiSummarizeEmailForDigest(
+  ruleName: string,           // Category context
+  emailAccount: EmailAccount, // AI config
+  email: ParsedMessage        // Email to summarize
+);
+```
+
+**`upsertDigest()`** - Atomic storage
+```typescript
+await upsertDigest({
+  messageId, threadId, emailAccountId,
+  actionId, coldEmailId, content
+});
+```
+
+### API Endpoints
+
+| Endpoint | Purpose | Trigger |
+|----------|---------|---------|
+| `POST /api/ai/digest` | Process single digest item | QStash queue |
+| `POST /api/resend/digest` | Send digest email | QStash queue |
+| `POST /api/resend/digest/all` | Trigger batch sending | Cron job |
+
+### Database Schema
+
+```prisma
+model Digest {
+  id             String       @id @default(cuid())
+  emailAccountId String
+  items          DigestItem[]
+  sentAt         DateTime?
+  status         DigestStatus @default(PENDING)
+}
+
+model DigestItem {
+  id          String  @id @default(cuid())
+  messageId   String  // Gmail message ID
+  threadId    String  // Gmail thread ID
+  content     String  @db.Text // JSON summary
+  digestId    String
+  actionId    String? // Link to rule action
+  coldEmailId String? // Link to cold email
+  
+  @@unique([digestId, threadId, messageId])
+}
+
+enum DigestStatus {
+  PENDING     // Accumulating items
+  PROCESSING  // Being sent
+  SENT        // Completed
+}
+```
+
+---
+
+## AI Summarization Details
+
+### Prompt Strategy
+
+The AI uses different approaches based on email category:
+
+**Structured Data Extraction** (receipts, orders, events):
+```typescript
+// Output format
+{
+  entries: [
+    { label: "Order Number", value: "#12345" },
+    { label: "Total", value: "$99.99" },
+    { label: "Delivery", value: "March 15" }
+  ]
+}
+```
+
+**Unstructured Summarization** (newsletters, notes):
+```typescript
+// Output format  
+{
+  summary: "Brief 1-2 sentence summary of key points"
+}
+```
+
+### Category-Aware Processing
+
+The `ruleName` parameter provides context:
+- **"receipt"** → Extract prices, order numbers, dates
+- **"newsletter"** → Summarize main topics and key points  
+- **"calendar"** → Extract event details, times, locations
+- **"coldEmail"** → Brief description of sender and purpose
+
+---
+
+## Testing & Development
+
+### Running AI Tests
+```bash
+# Enable AI tests (requires API keys)
+export RUN_AI_TESTS=true
+npm test -- summarize-email-for-digest.test.ts
+```
+
+### Test Categories
+- **Structured extraction**: Orders, invoices, receipts
+- **Unstructured summarization**: Newsletters, meeting notes
+- **Edge cases**: Empty content, malformed emails
+- **Schema validation**: Output format compliance
+
+### Development Workflow
+1. **Create rule** with `DIGEST` action
+2. **Test locally** with sample emails
+3. **Verify AI output** matches expected format
+4. **Check email rendering** in digest template
+5. **Validate frequency** scheduling works correctly
+
+---
+
+## Configuration & Feature Flags
+
+### Feature Toggle
+```typescript
+// Check if digest feature is enabled
+const isDigestEnabled = useFeatureFlagEnabled("digest-emails");
+```
+
+### User Settings
+```typescript
+// User preferences
+{
+  coldEmailDigest: boolean,     // Include cold emails in digest
+  digestFrequency: UserFrequency // When to send digests
+}
+```
+
+### Environment Variables
+```bash
+RUN_AI_TESTS=true              # Enable AI tests
+QSTASH_TOKEN=xxx               # Queue processing
+OPENAI_API_KEY=xxx             # AI summarization
+```
+
+---
+
+## Privacy & Security
+
+### Content Redaction
+After sending digests:
+- All `DigestItem.content` is replaced with `"[REDACTED]"`
+- Preserves audit trail without storing sensitive data
+- Original emails remain in Gmail
+
+### Unsubscribe System
+- Each digest includes secure unsubscribe token
+- Users can opt out without account access
+- Tokens are cryptographically secure
+
+---
+
+## Performance Considerations
+
+### Queue Management
+- **Parallelism**: 3 concurrent digest processing jobs
+- **Batching**: Multiple items processed per digest
+- **Retry logic**: Failed jobs are retried automatically
+
+### Database Optimization
+- **Indexes**: On `emailAccountId` for fast lookups
+- **Unique constraints**: Prevent duplicate digest items
+- **Atomic transactions**: Prevent race conditions
+
+### Scaling Guidelines
+- Monitor QStash queue depth
+- Watch AI API rate limits
+- Consider digest size limits for email deliverability
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Digests not sending:**
+- Check user has premium subscription
+- Verify account is >4 days old
+- Confirm frequency settings are valid
+
+**AI summarization failing:**
+- Check OpenAI API key and credits
+- Verify email content is not empty
+- Review error logs in QStash dashboard
+
+**Duplicate digest items:**
+- Ensure unique constraints are working
+- Check for race conditions in upsert logic
+- Verify messageId/threadId are correct
+
+### Debug Tools
+```typescript
+// Check digest status
+const digest = await prisma.digest.findFirst({
+  where: { emailAccountId, status: "PENDING" },
+  include: { items: true }
+});
+
+// View queue status
+// Check QStash dashboard for failed jobs
+```
+
+---
+
+## File Reference
+
+### Core Implementation
+- `apps/web/utils/digest/index.ts` - Main utilities
+- `apps/web/utils/ai/digest/summarize-email-for-digest.ts` - AI logic
+- `apps/web/utils/frequency.ts` - Scheduling calculations
+
+### API Routes
+- `apps/web/app/api/ai/digest/route.ts` - Item processing
+- `apps/web/app/api/resend/digest/route.ts` - Email sending
+- `apps/web/app/api/resend/digest/all/route.ts` - Batch triggering
+
+### UI Components
+- `apps/web/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection.tsx`
+- `packages/resend/emails/digest.tsx` - Email template
+
+### Database & Validation
+- `apps/web/prisma/schema.prisma` - Data models
+- `apps/web/app/api/ai/digest/validation.ts` - API schemas
+- `apps/web/app/api/resend/digest/validation.ts` - Email schemas
+
+### Integration Points
+- `apps/web/utils/ai/actions.ts` - Rule system integration
+- `apps/web/utils/cold-email/is-cold-email.ts` - Cold email detection
+- `apps/web/utils/actions/settings.ts` - User preferences
+
+---
+
+## Related Documentation
+
+- **[UserFrequency Feature](mdc:userfrequency.mdc)** - Scheduling system details
+- **[Gmail API Guidelines](mdc:gmail-api.mdc)** - Email processing patterns
+- **[LLM Guidelines](mdc:llm.mdc)** - AI integration best practices

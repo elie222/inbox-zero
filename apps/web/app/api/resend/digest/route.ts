@@ -8,7 +8,7 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { camelCase } from "lodash";
-import { calculateNextDigestDate } from "@/utils/digest";
+import { calculateNextFrequencyDate } from "@/utils/frequency";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import { getMessagesBatch, getMessagesLargeBatch } from "@/utils/gmail/message";
 import {
@@ -177,7 +177,7 @@ async function sendEmail({
             },
             data: {
               lastOccurrenceAt: new Date(),
-              nextOccurrenceAt: calculateNextDigestDate(
+              nextOccurrenceAt: calculateNextFrequencyDate(
                 emailAccount.digestFrequency!,
               ),
             },

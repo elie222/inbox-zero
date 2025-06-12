@@ -14,7 +14,11 @@ import type { SaveDigestFrequencyBody } from "@/utils/actions/settings.validatio
 import { updateDigestFrequencyAction } from "@/utils/actions/settings";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
-import { FrequencyPicker, getInitialFrequencyProps } from "./FrequencyPicker";
+import {
+  FrequencyPicker,
+  getInitialFrequencyProps,
+  mapToUserFrequency,
+} from "./FrequencyPicker";
 
 export function DigestMailFrequencySection({
   digestFrequency,
@@ -46,8 +50,9 @@ function DigestUpdateSectionForm({
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  const [digestFrequencyValue, setDigestFrequencyValue] =
-    useState<SaveDigestFrequencyBody["userFrequency"]>(null);
+  const [digestFrequencyValue, setDigestFrequencyValue] = useState(
+    mapToUserFrequency(getInitialFrequencyProps(digestFrequency)),
+  );
 
   const { execute, isExecuting } = useAction(
     updateDigestFrequencyAction.bind(null, emailAccountId),

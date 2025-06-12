@@ -6,6 +6,7 @@ const userFrequencySchema = z.object({
   intervalDays: z.number().nullable(),
   daysOfWeek: z.number().nullable(),
   timeOfDay: z.date().nullable(),
+  occurrences: z.number().nullable(),
 });
 
 export const saveDigestFrequencyBody = z.object({

@@ -1,5 +1,5 @@
-import { Frequency } from "@prisma/client";
-import { addDays, setHours, setMinutes } from "date-fns";
+import type { UserFrequency } from "@prisma/client";
+import { addDays } from "date-fns";
 
 export const DAYS = {
   SUNDAY: 0b1000000, // 64
@@ -11,72 +11,77 @@ export const DAYS = {
   SATURDAY: 0b0000001, // 1
 };
 
-export function calculateNextDigestDate(frequency: {
-  intervalDays: number | null;
-  daysOfWeek: number | null;
-  timeOfDay: Date | null;
-}) {
-  const now = new Date();
-  const targetTime = frequency.timeOfDay || setHours(setMinutes(now, 0), 11); // Default to 11 AM
+export function calculateNextFrequencyDate(
+  frequency: Pick<
+    UserFrequency,
+    "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"
+  >,
+  fromDate: Date = new Date(),
+): Date | null {
+  if (!frequency) return null;
 
-  // Set the target time for today
-  const todayWithTargetTime = setHours(
-    setMinutes(now, targetTime.getMinutes()),
-    targetTime.getHours(),
-  );
+  const { intervalDays, daysOfWeek, timeOfDay, occurrences } = frequency;
 
-  // If we're past today's target time, start from tomorrow
-  const startDate = now > todayWithTargetTime ? addDays(now, 1) : now;
-
-  if (!frequency.daysOfWeek) {
-    // For daily frequency
-    if (frequency.intervalDays === 1) {
-      return setHours(
-        setMinutes(startDate, targetTime.getMinutes()),
-        targetTime.getHours(),
-      );
+  // Helper to set the time of day
+  function setTime(date: Date) {
+    if (timeOfDay) {
+      const timeStr = timeOfDay.toTimeString().split(" ")[0];
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      date.setHours(hours, minutes, 0, 0);
     }
-    // For weekly frequency
-    if (frequency.intervalDays === 7) {
-      // Find the next Monday
-      const daysUntilMonday = (8 - startDate.getDay()) % 7;
-      const nextMonday = addDays(startDate, daysUntilMonday);
-      return setHours(
-        setMinutes(nextMonday, targetTime.getMinutes()),
-        targetTime.getHours(),
-      );
-    }
+    return date;
   }
 
-  // For custom weekly patterns
-  if (frequency.daysOfWeek) {
-    let nextDate = startDate;
-    let found = false;
+  // For interval days pattern (e.g., every 7 days)
+  if (intervalDays) {
+    const occ = occurrences && occurrences > 1 ? occurrences : 1;
+    const slotLength = intervalDays / occ;
 
-    // Look ahead up to 7 days
-    for (let i = 0; i < 7; i++) {
-      const dayOfWeek = nextDate.getDay();
-      const dayMask = 1 << (6 - dayOfWeek);
+    // Find the start of the current interval
+    const intervalStart = new Date(fromDate);
+    intervalStart.setHours(0, 0, 0, 0);
 
-      if (frequency.daysOfWeek & dayMask) {
-        found = true;
-        break;
+    // Find the next slot
+    for (let i = 0; i < occ; i++) {
+      const slotDate = addDays(intervalStart, Math.round(i * slotLength));
+      setTime(slotDate);
+      if (slotDate >= fromDate) {
+        return slotDate;
+      }
+    }
+    // If all slots for this interval are in the past, return the first slot of the next interval
+    const nextIntervalStart = addDays(intervalStart, intervalDays);
+    setTime(nextIntervalStart);
+    return nextIntervalStart;
+  }
+
+  // For weekly pattern with specific days
+  if (daysOfWeek) {
+    const currentDayOfWeek = fromDate.getDay();
+
+    // Find the next day that matches the pattern
+    let daysToAdd = 1;
+    while (daysToAdd <= 7) {
+      const nextDayOfWeek = (currentDayOfWeek + daysToAdd) % 7;
+      const nextDayMask = 1 << (6 - nextDayOfWeek);
+
+      if (daysOfWeek & nextDayMask) {
+        const nextDate = addDays(fromDate, daysToAdd);
+
+        // If timeOfDay is set, set the time
+        if (timeOfDay) {
+          const timeStr = timeOfDay.toTimeString().split(" ")[0];
+          const [hours, minutes] = timeStr.split(":").map(Number);
+          nextDate.setHours(hours, minutes, 0, 0);
+          return nextDate;
+        }
+        return nextDate;
       }
 
-      nextDate = addDays(nextDate, 1);
-    }
-
-    if (found) {
-      return setHours(
-        setMinutes(nextDate, targetTime.getMinutes()),
-        targetTime.getHours(),
-      );
+      daysToAdd++;
     }
   }
 
-  // Fallback to next day at target time
-  return setHours(
-    setMinutes(addDays(startDate, 1), targetTime.getMinutes()),
-    targetTime.getHours(),
-  );
+  // If no valid pattern is found
+  return null;
 }

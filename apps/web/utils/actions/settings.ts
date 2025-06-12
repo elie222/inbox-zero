@@ -8,7 +8,7 @@ import {
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
-import { calculateNextDigestDate } from "@/utils/frequency";
+import { calculateNextFrequencyDate } from "@/utils/frequency";
 import { actionClientUser } from "@/utils/actions/safe-action";
 
 export const updateEmailSettingsAction = actionClient
@@ -80,12 +80,12 @@ export const updateDigestFrequencyAction = actionClient
                 ...userFrequency,
                 emailAccountId,
                 lastOccurrenceAt: new Date(),
-                nextOccurrenceAt: calculateNextDigestDate(userFrequency),
+                nextOccurrenceAt: calculateNextFrequencyDate(userFrequency),
               },
               update: {
                 ...userFrequency,
                 lastOccurrenceAt: new Date(),
-                nextOccurrenceAt: calculateNextDigestDate(userFrequency),
+                nextOccurrenceAt: calculateNextFrequencyDate(userFrequency),
               },
             });
 
