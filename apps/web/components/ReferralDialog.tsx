@@ -17,6 +17,7 @@ import { env } from "@/env";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
+import { ErrorDisplay } from "@/components/ErrorDisplay";
 
 export function ReferralDialog() {
   return (
@@ -37,11 +38,17 @@ export function ReferralDialog() {
 }
 
 function Referrals() {
-  const { data: codeData, isLoading: loadingCode } =
-    useSWR<GetReferralCodeResponse>("/api/referrals/code");
+  const {
+    data: codeData,
+    isLoading: loadingCode,
+    error: errorCode,
+  } = useSWR<GetReferralCodeResponse>("/api/referrals/code");
 
-  const { data: statsData, isLoading: loadingStats } =
-    useSWR<GetReferralStatsResponse>("/api/referrals/stats");
+  const {
+    data: statsData,
+    isLoading: loadingStats,
+    error: errorStats,
+  } = useSWR<GetReferralStatsResponse>("/api/referrals/stats");
 
   const loading = loadingCode || loadingStats;
 
@@ -84,6 +91,10 @@ function Referrals() {
 
   if (loading) {
     return <ReferralDashboardSkeleton />;
+  }
+
+  if (errorCode || errorStats) {
+    return <ErrorDisplay error={{ error: "Error loading referral data" }} />;
   }
 
   return (
