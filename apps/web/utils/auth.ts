@@ -513,7 +513,7 @@ async function handlePendingPremiumInvite({ email }: { email: string }) {
   logger.info("Added user to premium from invite", { email });
 }
 
-async function handleReferralOnSignUp({
+export async function handleReferralOnSignUp({
   userId,
   email,
 }: {

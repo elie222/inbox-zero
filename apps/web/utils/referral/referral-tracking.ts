@@ -5,6 +5,8 @@ import { ReferralStatus } from "@prisma/client";
 
 const logger = createScopedLogger("referral-tracking");
 
+const REWARD_AMOUNT_CENTS = 2000; // $20 credit
+
 /**
  * Mark a referral as completed and grant the reward via Stripe balance transaction
  * Called when the referred user completes their 7-day trial
@@ -31,7 +33,7 @@ export async function completeReferralAndGrantReward(userId: string) {
 
     if (!referral) {
       logger.info("No referral found for user", { userId });
-      return null;
+      return;
     }
 
     if (referral.status === ReferralStatus.COMPLETED) {
@@ -39,7 +41,7 @@ export async function completeReferralAndGrantReward(userId: string) {
         userId,
         referralId: referral.id,
       });
-      return referral;
+      return;
     }
 
     // Check if referrer has a Stripe customer ID
@@ -49,19 +51,13 @@ export async function completeReferralAndGrantReward(userId: string) {
         referralId: referral.id,
         referrerUserId: referral.referrerUserId,
       });
-      // Still mark as rewarded but don't apply credit
-      const updatedReferral = await prisma.referral.update({
+      // Mark as completed but don't apply credit
+      await prisma.referral.update({
         where: { id: referral.id },
-        data: {
-          status: ReferralStatus.COMPLETED,
-          rewardGrantedAt: new Date(),
-        },
+        data: { status: ReferralStatus.COMPLETED },
       });
-      return { referral: updatedReferral, stripeBalanceTransaction: null };
+      return;
     }
-
-    // Define reward amount (e.g., $20 = 2000 cents)
-    const rewardAmountCents = 2000; // $20 credit
 
     try {
       const stripe = getStripe();
@@ -71,7 +67,7 @@ export async function completeReferralAndGrantReward(userId: string) {
         await stripe.customers.createBalanceTransaction(
           stripeCustomerId,
           {
-            amount: -rewardAmountCents, // Negative amount for credit
+            amount: -REWARD_AMOUNT_CENTS, // Negative amount for credit
             currency: "usd",
             description: `Referral credit - ${referral.id}`,
             metadata: {
@@ -92,21 +88,17 @@ export async function completeReferralAndGrantReward(userId: string) {
           status: ReferralStatus.COMPLETED,
           rewardGrantedAt: new Date(),
           stripeBalanceTransactionId: balanceTransaction.id,
-          rewardAmount: rewardAmountCents,
+          rewardAmount: REWARD_AMOUNT_CENTS,
         },
       });
 
       logger.info("Completed referral and granted Stripe credit", {
         referralId: referral.id,
         stripeBalanceTransactionId: balanceTransaction.id,
-        rewardAmount: rewardAmountCents,
         referrerUserId: referral.referrerUserId,
       });
 
-      return {
-        referral: updatedReferral,
-        stripeBalanceTransaction: balanceTransaction,
-      };
+      return;
     } catch (stripeError) {
       logger.error("Failed to create Stripe balance transaction", {
         error: stripeError,

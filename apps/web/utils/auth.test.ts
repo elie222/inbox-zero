@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { cookies } from "next/headers";
 import { createReferral } from "@/utils/referral/referral-code";
 import { captureException } from "@/utils/error";
+import { handleReferralOnSignUp } from "@/utils/auth";
 
 // Mock the dependencies
 vi.mock("next/headers", () => ({
@@ -23,25 +24,7 @@ vi.mock("@/utils/logger", () => ({
   }),
 }));
 
-// Import the function we want to test (we'll need to export it from auth.ts for testing)
-// For now, let's create a standalone version for testing
-async function handleReferralOnSignUp(userId: string, userEmail: string) {
-  try {
-    const cookieStore = await cookies();
-    const referralCookie = cookieStore.get("referral_code");
-
-    if (!referralCookie?.value) {
-      return;
-    }
-
-    const referralCode = referralCookie.value;
-    await createReferral(userId, referralCode);
-  } catch (error) {
-    captureException(error, {
-      extra: { userId, email: userEmail, location: "handleReferralOnSignUp" },
-    });
-  }
-}
+// Import the real function from auth.ts for testing
 
 describe("handleReferralOnSignUp", () => {
   const mockCookies = vi.mocked(cookies);
@@ -54,7 +37,7 @@ describe("handleReferralOnSignUp", () => {
 
   it("should create referral when referral code cookie exists", async () => {
     const userId = "user123";
-    const userEmail = "user@example.com";
+    const email = "user@example.com";
     const referralCode = "ABC123";
 
     mockCookies.mockResolvedValue({
@@ -63,27 +46,27 @@ describe("handleReferralOnSignUp", () => {
 
     mockCreateReferral.mockResolvedValue({} as any);
 
-    await handleReferralOnSignUp(userId, userEmail);
+    await handleReferralOnSignUp({ userId, email });
 
     expect(mockCreateReferral).toHaveBeenCalledWith(userId, referralCode);
   });
 
   it("should not create referral when no referral code cookie exists", async () => {
     const userId = "user123";
-    const userEmail = "user@example.com";
+    const email = "user@example.com";
 
     mockCookies.mockResolvedValue({
       get: vi.fn().mockReturnValue(undefined),
     } as any);
 
-    await handleReferralOnSignUp(userId, userEmail);
+    await handleReferralOnSignUp({ userId, email });
 
     expect(mockCreateReferral).not.toHaveBeenCalled();
   });
 
   it("should handle errors gracefully and not throw", async () => {
     const userId = "user123";
-    const userEmail = "user@example.com";
+    const email = "user@example.com";
     const referralCode = "ABC123";
     const error = new Error("Referral creation failed");
 
@@ -95,23 +78,23 @@ describe("handleReferralOnSignUp", () => {
 
     // Should not throw
     await expect(
-      handleReferralOnSignUp(userId, userEmail),
+      handleReferralOnSignUp({ userId, email }),
     ).resolves.toBeUndefined();
 
     expect(mockCaptureException).toHaveBeenCalledWith(error, {
-      extra: { userId, email: userEmail, location: "handleReferralOnSignUp" },
+      extra: { userId, email, location: "handleReferralOnSignUp" },
     });
   });
 
   it("should not create referral when referral code cookie has empty value", async () => {
     const userId = "user123";
-    const userEmail = "user@example.com";
+    const email = "user@example.com";
 
     mockCookies.mockResolvedValue({
       get: vi.fn().mockReturnValue({ value: "" }),
     } as any);
 
-    await handleReferralOnSignUp(userId, userEmail);
+    await handleReferralOnSignUp({ userId, email });
 
     expect(mockCreateReferral).not.toHaveBeenCalled();
   });
