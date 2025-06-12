@@ -18,9 +18,9 @@ async function getReferralStats(userId: string) {
     pendingReferrals: referrals.filter(
       (r) => r.status === ReferralStatus.PENDING,
     ).length,
-    totalRewards: referrals.filter((r) => r.rewardGranted).length,
+    totalRewards: referrals.filter((r) => r.rewardGrantedAt).length,
     totalRewardAmount: sumBy(
-      referrals.filter((r) => r.rewardGranted && r.rewardAmount),
+      referrals.filter((r) => r.rewardGrantedAt && r.rewardAmount),
       (r) => r.rewardAmount ?? 0,
     ),
   };

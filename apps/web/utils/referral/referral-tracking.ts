@@ -34,7 +34,7 @@ export async function completeReferralAndGrantReward(userId: string) {
       return null;
     }
 
-    if (referral.status === "COMPLETED") {
+    if (referral.status === ReferralStatus.COMPLETED) {
       logger.info("Referral already rewarded", {
         userId,
         referralId: referral.id,
@@ -53,9 +53,8 @@ export async function completeReferralAndGrantReward(userId: string) {
       const updatedReferral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "COMPLETED",
-          trialCompletedAt: new Date(),
-          rewardGranted: true,
+          status: ReferralStatus.COMPLETED,
+          rewardGrantedAt: new Date(),
         },
       });
       return { referral: updatedReferral, stripeBalanceTransaction: null };
@@ -90,9 +89,8 @@ export async function completeReferralAndGrantReward(userId: string) {
       const updatedReferral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "COMPLETED",
-          trialCompletedAt: new Date(),
-          rewardGranted: true,
+          status: ReferralStatus.COMPLETED,
+          rewardGrantedAt: new Date(),
           stripeBalanceTransactionId: balanceTransaction.id,
           rewardAmount: rewardAmountCents,
         },
@@ -120,8 +118,7 @@ export async function completeReferralAndGrantReward(userId: string) {
         where: { id: referral.id },
         data: {
           status: ReferralStatus.PENDING,
-          trialCompletedAt: new Date(),
-          rewardGranted: false,
+          rewardGrantedAt: null,
         },
       });
 

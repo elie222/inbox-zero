@@ -657,12 +657,10 @@ model Referral {
   referralCodeUsed String
 
   // Status tracking
-  status           ReferralStatus @default(PENDING)
-  trialStartedAt   DateTime?
-  trialCompletedAt DateTime?
+  status ReferralStatus @default(PENDING)
 
   // Reward tracking - using Stripe balance transactions
-  rewardGranted              Boolean @default(false)
+  rewardGrantedAt            DateTime?
   stripeBalanceTransactionId String? // Store Stripe txn ID for reference
   rewardAmount               Int? // Amount in cents (e.g., 2000 for $20)
 
