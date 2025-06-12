@@ -4,8 +4,8 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
+import type { ColdEmail } from "@prisma/client";
 import {
-  ColdEmail,
   ColdEmailSetting,
   ColdEmailStatus,
   type EmailAccount,
@@ -166,14 +166,13 @@ export async function runColdEmailBlocker(options: {
 }> {
   const response = await isColdEmail(options);
 
-  if (response.isColdEmail) {
-    const coldEmail = await blockColdEmail({
-      ...options,
-      aiReason: response.aiReason || null,
-    });
-    return { ...response, coldEmailId: coldEmail.id };
-  }
-  return response;
+  if (!response.isColdEmail) return { ...response, coldEmailId: null };
+
+  const coldEmail = await blockColdEmail({
+    ...options,
+    aiReason: response.aiReason ?? null,
+  });
+  return { ...response, coldEmailId: coldEmail.id };
 }
 
 export async function blockColdEmail(options: {

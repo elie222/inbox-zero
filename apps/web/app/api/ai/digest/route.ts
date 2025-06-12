@@ -37,8 +37,8 @@ export async function POST(request: Request) {
       messageId: message.id || "",
       threadId: message.threadId || "",
       emailAccountId,
-      actionId: actionId || undefined,
-      coldEmailId: coldEmailId || undefined,
+      actionId: actionId === undefined ? undefined : actionId,
+      coldEmailId: coldEmailId === undefined ? undefined : coldEmailId,
       content: summary,
     });
 
