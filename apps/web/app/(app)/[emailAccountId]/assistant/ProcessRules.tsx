@@ -194,13 +194,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       <div className="flex items-center justify-between gap-2 pb-6">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
-            <Button onClick={handleStop} variant="outline">
-              <PauseIcon className="mr-2 h-4 w-4" />
+            <Button onClick={handleStop} variant="outline" size="sm">
+              <PauseIcon className="mr-2 size-4" />
               Stop
             </Button>
           ) : (
-            <Button onClick={handleRunAll}>
-              <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+            <Button onClick={handleRunAll} size="sm">
+              <BookOpenCheckIcon className="mr-2 size-4" />
               {testMode ? "Test All" : "Run on All"}
             </Button>
           )}
@@ -213,8 +213,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
+              size="sm"
             >
-              <PenSquareIcon className="mr-2 h-4 w-4" />
+              <PenSquareIcon className="mr-2 size-4" />
               Custom
             </Button>
           )}
@@ -226,7 +227,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       </div>
 
       {hasAiRules && showCustomForm && testMode && (
-        <div className="mt-2">
+        <div className="my-2">
           <TestCustomEmailForm />
         </div>
       )}
