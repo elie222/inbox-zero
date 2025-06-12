@@ -11,14 +11,34 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Share2, Users, Trophy } from "lucide-react";
+import { Copy, Share2, Users, Trophy, GiftIcon } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
 import type { ReferralStatus } from "@prisma/client";
 import { useUser } from "@/hooks/useUser";
 import { env } from "@/env";
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
-export function ReferralDashboard() {
+export function ReferralDialog() {
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <SidebarMenuButton className="h-9">
+          <>
+            <GiftIcon />
+            <span className="font-semibold">Refer friend</span>
+          </>
+        </SidebarMenuButton>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl">
+        <Referrals />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Referrals() {
   const { data: user, isLoading: loadingUser } = useUser();
 
   const { data: statsData, isLoading: loadingStats } =
