@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
+  InfoIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -216,12 +217,13 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           )}
                           {rule.name}
                           {!rule.automate && (
-                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab.">
+                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab. You can change this in the rule settings by clicking this badge.">
                               <Badge
                                 color="yellow"
                                 className="ml-auto text-nowrap"
                               >
                                 Requires Approval
+                                <InfoIcon className="ml-1.5 size-3" />
                               </Badge>
                             </Tooltip>
                           )}
