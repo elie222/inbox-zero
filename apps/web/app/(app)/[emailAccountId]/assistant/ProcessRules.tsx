@@ -4,6 +4,7 @@ import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { parseAsBoolean, useQueryState } from "nuqs";
+import PQueue from "p-queue";
 import {
   BookOpenCheckIcon,
   SparklesIcon,
@@ -121,6 +122,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
+    // Create a queue with concurrency of 3 to maintain constant flow
+    const processQueue = new PQueue({ concurrency: 3 });
+
     // Increment the page limit each time we run
     setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
 
@@ -134,18 +138,40 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       const currentBatch = currentData?.[page]?.messages || [];
 
-      for (const message of currentBatch) {
+      // Filter messages that should be processed
+      const messagesToProcess = currentBatch.filter((message) => {
+        if (results[message.id]) return false;
+        if (handledThreadsRef.current.has(message.threadId)) return false;
+        return true;
+      });
+
+      // Add all messages to the queue for concurrent processing
+      for (const message of messagesToProcess) {
         if (!isRunningAllRef.current) break;
-        if (results[message.id]) continue;
-        if (handledThreadsRef.current.has(message.threadId)) continue;
-        await onRun(message);
-        handledThreadsRef.current.add(message.threadId);
+
+        processQueue.add(async () => {
+          if (!isRunningAllRef.current) return;
+
+          try {
+            await onRun(message);
+            handledThreadsRef.current.add(message.threadId);
+          } catch (error) {
+            console.error(`Failed to process message ${message.id}:`, error);
+            toastError({
+              title: "Failed to process email",
+              description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            });
+          }
+        });
       }
 
       // Check if we got new data in the last request
       const lastPage = currentData?.[page];
       if (!lastPage?.nextPageToken || !isRunningAllRef.current) break;
     }
+
+    // Wait for all queued tasks to complete
+    await processQueue.onIdle();
 
     handleStop();
   };
