@@ -1,6 +1,14 @@
 import type { UserFrequency } from "@prisma/client";
-import { addDays } from "date-fns";
+import { addDays, addMilliseconds } from "date-fns";
 
+/**
+ * Bitmask representation of days of the week.
+ * Each bit represents a day, from Sunday (most significant) to Saturday (least significant).
+ * Example: 0b1000000 (64) represents Sunday, 0b0100000 (32) represents Monday, etc.
+ *
+ * To combine multiple days, use the bitwise OR operator (|):
+ * SUNDAY | WEDNESDAY = 0b1000000 | 0b0001000 = 0b1001000
+ */
 export const DAYS = {
   SUNDAY: 0b1000000, // 64
   MONDAY: 0b0100000, // 32
@@ -11,6 +19,24 @@ export const DAYS = {
   SATURDAY: 0b0000001, // 1
 };
 
+/**
+ * Converts a JavaScript day of week (0-6, Sunday-Saturday) to its corresponding bitmask.
+ * @param jsDay - JavaScript day of week (0 = Sunday, 6 = Saturday)
+ * @returns The bitmask for the given day
+ */
+const maskFor = (jsDay: number) => 1 << (6 - jsDay);
+
+/**
+ * Calculates the next occurrence date based on frequency settings.
+ *
+ * @param frequency - The frequency configuration
+ * @param frequency.daysOfWeek - Bitmask of days of the week (see DAYS constant)
+ * @param frequency.intervalDays - Number of days between occurrences
+ * @param frequency.timeOfDay - Time of day for the occurrence (if unset, defaults to midnight)
+ * @param frequency.occurrences - Number of occurrences within the interval
+ * @param fromDate - The reference date to calculate from (defaults to current date)
+ * @returns The next occurrence date, or null if no valid pattern is found
+ */
 export function calculateNextFrequencyDate(
   frequency: Pick<
     UserFrequency,
@@ -28,6 +54,9 @@ export function calculateNextFrequencyDate(
       const timeStr = timeOfDay.toTimeString().split(" ")[0];
       const [hours, minutes] = timeStr.split(":").map(Number);
       date.setHours(hours, minutes, 0, 0);
+    } else {
+      // Reset to midnight when no specific time is set
+      date.setHours(0, 0, 0, 0);
     }
     return date;
   }
@@ -43,7 +72,9 @@ export function calculateNextFrequencyDate(
 
     // Find the next slot
     for (let i = 0; i < occ; i++) {
-      const slotDate = addDays(intervalStart, Math.round(i * slotLength));
+      // Calculate exact offset in milliseconds (slotLength * 24 * 60 * 60 * 1000)
+      const offsetMs = i * slotLength * 24 * 60 * 60 * 1000;
+      const slotDate = addMilliseconds(intervalStart, offsetMs);
       setTime(slotDate);
       if (slotDate >= fromDate) {
         return slotDate;
@@ -59,11 +90,11 @@ export function calculateNextFrequencyDate(
   if (daysOfWeek) {
     const currentDayOfWeek = fromDate.getDay();
 
-    // Find the next day that matches the pattern
-    let daysToAdd = 1;
+    // Find the next day that matches the pattern, starting from today
+    let daysToAdd = 0;
     while (daysToAdd <= 7) {
       const nextDayOfWeek = (currentDayOfWeek + daysToAdd) % 7;
-      const nextDayMask = 1 << (6 - nextDayOfWeek);
+      const nextDayMask = maskFor(nextDayOfWeek);
 
       if (daysOfWeek & nextDayMask) {
         const nextDate = addDays(fromDate, daysToAdd);
@@ -73,6 +104,13 @@ export function calculateNextFrequencyDate(
           const timeStr = timeOfDay.toTimeString().split(" ")[0];
           const [hours, minutes] = timeStr.split(":").map(Number);
           nextDate.setHours(hours, minutes, 0, 0);
+
+          // If this is today (daysToAdd === 0) and the time has already passed,
+          // continue to the next day
+          if (daysToAdd === 0 && nextDate <= fromDate) {
+            daysToAdd++;
+            continue;
+          }
           return nextDate;
         }
         return nextDate;
