@@ -5,17 +5,13 @@ import type {
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import {
-  ExecutedRuleStatus,
-  Prisma,
-  type Rule,
-  type User,
-} from "@prisma/client";
+import { ExecutedRuleStatus, type Prisma, type Rule } from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
@@ -233,10 +229,7 @@ async function upsertExecutedRule({
       include: { actionItems: true },
     });
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
+    if (isDuplicateError(error)) {
       // Unique constraint violation, ignore the error
       // May be due to a race condition?
       logger.info("Ignored duplicate entry for ExecutedRule", {

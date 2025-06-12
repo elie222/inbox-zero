@@ -7,6 +7,7 @@ import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { env } from "@/env";
 import { trackStripeEvent } from "@/utils/posthog";
 import prisma from "@/utils/prisma";
+import { completeReferralAndGrantReward } from "@/utils/referral/referral-tracking";
 
 const logger = createScopedLogger("stripe/webhook");
 
@@ -77,7 +78,53 @@ async function processEvent(event: Stripe.Event) {
   return await Promise.allSettled([
     syncStripeDataToDb({ customerId }),
     trackEvent(customerId, event),
+    handleReferralCompletion(customerId, event),
   ]);
+}
+
+async function handleReferralCompletion(
+  customerId: string,
+  event: Stripe.Event,
+) {
+  // Only process subscription updates
+  if (event.type !== "customer.subscription.updated") return;
+
+  const subscription = event.data.object as Stripe.Subscription;
+  const previousAttributes = event.data
+    .previous_attributes as Partial<Stripe.Subscription>;
+
+  // Check if this is a trial that just converted to active
+  const isTrialConversion =
+    previousAttributes.status === "trialing" &&
+    subscription.status === "active" &&
+    subscription.trial_end &&
+    subscription.trial_end < Math.floor(Date.now() / 1000);
+
+  if (!isTrialConversion) return;
+
+  // Find the user associated with this customer
+  const premium = await prisma.premium.findUnique({
+    where: { stripeCustomerId: customerId },
+    select: { users: { select: { id: true } } },
+  });
+
+  const userIds = premium?.users.map((user) => user.id);
+  if (!userIds) {
+    logger.warn("No user found for customer during referral completion", {
+      customerId,
+    });
+    return;
+  }
+
+  logger.info("Trial converted to paid subscription, completing referral", {
+    customerId,
+    userIds,
+  });
+
+  // Complete the referral
+  for (const userId of userIds) {
+    await completeReferralAndGrantReward(userId);
+  }
 }
 
 async function trackEvent(customerId: string, event: Stripe.Event) {
