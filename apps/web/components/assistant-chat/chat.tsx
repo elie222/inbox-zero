@@ -150,15 +150,15 @@ function ChatInner({
           direction={isMobile ? "vertical" : "horizontal"}
           className="flex-grow"
         >
-          <ResizablePanel className="overflow-y-auto" defaultSize={40}>
-            {chatPanel}
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel defaultSize={60}>
+          <ResizablePanel defaultSize={65}>
             {/* re-enable the regular SWRProvider */}
             <SWRProvider>
               <AssistantTabs />
             </SWRProvider>
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel className="overflow-y-auto" defaultSize={35}>
+            {chatPanel}
           </ResizablePanel>
         </ResizablePanelGroup>
       ) : (

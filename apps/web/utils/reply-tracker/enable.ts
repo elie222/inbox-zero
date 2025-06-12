@@ -113,6 +113,7 @@ export async function enableReplyTracker({
       },
       emailAccountId: emailAccount.id,
       systemType: SystemType.TO_REPLY,
+      triggerType: "system_creation",
     });
 
     if (newRule && "error" in newRule) {

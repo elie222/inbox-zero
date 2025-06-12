@@ -54,11 +54,12 @@ export function Hero(props: {
 
           <div className="mx-auto max-w-xl text-center">
             <HeroText>
-              {props.title || "Stop wasting half your day in Gmail"}
+              {props.title ||
+                "Meet Your AI Email Assistant That Actually Works"}
             </HeroText>
             <HeroSubtitle>
               {props.subtitle ||
-                "Automate your email with AI, bulk unsubscribe from newsletters, and block cold emails. Open-source."}
+                "Cut your email time in half. Inbox Zero intelligently automates responses, organizes your inbox, and helps you reach inbox zero in record time."}
             </HeroSubtitle>
             <CTAComponent />
           </div>

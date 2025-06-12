@@ -1,6 +1,7 @@
 import { CTAButtons } from "@/app/(landing)/home/CTAButtons";
 
-export function CTA() {
+export function CTA(props: { CTAComponent?: React.ComponentType }) {
+  const CTAComponent = props.CTAComponent || CTAButtons;
   return (
     <div className="relative -z-10 mt-12 px-6 lg:px-8">
       {/* <div
@@ -26,7 +27,7 @@ export function CTA() {
           took hours, now takes minutes. Inbox Zero is your virtual assistant
           for emails.
         </p>
-        <CTAButtons />
+        <CTAComponent />
       </div>
       {/* <div
         className="absolute left-1/2 right-0 top-full -z-10 hidden -translate-y-1/2 transform-gpu overflow-hidden blur-3xl sm:block"

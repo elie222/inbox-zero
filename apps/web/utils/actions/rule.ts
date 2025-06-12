@@ -43,6 +43,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
+import { createRuleHistory } from "@/utils/rule/rule-history";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -109,6 +110,11 @@ export const createRuleAction = actionClient
           },
           include: { actions: true, categoryFilters: true, group: true },
         });
+
+        // Track rule creation in history
+        after(() =>
+          createRuleHistory({ rule, triggerType: "manual_creation" }),
+        );
 
         after(() => updatePromptFileOnRuleCreated({ emailAccountId, rule }));
 
@@ -236,6 +242,14 @@ export const updateRuleAction = actionClient
               ]
             : []),
         ]);
+
+        // Track rule update in history
+        after(() =>
+          createRuleHistory({
+            rule: updatedRule,
+            triggerType: "manual_update",
+          }),
+        );
 
         // update prompt file
         after(() =>

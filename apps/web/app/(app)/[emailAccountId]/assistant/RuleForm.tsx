@@ -84,17 +84,29 @@ import { isDefined } from "@/utils/types";
 import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
 import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 
-export function Rule({ ruleId }: { ruleId: string }) {
+export function Rule({
+  ruleId,
+  alwaysEditMode = false,
+}: {
+  ruleId: string;
+  alwaysEditMode?: boolean;
+}) {
   const { data, isLoading, error } = useRule(ruleId);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && <RuleForm rule={data.rule} />}
+      {data && <RuleForm rule={data.rule} alwaysEditMode={alwaysEditMode} />}
     </LoadingContent>
   );
 }
 
-export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
+export function RuleForm({
+  rule,
+  alwaysEditMode = false,
+}: {
+  rule: CreateRuleBody & { id?: string };
+  alwaysEditMode?: boolean;
+}) {
   const { emailAccountId } = useAccount();
 
   const {
@@ -268,21 +280,29 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
     rule.groupId,
   );
   const [showLearnedPatterns, setShowLearnedPatterns] = useState(false);
-  const [isActionsEditMode, setIsActionsEditMode] = useState(false);
-  const [isConditionsEditMode, setIsConditionsEditMode] = useState(false);
-  const [isNameEditMode, setIsNameEditMode] = useState(false);
+
+  const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
+  const [isConditionsEditMode, setIsConditionsEditMode] =
+    useState(alwaysEditMode);
+  const [isActionsEditMode, setIsActionsEditMode] = useState(alwaysEditMode);
 
   const toggleActionsEditMode = useCallback(() => {
-    setIsActionsEditMode((prev) => !prev);
-  }, []);
+    if (!alwaysEditMode) {
+      setIsActionsEditMode((prev: boolean) => !prev);
+    }
+  }, [alwaysEditMode]);
 
   const toggleConditionsEditMode = useCallback(() => {
-    setIsConditionsEditMode((prev) => !prev);
-  }, []);
+    if (!alwaysEditMode) {
+      setIsConditionsEditMode((prev: boolean) => !prev);
+    }
+  }, [alwaysEditMode]);
 
   const toggleNameEditMode = useCallback(() => {
-    setIsNameEditMode((prev) => !prev);
-  }, []);
+    if (!alwaysEditMode) {
+      setIsNameEditMode((prev: boolean) => !prev);
+    }
+  }, [alwaysEditMode]);
 
   return (
     <form
@@ -402,14 +422,16 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
             </Tooltip>
           )}
 
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={toggleConditionsEditMode}
-            Icon={!isConditionsEditMode ? PencilIcon : undefined}
-          >
-            {isConditionsEditMode ? "View" : "Edit"}
-          </Button>
+          {!alwaysEditMode && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={toggleConditionsEditMode}
+              Icon={!isConditionsEditMode ? PencilIcon : undefined}
+            >
+              {isConditionsEditMode ? "View" : "Edit"}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -721,14 +743,16 @@ export function RuleForm({ rule }: { rule: CreateRuleBody & { id?: string } }) {
 
       <div className="mt-4 flex items-center justify-between">
         <TypographyH3 className="text-xl">Actions</TypographyH3>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={toggleActionsEditMode}
-          Icon={!isActionsEditMode ? PencilIcon : undefined}
-        >
-          {isActionsEditMode ? "View" : "Edit"}
-        </Button>
+        {!alwaysEditMode && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={toggleActionsEditMode}
+            Icon={!isActionsEditMode ? PencilIcon : undefined}
+          >
+            {isActionsEditMode ? "View" : "Edit"}
+          </Button>
+        )}
       </div>
 
       {actionErrors.length > 0 && (

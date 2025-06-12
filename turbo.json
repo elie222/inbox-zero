@@ -11,7 +11,14 @@
         "NEXTAUTH_URL",
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_PUBSUB_TOPIC_NAME",
+        "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+
         "DEFAULT_LLM_PROVIDER",
+        "DEFAULT_LLM_MODEL",
+        "ECONOMY_LLM_PROVIDER",
+        "ECONOMY_LLM_MODEL",
+
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
         "BEDROCK_ACCESS_KEY",
@@ -21,32 +28,41 @@
         "GROQ_API_KEY",
         "OPENROUTER_API_KEY",
         "OLLAMA_BASE_URL",
+
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "REDIS_URL",
         "QSTASH_TOKEN",
         "QSTASH_CURRENT_SIGNING_KEY",
         "QSTASH_NEXT_SIGNING_KEY",
-        "GOOGLE_PUBSUB_TOPIC_NAME",
-        "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORGANIZATION",
         "SENTRY_PROJECT",
+
         "LOG_ZOD_ERRORS",
+        
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "LEMON_SQUEEZY_API_KEY",
+        
         "TINYBIRD_TOKEN",
         "TINYBIRD_BASE_URL",
         "TINYBIRD_ENCRYPT_SECRET",
         "TINYBIRD_ENCRYPT_SALT",
+        
         "GOOGLE_ENCRYPT_SECRET",
         "GOOGLE_ENCRYPT_SALT",
+        
         "POSTHOG_API_SECRET",
         "POSTHOG_PROJECT_ID",
+        
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
-        "CRON_SECRET",
+        
         "LOOPS_API_SECRET",
+        
+        "CRON_SECRET",
+        
         "ADMINS",
         "WEBHOOK_URL",
         "INTERNAL_API_KEY",
