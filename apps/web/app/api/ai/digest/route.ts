@@ -1,92 +1,94 @@
-import { withError } from "@/utils/middleware";
-import { getEmailAccountWithAi } from "@/utils/user/get";
-import { digestBody } from "@/app/api/ai/digest/validation";
 import { NextResponse } from "next/server";
-import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import { upsertDigest } from "@/utils/digest/index";
+import { digestBody } from "./validation";
+import { DigestStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
+import { RuleName } from "@/utils/rule/consts";
+import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
+import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
-async function getRuleNameByExecutedAction(
-  actionId: string,
-): Promise<string | undefined> {
-  const executedAction = await prisma.executedAction.findUnique({
-    where: { id: actionId },
-    include: {
-      executedRule: {
-        include: {
-          rule: {
-            select: {
-              name: true,
-            },
-          },
-        },
-      },
-    },
+export async function POST(request: Request) {
+  const body = digestBody.parse(await request.json());
+  const { emailAccountId, coldEmailId, actionId, message } = body;
+
+  const logger = createScopedLogger("digest").with({
+    emailAccountId,
+    messageId: message.id,
   });
-
-  if (!executedAction) {
-    throw new Error("Executed action not found");
-  }
-
-  return executedAction.executedRule?.rule?.name;
-}
-
-export async function handleDigestRequest(request: Request) {
-  const json = await request.json();
-  const body = digestBody.parse(json);
-  const emailAccount = await getEmailAccountWithAi({
-    emailAccountId: body.emailAccountId,
-  });
-
-  if (!emailAccount) {
-    return NextResponse.json(
-      { error: "Email account not found" },
-      { status: 404 },
-    );
-  }
-
-  const actionId = body.actionId;
-  const ruleName = await getRuleNameByExecutedAction(actionId);
-
-  if (!ruleName) {
-    return NextResponse.json({ error: "Rule name not found" }, { status: 404 });
-  }
-
-  const aiOutput = await aiSummarizeEmailForDigest({
-    ruleName,
-    emailAccount,
-    messageToSummarize: {
-      id: body.message.messageId,
-      from: body.message.from,
-      to: body.message.to,
-      subject: body.message.subject,
-      content: body.message.content,
-    },
-  });
-
-  if (!aiOutput) {
-    return NextResponse.json(
-      { error: "Failed to summarize email" },
-      { status: 500 },
-    );
-  }
 
   try {
-    await upsertDigest({
-      messageId: body.message.messageId,
-      threadId: body.message.threadId,
-      emailAccountId: body.emailAccountId,
-      actionId: body.actionId,
-      content: aiOutput,
+    // First, find the oldest unsent digest or create a new one if none exist
+    const oldestUnsentDigest = await prisma.digest.findFirst({
+      where: {
+        emailAccountId,
+        status: DigestStatus.PENDING,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
     });
+
+    const digest =
+      oldestUnsentDigest ||
+      (await prisma.digest.create({
+        data: {
+          emailAccountId,
+          status: DigestStatus.PENDING,
+        },
+      }));
+
+    // Then, find or create the DigestItem
+    const existingDigestItem = await prisma.digestItem.findFirst({
+      where: {
+        digestId: digest.id,
+        messageId: message.id,
+        threadId: message.threadId,
+      },
+    });
+
+    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+
+    if (!emailAccount) {
+      throw new Error("Email account not found");
+    }
+
+    const ruleName =
+      (actionId && (await getRuleNameByExecutedAction(actionId))) ||
+      RuleName.ColdEmail;
+    const summary = await aiSummarizeEmailForDigest({
+      ruleName: ruleName,
+      emailAccount,
+      messageToSummarize: message,
+    });
+
+    if (existingDigestItem) {
+      logger.info("Updating existing digest");
+      await prisma.digestItem.update({
+        where: { id: existingDigestItem.id },
+        data: {
+          content: JSON.stringify(summary),
+          ...(actionId ? { actionId: { set: actionId } } : {}),
+          ...(coldEmailId ? { coldEmailId: { set: coldEmailId } } : {}),
+        },
+      });
+    } else {
+      logger.info("Creating new digest");
+      await prisma.digestItem.create({
+        data: {
+          messageId: message.id,
+          threadId: message.threadId,
+          content: JSON.stringify(summary),
+          digestId: digest.id,
+          actionId: actionId,
+          coldEmailId: coldEmailId,
+        },
+      });
+    }
+
+    return new NextResponse("OK", { status: 200 });
   } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to save digest" },
-      { status: 500 },
-    );
+    logger.error("Failed to process digest", { error });
+    return new NextResponse("Internal Server Error", { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }
-
-export const POST = withError(handleDigestRequest);

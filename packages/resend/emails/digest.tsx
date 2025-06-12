@@ -8,7 +8,6 @@ import {
   Html,
   Img,
   Link,
-  Preview,
   Row,
   Section,
   Tailwind,
@@ -20,14 +19,15 @@ type DigestEntry = {
   value: string;
 };
 
-type DigestContent =
-  | { entries: DigestEntry[]; summary?: never }
-  | { entries?: never; summary: string };
+type DigestContent = {
+  entries?: DigestEntry[] | undefined | null;
+  summary?: string | undefined | null;
+};
 
 type DigestItem = {
   from: string;
   subject: string;
-  content: DigestContent;
+  content?: DigestContent | null | undefined;
 };
 
 const colorClasses = {
@@ -79,13 +79,13 @@ export interface DigestEmailProps {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  newsletter?: DigestItem[];
-  receipt?: DigestItem[];
-  marketing?: DigestItem[];
-  calendar?: DigestItem[];
-  coldEmail?: DigestItem[];
-  notification?: DigestItem[];
-  toReply?: DigestItem[];
+  newsletter?: DigestItem[] | undefined;
+  receipt?: DigestItem[] | undefined;
+  marketing?: DigestItem[] | undefined;
+  calendar?: DigestItem[] | undefined;
+  coldEmail?: DigestItem[] | undefined;
+  notification?: DigestItem[] | undefined;
+  toReply?: DigestItem[] | undefined;
 }
 
 export default function DigestEmail(props: DigestEmailProps) {
@@ -374,7 +374,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                     {category.emoji} {category.name}
                   </Text>
                   <div
-                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[0px] ml-[4px] rounded-[12px]`}
                   >
                     <Text
                       className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
@@ -425,7 +425,8 @@ export default function DigestEmail(props: DigestEmailProps) {
               <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                 {item.from}
               </Text>
-              {Array.isArray(item.content.entries) &&
+              {item.content &&
+              Array.isArray(item.content.entries) &&
               item.content.entries.length > 0 ? (
                 <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
                   {item.content.entries.map((entry, idx) => (
@@ -445,7 +446,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                 </Section>
               ) : (
                 <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
-                  {item.content.summary}
+                  {item.content?.summary}
                 </Text>
               )}
             </div>

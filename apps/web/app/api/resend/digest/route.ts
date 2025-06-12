@@ -16,9 +16,11 @@ import {
   sendDigestEmailBody,
   type Digest,
   digestSummarySchema,
+  DigestEmailSummarySchema,
 } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
+import { RuleName } from "@/utils/rule/consts";
 
 export const maxDuration = 60;
 
@@ -116,8 +118,15 @@ async function sendEmail({
   const executedRulesByRule = digests.reduce((acc, digest) => {
     digest.items.forEach((item) => {
       const message = messageMap.get(item.messageId);
+      if (!message) {
+        logger.warn("Message not found, skipping digest item", {
+          messageId: item.messageId,
+        });
+        return;
+      }
+
       const ruleName = camelCase(
-        item.action?.executedRule?.rule?.name || "Unknown Rule",
+        item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
       );
 
       // Only include if it's one of our known categories
@@ -128,15 +137,19 @@ async function sendEmail({
           acc[category] = [];
         }
 
-        const parsedContent = digestSummarySchema.parse(item.content);
-        acc[category].push({
-          content: {
-            entries: parsedContent?.entries || [],
-            summary: parsedContent?.summary,
-          },
-          from: extractNameFromEmail(message?.headers?.from || ""),
-          subject: message?.headers?.subject || "",
-        });
+        const parsedContent = JSON.parse(item.content);
+        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
+
+        if (contentResult.success) {
+          acc[category].push({
+            content: {
+              entries: contentResult.data?.entries || [],
+              summary: contentResult.data?.summary,
+            },
+            from: extractNameFromEmail(message?.headers?.from || ""),
+            subject: message?.headers?.subject || "",
+          });
+        }
       }
     });
     return acc;
@@ -146,6 +159,7 @@ async function sendEmail({
 
   await Promise.all([
     sendDigestEmail({
+      from: env.RESEND_FROM_EMAIL,
       to: emailAccount.email,
       emailProps: {
         ...executedRulesByRule,
@@ -232,6 +246,7 @@ export const POST = withError(async (request) => {
     await sendEmail({ emailAccountId });
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.log("error", error);
     logger.error("Error sending digest email", { error });
     captureException(error);
     return NextResponse.json(

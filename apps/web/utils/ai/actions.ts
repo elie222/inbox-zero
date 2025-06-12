@@ -242,13 +242,5 @@ const track_thread: ActionFunction<any> = async ({
 
 const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
   const actionId = args.id;
-  const message = {
-    messageId: email.id,
-    threadId: email.threadId,
-    from: email.headers.from,
-    to: email.headers.to || "",
-    subject: email.headers.subject,
-    content: email.textPlain || "",
-  };
-  await enqueueDigestItem(message, emailAccountId, actionId);
+  await enqueueDigestItem({ email, emailAccountId, actionId });
 };

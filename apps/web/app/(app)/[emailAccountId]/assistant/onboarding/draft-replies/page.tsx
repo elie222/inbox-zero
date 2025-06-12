@@ -32,7 +32,7 @@ export default function DraftRepliesPage() {
       markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
 
       router.push(
-        prefixPath(emailAccountId, "/assistant/onboarding/completed"),
+        prefixPath(emailAccountId, "/assistant/onboarding/digest-frequency"),
       );
     },
     [router, emailAccountId],

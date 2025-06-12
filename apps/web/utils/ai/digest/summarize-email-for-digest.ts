@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

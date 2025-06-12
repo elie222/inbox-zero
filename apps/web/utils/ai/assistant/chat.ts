@@ -79,6 +79,7 @@ const updateRuleActionsSchema = z.object({
         ActionType.MARK_READ,
         ActionType.MARK_SPAM,
         ActionType.CALL_WEBHOOK,
+        ActionType.DIGEST,
       ]),
       fields: z.object({
         label: z.string().nullish(),

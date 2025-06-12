@@ -16,6 +16,8 @@ import { ColdEmailPromptForm } from "@/app/(app)/[emailAccountId]/cold-email-blo
 import { RadioGroup } from "@/components/RadioGroup";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -24,7 +26,10 @@ export function ColdEmailSettings() {
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <div className="space-y-10">
-          <ColdEmailForm coldEmailBlocker={data.coldEmailBlocker} />
+          <ColdEmailForm
+            coldEmailBlocker={data.coldEmailBlocker}
+            coldEmailDigest={data.coldEmailDigest}
+          />
           <ColdEmailPromptForm
             coldEmailPrompt={data.coldEmailPrompt}
             onSuccess={mutate}
@@ -37,10 +42,12 @@ export function ColdEmailSettings() {
 
 export function ColdEmailForm({
   coldEmailBlocker,
+  coldEmailDigest,
   buttonText,
   onSuccess,
 }: {
   coldEmailBlocker?: ColdEmailSetting | null;
+  coldEmailDigest?: boolean;
   buttonText?: string;
   onSuccess?: () => void;
 }) {
@@ -54,6 +61,7 @@ export function ColdEmailForm({
     resolver: zodResolver(updateColdEmailSettingsBody),
     defaultValues: {
       coldEmailBlocker: coldEmailBlocker || ColdEmailSetting.DISABLED,
+      coldEmailDigest: coldEmailDigest || false,
     },
   });
 
@@ -106,7 +114,7 @@ export function ColdEmailForm({
   );
 
   return (
-    <form onSubmit={onSubmitForm} className="max-w-lg">
+    <form onSubmit={onSubmitForm} className="max-w-lg space-y-6">
       <Controller
         name="coldEmailBlocker"
         control={control}
@@ -119,6 +127,34 @@ export function ColdEmailForm({
           />
         )}
       />
+
+      <div className="rounded-lg border border-border bg-card p-4">
+        <Controller
+          name="coldEmailDigest"
+          control={control}
+          render={({ field }) => (
+            <div className="flex items-center space-x-3">
+              <Checkbox
+                id="coldEmailDigest"
+                checked={field.value}
+                onCheckedChange={field.onChange}
+              />
+              <div className="space-y-1">
+                <Label
+                  htmlFor="coldEmailDigest"
+                  className="text-sm font-medium"
+                >
+                  Include cold emails in digest
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Cold emails will be included in your daily digest instead of
+                  being processed immediately
+                </p>
+              </div>
+            </div>
+          )}
+        />
+      </div>
 
       <div className="mt-2">
         <Button type="submit" loading={isSubmitting}>

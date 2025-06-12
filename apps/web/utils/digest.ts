@@ -1,10 +1,11 @@
-import { UserFrequency } from "@prisma/client";
+import type { UserFrequency } from "@prisma/client";
 import { addDays } from "date-fns";
 
 export function calculateNextDigestDate(
   frequency: UserFrequency,
   fromDate: Date = new Date(),
 ): Date | null {
+  if (!frequency) return null;
   // For interval days pattern
   if (frequency.intervalDays) {
     const nextDate = addDays(fromDate, frequency.intervalDays);

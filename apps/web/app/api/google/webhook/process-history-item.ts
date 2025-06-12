@@ -24,6 +24,7 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 export async function processHistoryItem(
   {
@@ -158,6 +159,13 @@ export async function processHistoryItem(
       });
 
       if (response.isColdEmail) {
+        if (emailAccount.coldEmailDigest && response.coldEmailId) {
+          await enqueueDigestItem({
+            email: message,
+            emailAccountId,
+            coldEmailId: response.coldEmailId,
+          });
+        }
         logger.info("Skipping. Cold email detected.", loggerOptions);
         return;
       }

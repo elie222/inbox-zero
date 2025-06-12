@@ -197,11 +197,24 @@ export const updateRuleAction = actionClient
                 }),
               ]
             : []),
-          // update existing actions
+          // update or create actions
           ...actionsToUpdate.map((a) => {
-            return prisma.action.update({
+            return prisma.action.upsert({
               where: { id: a.id },
-              data: sanitizeActionFields({
+              create: {
+                ...sanitizeActionFields({
+                  type: a.type,
+                  label: a.label?.value,
+                  subject: a.subject?.value,
+                  content: a.content?.value,
+                  to: a.to?.value,
+                  cc: a.cc?.value,
+                  bcc: a.bcc?.value,
+                  url: a.url?.value,
+                }),
+                ruleId: id,
+              },
+              update: sanitizeActionFields({
                 type: a.type,
                 label: a.label?.value,
                 subject: a.subject?.value,
@@ -695,3 +708,28 @@ export const createRulesOnboardingAction = actionClient
       });
     },
   );
+
+export async function getRuleNameByExecutedAction(
+  actionId: string,
+): Promise<string | undefined> {
+  const executedAction = await prisma.executedAction.findUnique({
+    where: { id: actionId },
+    include: {
+      executedRule: {
+        include: {
+          rule: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!executedAction) {
+    throw new Error("Executed action not found");
+  }
+
+  return executedAction.executedRule?.rule?.name;
+}
