@@ -156,7 +156,7 @@ export function ActionSummaryCard({
       break;
 
     case ActionType.TRACK_THREAD:
-      summaryContent = "Track reply";
+      summaryContent = "Auto-update reply label";
       break;
 
     case ActionType.ARCHIVE:

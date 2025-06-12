@@ -272,7 +272,7 @@ export function RuleForm({
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      { label: "Track reply", value: ActionType.TRACK_THREAD },
+      { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
     ];
   }, []);
 

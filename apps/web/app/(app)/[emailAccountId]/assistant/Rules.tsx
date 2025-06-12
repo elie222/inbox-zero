@@ -401,22 +401,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
         </LoadingContent>
       </Card>
 
-      {hasRules && (
-        <div className="my-2 flex justify-end gap-2">
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule via Prompt
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-              <PlusIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule Manually
-            </Link>
-          </Button>
-        </div>
-      )}
+      {hasRules && <AddRuleButtons />}
     </div>
   );
 }
@@ -451,7 +436,6 @@ export function ActionBadges({
 }
 
 function NoRules() {
-  const { emailAccountId } = useAccount();
   return (
     <>
       <CardHeader>
@@ -463,12 +447,28 @@ function NoRules() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button type="button" variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-            Add Rule Manually
-          </Link>
-        </Button>
+        <AddRuleButtons />
       </CardContent>
     </>
+  );
+}
+
+function AddRuleButtons() {
+  const { emailAccountId } = useAccount();
+  return (
+    <div className="my-2 flex justify-end gap-2">
+      <Button asChild variant="outline" size="sm">
+        <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
+          <PenIcon className="mr-2 hidden size-4 md:block" />
+          Add Rule via Prompt
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
+          <PlusIcon className="mr-2 hidden size-4 md:block" />
+          Add Rule Manually
+        </Link>
+      </Button>
+    </div>
   );
 }
