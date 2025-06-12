@@ -19,7 +19,7 @@ export function getActionDisplay(action: {
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.TRACK_THREAD:
-      return "Track Thread";
+      return "Auto-update reply label";
     default:
       // Default to capital case for other action types
       return capitalCase(action.type);

@@ -1053,7 +1053,7 @@ function ActionCard({
                 ) : field.name === "content" &&
                   action.type === ActionType.DRAFT_EMAIL &&
                   !setManually ? (
-                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 rounded border py-8">
+                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 py-4">
                     <div className="max-w-sm text-center text-sm text-muted-foreground">
                       Our AI will generate a reply using your knowledge base and
                       previous conversations with the sender
@@ -1239,8 +1239,7 @@ function ReplyTrackerAction() {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="max-w-sm text-center text-sm text-muted-foreground">
-        Used for reply tracking (Reply Zero). This action tracks emails this
-        rule is applied to and removes the{" "}
+        This action tracks emails this rule is applied to and removes the{" "}
         <Badge color="green">{NEEDS_REPLY_LABEL_NAME}</Badge> label after you
         reply to the email.
       </div>
