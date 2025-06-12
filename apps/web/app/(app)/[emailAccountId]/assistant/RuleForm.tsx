@@ -210,7 +210,7 @@ export function RuleForm({
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
+          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
         }
       } else {
         const res = await createRuleAction(emailAccountId, data);
@@ -233,10 +233,10 @@ export function RuleForm({
           router.replace(
             prefixPath(
               emailAccountId,
-              `/assistant?tab=rule&ruleId=${res.data.rule.id}`,
+              `/automation?tab=rule&ruleId=${res.data.rule.id}`,
             ),
           );
-          router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
+          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
         }
       }
     },
@@ -908,7 +908,7 @@ export function RuleForm({
                         description: "The rule has been deleted.",
                       });
                       router.push(
-                        prefixPath(emailAccountId, "/assistant?tab=rules"),
+                        prefixPath(emailAccountId, "/automation?tab=rules"),
                       );
                     }
                   } catch (error) {

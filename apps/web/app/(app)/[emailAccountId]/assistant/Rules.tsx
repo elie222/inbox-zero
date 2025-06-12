@@ -298,7 +298,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                     : createAssistantUrl({
                                         tab: "history",
                                         ruleId: rule.id,
-                                        path: "/assistant?tab=history",
+                                        path: "/automation?tab=history",
                                       })
                                 }
                                 target={

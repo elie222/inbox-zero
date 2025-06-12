@@ -89,7 +89,7 @@ export function ProcessResultDisplay({
             <Link
               href={prefixPath(
                 emailAccountId,
-                `/assistant?tab=rule&ruleId=${result.rule.id}`,
+                `/automation?tab=rule&ruleId=${result.rule.id}`,
               )}
               target="_blank"
               className="ml-1.5"
