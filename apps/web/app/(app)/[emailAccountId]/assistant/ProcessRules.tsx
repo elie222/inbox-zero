@@ -121,6 +121,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
+    // Process messages in parallel batches of 3
+    const BATCH_SIZE = 3;
+
     // Increment the page limit each time we run
     setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
 
@@ -141,19 +144,27 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         return true;
       });
 
-      // Process messages in parallel batches of 3
-      const BATCH_SIZE = 3;
+      // Process messages in parallel batches
       for (let i = 0; i < messagesToProcess.length; i += BATCH_SIZE) {
         if (!isRunningAllRef.current) break;
 
         const batch = messagesToProcess.slice(i, i + BATCH_SIZE);
 
-        // Process batch in parallel
-        await Promise.all(
+        // Process batch in parallel with individual error handling
+        await Promise.allSettled(
           batch.map(async (message) => {
             if (!isRunningAllRef.current) return;
-            await onRun(message);
-            handledThreadsRef.current.add(message.threadId);
+
+            try {
+              await onRun(message);
+              handledThreadsRef.current.add(message.threadId);
+            } catch (error) {
+              console.error(`Failed to process message ${message.id}:`, error);
+              toastError({
+                title: "Failed to process email",
+                description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
+              });
+            }
           }),
         );
       }
