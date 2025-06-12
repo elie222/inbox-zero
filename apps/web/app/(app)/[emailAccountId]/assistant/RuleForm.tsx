@@ -475,15 +475,20 @@ export function RuleForm({
                                 const selectedType = value;
 
                                 // check if we have duplicate condition types
-                                const conditionTypes = new Set(
-                                  conditions.map((condition) => condition.type),
+                                const prospectiveTypes = new Set(
+                                  conditions.map((c, idx) =>
+                                    idx === index ? selectedType : c.type,
+                                  ),
                                 );
 
-                                if (conditionTypes.size !== conditions.length) {
+                                if (
+                                  prospectiveTypes.size !== conditions.length
+                                ) {
                                   toastError({
                                     description:
                                       "You can only have one condition of each type.",
                                   });
+                                  return; // abort update
                                 }
 
                                 const emptyCondition = getEmptyCondition(
