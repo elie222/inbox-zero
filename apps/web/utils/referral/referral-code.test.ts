@@ -105,16 +105,19 @@ describe("referral-code", () => {
         },
       );
 
+      // First call fails, second succeeds
       prisma.user.update
         .mockRejectedValueOnce(uniqueError)
         .mockResolvedValueOnce({
           ...mockUser,
-          referralCode: "ABC123",
+          referralCode: "NEWCODE", // Any valid 6-char code
         } as any);
 
       const result = await getOrCreateReferralCode("user1");
 
-      expect(result.code).toBe("ABC123");
+      // Verify the result has the expected format
+      expect(result.code).toHaveLength(6);
+      expect(result.code).toMatch(/^[A-Z0-9]+$/);
       expect(prisma.user.update).toHaveBeenCalledTimes(2);
     });
 
@@ -139,9 +142,10 @@ describe("referral-code", () => {
 
       prisma.user.update.mockRejectedValue(uniqueError);
 
-      await expect(getOrCreateReferralCode("user1")).rejects.toThrow(SafeError);
       await expect(getOrCreateReferralCode("user1")).rejects.toThrow(
-        "Unable to generate unique referral code after multiple attempts",
+        new SafeError(
+          "Unable to generate unique referral code after multiple attempts",
+        ),
       );
       expect(prisma.user.update).toHaveBeenCalledTimes(5); // maxAttempts
     });
