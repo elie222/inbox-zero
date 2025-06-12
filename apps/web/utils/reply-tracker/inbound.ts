@@ -9,25 +9,32 @@ import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import type { OutlookClient } from "@/utils/outlook/client";
+
+type EmailClient = gmail_v1.Gmail | OutlookClient;
+
+function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
+  return "users" in client;
+}
 
 /**
  * Marks an email thread as needing a reply.
  * This function coordinates the process of:
  * 1. Updating thread trackers in the database
- * 2. Managing Gmail labels
+ * 2. Managing Gmail/Outlook labels
  */
 export async function coordinateReplyProcess({
   emailAccountId,
   threadId,
   messageId,
   sentAt,
-  gmail,
+  client,
 }: {
   emailAccountId: string;
   threadId: string;
   messageId: string;
   sentAt: Date;
-  gmail: gmail_v1.Gmail;
+  client: EmailClient;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     emailAccountId,
@@ -37,8 +44,6 @@ export async function coordinateReplyProcess({
 
   logger.info("Marking thread as needs reply");
 
-  const awaitingReplyLabelId = await getAwaitingReplyLabel(gmail);
-
   // Process in parallel for better performance
   const dbPromise = updateThreadTrackers({
     emailAccountId,
@@ -46,11 +51,15 @@ export async function coordinateReplyProcess({
     messageId,
     sentAt,
   });
-  const labelsPromise = removeThreadLabel(
-    gmail,
-    threadId,
-    awaitingReplyLabelId,
-  );
+
+  let labelsPromise;
+  if (isGmailClient(client)) {
+    const awaitingReplyLabelId = await getAwaitingReplyLabel(client);
+    labelsPromise = removeThreadLabel(client, threadId, awaitingReplyLabelId);
+  } else {
+    // For Outlook, we don't need to do anything with labels at this point
+    labelsPromise = Promise.resolve();
+  }
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,
@@ -62,7 +71,7 @@ export async function coordinateReplyProcess({
   }
 
   if (labelsResult.status === "rejected") {
-    logger.error("Failed to update Gmail labels", {
+    logger.error("Failed to update labels", {
       error: labelsResult.reason,
     });
   }
@@ -119,11 +128,11 @@ async function updateThreadTrackers({
 export async function handleInboundReply({
   emailAccount,
   message,
-  gmail,
+  client,
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
+  client: EmailClient;
 }) {
   // 1. Run rules check
   // 2. If the reply tracking rule is selected then mark as needs reply
@@ -159,7 +168,7 @@ export async function handleInboundReply({
       threadId: message.threadId,
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),
-      gmail,
+      client,
     });
   }
 }

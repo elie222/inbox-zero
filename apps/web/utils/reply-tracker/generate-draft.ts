@@ -2,11 +2,13 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { draftEmail } from "@/utils/gmail/mail";
+import { draftEmail as gmailDraftEmail } from "@/utils/gmail/mail";
+import { draftEmail as outlookDraftEmail } from "@/utils/outlook/mail";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
-import { getThreadMessages } from "@/utils/gmail/thread";
+import { getThreadMessages as getGmailThreadMessages } from "@/utils/gmail/thread";
+import { getThreadMessages as getOutlookThreadMessages } from "@/utils/outlook/thread";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
@@ -15,16 +17,24 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import type { OutlookClient } from "@/utils/outlook/client";
+import type { Message } from "@microsoft/microsoft-graph-types";
 
 const logger = createScopedLogger("generate-reply");
 
+type EmailClient = gmail_v1.Gmail | OutlookClient;
+
+function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
+  return "users" in client;
+}
+
 export async function generateDraft({
   emailAccountId,
-  gmail,
+  client,
   message,
 }: {
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
+  client: EmailClient;
   message: ParsedMessage;
 }) {
   const logger = createScopedLogger("generate-reply").with({
@@ -42,7 +52,7 @@ export async function generateDraft({
   const result = await fetchMessagesAndGenerateDraft(
     emailAccount,
     message.threadId,
-    gmail,
+    client,
   );
 
   logger.info("Draft generated", { result });
@@ -51,8 +61,12 @@ export async function generateDraft({
     throw new Error("Draft result is not a string");
   }
 
-  // 2. Create Gmail draft
-  await draftEmail(gmail, message, { content: result });
+  // 2. Create draft
+  if (isGmailClient(client)) {
+    await gmailDraftEmail(client, message, { content: result });
+  } else {
+    await outlookDraftEmail(client, message, { content: result });
+  }
 
   logger.info("Draft created");
 }
@@ -63,10 +77,10 @@ export async function generateDraft({
 export async function fetchMessagesAndGenerateDraft(
   emailAccount: EmailAccountWithAI,
   threadId: string,
-  gmail: gmail_v1.Gmail,
+  client: EmailClient,
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } =
-    await fetchThreadAndConversationMessages(threadId, gmail);
+    await fetchThreadAndConversationMessages(threadId, client);
 
   const result = await generateDraftContent(
     emailAccount,
@@ -86,24 +100,34 @@ export async function fetchMessagesAndGenerateDraft(
  */
 async function fetchThreadAndConversationMessages(
   threadId: string,
-  gmail: gmail_v1.Gmail,
+  client: EmailClient,
 ): Promise<{
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  // current thread messages
-  const threadMessages = await getThreadMessages(threadId, gmail);
+  if (isGmailClient(client)) {
+    // Gmail implementation
+    const threadMessages = await getGmailThreadMessages(threadId, client);
+    const previousConversationMessages = await getMessagesBatch({
+      messageIds: threadMessages.map((msg) => msg.id),
+      accessToken: getAccessTokenFromClient(client),
+    });
 
-  // previous conversation messages
-  const previousConversationMessages = await getMessagesBatch({
-    messageIds: threadMessages.map((msg) => msg.id),
-    accessToken: getAccessTokenFromClient(gmail),
-  });
+    return {
+      threadMessages,
+      previousConversationMessages,
+    };
+  } else {
+    // Outlook implementation
+    const threadMessages = await getOutlookThreadMessages(threadId, client);
 
-  return {
-    threadMessages,
-    previousConversationMessages,
-  };
+    // For Outlook, we'll use the same messages as previous conversation messages
+    // since we already have the full thread with all the content we need
+    return {
+      threadMessages,
+      previousConversationMessages: threadMessages,
+    };
+  }
 }
 
 async function generateDraftContent(

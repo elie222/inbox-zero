@@ -28,8 +28,15 @@ import type {
 import { extractEmailAddress } from "@/utils/email";
 import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
+import type { OutlookClient } from "@/utils/outlook/client";
 
 const logger = createScopedLogger("match-rules");
+
+type EmailClient = gmail_v1.Gmail | OutlookClient;
+
+function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
+  return "users" in client;
+}
 
 const TO_REPLY_RECEIVED_THRESHOLD = 10;
 
@@ -41,12 +48,12 @@ async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
-  gmail,
+  client,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   isThread: boolean;
-  gmail: gmail_v1.Gmail;
+  client: EmailClient;
 }): Promise<MatchingRuleResult> {
   const potentialMatches: (RuleWithActionsAndCategories & {
     instructions: string;
@@ -182,7 +189,7 @@ async function findPotentialMatchingRules({
   const filteredPotentialMatches = await filterToReplyPreset(
     potentialMatches,
     message,
-    gmail,
+    client,
   );
 
   return { potentialMatches: filteredPotentialMatches };
@@ -211,18 +218,18 @@ export async function findMatchingRule({
   rules,
   message,
   emailAccount,
-  gmail,
+  client,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
-  gmail: gmail_v1.Gmail;
+  client: EmailClient;
 }) {
   const result = await findMatchingRuleWithReasons(
     rules,
     message,
     emailAccount,
-    gmail,
+    client,
   );
   return {
     ...result,
@@ -234,7 +241,7 @@ async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
-  gmail: gmail_v1.Gmail,
+  client: EmailClient,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
@@ -246,7 +253,7 @@ async function findMatchingRuleWithReasons(
       rules,
       message,
       isThread,
-      gmail,
+      client,
     });
 
   if (match) return { rule: match, matchReasons };
@@ -369,14 +376,14 @@ async function matchesCategoryRule(
 async function filterToReplyPreset(
   potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
   message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
+  client: EmailClient,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
   const toReplyRuleIndex = potentialMatches.findIndex(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
-  if (toReplyRuleIndex === -1) {
-    return potentialMatches; // No TO_REPLY rule found
+  if (toReplyRuleIndex === -1 || !isGmailClient(client)) {
+    return potentialMatches; // No TO_REPLY rule found or no gmail client
   }
 
   const senderEmail = message.headers.from;
@@ -386,7 +393,7 @@ async function filterToReplyPreset(
 
   try {
     const { hasReplied, receivedCount } = await checkSenderReplyHistory(
-      gmail,
+      client as gmail_v1.Gmail,
       senderEmail,
       TO_REPLY_RECEIVED_THRESHOLD,
     );

@@ -9,7 +9,14 @@ import {
   type RunRulesResult,
 } from "@/utils/ai/choose-rule/run-rules";
 import { emailToContent, parseMessage } from "@/utils/mail";
-import { getMessage, getMessages } from "@/utils/gmail/message";
+import {
+  getMessage as getGmailMessage,
+  getMessages as getGmailMessages,
+} from "@/utils/gmail/message";
+import {
+  getMessage as getOutlookMessage,
+  getMessages as getOutlookMessages,
+} from "@/utils/outlook/message";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import { isDefined } from "@/utils/types";
 import {
@@ -22,7 +29,14 @@ import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
 import { aiGenerateRulesPrompt } from "@/utils/ai/rule/generate-rules-prompt";
-import { getLabelById, getLabels } from "@/utils/gmail/label";
+import {
+  getLabels as getGmailLabels,
+  getLabelById as getGmailLabelById,
+} from "@/utils/gmail/label";
+import {
+  getLabels as getOutlookLabels,
+  getLabelById as getOutlookLabelById,
+} from "@/utils/outlook/label";
 import { createScopedLogger } from "@/utils/logger";
 import { aiFindSnippets } from "@/utils/ai/snippets/find-snippets";
 import { labelVisibility } from "@/utils/gmail/constants";
@@ -30,48 +44,74 @@ import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/cre
 import { deleteRule, safeCreateRule, safeUpdateRule } from "@/utils/rule/rule";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
+import {
+  getGmailClientForEmail,
+  getOutlookClientForEmail,
+} from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
+import type { gmail_v1 } from "@googleapis/gmail";
+import type { OutlookClient } from "@/utils/outlook/client";
+import type { Message as OutlookMessage } from "@microsoft/microsoft-graph-types";
 
 const logger = createScopedLogger("ai-rule");
+
+type EmailClient = gmail_v1.Gmail | OutlookClient;
+
+function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
+  return "users" in client;
+}
+
+type MessageResponse = gmail_v1.Schema$Message | OutlookMessage;
+type Label = gmail_v1.Schema$Label | { name: string; type: string };
 
 export const runRulesAction = actionClient
   .metadata({ name: "runRules" })
   .schema(runRulesBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: { messageId, threadId, rerun, isTest },
     }): Promise<RunRulesResult> => {
       const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
       if (!emailAccount) throw new Error("Email account not found");
+      if (!provider) throw new Error("Provider not found");
 
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      let client: EmailClient;
+      if (provider === "google") {
+        client = await getGmailClientForEmail({ emailAccountId });
+      } else {
+        client = await getOutlookClientForEmail({ emailAccountId });
+      }
+
+      let message;
+      if (isGmailClient(client)) {
+        const gmailMessage = await getGmailMessage(messageId, client, "full");
+        message = parseMessage(gmailMessage);
+      } else {
+        message = await getOutlookMessage(messageId, client);
+      }
 
       const fetchExecutedRule = !isTest && !rerun;
 
-      const [gmailMessage, executedRule] = await Promise.all([
-        getMessage(messageId, gmail, "full"),
-        fetchExecutedRule
-          ? prisma.executedRule.findUnique({
-              where: {
-                unique_emailAccount_thread_message: {
-                  emailAccountId,
-                  threadId,
-                  messageId,
-                },
+      const executedRule = fetchExecutedRule
+        ? await prisma.executedRule.findUnique({
+            where: {
+              unique_emailAccount_thread_message: {
+                emailAccountId,
+                threadId,
+                messageId,
               },
-              select: {
-                id: true,
-                reason: true,
-                actionItems: true,
-                rule: true,
-              },
-            })
-          : null,
-      ]);
+            },
+            select: {
+              id: true,
+              reason: true,
+              actionItems: true,
+              rule: true,
+            },
+          })
+        : null;
 
       if (executedRule) {
         logger.info("Skipping. Rule already exists.", {
@@ -88,8 +128,6 @@ export const runRulesAction = actionClient
         };
       }
 
-      const message = parseMessage(gmailMessage);
-
       const rules = await prisma.rule.findMany({
         where: {
           emailAccountId,
@@ -100,7 +138,7 @@ export const runRulesAction = actionClient
 
       const result = await runRules({
         isTest,
-        gmail,
+        client,
         message,
         rules,
         emailAccount,
@@ -113,46 +151,51 @@ export const runRulesAction = actionClient
 export const testAiCustomContentAction = actionClient
   .metadata({ name: "testAiCustomContent" })
   .schema(testAiCustomContentBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { content } }) => {
-    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { content } }) => {
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
-    if (!emailAccount) throw new SafeError("Email account not found");
+      if (!emailAccount) throw new SafeError("Email account not found");
 
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+      const client =
+        provider === "google"
+          ? await getGmailClientForEmail({ emailAccountId })
+          : await getOutlookClientForEmail({ emailAccountId });
 
-    const rules = await prisma.rule.findMany({
-      where: {
-        emailAccountId,
-        enabled: true,
-        instructions: { not: null },
-      },
-      include: { actions: true, categoryFilters: true },
-    });
-
-    const result = await runRules({
-      isTest: true,
-      gmail,
-      message: {
-        id: "testMessageId",
-        threadId: "testThreadId",
-        snippet: content,
-        textPlain: content,
-        headers: {
-          date: new Date().toISOString(),
-          from: "",
-          to: "",
-          subject: "",
+      const rules = await prisma.rule.findMany({
+        where: {
+          emailAccountId,
+          enabled: true,
+          instructions: { not: null },
         },
-        historyId: "",
-        inline: [],
-        internalDate: new Date().toISOString(),
-      },
-      rules,
-      emailAccount,
-    });
+        include: { actions: true, categoryFilters: true },
+      });
 
-    return result;
-  });
+      const result = await runRules({
+        isTest: true,
+        client,
+        message: {
+          id: "testMessageId",
+          threadId: "testThreadId",
+          snippet: content,
+          textPlain: content,
+          headers: {
+            date: new Date().toISOString(),
+            from: "",
+            to: "",
+            subject: "",
+          },
+          historyId: "",
+          inline: [],
+          internalDate: new Date().toISOString(),
+        },
+        rules,
+        emailAccount,
+      });
+
+      return result;
+    },
+  );
 
 export const createAutomationAction = actionClient
   .metadata({ name: "createAutomation" })
@@ -202,10 +245,13 @@ export const approvePlanAction = actionClient
   .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId, emailAccount, provider },
       parsedInput: { executedRuleId, message },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const client =
+        provider === "google"
+          ? await getGmailClientForEmail({ emailAccountId })
+          : await getOutlookClientForEmail({ emailAccountId });
 
       const executedRule = await prisma.executedRule.findUnique({
         where: { id: executedRuleId },
@@ -214,7 +260,7 @@ export const approvePlanAction = actionClient
       if (!executedRule) throw new SafeError("Plan not found");
 
       await executeAct({
-        gmail,
+        client,
         message,
         executedRule,
         userEmail: emailAccount.email,
@@ -504,42 +550,84 @@ export const saveRulesPromptAction = actionClient
 export const generateRulesPromptAction = actionClient
   .metadata({ name: "generateRulesPrompt" })
   .schema(z.object({}))
-  .action(async ({ ctx: { emailAccountId } }) => {
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
     if (!emailAccount) throw new SafeError("Email account not found");
 
-    const gmail = await getGmailClientForEmail({ emailAccountId });
-    const lastSent = await getMessages(gmail, {
-      query: "in:sent",
-      maxResults: 50,
-    });
-    const gmailLabels = await getLabels(gmail);
-    const userLabels = gmailLabels?.filter((label) => label.type === "user");
+    const client =
+      provider === "google"
+        ? await getGmailClientForEmail({ emailAccountId })
+        : await getOutlookClientForEmail({ emailAccountId });
 
-    const labelsWithCounts: { label: string; threadsTotal: number }[] = [];
+    const lastSent = isGmailClient(client)
+      ? await getGmailMessages(client, {
+          query: "in:sent",
+          maxResults: 50,
+        })
+      : await getOutlookMessages(client, {
+          query: "sent",
+          maxResults: 50,
+        });
 
-    for (const label of userLabels || []) {
-      if (!label.id) continue;
-      if (label.labelListVisibility === labelVisibility.labelHide) continue;
-      const labelById = await getLabelById({ gmail, id: label.id });
-      if (!labelById?.name) continue;
-      if (!labelById.threadsTotal) continue; // Skip labels with 0 threads
-      labelsWithCounts.push({
-        label: labelById.name,
-        threadsTotal: labelById.threadsTotal || 0,
-      });
+    let userLabels: Label[] = [];
+    let labelsWithCounts: { label: string; threadsTotal: number }[] = [];
+
+    if (isGmailClient(client)) {
+      const gmailLabels = await getGmailLabels(client);
+      const filteredLabels =
+        gmailLabels?.filter(
+          (label): label is gmail_v1.Schema$Label =>
+            label?.type === "user" && !!label,
+        ) || [];
+      userLabels = filteredLabels;
+
+      for (const label of filteredLabels) {
+        if (!label.id) continue;
+        if (label.labelListVisibility === labelVisibility.labelHide) continue;
+        const labelById = await getGmailLabelById({
+          gmail: client,
+          id: label.id,
+        });
+        if (!labelById?.name) continue;
+        if (!labelById.threadsTotal) continue; // Skip labels with 0 threads
+        labelsWithCounts.push({
+          label: labelById.name,
+          threadsTotal: labelById.threadsTotal || 0,
+        });
+      }
+    } else {
+      const outlookLabels = await getOutlookLabels(client);
+      userLabels =
+        outlookLabels?.map((label) => ({
+          name: label.displayName || "",
+          type: "user",
+        })) || [];
+
+      // Outlook doesn't provide thread counts for categories, so we'll set a default
+      labelsWithCounts = userLabels
+        .map((label) => label.name)
+        .filter((name): name is string => !!name)
+        .map((name) => ({
+          label: name,
+          threadsTotal: 1, // Default value since Outlook doesn't provide this
+        }));
     }
 
     const lastSentMessages = (
       await Promise.all(
-        lastSent.messages?.map(async (message) => {
+        (lastSent.messages || []).map(async (message: MessageResponse) => {
           if (!message.id) return null;
-          const gmailMessage = await getMessage(message.id, gmail);
-          return parseMessage(gmailMessage);
-        }) || [],
+          if (isGmailClient(client)) {
+            const gmailMessage = await getGmailMessage(message.id, client);
+            return parseMessage(gmailMessage);
+          } else {
+            return getOutlookMessage(message.id, client);
+          }
+        }),
       )
     ).filter(isDefined);
+
     const lastSentEmails = lastSentMessages?.map((message) => {
       return emailToContent(message, { maxLength: 500 });
     });

@@ -15,7 +15,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse as GoogleMessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse as OutlookMessagesResponse } from "@/app/api/microsoft/messages/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
@@ -40,7 +41,9 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { useChat } from "@/components/assistant-chat/ChatContext";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
 
-type Message = MessagesResponse["messages"][number];
+type Message =
+  | GoogleMessagesResponse["messages"][number]
+  | OutlookMessagesResponse["messages"][number];
 
 export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
@@ -49,17 +52,27 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     parseAsBoolean.withDefault(false),
   );
 
-  const { data, isLoading, isValidating, error, setSize, mutate } =
-    useSWRInfinite<MessagesResponse>((_index, previousPageData) => {
-      const pageToken = previousPageData?.nextPageToken;
-      if (previousPageData && !pageToken) return null;
+  const { provider } = useAccount();
 
-      const params = new URLSearchParams();
-      if (searchQuery) params.set("q", searchQuery);
-      if (pageToken) params.set("pageToken", pageToken);
-      const paramsString = params.toString();
-      return `/api/google/messages${paramsString ? `?${paramsString}` : ""}`;
-    });
+  const { data, isLoading, isValidating, error, setSize, mutate } =
+    useSWRInfinite<GoogleMessagesResponse | OutlookMessagesResponse>(
+      (_index, previousPageData) => {
+        const pageToken = previousPageData?.nextPageToken;
+        if (previousPageData && !pageToken) return null;
+
+        const params = new URLSearchParams();
+        if (searchQuery) params.set("q", searchQuery);
+        if (pageToken) params.set("pageToken", pageToken);
+        const paramsString = params.toString();
+
+        const endpoint =
+          provider === "google"
+            ? "/api/google/messages"
+            : "/api/microsoft/messages";
+
+        return `${endpoint}${paramsString ? `?${paramsString}` : ""}`;
+      },
+    );
 
   const onLoadMore = () => setSize((size) => size + 1);
 
