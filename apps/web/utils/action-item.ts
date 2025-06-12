@@ -159,10 +159,17 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   return res;
 }
 
-type ActionFieldsSelection = Pick<
-  Prisma.ActionCreateInput,
-  "type" | "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
->;
+export type ActionFieldsSelection = {
+  type: ActionType;
+  label: string | null;
+  subject: string | null;
+  content: string | null;
+  to: string | null;
+  cc: string | null;
+  bcc: string | null;
+  url: string | null;
+  delayMs?: number | null;
+};
 
 export function sanitizeActionFields(
   action: Partial<ActionFieldsSelection> & { type: ActionType },
@@ -176,6 +183,7 @@ export function sanitizeActionFields(
     cc: null,
     bcc: null,
     url: null,
+    delayMs: action.delayMs ?? null,
   };
 
   switch (action.type) {

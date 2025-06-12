@@ -276,8 +276,7 @@ model Action {
   url     String?
 
   // Delayed action fields
-  delayValue Int?       // Number of delay units (e.g., 7 for "7 days")
-  delayUnit  DelayUnit? // Unit of delay (DAYS, WEEKS, etc.)
+  delayMs Int? // Delay in milliseconds before executing this action
 }
 
 model RuleHistory {
@@ -750,14 +749,6 @@ enum SystemType {
   RECEIPT
   NOTIFICATION
   // COLD_EMAIL // handled separately. we may unify in the future
-}
-
-enum DelayUnit {
-  MINUTES
-  HOURS
-  DAYS
-  WEEKS
-  MONTHS
 }
 
 enum ExecutedActionStatus {

@@ -185,11 +185,34 @@ async function saveExecutedRule(
     reason?: string;
   },
 ) {
+  const now = new Date();
+
+  // Process action items and calculate scheduled times
+  const processedActionItems =
+    actionItems?.map((item) => {
+      const sanitized = sanitizeActionFields(item);
+
+      // Calculate scheduledAt time if delayMs is specified
+      const scheduledAt =
+        item.delayMs && item.delayMs > 0
+          ? new Date(now.getTime() + item.delayMs)
+          : now;
+
+      const status =
+        item.delayMs && item.delayMs > 0
+          ? ("SCHEDULED" as const)
+          : ("PENDING" as const);
+
+      return {
+        ...sanitized,
+        scheduledAt,
+        status,
+      };
+    }) || [];
+
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
-      createMany: {
-        data: actionItems?.map(sanitizeActionFields) || [],
-      },
+      create: processedActionItems,
     },
     messageId,
     threadId,
@@ -260,37 +283,29 @@ async function upsertExecutedRule({
   }
 }
 
-async function analyzeSenderPatternIfAiMatch({
+function analyzeSenderPatternIfAiMatch({
   isTest,
   result,
   message,
   emailAccountId,
 }: {
   isTest: boolean;
-  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+  result: { reason?: string };
   message: ParsedMessage;
   emailAccountId: string;
 }) {
-  if (
-    !isTest &&
-    result.rule &&
-    // skip if we already matched for static reasons
-    // learnings only needed for rules that would run through an ai
-    !result.matchReasons?.some(
-      (reason) =>
-        reason.type === "STATIC" ||
-        reason.type === "GROUP" ||
-        reason.type === "CATEGORY",
-    )
-  ) {
-    const fromAddress = extractEmailAddress(message.headers.from);
-    if (fromAddress) {
-      after(() =>
-        analyzeSenderPattern({
-          emailAccountId,
-          from: fromAddress,
-        }),
-      );
-    }
-  }
+  if (isTest) return;
+
+  const isAiMatch = result.reason?.toLowerCase().includes("ai");
+  if (!isAiMatch) return;
+
+  const email = extractEmailAddress(message.headers.from);
+  if (!email) return;
+
+  after(() =>
+    analyzeSenderPattern({
+      emailAccountId,
+      from: email,
+    }),
+  );
 }

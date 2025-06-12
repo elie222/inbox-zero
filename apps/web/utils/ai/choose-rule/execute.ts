@@ -53,6 +53,16 @@ export async function executeAct({
   }
 
   for (const action of executedRule.actionItems) {
+    // Skip actions that are scheduled for later
+    if (action.status === "SCHEDULED") {
+      logger.info("Skipping scheduled action", {
+        actionId: action.id,
+        actionType: action.type,
+        scheduledAt: action.scheduledAt,
+      });
+      continue;
+    }
+
     try {
       const actionResult = await runActionFunction({
         gmail,
@@ -71,7 +81,19 @@ export async function executeAct({
           logger,
         });
       }
+
+      // Mark action as executed
+      await prisma.executedAction.update({
+        where: { id: action.id },
+        data: { status: "EXECUTED" },
+      });
     } catch (error) {
+      // Mark action as failed
+      await prisma.executedAction.update({
+        where: { id: action.id },
+        data: { status: "FAILED" },
+      });
+
       await prisma.executedRule.update({
         where: { id: executedRule.id },
         data: { status: ExecutedRuleStatus.ERROR },
