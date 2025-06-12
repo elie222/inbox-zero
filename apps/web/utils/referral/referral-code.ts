@@ -1,30 +1,31 @@
 import { randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
-import { env } from "@/env";
+import { SafeError } from "@/utils/error";
+
+/**
+ * Generate a random alphanumeric string of specified length
+ */
+function generateRandomString(length: number): string {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  const bytes = randomBytes(length);
+  return Array.from(bytes)
+    .map((byte) => chars[byte % chars.length])
+    .join("");
+}
 
 /**
  * Generate a unique referral code for a user
- * Format: USERNAME + 4 random characters (e.g., JOHN2X4K)
+ * Format: 6 random alphanumeric characters
  */
-export async function generateReferralCode(
-  email: string,
-  name?: string | null,
-): Promise<string> {
-  // Extract base name from user's name or email
-  const baseName = (name || email.split("@")[0])
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "")
-    .slice(0, 6);
-
+export async function generateReferralCode(): Promise<string> {
   let code = "";
   let isUnique = false;
   let attempts = 0;
-  const maxAttempts = 10;
+  const maxAttempts = 5;
 
   // Try to generate a unique code
   while (!isUnique && attempts < maxAttempts) {
-    const randomPart = randomBytes(2).toString("hex").toUpperCase();
-    code = `${baseName}${randomPart}`;
+    code = generateRandomString(6);
 
     // Check if code already exists
     const existingUser = await prisma.user.findUnique({
@@ -38,8 +39,7 @@ export async function generateReferralCode(
   }
 
   if (!isUnique) {
-    // Fallback to a completely random code if we can't generate a unique one
-    code = randomBytes(4).toString("hex").toUpperCase();
+    throw new SafeError("Unable to generate unique referral code");
   }
 
   return code;
@@ -58,17 +58,13 @@ export async function getOrCreateReferralCode(userId: string) {
     },
   });
 
-  if (!user) {
-    throw new Error("User not found");
-  }
+  if (!user) throw new SafeError("User not found");
 
   // If user already has a code, return it
-  if (user.referralCode) {
-    return { code: user.referralCode };
-  }
+  if (user.referralCode) return { code: user.referralCode };
 
   // Generate a new code
-  const code = await generateReferralCode(user.email, user.name);
+  const code = await generateReferralCode();
 
   // Update the user with the new code
   await prisma.user.update({

@@ -13,11 +13,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Share2, Users, Trophy, GiftIcon } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
-import type { ReferralStatus } from "@prisma/client";
-import { useUser } from "@/hooks/useUser";
 import { env } from "@/env";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
+import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 
 export function ReferralDialog() {
   return (
@@ -38,14 +37,15 @@ export function ReferralDialog() {
 }
 
 function Referrals() {
-  const { data: user, isLoading: loadingUser } = useUser();
+  const { data: codeData, isLoading: loadingCode } =
+    useSWR<GetReferralCodeResponse>("/api/referrals/code");
 
   const { data: statsData, isLoading: loadingStats } =
     useSWR<GetReferralStatsResponse>("/api/referrals/stats");
 
-  const loading = loadingUser || loadingStats;
+  const loading = loadingCode || loadingStats;
 
-  const link = generateReferralLink(user?.referralCode || "");
+  const link = generateReferralLink(codeData?.code || "");
 
   const copyToClipboard = async (text: string, type: "code" | "link") => {
     try {
@@ -60,14 +60,14 @@ function Referrals() {
   };
 
   const shareReferralLink = async () => {
-    if (!user?.referralCode) return;
+    if (!codeData?.code) return;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: "Join Inbox Zero with my referral",
-          text: `Use my referral code ${user.referralCode} to get started with Inbox Zero!`,
-          url: "referralCodeData.link",
+          title: "Join Inbox Zero with my referral link",
+          text: "Use my referral link to get started with Inbox Zero!",
+          url: link,
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -107,7 +107,7 @@ function Referrals() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {user?.referralCode ? (
+          {codeData?.code ? (
             <div className="space-y-4">
               <div className="flex flex-col items-center justify-between rounded-lg border bg-gray-50 p-4 sm:flex-row">
                 <span className="font-mono text-2xl font-bold text-gray-900">
@@ -227,26 +227,6 @@ function ReferralDashboardSkeleton() {
       </div>
     </div>
   );
-}
-
-function getReferralStatusVariant(status: ReferralStatus) {
-  switch (status) {
-    case "PENDING":
-      return "secondary";
-    case "COMPLETED":
-      return "green";
-  }
-}
-
-function getReferralStatusLabel(status: ReferralStatus) {
-  switch (status) {
-    case "PENDING":
-      return "Pending";
-    case "COMPLETED":
-      return "Completed";
-    default:
-      return status;
-  }
 }
 
 function generateReferralLink(code: string): string {
