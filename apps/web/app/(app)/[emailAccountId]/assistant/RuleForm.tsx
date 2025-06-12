@@ -496,7 +496,7 @@ export function RuleForm({
                                   );
                                 }
                               }}
-                              defaultValue={field.value}
+                              value={field.value}
                             >
                               <FormControl>
                                 <SelectTrigger className="w-[180px]">
@@ -1031,10 +1031,7 @@ function ActionCard({
             name={`actions.${index}.type`}
             render={({ field }) => (
               <FormItem>
-                <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
-                >
+                <Select value={field.value} onValueChange={field.onChange}>
                   <FormControl>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue />
