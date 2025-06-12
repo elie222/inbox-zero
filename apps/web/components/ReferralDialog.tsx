@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Share2, Users, Trophy, GiftIcon } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -18,7 +17,7 @@ import type { ReferralStatus } from "@prisma/client";
 import { useUser } from "@/hooks/useUser";
 import { env } from "@/env";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
 
 export function ReferralDialog() {
   return (
@@ -186,44 +185,6 @@ function Referrals() {
             </CardContent>
           </Card>
         </div>
-      )}
-
-      {/* Referrals List */}
-      {statsData && statsData.referrals.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Your Referrals</CardTitle>
-            <CardDescription>
-              Track the status of your referred friends
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {statsData.referrals.map((referral) => (
-                <div
-                  key={referral.id}
-                  className="flex items-center justify-between border-b pb-4 last:border-0"
-                >
-                  <div className="space-y-1">
-                    <p className="font-medium">
-                      {referral.referredUser.name ||
-                        referral.referredUser.email}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      Joined{" "}
-                      {new Date(
-                        referral.referredUser.createdAt,
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-                  <Badge variant={getReferralStatusVariant(referral.status)}>
-                    {getReferralStatusLabel(referral.status as ReferralStatus)}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
       )}
     </div>
   );
