@@ -6,6 +6,11 @@ import {
   ACTION_TYPE_TEXT_COLORS,
   ACTION_TYPE_ICONS,
 } from "@/app/(app)/[emailAccountId]/assistant/constants";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
+import {
+  AWAITING_REPLY_LABEL_NAME,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export function ActionSummaryCard({
   action,
@@ -18,6 +23,7 @@ export function ActionSummaryCard({
     typeOptions.find((opt) => opt.value === action.type)?.label || action.type;
 
   let summaryContent: React.ReactNode = actionTypeLabel;
+  let tooltipText: string | undefined;
 
   switch (action.type) {
     case ActionType.LABEL: {
@@ -59,13 +65,21 @@ export function ActionSummaryCard({
       } else {
         summaryContent = (
           <>
-            <span>AI draft reply</span>
-            {action.to?.value && (
-              <span className="text-muted-foreground">
-                {" "}
-                to {action.to.value}
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <div>
+                <span>AI draft reply</span>
+                {action.to?.value && (
+                  <span className="text-muted-foreground">
+                    {" "}
+                    to {action.to.value}
+                  </span>
+                )}
+              </div>
+              <TooltipExplanation
+                size="md"
+                text="Our AI will generate a reply in your tone of voice. It will use your knowledge base and previous conversations with the sender to draft a reply."
+              />
+            </div>
             <OptionalEmailFields
               cc={action.cc?.value}
               bcc={action.bcc?.value}
@@ -157,10 +171,11 @@ export function ActionSummaryCard({
 
     case ActionType.TRACK_THREAD:
       summaryContent = "Auto-update reply label";
+      tooltipText = `Our AI will automatically update the thread label to '${NEEDS_REPLY_LABEL_NAME}' or '${AWAITING_REPLY_LABEL_NAME}' based on whether you need to respond or are awaiting a response from the recipient.`;
       break;
 
     case ActionType.ARCHIVE:
-      summaryContent = "Archive";
+      summaryContent = "Skip Inbox";
       break;
 
     case ActionType.MARK_READ:
@@ -184,6 +199,7 @@ export function ActionSummaryCard({
       <div className="flex items-center gap-3">
         <Icon className={`size-5 ${textColorClass}`} />
         <div className="whitespace-pre-wrap">{summaryContent}</div>
+        {tooltipText && <TooltipExplanation size="md" text={tooltipText} />}
       </div>
     </CardBasic>
   );

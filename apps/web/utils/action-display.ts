@@ -10,6 +10,8 @@ export function getActionDisplay(action: {
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label ? `Label: ${action.label}` : "Label";
+    case ActionType.ARCHIVE:
+      return "Skip Inbox";
     case ActionType.MARK_READ:
       return "Mark Read";
     case ActionType.MARK_SPAM:
@@ -19,7 +21,7 @@ export function getActionDisplay(action: {
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.TRACK_THREAD:
-      return "Track Thread";
+      return "Auto-update reply label";
     default:
       // Default to capital case for other action types
       return capitalCase(action.type);
