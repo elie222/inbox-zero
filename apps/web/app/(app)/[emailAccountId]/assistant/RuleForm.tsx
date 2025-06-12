@@ -463,7 +463,7 @@ export function RuleForm({
               )}
               {isConditionsEditMode ? (
                 <CardBasic>
-                  <div className="grid gap-4 sm:grid-cols-3">
+                  <div className="grid gap-2 sm:grid-cols-3">
                     <div className="sm:col-span-1">
                       <FormField
                         control={control}
@@ -1024,7 +1024,7 @@ function ActionCard({
 
   return (
     <CardBasic>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-2 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <FormField
             control={control}
