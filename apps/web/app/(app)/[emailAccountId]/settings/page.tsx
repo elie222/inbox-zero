@@ -17,6 +17,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { LoadingContent } from "@/components/LoadingContent";
 import { DigestMailFrequencySection } from "@/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection";
 import { useDigestEnabled } from "@/hooks/useFeatureFlags";
+import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 
 export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
@@ -64,6 +65,7 @@ export default function SettingsPage(_props: {
           <MultiAccountSection />
           <WebhookSection />
           <ApiKeysSection />
+          <BillingSection />
           <DeleteSection />
         </FormWrapper>
       </TabsContent>
