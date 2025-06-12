@@ -10,6 +10,8 @@ export function getActionDisplay(action: {
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label ? `Label: ${action.label}` : "Label";
+    case ActionType.ARCHIVE:
+      return "Skip Inbox";
     case ActionType.MARK_READ:
       return "Mark Read";
     case ActionType.MARK_SPAM:
