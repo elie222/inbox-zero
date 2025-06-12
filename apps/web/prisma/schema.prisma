@@ -274,6 +274,10 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
+
+  // Delayed action fields
+  delayValue Int?       // Number of delay units (e.g., 7 for "7 days")
+  delayUnit  DelayUnit? // Unit of delay (DAYS, WEEKS, etc.)
 }
 
 model RuleHistory {
@@ -352,6 +356,13 @@ model ExecutedAction {
   draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
   wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
   draftSendLog DraftSendLog? // Will exist if the draft was sent
+
+  // Delayed action fields
+  scheduledAt DateTime?                @default(now()) // When this action should be executed
+  status      ExecutedActionStatus     @default(PENDING) // Current execution status
+
+  @@index([status, scheduledAt])
+  @@index([scheduledAt])
 }
 
 // Notes:
@@ -739,4 +750,21 @@ enum SystemType {
   RECEIPT
   NOTIFICATION
   // COLD_EMAIL // handled separately. we may unify in the future
+}
+
+enum DelayUnit {
+  MINUTES
+  HOURS
+  DAYS
+  WEEKS
+  MONTHS
+}
+
+enum ExecutedActionStatus {
+  PENDING     // Ready to execute immediately
+  SCHEDULED   // Scheduled for future execution  
+  EXECUTING   // Currently being executed
+  EXECUTED    // Successfully executed
+  FAILED      // Execution failed
+  CANCELLED   // Action was cancelled
 }
