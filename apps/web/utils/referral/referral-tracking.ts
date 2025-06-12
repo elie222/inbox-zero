@@ -5,48 +5,6 @@ import { getStripe } from "@/ee/billing/stripe";
 const logger = createScopedLogger("referral-tracking");
 
 /**
- * Mark a referral as trial started when the referred user begins their trial
- */
-export async function markTrialStarted(userId: string) {
-  try {
-    const referral = await prisma.referral.findUnique({
-      where: { referredUserId: userId },
-    });
-
-    if (!referral) {
-      logger.info("No referral found for user", { userId });
-      return null;
-    }
-
-    if (referral.status !== "PENDING") {
-      logger.info("Referral already progressed beyond PENDING", {
-        userId,
-        status: referral.status,
-      });
-      return referral;
-    }
-
-    const updatedReferral = await prisma.referral.update({
-      where: { id: referral.id },
-      data: {
-        status: "TRIAL_STARTED",
-        trialStartedAt: new Date(),
-      },
-    });
-
-    logger.info("Marked referral trial as started", {
-      referralId: referral.id,
-      userId,
-    });
-
-    return updatedReferral;
-  } catch (error) {
-    logger.error("Error marking trial as started", { error, userId });
-    throw error;
-  }
-}
-
-/**
  * Mark a referral as completed and grant the reward via Stripe balance transaction
  * Called when the referred user completes their 7-day trial
  */
@@ -75,23 +33,12 @@ export async function completeReferralAndGrantReward(userId: string) {
       return null;
     }
 
-    if (referral.status === "REWARDED") {
+    if (referral.status === "COMPLETED") {
       logger.info("Referral already rewarded", {
         userId,
         referralId: referral.id,
       });
       return referral;
-    }
-
-    if (referral.status !== "TRIAL_STARTED") {
-      logger.warn(
-        "Attempting to complete referral not in TRIAL_STARTED status",
-        {
-          userId,
-          referralId: referral.id,
-          status: referral.status,
-        },
-      );
     }
 
     // Check if referrer has a Stripe customer ID
@@ -105,7 +52,7 @@ export async function completeReferralAndGrantReward(userId: string) {
       const updatedReferral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "REWARDED",
+          status: "COMPLETED",
           trialCompletedAt: new Date(),
           rewardGranted: true,
         },
@@ -142,7 +89,7 @@ export async function completeReferralAndGrantReward(userId: string) {
       const updatedReferral = await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "REWARDED",
+          status: "COMPLETED",
           trialCompletedAt: new Date(),
           rewardGranted: true,
           stripeBalanceTransactionId: balanceTransaction.id,
@@ -168,11 +115,10 @@ export async function completeReferralAndGrantReward(userId: string) {
         stripeCustomerId,
       });
 
-      // Still mark as completed but note the failure
-      const updatedReferral = await prisma.referral.update({
+      await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "TRIAL_COMPLETED", // Different status to indicate completion but failed reward
+          status: "PENDING",
           trialCompletedAt: new Date(),
           rewardGranted: false,
         },
@@ -213,8 +159,6 @@ export async function getReferralStats(userId: string) {
   const stats = {
     totalReferrals: referrals.length,
     pendingReferrals: referrals.filter((r) => r.status === "PENDING").length,
-    activeTrials: referrals.filter((r) => r.status === "TRIAL_STARTED").length,
-    completedReferrals: referrals.filter((r) => r.status === "REWARDED").length,
     totalRewards: referrals.filter((r) => r.rewardGranted).length,
     totalRewardAmount: referrals
       .filter((r) => r.rewardGranted && r.rewardAmount)
@@ -226,32 +170,4 @@ export async function getReferralStats(userId: string) {
     referrals,
     stats,
   };
-}
-
-/**
- * Check if a referral trial has expired (more than 7 days without completion)
- */
-export async function checkAndExpireStaleTrials() {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-  const expiredTrials = await prisma.referral.updateMany({
-    where: {
-      status: "TRIAL_STARTED",
-      trialStartedAt: {
-        lt: sevenDaysAgo,
-      },
-    },
-    data: {
-      status: "EXPIRED",
-    },
-  });
-
-  if (expiredTrials.count > 0) {
-    logger.info("Expired stale referral trials", {
-      count: expiredTrials.count,
-    });
-  }
-
-  return expiredTrials.count;
 }

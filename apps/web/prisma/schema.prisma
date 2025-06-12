@@ -73,7 +73,7 @@ model User {
   webhookSecret String?
 
   // referral system
-  referralCode     String? @unique // User's own referral code
+  referralCode String? @unique // User's own referral code
 
   // premium can be shared among multiple users
   premiumId      String?
@@ -87,8 +87,8 @@ model User {
   emailAccounts EmailAccount[]
 
   // Referral relationships
-  referralsMade     Referral[]      @relation("ReferrerUser")
-  referralReceived  Referral?       @relation("ReferredUser")
+  referralsMade    Referral[] @relation("ReferrerUser")
+  referralReceived Referral?  @relation("ReferredUser")
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -640,6 +640,36 @@ model ChatMessage {
   @@index([chatId])
 }
 
+model Referral {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The user who made the referral (referrer)
+  referrerUserId String
+  referrerUser   User   @relation(name: "ReferrerUser", fields: [referrerUserId], references: [id], onDelete: Cascade)
+
+  // The user who was referred
+  referredUserId String @unique // Each user can only be referred once
+  referredUser   User   @relation(name: "ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  // The referral code used (stored as string)
+  referralCodeUsed String
+
+  // Status tracking
+  status           ReferralStatus @default(PENDING)
+  trialStartedAt   DateTime?
+  trialCompletedAt DateTime?
+
+  // Reward tracking - using Stripe balance transactions
+  rewardGranted              Boolean @default(false)
+  stripeBalanceTransactionId String? // Store Stripe txn ID for reference
+  rewardAmount               Int? // Amount in cents (e.g., 2000 for $20)
+
+  @@index([referrerUserId])
+  @@index([status])
+}
+
 enum ActionType {
   ARCHIVE
   LABEL
@@ -749,40 +779,6 @@ enum SystemType {
 }
 
 enum ReferralStatus {
-  PENDING          // Referral created but trial not started
-  TRIAL_STARTED    // User has started their trial
-  TRIAL_COMPLETED  // User has completed their 7-day trial
-  REWARDED         // Reward has been granted
-  EXPIRED          // Trial expired without completion
-}
-
-// Referral System Models
-model Referral {
-  id                String           @id @default(cuid())
-  createdAt         DateTime         @default(now())
-  updatedAt         DateTime         @updatedAt
-  
-  // The user who made the referral (referrer)
-  referrerUserId    String
-  referrerUser      User             @relation(name: "ReferrerUser", fields: [referrerUserId], references: [id], onDelete: Cascade)
-  
-  // The user who was referred
-  referredUserId    String           @unique // Each user can only be referred once
-  referredUser      User             @relation(name: "ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
-  
-  // The referral code used (stored as string)
-  referralCodeUsed  String
-  
-  // Status tracking
-  status            ReferralStatus   @default(PENDING)
-  trialStartedAt    DateTime?
-  trialCompletedAt  DateTime?
-  
-  // Reward tracking - using Stripe balance transactions
-  rewardGranted              Boolean  @default(false)
-  stripeBalanceTransactionId String?  // Store Stripe txn ID for reference
-  rewardAmount               Int?     // Amount in cents (e.g., 2000 for $20)
-
-  @@index([referrerUserId])
-  @@index([status])
+  PENDING // Referral created, waiting for trial completion
+  COMPLETED // Referral completed and reward granted
 }

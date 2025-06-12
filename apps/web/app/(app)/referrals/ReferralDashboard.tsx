@@ -1,7 +1,13 @@
 "use client";
 
 import useSWR from "swr";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,13 +18,11 @@ import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
 import type { ReferralStatus } from "@prisma/client";
 
 export function ReferralDashboard() {
-  const { data: referralCodeData, isLoading: loadingCode } = useSWR<GetReferralCodeResponse>(
-    "/api/referrals/code"
-  );
-  
-  const { data: statsData, isLoading: loadingStats } = useSWR<GetReferralStatsResponse>(
-    "/api/referrals/stats"
-  );
+  const { data: referralCodeData, isLoading: loadingCode } =
+    useSWR<GetReferralCodeResponse>("/api/referrals/code");
+
+  const { data: statsData, isLoading: loadingStats } =
+    useSWR<GetReferralStatsResponse>("/api/referrals/stats");
 
   const loading = loadingCode || loadingStats;
 
@@ -68,7 +72,8 @@ export function ReferralDashboard() {
           Refer Friends, Get Rewards
         </h1>
         <p className="mt-4 text-lg text-gray-600">
-          Share Inbox Zero with friends and get a free month for each friend who completes their trial
+          Share Inbox Zero with friends and get a free month for each friend who
+          completes their trial
         </p>
       </div>
 
@@ -84,7 +89,7 @@ export function ReferralDashboard() {
           {referralCodeData ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
-                <span className="text-2xl font-mono font-bold text-gray-900">
+                <span className="font-mono text-2xl font-bold text-gray-900">
                   {referralCodeData.code}
                 </span>
                 <Button
@@ -92,7 +97,7 @@ export function ReferralDashboard() {
                   variant="outline"
                   size="sm"
                 >
-                  <Copy className="h-4 w-4 mr-2" />
+                  <Copy className="mr-2 h-4 w-4" />
                   Copy Code
                 </Button>
               </div>
@@ -103,7 +108,7 @@ export function ReferralDashboard() {
                   variant="outline"
                   className="flex-1"
                 >
-                  <Copy className="h-4 w-4 mr-2" />
+                  <Copy className="mr-2 h-4 w-4" />
                   Copy Link
                 </Button>
                 <Button
@@ -111,7 +116,7 @@ export function ReferralDashboard() {
                   variant="default"
                   className="flex-1"
                 >
-                  <Share2 className="h-4 w-4 mr-2" />
+                  <Share2 className="mr-2 h-4 w-4" />
                   Share
                 </Button>
               </div>
@@ -124,7 +129,7 @@ export function ReferralDashboard() {
 
       {/* Stats Cards */}
       {statsData && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -133,24 +138,11 @@ export function ReferralDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{statsData.stats.totalReferrals}</div>
+              <div className="text-2xl font-bold">
+                {statsData.stats.totalReferrals}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Friends you've referred
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Active Trials
-              </CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{statsData.stats.activeTrials}</div>
-              <p className="text-xs text-muted-foreground">
-                Friends in trial period
               </p>
             </CardContent>
           </Card>
@@ -163,7 +155,9 @@ export function ReferralDashboard() {
               <Trophy className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{statsData.stats.totalRewards}</div>
+              <div className="text-2xl font-bold">
+                {statsData.stats.totalRewards}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Free months earned
               </p>
@@ -190,13 +184,17 @@ export function ReferralDashboard() {
                 >
                   <div className="space-y-1">
                     <p className="font-medium">
-                      {referral.referredUser.name || referral.referredUser.email}
+                      {referral.referredUser.name ||
+                        referral.referredUser.email}
                     </p>
                     <p className="text-sm text-gray-500">
-                      Joined {new Date(referral.referredUser.createdAt).toLocaleDateString()}
+                      Joined{" "}
+                      {new Date(
+                        referral.referredUser.createdAt,
+                      ).toLocaleDateString()}
                     </p>
                   </div>
-                  <Badge variant={getReferralStatusVariant(referral.status as ReferralStatus)}>
+                  <Badge variant={getReferralStatusVariant(referral.status)}>
                     {getReferralStatusLabel(referral.status as ReferralStatus)}
                   </Badge>
                 </div>
@@ -213,18 +211,18 @@ function ReferralDashboardSkeleton() {
   return (
     <div className="space-y-8">
       <div className="text-center">
-        <Skeleton className="h-10 w-96 mx-auto" />
-        <Skeleton className="h-6 w-[600px] mx-auto mt-4" />
+        <Skeleton className="mx-auto h-10 w-96" />
+        <Skeleton className="mx-auto mt-4 h-6 w-[600px]" />
       </div>
 
       <Card>
         <CardHeader>
           <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-4 w-60 mt-2" />
+          <Skeleton className="mt-2 h-4 w-60" />
         </CardHeader>
         <CardContent>
           <Skeleton className="h-20 w-full" />
-          <div className="flex gap-2 mt-4">
+          <div className="mt-4 flex gap-2">
             <Skeleton className="h-10 flex-1" />
             <Skeleton className="h-10 flex-1" />
           </div>
@@ -239,7 +237,7 @@ function ReferralDashboardSkeleton() {
             </CardHeader>
             <CardContent>
               <Skeleton className="h-8 w-16" />
-              <Skeleton className="h-3 w-32 mt-2" />
+              <Skeleton className="mt-2 h-3 w-32" />
             </CardContent>
           </Card>
         ))}
@@ -248,18 +246,12 @@ function ReferralDashboardSkeleton() {
   );
 }
 
-function getReferralStatusVariant(status: ReferralStatus): "secondary" | "default" | "success" | "destructive" {
+function getReferralStatusVariant(status: ReferralStatus) {
   switch (status) {
     case "PENDING":
       return "secondary";
-    case "TRIAL_STARTED":
-      return "default";
-    case "REWARDED":
-      return "success";
-    case "EXPIRED":
-      return "destructive";
-    default:
-      return "secondary";
+    case "COMPLETED":
+      return "green";
   }
 }
 
@@ -267,12 +259,8 @@ function getReferralStatusLabel(status: ReferralStatus) {
   switch (status) {
     case "PENDING":
       return "Pending";
-    case "TRIAL_STARTED":
-      return "Trial Active";
-    case "REWARDED":
-      return "Rewarded";
-    case "EXPIRED":
-      return "Expired";
+    case "COMPLETED":
+      return "Completed";
     default:
       return status;
   }
