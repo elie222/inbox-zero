@@ -104,14 +104,6 @@ export async function validateReferralCode(code: string) {
 }
 
 /**
- * Generate a referral link
- */
-export function generateReferralLink(code: string, baseUrl?: string): string {
-  const base = baseUrl || env.NEXT_PUBLIC_BASE_URL;
-  return `${base}/signup?ref=${encodeURIComponent(code)}`;
-}
-
-/**
  * Check if a user was referred by someone
  */
 export async function checkUserReferral(userId: string) {

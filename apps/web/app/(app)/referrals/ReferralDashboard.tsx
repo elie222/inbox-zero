@@ -11,20 +11,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Copy, Share2, Users, Trophy, Clock } from "lucide-react";
+import { Copy, Share2, Users, Trophy } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
-import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
 import type { ReferralStatus } from "@prisma/client";
+import { useUser } from "@/hooks/useUser";
+import { env } from "@/env";
 
 export function ReferralDashboard() {
-  const { data: referralCodeData, isLoading: loadingCode } =
-    useSWR<GetReferralCodeResponse>("/api/referrals/code");
+  const { data: user, isLoading: loadingUser } = useUser();
 
   const { data: statsData, isLoading: loadingStats } =
     useSWR<GetReferralStatsResponse>("/api/referrals/stats");
 
-  const loading = loadingCode || loadingStats;
+  const loading = loadingUser || loadingStats;
+
+  const link = generateReferralLink(user?.referralCode || "");
 
   const copyToClipboard = async (text: string, type: "code" | "link") => {
     try {
@@ -39,14 +41,14 @@ export function ReferralDashboard() {
   };
 
   const shareReferralLink = async () => {
-    if (!referralCodeData) return;
+    if (!user?.referralCode) return;
 
     if (navigator.share) {
       try {
         await navigator.share({
           title: "Join Inbox Zero with my referral",
-          text: `Use my referral code ${referralCodeData.code} to get started with Inbox Zero!`,
-          url: referralCodeData.link,
+          text: `Use my referral code ${user.referralCode} to get started with Inbox Zero!`,
+          url: "referralCodeData.link",
         });
       } catch (error) {
         if ((error as Error).name !== "AbortError") {
@@ -57,7 +59,7 @@ export function ReferralDashboard() {
         }
       }
     } else {
-      copyToClipboard(referralCodeData.link, "link");
+      copyToClipboard(link, "link");
     }
   };
 
@@ -86,25 +88,25 @@ export function ReferralDashboard() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {referralCodeData ? (
+          {user?.referralCode ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between rounded-lg border bg-gray-50 p-4">
+              <div className="flex flex-col items-center justify-between rounded-lg border bg-gray-50 p-4 sm:flex-row">
                 <span className="font-mono text-2xl font-bold text-gray-900">
-                  {referralCodeData.code}
+                  {link}
                 </span>
-                <Button
-                  onClick={() => copyToClipboard(referralCodeData.code, "code")}
+                {/* <Button
+                  onClick={() => copyToClipboard(link, "code")}
                   variant="outline"
                   size="sm"
                 >
                   <Copy className="mr-2 h-4 w-4" />
-                  Copy Code
-                </Button>
+                  Copy Link
+                </Button> */}
               </div>
 
               <div className="flex gap-2">
                 <Button
-                  onClick={() => copyToClipboard(referralCodeData.link, "link")}
+                  onClick={() => copyToClipboard(link, "link")}
                   variant="outline"
                   className="flex-1"
                 >
@@ -229,8 +231,8 @@ function ReferralDashboardSkeleton() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        {[1, 2, 3].map((i) => (
+      <div className="grid gap-4 md:grid-cols-2">
+        {[1, 2].map((i) => (
           <Card key={i}>
             <CardHeader>
               <Skeleton className="h-4 w-24" />
@@ -264,4 +266,8 @@ function getReferralStatusLabel(status: ReferralStatus) {
     default:
       return status;
   }
+}
+
+function generateReferralLink(code: string): string {
+  return `${env.NEXT_PUBLIC_BASE_URL}/?ref=${encodeURIComponent(code)}`;
 }
