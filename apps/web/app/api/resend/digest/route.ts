@@ -246,7 +246,6 @@ export const POST = withError(async (request) => {
     await sendEmail({ emailAccountId });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.log("error", error);
     logger.error("Error sending digest email", { error });
     captureException(error);
     return NextResponse.json(

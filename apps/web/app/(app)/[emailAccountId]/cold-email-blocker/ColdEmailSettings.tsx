@@ -147,8 +147,8 @@ export function ColdEmailForm({
                   Include cold emails in digest
                 </Label>
                 <p className="text-sm text-muted-foreground">
-                  Cold emails will be included in your daily digest instead of
-                  being processed immediately
+                  Cold emails will be included in your digest instead of being
+                  processed immediately
                 </p>
               </div>
             </div>

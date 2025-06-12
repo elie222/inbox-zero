@@ -61,7 +61,7 @@ async function sendDigestAllUpdate() {
         queueName: "email-digest-all",
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
-        body: { email: emailAccount.email },
+        body: { emailAccountId: emailAccount.id },
         headers: getCronSecretHeader(),
       });
     } catch (error) {

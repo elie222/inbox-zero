@@ -259,7 +259,7 @@ function CategoryCard({
                 <Select
                   onValueChange={(value) => {
                     field.onChange({
-                      ...field.value,
+                      ...(field.value ?? {}),
                       action: value,
                     });
                   }}

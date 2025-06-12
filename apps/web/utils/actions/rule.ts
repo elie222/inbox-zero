@@ -203,24 +203,11 @@ export const updateRuleAction = actionClient
                 }),
               ]
             : []),
-          // update or create actions
+          // update actions
           ...actionsToUpdate.map((a) => {
-            return prisma.action.upsert({
+            return prisma.action.update({
               where: { id: a.id },
-              create: {
-                ...sanitizeActionFields({
-                  type: a.type,
-                  label: a.label?.value,
-                  subject: a.subject?.value,
-                  content: a.content?.value,
-                  to: a.to?.value,
-                  cc: a.cc?.value,
-                  bcc: a.bcc?.value,
-                  url: a.url?.value,
-                }),
-                ruleId: id,
-              },
-              update: sanitizeActionFields({
+              data: sanitizeActionFields({
                 type: a.type,
                 label: a.label?.value,
                 subject: a.subject?.value,

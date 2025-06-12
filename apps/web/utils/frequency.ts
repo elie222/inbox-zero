@@ -17,7 +17,7 @@ export function calculateNextDigestDate(frequency: {
   timeOfDay: Date | null;
 }) {
   const now = new Date();
-  const targetTime = frequency.timeOfDay || setHours(setMinutes(now, 0), 23); // Default to 11 PM
+  const targetTime = frequency.timeOfDay || setHours(setMinutes(now, 0), 11); // Default to 11 AM
 
   // Set the target time for today
   const todayWithTargetTime = setHours(
@@ -79,24 +79,4 @@ export function calculateNextDigestDate(frequency: {
     setMinutes(addDays(startDate, 1), targetTime.getMinutes()),
     targetTime.getHours(),
   );
-}
-
-export function frequencyToUserFrequency(frequency: Frequency) {
-  switch (frequency) {
-    case Frequency.DAILY:
-      return {
-        intervalDays: 1,
-        daysOfWeek: null,
-        timeOfDay: setHours(setMinutes(new Date(), 0), 11), // 11 AM
-      };
-    case Frequency.WEEKLY:
-      return {
-        intervalDays: 7,
-        daysOfWeek: DAYS.MONDAY, // Monday only
-        timeOfDay: setHours(setMinutes(new Date(), 0), 11), // 11 AM
-      };
-    case Frequency.NEVER:
-    default:
-      return null;
-  }
 }

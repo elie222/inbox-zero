@@ -8,11 +8,7 @@ import {
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
-import {
-  calculateNextDigestDate,
-  frequencyToUserFrequency,
-} from "@/utils/frequency";
-import { type SaveEmailUpdateSettingsBody } from "./settings.validation";
+import { calculateNextDigestDate } from "@/utils/frequency";
 import { actionClientUser } from "@/utils/actions/safe-action";
 
 export const updateEmailSettingsAction = actionClient
@@ -120,7 +116,6 @@ export const updateDigestFrequencyAction = actionClient
 
         return { success: true };
       } catch (error) {
-        console.error("Error updating digest frequency:", error);
         return { serverError: "Failed to update settings" };
       }
     },
