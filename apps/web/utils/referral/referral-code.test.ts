@@ -8,6 +8,7 @@ import {
 } from "./referral-code";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/__mocks__/prisma";
+import { ReferralStatus } from "@prisma/client";
 
 vi.mock("@/utils/prisma");
 
@@ -191,7 +192,7 @@ describe("referral-code", () => {
         referrerUserId: "referrer1",
         referredUserId: "user1",
         referralCodeUsed: "ABC123",
-        status: "PENDING",
+        status: ReferralStatus.PENDING,
         referrerUser: {
           id: "referrer1",
           name: "Referrer User",
@@ -243,7 +244,7 @@ describe("referral-code", () => {
         referrerUserId: "referrer1",
         referredUserId: "user1",
         referralCodeUsed: "ABC123",
-        status: "PENDING",
+        status: ReferralStatus.PENDING,
       } as any;
 
       // Mock validateReferralCode
@@ -262,7 +263,7 @@ describe("referral-code", () => {
           referrerUserId: "referrer1",
           referredUserId: "user1",
           referralCodeUsed: "ABC123",
-          status: "PENDING",
+          status: ReferralStatus.PENDING,
         },
       });
     });
@@ -326,7 +327,7 @@ describe("referral-code", () => {
         referrerUserId: "referrer1",
         referredUserId: "user1",
         referralCodeUsed: "ABC123",
-        status: "PENDING",
+        status: ReferralStatus.PENDING,
       } as any;
 
       prisma.user.findUnique.mockResolvedValue(mockReferrer); // validateReferralCode
@@ -340,7 +341,7 @@ describe("referral-code", () => {
           referrerUserId: "referrer1",
           referredUserId: "user1",
           referralCodeUsed: "ABC123", // Should be uppercase
-          status: "PENDING",
+          status: ReferralStatus.PENDING,
         },
       });
     });

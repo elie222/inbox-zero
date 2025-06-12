@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { sumBy } from "lodash";
+import { ReferralStatus } from "@prisma/client";
 
 export type GetReferralStatsResponse = Awaited<
   ReturnType<typeof getReferralStats>
@@ -14,7 +15,9 @@ async function getReferralStats(userId: string) {
 
   const stats = {
     totalReferrals: referrals.length,
-    pendingReferrals: referrals.filter((r) => r.status === "PENDING").length,
+    pendingReferrals: referrals.filter(
+      (r) => r.status === ReferralStatus.PENDING,
+    ).length,
     totalRewards: referrals.filter((r) => r.rewardGranted).length,
     totalRewardAmount: sumBy(
       referrals.filter((r) => r.rewardGranted && r.rewardAmount),

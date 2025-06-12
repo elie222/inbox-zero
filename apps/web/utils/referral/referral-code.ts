@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { ReferralStatus } from "@prisma/client";
 
 /**
  * Generate a random alphanumeric string of specified length
@@ -151,7 +152,7 @@ export async function createReferral(
       referrerUserId: validation.referrer.id,
       referredUserId,
       referralCodeUsed: referralCodeString.toUpperCase(),
-      status: "PENDING",
+      status: ReferralStatus.PENDING,
     },
   });
 

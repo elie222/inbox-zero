@@ -1,6 +1,7 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
+import { ReferralStatus } from "@prisma/client";
 
 const logger = createScopedLogger("referral-tracking");
 
@@ -118,7 +119,7 @@ export async function completeReferralAndGrantReward(userId: string) {
       await prisma.referral.update({
         where: { id: referral.id },
         data: {
-          status: "PENDING",
+          status: ReferralStatus.PENDING,
           trialCompletedAt: new Date(),
           rewardGranted: false,
         },

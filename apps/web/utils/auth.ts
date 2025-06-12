@@ -295,7 +295,7 @@ export const getAuthOptions: (options?: {
           handlePendingPremiumInvite({ email: user.email }),
           handleReferralOnSignUp({
             userId: user.id,
-            userEmail: user.email,
+            email: user.email,
           }),
         ]);
       }
@@ -515,40 +515,40 @@ async function handlePendingPremiumInvite({ email }: { email: string }) {
 
 async function handleReferralOnSignUp({
   userId,
-  userEmail,
+  email,
 }: {
   userId: string;
-  userEmail: string;
+  email: string;
 }) {
   try {
     const cookieStore = await cookies();
     const referralCookie = cookieStore.get("referral_code");
 
     if (!referralCookie?.value) {
-      logger.info("No referral code found in cookies", { email: userEmail });
+      logger.info("No referral code found in cookies", { email });
       return;
     }
 
     const referralCode = referralCookie.value;
     logger.info("Processing referral for new user", {
-      email: userEmail,
+      email,
       referralCode,
     });
 
     await createReferral(userId, referralCode);
     logger.info("Successfully created referral", {
-      email: userEmail,
+      email,
       referralCode,
     });
   } catch (error) {
     logger.error("Error processing referral on sign up", {
       error,
       userId,
-      email: userEmail,
+      email,
     });
     // Don't throw error - referral failure shouldn't prevent sign up
     captureException(error, {
-      extra: { userId, email: userEmail, location: "handleReferralOnSignUp" },
+      extra: { userId, email, location: "handleReferralOnSignUp" },
     });
   }
 }
