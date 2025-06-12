@@ -4,6 +4,7 @@ import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { parseAsBoolean, useQueryState } from "nuqs";
+import PQueue from "p-queue";
 import {
   BookOpenCheckIcon,
   SparklesIcon,
@@ -121,8 +122,8 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
-    // Process messages in parallel batches of 3
-    const BATCH_SIZE = 3;
+    // Create a queue with concurrency of 3 to maintain constant flow
+    const processQueue = new PQueue({ concurrency: 3 });
 
     // Increment the page limit each time we run
     setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
@@ -144,35 +145,33 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         return true;
       });
 
-      // Process messages in parallel batches
-      for (let i = 0; i < messagesToProcess.length; i += BATCH_SIZE) {
+      // Add all messages to the queue for concurrent processing
+      for (const message of messagesToProcess) {
         if (!isRunningAllRef.current) break;
 
-        const batch = messagesToProcess.slice(i, i + BATCH_SIZE);
+        processQueue.add(async () => {
+          if (!isRunningAllRef.current) return;
 
-        // Process batch in parallel with individual error handling
-        await Promise.allSettled(
-          batch.map(async (message) => {
-            if (!isRunningAllRef.current) return;
-
-            try {
-              await onRun(message);
-              handledThreadsRef.current.add(message.threadId);
-            } catch (error) {
-              console.error(`Failed to process message ${message.id}:`, error);
-              toastError({
-                title: "Failed to process email",
-                description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
-              });
-            }
-          }),
-        );
+          try {
+            await onRun(message);
+            handledThreadsRef.current.add(message.threadId);
+          } catch (error) {
+            console.error(`Failed to process message ${message.id}:`, error);
+            toastError({
+              title: "Failed to process email",
+              description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            });
+          }
+        });
       }
 
       // Check if we got new data in the last request
       const lastPage = currentData?.[page];
       if (!lastPage?.nextPageToken || !isRunningAllRef.current) break;
     }
+
+    // Wait for all queued tasks to complete
+    await processQueue.onIdle();
 
     handleStop();
   };
