@@ -9,6 +9,7 @@ import {
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/__mocks__/prisma";
 import { ReferralStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/utils/prisma");
 
@@ -18,42 +19,20 @@ describe("referral-code", () => {
   });
 
   describe("generateReferralCode", () => {
-    it("should generate a unique 6-character code", async () => {
-      prisma.user.findUnique.mockResolvedValue(null);
-
+    it("should generate a 6-character code", async () => {
       const code = await generateReferralCode();
 
       expect(code).toHaveLength(6);
       expect(code).toMatch(/^[A-Z0-9]+$/);
-      expect(prisma.user.findUnique).toHaveBeenCalledWith({
-        where: { referralCode: code },
-      });
     });
 
-    it("should retry if code already exists and then succeed", async () => {
-      const existingUser = { id: "user1", referralCode: "ABC123" } as any;
+    it("should generate different codes on subsequent calls", async () => {
+      const code1 = await generateReferralCode();
+      const code2 = await generateReferralCode();
+      const code3 = await generateReferralCode();
 
-      prisma.user.findUnique
-        .mockResolvedValueOnce(existingUser) // First attempt - code exists
-        .mockResolvedValueOnce(null); // Second attempt - code is unique
-
-      const code = await generateReferralCode();
-
-      expect(code).toHaveLength(6);
-      expect(prisma.user.findUnique).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw SafeError if unable to generate unique code after max attempts", async () => {
-      const existingUser = { id: "user1", referralCode: "ABC123" } as any;
-
-      // Mock all attempts to return existing user
-      prisma.user.findUnique.mockResolvedValue(existingUser);
-
-      const error = await generateReferralCode().catch((e) => e);
-
-      expect(error).toBeInstanceOf(SafeError);
-      expect(error.message).toBe("Unable to generate unique referral code");
-      expect(prisma.user.findUnique).toHaveBeenCalledTimes(5); // maxAttempts
+      // While theoretically they could be the same, it's extremely unlikely
+      expect(new Set([code1, code2, code3]).size).toBeGreaterThan(1);
     });
   });
 
@@ -90,9 +69,7 @@ describe("referral-code", () => {
         name: "Test User",
       } as any;
 
-      prisma.user.findUnique
-        .mockResolvedValueOnce(mockUser) // getOrCreateReferralCode call
-        .mockResolvedValueOnce(null); // generateReferralCode uniqueness check
+      prisma.user.findUnique.mockResolvedValue(mockUser);
 
       prisma.user.update.mockResolvedValue({
         ...mockUser,
@@ -107,6 +84,85 @@ describe("referral-code", () => {
         where: { id: "user1" },
         data: { referralCode: expect.any(String) },
       });
+    });
+
+    it("should retry on unique constraint violation", async () => {
+      const mockUser = {
+        id: "user1",
+        referralCode: null,
+        email: "test@example.com",
+        name: "Test User",
+      } as any;
+
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      // First update fails with unique constraint error
+      const uniqueError = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        {
+          code: "P2002",
+          clientVersion: "test",
+        },
+      );
+
+      prisma.user.update
+        .mockRejectedValueOnce(uniqueError)
+        .mockResolvedValueOnce({
+          ...mockUser,
+          referralCode: "ABC123",
+        } as any);
+
+      const result = await getOrCreateReferralCode("user1");
+
+      expect(result.code).toBe("ABC123");
+      expect(prisma.user.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("should throw SafeError after max retry attempts", async () => {
+      const mockUser = {
+        id: "user1",
+        referralCode: null,
+        email: "test@example.com",
+        name: "Test User",
+      } as any;
+
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      // All updates fail with unique constraint error
+      const uniqueError = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        {
+          code: "P2002",
+          clientVersion: "test",
+        },
+      );
+
+      prisma.user.update.mockRejectedValue(uniqueError);
+
+      await expect(getOrCreateReferralCode("user1")).rejects.toThrow(SafeError);
+      await expect(getOrCreateReferralCode("user1")).rejects.toThrow(
+        "Unable to generate unique referral code after multiple attempts",
+      );
+      expect(prisma.user.update).toHaveBeenCalledTimes(5); // maxAttempts
+    });
+
+    it("should re-throw non-unique constraint errors", async () => {
+      const mockUser = {
+        id: "user1",
+        referralCode: null,
+        email: "test@example.com",
+        name: "Test User",
+      } as any;
+
+      prisma.user.findUnique.mockResolvedValue(mockUser);
+
+      const otherError = new Error("Database connection failed");
+      prisma.user.update.mockRejectedValue(otherError);
+
+      await expect(getOrCreateReferralCode("user1")).rejects.toThrow(
+        "Database connection failed",
+      );
+      expect(prisma.user.update).toHaveBeenCalledTimes(1);
     });
 
     it("should throw SafeError if user not found", async () => {

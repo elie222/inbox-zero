@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { ReferralStatus } from "@prisma/client";
 
 /**
@@ -19,31 +20,7 @@ function generateRandomString(length: number): string {
  * Format: 6 random alphanumeric characters
  */
 export async function generateReferralCode(): Promise<string> {
-  let code = "";
-  let isUnique = false;
-  let attempts = 0;
-  const maxAttempts = 5;
-
-  // Try to generate a unique code
-  while (!isUnique && attempts < maxAttempts) {
-    code = generateRandomString(6);
-
-    // Check if code already exists
-    const existingUser = await prisma.user.findUnique({
-      where: { referralCode: code },
-    });
-
-    if (!existingUser) {
-      isUnique = true;
-    }
-    attempts++;
-  }
-
-  if (!isUnique) {
-    throw new SafeError("Unable to generate unique referral code");
-  }
-
-  return code;
+  return generateRandomString(6);
 }
 
 /**
@@ -64,16 +41,40 @@ export async function getOrCreateReferralCode(userId: string) {
   // If user already has a code, return it
   if (user.referralCode) return { code: user.referralCode };
 
-  // Generate a new code
-  const code = await generateReferralCode();
+  // Try to generate and assign a unique code with retry logic
+  let attempts = 0;
+  const maxAttempts = 5;
 
-  // Update the user with the new code
-  await prisma.user.update({
-    where: { id: userId },
-    data: { referralCode: code },
-  });
+  while (attempts < maxAttempts) {
+    const code = generateRandomString(6);
 
-  return { code };
+    try {
+      // Attempt to update the user with the new code atomically
+      await prisma.user.update({
+        where: { id: userId },
+        data: { referralCode: code },
+      });
+
+      return { code };
+    } catch (error) {
+      // Check if it's a unique constraint violation
+      if (isDuplicateError(error)) {
+        attempts++;
+        // If we've exhausted attempts, throw error
+        if (attempts >= maxAttempts) {
+          throw new SafeError(
+            "Unable to generate unique referral code after multiple attempts",
+          );
+        }
+        // Otherwise, continue to next iteration to try a new code
+        continue;
+      }
+      // Re-throw any other errors
+      throw error;
+    }
+  }
+
+  throw new SafeError("Unable to generate unique referral code");
 }
 
 /**
