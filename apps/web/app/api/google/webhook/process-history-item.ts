@@ -160,6 +160,10 @@ export async function processHistoryItem(
 
       if (response.isColdEmail) {
         if (emailAccount.coldEmailDigest && response.coldEmailId) {
+          console.log(
+            "enqueueing a cold email digest item",
+            response.coldEmailId,
+          );
           await enqueueDigestItem({
             email: parsedMessage,
             emailAccountId,

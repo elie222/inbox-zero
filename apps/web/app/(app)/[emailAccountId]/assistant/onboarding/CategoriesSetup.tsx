@@ -44,6 +44,7 @@ import {
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 import { useDigestEnabled } from "@/hooks/useFeatureFlags";
+import { ClientOnly } from "@/components/ClientOnly";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -200,7 +201,6 @@ function CategoryCard({
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
 }) {
-  const digestEnabled = useDigestEnabled();
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
@@ -215,35 +215,9 @@ function CategoryCard({
           )}
         </div>
         <div className="ml-auto flex items-center gap-4">
-          {digestEnabled && (
-            <FormField
-              control={form.control}
-              name={id}
-              render={({
-                field,
-              }: {
-                field: ControllerRenderProps<
-                  CreateRulesOnboardingBody,
-                  keyof CreateRulesOnboardingBody
-                >;
-              }) => (
-                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={!!field.value?.hasDigest}
-                      onCheckedChange={(checked) => {
-                        field.onChange({
-                          ...field.value,
-                          hasDigest: checked,
-                        });
-                      }}
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm font-normal">Digest</FormLabel>
-                </FormItem>
-              )}
-            />
-          )}
+          <ClientOnly>
+            <DigestCheckbox form={form} id={id} />
+          </ClientOnly>
           <FormField
             control={form.control}
             name={id}
@@ -284,5 +258,47 @@ function CategoryCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DigestCheckbox({
+  form,
+  id,
+}: {
+  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
+  id: keyof CreateRulesOnboardingBody;
+}) {
+  const digestEnabled = useDigestEnabled();
+
+  if (!digestEnabled) return null;
+
+  return (
+    <FormField
+      control={form.control}
+      name={id}
+      render={({
+        field,
+      }: {
+        field: ControllerRenderProps<
+          CreateRulesOnboardingBody,
+          keyof CreateRulesOnboardingBody
+        >;
+      }) => (
+        <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+          <FormControl>
+            <Checkbox
+              checked={!!field.value?.hasDigest}
+              onCheckedChange={(checked) => {
+                field.onChange({
+                  ...field.value,
+                  hasDigest: checked,
+                });
+              }}
+            />
+          </FormControl>
+          <FormLabel className="text-sm font-normal">Digest</FormLabel>
+        </FormItem>
+      )}
+    />
   );
 }

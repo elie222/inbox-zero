@@ -36,6 +36,8 @@ export async function getEmailAccountWithAiAndTokens({
       userId: true,
       email: true,
       about: true,
+      digestFrequencyId: true,
+      digestFrequency: true,
       user: {
         select: {
           aiProvider: true,

@@ -21,6 +21,8 @@ import {
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
+import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 
 export const maxDuration = 60;
 
@@ -34,23 +36,24 @@ async function sendEmail({
   force?: boolean;
 }) {
   const loggerOptions = { emailAccountId, force };
-
   logger.info("Sending digest email", loggerOptions);
 
-  const { accessToken } = await getGmailAndAccessTokenForEmail({
-    emailAccountId,
-  });
-
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    include: {
-      digestFrequency: true,
-    },
-  });
+  const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
   }
+
+  if (!emailAccount.tokens.access_token) {
+    throw new Error("No access token available");
+  }
+
+  const gmail = await getGmailClientWithRefresh({
+    accessToken: emailAccount.tokens.access_token,
+    refreshToken: emailAccount.tokens.refresh_token,
+    expiresAt: emailAccount.tokens.expires_at,
+    emailAccountId,
+  });
 
   const digests = await prisma.$transaction(async (tx) => {
     const pendingDigests = await tx.digest.findMany({
@@ -104,11 +107,13 @@ async function sendEmail({
   // Store the digest IDs for the final update
   const processedDigestIds = digests.map((d) => d.id);
 
+  const messageIds = digests.flatMap((digest) =>
+    digest.items.map((item) => item.messageId),
+  );
+
   const messages = await getMessagesLargeBatch({
-    messageIds: digests.flatMap((digest) =>
-      digest.items.map((item) => item.messageId),
-    ),
-    accessToken,
+    gmail,
+    messageIds,
   });
 
   // Create a message lookup map for O(1) access

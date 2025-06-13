@@ -288,12 +288,13 @@ export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
 }
 
 export async function getMessagesLargeBatch({
+  gmail,
   messageIds,
-  accessToken,
 }: {
+  gmail: gmail_v1.Gmail;
   messageIds: string[];
-  accessToken: string;
 }): Promise<ParsedMessage[]> {
+  const accessToken = getAccessTokenFromClient(gmail);
   if (!accessToken) throw new Error("No access token");
   if (messageIds.length > 2000) throw new Error("Too many messages. Max 2000");
 
