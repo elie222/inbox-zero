@@ -2,6 +2,7 @@
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Prisma } from "@prisma/client";
 import type { NextAuthConfig, DefaultSession } from "next-auth";
+import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
@@ -14,6 +15,7 @@ import { SCOPES } from "@/utils/gmail/scopes";
 import { getContactsClient } from "@/utils/gmail/client";
 import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
+import { createReferral } from "@/utils/referral/referral-code";
 
 const logger = createScopedLogger("auth");
 
@@ -288,10 +290,14 @@ export const getAuthOptions: (options?: {
         }
       }
 
-      if (isNewUser && user.email) {
-        logger.info("Handling pending premium invite", { email: user.email });
-        await handlePendingPremiumInvite({ email: user.email });
-        logger.info("Added user to premium from invite", { email: user.email });
+      if (isNewUser && user.email && user.id) {
+        await Promise.all([
+          handlePendingPremiumInvite({ email: user.email }),
+          handleReferralOnSignUp({
+            userId: user.id,
+            email: user.email,
+          }),
+        ]);
       }
     },
   },
@@ -473,28 +479,76 @@ export async function saveTokens({
   }
 }
 
-async function handlePendingPremiumInvite(user: { email: string }) {
+async function handlePendingPremiumInvite({ email }: { email: string }) {
+  logger.info("Handling pending premium invite", { email });
+
   // Check for pending invite
   const premium = await prisma.premium.findFirst({
-    where: { pendingInvites: { has: user.email } },
+    where: { pendingInvites: { has: email } },
     select: {
       id: true,
       pendingInvites: true,
       lemonSqueezySubscriptionItemId: true,
+      stripeSubscriptionId: true,
       _count: { select: { users: true } },
     },
   });
 
-  if (premium?.lemonSqueezySubscriptionItemId) {
+  if (
+    premium?.lemonSqueezySubscriptionItemId ||
+    premium?.stripeSubscriptionId
+  ) {
     // Add user to premium and remove from pending invites
     await prisma.premium.update({
       where: { id: premium.id },
       data: {
-        users: { connect: { email: user.email } },
+        users: { connect: { email } },
         pendingInvites: {
-          set: premium.pendingInvites.filter((email) => email !== user.email),
+          set: premium.pendingInvites.filter((e) => e !== email),
         },
       },
+    });
+  }
+
+  logger.info("Added user to premium from invite", { email });
+}
+
+export async function handleReferralOnSignUp({
+  userId,
+  email,
+}: {
+  userId: string;
+  email: string;
+}) {
+  try {
+    const cookieStore = await cookies();
+    const referralCookie = cookieStore.get("referral_code");
+
+    if (!referralCookie?.value) {
+      logger.info("No referral code found in cookies", { email });
+      return;
+    }
+
+    const referralCode = referralCookie.value;
+    logger.info("Processing referral for new user", {
+      email,
+      referralCode,
+    });
+
+    await createReferral(userId, referralCode);
+    logger.info("Successfully created referral", {
+      email,
+      referralCode,
+    });
+  } catch (error) {
+    logger.error("Error processing referral on sign up", {
+      error,
+      userId,
+      email,
+    });
+    // Don't throw error - referral failure shouldn't prevent sign up
+    captureException(error, {
+      extra: { userId, email, location: "handleReferralOnSignUp" },
     });
   }
 }

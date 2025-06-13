@@ -10,6 +10,7 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
+  InfoIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -216,12 +217,13 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           )}
                           {rule.name}
                           {!rule.automate && (
-                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab.">
+                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab. You can change this in the rule settings by clicking this badge.">
                               <Badge
                                 color="yellow"
                                 className="ml-auto text-nowrap"
                               >
                                 Requires Approval
+                                <InfoIcon className="ml-1.5 size-3" />
                               </Badge>
                             </Tooltip>
                           )}
@@ -298,7 +300,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                     : createAssistantUrl({
                                         tab: "history",
                                         ruleId: rule.id,
-                                        path: "/assistant?tab=history",
+                                        path: "/automation?tab=history",
                                       })
                                 }
                                 target={
@@ -401,22 +403,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
         </LoadingContent>
       </Card>
 
-      {hasRules && (
-        <div className="my-2 flex justify-end gap-2">
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule via Prompt
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-              <PlusIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule Manually
-            </Link>
-          </Button>
-        </div>
-      )}
+      {hasRules && <AddRuleButtons />}
     </div>
   );
 }
@@ -451,7 +438,6 @@ export function ActionBadges({
 }
 
 function NoRules() {
-  const { emailAccountId } = useAccount();
   return (
     <>
       <CardHeader>
@@ -463,12 +449,28 @@ function NoRules() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button type="button" variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-            Add Rule Manually
-          </Link>
-        </Button>
+        <AddRuleButtons />
       </CardContent>
     </>
+  );
+}
+
+function AddRuleButtons() {
+  const { emailAccountId } = useAccount();
+  return (
+    <div className="my-2 flex justify-end gap-2">
+      <Button asChild variant="outline" size="sm">
+        <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
+          <PenIcon className="mr-2 hidden size-4 md:block" />
+          Add Rule via Prompt
+        </Link>
+      </Button>
+      <Button asChild variant="outline" size="sm">
+        <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
+          <PlusIcon className="mr-2 hidden size-4 md:block" />
+          Add Rule Manually
+        </Link>
+      </Button>
+    </div>
   );
 }

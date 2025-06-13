@@ -1,4 +1,5 @@
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import type { GroupItemType } from "@prisma/client";
 import { captureException } from "@/utils/error";
 

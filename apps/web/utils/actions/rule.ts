@@ -12,7 +12,8 @@ import {
   enableDraftRepliesBody,
   deleteRuleBody,
 } from "@/utils/actions/rule.validation";
-import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { flattenConditions } from "@/utils/condition";
 import {

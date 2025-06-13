@@ -119,7 +119,7 @@ const costs: Record<
   "google/gemini-2.0-flash-001": gemini2_5flash,
   "google/gemini-2.5-flash-preview-05-20": gemini2_5flash,
   "google/gemini-2.5-pro-preview-03-25": gemini2_5pro,
-  "google/gemini-2.5-pro-preview-05-06": gemini2_5pro,
+  "google/gemini-2.5-pro-preview-06-05": gemini2_5pro,
   "google/gemini-2.5-pro-preview": gemini2_5pro,
   "meta-llama/llama-4-maverick": {
     input: 0.2 / 1_000_000,

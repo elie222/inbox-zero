@@ -320,7 +320,7 @@ function PendingEmails({
 
       <Section className="text-center mt-[32px] mb-[32px]">
         <Button
-          href={`${baseUrl}/assistant?tab=pending`}
+          href={`${baseUrl}/automation?tab=pending`}
           style={{
             background: "#000",
             color: "#fff",

@@ -217,8 +217,7 @@ function selectDefaultModel(userAi: UserAIFields) {
           const models = [
             // "anthropic/claude-3.7-sonnet",
             // "anthropic/claude-sonnet-4",
-            "google/gemini-2.5-pro-preview-03-25",
-            "google/gemini-2.5-pro-preview-05-06",
+            "google/gemini-2.5-pro-preview-06-05",
           ];
           return models[Math.floor(Math.random() * models.length)];
         }
@@ -227,8 +226,7 @@ function selectDefaultModel(userAi: UserAIFields) {
           models: [
             // "anthropic/claude-sonnet-4",
             // "anthropic/claude-3.7-sonnet",
-            "google/gemini-2.5-pro-preview-03-25",
-            "google/gemini-2.5-pro-preview-05-06",
+            "google/gemini-2.5-pro-preview-06-05",
           ],
           provider: {
             // max 3 options

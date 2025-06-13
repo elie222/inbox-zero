@@ -11,8 +11,8 @@ export function ShortcutTooltip() {
         <div>
           <h3 className="mb-1 font-semibold">Shortcuts:</h3>
           <p>U - Unsubscribe</p>
-          <p>E - Auto Archive</p>
-          <p>A - Keep (Approve)</p>
+          <p>E - Skip Inbox</p>
+          <p>A - Keep</p>
           <p>Enter - View more</p>
           <p>Up/down - navigate</p>
         </div>
