@@ -271,7 +271,6 @@ export function RuleForm({
   }, [errors, watch]);
 
   const conditionalOperator = watch("conditionalOperator");
-  const digestEnabled = useDigestEnabled();
 
   const typeOptions = useMemo(() => {
     return [
