@@ -135,7 +135,8 @@ Users control digest timing via the `UserFrequency` model:
   intervalDays: 7,
   timeOfDay: "09:00", 
   occurrences: 2,
-  daysOfWeek: 0b0101000 // Monday (0b0100000) | Wednesday (0b0001000)
+  daysOfWeek: 0b0101000 // Monday (bit 5) | Wednesday (bit 3)
+  // Bit positions: Sunday=6, Monday=5, Tuesday=4, Wednesday=3, Thursday=2, Friday=1, Saturday=0
 }
 ```
 

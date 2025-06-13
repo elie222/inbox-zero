@@ -9,13 +9,11 @@ import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { camelCase } from "lodash";
 import { calculateNextFrequencyDate } from "@/utils/frequency";
-import { getGmailAndAccessTokenForEmail } from "@/utils/account";
-import { getMessagesBatch, getMessagesLargeBatch } from "@/utils/gmail/message";
+import { getMessagesLargeBatch } from "@/utils/gmail/message";
 import {
   digestCategorySchema,
   sendDigestEmailBody,
   type Digest,
-  digestSummarySchema,
   DigestEmailSummarySchema,
 } from "./validation";
 import { DigestStatus } from "@prisma/client";
@@ -147,7 +145,18 @@ async function sendEmail({
           acc[category] = [];
         }
 
-        const parsedContent = JSON.parse(item.content);
+        let parsedContent: unknown;
+        try {
+          parsedContent = JSON.parse(item.content);
+        } catch (error) {
+          logger.warn("Failed to parse digest item content, skipping item", {
+            messageId: item.messageId,
+            digestId: digest.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          return; // Skip this item and continue with the next one
+        }
+
         const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
@@ -167,17 +176,20 @@ async function sendEmail({
 
   const token = await createUnsubscribeToken({ emailAccountId });
 
+  // First, send the digest email and wait for it to complete
+  await sendDigestEmail({
+    from: env.RESEND_FROM_EMAIL,
+    to: emailAccount.email,
+    emailProps: {
+      ...executedRulesByRule,
+      baseUrl: env.NEXT_PUBLIC_BASE_URL,
+      unsubscribeToken: token,
+      date: new Date(),
+    },
+  });
+
+  // Only update database if email sending succeeded
   await Promise.all([
-    sendDigestEmail({
-      from: env.RESEND_FROM_EMAIL,
-      to: emailAccount.email,
-      emailProps: {
-        ...executedRulesByRule,
-        baseUrl: env.NEXT_PUBLIC_BASE_URL,
-        unsubscribeToken: token,
-        date: new Date(),
-      },
-    }),
     ...(emailAccount.digestFrequencyId
       ? [
           prisma.userFrequency.update({
