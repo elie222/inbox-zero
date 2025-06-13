@@ -30,17 +30,47 @@ vi.mock("@/utils/gmail/message", () => ({
     id: messageId,
     threadId: messageId === "456" ? "thread-456" : "thread-123",
     labelIds: ["INBOX"],
+    snippet: "Test email snippet",
+    historyId: "12345",
+    internalDate: "1704067200000",
+    sizeEstimate: 1024,
     payload: {
+      partId: "",
+      mimeType: "multipart/alternative",
+      filename: "",
       headers: [
         { name: "From", value: "sender@example.com" },
         { name: "To", value: "user@test.com" },
         { name: "Subject", value: "Test Email" },
         { name: "Date", value: "2024-01-01T00:00:00Z" },
+        { name: "Message-ID", value: `<${messageId}@example.com>` },
       ],
+      body: {
+        size: 0,
+      },
       parts: [
         {
+          partId: "0",
+          mimeType: "text/plain",
+          filename: "",
+          headers: [
+            { name: "Content-Type", value: "text/plain; charset=UTF-8" },
+          ],
           body: {
+            size: 11,
             data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+          },
+        },
+        {
+          partId: "1",
+          mimeType: "text/html",
+          filename: "",
+          headers: [
+            { name: "Content-Type", value: "text/html; charset=UTF-8" },
+          ],
+          body: {
+            size: 25,
+            data: "PGI+SGVsbG8gV29ybGQ8L2I+", // Base64 encoded "<b>Hello World</b>"
           },
         },
       ],
@@ -162,12 +192,37 @@ describe("processHistoryItem", () => {
       id: "123",
       threadId: "thread-123",
       labelIds: [GmailLabel.SENT],
+      snippet: "Test email snippet",
+      historyId: "12345",
+      internalDate: "1704067200000",
+      sizeEstimate: 1024,
       payload: {
+        partId: "",
+        mimeType: "multipart/alternative",
+        filename: "",
         headers: [
           { name: "From", value: "user@test.com" },
           { name: "To", value: "recipient@example.com" },
           { name: "Subject", value: "Test Email" },
           { name: "Date", value: "2024-01-01T00:00:00Z" },
+          { name: "Message-ID", value: "<123@example.com>" },
+        ],
+        body: {
+          size: 0,
+        },
+        parts: [
+          {
+            partId: "0",
+            mimeType: "text/plain",
+            filename: "",
+            headers: [
+              { name: "Content-Type", value: "text/plain; charset=UTF-8" },
+            ],
+            body: {
+              size: 11,
+              data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+            },
+          },
         ],
       },
     });

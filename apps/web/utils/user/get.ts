@@ -1,5 +1,47 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { Prisma } from "@prisma/client";
+
+export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
+  select: {
+    id: true;
+    userId: true;
+    email: true;
+    about: true;
+    digestFrequencyId: true;
+    digestFrequency: {
+      select: {
+        id: true;
+        intervalDays: true;
+        occurrences: true;
+        daysOfWeek: true;
+        timeOfDay: true;
+        lastOccurrenceAt: true;
+        nextOccurrenceAt: true;
+      };
+    };
+    user: {
+      select: {
+        aiProvider: true;
+        aiModel: true;
+        aiApiKey: true;
+      };
+    };
+    account: {
+      select: {
+        access_token: true;
+        refresh_token: true;
+        expires_at: true;
+      };
+    };
+  };
+}> & {
+  tokens: {
+    access_token: string | null;
+    refresh_token: string | null;
+    expires_at: number | null;
+  };
+};
 
 export async function getEmailAccountWithAi({
   emailAccountId,
@@ -28,7 +70,7 @@ export async function getEmailAccountWithAiAndTokens({
   emailAccountId,
 }: {
   emailAccountId: string;
-}) {
+}): Promise<EmailAccountWithAIAndTokens | null> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -37,7 +79,17 @@ export async function getEmailAccountWithAiAndTokens({
       email: true,
       about: true,
       digestFrequencyId: true,
-      digestFrequency: true,
+      digestFrequency: {
+        select: {
+          id: true,
+          intervalDays: true,
+          occurrences: true,
+          daysOfWeek: true,
+          timeOfDay: true,
+          lastOccurrenceAt: true,
+          nextOccurrenceAt: true,
+        },
+      },
       user: {
         select: {
           aiProvider: true,

@@ -28,13 +28,18 @@ export const maxDuration = 60;
 
 const logger = createScopedLogger("resend/digest");
 
+type SendEmailResult = {
+  success: boolean;
+  message: string;
+};
+
 async function sendEmail({
   emailAccountId,
   force,
 }: {
   emailAccountId: string;
   force?: boolean;
-}) {
+}): Promise<SendEmailResult> {
   const loggerOptions = { emailAccountId, force };
   logger.info("Sending digest email", loggerOptions);
 
@@ -101,7 +106,7 @@ async function sendEmail({
 
   // Return early if no digests were found
   if (digests.length === 0) {
-    return new Response("No digests to process", { status: 200 });
+    return { success: true, message: "No digests to process" };
   }
 
   // Store the digest IDs for the final update
@@ -212,7 +217,7 @@ async function sendEmail({
     }),
   ]);
 
-  return { success: true };
+  return { success: true, message: "Digest email sent successfully" };
 }
 
 export const GET = withEmailAccount(async (request) => {
@@ -248,8 +253,8 @@ export const POST = withError(async (request) => {
   logger.info("Sending digest email to user POST", { emailAccountId });
 
   try {
-    await sendEmail({ emailAccountId });
-    return NextResponse.json({ success: true });
+    const result = await sendEmail({ emailAccountId });
+    return NextResponse.json(result);
   } catch (error) {
     logger.error("Error sending digest email", { error });
     captureException(error);
