@@ -11,9 +11,9 @@ function getQstashClient() {
   return new Client({ token: env.QSTASH_TOKEN });
 }
 
-export async function publishToQstash(
+export async function publishToQstash<T>(
   path: string,
-  body: any,
+  body: T,
   flowControl?: FlowControl,
 ) {
   const client = getQstashClient();
@@ -34,12 +34,12 @@ export async function publishToQstash(
   return fallbackPublishToQstash(url, body);
 }
 
-export async function bulkPublishToQstash({
+export async function bulkPublishToQstash<T>({
   items,
 }: {
   items: {
     url: string;
-    body: any;
+    body: T;
     flowControl?: FlowControl;
   }[];
 }) {
@@ -53,7 +53,7 @@ export async function bulkPublishToQstash({
   }
 }
 
-export async function publishToQstashQueue({
+export async function publishToQstashQueue<T>({
   queueName,
   parallelism,
   url,
@@ -63,7 +63,7 @@ export async function publishToQstashQueue({
   queueName: string;
   parallelism: number;
   url: string;
-  body: any;
+  body: T;
   headers?: HeadersInit;
 }) {
   const client = getQstashClient();
@@ -74,10 +74,10 @@ export async function publishToQstashQueue({
     return await queue.enqueueJSON({ url, body, headers });
   }
 
-  return fallbackPublishToQstash(url, body);
+  return fallbackPublishToQstash<T>(url, body);
 }
 
-async function fallbackPublishToQstash(url: string, body: any) {
+async function fallbackPublishToQstash<T>(url: string, body: T) {
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
 
