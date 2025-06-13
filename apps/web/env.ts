@@ -12,6 +12,10 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_ENCRYPT_SECRET: z.string(),
     GOOGLE_ENCRYPT_SALT: z.string(),
+    MICROSOFT_CLIENT_ID: z.string().optional(),
+    MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    MICROSOFT_ENCRYPT_SECRET: z.string().optional(),
+    MICROSOFT_ENCRYPT_SALT: z.string().optional(),
     DEFAULT_LLM_PROVIDER: z
       .enum([
         "anthropic",

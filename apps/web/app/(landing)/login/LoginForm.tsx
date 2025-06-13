@@ -19,7 +19,8 @@ export function LoginForm() {
   const next = searchParams?.get("next");
   const error = searchParams?.get("error");
 
-  const [loading, setLoading] = useState(false);
+  const [loadingGoogle, setLoadingGoogle] = useState(false);
+  const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -55,11 +56,63 @@ export function LoginForm() {
           </SectionDescription>
           <div>
             <Button
-              loading={loading}
+              loading={loadingGoogle}
               onClick={() => {
-                setLoading(true);
+                setLoadingGoogle(true);
                 signIn(
                   "google",
+                  {
+                    ...(next && next.length > 0
+                      ? { callbackUrl: next }
+                      : { callbackUrl: "/welcome" }),
+                  },
+                  error === "RequiresReconsent" ? { consent: true } : undefined,
+                );
+              }}
+            >
+              I agree
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog>
+        <DialogTrigger asChild>
+          <Button size="2xl" color="white">
+            <span className="flex items-center justify-center">
+              <Image
+                src="/images/microsoft.svg"
+                alt=""
+                width={24}
+                height={24}
+                unoptimized
+              />
+              <span className="ml-2">Sign in with Microsoft</span>
+            </span>
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Sign in with Microsoft</DialogTitle>
+          </DialogHeader>
+          <SectionDescription>
+            Inbox Zero{"'"}s use and transfer of information received from
+            Microsoft APIs to any other app will adhere to{" "}
+            <a
+              href="https://learn.microsoft.com/en-us/legal/microsoft-apis/terms-of-use"
+              className="underline underline-offset-4 hover:text-gray-900"
+            >
+              Microsoft{"'"}s API terms of service and data privacy
+              requirements.
+            </a>
+          </SectionDescription>
+          <div>
+            <Button
+              loading={loadingMicrosoft}
+              onClick={() => {
+                setLoadingMicrosoft(true);
+                signIn(
+                  "microsoft-entra-id",
                   {
                     ...(next && next.length > 0
                       ? { callbackUrl: next }
