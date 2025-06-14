@@ -98,6 +98,7 @@ model EmailAccount {
   writingStyle              String?
   signature                 String?
   watchEmailsExpirationDate DateTime?
+  watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
 

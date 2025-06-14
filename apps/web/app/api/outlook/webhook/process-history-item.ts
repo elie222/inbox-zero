@@ -1,0 +1,347 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
+import prisma from "@/utils/prisma";
+import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
+import { runRules } from "@/utils/ai/choose-rule/run-rules";
+import { blockUnsubscribedEmails } from "@/app/api/outlook/webhook/block-unsubscribed-emails";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
+import { markMessageAsProcessing } from "@/utils/redis/message-processing";
+import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
+import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
+import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
+import type {
+  ProcessHistoryOptions,
+  OutlookResourceData,
+} from "@/app/api/outlook/webhook/types";
+import { ColdEmailSetting } from "@prisma/client";
+import { logger } from "@/app/api/outlook/webhook/logger";
+import { extractEmailAddress } from "@/utils/email";
+import {
+  trackSentDraftStatus,
+  cleanupThreadAIDrafts,
+} from "@/utils/reply-tracker/draft-tracking";
+import { formatError } from "@/utils/error";
+
+export async function processHistoryItem(
+  resourceData: OutlookResourceData,
+  {
+    client,
+    emailAccount,
+    accessToken,
+    hasAutomationRules,
+    hasAiAccess,
+    rules,
+  }: ProcessHistoryOptions,
+) {
+  const messageId = resourceData.id;
+  const emailAccountId = emailAccount.id;
+  const userEmail = emailAccount.email;
+
+  const loggerOptions = {
+    email: userEmail,
+    messageId,
+  };
+
+  const isFree = await markMessageAsProcessing({ userEmail, messageId });
+
+  if (!isFree) {
+    logger.info("Skipping. Message already being processed.", loggerOptions);
+    return;
+  }
+
+  logger.info("Getting message", loggerOptions);
+
+  try {
+    const [message, hasExistingRule] = await Promise.all([
+      client.api(`/me/messages/${messageId}`).get() as Promise<Message>,
+      prisma.executedRule.findUnique({
+        where: {
+          unique_emailAccount_thread_message: {
+            emailAccountId,
+            threadId: resourceData.conversationId || messageId,
+            messageId,
+          },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    // Log the full message details
+    logger.info("Fetched message details", {
+      ...loggerOptions,
+      messageDetails: {
+        id: message.id,
+        conversationId: message.conversationId,
+        subject: message.subject,
+        from: message.from?.emailAddress,
+        toRecipients: message.toRecipients?.map((r) => r.emailAddress),
+        ccRecipients: message.ccRecipients?.map((r) => r.emailAddress),
+        receivedDateTime: message.receivedDateTime,
+        bodyPreview: message.bodyPreview,
+        importance: message.importance,
+        hasAttachments: message.hasAttachments,
+        categories: message.categories,
+        // Only log first 500 chars of content to avoid huge logs
+        bodyContent: message.body?.content?.substring(0, 500),
+      },
+    });
+
+    return; // TODO: remove this after all the other features have been implemented to work the same as the gmail ones
+
+    // if the rule has already been executed, skip
+    if (hasExistingRule) {
+      logger.info("Skipping. Rule already exists.", loggerOptions);
+      return;
+    }
+
+    const from = message.from?.emailAddress?.address;
+    const to =
+      message.toRecipients
+        ?.map((r) => r.emailAddress?.address)
+        .filter(Boolean) || [];
+    const subject = message.subject || "";
+
+    if (!from) {
+      logger.error("Message has no sender", loggerOptions);
+      return;
+    }
+
+    if (
+      isAssistantEmail({
+        userEmail,
+        emailToCheck: to.join(","),
+      })
+    ) {
+      logger.info("Passing through assistant email.", loggerOptions);
+      return processAssistantEmail({
+        message: {
+          id: messageId,
+          threadId: resourceData.conversationId || messageId,
+          headers: {
+            from,
+            to: to.join(","),
+            subject,
+          },
+        },
+        emailAccountId,
+        userEmail,
+      });
+    }
+
+    const isFromAssistant = isAssistantEmail({
+      userEmail,
+      emailToCheck: from,
+    });
+
+    if (isFromAssistant) {
+      logger.info("Skipping. Assistant email.", loggerOptions);
+      return;
+    }
+
+    const isOutbound =
+      message.from?.emailAddress?.address?.toLowerCase() ===
+      userEmail.toLowerCase();
+
+    if (isOutbound) {
+      await handleOutbound(
+        emailAccount,
+        message,
+        client,
+        messageId,
+        resourceData.conversationId,
+      );
+      return;
+    }
+
+    // check if unsubscribed
+    const blocked = await blockUnsubscribedEmails({
+      from,
+      emailAccountId,
+      client,
+      messageId,
+    });
+
+    if (blocked) {
+      logger.info("Skipping. Blocked unsubscribed email.", loggerOptions);
+      return;
+    }
+
+    const shouldRunBlocker = shouldRunColdEmailBlocker(
+      emailAccount.coldEmailBlocker,
+      hasAiAccess,
+    );
+
+    if (shouldRunBlocker) {
+      logger.info("Running cold email blocker...", loggerOptions);
+
+      const content = message.body?.content || "";
+
+      const response = await runColdEmailBlocker({
+        email: {
+          from,
+          to: to.join(","),
+          subject,
+          content,
+          id: messageId,
+          threadId: resourceData.conversationId || messageId,
+          date: message.receivedDateTime
+            ? new Date(message.receivedDateTime)
+            : new Date(),
+        },
+        client,
+        emailAccount,
+      });
+
+      if (response.isColdEmail) {
+        logger.info("Skipping. Cold email detected.", loggerOptions);
+        return;
+      }
+    }
+
+    // categorize a sender if we haven't already
+    // this is used for category filters in ai rules
+    if (emailAccount.autoCategorizeSenders) {
+      const sender = extractEmailAddress(from);
+      const existingSender = await prisma.newsletter.findUnique({
+        where: {
+          email_emailAccountId: { email: sender, emailAccountId },
+        },
+        select: { category: true },
+      });
+      if (!existingSender?.category) {
+        await categorizeSender(sender, emailAccount, client, accessToken);
+      }
+    }
+
+    if (hasAutomationRules && hasAiAccess) {
+      logger.info("Running rules...", loggerOptions);
+
+      await runRules({
+        client,
+        message: {
+          id: messageId,
+          threadId: resourceData.conversationId || messageId,
+          headers: {
+            from,
+            to: to.join(","),
+            subject,
+          },
+          body: {
+            content: message.body?.content || "",
+          },
+        },
+        rules,
+        emailAccount,
+        isTest: false,
+      });
+    }
+  } catch (error) {
+    // Handle item not found errors
+    if (
+      error instanceof Error &&
+      (error.message.includes("ItemNotFound") ||
+        error.message.includes("ResourceNotFound"))
+    ) {
+      logger.info("Message not found", loggerOptions);
+      return;
+    }
+
+    throw error;
+  }
+}
+
+async function handleOutbound(
+  emailAccount: ProcessHistoryOptions["emailAccount"],
+  message: Message,
+  client: ProcessHistoryOptions["client"],
+  messageId: string,
+  conversationId?: string,
+) {
+  const loggerOptions = {
+    email: emailAccount.email,
+    messageId,
+    conversationId,
+  };
+
+  logger.info("Handling outbound reply", loggerOptions);
+
+  // Run tracking and outbound reply handling concurrently
+  // The individual functions handle their own operational errors.
+  const [trackingResult, outboundResult] = await Promise.allSettled([
+    trackSentDraftStatus({
+      emailAccountId: emailAccount.id,
+      message: {
+        id: messageId,
+        threadId: conversationId || messageId,
+        headers: {
+          from: message.from?.emailAddress?.address || "",
+          to:
+            message.toRecipients
+              ?.map((r) => r.emailAddress?.address)
+              .join(",") || "",
+          subject: message.subject || "",
+        },
+      },
+      client,
+    }),
+    handleOutboundReply({
+      emailAccount,
+      message: {
+        id: messageId,
+        threadId: conversationId || messageId,
+        headers: {
+          from: message.from?.emailAddress?.address || "",
+          to:
+            message.toRecipients
+              ?.map((r) => r.emailAddress?.address)
+              .join(",") || "",
+          subject: message.subject || "",
+        },
+      },
+      client,
+    }),
+  ]);
+
+  if (trackingResult.status === "rejected") {
+    logger.error("Error tracking sent draft status", {
+      ...loggerOptions,
+      error: formatError(trackingResult.reason),
+    });
+  }
+
+  if (outboundResult.status === "rejected") {
+    logger.error("Error handling outbound reply", {
+      ...loggerOptions,
+      error: formatError(outboundResult.reason),
+    });
+  }
+
+  // Run cleanup for any other old/unmodified drafts in the thread
+  // Must happen after previous steps
+  try {
+    await cleanupThreadAIDrafts({
+      threadId: conversationId || messageId,
+      emailAccountId: emailAccount.id,
+      client,
+    });
+  } catch (cleanupError) {
+    logger.error("Error during thread draft cleanup", {
+      ...loggerOptions,
+      error: cleanupError,
+    });
+  }
+
+  // Still skip further processing for outbound emails
+  return;
+}
+
+export function shouldRunColdEmailBlocker(
+  coldEmailBlocker: ColdEmailSetting | null,
+  hasAiAccess: boolean,
+) {
+  return (
+    (coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL ||
+      coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+      coldEmailBlocker === ColdEmailSetting.LABEL) &&
+    hasAiAccess
+  );
+}
