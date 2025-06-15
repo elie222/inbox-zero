@@ -30,7 +30,7 @@ export function DigestMailFrequencySection({
   return (
     <FormSection id="digest-mail-frequency">
       <FormSectionLeft
-        title="Digest Mail Frequency"
+        title="Digest Email"
         description="Configure how often you receive digest emails."
       />
 
