@@ -4,6 +4,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
 import { labelMessage } from "@/utils/gmail/label";
+import type { ColdEmail } from "@prisma/client";
 import {
   ColdEmailSetting,
   ColdEmailStatus,
@@ -157,11 +158,21 @@ export async function runColdEmailBlocker(options: {
   gmail: gmail_v1.Gmail;
   emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
     EmailAccountWithAI;
-}) {
+}): Promise<{
+  isColdEmail: boolean;
+  reason: ColdEmailBlockerReason;
+  aiReason?: string | null;
+  coldEmailId?: string | null;
+}> {
   const response = await isColdEmail(options);
-  if (response.isColdEmail)
-    await blockColdEmail({ ...options, aiReason: response.aiReason || null });
-  return response;
+
+  if (!response.isColdEmail) return { ...response, coldEmailId: null };
+
+  const coldEmail = await blockColdEmail({
+    ...options,
+    aiReason: response.aiReason ?? null,
+  });
+  return { ...response, coldEmailId: coldEmail.id };
 }
 
 export async function blockColdEmail(options: {
@@ -169,10 +180,10 @@ export async function blockColdEmail(options: {
   email: { from: string; id: string; threadId: string };
   emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
   aiReason: string | null;
-}) {
+}): Promise<ColdEmail> {
   const { gmail, email, emailAccount, aiReason } = options;
 
-  await prisma.coldEmail.upsert({
+  const coldEmail = await prisma.coldEmail.upsert({
     where: {
       emailAccountId_fromEmail: {
         emailAccountId: emailAccount.id,
@@ -227,4 +238,6 @@ export async function blockColdEmail(options: {
       removeLabelIds: removeLabelIds.length ? removeLabelIds : undefined,
     });
   }
+
+  return coldEmail;
 }

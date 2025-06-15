@@ -112,10 +112,15 @@ model EmailAccount {
   summaryEmailFrequency Frequency         @default(WEEKLY)
   lastSummaryEmailAt    DateTime?
   coldEmailBlocker      ColdEmailSetting?
+  coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
+
+  // Digest email settings
+  digestFrequency   UserFrequency?
+  digestFrequencyId String?        @unique
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -136,8 +141,71 @@ model EmailAccount {
   emailTokens    EmailToken[]
   knowledge      Knowledge[]
   chats          Chat[]
+  digests        Digest[]
 
   @@index([lastSummaryEmailAt])
+}
+
+enum DigestStatus {
+  PENDING
+  PROCESSING
+  SENT
+}
+
+model Digest {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  items          DigestItem[]
+  sentAt         DateTime?
+  status         DigestStatus @default(PENDING)
+
+  @@index([emailAccountId])
+}
+
+model DigestItem {
+  id             String   @id @default(cuid())
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  messageId      String
+  threadId       String
+  content        String   @db.Text
+  digestId       String
+  digest         Digest   @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  actionId       String?
+  action         ExecutedAction? @relation(fields: [actionId], references: [id])
+  coldEmailId    String?
+  coldEmail      ColdEmail? @relation(fields: [coldEmailId], references: [id])
+
+  @@unique([digestId, threadId, messageId])
+}
+
+model UserFrequency {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intervalDays Int? // Total interval in days
+  occurrences  Int? // Number of times within the interval
+
+  // Bit mask for days of week (0b0000000 to 0b1111111)
+  // Each bit represents a day (Sunday to Saturday)
+  // e.g., 0b1000001 means Sunday and Saturday
+  daysOfWeek Int? // 0-127 (2^7 - 1)
+
+  // Time of day stored as DateTime
+  // Only the time portion will be used when checking if it's time to send
+  timeOfDay DateTime?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  lastOccurrenceAt DateTime?
+  nextOccurrenceAt DateTime?
+
+  @@unique([emailAccountId])
 }
 
 model Premium {
@@ -359,6 +427,7 @@ model ExecutedAction {
   draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
   wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
   draftSendLog DraftSendLog? // Will exist if the draft was sent
+  digestItems  DigestItem[] // Relation to digest items created by this action
 }
 
 // Notes:
@@ -448,6 +517,8 @@ model ColdEmail {
 
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  digestItems DigestItem[]
 
   @@unique([emailAccountId, fromEmail])
   @@index([emailAccountId, status])
@@ -679,6 +750,7 @@ enum ActionType {
   CALL_WEBHOOK
   MARK_READ
   TRACK_THREAD
+  DIGEST
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO
@@ -687,7 +759,7 @@ enum ActionType {
 
 enum Frequency {
   NEVER
-  // DAILY
+  DAILY
   WEEKLY
   // MONTHLY
   // ANNUALLY
@@ -773,7 +845,6 @@ enum SystemType {
   CALENDAR
   RECEIPT
   NOTIFICATION
-  // COLD_EMAIL // handled separately. we may unify in the future
 }
 
 enum ReferralStatus {
