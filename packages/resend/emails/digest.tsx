@@ -497,7 +497,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                 Your Digest
               </Heading>
               <Text className="mb-8 text-lg leading-8">
-                Here's a summary of your important emails.
+                Here's a summary of what's happened in your inbox.
               </Text>
             </Section>
 

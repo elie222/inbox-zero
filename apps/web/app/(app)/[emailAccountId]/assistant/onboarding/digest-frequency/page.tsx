@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FrequencyPicker } from "@/app/(app)/[emailAccountId]/settings/FrequencyPicker";
@@ -14,17 +15,26 @@ import {
   markOnboardingAsCompleted,
   ASSISTANT_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function DigestFrequencyPage() {
   const { emailAccountId } = useAccount();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [showExampleDialog, setShowExampleDialog] = useState(false);
   const [digestFrequencyValue, setDigestFrequencyValue] = useState<
     SaveDigestFrequencyBody["userFrequency"]
   >({
     intervalDays: 7,
     daysOfWeek: 1 << (6 - 1), // Monday (1)
     timeOfDay: new Date(new Date().setHours(11, 0, 0, 0)), // 11 AM
+    occurrences: 1,
   });
 
   const updateDigestFrequency = updateDigestFrequencyAction.bind(
@@ -71,8 +81,15 @@ export default function DigestFrequencyPage() {
           <div className="space-y-6">
             <p className="text-muted-foreground">
               Choose how often you want to receive your digest emails. These
-              emails will summarize your important emails and help you stay on
-              top of your inbox.
+              emails will include a summary of the actions taken on your behalf,
+              based on your selected preferences.{" "}
+              <button
+                type="button"
+                onClick={() => setShowExampleDialog(true)}
+                className="text-primary underline hover:no-underline"
+              >
+                See example
+              </button>
             </p>
             <FrequencyPicker onChange={setDigestFrequencyValue} />
             <Button
@@ -85,6 +102,24 @@ export default function DigestFrequencyPage() {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={showExampleDialog} onOpenChange={setShowExampleDialog}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Digest Email Example</DialogTitle>
+            <DialogDescription>
+              This is an example of what your digest email will look like.
+            </DialogDescription>
+          </DialogHeader>
+          <Image
+            src="/images/assistant/digest.png"
+            alt="Digest Email Example"
+            width={800}
+            height={1200}
+            className="mx-auto"
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
