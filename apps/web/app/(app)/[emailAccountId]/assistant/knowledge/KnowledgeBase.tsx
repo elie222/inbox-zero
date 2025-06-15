@@ -111,8 +111,7 @@ export function KnowledgeBase() {
                             talking to.
                           </li>
                           <li>
-                            This information is only used to draft replies. You
-                            must click "Send" to send the reply.
+                            This information is only used to draft replies.
                           </li>
                         </ul>
                       </div>
