@@ -95,9 +95,10 @@ export default function DigestFrequencyPage() {
             <Button
               className="w-full"
               onClick={handleFinish}
-              disabled={isLoading || !digestFrequencyValue}
+              disabled={!digestFrequencyValue}
+              loading={isLoading}
             >
-              {isLoading ? "Saving..." : "Next"}
+              Next
             </Button>
           </div>
         </CardContent>
