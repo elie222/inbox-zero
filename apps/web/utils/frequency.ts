@@ -113,6 +113,9 @@ export function calculateNextFrequencyDate(
           }
           return nextDate;
         }
+
+        // Reset time to 00:00:00 when timeOfDay is not set to prevent time drift
+        nextDate.setHours(0, 0, 0, 0);
         return nextDate;
       }
 

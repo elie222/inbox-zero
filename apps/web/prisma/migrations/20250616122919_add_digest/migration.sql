@@ -86,3 +86,6 @@ ALTER TABLE "DigestItem" ADD CONSTRAINT "DigestItem_coldEmailId_fkey" FOREIGN KE
 
 -- AddForeignKey
 ALTER TABLE "Schedule" ADD CONSTRAINT "Schedule_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "EmailAccount" ADD CONSTRAINT "EmailAccount_digestScheduleId_fkey" FOREIGN KEY ("digestScheduleId") REFERENCES "Schedule"("id") ON DELETE SET NULL ON UPDATE CASCADE;

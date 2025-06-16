@@ -73,7 +73,12 @@ export function getInitialScheduleProps(digestSchedule?: {
     return "1";
   })();
   const initialTimeOfDay = digestSchedule?.timeOfDay
-    ? new Date(digestSchedule.timeOfDay).toISOString().slice(11, 16)
+    ? (() => {
+        const date = new Date(digestSchedule.timeOfDay);
+        const hours = date.getHours().toString().padStart(2, "0");
+        const minutes = date.getMinutes().toString().padStart(2, "0");
+        return `${hours}:${minutes}`;
+      })()
     : "09:00";
   const [initHour24, initMinute] = initialTimeOfDay.split(":");
   const hour12 = (Number.parseInt(initHour24, 10) % 12 || 12)

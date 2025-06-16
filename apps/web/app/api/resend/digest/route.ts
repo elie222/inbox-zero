@@ -101,9 +101,13 @@ async function sendEmail({
     });
   }
 
-  // Return early if no digests were found
+  // Return early if no digests were found, unless force is true
   if (pendingDigests.length === 0) {
-    return { success: true, message: "No digests to process" };
+    if (!force) {
+      return { success: true, message: "No digests to process" };
+    }
+    // When force is true, send an empty digest to indicate the system is working
+    logger.info("Force sending empty digest", { emailAccountId });
   }
 
   // Store the digest IDs for the final update
