@@ -28,22 +28,22 @@ export async function aiSummarizeEmailForDigest({
 
   const prompt = `
 Summarize the following email for inclusion in a daily digest email.
-	•	This email has already been categorized. Use the provided category: ${ruleName}.
+	* This email has already been categorized as: ${ruleName}.
 
 Formatting rules:
-	•	If the email contains clearly extractable structured data — such as prices, totals, item names, event titles, dates, times, payment methods, or IDs — return a single object with an "entries" field: a list of 2 ~ 6 relevant "label" and "value" pairs.
-	•	Order the entries by importance: start with identifying details and end with totals or amounts (e.g. "Total", "Amount Paid").
-	•	Use short, clear labels and concise values. Example: { label: "Total", value: "$29.99" }.
-	•	Do not extract notes, summaries, bullet points, or general narrative information into structured fields.
+	* If the email contains clearly extractable structured data — such as prices, totals, item names, event titles, dates, times, payment methods, or IDs — return a single object with an "entries" field: a list of 2 ~ 6 relevant "label" and "value" pairs.
+	* Order the entries by importance: start with identifying details and end with totals or amounts (e.g. "Total", "Amount Paid").
+	* Use short, clear labels and concise values. Example: { label: "Total", value: "$29.99" }.
+	* Do not extract notes, summaries, bullet points, or general narrative information into structured fields.
 
 Unstructured fallback:
-	•	If the email contains general updates, team notes, meeting summaries, announcements, or freeform text — and does not contain distinct extractable values — return a single 'summary' field with a plain-text paragraph instead.
-	•	Only return 'summary' if no clear structure fits. Do not force structure.
+	* If the email contains general updates, team notes, meeting summaries, announcements, or freeform text — and does not contain distinct extractable values — return a single 'summary' field with a plain-text paragraph instead.
+	* Only return 'summary' if no clear structure fits. Do not force structure.
 
 Style rules:
-	•	Output must be plain text only — no HTML, no tables.
-	•	Output only one field: either 'entries' or 'summary', never both.
-	•	Keep the content minimal, scannable, and clean.
+	* Output must be plain text only — no HTML, no tables.
+	* Output only one field: either 'entries' or 'summary', never both.
+	* Keep the content minimal, scannable, and clean.
 <message>
 ${stringifyEmailSimple(userMessageForPrompt)}
 </message>

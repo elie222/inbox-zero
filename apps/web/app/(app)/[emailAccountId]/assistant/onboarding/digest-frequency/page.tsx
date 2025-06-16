@@ -4,12 +4,12 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { FrequencyPicker } from "@/app/(app)/[emailAccountId]/settings/FrequencyPicker";
+import { SchedulePicker } from "@/app/(app)/[emailAccountId]/settings/SchedulePicker";
 import { useState } from "react";
-import { updateDigestFrequencyAction } from "@/utils/actions/settings";
+import { updateDigestScheduleAction } from "@/utils/actions/settings";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { prefixPath } from "@/utils/path";
-import type { SaveDigestFrequencyBody } from "@/utils/actions/settings.validation";
+import type { SaveDigestScheduleBody } from "@/utils/actions/settings.validation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import {
   markOnboardingAsCompleted,
@@ -28,8 +28,8 @@ export default function DigestFrequencyPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [showExampleDialog, setShowExampleDialog] = useState(false);
-  const [digestFrequencyValue, setDigestFrequencyValue] = useState<
-    SaveDigestFrequencyBody["userFrequency"]
+  const [digestScheduleValue, setDigestScheduleValue] = useState<
+    SaveDigestScheduleBody["schedule"]
   >({
     intervalDays: 7,
     daysOfWeek: 1 << (6 - 1), // Monday (1)
@@ -37,18 +37,18 @@ export default function DigestFrequencyPage() {
     occurrences: 1,
   });
 
-  const updateDigestFrequency = updateDigestFrequencyAction.bind(
+  const updateDigestSchedule = updateDigestScheduleAction.bind(
     null,
     emailAccountId,
   );
 
   const handleFinish = async () => {
-    if (!digestFrequencyValue) return;
+    if (!digestScheduleValue) return;
 
     setIsLoading(true);
     try {
-      const result = await updateDigestFrequency({
-        userFrequency: digestFrequencyValue,
+      const result = await updateDigestSchedule({
+        schedule: digestScheduleValue,
       });
 
       if (result?.serverError) {
@@ -91,11 +91,11 @@ export default function DigestFrequencyPage() {
                 See example
               </button>
             </p>
-            <FrequencyPicker onChange={setDigestFrequencyValue} />
+            <SchedulePicker onChange={setDigestScheduleValue} />
             <Button
               className="w-full"
               onClick={handleFinish}
-              disabled={!digestFrequencyValue}
+              disabled={!digestScheduleValue}
               loading={isLoading}
             >
               Next

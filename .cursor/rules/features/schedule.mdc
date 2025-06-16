@@ -3,11 +3,11 @@ description:
 globs: 
 alwaysApply: false
 ---
-# UserFrequency Feature - Developer Guide
+# Schedule Feature - Developer Guide
 
-## What is UserFrequency?
+## What is Schedule?
 
-UserFrequency is a flexible scheduling system that handles recurring events in the application. It's designed to solve the complex problem of "when should something happen next?" with support for:
+Schedule is a flexible scheduling system that handles recurring events in the application. It's designed to solve the complex problem of "when should something happen next?" with support for:
 
 - **Custom intervals** - Daily, weekly, monthly, or any number of days
 - **Multiple occurrences** - "3 times per week" or "twice daily"
@@ -93,25 +93,25 @@ const slotSize = intervalDays / occurrences; // 2.33 days
 
 ### Setting Up Frequency for a Feature
 
-**Step 1: Add UserFrequency to your model**
+**Step 1: Add Schedule to your model**
 ```prisma
 model YourFeature {
   id               String        @id
-  frequencyId      String?
-  frequency        UserFrequency? @relation(fields: [frequencyId], references: [id])
+  scheduleId      String?
+  schedule        Schedule? @relation(fields: [scheduleId], references: [id])
   // ... other fields
 }
 ```
 
 **Step 2: Calculate next occurrence**
 ```typescript
-import { calculateNextFrequencyDate } from '@/utils/frequency';
+import { calculateNextScheduleDate } from '@/utils/schedule';
 
-const nextDate = calculateNextFrequencyDate({
-  intervalDays: userFrequency.intervalDays,
-  occurrences: userFrequency.occurrences,
-  daysOfWeek: userFrequency.daysOfWeek,
-  timeOfDay: userFrequency.timeOfDay
+const nextDate = calculateNextScheduleDate({
+  intervalDays: schedule.intervalDays,
+  occurrences: schedule.occurrences,
+  daysOfWeek: schedule.daysOfWeek,
+  timeOfDay: schedule.timeOfDay
 });
 
 // Update your model
@@ -135,33 +135,33 @@ const dueItems = await prisma.yourFeature.findMany({
 
 ### Adding Frequency UI to Settings
 
-**Step 1: Use FrequencyPicker component**
+**Step 1: Use SchedulePicker component**
 ```typescript
-import { FrequencyPicker } from '@/components/FrequencyPicker';
+import { SchedulePicker } from '@/components/SchedulePicker';
 
 function YourSettingsComponent() {
-  const [frequency, setFrequency] = useState(initialFrequency);
+  const [schedule, setSchedule] = useState(initialSchedule);
   
   return (
     <FrequencyPicker
-      value={frequency}
-      onChange={setFrequency}
+      value={schedule}
+      onChange={setSchedule}
       // Component handles all the complex UI logic
     />
   );
 }
 ```
 
-**Step 2: Map form data to UserFrequency**
+**Step 2: Map form data to Schedule**
 ```typescript
-import { mapToUserFrequency } from '@/utils/frequency';
+import { mapToSchedule } from '@/utils/frequency';
 
 const handleSubmit = async (formData) => {
-  const userFrequency = mapToUserFrequency(formData);
+  const schedule = mapToSchedule(formData);
   
   await updateFrequencyAction({
     emailAccountId,
-    frequency: userFrequency
+    frequency: schedule
   });
 };
 ```
@@ -197,7 +197,7 @@ const weekends = DAYS.SATURDAY | DAYS.SUNDAY; // 65
 ### Database Schema
 
 ```prisma
-model UserFrequency {
+model Schedule {
   id               String    @id @default(cuid())
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
@@ -225,19 +225,19 @@ model UserFrequency {
 **`calculateNextFrequencyDate()`** - Main scheduling function
 ```typescript
 function calculateNextFrequencyDate(
-  frequency: Pick<UserFrequency, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
+  frequency: Pick<Schedule, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
   fromDate: Date = new Date()
 ): Date
 ```
 
-**`mapToUserFrequency()`** - Convert form data to database format
+**`mapToSchedule()`** - Convert form data to database format
 ```typescript
-function mapToUserFrequency(formData: FrequencyFormData): UserFrequency
+function mapToSchedule(formData: ScheduleFormData): Schedule
 ```
 
-**`getInitialFrequencyProps()`** - Convert database to form format
+**`getInitialScheduleProps()`** - Convert database to form format
 ```typescript
-function getInitialFrequencyProps(userFrequency?: UserFrequency): FrequencyFormData
+function getInitialScheduleProps(schedule?: Schedule): FrequencyFormData
 ```
 
 ### UI Components
@@ -318,7 +318,7 @@ const userTime = new Date().toLocaleString("en-US", {
 ```typescript
 import { calculateNextFrequencyDate } from '@/utils/frequency';
 
-describe('UserFrequency', () => {
+describe('Schedule', () => {
   it('calculates daily frequency correctly', () => {
     const next = calculateNextFrequencyDate({
       intervalDays: 1,
@@ -330,7 +330,7 @@ describe('UserFrequency', () => {
   });
   
   it('handles multiple occurrences per week', () => {
-    const next = calculateNextFrequencyDate({
+    const next = calculateNextScheduleDate({
       intervalDays: 7,
       occurrences: 3,
       timeOfDay: new Date('2023-01-01T09:00:00')
@@ -358,10 +358,10 @@ describe('UserFrequency', () => {
 
 ```typescript
 // Always recalculate next occurrence when settings change
-const updateFrequency = async (newFrequency: UserFrequency) => {
+const updateFrequency = async (newFrequency: Schedule) => {
   const nextOccurrence = calculateNextFrequencyDate(newFrequency);
   
-  await prisma.userFrequency.update({
+  await prisma.schedule.update({
     where: { emailAccountId },
     data: {
       ...newFrequency,
@@ -410,8 +410,8 @@ const FrequencySettingsForm = () => {
   });
   
   const onSubmit = async (data) => {
-    const userFrequency = mapToUserFrequency(data);
-    await updateFrequencyAction(userFrequency);
+      const schedule = mapToSchedule(data);
+  await updateFrequencyAction(schedule);
   };
   
   return (
@@ -437,7 +437,7 @@ const FrequencySettingsForm = () => {
 - Verify timezone handling is consistent
 
 **FrequencyPicker not saving correctly:**
-- Use `mapToUserFrequency` to convert form data
+- Use `mapToSchedule` to convert form data
 - Check that all required fields are present
 - Validate bitmask values for `daysOfWeek`
 
@@ -450,7 +450,7 @@ const FrequencySettingsForm = () => {
 
 ```typescript
 // Debug frequency calculation
-const debugFrequency = (frequency: UserFrequency, fromDate: Date) => {
+const debugFrequency = (frequency: Schedule, fromDate: Date) => {
   console.log('Input:', { frequency, fromDate });
   
   const next = calculateNextFrequencyDate(frequency, fromDate);
@@ -467,7 +467,7 @@ const debugFrequency = (frequency: UserFrequency, fromDate: Date) => {
 
 ### Core Implementation
 - `apps/web/utils/frequency.ts` - Main scheduling logic and utilities
-- `apps/web/prisma/schema.prisma` - UserFrequency model definition
+- `apps/web/prisma/schema.prisma` - Schedule model definition
 
 ### UI Components
 - `apps/web/app/(app)/[emailAccountId]/settings/FrequencyPicker.tsx` - Frequency selection UI
@@ -486,6 +486,6 @@ const debugFrequency = (frequency: UserFrequency, fromDate: Date) => {
 
 ## Related Documentation
 
-- **[Digest Feature](mdc:digest.mdc)** - Primary use case for UserFrequency
+- **[Digest Feature](mdc:digest.mdc)** - Primary use case for Schedule
 - **[Prisma Documentation](mdc:https:/prisma.io/docs)** - Database schema patterns
 - **[date-fns Documentation](mdc:https:/date-fns.org)** - Date manipulation utilities used internally

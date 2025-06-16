@@ -81,7 +81,6 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        suppressHydrationWarning
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
         <PostHogProvider>

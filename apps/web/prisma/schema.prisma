@@ -119,8 +119,8 @@ model EmailAccount {
   autoCategorizeSenders Boolean           @default(false)
 
   // Digest email settings
-  digestFrequency   UserFrequency?
-  digestFrequencyId String?        @unique
+  digestSchedule   Schedule?
+  digestScheduleId String?  @unique
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -182,7 +182,7 @@ model DigestItem {
   @@unique([digestId, threadId, messageId])
 }
 
-model UserFrequency {
+model Schedule {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

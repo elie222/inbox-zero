@@ -120,7 +120,7 @@ const categories = [
 
 ### Frequency Configuration
 
-Users control digest timing via the `UserFrequency` model:
+Users control digest timing via the `Schedule` model:
 ```typescript
 // Example: Daily at 11 AM
 {
@@ -286,6 +286,6 @@ const isDigestEnabled = useFeatureFlagEnabled("digest-emails");
 // User preferences
 {
   coldEmailDigest: boolean,     // Include cold emails in digest
-  digestFrequency: UserFrequency // When to send digests
+  digestSchedule: Schedule // When to send digests
 }
 ```

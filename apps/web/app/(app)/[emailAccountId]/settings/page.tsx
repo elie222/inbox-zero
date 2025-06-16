@@ -50,7 +50,7 @@ export default function SettingsPage(_props: {
               /> */}
               {digestEnabled && (
                 <DigestMailFrequencySection
-                  digestFrequency={data?.digestFrequency ?? undefined}
+                  digestSchedule={data?.digestSchedule ?? undefined}
                   mutate={mutate}
                 />
               )}

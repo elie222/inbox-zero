@@ -58,23 +58,24 @@ async function sendEmail({
     emailAccountId,
   });
 
-  const digests = await prisma.$transaction(async (tx) => {
-    const pendingDigests = await tx.digest.findMany({
-      where: {
-        emailAccountId,
-        status: DigestStatus.PENDING,
-      },
-      include: {
-        items: {
-          include: {
-            action: {
-              include: {
-                executedRule: {
-                  include: {
-                    rule: {
-                      select: {
-                        name: true,
-                      },
+  const pendingDigests = await prisma.digest.findMany({
+    where: {
+      emailAccountId,
+      status: DigestStatus.PENDING,
+    },
+    select: {
+      id: true,
+      items: {
+        select: {
+          messageId: true,
+          content: true,
+          action: {
+            select: {
+              executedRule: {
+                select: {
+                  rule: {
+                    select: {
+                      name: true,
                     },
                   },
                 },
@@ -83,34 +84,32 @@ async function sendEmail({
           },
         },
       },
-    });
-
-    if (pendingDigests.length) {
-      // Mark all found digests as processing
-      await tx.digest.updateMany({
-        where: {
-          id: {
-            in: pendingDigests.map((d) => d.id),
-          },
-        },
-        data: {
-          status: DigestStatus.PROCESSING,
-        },
-      });
-    }
-
-    return pendingDigests;
+    },
   });
 
+  if (pendingDigests.length) {
+    // Mark all found digests as processing
+    await prisma.digest.updateMany({
+      where: {
+        id: {
+          in: pendingDigests.map((d) => d.id),
+        },
+      },
+      data: {
+        status: DigestStatus.PROCESSING,
+      },
+    });
+  }
+
   // Return early if no digests were found
-  if (digests.length === 0) {
+  if (pendingDigests.length === 0) {
     return { success: true, message: "No digests to process" };
   }
 
   // Store the digest IDs for the final update
-  const processedDigestIds = digests.map((d) => d.id);
+  const processedDigestIds = pendingDigests.map((d) => d.id);
 
-  const messageIds = digests.flatMap((digest) =>
+  const messageIds = pendingDigests.flatMap((digest) =>
     digest.items.map((item) => item.messageId),
   );
 
@@ -123,7 +122,7 @@ async function sendEmail({
   const messageMap = new Map(messages.map((m) => [m.id, m]));
 
   // Transform and group in a single pass
-  const executedRulesByRule = digests.reduce((acc, digest) => {
+  const executedRulesByRule = pendingDigests.reduce((acc, digest) => {
     digest.items.forEach((item) => {
       const message = messageMap.get(item.messageId);
       if (!message) {
@@ -190,17 +189,17 @@ async function sendEmail({
 
   // Only update database if email sending succeeded
   await Promise.all([
-    ...(emailAccount.digestFrequencyId
+    ...(emailAccount.digestScheduleId
       ? [
-          prisma.userFrequency.update({
+          prisma.schedule.update({
             where: {
-              id: emailAccount.digestFrequencyId,
+              id: emailAccount.digestScheduleId,
               emailAccountId,
             },
             data: {
               lastOccurrenceAt: new Date(),
               nextOccurrenceAt: calculateNextFrequencyDate(
-                emailAccount.digestFrequency!,
+                emailAccount.digestSchedule!,
               ),
             },
           }),

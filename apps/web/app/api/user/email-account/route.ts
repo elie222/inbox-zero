@@ -11,7 +11,7 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     include: {
-      digestFrequency: true,
+      digestSchedule: true,
     },
   });
 

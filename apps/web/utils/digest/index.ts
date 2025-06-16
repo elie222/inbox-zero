@@ -86,60 +86,58 @@ export async function upsertDigest({
   });
 
   try {
-    await prisma.$transaction(async (tx) => {
-      // Find or create the digest atomically
-      const digest =
-        (await tx.digest.findFirst({
-          where: {
-            emailAccountId,
-            status: DigestStatus.PENDING,
-          },
-          orderBy: {
-            createdAt: "asc",
-          },
-        })) ||
-        (await tx.digest.create({
-          data: {
-            emailAccountId,
-            status: DigestStatus.PENDING,
-          },
-        }));
-
-      // Find or create the DigestItem atomically
-      const digestItem = await tx.digestItem.findFirst({
+    // Find or create the digest atomically
+    const digest =
+      (await prisma.digest.findFirst({
         where: {
-          digestId: digest.id,
-          messageId,
-          threadId,
+          emailAccountId,
+          status: DigestStatus.PENDING,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      })) ||
+      (await prisma.digest.create({
+        data: {
+          emailAccountId,
+          status: DigestStatus.PENDING,
+        },
+      }));
+
+    // Find or create the DigestItem atomically
+    const digestItem = await prisma.digestItem.findFirst({
+      where: {
+        digestId: digest.id,
+        messageId,
+        threadId,
+      },
+    });
+
+    const contentString = JSON.stringify(content);
+
+    if (digestItem) {
+      logger.info("Updating existing digest");
+      await prisma.digestItem.update({
+        where: { id: digestItem.id },
+        data: {
+          content: contentString,
+          ...(actionId ? { actionId } : {}),
+          ...(coldEmailId ? { coldEmailId } : {}),
         },
       });
-
-      const contentString = JSON.stringify(content);
-
-      if (digestItem) {
-        logger.info("Updating existing digest");
-        await tx.digestItem.update({
-          where: { id: digestItem.id },
-          data: {
-            content: contentString,
-            ...(actionId ? { actionId } : {}),
-            ...(coldEmailId ? { coldEmailId } : {}),
-          },
-        });
-      } else {
-        logger.info("Creating new digest");
-        await tx.digestItem.create({
-          data: {
-            messageId,
-            threadId,
-            content: contentString,
-            digestId: digest.id,
-            ...(actionId ? { actionId } : {}),
-            ...(coldEmailId ? { coldEmailId } : {}),
-          },
-        });
-      }
-    });
+    } else {
+      logger.info("Creating new digest");
+      await prisma.digestItem.create({
+        data: {
+          messageId,
+          threadId,
+          content: contentString,
+          digestId: digest.id,
+          ...(actionId ? { actionId } : {}),
+          ...(coldEmailId ? { coldEmailId } : {}),
+        },
+      });
+    }
   } catch (error) {
     logger.error("Failed to upsert digest", { error });
     throw error;

@@ -9,22 +9,22 @@ import {
   SubmitButtonWrapper,
 } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
-import type { UserFrequency } from "@prisma/client";
-import type { SaveDigestFrequencyBody } from "@/utils/actions/settings.validation";
-import { updateDigestFrequencyAction } from "@/utils/actions/settings";
+import type { Schedule } from "@prisma/client";
+import type { SaveDigestScheduleBody } from "@/utils/actions/settings.validation";
+import { updateDigestScheduleAction } from "@/utils/actions/settings";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useAction } from "next-safe-action/hooks";
 import {
-  FrequencyPicker,
-  getInitialFrequencyProps,
-  mapToUserFrequency,
-} from "./FrequencyPicker";
+  SchedulePicker,
+  getInitialScheduleProps,
+  mapToSchedule,
+} from "./SchedulePicker";
 
 export function DigestMailFrequencySection({
-  digestFrequency,
+  digestSchedule,
   mutate,
 }: {
-  digestFrequency?: UserFrequency;
+  digestSchedule?: Schedule;
   mutate: () => void;
 }) {
   return (
@@ -35,7 +35,7 @@ export function DigestMailFrequencySection({
       />
 
       <DigestUpdateSectionForm
-        digestFrequency={digestFrequency}
+        digestSchedule={digestSchedule}
         mutate={mutate}
       />
     </FormSection>
@@ -43,19 +43,19 @@ export function DigestMailFrequencySection({
 }
 
 function DigestUpdateSectionForm({
-  digestFrequency,
+  digestSchedule,
   mutate,
 }: {
-  digestFrequency?: UserFrequency;
+  digestSchedule?: Schedule;
   mutate: () => void;
 }) {
   const { emailAccountId } = useAccount();
-  const [digestFrequencyValue, setDigestFrequencyValue] = useState(
-    mapToUserFrequency(getInitialFrequencyProps(digestFrequency)),
+  const [digestScheduleValue, setDigestScheduleValue] = useState(
+    mapToSchedule(getInitialScheduleProps(digestSchedule)),
   );
 
   const { execute, isExecuting } = useAction(
-    updateDigestFrequencyAction.bind(null, emailAccountId),
+    updateDigestScheduleAction.bind(null, emailAccountId),
     {
       onSuccess: () => {
         toastSuccess({
@@ -78,16 +78,16 @@ function DigestUpdateSectionForm({
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     execute({
-      userFrequency: digestFrequencyValue,
+      schedule: digestScheduleValue,
     });
   };
 
   return (
     <form onSubmit={onSubmit}>
       <div className="md:col-span-2">
-        <FrequencyPicker
-          defaultValue={getInitialFrequencyProps(digestFrequency)}
-          onChange={setDigestFrequencyValue}
+        <SchedulePicker
+          defaultValue={getInitialScheduleProps(digestSchedule)}
+          onChange={setDigestScheduleValue}
         />
         <SubmitButtonWrapper>
           <Button type="submit" loading={isExecuting}>

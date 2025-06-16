@@ -716,9 +716,9 @@ export async function getRuleNameByExecutedAction(
 ): Promise<string | undefined> {
   const executedAction = await prisma.executedAction.findUnique({
     where: { id: actionId },
-    include: {
+    select: {
       executedRule: {
-        include: {
+        select: {
           rule: {
             select: {
               name: true,

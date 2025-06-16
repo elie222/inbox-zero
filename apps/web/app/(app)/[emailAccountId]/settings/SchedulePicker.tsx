@@ -36,7 +36,7 @@ const ampmOptions = [
   { value: "PM", label: "PM" },
 ];
 
-export type FrequencyPickerFormValues = {
+export type SchedulePickerFormValues = {
   frequency: string;
   dayOfWeek: string;
   hour: string;
@@ -44,14 +44,14 @@ export type FrequencyPickerFormValues = {
   ampm: "AM" | "PM";
 };
 
-export function getInitialFrequencyProps(digestFrequency?: {
+export function getInitialScheduleProps(digestSchedule?: {
   intervalDays?: number | null;
   daysOfWeek?: number | null;
   timeOfDay?: string | Date | null;
-}): FrequencyPickerFormValues {
+}): SchedulePickerFormValues {
   const initialFrequency = (() => {
-    if (!digestFrequency) return "daily";
-    switch (digestFrequency.intervalDays) {
+    if (!digestSchedule) return "daily";
+    switch (digestSchedule.intervalDays) {
       case 1:
         return "daily";
       case 7:
@@ -65,15 +65,15 @@ export function getInitialFrequencyProps(digestFrequency?: {
     }
   })();
   const initialDayOfWeek = (() => {
-    if (!digestFrequency || digestFrequency.daysOfWeek == null) return "1";
+    if (!digestSchedule || digestSchedule.daysOfWeek == null) return "1";
     for (let i = 0; i < 7; i++) {
-      if ((digestFrequency.daysOfWeek & (1 << (6 - i))) !== 0)
+      if ((digestSchedule.daysOfWeek & (1 << (6 - i))) !== 0)
         return i.toString();
     }
     return "1";
   })();
-  const initialTimeOfDay = digestFrequency?.timeOfDay
-    ? new Date(digestFrequency.timeOfDay).toISOString().slice(11, 16)
+  const initialTimeOfDay = digestSchedule?.timeOfDay
+    ? new Date(digestSchedule.timeOfDay).toISOString().slice(11, 16)
     : "09:00";
   const [initHour24, initMinute] = initialTimeOfDay.split(":");
   const hour12 = (Number.parseInt(initHour24, 10) % 12 || 12)
@@ -91,13 +91,13 @@ export function getInitialFrequencyProps(digestFrequency?: {
   };
 }
 
-export function mapToUserFrequency({
+export function mapToSchedule({
   frequency,
   dayOfWeek,
   hour,
   minute,
   ampm,
-}: FrequencyPickerFormValues) {
+}: SchedulePickerFormValues) {
   let intervalDays: number;
   switch (frequency) {
     case "daily":
@@ -137,18 +137,18 @@ export function mapToUserFrequency({
   };
 }
 
-export function FrequencyPicker({
+export function SchedulePicker({
   defaultValue,
   onChange,
   hideDayOfWeekIfDaily = true,
   disabled = false,
 }: {
-  defaultValue?: FrequencyPickerFormValues;
-  onChange?: (backendValue: ReturnType<typeof mapToUserFrequency>) => void;
+  defaultValue?: SchedulePickerFormValues;
+  onChange?: (backendValue: ReturnType<typeof mapToSchedule>) => void;
   hideDayOfWeekIfDaily?: boolean;
   disabled?: boolean;
 }) {
-  const [value, setValue] = useState<FrequencyPickerFormValues>(
+  const [value, setValue] = useState<SchedulePickerFormValues>(
     defaultValue || {
       frequency: "daily",
       dayOfWeek: "1",
@@ -159,12 +159,12 @@ export function FrequencyPicker({
   );
 
   const handleFieldChange = (
-    field: keyof FrequencyPickerFormValues,
+    field: keyof SchedulePickerFormValues,
     fieldValue: string,
   ) => {
     const newValue = { ...value, [field]: fieldValue };
     setValue(newValue);
-    onChange?.(mapToUserFrequency(newValue));
+    onChange?.(mapToSchedule(newValue));
   };
 
   return (

@@ -25,7 +25,7 @@ async function sendDigestAllUpdate() {
   // Get all email accounts that are due for a digest
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
-      digestFrequency: {
+      digestSchedule: {
         nextOccurrenceAt: {
           lte: now,
         },
@@ -44,8 +44,9 @@ async function sendDigestAllUpdate() {
         lt: subDays(now, 4),
       },
     },
-    include: {
-      digestFrequency: true,
+    select: {
+      id: true,
+      email: true,
     },
   });
 

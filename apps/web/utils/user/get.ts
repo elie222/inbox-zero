@@ -8,8 +8,8 @@ export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
     userId: true;
     email: true;
     about: true;
-    digestFrequencyId: true;
-    digestFrequency: {
+    digestScheduleId: true;
+    digestSchedule: {
       select: {
         id: true;
         intervalDays: true;
@@ -78,8 +78,8 @@ export async function getEmailAccountWithAiAndTokens({
       userId: true,
       email: true,
       about: true,
-      digestFrequencyId: true,
-      digestFrequency: {
+      digestScheduleId: true,
+      digestSchedule: {
         select: {
           id: true,
           intervalDays: true,

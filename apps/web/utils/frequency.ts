@@ -1,4 +1,4 @@
-import type { UserFrequency } from "@prisma/client";
+import type { Schedule } from "@prisma/client";
 import { addDays, addMilliseconds } from "date-fns";
 
 /**
@@ -27,19 +27,19 @@ export const DAYS = {
 const maskFor = (jsDay: number) => 1 << (6 - jsDay);
 
 /**
- * Calculates the next occurrence date based on frequency settings.
+ * Calculates the next occurrence date based on schedule settings.
  *
- * @param frequency - The frequency configuration
- * @param frequency.daysOfWeek - Bitmask of days of the week (see DAYS constant)
- * @param frequency.intervalDays - Number of days between occurrences
- * @param frequency.timeOfDay - Time of day for the occurrence (if unset, defaults to midnight)
- * @param frequency.occurrences - Number of occurrences within the interval
+ * @param schedule - The schedule configuration
+ * @param schedule.daysOfWeek - Bitmask of days of the week (see DAYS constant)
+ * @param schedule.intervalDays - Number of days between occurrences
+ * @param schedule.timeOfDay - Time of day for the occurrence (if unset, defaults to midnight)
+ * @param schedule.occurrences - Number of occurrences within the interval
  * @param fromDate - The reference date to calculate from (defaults to current date)
  * @returns The next occurrence date, or null if no valid pattern is found
  */
 export function calculateNextFrequencyDate(
   frequency: Pick<
-    UserFrequency,
+    Schedule,
     "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"
   >,
   fromDate: Date = new Date(),

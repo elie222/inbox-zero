@@ -10,16 +10,13 @@ export const GET = withError(async (request, { params }) => {
       { status: 400 },
     );
 
-  const userFrequency = await prisma.userFrequency.findUnique({
+  const schedule = await prisma.schedule.findUnique({
     where: { id },
   });
 
-  if (!userFrequency) {
-    return NextResponse.json(
-      { error: "User frequency not found" },
-      { status: 404 },
-    );
+  if (!schedule) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
   }
 
-  return NextResponse.json(userFrequency);
+  return NextResponse.json(schedule);
 });

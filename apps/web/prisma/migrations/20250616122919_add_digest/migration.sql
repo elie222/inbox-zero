@@ -1,7 +1,7 @@
 /*
   Warnings:
 
-  - A unique constraint covering the columns `[digestFrequencyId]` on the table `EmailAccount` will be added. If there are existing duplicate values, this will fail.
+  - A unique constraint covering the columns `[digestScheduleId]` on the table `EmailAccount` will be added. If there are existing duplicate values, this will fail.
 
 */
 -- CreateEnum
@@ -15,7 +15,7 @@ ALTER TYPE "Frequency" ADD VALUE 'DAILY';
 
 -- AlterTable
 ALTER TABLE "EmailAccount" ADD COLUMN     "coldEmailDigest" BOOLEAN NOT NULL DEFAULT false,
-ADD COLUMN     "digestFrequencyId" TEXT;
+ADD COLUMN     "digestScheduleId" TEXT;
 
 -- CreateTable
 CREATE TABLE "Digest" (
@@ -45,7 +45,7 @@ CREATE TABLE "DigestItem" (
 );
 
 -- CreateTable
-CREATE TABLE "UserFrequency" (
+CREATE TABLE "Schedule" (
     "id" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -57,7 +57,7 @@ CREATE TABLE "UserFrequency" (
     "lastOccurrenceAt" TIMESTAMP(3),
     "nextOccurrenceAt" TIMESTAMP(3),
 
-    CONSTRAINT "UserFrequency_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Schedule_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -67,10 +67,10 @@ CREATE INDEX "Digest_emailAccountId_idx" ON "Digest"("emailAccountId");
 CREATE UNIQUE INDEX "DigestItem_digestId_threadId_messageId_key" ON "DigestItem"("digestId", "threadId", "messageId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "UserFrequency_emailAccountId_key" ON "UserFrequency"("emailAccountId");
+CREATE UNIQUE INDEX "Schedule_emailAccountId_key" ON "Schedule"("emailAccountId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "EmailAccount_digestFrequencyId_key" ON "EmailAccount"("digestFrequencyId");
+CREATE UNIQUE INDEX "EmailAccount_digestScheduleId_key" ON "EmailAccount"("digestScheduleId");
 
 -- AddForeignKey
 ALTER TABLE "Digest" ADD CONSTRAINT "Digest_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -85,4 +85,4 @@ ALTER TABLE "DigestItem" ADD CONSTRAINT "DigestItem_actionId_fkey" FOREIGN KEY (
 ALTER TABLE "DigestItem" ADD CONSTRAINT "DigestItem_coldEmailId_fkey" FOREIGN KEY ("coldEmailId") REFERENCES "ColdEmail"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "UserFrequency" ADD CONSTRAINT "UserFrequency_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "Schedule" ADD CONSTRAINT "Schedule_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;

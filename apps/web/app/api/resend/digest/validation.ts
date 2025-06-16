@@ -9,8 +9,8 @@ export const DigestEmailSummarySchema = z
           value: z.string(),
         }),
       )
-      .optional(),
-    summary: z.string().optional(),
+      .nullish(),
+    summary: z.string().nullish(),
   })
   .nullish();
 
