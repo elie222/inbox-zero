@@ -146,12 +146,6 @@ model EmailAccount {
   @@index([lastSummaryEmailAt])
 }
 
-enum DigestStatus {
-  PENDING
-  PROCESSING
-  SENT
-}
-
 model Digest {
   id             String   @id @default(cuid())
   createdAt      DateTime @default(now())
@@ -850,4 +844,10 @@ enum SystemType {
 enum ReferralStatus {
   PENDING // Referral created, waiting for trial completion
   COMPLETED // Referral completed and reward granted
+}
+
+enum DigestStatus {
+  PENDING
+  PROCESSING
+  SENT
 }
