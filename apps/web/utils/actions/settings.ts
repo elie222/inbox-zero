@@ -8,7 +8,7 @@ import {
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
-import { calculateNextFrequencyDate } from "@/utils/frequency";
+import { calculateNextScheduleDate } from "@/utils/frequency";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 
@@ -81,12 +81,12 @@ export const updateDigestScheduleAction = actionClient
             ...schedule,
             emailAccountId,
             lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextFrequencyDate(schedule),
+            nextOccurrenceAt: calculateNextScheduleDate(schedule),
           },
           update: {
             ...schedule,
             lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextFrequencyDate(schedule),
+            nextOccurrenceAt: calculateNextScheduleDate(schedule),
           },
         });
 

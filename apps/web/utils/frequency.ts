@@ -37,7 +37,7 @@ const maskFor = (jsDay: number) => 1 << (6 - jsDay);
  * @param fromDate - The reference date to calculate from (defaults to current date)
  * @returns The next occurrence date, or null if no valid pattern is found
  */
-export function calculateNextFrequencyDate(
+export function calculateNextScheduleDate(
   frequency: Pick<
     Schedule,
     "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"

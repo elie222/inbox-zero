@@ -105,9 +105,9 @@ model YourFeature {
 
 **Step 2: Calculate next occurrence**
 ```typescript
-import { calculateNextScheduleDate } from '@/utils/schedule';
+import { calculateNextFrequencyDate } from '@/utils/frequency';
 
-const nextDate = calculateNextScheduleDate({
+const nextDate = calculateNextFrequencyDate({
   intervalDays: schedule.intervalDays,
   occurrences: schedule.occurrences,
   daysOfWeek: schedule.daysOfWeek,
@@ -222,9 +222,9 @@ model Schedule {
 
 ### Core Functions
 
-**`calculateNextFrequencyDate()`** - Main scheduling function
+**`calculateNextScheduleDate()`** - Main scheduling function
 ```typescript
-function calculateNextFrequencyDate(
+function calculateNextScheduleDate(
   frequency: Pick<Schedule, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
   fromDate: Date = new Date()
 ): Date
@@ -316,11 +316,11 @@ const userTime = new Date().toLocaleString("en-US", {
 ### Testing Frequency Calculations
 
 ```typescript
-import { calculateNextFrequencyDate } from '@/utils/frequency';
+import { calculateNextScheduleDate } from '@/utils/frequency';
 
 describe('Schedule', () => {
   it('calculates daily frequency correctly', () => {
-    const next = calculateNextFrequencyDate({
+    const next = calculateNextScheduleDate({
       intervalDays: 1,
       occurrences: 1,
       timeOfDay: new Date('2023-01-01T11:00:00')
@@ -359,7 +359,7 @@ describe('Schedule', () => {
 ```typescript
 // Always recalculate next occurrence when settings change
 const updateFrequency = async (newFrequency: Schedule) => {
-  const nextOccurrence = calculateNextFrequencyDate(newFrequency);
+  const nextOccurrence = calculateNextScheduleDate(newFrequency);
   
   await prisma.schedule.update({
     where: { emailAccountId },
@@ -388,7 +388,7 @@ const processDueEvents = async () => {
     await processEvent(item);
     
     // Calculate and update next occurrence
-    const nextDate = calculateNextFrequencyDate(item.frequency);
+    const nextDate = calculateNextScheduleDate(item.frequency);
     await prisma.feature.update({
       where: { id: item.id },
       data: {
