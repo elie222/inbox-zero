@@ -3,7 +3,7 @@ import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
 import { hasCronSecret } from "@/utils/cron";
-import { captureException } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
@@ -101,136 +101,153 @@ async function sendEmail({
     });
   }
 
-  // Return early if no digests were found, unless force is true
-  if (pendingDigests.length === 0) {
-    if (!force) {
-      return { success: true, message: "No digests to process" };
+  try {
+    // Return early if no digests were found, unless force is true
+    if (pendingDigests.length === 0) {
+      if (!force) {
+        return { success: true, message: "No digests to process" };
+      }
+      // When force is true, send an empty digest to indicate the system is working
+      logger.info("Force sending empty digest", { emailAccountId });
     }
-    // When force is true, send an empty digest to indicate the system is working
-    logger.info("Force sending empty digest", { emailAccountId });
-  }
 
-  // Store the digest IDs for the final update
-  const processedDigestIds = pendingDigests.map((d) => d.id);
+    // Store the digest IDs for the final update
+    const processedDigestIds = pendingDigests.map((d) => d.id);
 
-  const messageIds = pendingDigests.flatMap((digest) =>
-    digest.items.map((item) => item.messageId),
-  );
+    const messageIds = pendingDigests.flatMap((digest) =>
+      digest.items.map((item) => item.messageId),
+    );
 
-  const messages = await getMessagesLargeBatch({
-    gmail,
-    messageIds,
-  });
-
-  // Create a message lookup map for O(1) access
-  const messageMap = new Map(messages.map((m) => [m.id, m]));
-
-  // Transform and group in a single pass
-  const executedRulesByRule = pendingDigests.reduce((acc, digest) => {
-    digest.items.forEach((item) => {
-      const message = messageMap.get(item.messageId);
-      if (!message) {
-        logger.warn("Message not found, skipping digest item", {
-          messageId: item.messageId,
-        });
-        return;
-      }
-
-      const ruleName = camelCase(
-        item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
-      );
-
-      // Only include if it's one of our known categories
-      const categoryResult = digestCategorySchema.safeParse(ruleName);
-      if (categoryResult.success) {
-        const category = categoryResult.data;
-        if (!acc[category]) {
-          acc[category] = [];
-        }
-
-        let parsedContent: unknown;
-        try {
-          parsedContent = JSON.parse(item.content);
-        } catch (error) {
-          logger.warn("Failed to parse digest item content, skipping item", {
-            messageId: item.messageId,
-            digestId: digest.id,
-            error: error instanceof Error ? error.message : "Unknown error",
-          });
-          return; // Skip this item and continue with the next one
-        }
-
-        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
-
-        if (contentResult.success) {
-          acc[category].push({
-            content: {
-              entries: contentResult.data?.entries || [],
-              summary: contentResult.data?.summary,
-            },
-            from: extractNameFromEmail(message?.headers?.from || ""),
-            subject: message?.headers?.subject || "",
-          });
-        }
-      }
+    const messages = await getMessagesLargeBatch({
+      gmail,
+      messageIds,
     });
-    return acc;
-  }, {} as Digest);
 
-  const token = await createUnsubscribeToken({ emailAccountId });
+    // Create a message lookup map for O(1) access
+    const messageMap = new Map(messages.map((m) => [m.id, m]));
 
-  // First, send the digest email and wait for it to complete
-  await sendDigestEmail({
-    from: env.RESEND_FROM_EMAIL,
-    to: emailAccount.email,
-    emailProps: {
-      ...executedRulesByRule,
-      baseUrl: env.NEXT_PUBLIC_BASE_URL,
-      unsubscribeToken: token,
-      date: new Date(),
-    },
-  });
+    // Transform and group in a single pass
+    const executedRulesByRule = pendingDigests.reduce((acc, digest) => {
+      digest.items.forEach((item) => {
+        const message = messageMap.get(item.messageId);
+        if (!message) {
+          logger.warn("Message not found, skipping digest item", {
+            messageId: item.messageId,
+          });
+          return;
+        }
 
-  // Only update database if email sending succeeded
-  await Promise.all([
-    ...(emailAccount.digestScheduleId
-      ? [
-          prisma.schedule.update({
-            where: {
-              id: emailAccount.digestScheduleId,
-              emailAccountId,
-            },
-            data: {
-              lastOccurrenceAt: new Date(),
-              nextOccurrenceAt: calculateNextScheduleDate(
-                emailAccount.digestSchedule!,
-              ),
-            },
-          }),
-        ]
-      : []),
-    // Mark only the processed digests as sent
-    prisma.digest.updateMany({
+        const ruleName = camelCase(
+          item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
+        );
+
+        // Only include if it's one of our known categories
+        const categoryResult = digestCategorySchema.safeParse(ruleName);
+        if (categoryResult.success) {
+          const category = categoryResult.data;
+          if (!acc[category]) {
+            acc[category] = [];
+          }
+
+          let parsedContent: unknown;
+          try {
+            parsedContent = JSON.parse(item.content);
+          } catch (error) {
+            logger.warn("Failed to parse digest item content, skipping item", {
+              messageId: item.messageId,
+              digestId: digest.id,
+              error: error instanceof Error ? error.message : "Unknown error",
+            });
+            return; // Skip this item and continue with the next one
+          }
+
+          const contentResult =
+            DigestEmailSummarySchema.safeParse(parsedContent);
+
+          if (contentResult.success) {
+            acc[category].push({
+              content: {
+                entries: contentResult.data?.entries || [],
+                summary: contentResult.data?.summary,
+              },
+              from: extractNameFromEmail(message?.headers?.from || ""),
+              subject: message?.headers?.subject || "",
+            });
+          }
+        }
+      });
+      return acc;
+    }, {} as Digest);
+
+    const token = await createUnsubscribeToken({ emailAccountId });
+
+    // First, send the digest email and wait for it to complete
+    await sendDigestEmail({
+      from: env.RESEND_FROM_EMAIL,
+      to: emailAccount.email,
+      emailProps: {
+        ...executedRulesByRule,
+        baseUrl: env.NEXT_PUBLIC_BASE_URL,
+        unsubscribeToken: token,
+        date: new Date(),
+      },
+    });
+
+    // Only update database if email sending succeeded
+    await Promise.all([
+      ...(emailAccount.digestScheduleId
+        ? [
+            prisma.schedule.update({
+              where: {
+                id: emailAccount.digestScheduleId,
+                emailAccountId,
+              },
+              data: {
+                lastOccurrenceAt: new Date(),
+                nextOccurrenceAt: calculateNextScheduleDate(
+                  emailAccount.digestSchedule!,
+                ),
+              },
+            }),
+          ]
+        : []),
+      // Mark only the processed digests as sent
+      prisma.digest.updateMany({
+        where: {
+          id: {
+            in: processedDigestIds,
+          },
+        },
+        data: {
+          status: DigestStatus.SENT,
+          sentAt: new Date(),
+        },
+      }),
+      // Redact all DigestItems for the processed digests
+      prisma.digestItem.updateMany({
+        data: { content: "[REDACTED]" },
+        where: {
+          digestId: {
+            in: processedDigestIds,
+          },
+        },
+      }),
+    ]);
+  } catch (error) {
+    await prisma.digest.updateMany({
       where: {
         id: {
-          in: processedDigestIds,
+          in: pendingDigests.map((d) => d.id),
         },
       },
       data: {
-        status: DigestStatus.SENT,
-        sentAt: new Date(),
+        status: DigestStatus.FAILED,
       },
-    }),
-    // Redact all DigestItems for the processed digests
-    prisma.digestItem.updateMany({
-      data: { content: "[REDACTED]" },
-      where: {
-        digestId: {
-          in: processedDigestIds,
-        },
-      },
-    }),
-  ]);
+    });
+    logger.error("Error sending digest email", { error });
+    captureException(error);
+    throw new SafeError("Error sending digest email", 500);
+  }
 
   return { success: true, message: "Digest email sent successfully" };
 }

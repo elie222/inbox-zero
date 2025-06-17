@@ -5,7 +5,7 @@
 
 */
 -- CreateEnum
-CREATE TYPE "DigestStatus" AS ENUM ('PENDING', 'PROCESSING', 'SENT');
+CREATE TYPE "DigestStatus" AS ENUM ('PENDING', 'PROCESSING', 'SENT', 'FAILED');
 
 -- AlterEnum
 ALTER TYPE "ActionType" ADD VALUE 'DIGEST';

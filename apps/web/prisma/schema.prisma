@@ -850,4 +850,5 @@ enum DigestStatus {
   PENDING
   PROCESSING
   SENT
+  FAILED
 }
