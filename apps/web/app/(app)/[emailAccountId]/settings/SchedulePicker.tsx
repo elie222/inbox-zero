@@ -37,7 +37,7 @@ const ampmOptions = [
 ];
 
 export type SchedulePickerFormValues = {
-  frequency: string;
+  schedule: string;
   dayOfWeek: string;
   hour: string;
   minute: string;
@@ -49,7 +49,7 @@ export function getInitialScheduleProps(digestSchedule?: {
   daysOfWeek?: number | null;
   timeOfDay?: string | Date | null;
 }): SchedulePickerFormValues {
-  const initialFrequency = (() => {
+  const initialSchedule = (() => {
     if (!digestSchedule) return "daily";
     switch (digestSchedule.intervalDays) {
       case 1:
@@ -88,7 +88,7 @@ export function getInitialScheduleProps(digestSchedule?: {
     | "AM"
     | "PM";
   return {
-    frequency: initialFrequency,
+    schedule: initialSchedule,
     dayOfWeek: initialDayOfWeek,
     hour: hour12,
     minute: initMinute || "00",
@@ -97,14 +97,14 @@ export function getInitialScheduleProps(digestSchedule?: {
 }
 
 export function mapToSchedule({
-  frequency,
+  schedule,
   dayOfWeek,
   hour,
   minute,
   ampm,
 }: SchedulePickerFormValues) {
   let intervalDays: number;
-  switch (frequency) {
+  switch (schedule) {
     case "daily":
       intervalDays = 1;
       break;
@@ -155,7 +155,7 @@ export function SchedulePicker({
 }) {
   const [value, setValue] = useState<SchedulePickerFormValues>(
     defaultValue || {
-      frequency: "daily",
+      schedule: "daily",
       dayOfWeek: "1",
       hour: "11",
       minute: "00",
@@ -177,13 +177,13 @@ export function SchedulePicker({
       <FormItem>
         <Label htmlFor="frequency-select">Every</Label>
         <Select
-          value={value.frequency}
-          onValueChange={(val) => handleFieldChange("frequency", val)}
+          value={value.schedule}
+          onValueChange={(val) => handleFieldChange("schedule", val)}
           disabled={disabled}
         >
           <SelectTrigger id="frequency-select">
-            {value.frequency
-              ? frequencies.find((f) => f.value === value.frequency)?.label
+            {value.schedule
+              ? frequencies.find((f) => f.value === value.schedule)?.label
               : "Select..."}
           </SelectTrigger>
           <SelectContent>
@@ -195,10 +195,10 @@ export function SchedulePicker({
           </SelectContent>
         </Select>
       </FormItem>
-      {(!hideDayOfWeekIfDaily || value.frequency !== "daily") && (
+      {(!hideDayOfWeekIfDaily || value.schedule !== "daily") && (
         <FormItem>
           <Label htmlFor="dayofweek-select">
-            {value.frequency === "monthly" || value.frequency === "biweekly"
+            {value.schedule === "monthly" || value.schedule === "biweekly"
               ? "on the first"
               : "on"}
           </Label>

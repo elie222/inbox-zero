@@ -91,7 +91,7 @@ const slotSize = intervalDays / occurrences; // 2.33 days
 
 ## Implementation Guide
 
-### Setting Up Frequency for a Feature
+### Setting Up Schedule for a Feature
 
 **Step 1: Add Schedule to your model**
 ```prisma
@@ -105,9 +105,9 @@ model YourFeature {
 
 **Step 2: Calculate next occurrence**
 ```typescript
-import { calculateNextFrequencyDate } from '@/utils/frequency';
+import { calculateNextScheduleDate } from '@/utils/schedule';
 
-const nextDate = calculateNextFrequencyDate({
+const nextDate = calculateNextScheduleDate({
   intervalDays: schedule.intervalDays,
   occurrences: schedule.occurrences,
   daysOfWeek: schedule.daysOfWeek,
@@ -133,7 +133,7 @@ const dueItems = await prisma.yourFeature.findMany({
 });
 ```
 
-### Adding Frequency UI to Settings
+### Adding Schedule UI to Settings
 
 **Step 1: Use SchedulePicker component**
 ```typescript
@@ -143,7 +143,7 @@ function YourSettingsComponent() {
   const [schedule, setSchedule] = useState(initialSchedule);
   
   return (
-    <FrequencyPicker
+    <SchedulePicker
       value={schedule}
       onChange={setSchedule}
       // Component handles all the complex UI logic
@@ -154,14 +154,14 @@ function YourSettingsComponent() {
 
 **Step 2: Map form data to Schedule**
 ```typescript
-import { mapToSchedule } from '@/utils/frequency';
+import { mapToSchedule } from '@/utils/schedule';
 
 const handleSubmit = async (formData) => {
   const schedule = mapToSchedule(formData);
   
-  await updateFrequencyAction({
+  await updateScheduleAction({
     emailAccountId,
-    frequency: schedule
+    schedule
   });
 };
 ```
@@ -225,7 +225,7 @@ model Schedule {
 **`calculateNextScheduleDate()`** - Main scheduling function
 ```typescript
 function calculateNextScheduleDate(
-  frequency: Pick<Schedule, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
+  schedule: Pick<Schedule, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
   fromDate: Date = new Date()
 ): Date
 ```
@@ -237,16 +237,16 @@ function mapToSchedule(formData: ScheduleFormData): Schedule
 
 **`getInitialScheduleProps()`** - Convert database to form format
 ```typescript
-function getInitialScheduleProps(schedule?: Schedule): FrequencyFormData
+function getInitialScheduleProps(schedule?: Schedule): ScheduleFormData
 ```
 
 ### UI Components
 
-**FrequencyPicker** - Complete frequency selection UI
+**SchedulePicker** - Complete schedule selection UI
 ```typescript
-interface FrequencyPickerProps {
-  value: FrequencyFormData;
-  onChange: (value: FrequencyFormData) => void;
+interface SchedulePickerProps {
+  value: ScheduleFormData;
+  onChange: (value: ScheduleFormData) => void;
   disabled?: boolean;
 }
 ```
@@ -313,13 +313,13 @@ const userTime = new Date().toLocaleString("en-US", {
 
 ## Testing & Development
 
-### Testing Frequency Calculations
+### Testing Schedule Calculations
 
 ```typescript
-import { calculateNextScheduleDate } from '@/utils/frequency';
+import { calculateNextScheduleDate } from '@/utils/schedule';
 
 describe('Schedule', () => {
-  it('calculates daily frequency correctly', () => {
+  it('calculates daily schedule correctly', () => {
     const next = calculateNextScheduleDate({
       intervalDays: 1,
       occurrences: 1,
@@ -344,9 +344,9 @@ describe('Schedule', () => {
 
 ### Development Workflow
 
-1. **Design the frequency pattern** - What schedule do you need?
-2. **Test with calculateNextFrequencyDate** - Verify the logic works
-3. **Add UI with FrequencyPicker** - Let users configure it
+1. **Design the schedule pattern** - What schedule do you need?
+2. **Test with calculateNextScheduleDate** - Verify the logic works
+3. **Add UI with SchedulePicker** - Let users configure it
 4. **Implement the recurring job** - Use the calculated dates
 5. **Test edge cases** - Timezone changes, DST, month boundaries
 
@@ -354,17 +354,17 @@ describe('Schedule', () => {
 
 ## Common Patterns & Best Practices
 
-### Updating Frequency Settings
+### Updating Schedule Settings
 
 ```typescript
 // Always recalculate next occurrence when settings change
-const updateFrequency = async (newFrequency: Schedule) => {
-  const nextOccurrence = calculateNextScheduleDate(newFrequency);
+const updateSchedule = async (newSchedule: Schedule) => {
+  const nextOccurrence = calculateNextScheduleDate(newSchedule);
   
   await prisma.schedule.update({
     where: { emailAccountId },
     data: {
-      ...newFrequency,
+      ...newSchedule,
       nextOccurrenceAt: nextOccurrence
     }
   });
@@ -388,7 +388,7 @@ const processDueEvents = async () => {
     await processEvent(item);
     
     // Calculate and update next occurrence
-    const nextDate = calculateNextScheduleDate(item.frequency);
+    const nextDate = calculateNextScheduleDate(item.schedule);
     await prisma.feature.update({
       where: { id: item.id },
       data: {
@@ -403,20 +403,20 @@ const processDueEvents = async () => {
 ### Form Integration
 
 ```typescript
-// Standard form setup with FrequencyPicker
-const FrequencySettingsForm = () => {
+// Standard form setup with SchedulePicker
+const ScheduleSettingsForm = () => {
   const form = useForm({
-    defaultValues: getInitialFrequencyProps(currentFrequency)
+    defaultValues: getInitialScheduleProps(currentSchedule)
   });
   
   const onSubmit = async (data) => {
       const schedule = mapToSchedule(data);
-  await updateFrequencyAction(schedule);
+  await updateScheduleAction(schedule);
   };
   
   return (
     <form onSubmit={form.handleSubmit(onSubmit)}>
-      <FrequencyPicker
+      <SchedulePicker
         value={form.watch()}
         onChange={(value) => form.reset(value)}
       />
@@ -432,7 +432,7 @@ const FrequencySettingsForm = () => {
 ### Common Issues
 
 **Next occurrence not updating:**
-- Ensure you're calling `calculateNextFrequencyDate` after each event
+- Ensure you're calling `calculateNextScheduleDate` after each event
 - Check that `lastOccurrenceAt` is being updated
 - Verify timezone handling is consistent
 
@@ -449,11 +449,11 @@ const FrequencySettingsForm = () => {
 ### Debug Tools
 
 ```typescript
-// Debug frequency calculation
-const debugFrequency = (frequency: Schedule, fromDate: Date) => {
-  console.log('Input:', { frequency, fromDate });
+// Debug schedule calculation
+const debugSchedule = (schedule: Schedule, fromDate: Date) => {
+  console.log('Input:', { schedule, fromDate });
   
-  const next = calculateNextFrequencyDate(frequency, fromDate);
+  const next = calculateNextScheduleDate(schedule, fromDate);
   console.log('Next occurrence:', next);
   
   const timeDiff = next.getTime() - fromDate.getTime();
@@ -466,21 +466,21 @@ const debugFrequency = (frequency: Schedule, fromDate: Date) => {
 ## File Reference
 
 ### Core Implementation
-- `apps/web/utils/frequency.ts` - Main scheduling logic and utilities
+- `apps/web/utils/schedule.ts` - Main scheduling logic and utilities
 - `apps/web/prisma/schema.prisma` - Schedule model definition
 
 ### UI Components
-- `apps/web/app/(app)/[emailAccountId]/settings/FrequencyPicker.tsx` - Frequency selection UI
-- `apps/web/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection.tsx` - Digest-specific settings
+- `apps/web/app/(app)/[emailAccountId]/settings/SchedulePicker.tsx` - Schedule selection UI
+- `apps/web/app/(app)/[emailAccountId]/settings/DigestMailScheduleSection.tsx` - Digest-specific settings
 
 ### Integration Examples
 - `apps/web/utils/actions/settings.ts` - Settings management actions
 - `apps/web/app/api/resend/digest/route.ts` - Digest scheduling implementation
-- `apps/web/app/api/resend/digest/all/route.ts` - Batch processing with frequency checks
+- `apps/web/app/api/resend/digest/all/route.ts` - Batch processing with schedule checks
 
 ### Validation & Types
 - `apps/web/app/api/ai/digest/validation.ts` - API validation schemas
-- `apps/web/types/frequency.ts` - TypeScript type definitions
+- `apps/web/types/schedule.ts` - TypeScript type definitions
 
 ---
 

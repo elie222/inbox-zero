@@ -55,7 +55,7 @@ aiSummarizeEmailForDigest(ruleName, emailAccount, email)
 - Atomic upserts prevent duplicates and race conditions
 
 ### 4. Scheduled Sending
-- Cron job checks user frequency preferences
+- Cron job checks user schedule preferences
 - Generates email with categorized summaries
 - Marks digest as `SENT` and redacts content for privacy
 
@@ -118,7 +118,7 @@ const categories = [
 2. Define color scheme and icon
 3. Update AI prompts to recognize the category
 
-### Frequency Configuration
+### Schedule Configuration
 
 Users control digest timing via the `Schedule` model:
 ```typescript
@@ -269,7 +269,7 @@ npm test -- summarize-email-for-digest.test.ts
 2. **Test locally** with sample emails
 3. **Verify AI output** matches expected format
 4. **Check email rendering** in digest template
-5. **Validate frequency** scheduling works correctly
+5. **Validate schedule** works correctly
 
 ---
 
