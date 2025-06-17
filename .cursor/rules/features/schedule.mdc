@@ -33,7 +33,7 @@ Schedule is a flexible scheduling system that handles recurring events in the ap
 
 ```mermaid
 graph TD
-    A[User Sets Frequency] --> B[Calculate Next Date]
+    A[User Sets Schedule] --> B[Calculate Next Date]
     B --> C[Store nextOccurrenceAt]
     C --> D[Event Triggers]
     D --> E[Update lastOccurrenceAt]
