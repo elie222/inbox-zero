@@ -152,8 +152,12 @@ async function emailAccountMiddleware(
   const userId = authReq.auth.userId;
 
   // Check for X-Email-Account-ID header
-  const emailAccountId = req.headers.get(EMAIL_ACCOUNT_HEADER);
+  let emailAccountId = req.headers.get(EMAIL_ACCOUNT_HEADER);
 
+  if (!emailAccountId) {
+    const url = new URL(req.url);
+    emailAccountId = url.searchParams.get("emailAccountId") ?? undefined;
+  }
   if (!emailAccountId) {
     return NextResponse.json(
       { error: "Email account ID is required", isKnownError: true },

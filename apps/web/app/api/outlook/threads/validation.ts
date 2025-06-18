@@ -6,6 +6,6 @@ export const threadsQuery = z.object({
   type: z.string().nullish(),
   q: z.string().nullish(),
   nextPageToken: z.string().nullish(),
-  folderId: z.string().nullish(), // using folderId for Graph instead of labelId
+  labelId: z.string().nullish(),
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;

@@ -45,11 +45,22 @@ export const getAuthOptions: (options?: {
     MicrosoftProvider({
       clientId: env.MICROSOFT_CLIENT_ID,
       clientSecret: env.MICROSOFT_CLIENT_SECRET,
-      issuer: `https://login.microsoftonline.com/${env.MICROSOFT_ISSUER}/v2.0`,
+      tenantId: env.MICROSOFT_CLIENT_TENANT_ID!,
       authorization: {
-        // https://learn.microsoft.com/en-us/graph/permissions-overview
         params: {
-          scope: MICROSOFT_SCOPES.join(" "),
+          // ⬇️ o `params.scope` é o que o NextAuth espera
+          scope: [
+            "openid",
+            "profile",
+            "email",
+            "offline_access",
+            "User.Read",
+            "Mail.Read",
+            "Mail.ReadWrite",
+            "Mail.Send",
+
+            "MailboxSettings.ReadWrite",
+          ].join(" "),
         },
       },
     }),
@@ -404,14 +415,14 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       });
     } else if (account.provider === "microsoft-entra-id") {
       response = await fetch(
-        `https://login.microsoftonline.com/${env.MICROSOFT_ISSUER}/oauth2/v2.0/token`,
+        `https://login.microsoftonline.com/${env.MICROSOFT_CLIENT_TENANT_ID}/oauth2/v2.0/token`,
         {
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
           body: new URLSearchParams({
             client_id: env.MICROSOFT_CLIENT_ID,
             client_secret: env.MICROSOFT_CLIENT_SECRET,
             grant_type: "refresh_token",
-            refresh_token: account.refresh_token,
+            refresh_token: account.refresh_token!,
             scope: MICROSOFT_SCOPES.join(" "),
           }),
           method: "POST",

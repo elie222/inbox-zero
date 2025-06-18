@@ -1,45 +1,34 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getOutlookThreads } from "@/app/api/outlook/threads/controller";
-import { threadsQuery } from "@/app/api/outlook/threads/validation";
-import { getGraphClientAndAccessTokenForEmail } from "@/utils/account";
+import { getOutlookThreads } from "./controller";
+import { threadsQuery } from "./validation";
+import { auth } from "@/app/api/auth/[...nextauth]/auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  console.log("emailAccountId", emailAccountId);
-
   const { searchParams } = new URL(request.url);
-  const limit = searchParams.get("limit");
-  const fromEmail = searchParams.get("fromEmail");
-  const type = searchParams.get("type");
-  const nextPageToken = searchParams.get("nextPageToken");
-  const q = searchParams.get("q");
-  const folderId = searchParams.get("folderId");
-  const query = threadsQuery.parse({
-    limit,
-    fromEmail,
-    type,
-    nextPageToken,
-    q,
-    folderId,
-  });
+  const limit = Number(searchParams.get("limit") ?? 20);
+  const skip = Number(searchParams.get("skip") ?? 0);
+  const filter = searchParams.get("filter") ?? undefined;
+  const query = threadsQuery.parse({ limit, skip, filter });
 
-  // graph client and access token
-  const { graphClient, accessToken } =
-    await getGraphClientAndAccessTokenForEmail({
-      emailAccountId,
-    });
+  const session = await auth();
+  const accessToken = session.accessToken ?? session.user.accessToken;
+  if (!accessToken) {
+    return NextResponse.json(
+      { error: "Missing Outlook access token" },
+      { status: 401 },
+    );
+  }
 
-  if (!accessToken) return NextResponse.json({ error: "Account not found" });
+  const emailAccountId = request.auth.emailAccountId;
 
   const threads = await getOutlookThreads({
-    query,
-    emailAccountId,
-    graphClient,
     accessToken,
+    query,
   });
+
   return NextResponse.json(threads);
 });
