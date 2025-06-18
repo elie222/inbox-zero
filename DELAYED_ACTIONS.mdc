@@ -1,0 +1,3352 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Delayed Actions Implementation - Revised Action Plan
+
+## ✅ **PHASE 0 COMPLETED - ARCHITECTURE DECISIONS FINALIZED**
+
+All 10 critical architecture decisions have been resolved. Implementation can now begin!
+
+## 📋 **FINALIZED ARCHITECTURE DECISIONS**
+
+### **✅ Decision #1: Rule Processing Integration Point**
+**Resolution**: Modify `executeMatchedRule()` to handle immediate/delayed action split
+
+**Current Flow Analysis**:
+```typescript
+// Current: apps/web/utils/ai/choose-rule/run-rules.ts
+async function executeMatchedRule(
+  rule: RuleWithActionsAndCategories,
+  message: ParsedMessage,          // ← Has internalDate
+  emailAccount: EmailAccountWithAI, // ← Has user context
+  gmail: gmail_v1.Gmail,           // ← Has API client
+  reason: string | undefined,
+  matchReasons: MatchReason[] | undefined,
+  isTest: boolean,
+) {
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({...});
+  
+  // handle action
+  const executedRule = await saveExecutedRule({...}, { rule, actionItems, reason });
+  
+  const shouldExecute = executedRule && rule.automate;
+  
+  if (shouldExecute) {
+    await executeAct({...}); // ← Current single execution point
+  }
+}
+```
+
+**New Enhanced Flow**:
+```typescript
+async function executeMatchedRule(
+  rule: RuleWithActionsAndCategories,
+  message: ParsedMessage,
+  emailAccount: EmailAccountWithAI,
+  gmail: gmail_v1.Gmail,
+  reason: string | undefined,
+  matchReasons: MatchReason[] | undefined,
+  isTest: boolean,
+) {
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({...});
+  
+  // NEW: Separate immediate and delayed actions
+  const immediateActions = rule.actions.filter(action => !action.delayInMinutes);
+  const delayedActions = rule.actions.filter(action => 
+    action.delayInMinutes && isSupportedDelayedAction(action.type)
+  );
+  
+  // handle action - NOW with timing context
+  const executedRule = await saveExecutedRule(
+    { emailAccountId: emailAccount.id, threadId: message.threadId, messageId: message.id },
+    { 
+      rule, 
+      actionItems, 
+      reason,
+      emailInternalDate: new Date(message.internalDate) // ← NEW: Timing context
+    }
+  );
+  
+  const shouldExecute = executedRule && rule.automate;
+  
+  if (shouldExecute) {
+    // NEW: Handle immediate actions
+    if (immediateActions.length > 0) {
+      // Filter actionItems to only immediate actions
+      const immediateActionItems = actionItems.filter(item => 
+        immediateActions.some(action => action.type === item.type)
+      );
+      
+      // Create temporary ExecutedRule for immediate execution
+      const immediateExecutedRule = {
+        ...executedRule,
+        actionItems: immediateActionItems
+      };
+      
+      await executeAct({
+        gmail,
+        userEmail: emailAccount.email,
+        userId: emailAccount.userId,
+        emailAccountId: emailAccount.id,
+        executedRule: immediateExecutedRule,
+        message,
+      });
+    }
+    
+    // NEW: Schedule delayed actions
+    if (delayedActions.length > 0) {
+      await scheduleDelayedActions({
+        executedRule,
+        delayedActions,
+        emailInternalDate: new Date(message.internalDate),
+        messageId: message.id,
+        threadId: message.threadId,
+        emailAccountId: emailAccount.id,
+      });
+      
+      // Update status to SCHEDULED since we have delayed actions
+      await prisma.executedRule.update({
+        where: { id: executedRule.id },
+        data: { status: ExecutedRuleStatus.SCHEDULED }
+      });
+    }
+  }
+  
+  return {
+    rule,
+    actionItems,
+    executedRule,
+    reason,
+    matchReasons,
+  };
+}
+```
+
+**Integration Benefits**:
+- ✅ Clean separation: immediate actions execute now, delayed actions scheduled
+- ✅ Access to all needed context: `gmail`, `emailAccount`, `message.internalDate`
+- ✅ Minimal disruption: existing `executeAct()` unchanged for immediate actions
+- ✅ Consistent error handling: both paths use established patterns
+
+### **✅ Decision #2: ExecutedAction vs ActionItem Relationship**
+**Resolution**: ActionItem → ScheduledAction → ExecutedAction (delayed actions only)
+
+**Current Behavior Analysis**:
+```typescript
+// Current: All ActionItems become ExecutedActions immediately
+const executedRule = await saveExecutedRule({...}, { rule, actionItems, reason });
+// executedRule.actionItems = [ExecutedAction, ExecutedAction, ...] ← Created immediately
+
+await executeAct({ executedRule }); // Uses existing ExecutedActions
+```
+
+**New Delayed Action Flow**:
+```typescript
+// Immediate Actions: ActionItem → ExecutedAction (unchanged)
+const immediateActionItems = actionItems.filter(item => 
+  immediateActions.some(action => action.type === item.type)
+);
+// These become ExecutedActions immediately in saveExecutedRule()
+
+// Delayed Actions: ActionItem → ScheduledAction → ExecutedAction (when executed)
+for (const action of delayedActions) {
+  const correspondingActionItem = actionItems.find(item => item.type === action.type);
+  
+  const scheduledAction = await createScheduledAction({
+    executedRuleId: executedRule.id,
+    actionType: action.type,
+    delayInMinutes: action.delayInMinutes!,
+    emailInternalDate: new Date(message.internalDate),
+    messageId: message.id,
+    threadId: message.threadId,
+    emailAccountId: emailAccount.id,
+    
+    // Store ActionItem details for later execution
+    actionItemData: {
+      label: correspondingActionItem.label,
+      subject: correspondingActionItem.subject,
+      content: correspondingActionItem.content,
+      to: correspondingActionItem.to,
+      cc: correspondingActionItem.cc,
+      bcc: correspondingActionItem.bcc,
+      url: correspondingActionItem.url,
+    }
+  });
+}
+```
+
+**ScheduledAction Schema Details**:
+```prisma
+model ScheduledAction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Email context
+  messageId String
+  threadId  String
+  
+  // Rule context
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  
+  // Action details - COPY ActionItem data for delayed execution
+  actionType ActionType
+  label      String?  // Copy from ActionItem
+  subject    String?  // Copy from ActionItem
+  content    String?  // Copy from ActionItem
+  to         String?  // Copy from ActionItem
+  cc         String?  // Copy from ActionItem
+  bcc        String?  // Copy from ActionItem
+  url        String?  // Copy from ActionItem
+  
+  // Scheduling
+  scheduledFor DateTime
+  status       ScheduledActionStatus @default(PENDING)
+  
+  // Execution tracking - Links to ExecutedAction when complete
+  executedAt       DateTime?
+  executedActionId String?   @unique
+  executedAction   ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  
+  // Error handling
+  errorMessage String?
+  retryCount   Int     @default(0)
+  
+  // User context
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  
+  // Constraints
+  @@unique([executedRuleId, actionType])
+  @@index([emailAccountId, scheduledFor])
+  @@index([scheduledFor])
+  @@index([emailAccountId, messageId])
+}
+```
+
+**Cron Job Execution Flow**:
+```typescript
+// When cron job processes ScheduledAction
+async function executeScheduledAction(scheduledAction: ScheduledActionWithDetails) {
+  // 1. Mark as executing
+  await prisma.scheduledAction.update({
+    where: { id: scheduledAction.id },
+    data: { status: ScheduledActionStatus.EXECUTING }
+  });
+  
+  // 2. Reconstruct ActionItem from stored data
+  const actionItem = {
+    type: scheduledAction.actionType,
+    label: scheduledAction.label,
+    subject: scheduledAction.subject,
+    content: scheduledAction.content,
+    to: scheduledAction.to,
+    cc: scheduledAction.cc,
+    bcc: scheduledAction.bcc,
+    url: scheduledAction.url,
+  };
+  
+  // 3. Execute using existing action logic
+  const actionResult = await runActionFunction({
+    gmail,
+    email: message,
+    action: actionItem,
+    userEmail: emailAccount.email,
+    userId: emailAccount.userId,
+    emailAccountId: scheduledAction.emailAccountId,
+    executedRule: scheduledAction.executedRule,
+  });
+  
+  // 4. Create ExecutedAction record (finally!)
+  const executedAction = await prisma.executedAction.create({
+    data: {
+      type: scheduledAction.actionType,
+      executedRuleId: scheduledAction.executedRuleId,
+      label: scheduledAction.label,
+      subject: scheduledAction.subject,
+      content: scheduledAction.content,
+      to: scheduledAction.to,
+      cc: scheduledAction.cc,
+      bcc: scheduledAction.bcc,
+      url: scheduledAction.url,
+    },
+  });
+  
+  // 5. Mark scheduled action as completed
+  await prisma.scheduledAction.update({
+    where: { id: scheduledAction.id },
+    data: {
+      status: ScheduledActionStatus.COMPLETED,
+      executedAt: new Date(),
+      executedActionId: executedAction.id,
+    },
+  });
+}
+```
+
+**Semantic Benefits**:
+- ✅ **ExecutedAction** = truly executed (consistent meaning)
+- ✅ **ScheduledAction** = planned for execution (clear distinction)
+- ✅ **ActionItem** = AI-generated plan (temporary, used for execution)
+- ✅ Clean audit trail: ScheduledAction → ExecutedAction linkage
+- ✅ No duplicate ExecutedActions for delayed actions
+
+### **✅ Decision #3: Premium Feature Integration**
+**Resolution**: BUSINESS tier minimum, show upgrade prompts, cancel existing on downgrade
+
+**Premium Tier Analysis**:
+```typescript
+// Current tier ranking from utils/premium/index.ts
+const tierRanking = {
+  [PremiumTier.BASIC_MONTHLY]: 1,      // Basic features
+  [PremiumTier.BASIC_ANNUALLY]: 2,
+  [PremiumTier.PRO_MONTHLY]: 3,        // AI with own API key
+  [PremiumTier.PRO_ANNUALLY]: 4,
+  [PremiumTier.BUSINESS_MONTHLY]: 5,   // ← BUSINESS = Full AI access
+  [PremiumTier.BUSINESS_ANNUALLY]: 6,  // ← Our minimum tier
+  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 7,
+  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 8,
+  [PremiumTier.COPILOT_MONTHLY]: 9,
+  [PremiumTier.LIFETIME]: 10,
+};
+
+// Delayed actions access check
+export const hasDelayedActionsAccess = (tier: PremiumTier | null): boolean => {
+  if (!tier) return false;
+  const ranking = tierRanking[tier];
+  return ranking >= tierRanking[PremiumTier.BUSINESS_MONTHLY]; // Minimum: ranking 5
+};
+```
+
+**UI Integration Patterns**:
+```typescript
+// In RuleForm.tsx - ActionCard component
+function ActionCard({ action, index, ... }) {
+  const { isPremium, tier } = usePremium();
+  const { openModal, PremiumModal } = usePremiumModal();
+  
+  const hasDelayedActionsAccess = hasTierAccess({
+    tier,
+    minimumTier: PremiumTier.BUSINESS_MONTHLY,
+  });
+
+  return (
+    <CardBasic>
+      <div className="grid gap-2 sm:grid-cols-3">
+        {/* ... existing action type selector and fields ... */}
+        
+        <div className="space-y-4 sm:col-span-2">
+          {/* Existing action fields */}
+          {fields.map((field) => (
+            // ... existing field rendering
+          ))}
+          
+          {/* NEW: Delay controls section */}
+          {isSupportedDelayedAction(action.type) && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Delay</Label>
+                <TooltipExplanation text="Schedule this action to execute after a delay instead of immediately. Business plan required." />
+              </div>
+              
+              {hasDelayedActionsAccess ? (
+                <DelayControls
+                  index={index}
+                  action={action}
+                  watch={watch}
+                  setValue={setValue}
+                />
+              ) : (
+                <ActionCard
+                  icon={<CrownIcon className="h-4 w-4" />}
+                  title="Business Plan Required"
+                  description="Delayed actions require Business plan or higher for advanced automation."
+                  action={<Button onClick={openModal}>Upgrade to Business</Button>}
+                />
+              )}
+            </div>
+          )}
+          
+          {/* ... rest of existing fields ... */}
+        </div>
+      </div>
+      <PremiumModal />
+    </CardBasic>
+  );
+}
+
+// DelayControls component
+function DelayControls({ index, action, watch, setValue }) {
+  const hasDelay = !!watch(`actions.${index}.delayInMinutes`);
+  
+  return (
+    <div className="flex items-center space-x-2">
+      <Toggle
+        name={`actions.${index}.hasDelay`}
+        label="Enable delay"
+        enabled={hasDelay}
+        onChange={(enabled: boolean) => {
+          setValue(
+            `actions.${index}.delayInMinutes`,
+            enabled ? 60 : undefined // Default to 1 hour
+          );
+        }}
+      />
+      
+      {hasDelay && (
+        <DelayTimeSelector
+          value={watch(`actions.${index}.delayInMinutes`) || 60}
+          onChange={(minutes: number) => {
+            setValue(`actions.${index}.delayInMinutes`, minutes);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// DelayTimeSelector component
+function DelayTimeSelector({ value, onChange }) {
+  const [inputValue, setInputValue] = useState(Math.floor(value / 60));
+  const [unit, setUnit] = useState(value >= 1440 ? 'days' : 'hours');
+  
+  const updateDelay = (newValue: number, newUnit: string) => {
+    const minutes = newUnit === 'hours' ? newValue * 60 : newValue * 1440;
+    onChange(Math.max(1, Math.min(43200, minutes))); // 1 min to 30 days
+  };
+  
+  return (
+    <div className="flex items-center space-x-1">
+      <input
+        type="number"
+        min="1"
+        max={unit === 'hours' ? 720 : 30} // Max 720 hours or 30 days
+        value={inputValue}
+        onChange={(e) => {
+          const newValue = parseInt(e.target.value) || 1;
+          setInputValue(newValue);
+          updateDelay(newValue, unit);
+        }}
+        className="w-16 rounded border border-gray-300 px-2 py-1 text-sm"
+      />
+      
+      <select
+        value={unit}
+        onChange={(e) => {
+          const newUnit = e.target.value;
+          setUnit(newUnit);
+          // Convert existing value to new unit
+          const newValue = newUnit === 'hours' 
+            ? Math.floor(value / 60) 
+            : Math.floor(value / 1440);
+          setInputValue(Math.max(1, newValue));
+          updateDelay(Math.max(1, newValue), newUnit);
+        }}
+        className="rounded border border-gray-300 px-2 py-1 text-sm"
+      >
+        <option value="hours">hours</option>
+        <option value="days">days</option>
+      </select>
+    </div>
+  );
+}
+```
+
+**Server-Side Premium Validation**:
+```typescript
+// In rule creation/update actions
+export const createRuleAction = actionClient
+  .metadata({ name: "createRule" })
+  .schema(createRuleBody)
+  .action(async ({ ctx: { userId, emailAccountId }, parsedInput: data }) => {
+    // Check if user has delayed actions access
+    const hasAccess = await checkHasAccess({
+      userId,
+      minimumTier: PremiumTier.BUSINESS_MONTHLY,
+    });
+    
+    // Check if any actions have delays
+    const hasDelayedActions = data.actions.some(action => action.delayInMinutes);
+    
+    if (hasDelayedActions && !hasAccess) {
+      throw new SafeError(
+        "Delayed actions require Business plan or higher. Please upgrade to use this feature."
+      );
+    }
+    
+    // Proceed with rule creation...
+  });
+```
+
+**Downgrade Handling**:
+```typescript
+// In premium cancellation/downgrade webhook handlers
+async function handlePremiumDowngrade(userId: string, newTier: PremiumTier | null) {
+  const hasDelayedActionsAccess = newTier ? hasTierAccess({
+    tier: newTier,
+    minimumTier: PremiumTier.BUSINESS_MONTHLY,
+  }) : false;
+  
+  if (!hasDelayedActionsAccess) {
+    // Cancel all pending scheduled actions for this user
+    const userEmailAccounts = await prisma.emailAccount.findMany({
+      where: { userId },
+      select: { id: true }
+    });
+    
+    const emailAccountIds = userEmailAccounts.map(account => account.id);
+    
+    const cancelledActions = await prisma.scheduledAction.updateMany({
+      where: {
+        emailAccountId: { in: emailAccountIds },
+        status: ScheduledActionStatus.PENDING,
+      },
+      data: {
+        status: ScheduledActionStatus.CANCELLED,
+        errorMessage: "Cancelled due to plan downgrade - delayed actions require Business plan",
+      },
+    });
+    
+    logger.info("Cancelled scheduled actions due to downgrade", {
+      userId,
+      newTier,
+      cancelledCount: cancelledActions.count,
+    });
+    
+    // Also disable delay settings on existing rules
+    await prisma.action.updateMany({
+      where: {
+        rule: {
+          emailAccountId: { in: emailAccountIds }
+        },
+        delayInMinutes: { not: null }
+      },
+      data: {
+        delayInMinutes: null
+      }
+    });
+  }
+}
+```
+
+**Premium Benefits Messaging**:
+- ✅ **Business Plan Positioning**: "Advanced automation for businesses"
+- ✅ **Value Proposition**: "Schedule actions to execute automatically when it makes sense"
+- ✅ **Use Cases**: "Archive newsletters after 3 days", "Follow up if no reply in 1 week"
+- ✅ **Infrastructure Justification**: Cron job processing, database storage, retry logic
+
+### **✅ Decision #4: Action Validation Schema**
+**Resolution**: Add `delayInMinutes: z.number().min(1).max(43200).optional()` at action root level
+- Simple field validation (1 minute to 30 days)
+- Clean mapping: Database `Action.delayInMinutes` ↔ Form `action.delayInMinutes`
+- Optional field means immediate execution when undefined
+
+### **✅ Decision #5: Gmail internalDate Timing**
+**Resolution**: Extract `internalDate` from ParsedMessage, pass separately to `saveExecutedRule()`
+- More accurate scheduling relative to email receipt time
+- Clean interface: pass only needed data
+- User expectations: delays relative to email received time
+
+### **✅ Decision #6: Cron Job Token Management**
+**Resolution**: Use existing `getEmailAccountWithAiAndTokens()` function
+- Function already exists in `utils/user/get.ts`
+- Automatic token refresh handled by `getGmailClientWithRefresh()`
+- Revoked access will throw errors that can be caught and handled
+
+### **✅ Decision #7: ExecutedRule Status Flow**
+**Resolution**: Enhanced flow with APPLYING for delayed execution
+- **All immediate**: PENDING → APPLYING → APPLIED
+- **Any delayed**: PENDING → SCHEDULED → APPLYING (when executing) → APPLIED
+- Clear semantics: APPLYING always means "actions currently executing"
+
+### **✅ Decision #8: Action Type Support**
+**Resolution**: Start with ARCHIVE, LABEL, MARK_READ (soft limit for testing)
+- Strategic decision to test core functionality
+- Easy expansion via `isSupportedDelayedAction()` function
+- Long-term plan: support all actions that benefit from delays
+
+### **✅ Decision #9: Form Field Integration**
+**Resolution**: Position delay controls after dynamic fields, before VariableProTip
+- Maintains existing ActionCard component flow
+- Consistent with other field styling and spacing
+- Premium upgrade integration following established patterns
+
+### **✅ Decision #10: Cron Job Security Pattern**
+**Resolution**: Follow exact existing cron job patterns
+- Use `hasPostCronSecret(request)` auth check
+- `maxDuration = 300`, `dynamic = "force-dynamic"`
+- `withError()` wrapper and proper error handling
+- Consistent with `/api/resend/digest/all/route.ts` pattern
+
+## 📋 IMPLEMENTATION PHASES
+
+### **Phase 0: Architecture Decisions** ✅ **COMPLETED**
+**Time**: 3 hours | **Status**: ✅ **DONE**
+
+All 10 critical decisions resolved and documented above.
+
+### **Phase 1: Database Schema** ⭐ **READY TO START**
+**Time**: 2-3 hours | **Risk**: Low | **Dependencies**: Phase 0 ✅
+
+#### 1.1 Complete Schema Changes (`apps/web/prisma/schema.prisma`)
+
+**Enhanced Action Model**:
+```prisma
+model Action {
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  type      ActionType
+  ruleId    String
+  rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  // Optional static fields to use for this action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
+  
+  // NEW: Delayed action support
+  delayInMinutes Int? // Delay in minutes (null = immediate, positive value = delayed)
+  
+  // NEW: Relations
+  scheduledActions ScheduledAction[] // Back-reference to scheduled instances
+}
+```
+
+**New ScheduledAction Model** (Complete):
+```prisma
+model ScheduledAction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Email context - needed for execution and cancellation
+  messageId String  // Gmail message ID
+  threadId  String  // Gmail thread ID
+  
+  // Rule context - what rule and action is being scheduled
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  
+  // Action details - stored copy of ActionItem data for delayed execution
+  actionType ActionType  // ARCHIVE, LABEL, MARK_READ, etc.
+  label      String?     // Copy from ActionItem.label (for LABEL actions)
+  subject    String?     // Copy from ActionItem.subject (for DRAFT_EMAIL, etc.)
+  content    String?     // Copy from ActionItem.content (for REPLY, etc.)
+  to         String?     // Copy from ActionItem.to (for SEND_EMAIL, etc.)
+  cc         String?     // Copy from ActionItem.cc
+  bcc        String?     // Copy from ActionItem.bcc
+  url        String?     // Copy from ActionItem.url (for CALL_WEBHOOK)
+  
+  // Scheduling information
+  scheduledFor DateTime                     // When to execute (based on email internalDate + delay)
+  status       ScheduledActionStatus @default(PENDING)  // Current execution status
+  
+  // Execution tracking
+  executedAt       DateTime?               // When was it actually executed
+  executedActionId String?   @unique       // Links to ExecutedAction when complete
+  executedAction   ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  
+  // Error handling and retry logic
+  errorMessage String?     // Last error message if failed
+  retryCount   Int     @default(0)  // Number of retry attempts (max 3)
+  
+  // User context - needed for token refresh and access validation
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  
+  // Constraints and indexes for data integrity and performance
+  @@unique([executedRuleId, actionType])    // Prevent duplicate scheduled actions for same rule+action
+  @@index([emailAccountId, scheduledFor])   // Fast lookup for user's pending actions
+  @@index([scheduledFor])                   // Fast lookup for cron job processing
+  @@index([emailAccountId, messageId])      // Fast lookup for cancellation logic
+  @@index([status, scheduledFor])           // Fast lookup for due pending actions
+}
+```
+
+**Enhanced ScheduledActionStatus Enum**:
+```prisma
+enum ScheduledActionStatus {
+  PENDING    // Waiting to be executed by cron job
+  EXECUTING  // Currently being processed by cron job
+  COMPLETED  // Successfully executed and ExecutedAction created
+  FAILED     // Permanently failed after max retries
+  CANCELLED  // Cancelled by user action or system (e.g., downgrade)
+}
+```
+
+**Enhanced ExecutedRuleStatus Enum**:
+```prisma
+enum ExecutedRuleStatus {
+  APPLIED    // All actions (immediate + delayed) completed successfully
+  APPLYING   // Actions currently being executed (immediate or delayed)
+  REJECTED   // User rejected the rule execution
+  PENDING    // Rule matched, waiting for execution (immediate actions only)
+  SKIPPED    // Rule matched but was skipped (no actions to execute)
+  ERROR      // Error occurred during execution
+  SCHEDULED  // NEW: Rule has delayed actions scheduled for future execution
+}
+```
+
+**Enhanced ExecutedRule Model**:
+```prisma
+model ExecutedRule {
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  threadId  String
+  messageId String
+  status    ExecutedRuleStatus
+  automated Boolean
+  reason    String?
+
+  // may be null if the rule was deleted
+  ruleId String?
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
+
+  // storing user here in case rule was deleted
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  actionItems ExecutedAction[]   // Existing relation
+  scheduledActions ScheduledAction[]  // NEW: Relation to scheduled actions
+
+  @@unique([emailAccountId, threadId, messageId], name: "unique_emailAccount_thread_message")
+  @@index([emailAccountId, status, createdAt])
+}
+```
+
+**Enhanced ExecutedAction Model**:
+```prisma
+model ExecutedAction {
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  type           ActionType
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+
+  // optional extra fields to be used with the action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
+
+  // additional fields as a result of the action
+  draftId      String? // Gmail draft ID created by DRAFT_EMAIL action
+  wasDraftSent Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftSendLog DraftSendLog? // Will exist if the draft was sent
+  digestItems  DigestItem[] // Relation to digest items created by this action
+  
+  // NEW: Back-reference to scheduled action (if this was a delayed action)
+  scheduledAction ScheduledAction? // One-to-one relation
+}
+```
+
+**Enhanced EmailAccount Model**:
+```prisma
+model EmailAccount {
+  // ... all existing fields ...
+  
+  scheduledActions ScheduledAction[]  // NEW: Relation to scheduled actions
+}
+```
+
+#### 1.2 Database Migration Strategy
+
+**Step 1: Create Migration File**
+```bash
+# Generate migration for schema changes
+npx prisma migrate dev --name add-delayed-actions
+```
+
+**Step 2: Manual Migration Script** (if needed for complex changes):
+```sql
+-- Add delayInMinutes to Action table
+ALTER TABLE "Action" ADD COLUMN "delayInMinutes" INTEGER;
+
+-- Create ScheduledAction table
+CREATE TABLE "ScheduledAction" (
+  "id" TEXT NOT NULL,
+  "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  "messageId" TEXT NOT NULL,
+  "threadId" TEXT NOT NULL,
+  "executedRuleId" TEXT NOT NULL,
+  "actionType" "ActionType" NOT NULL,
+  "label" TEXT,
+  "subject" TEXT,
+  "content" TEXT,
+  "to" TEXT,
+  "cc" TEXT,
+  "bcc" TEXT,
+  "url" TEXT,
+  "scheduledFor" TIMESTAMP(3) NOT NULL,
+  "status" "ScheduledActionStatus" NOT NULL DEFAULT 'PENDING',
+  "executedAt" TIMESTAMP(3),
+  "executedActionId" TEXT,
+  "errorMessage" TEXT,
+  "retryCount" INTEGER NOT NULL DEFAULT 0,
+  "emailAccountId" TEXT NOT NULL,
+
+  CONSTRAINT "ScheduledAction_pkey" PRIMARY KEY ("id")
+);
+
+-- Create new enum for ScheduledActionStatus
+CREATE TYPE "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+
+-- Add new status to ExecutedRuleStatus
+ALTER TYPE "ExecutedRuleStatus" ADD VALUE 'SCHEDULED';
+
+-- Add foreign key constraints
+ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" 
+  FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedActionId_fkey" 
+  FOREIGN KEY ("executedActionId") REFERENCES "ExecutedAction"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_emailAccountId_fkey" 
+  FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- Create unique constraints and indexes
+CREATE UNIQUE INDEX "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
+CREATE UNIQUE INDEX "ScheduledAction_executedRuleId_actionType_key" ON "ScheduledAction"("executedRuleId", "actionType");
+CREATE INDEX "ScheduledAction_emailAccountId_scheduledFor_idx" ON "ScheduledAction"("emailAccountId", "scheduledFor");
+CREATE INDEX "ScheduledAction_scheduledFor_idx" ON "ScheduledAction"("scheduledFor");
+CREATE INDEX "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
+CREATE INDEX "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("status", "scheduledFor");
+```
+
+**Step 3: Generate Prisma Client**
+```bash
+npx prisma generate
+```
+
+**Step 4: Verification Queries**
+```typescript
+// Test queries to verify schema
+const testQueries = async () => {
+  // Test ScheduledAction creation
+  const scheduledAction = await prisma.scheduledAction.create({
+    data: {
+      messageId: "test-message",
+      threadId: "test-thread",
+      executedRuleId: "existing-executed-rule-id",
+      actionType: "ARCHIVE",
+      scheduledFor: new Date(Date.now() + 60000), // 1 minute from now
+      emailAccountId: "test-email-account-id",
+    }
+  });
+  
+  // Test query for due actions (cron job query)
+  const dueActions = await prisma.scheduledAction.findMany({
+    where: {
+      scheduledFor: { lte: new Date() },
+      status: "PENDING",
+    },
+    include: {
+      executedRule: { include: { actionItems: true } },
+      emailAccount: true,
+    },
+    orderBy: { scheduledFor: "asc" },
+    take: 50,
+  });
+  
+  // Test cancellation query
+  const cancelledActions = await prisma.scheduledAction.updateMany({
+    where: {
+      messageId: "test-message",
+      emailAccountId: "test-email-account-id",
+      status: "PENDING",
+    },
+    data: {
+      status: "CANCELLED",
+      errorMessage: "Manual cancellation test",
+    },
+  });
+  
+  console.log("Schema verification complete", {
+    scheduledAction: !!scheduledAction,
+    dueActionsQuery: dueActions.length >= 0,
+    cancellationQuery: cancelledActions.count >= 0,
+  });
+};
+```
+
+#### 1.3 Data Migration Considerations
+
+**Existing Data Compatibility**:
+- ✅ All existing `Action` records will have `delayInMinutes = null` (immediate execution)
+- ✅ All existing `ExecutedRule` records maintain current status values
+- ✅ No data loss or breaking changes to existing functionality
+
+**Rollback Strategy**:
+```sql
+-- If rollback needed, remove new columns and tables
+DROP TABLE "ScheduledAction";
+ALTER TABLE "Action" DROP COLUMN "delayInMinutes";
+-- Remove SCHEDULED from ExecutedRuleStatus enum (requires recreation)
+```
+
+**Deliverables**: 
+✅ Updated schema with comprehensive ScheduledAction model  
+✅ Enhanced ExecutedRule and ExecutedAction relations  
+✅ New enums and status values  
+✅ Optimized indexes for cron job queries  
+✅ Generated Prisma client with new types  
+✅ Verification queries and rollback strategy
+
+### **Phase 2: Core Infrastructure** ⭐ **NEXT**
+**Time**: 4-5 hours | **Risk**: Medium | **Dependencies**: Phase 1
+
+#### 2.1 Scheduling Service (`utils/scheduled-actions/scheduler.ts`)
+
+**Complete Scheduler Implementation**:
+```typescript
+import prisma from "@/utils/prisma";
+import { addMinutes } from "date-fns";
+import { ActionType, ScheduledActionStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+import type { ActionItem } from "@/utils/ai/types";
+
+const logger = createScopedLogger("scheduled-actions-scheduler");
+
+export async function createScheduledAction({
+  executedRuleId,
+  actionType,
+  delayInMinutes,
+  emailInternalDate,
+  messageId,
+  threadId,
+  emailAccountId,
+  actionItemData,
+}: {
+  executedRuleId: string;
+  actionType: ActionType;
+  delayInMinutes: number;
+  emailInternalDate: Date;
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  actionItemData: {
+    label?: string;
+    subject?: string;
+    content?: string;
+    to?: string;
+    cc?: string;
+    bcc?: string;
+    url?: string;
+  };
+}) {
+  const scheduledFor = addMinutes(emailInternalDate, delayInMinutes);
+  
+  logger.info("Creating scheduled action", {
+    executedRuleId,
+    actionType,
+    delayInMinutes,
+    scheduledFor,
+    messageId,
+    emailAccountId,
+  });
+  
+  try {
+    const scheduledAction = await prisma.scheduledAction.create({
+      data: {
+        executedRuleId,
+        actionType,
+        messageId,
+        threadId,
+        scheduledFor,
+        emailAccountId,
+        status: ScheduledActionStatus.PENDING,
+        // Store ActionItem data for later execution
+        label: actionItemData.label,
+        subject: actionItemData.subject,
+        content: actionItemData.content,
+        to: actionItemData.to,
+        cc: actionItemData.cc,
+        bcc: actionItemData.bcc,
+        url: actionItemData.url,
+      },
+      include: {
+        executedRule: true,
+        emailAccount: true,
+      },
+    });
+    
+    logger.info("Successfully created scheduled action", {
+      scheduledActionId: scheduledAction.id,
+      scheduledFor: scheduledAction.scheduledFor,
+    });
+    
+    return scheduledAction;
+  } catch (error) {
+    logger.error("Failed to create scheduled action", {
+      error,
+      executedRuleId,
+      actionType,
+      messageId,
+    });
+    throw error;
+  }
+}
+
+export async function scheduleDelayedActions({
+  executedRule,
+  delayedActions,
+  actionItems,
+  emailInternalDate,
+  messageId,
+  threadId,
+  emailAccountId,
+}: {
+  executedRule: { id: string };
+  delayedActions: { type: ActionType; delayInMinutes: number }[];
+  actionItems: ActionItem[];
+  emailInternalDate: Date;
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+}) {
+  const scheduledActions = [];
+  
+  for (const action of delayedActions) {
+    // Find corresponding ActionItem data
+    const correspondingActionItem = actionItems.find(item => item.type === action.type);
+    
+    if (!correspondingActionItem) {
+      logger.warn("No corresponding ActionItem found for delayed action", {
+        actionType: action.type,
+        executedRuleId: executedRule.id,
+      });
+      continue;
+    }
+    
+    const scheduledAction = await createScheduledAction({
+      executedRuleId: executedRule.id,
+      actionType: action.type,
+      delayInMinutes: action.delayInMinutes,
+      emailInternalDate,
+      messageId,
+      threadId,
+      emailAccountId,
+      actionItemData: {
+        label: correspondingActionItem.label,
+        subject: correspondingActionItem.subject,
+        content: correspondingActionItem.content,
+        to: correspondingActionItem.to,
+        cc: correspondingActionItem.cc,
+        bcc: correspondingActionItem.bcc,
+        url: correspondingActionItem.url,
+      },
+    });
+    
+    scheduledActions.push(scheduledAction);
+  }
+  
+  logger.info("Scheduled delayed actions", {
+    executedRuleId: executedRule.id,
+    scheduledCount: scheduledActions.length,
+    messageId,
+  });
+  
+  return scheduledActions;
+}
+
+export function isSupportedDelayedAction(actionType: ActionType): boolean {
+  // Soft limit - easy to expand later
+  const supportedActions = [
+    ActionType.ARCHIVE,
+    ActionType.LABEL,
+    ActionType.MARK_READ,
+    // TODO: Add more action types as we test and validate them
+    // ActionType.CALL_WEBHOOK,
+    // ActionType.TRACK_THREAD,
+  ];
+  return supportedActions.includes(actionType);
+}
+
+export async function cancelScheduledActionsForEmail({
+  messageId,
+  emailAccountId,
+  actionTypes,
+  reason = "Manual user action",
+}: {
+  messageId: string;
+  emailAccountId: string;
+  actionTypes?: ActionType[];
+  reason?: string;
+}) {
+  const whereClause = {
+    messageId,
+    emailAccountId,
+    status: ScheduledActionStatus.PENDING,
+    ...(actionTypes && { actionType: { in: actionTypes } }),
+  };
+
+  logger.info("Cancelling scheduled actions", {
+    messageId,
+    emailAccountId,
+    actionTypes,
+    reason,
+  });
+
+  const cancelledActions = await prisma.scheduledAction.updateMany({
+    where: whereClause,
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+      errorMessage: reason,
+    },
+  });
+
+  logger.info("Cancelled scheduled actions", {
+    messageId,
+    actionTypes,
+    cancelledCount: cancelledActions.count,
+    reason,
+  });
+
+  return cancelledActions.count;
+}
+
+export async function getScheduledActionsForUser({
+  emailAccountId,
+  status,
+  limit = 50,
+}: {
+  emailAccountId: string;
+  status?: ScheduledActionStatus;
+  limit?: number;
+}) {
+  return await prisma.scheduledAction.findMany({
+    where: {
+      emailAccountId,
+      ...(status && { status }),
+    },
+    include: {
+      executedRule: {
+        include: {
+          rule: true,
+        },
+      },
+    },
+    orderBy: { scheduledFor: "asc" },
+    take: limit,
+  });
+}
+```
+
+#### 2.2 Enhanced Rule Processing (`utils/ai/choose-rule/run-rules.ts`)
+
+**Modified `executeMatchedRule()` Function**:
+```typescript
+// Enhanced version with delayed actions support
+async function executeMatchedRule(
+  rule: RuleWithActionsAndCategories,
+  message: ParsedMessage,
+  emailAccount: EmailAccountWithAI,
+  gmail: gmail_v1.Gmail,
+  reason: string | undefined,
+  matchReasons: MatchReason[] | undefined,
+  isTest: boolean,
+) {
+  const logger = createScopedLogger("execute-matched-rule").with({
+    ruleId: rule.id,
+    ruleName: rule.name,
+    messageId: message.id,
+    threadId: message.threadId,
+    emailAccountId: emailAccount.id,
+  });
+
+  // get action items with args
+  const actionItems = await getActionItemsWithAiArgs({
+    message,
+    emailAccount,
+    selectedRule: rule,
+    gmail,
+  });
+
+  logger.info("Generated action items", {
+    actionItemsCount: actionItems.length,
+    actionTypes: actionItems.map(item => item.type),
+  });
+
+  // NEW: Separate immediate and delayed actions
+  const immediateActions = rule.actions.filter(action => !action.delayInMinutes);
+  const delayedActions = rule.actions.filter(action => 
+    action.delayInMinutes && isSupportedDelayedAction(action.type)
+  );
+
+  logger.info("Action categorization", {
+    immediateActionsCount: immediateActions.length,
+    delayedActionsCount: delayedActions.length,
+    immediateTypes: immediateActions.map(a => a.type),
+    delayedTypes: delayedActions.map(a => ({ type: a.type, delay: a.delayInMinutes })),
+  });
+
+  // handle action - NOW with timing context
+  const executedRule = isTest
+    ? undefined
+    : await saveExecutedRule(
+        {
+          emailAccountId: emailAccount.id,
+          threadId: message.threadId,
+          messageId: message.id,
+        },
+        {
+          rule,
+          actionItems,
+          reason,
+          emailInternalDate: new Date(message.internalDate), // NEW: Timing context
+        }
+      );
+
+  const shouldExecute = executedRule && rule.automate;
+
+  if (shouldExecute) {
+    logger.info("Executing actions", {
+      executedRuleId: executedRule.id,
+      shouldExecuteImmediate: immediateActions.length > 0,
+      shouldScheduleDelayed: delayedActions.length > 0,
+    });
+
+    // NEW: Handle immediate actions
+    if (immediateActions.length > 0) {
+      // Filter actionItems to only immediate actions
+      const immediateActionItems = actionItems.filter(item => 
+        immediateActions.some(action => action.type === item.type)
+      );
+
+      logger.info("Executing immediate actions", {
+        immediateActionItems: immediateActionItems.length,
+        types: immediateActionItems.map(item => item.type),
+      });
+
+      // Create temporary ExecutedRule for immediate execution
+      const immediateExecutedRule = {
+        ...executedRule,
+        actionItems: immediateActionItems.map(item => ({
+          ...item,
+          id: `temp-${Date.now()}-${item.type}`, // Temporary ID for execution
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          executedRuleId: executedRule.id,
+        })),
+      };
+
+      try {
+        await executeAct({
+          gmail,
+          userEmail: emailAccount.email,
+          userId: emailAccount.userId,
+          emailAccountId: emailAccount.id,
+          executedRule: immediateExecutedRule,
+          message,
+        });
+        
+        logger.info("Successfully executed immediate actions");
+      } catch (error) {
+        logger.error("Failed to execute immediate actions", { error });
+        throw error;
+      }
+    }
+
+    // NEW: Schedule delayed actions
+    if (delayedActions.length > 0) {
+      logger.info("Scheduling delayed actions", {
+        delayedActionsCount: delayedActions.length,
+        emailInternalDate: message.internalDate,
+      });
+
+      try {
+        const scheduledActions = await scheduleDelayedActions({
+          executedRule,
+          delayedActions,
+          actionItems,
+          emailInternalDate: new Date(message.internalDate),
+          messageId: message.id,
+          threadId: message.threadId,
+          emailAccountId: emailAccount.id,
+        });
+
+        // Update status to SCHEDULED since we have delayed actions
+        await prisma.executedRule.update({
+          where: { id: executedRule.id },
+          data: { status: ExecutedRuleStatus.SCHEDULED },
+        });
+
+        logger.info("Successfully scheduled delayed actions", {
+          scheduledActionsCount: scheduledActions.length,
+          executedRuleStatus: "SCHEDULED",
+        });
+      } catch (error) {
+        logger.error("Failed to schedule delayed actions", { error });
+        throw error;
+      }
+    }
+  }
+
+  logger.info("Completed rule execution", {
+    executedRuleId: executedRule?.id,
+    immediateActionsExecuted: shouldExecute && immediateActions.length > 0,
+    delayedActionsScheduled: shouldExecute && delayedActions.length > 0,
+  });
+
+  return {
+    rule,
+    actionItems,
+    executedRule,
+    reason,
+    matchReasons,
+  };
+}
+```
+
+**Enhanced `saveExecutedRule()` Function**:
+```typescript
+async function saveExecutedRule(
+  {
+    emailAccountId,
+    threadId,
+    messageId,
+  }: {
+    emailAccountId: string;
+    threadId: string;
+    messageId: string;
+  },
+  {
+    rule,
+    actionItems,
+    reason,
+    emailInternalDate, // NEW: Gmail message internalDate
+  }: {
+    rule: RuleWithActionsAndCategories;
+    actionItems: ActionItem[];
+    reason?: string;
+    emailInternalDate: Date; // NEW: From Gmail message.internalDate
+  },
+) {
+  const logger = createScopedLogger("save-executed-rule").with({
+    ruleId: rule.id,
+    messageId,
+    threadId,
+    emailAccountId,
+  });
+
+  // Separate immediate and delayed action items
+  const immediateActions = rule.actions.filter(action => !action.delayInMinutes);
+  const hasDelayedActions = rule.actions.some(action => 
+    action.delayInMinutes && isSupportedDelayedAction(action.type)
+  );
+
+  // Only create ExecutedActions for immediate actions
+  const immediateActionItems = actionItems.filter(item => 
+    immediateActions.some(action => action.type === item.type)
+  );
+
+  logger.info("Saving executed rule", {
+    totalActionItems: actionItems.length,
+    immediateActionItems: immediateActionItems.length,
+    hasDelayedActions,
+  });
+
+  const data: Prisma.ExecutedRuleCreateInput = {
+    actionItems: {
+      createMany: {
+        data: immediateActionItems?.map(sanitizeActionFields) || [],
+      },
+    },
+    messageId,
+    threadId,
+    automated: !!rule?.automate,
+    status: hasDelayedActions 
+      ? ExecutedRuleStatus.SCHEDULED  // Will have delayed actions
+      : ExecutedRuleStatus.PENDING,   // Only immediate actions
+    reason,
+    rule: rule?.id ? { connect: { id: rule.id } } : undefined,
+    emailAccount: { connect: { id: emailAccountId } },
+  };
+
+  const executedRule = await upsertExecutedRule({
+    emailAccountId,
+    threadId,
+    messageId,
+    data,
+  });
+
+  logger.info("Successfully saved executed rule", {
+    executedRuleId: executedRule?.id,
+    status: data.status,
+    immediateActionsCreated: immediateActionItems.length,
+  });
+
+  return executedRule;
+}
+```
+
+#### 2.3 Helper Utilities
+
+**Action Item Sanitization Enhancement**:
+```typescript
+// Enhanced sanitizeActionFields function in utils/action-item.ts
+export function sanitizeActionFields(actionItem: ActionItem): Prisma.ExecutedActionCreateManyActionItemsInput {
+  return {
+    type: actionItem.type,
+    label: actionItem.label || null,
+    subject: actionItem.subject || null,
+    content: actionItem.content || null,
+    to: actionItem.to || null,
+    cc: actionItem.cc || null,
+    bcc: actionItem.bcc || null,
+    url: actionItem.url || null,
+  };
+}
+```
+
+**Type Definitions** (`types/scheduled-actions.ts`):
+```typescript
+import type { Prisma } from "@prisma/client";
+
+export type ScheduledActionWithDetails = Prisma.ScheduledActionGetPayload<{
+  include: {
+    executedRule: {
+      include: {
+        actionItems: true;
+        rule: true;
+      };
+    };
+    emailAccount: true;
+    executedAction: true;
+  };
+}>;
+
+export type DelayedActionConfig = {
+  type: ActionType;
+  delayInMinutes: number;
+};
+
+export type SchedulingContext = {
+  executedRule: { id: string };
+  delayedActions: DelayedActionConfig[];
+  actionItems: ActionItem[];
+  emailInternalDate: Date;
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+};
+```
+
+**Deliverables**:
+✅ Complete scheduling service with error handling  
+✅ Enhanced rule processing with immediate/delayed split  
+✅ Robust logging and monitoring  
+✅ Type-safe action item handling  
+✅ Comprehensive helper utilities  
+✅ Integration with existing executeAct flow
+
+### **Phase 3: Action Executor** ⭐
+**Time**: 3-4 hours | **Risk**: Medium | **Dependencies**: Phase 2
+
+#### 3.1 Delayed Action Executor (`utils/scheduled-actions/executor.ts`)
+
+**Complete Action Executor Implementation**:
+```typescript
+import type { gmail_v1 } from "@googleapis/gmail";
+import prisma from "@/utils/prisma";
+import { ScheduledActionStatus, ActionType, ExecutedRuleStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
+import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { getMessage } from "@/utils/gmail/message";
+import { parseMessage } from "@/utils/mail";
+import { runActionFunction } from "@/utils/ai/actions";
+import type { ScheduledActionWithDetails } from "@/types/scheduled-actions";
+import type { ParsedMessage } from "@/utils/types";
+
+const logger = createScopedLogger("scheduled-actions-executor");
+
+export async function executeScheduledAction(
+  scheduledAction: ScheduledActionWithDetails
+): Promise<boolean> {
+  const actionLogger = logger.with({
+    scheduledActionId: scheduledAction.id,
+    messageId: scheduledAction.messageId,
+    threadId: scheduledAction.threadId,
+    actionType: scheduledAction.actionType,
+    emailAccountId: scheduledAction.emailAccountId,
+  });
+
+  actionLogger.info("Starting scheduled action execution", {
+    scheduledFor: scheduledAction.scheduledFor,
+    currentTime: new Date(),
+    retryCount: scheduledAction.retryCount,
+  });
+
+  try {
+    // Step 1: Mark as executing to prevent duplicate processing
+    const updateResult = await prisma.scheduledAction.updateMany({
+      where: { 
+        id: scheduledAction.id, 
+        status: ScheduledActionStatus.PENDING 
+      },
+      data: { status: ScheduledActionStatus.EXECUTING },
+    });
+
+    if (updateResult.count === 0) {
+      actionLogger.warn("Scheduled action is not pending or does not exist", {
+        currentStatus: scheduledAction.status,
+      });
+      return false;
+    }
+
+    actionLogger.info("Marked scheduled action as executing");
+
+    // Step 2: Get email account and refresh tokens
+    const emailAccount = await getEmailAccountWithAiAndTokens({
+      emailAccountId: scheduledAction.emailAccountId,
+    });
+
+    if (!emailAccount) {
+      throw new Error("Email account not found or tokens unavailable");
+    }
+
+    actionLogger.info("Retrieved email account and tokens", {
+      emailAccountEmail: emailAccount.email,
+      hasTokens: !!(emailAccount.tokens.access_token && emailAccount.tokens.refresh_token),
+    });
+
+    // Step 3: Create Gmail client with automatic token refresh
+    const gmail = await getGmailClientWithRefresh({
+      accessToken: emailAccount.tokens.access_token,
+      refreshToken: emailAccount.tokens.refresh_token,
+      expiresAt: emailAccount.tokens.expires_at,
+      emailAccountId: scheduledAction.emailAccountId,
+    });
+
+    // Step 4: Verify email still exists and get current state
+    let gmailMessage: gmail_v1.Schema$Message;
+    let message: ParsedMessage;
+
+    try {
+      gmailMessage = await getMessage(scheduledAction.messageId, gmail, "full");
+      message = parseMessage(gmailMessage);
+      
+      actionLogger.info("Successfully retrieved email message", {
+        messageId: scheduledAction.messageId,
+        hasLabels: !!message.labelIds?.length,
+        labelIds: message.labelIds,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) {
+        actionLogger.warn("Email message no longer exists", {
+          messageId: scheduledAction.messageId,
+        });
+        
+        await markScheduledActionAsCancelled(
+          scheduledAction.id,
+          "Email message no longer exists",
+          actionLogger
+        );
+        return false;
+      }
+      throw error;
+    }
+
+    // Step 5: Validate email state before executing action
+    const canExecute = await validateEmailStateForAction(
+      message,
+      scheduledAction.actionType,
+      actionLogger
+    );
+
+    if (!canExecute) {
+      actionLogger.info("Email state is not valid for this action", {
+        actionType: scheduledAction.actionType,
+        currentLabels: message.labelIds,
+      });
+      
+      await markScheduledActionAsCancelled(
+        scheduledAction.id,
+        "Email state no longer valid for this action",
+        actionLogger
+      );
+      return false;
+    }
+
+    // Step 6: Reconstruct ActionItem from stored ScheduledAction data
+    const actionItem = {
+      type: scheduledAction.actionType,
+      label: scheduledAction.label,
+      subject: scheduledAction.subject,
+      content: scheduledAction.content,
+      to: scheduledAction.to,
+      cc: scheduledAction.cc,
+      bcc: scheduledAction.bcc,
+      url: scheduledAction.url,
+    };
+
+    actionLogger.info("Reconstructed action item", {
+      actionType: actionItem.type,
+      hasLabel: !!actionItem.label,
+      hasSubject: !!actionItem.subject,
+      hasContent: !!actionItem.content,
+      hasTo: !!actionItem.to,
+      hasUrl: !!actionItem.url,
+    });
+
+    // Step 7: Execute the action using existing action logic
+    const actionResult = await runActionFunction({
+      gmail,
+      email: message,
+      action: actionItem,
+      userEmail: emailAccount.email,
+      userId: emailAccount.userId,
+      emailAccountId: scheduledAction.emailAccountId,
+      executedRule: scheduledAction.executedRule,
+    });
+
+    actionLogger.info("Successfully executed action", {
+      actionType: scheduledAction.actionType,
+      actionResult: actionResult ? "completed" : "no result",
+    });
+
+    // Step 8: Create ExecutedAction record for audit trail
+    const executedAction = await prisma.executedAction.create({
+      data: {
+        type: scheduledAction.actionType,
+        executedRuleId: scheduledAction.executedRuleId,
+        label: scheduledAction.label,
+        subject: scheduledAction.subject,
+        content: scheduledAction.content,
+        to: scheduledAction.to,
+        cc: scheduledAction.cc,
+        bcc: scheduledAction.bcc,
+        url: scheduledAction.url,
+        // Store any additional result data
+        draftId: actionResult?.draftId || null,
+      },
+    });
+
+    actionLogger.info("Created ExecutedAction record", {
+      executedActionId: executedAction.id,
+    });
+
+    // Step 9: Mark scheduled action as completed
+    await prisma.scheduledAction.update({
+      where: { id: scheduledAction.id },
+      data: {
+        status: ScheduledActionStatus.COMPLETED,
+        executedAt: new Date(),
+        executedActionId: executedAction.id,
+        errorMessage: null, // Clear any previous error
+      },
+    });
+
+    actionLogger.info("Marked scheduled action as completed");
+
+    // Step 10: Check if all delayed actions for this ExecutedRule are complete
+    await checkAndUpdateExecutedRuleCompletion(
+      scheduledAction.executedRuleId,
+      actionLogger
+    );
+
+    actionLogger.info("Successfully completed scheduled action execution");
+    return true;
+
+  } catch (error) {
+    actionLogger.error("Failed to execute scheduled action", { 
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      } : error 
+    });
+
+    await handleScheduledActionError(scheduledAction, error, actionLogger);
+    return false;
+  }
+}
+
+async function validateEmailStateForAction(
+  message: ParsedMessage,
+  actionType: ActionType,
+  logger: ReturnType<typeof createScopedLogger>
+): Promise<boolean> {
+  const currentLabels = message.labelIds || [];
+  
+  logger.info("Validating email state for action", {
+    actionType,
+    currentLabels,
+  });
+
+  switch (actionType) {
+    case ActionType.ARCHIVE:
+      // Check if email is still in inbox (has INBOX label)
+      const isInInbox = currentLabels.includes("INBOX");
+      logger.info("Archive action validation", {
+        isInInbox,
+        canArchive: isInInbox,
+      });
+      return isInInbox;
+      
+    case ActionType.MARK_READ:
+      // Check if email is still unread (has UNREAD label)
+      const isUnread = currentLabels.includes("UNREAD");
+      logger.info("Mark read action validation", {
+        isUnread,
+        canMarkRead: isUnread,
+      });
+      return isUnread;
+      
+    case ActionType.LABEL:
+      // Labeling is always valid - can add labels regardless of current state
+      logger.info("Label action validation", {
+        alwaysValid: true,
+      });
+      return true;
+      
+    case ActionType.MARK_SPAM:
+      // Check if email is not already in spam
+      const isInSpam = currentLabels.includes("SPAM");
+      logger.info("Mark spam action validation", {
+        isInSpam,
+        canMarkSpam: !isInSpam,
+      });
+      return !isInSpam;
+      
+    default:
+      logger.warn("Unsupported delayed action type", { actionType });
+      return false;
+  }
+}
+
+async function handleScheduledActionError(
+  scheduledAction: ScheduledActionWithDetails,
+  error: unknown,
+  logger: ReturnType<typeof createScopedLogger>
+) {
+  const currentRetryCount = scheduledAction.retryCount + 1;
+  const maxRetries = 3;
+  const errorMessage = error instanceof Error ? error.message : "Unknown error";
+  
+  logger.error("Handling scheduled action error", {
+    error: errorMessage,
+    currentRetryCount,
+    maxRetries,
+  });
+
+  // Determine if this is a permanent or temporary failure
+  const isPermanentFailure = isPermanentError(error, logger);
+  
+  if (currentRetryCount < maxRetries && !isPermanentFailure) {
+    // Temporary failure - schedule for retry
+    await prisma.scheduledAction.update({
+      where: { id: scheduledAction.id },
+      data: {
+        status: ScheduledActionStatus.PENDING, // Reset to pending for retry
+        errorMessage,
+        retryCount: currentRetryCount,
+      },
+    });
+    
+    logger.info("Scheduled action will be retried", {
+      nextRetryCount: currentRetryCount,
+      remainingRetries: maxRetries - currentRetryCount,
+    });
+  } else {
+    // Permanent failure or max retries exceeded
+    await prisma.scheduledAction.update({
+      where: { id: scheduledAction.id },
+      data: {
+        status: ScheduledActionStatus.FAILED,
+        errorMessage,
+        retryCount: currentRetryCount,
+      },
+    });
+    
+    logger.error("Scheduled action permanently failed", {
+      reason: isPermanentFailure ? "permanent error" : "max retries exceeded",
+      finalRetryCount: currentRetryCount,
+    });
+    
+    // Check if ExecutedRule should be updated (other actions might still be pending)
+    await checkAndUpdateExecutedRuleCompletion(
+      scheduledAction.executedRuleId,
+      logger
+    );
+  }
+}
+
+function isPermanentError(error: unknown, logger: ReturnType<typeof createScopedLogger>): boolean {
+  if (!(error instanceof Error)) return false;
+  
+  const permanentErrorPatterns = [
+    /not found/i,
+    /invalid_grant/i,
+    /permission denied/i,
+    /quota exceeded/i,
+    /user rate limit exceeded/i,
+  ];
+  
+  const isPermanent = permanentErrorPatterns.some(pattern => 
+    pattern.test(error.message)
+  );
+  
+  logger.info("Error classification", {
+    errorMessage: error.message,
+    isPermanent,
+  });
+  
+  return isPermanent;
+}
+
+async function markScheduledActionAsCancelled(
+  scheduledActionId: string,
+  reason: string,
+  logger: ReturnType<typeof createScopedLogger>
+) {
+  await prisma.scheduledAction.update({
+    where: { id: scheduledActionId },
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+      errorMessage: reason,
+    },
+  });
+  
+  logger.info("Marked scheduled action as cancelled", { reason });
+}
+
+async function checkAndUpdateExecutedRuleCompletion(
+  executedRuleId: string,
+  logger: ReturnType<typeof createScopedLogger>
+) {
+  logger.info("Checking ExecutedRule completion status", { executedRuleId });
+
+  // Check if all scheduled actions for this ExecutedRule are complete
+  const pendingActions = await prisma.scheduledAction.count({
+    where: {
+      executedRuleId,
+      status: {
+        in: [ScheduledActionStatus.PENDING, ScheduledActionStatus.EXECUTING],
+      },
+    },
+  });
+
+  logger.info("Pending actions check", {
+    executedRuleId,
+    pendingActionsCount: pendingActions,
+  });
+
+  // If no pending actions remain, mark ExecutedRule as APPLIED
+  if (pendingActions === 0) {
+    const updateResult = await prisma.executedRule.updateMany({
+      where: { 
+        id: executedRuleId,
+        status: ExecutedRuleStatus.SCHEDULED, // Only update if currently SCHEDULED
+      },
+      data: { status: ExecutedRuleStatus.APPLIED },
+    });
+    
+    if (updateResult.count > 0) {
+      logger.info("All delayed actions completed, marked ExecutedRule as APPLIED", {
+        executedRuleId,
+      });
+    } else {
+      logger.info("ExecutedRule status not updated (may have been updated already)", {
+        executedRuleId,
+      });
+    }
+  }
+}
+
+export async function processScheduledActions(): Promise<{
+  processed: number;
+  successful: number;
+  failed: number;
+  errors: string[];
+}> {
+  const now = new Date();
+  
+  logger.info("Starting scheduled actions processing", { 
+    timestamp: now,
+    processingTime: now.toISOString(),
+  });
+
+  // Find all due scheduled actions
+  const dueActions = await prisma.scheduledAction.findMany({
+    where: {
+      scheduledFor: { lte: now },
+      status: ScheduledActionStatus.PENDING,
+    },
+    include: {
+      executedRule: {
+        include: {
+          actionItems: true,
+          rule: true,
+        },
+      },
+      emailAccount: true,
+    },
+    orderBy: { scheduledFor: "asc" },
+    take: 50, // Process max 50 actions per run to avoid timeouts
+  });
+
+  logger.info("Found due scheduled actions", { 
+    count: dueActions.length,
+    oldestAction: dueActions[0]?.scheduledFor,
+    newestAction: dueActions[dueActions.length - 1]?.scheduledFor,
+  });
+
+  const results = {
+    processed: 0,
+    successful: 0,
+    failed: 0,
+    errors: [] as string[],
+  };
+
+  // Group actions by email account to optimize Gmail client reuse
+  const actionsByAccount = dueActions.reduce((acc, action) => {
+    const accountId = action.emailAccountId;
+    if (!acc[accountId]) acc[accountId] = [];
+    acc[accountId].push(action);
+    return acc;
+  }, {} as Record<string, typeof dueActions>);
+
+  logger.info("Grouped actions by account", {
+    accountCount: Object.keys(actionsByAccount).length,
+    actionsPerAccount: Object.entries(actionsByAccount).map(([accountId, actions]) => ({
+      accountId,
+      actionCount: actions.length,
+    })),
+  });
+
+  // Process actions for each email account
+  for (const [emailAccountId, actions] of Object.entries(actionsByAccount)) {
+    logger.info("Processing actions for account", { 
+      emailAccountId, 
+      actionCount: actions.length,
+    });
+
+    for (const action of actions) {
+      try {
+        results.processed++;
+        const success = await executeScheduledAction(action);
+        
+        if (success) {
+          results.successful++;
+          logger.info("Successfully processed scheduled action", {
+            scheduledActionId: action.id,
+            actionType: action.actionType,
+          });
+        } else {
+          results.failed++;
+          logger.warn("Failed to process scheduled action", {
+            scheduledActionId: action.id,
+            actionType: action.actionType,
+          });
+        }
+      } catch (error) {
+        results.failed++;
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        results.errors.push(`Action ${action.id}: ${errorMessage}`);
+        
+        logger.error("Error processing scheduled action", {
+          scheduledActionId: action.id,
+          actionType: action.actionType,
+          error: error instanceof Error ? {
+            message: error.message,
+            stack: error.stack,
+          } : error,
+        });
+      }
+    }
+
+    // Add small delay between accounts to prevent rate limiting
+    if (Object.keys(actionsByAccount).length > 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      logger.info("Added delay between account processing");
+    }
+  }
+
+  logger.info("Completed scheduled actions processing", {
+    ...results,
+    processingDuration: Date.now() - now.getTime(),
+  });
+  
+  return results;
+}
+```
+
+#### 3.2 Email State Validation (`utils/scheduled-actions/validation.ts`)
+
+**Email State Validation Utilities**:
+```typescript
+import type { ParsedMessage } from "@/utils/types";
+import { ActionType } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("scheduled-actions-validation");
+
+export interface ValidationResult {
+  isValid: boolean;
+  reason?: string;
+  currentState: {
+    labels: string[];
+    isInInbox: boolean;
+    isUnread: boolean;
+    isInSpam: boolean;
+  };
+}
+
+export async function validateEmailForAction(
+  message: ParsedMessage,
+  actionType: ActionType
+): Promise<ValidationResult> {
+  const currentLabels = message.labelIds || [];
+  const currentState = {
+    labels: currentLabels,
+    isInInbox: currentLabels.includes("INBOX"),
+    isUnread: currentLabels.includes("UNREAD"),
+    isInSpam: currentLabels.includes("SPAM"),
+  };
+
+  logger.info("Validating email state", {
+    messageId: message.id,
+    actionType,
+    currentState,
+  });
+
+  switch (actionType) {
+    case ActionType.ARCHIVE:
+      return {
+        isValid: currentState.isInInbox,
+        reason: currentState.isInInbox 
+          ? undefined 
+          : "Email is not in inbox (already archived or in another folder)",
+        currentState,
+      };
+
+    case ActionType.MARK_READ:
+      return {
+        isValid: currentState.isUnread,
+        reason: currentState.isUnread 
+          ? undefined 
+          : "Email is already marked as read",
+        currentState,
+      };
+
+    case ActionType.LABEL:
+      return {
+        isValid: true,
+        reason: undefined,
+        currentState,
+      };
+
+    case ActionType.MARK_SPAM:
+      return {
+        isValid: !currentState.isInSpam,
+        reason: currentState.isInSpam 
+          ? "Email is already marked as spam" 
+          : undefined,
+        currentState,
+      };
+
+    default:
+      return {
+        isValid: false,
+        reason: `Action type ${actionType} is not supported for delayed execution`,
+        currentState,
+      };
+  }
+}
+
+export function getConflictingActionsForManualAction(
+  manualActionType: string
+): ActionType[] {
+  switch (manualActionType) {
+    case "ARCHIVE":
+      return [ActionType.ARCHIVE];
+    case "MARK_READ":  
+      return [ActionType.MARK_READ];
+    case "LABEL":
+      return [ActionType.LABEL]; // May conflict with delayed labeling
+    case "MARK_SPAM":
+      return [ActionType.MARK_SPAM];
+    default:
+      return [];
+  }
+}
+```
+
+#### 3.3 Error Recovery and Monitoring (`utils/scheduled-actions/monitoring.ts`)
+
+**Monitoring and Metrics Collection**:
+```typescript
+import prisma from "@/utils/prisma";
+import { ScheduledActionStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+import { subDays, subHours } from "date-fns";
+
+const logger = createScopedLogger("scheduled-actions-monitoring");
+
+export interface ScheduledActionsMetrics {
+  pending: number;
+  overdue: number;
+  executing: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  averageExecutionTime: number;
+  errorRate: number;
+  oldestPendingAction?: {
+    id: string;
+    scheduledFor: Date;
+    actionType: string;
+    delayInDays: number;
+  };
+}
+
+export async function getScheduledActionsMetrics(): Promise<ScheduledActionsMetrics> {
+  const now = new Date();
+  const oneDayAgo = subDays(now, 1);
+  
+  logger.info("Collecting scheduled actions metrics");
+
+  // Get counts by status
+  const statusCounts = await prisma.scheduledAction.groupBy({
+    by: ['status'],
+    _count: {
+      id: true,
+    },
+  });
+
+  // Get overdue actions (pending actions that should have been executed)
+  const overdueCount = await prisma.scheduledAction.count({
+    where: {
+      status: ScheduledActionStatus.PENDING,
+      scheduledFor: { lt: now },
+    },
+  });
+
+  // Get completed actions from last 24 hours for performance metrics
+  const recentCompletedActions = await prisma.scheduledAction.findMany({
+    where: {
+      status: ScheduledActionStatus.COMPLETED,
+      executedAt: { gte: oneDayAgo },
+      executedAt: { not: null },
+    },
+    select: {
+      createdAt: true,
+      executedAt: true,
+    },
+  });
+
+  // Calculate average execution time
+  const executionTimes = recentCompletedActions
+    .filter(action => action.executedAt)
+    .map(action => {
+      const created = action.createdAt.getTime();
+      const executed = action.executedAt!.getTime();
+      return executed - created;
+    });
+
+  const averageExecutionTime = executionTimes.length > 0
+    ? executionTimes.reduce((sum, time) => sum + time, 0) / executionTimes.length
+    : 0;
+
+  // Get failed actions from last 24 hours for error rate
+  const recentFailedCount = await prisma.scheduledAction.count({
+    where: {
+      status: ScheduledActionStatus.FAILED,
+      updatedAt: { gte: oneDayAgo },
+    },
+  });
+
+  const totalRecentActions = recentCompletedActions.length + recentFailedCount;
+  const errorRate = totalRecentActions > 0 ? recentFailedCount / totalRecentActions : 0;
+
+  // Get oldest pending action
+  const oldestPendingAction = await prisma.scheduledAction.findFirst({
+    where: {
+      status: ScheduledActionStatus.PENDING,
+    },
+    orderBy: {
+      scheduledFor: 'asc',
+    },
+    select: {
+      id: true,
+      scheduledFor: true,
+      actionType: true,
+    },
+  });
+
+  // Convert status counts to metrics object
+  const metrics: ScheduledActionsMetrics = {
+    pending: 0,
+    overdue: overdueCount,
+    executing: 0,
+    completed: 0,
+    failed: 0,
+    cancelled: 0,
+    averageExecutionTime: Math.round(averageExecutionTime / 1000), // Convert to seconds
+    errorRate: Math.round(errorRate * 100) / 100, // Round to 2 decimal places
+  };
+
+  // Populate status counts
+  for (const statusCount of statusCounts) {
+    switch (statusCount.status) {
+      case ScheduledActionStatus.PENDING:
+        metrics.pending = statusCount._count.id;
+        break;
+      case ScheduledActionStatus.EXECUTING:
+        metrics.executing = statusCount._count.id;
+        break;
+      case ScheduledActionStatus.COMPLETED:
+        metrics.completed = statusCount._count.id;
+        break;
+      case ScheduledActionStatus.FAILED:
+        metrics.failed = statusCount._count.id;
+        break;
+      case ScheduledActionStatus.CANCELLED:
+        metrics.cancelled = statusCount._count.id;
+        break;
+    }
+  }
+
+  // Add oldest pending action details
+  if (oldestPendingAction) {
+    const delayInMs = now.getTime() - oldestPendingAction.scheduledFor.getTime();
+    const delayInDays = Math.round(delayInMs / (1000 * 60 * 60 * 24) * 100) / 100;
+    
+    metrics.oldestPendingAction = {
+      id: oldestPendingAction.id,
+      scheduledFor: oldestPendingAction.scheduledFor,
+      actionType: oldestPendingAction.actionType,
+      delayInDays,
+    };
+  }
+
+  logger.info("Collected scheduled actions metrics", metrics);
+  return metrics;
+}
+
+export async function cleanupOldScheduledActions(): Promise<number> {
+  const thirtyDaysAgo = subDays(new Date(), 30);
+  
+  logger.info("Starting cleanup of old scheduled actions", {
+    cutoffDate: thirtyDaysAgo,
+  });
+
+  const deletedActions = await prisma.scheduledAction.deleteMany({
+    where: {
+      OR: [
+        { 
+          status: ScheduledActionStatus.COMPLETED, 
+          executedAt: { lt: thirtyDaysAgo } 
+        },
+        { 
+          status: ScheduledActionStatus.FAILED, 
+          updatedAt: { lt: thirtyDaysAgo } 
+        },
+        { 
+          status: ScheduledActionStatus.CANCELLED, 
+          updatedAt: { lt: thirtyDaysAgo } 
+        },
+      ],
+    },
+  });
+
+  logger.info("Completed cleanup of old scheduled actions", {
+    deletedCount: deletedActions.count,
+  });
+
+  return deletedActions.count;
+}
+
+export async function getFailedActionsForRetry(): Promise<Array<{
+  id: string;
+  actionType: string;
+  errorMessage: string;
+  retryCount: number;
+  emailAccountId: string;
+}>> {
+  const oneHourAgo = subHours(new Date(), 1);
+  
+  return await prisma.scheduledAction.findMany({
+    where: {
+      status: ScheduledActionStatus.FAILED,
+      retryCount: { lt: 3 },
+      updatedAt: { gte: oneHourAgo }, // Only recent failures
+    },
+    select: {
+      id: true,
+      actionType: true,
+      errorMessage: true,
+      retryCount: true,
+      emailAccountId: true,
+    },
+    orderBy: {
+      updatedAt: 'asc',
+    },
+    take: 20, // Limit retry batch size
+  });
+}
+```
+
+**Deliverables**:
+✅ Complete delayed action executor with comprehensive error handling  
+✅ Email state validation with detailed result reporting  
+✅ Retry logic with permanent vs. temporary error classification  
+✅ ExecutedRule completion tracking and status updates  
+✅ Comprehensive monitoring and metrics collection  
+✅ Cleanup utilities for maintenance  
+✅ Gmail client management with token refresh  
+✅ Detailed logging for debugging and audit trails
+
+### **Phase 4: Cron Job Implementation** ⭐ **EXPANDED**
+**Time**: 2-3 hours | **Risk**: Low | **Dependencies**: Phase 3
+
+#### 4.1 Cron Job Route (`app/api/cron/scheduled-actions/route.ts`)
+
+**Complete Cron Job Implementation Following Existing Patterns**:
+```typescript
+import { NextRequest, NextResponse } from "next/server";
+import { hasPostCronSecret } from "@/utils/cron";
+import { withError } from "@/utils/middleware";
+import { createScopedLogger } from "@/utils/logger";
+import { processScheduledActions } from "@/utils/scheduled-actions/executor";
+import { cleanupOldScheduledActions, getScheduledActionsMetrics } from "@/utils/scheduled-actions/monitoring";
+
+const logger = createScopedLogger("cron-scheduled-actions");
+
+export const maxDuration = 300; // 5 minutes max duration (like existing cron jobs)
+
+async function handler(request: NextRequest) {
+  const startTime = Date.now();
+  
+  logger.info("Starting scheduled actions cron job", {
+    timestamp: new Date().toISOString(),
+    url: request.url,
+    headers: Object.fromEntries(request.headers.entries()),
+  });
+
+  try {
+    // Step 1: Verify cron secret (follows exact pattern from existing cron jobs)
+    if (!hasPostCronSecret(request)) {
+      logger.error("Unauthorized cron job request", {
+        url: request.url,
+        missingSecret: true,
+      });
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    logger.info("Cron secret verified successfully");
+
+    // Step 2: Get initial metrics for reporting
+    const initialMetrics = await getScheduledActionsMetrics();
+    
+    logger.info("Initial scheduled actions metrics", {
+      pending: initialMetrics.pending,
+      overdue: initialMetrics.overdue,
+      executing: initialMetrics.executing,
+      oldestPendingDelay: initialMetrics.oldestPendingAction?.delayInDays,
+    });
+
+    // Step 3: Process due scheduled actions
+    const processingResult = await processScheduledActions();
+    
+    logger.info("Scheduled actions processing completed", {
+      processed: processingResult.processed,
+      successful: processingResult.successful,
+      failed: processingResult.failed,
+      errorCount: processingResult.errors.length,
+      processingDuration: Date.now() - startTime,
+    });
+
+    // Step 4: Cleanup old completed/failed actions (runs occasionally)
+    let cleanupCount = 0;
+    if (Math.random() < 0.1) { // 10% chance to run cleanup
+      logger.info("Running cleanup of old scheduled actions");
+      cleanupCount = await cleanupOldScheduledActions();
+      logger.info("Cleanup completed", { deletedCount: cleanupCount });
+    }
+
+    // Step 5: Get final metrics for comparison
+    const finalMetrics = await getScheduledActionsMetrics();
+    
+    logger.info("Final scheduled actions metrics", {
+      pending: finalMetrics.pending,
+      overdue: finalMetrics.overdue,
+      executing: finalMetrics.executing,
+      averageExecutionTime: finalMetrics.averageExecutionTime,
+      errorRate: finalMetrics.errorRate,
+    });
+
+    // Step 6: Prepare detailed response
+    const response = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      duration: Date.now() - startTime,
+      metrics: {
+        initial: {
+          pending: initialMetrics.pending,
+          overdue: initialMetrics.overdue,
+          executing: initialMetrics.executing,
+        },
+        final: {
+          pending: finalMetrics.pending,
+          overdue: finalMetrics.overdue,
+          executing: finalMetrics.executing,
+          averageExecutionTime: finalMetrics.averageExecutionTime,
+          errorRate: finalMetrics.errorRate,
+        },
+      },
+      processing: {
+        actionsProcessed: processingResult.processed,
+        successful: processingResult.successful,
+        failed: processingResult.failed,
+        errors: processingResult.errors,
+      },
+      cleanup: {
+        wasRun: cleanupCount > 0,
+        deletedActions: cleanupCount,
+      },
+    };
+
+    // Log detailed success
+    logger.info("Cron job completed successfully", response);
+
+    return NextResponse.json(response);
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    const duration = Date.now() - startTime;
+    
+    logger.error("Cron job failed", {
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+      } : error,
+      duration,
+    });
+
+    // Return error response with details
+    return NextResponse.json(
+      {
+        success: false,
+        error: errorMessage,
+        timestamp: new Date().toISOString(),
+        duration,
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Export with error handling middleware (following existing pattern)
+export const POST = withError(handler);
+```
+
+### **Phase 5: UI Implementation** ⭐ **EXPANDED**
+**Time**: 4-5 hours | **Risk**: Medium | **Dependencies**: Phase 1
+
+#### 5.1 Delay Input Component (`components/ui/delay-input.tsx`)
+
+**Reusable Delay Input Component**:
+```tsx
+"use client";
+
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { InfoIcon } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
+
+export interface DelayValue {
+  value: number;
+  unit: "minutes" | "hours" | "days";
+}
+
+interface DelayInputProps {
+  value?: DelayValue;
+  onChange: (value: DelayValue | undefined) => void;
+  disabled?: boolean;
+  className?: string;
+  error?: string;
+}
+
+const UNIT_MULTIPLIERS = {
+  minutes: 1,
+  hours: 60,
+  days: 1440, // 24 * 60
+} as const;
+
+const UNIT_LABELS = {
+  minutes: "Minutes",
+  hours: "Hours", 
+  days: "Days",
+} as const;
+
+export function DelayInput({ value, onChange, disabled, className, error }: DelayInputProps) {
+  const [inputValue, setInputValue] = useState(value?.value?.toString() || "");
+  const [selectedUnit, setSelectedUnit] = useState<DelayValue["unit"]>(value?.unit || "minutes");
+
+  const handleValueChange = (newValue: string) => {
+    setInputValue(newValue);
+    
+    const numValue = parseInt(newValue, 10);
+    if (!isNaN(numValue) && numValue > 0) {
+      onChange({ value: numValue, unit: selectedUnit });
+    } else if (newValue === "") {
+      onChange(undefined);
+    }
+  };
+
+  const handleUnitChange = (newUnit: DelayValue["unit"]) => {
+    setSelectedUnit(newUnit);
+    
+    const numValue = parseInt(inputValue, 10);
+    if (!isNaN(numValue) && numValue > 0) {
+      onChange({ value: numValue, unit: newUnit });
+    }
+  };
+
+  const totalMinutes = value ? value.value * UNIT_MULTIPLIERS[value.unit] : 0;
+  const maxMinutes = 30 * 24 * 60; // 30 days in minutes
+
+  return (
+    <div className={cn("space-y-2", className)}>
+      <div className="flex items-center gap-2">
+        <Label htmlFor="delay-value" className="text-sm font-medium">
+          Delay Action
+        </Label>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <InfoIcon className="h-4 w-4 text-muted-foreground" />
+            </TooltipTrigger>
+            <TooltipContent>
+              <p className="text-sm">
+                Actions will be executed after the specified delay from when the email was received.
+                <br />
+                Maximum delay: 30 days
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+      
+      <div className="flex gap-2">
+        <Input
+          id="delay-value"
+          type="number"
+          min="1"
+          max={selectedUnit === "minutes" ? maxMinutes : selectedUnit === "hours" ? Math.floor(maxMinutes / 60) : Math.floor(maxMinutes / 1440)}
+          value={inputValue}
+          onChange={(e) => handleValueChange(e.target.value)}
+          placeholder="Enter delay"
+          disabled={disabled}
+          className={cn("flex-1", error && "border-red-500")}
+        />
+        
+        <Select value={selectedUnit} onValueChange={handleUnitChange} disabled={disabled}>
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(UNIT_LABELS).map(([unit, label]) => (
+              <SelectItem key={unit} value={unit}>
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {totalMinutes > 0 && (
+        <div className="text-xs text-muted-foreground">
+          {totalMinutes > maxMinutes ? (
+            <span className="text-red-500">
+              Delay exceeds maximum of 30 days
+            </span>
+          ) : (
+            <span>
+              Action will execute {formatDelay(totalMinutes)} after email receipt
+            </span>
+          )}
+        </div>
+      )}
+
+      {error && (
+        <div className="text-xs text-red-500">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDelay(minutes: number): string {
+  if (minutes < 60) {
+    return `${minutes} minute${minutes !== 1 ? 's' : ''}`;
+  } else if (minutes < 1440) {
+    const hours = Math.floor(minutes / 60);
+    const remainingMinutes = minutes % 60;
+    
+    if (remainingMinutes === 0) {
+      return `${hours} hour${hours !== 1 ? 's' : ''}`;
+    } else {
+      return `${hours}h ${remainingMinutes}m`;
+    }
+  } else {
+    const days = Math.floor(minutes / 1440);
+    const remainingHours = Math.floor((minutes % 1440) / 60);
+    
+    if (remainingHours === 0) {
+      return `${days} day${days !== 1 ? 's' : ''}`;
+    } else {
+      return `${days}d ${remainingHours}h`;
+    }
+  }
+}
+
+export function delayValueToMinutes(delayValue: DelayValue): number {
+  return delayValue.value * UNIT_MULTIPLIERS[delayValue.unit];
+}
+
+export function minutesToDelayValue(minutes: number): DelayValue {
+  if (minutes % 1440 === 0) {
+    return { value: minutes / 1440, unit: "days" };
+  } else if (minutes % 60 === 0) {
+    return { value: minutes / 60, unit: "hours" };
+  } else {
+    return { value: minutes, unit: "minutes" };
+  }
+}
+```
+
+#### 5.2 Enhanced ActionCard with Delay Support (`components/ActionCard.tsx`)
+
+**Modified ActionCard Component with Delay Integration**:
+```tsx
+// Add to existing ActionCard component
+import { DelayInput, DelayValue, delayValueToMinutes, minutesToDelayValue } from "@/components/ui/delay-input";
+import { usePremium } from "@/hooks/usePremium";
+import { Badge } from "@/components/ui/badge";
+import { Lock } from "lucide-react";
+
+// Add to ActionCard props interface
+interface ActionCardProps {
+  // ... existing props
+  delayValue?: DelayValue;
+  onDelayChange?: (delay: DelayValue | undefined) => void;
+  isPremiumRequired?: boolean;
+}
+
+// Inside ActionCard component, after existing dynamic fields and before VariableProTip
+export function ActionCard({ 
+  action, 
+  onUpdate, 
+  onRemove, 
+  delayValue, 
+  onDelayChange, 
+  isPremiumRequired = false,
+  // ... other props 
+}: ActionCardProps) {
+  const { premium } = usePremium();
+  const canUseDelayedActions = premium.isBusinessPlan; // BUSINESS tier or higher
+
+  // ... existing component logic
+
+  return (
+    <Card className="p-4">
+      <div className="space-y-4">
+        {/* ... existing action type selection and dynamic fields */}
+        
+        {/* NEW: Delay Controls Section */}
+        {action.type && (
+          <div className="border-t pt-4">
+            {canUseDelayedActions ? (
+              <DelayInput
+                value={delayValue}
+                onChange={onDelayChange}
+                disabled={!canUseDelayedActions}
+                error={
+                  delayValue && delayValueToMinutes(delayValue) > 43200 // 30 days
+                    ? "Maximum delay is 30 days"
+                    : undefined
+                }
+              />
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Delay Action
+                  </Label>
+                  <Badge variant="secondary" className="gap-1">
+                    <Lock className="h-3 w-3" />
+                    Business Plan
+                  </Badge>
+                </div>
+                <div className="p-3 border border-dashed rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Schedule actions to execute after a delay with the Business plan
+                  </p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      // Navigate to premium upgrade
+                      window.open('/premium', '_blank');
+                    }}
+                  >
+                    Upgrade to Business
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ... existing VariableProTip and other components */}
+      </div>
+    </Card>
+  );
+}
+```
+
+#### 5.3 Enhanced RuleForm with Delay Support (`app/(app)/[emailAccountId]/assistant/RuleForm.tsx`)
+
+**Complete RuleForm Enhancement for Delayed Actions**:
+```tsx
+// Add to existing imports
+import { DelayValue, delayValueToMinutes, minutesToDelayValue } from "@/components/ui/delay-input";
+import { usePremium } from "@/hooks/usePremium";
+
+// Add to form schema
+const createRuleBodyWithDelay = z.object({
+  // ... existing schema fields
+  actions: z.array(
+    z.object({
+      // ... existing action fields
+      delayInMinutes: z.number().min(1).max(43200).optional(),
+    })
+  ),
+});
+
+// Enhance form state management
+export function RuleForm({ rule, isEditing, onSave, onCancel }: RuleFormProps) {
+  const { premium } = usePremium();
+  
+  // Add delay state for each action
+  const [actionDelays, setActionDelays] = useState<Map<number, DelayValue>>(
+    new Map(
+      rule?.actions
+        ?.map((action, index) => 
+          action.delayInMinutes 
+            ? [index, minutesToDelayValue(action.delayInMinutes)]
+            : null
+        )
+        .filter(Boolean) || []
+    )
+  );
+
+  // Handle delay changes
+  const handleDelayChange = (actionIndex: number, delayValue: DelayValue | undefined) => {
+    setActionDelays(prev => {
+      const newDelays = new Map(prev);
+      if (delayValue) {
+        newDelays.set(actionIndex, delayValue);
+      } else {
+        newDelays.delete(actionIndex);
+      }
+      return newDelays;
+    });
+  };
+
+  // Enhanced form submission
+  const onSubmit = async (values: z.infer<typeof createRuleBodyWithDelay>) => {
+    try {
+      // Convert delay values to minutes and add to actions
+      const actionsWithDelays = values.actions.map((action, index) => {
+        const delayValue = actionDelays.get(index);
+        return {
+          ...action,
+          delayInMinutes: delayValue ? delayValueToMinutes(delayValue) : undefined,
+        };
+      });
+
+      const ruleData = {
+        ...values,
+        actions: actionsWithDelays,
+      };
+
+      // Validate premium requirements
+      const hasDelayedActions = actionsWithDelays.some(action => action.delayInMinutes);
+      if (hasDelayedActions && !premium.isBusinessPlan) {
+        throw new Error("Delayed actions require a Business plan subscription");
+      }
+
+      await onSave(ruleData);
+    } catch (error) {
+      console.error("Error saving rule:", error);
+      // Handle error (show toast, etc.)
+    }
+  };
+
+  // In the actions rendering section
+  return (
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {/* ... existing form fields */}
+      
+      <div className="space-y-4">
+        <Label className="text-base font-semibold">Actions</Label>
+        
+        {fields.map((field, index) => (
+          <ActionCard
+            key={field.id}
+            action={watch(`actions.${index}`)}
+            onUpdate={(updatedAction) => {
+              update(index, updatedAction);
+            }}
+            onRemove={() => {
+              remove(index);
+              // Clean up delay state
+              setActionDelays(prev => {
+                const newDelays = new Map(prev);
+                newDelays.delete(index);
+                return newDelays;
+              });
+            }}
+            delayValue={actionDelays.get(index)}
+            onDelayChange={(delayValue) => handleDelayChange(index, delayValue)}
+            isPremiumRequired={!premium.isBusinessPlan}
+          />
+        ))}
+        
+        {/* ... rest of form */}
+      </div>
+    </form>
+  );
+}
+```
+
+### **Phase 6: Integration & Edge Cases** ⭐ **EXPANDED**
+**Time**: 3-4 hours | **Risk**: Medium | **Dependencies**: Phases 2, 4
+
+#### 6.1 Action Cancellation Logic (`utils/scheduled-actions/cancellation.ts`)
+
+**Smart Cancellation When User Takes Manual Actions**:
+```tsx
+import prisma from "@/utils/prisma";
+import { ActionType, ScheduledActionStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+import { getConflictingActionsForManualAction } from "./validation";
+
+const logger = createScopedLogger("scheduled-actions-cancellation");
+
+export async function cancelConflictingScheduledActions({
+  messageId,
+  emailAccountId,
+  manualActionType,
+  reason = "User performed manual action",
+}: {
+  messageId: string;
+  emailAccountId: string;
+  manualActionType: string;
+  reason?: string;
+}) {
+  const conflictingActionTypes = getConflictingActionsForManualAction(manualActionType);
+  
+  if (conflictingActionTypes.length === 0) {
+    logger.info("No conflicting actions to cancel", { 
+      messageId, 
+      manualActionType 
+    });
+    return { cancelledCount: 0, conflictingTypes: [] };
+  }
+
+  logger.info("Cancelling conflicting scheduled actions", {
+    messageId,
+    emailAccountId,
+    manualActionType,
+    conflictingActionTypes,
+  });
+
+  const cancelledActions = await prisma.scheduledAction.updateMany({
+    where: {
+      messageId,
+      emailAccountId,
+      actionType: { in: conflictingActionTypes },
+      status: ScheduledActionStatus.PENDING,
+    },
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+      errorMessage: `${reason}: ${manualActionType}`,
+    },
+  });
+
+  logger.info("Cancelled conflicting scheduled actions", {
+    messageId,
+    manualActionType,
+    cancelledCount: cancelledActions.count,
+    conflictingTypes: conflictingActionTypes,
+  });
+
+  return {
+    cancelledCount: cancelledActions.count,
+    conflictingTypes: conflictingActionTypes,
+  };
+}
+
+export async function cancelAllScheduledActionsForMessage({
+  messageId,
+  emailAccountId,
+  reason = "Message processing cancelled",
+}: {
+  messageId: string;
+  emailAccountId: string;
+  reason?: string;
+}) {
+  logger.info("Cancelling all scheduled actions for message", {
+    messageId,
+    emailAccountId,
+    reason,
+  });
+
+  const cancelledActions = await prisma.scheduledAction.updateMany({
+    where: {
+      messageId,
+      emailAccountId,
+      status: { in: [ScheduledActionStatus.PENDING, ScheduledActionStatus.EXECUTING] },
+    },
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+      errorMessage: reason,
+    },
+  });
+
+  logger.info("Cancelled all scheduled actions for message", {
+    messageId,
+    cancelledCount: cancelledActions.count,
+  });
+
+  return cancelledActions.count;
+}
+
+export async function cancelScheduledActionsOnUserDowngrade({
+  emailAccountId,
+  reason = "User downgraded to plan without delayed actions",
+}: {
+  emailAccountId: string;
+  reason?: string;
+}) {
+  logger.info("Cancelling scheduled actions due to downgrade", {
+    emailAccountId,
+    reason,
+  });
+
+  const cancelledActions = await prisma.scheduledAction.updateMany({
+    where: {
+      emailAccountId,
+      status: ScheduledActionStatus.PENDING,
+    },
+    data: {
+      status: ScheduledActionStatus.CANCELLED,
+      errorMessage: reason,
+    },
+  });
+
+  logger.info("Cancelled scheduled actions for downgraded user", {
+    emailAccountId,
+    cancelledCount: cancelledActions.count,
+  });
+
+  return cancelledActions.count;
+}
+```
+
+#### 6.2 Integration Hooks (`hooks/useScheduledActions.ts`)
+
+**React Hook for Managing Scheduled Actions in UI**:
+```tsx
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import type { ScheduledActionStatus } from "@prisma/client";
+
+interface ScheduledAction {
+  id: string;
+  actionType: string;
+  messageId: string;
+  threadId: string;
+  scheduledFor: Date;
+  status: ScheduledActionStatus;
+  errorMessage?: string;
+  retryCount: number;
+  executedRule: {
+    id: string;
+    rule: {
+      name: string;
+    };
+  };
+}
+
+export function useScheduledActions(emailAccountId: string) {
+  const queryClient = useQueryClient();
+
+  const {
+    data: scheduledActions = [],
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ["scheduledActions", emailAccountId],
+    queryFn: async (): Promise<ScheduledAction[]> => {
+      const response = await fetch(`/api/user/scheduled-actions?emailAccountId=${emailAccountId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch scheduled actions");
+      }
+      return response.json();
+    },
+    refetchInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const cancelActionMutation = useMutation({
+    mutationFn: async ({ actionId, reason }: { actionId: string; reason?: string }) => {
+      const response = await fetch(`/api/user/scheduled-actions/${actionId}/cancel`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to cancel scheduled action");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scheduledActions", emailAccountId] });
+    },
+  });
+
+  const retryActionMutation = useMutation({
+    mutationFn: async (actionId: string) => {
+      const response = await fetch(`/api/user/scheduled-actions/${actionId}/retry`, {
+        method: "POST",
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to retry scheduled action");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["scheduledActions", emailAccountId] });
+    },
+  });
+
+  const cancelAction = useCallback(
+    (actionId: string, reason?: string) => {
+      return cancelActionMutation.mutateAsync({ actionId, reason });
+    },
+    [cancelActionMutation]
+  );
+
+  const retryAction = useCallback(
+    (actionId: string) => {
+      return retryActionMutation.mutateAsync(actionId);
+    },
+    [retryActionMutation]
+  );
+
+  // Group actions by status for easy UI rendering
+  const actionsByStatus = scheduledActions.reduce((acc, action) => {
+    if (!acc[action.status]) acc[action.status] = [];
+    acc[action.status].push(action);
+    return acc;
+  }, {} as Record<ScheduledActionStatus, ScheduledAction[]>);
+
+  return {
+    scheduledActions,
+    actionsByStatus,
+    isLoading,
+    error,
+    refetch,
+    cancelAction,
+    retryAction,
+    isOperating: cancelActionMutation.isPending || retryActionMutation.isPending,
+  };
+}
+```
+
+### **Phase 7: Testing & Validation** ⭐ **EXPANDED**
+**Time**: 2-3 hours | **Risk**: Low | **Dependencies**: All phases
+
+#### 7.1 Unit Tests (`__tests__/scheduled-actions/`)
+
+**Comprehensive Test Suite**:
+```typescript
+// __tests__/scheduled-actions/scheduler.test.ts
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { createScheduledAction, scheduleDelayedActions, isSupportedDelayedAction } from "@/utils/scheduled-actions/scheduler";
+import { ActionType } from "@prisma/client";
+import prisma from "@/utils/prisma";
+
+// Mock prisma
+vi.mock("@/utils/prisma", () => ({
+  default: {
+    scheduledAction: {
+      create: vi.fn(),
+    },
+  },
+}));
+
+describe("Scheduled Actions Scheduler", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe("isSupportedDelayedAction", () => {
+    it("should support ARCHIVE action", () => {
+      expect(isSupportedDelayedAction(ActionType.ARCHIVE)).toBe(true);
+    });
+
+    it("should support LABEL action", () => {
+      expect(isSupportedDelayedAction(ActionType.LABEL)).toBe(true);
+    });
+
+    it("should support MARK_READ action", () => {
+      expect(isSupportedDelayedAction(ActionType.MARK_READ)).toBe(true);
+    });
+
+    it("should not support unsupported actions", () => {
+      expect(isSupportedDelayedAction(ActionType.REPLY)).toBe(false);
+    });
+  });
+
+  describe("createScheduledAction", () => {
+    it("should create a scheduled action with correct data", async () => {
+      const mockScheduledAction = {
+        id: "test-id",
+        executedRuleId: "rule-id",
+        actionType: ActionType.ARCHIVE,
+        scheduledFor: new Date(),
+      };
+
+      (prisma.scheduledAction.create as any).mockResolvedValue(mockScheduledAction);
+
+      const result = await createScheduledAction({
+        executedRuleId: "rule-id",
+        actionType: ActionType.ARCHIVE,
+        delayInMinutes: 60,
+        emailInternalDate: new Date("2024-01-01T10:00:00Z"),
+        messageId: "msg-id",
+        threadId: "thread-id",
+        emailAccountId: "account-id",
+        actionItemData: { label: "test-label" },
+      });
+
+      expect(result).toEqual(mockScheduledAction);
+      expect(prisma.scheduledAction.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          executedRuleId: "rule-id",
+          actionType: ActionType.ARCHIVE,
+          messageId: "msg-id",
+          threadId: "thread-id",
+          emailAccountId: "account-id",
+          label: "test-label",
+        }),
+        include: {
+          executedRule: true,
+          emailAccount: true,
+        },
+      });
+    });
+  });
+});
+
+// __tests__/scheduled-actions/executor.test.ts
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
+import { ScheduledActionStatus } from "@prisma/client";
+
+describe("Scheduled Actions Executor", () => {
+  describe("executeScheduledAction", () => {
+    it("should handle email not found gracefully", async () => {
+      // Mock scheduled action
+      const mockAction = {
+        id: "action-id",
+        messageId: "missing-message",
+        executedRuleId: "rule-id",
+        actionType: ActionType.ARCHIVE,
+        emailAccountId: "account-id",
+        status: ScheduledActionStatus.PENDING,
+        retryCount: 0,
+      };
+
+      // Mock Gmail API to throw not found error
+      vi.mock("@/utils/gmail/message", () => ({
+        getMessage: vi.fn().mockRejectedValue(new Error("Message not found")),
+      }));
+
+      const result = await executeScheduledAction(mockAction as any);
+      
+      expect(result).toBe(false);
+      // Verify action was cancelled
+    });
+
+    it("should validate email state before execution", async () => {
+      // Test cases for different action types and email states
+    });
+  });
+});
+```
+
+#### 7.2 Integration Tests (`__tests__/integration/delayed-actions.test.ts`)
+
+**End-to-End Integration Tests**:
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { testDb } from "@/utils/test-db";
+import { createTestScheduledAction, simulateCronJobExecution } from "@/utils/scheduled-actions/dev-utils";
+
+describe("Delayed Actions Integration", () => {
+  beforeAll(async () => {
+    await testDb.setup();
+  });
+
+  afterAll(async () => {
+    await testDb.teardown();
+  });
+
+  it("should complete full delayed action workflow", async () => {
+    // 1. Create test email account and rule
+    const emailAccount = await testDb.createEmailAccount();
+    const rule = await testDb.createRule({
+      emailAccountId: emailAccount.id,
+      actions: [{ type: "ARCHIVE", delayInMinutes: 1 }],
+    });
+
+    // 2. Create scheduled action
+    const scheduledAction = await createTestScheduledAction({
+      emailAccountId: emailAccount.id,
+      actionType: "ARCHIVE",
+      delayInMinutes: -1, // Already due
+    });
+
+    expect(scheduledAction.status).toBe("PENDING");
+
+    // 3. Simulate cron job execution
+    const results = await simulateCronJobExecution({
+      emailAccountId: emailAccount.id,
+    });
+
+    expect(results.simulated).toBe(1);
+    expect(results.errors).toHaveLength(0);
+
+    // 4. Verify action was completed
+    const updatedAction = await testDb.getScheduledAction(scheduledAction.id);
+    expect(updatedAction.status).toBe("COMPLETED");
+  });
+
+  it("should handle premium plan restrictions", async () => {
+    // Test premium plan validation
+  });
+
+  it("should cancel conflicting actions when user takes manual action", async () => {
+    // Test action cancellation logic
+  });
+});
+```
+
+#### 7.3 Performance Tests (`__tests__/performance/cron-job.test.ts`)
+
+**Performance and Load Testing**:
+```typescript
+import { describe, it, expect } from "vitest";
+import { performance } from "perf_hooks";
+
+describe("Cron Job Performance", () => {
+  it("should process 100 actions within time limit", async () => {
+    const startTime = performance.now();
+    
+    // Create 100 test scheduled actions
+    const actions = await Promise.all(
+      Array.from({ length: 100 }, (_, i) => 
+        createTestScheduledAction({
+          emailAccountId: "test-account",
+          messageId: `test-message-${i}`,
+          delayInMinutes: -1, // All overdue
+        })
+      )
+    );
+
+    // Process actions
+    const result = await processScheduledActions();
+    
+    const endTime = performance.now();
+    const duration = endTime - startTime;
+
+    expect(result.processed).toBe(100);
+    expect(duration).toBeLessThan(30000); // Should complete within 30 seconds
+    expect(result.successful).toBeGreaterThan(90); // At least 90% success rate
+  });
+
+  it("should handle database connection failures gracefully", async () => {
+    // Test database resilience
+  });
+});
+```
+
+**Deliverables**:
+✅ Complete cron job implementation with security and monitoring  
+✅ Comprehensive UI components with premium integration  
+✅ Smart action cancellation and conflict resolution  
+✅ React hooks for UI state management  
+✅ Complete test suite with unit, integration, and performance tests  
+✅ Error handling and edge case coverage  
+✅ Premium plan validation and upgrade flows  
+✅ Development and debugging utilities
+
+## **FINAL IMPLEMENTATION SUMMARY**
+
+### **Total Estimated Time: 22-30 hours**
+- **Phase 0**: Architecture Decisions ✅ **COMPLETED** (3 hours)
+- **Phase 1**: Database Schema 🚀 **READY** (2-3 hours)  
+- **Phase 2**: Core Infrastructure (4-5 hours)
+- **Phase 3**: Action Executor (3-4 hours)
+- **Phase 4**: Cron Job Implementation (2-3 hours)
+- **Phase 5**: UI Implementation (4-5 hours) 
+- **Phase 6**: Integration & Edge Cases (3-4 hours)
+- **Phase 7**: Testing & Validation (2-3 hours)
+
+### **Key Features Delivered**
+✅ **10 Critical Architecture Decisions** resolved with comprehensive technical details  
+✅ **Complete Database Schema** with migrations, indexes, and verification  
+✅ **Robust Scheduling Service** with error handling and retry logic  
+✅ **Comprehensive Action Executor** with state validation and monitoring  
+✅ **Production-Ready Cron Job** following established security patterns  
+✅ **Modern UI Components** with premium integration and user experience  
+✅ **Smart Conflict Resolution** for manual vs. scheduled actions  
+✅ **Complete Test Suite** covering unit, integration, and performance scenarios  
+✅ **Development Tools** for testing, debugging, and monitoring  
+✅ **Premium Plan Integration** with proper tier restrictions and upgrade flows
+
+**🎯 READY FOR PHASE 1 IMPLEMENTATION!**
