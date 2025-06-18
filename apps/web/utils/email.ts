@@ -1,4 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
+import { z } from "zod";
 
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
@@ -16,23 +17,38 @@ export function extractNameFromEmail(email: string) {
 export function extractEmailAddress(email: string): string {
   if (!email) return "";
 
-  // Standard email pattern that matches common email formats
-  // Allows:
-  // - Letters, numbers, dots, and plus signs in local part
-  // - Standard domain formats
-  // - Case insensitive
-  // - Emails anywhere within text
-  const emailPattern = /[a-zA-Z0-9.+]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i;
-
-  // Try last bracketed content first
-  const match = email.match(/<([^<>]+)>$/);
-  if (match && emailPattern.test(match[1].trim())) {
-    return match[1].trim();
+  // Try to extract from angle brackets first
+  const bracketMatch = email.match(/<([^<>]+)>$/);
+  if (bracketMatch) {
+    const candidate = bracketMatch[1].trim();
+    if (isValidEmail(candidate)) {
+      return candidate;
+    }
   }
 
-  // Fall back to finding any email in the string
-  const rawMatch = email.match(emailPattern);
-  return rawMatch ? rawMatch[0] : "";
+  // If no brackets or invalid email in brackets, try the whole string
+  if (isValidEmail(email.trim())) {
+    return email.trim();
+  }
+
+  // As a last resort, look for any email-like pattern in the string
+  const emailPattern = /\b[^\s<>]+@[^\s<>]+\.[^\s<>]+\b/g;
+  const matches = email.match(emailPattern);
+  if (matches) {
+    // Try each match to find a valid email
+    for (const match of matches) {
+      if (isValidEmail(match)) {
+        return match;
+      }
+    }
+  }
+
+  return "";
+}
+
+// Use Zod's built-in email validation
+function isValidEmail(email: string): boolean {
+  return z.string().email().safeParse(email).success;
 }
 
 // Normalizes email addresses by:
