@@ -19,7 +19,7 @@ export default async function CreateRulePage(props: {
     examples[Number.parseInt(searchParams.example)].rule;
 
   return (
-    <div className="content-container mx-auto w-full max-w-3xl">
+    <div className="content-container">
       <RuleForm
         rule={
           rule || {
@@ -39,6 +39,7 @@ export default async function CreateRulePage(props: {
             runOnThreads: true,
           }
         }
+        alwaysEditMode
       />
     </div>
   );

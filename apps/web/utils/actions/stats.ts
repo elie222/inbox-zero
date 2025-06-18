@@ -12,6 +12,7 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
+import { SafeError } from "@/utils/error";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 // const PAUSE_AFTER_RATE_LIMIT = 10_000;
@@ -27,7 +28,7 @@ export const loadEmailStatsAction = actionClient
       emailAccountId,
     });
 
-    if (!accessToken) return { error: "Missing access token" };
+    if (!accessToken) throw new SafeError("Missing access token");
 
     await loadEmails(
       {

@@ -5,8 +5,8 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
-import { Braintrust } from "@/utils/braintrust";
 import { preprocessBooleanLike } from "@/utils/zod";
+// import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai/clean");
 
@@ -18,7 +18,7 @@ const schema = z.object({
   // reasoning: z.string(),
 });
 
-const braintrust = new Braintrust("cleaner-1");
+// const braintrust = new Braintrust("cleaner-1");
 
 export async function aiClean({
   emailAccount,
@@ -103,11 +103,11 @@ The current date is ${currentDate}.
 
   logger.trace("Result", { response: aiResponse.object });
 
-  braintrust.insertToDataset({
-    id: messageId,
-    input: { message, currentDate },
-    expected: aiResponse.object,
-  });
+  // braintrust.insertToDataset({
+  //   id: messageId,
+  //   input: { message, currentDate },
+  //   expected: aiResponse.object,
+  // });
 
   return aiResponse.object as { archive: boolean };
 }

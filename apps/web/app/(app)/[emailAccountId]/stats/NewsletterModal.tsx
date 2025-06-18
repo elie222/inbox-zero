@@ -74,7 +74,7 @@ export function NewsletterModal(props: {
                     });
                   }}
                 >
-                  Auto archive
+                  Skip Inbox
                 </Button>
               </Tooltip>
               {newsletter.autoArchived && (
@@ -84,7 +84,7 @@ export function NewsletterModal(props: {
                     target="_blank"
                   >
                     <ExternalLinkIcon className="mr-2 h-4 w-4" />
-                    View Auto Archive Filter
+                    View Skip Inbox Filter
                   </Link>
                 </Button>
               )}

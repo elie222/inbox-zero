@@ -6,7 +6,7 @@
     "project": true
   },
   "rules": {
-    "no-console": "warn"
+    "no-console": "off"
   },
   "overrides": [
     {

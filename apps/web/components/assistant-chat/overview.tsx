@@ -4,7 +4,6 @@ import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { ExamplesDialog } from "./examples-dialog";
-// import { initialChatExamples } from "@/app/(app)/[emailAccountId]/assistant/examples";
 
 export const Overview = ({
   setInput,
@@ -33,43 +32,12 @@ export const Overview = ({
           Teach me how to handle your incoming emails for you
         </MessageText>
 
-        <div className="flex flex-col gap-3 pt-8">
-          {/* {initialChatExamples.map((example) => (
-            <OverviewButton
-              key={example.label}
-              label={example.label}
-              message={example.message}
-              setInput={setInput}
-            />
-          ))} */}
-
+        <div className="pt-8">
           <ExamplesDialog setInput={setInput}>
-            <Button variant="default">Choose from examples</Button>
+            <Button variant="primaryBlue">Choose from examples</Button>
           </ExamplesDialog>
         </div>
       </div>
     </motion.div>
   );
 };
-
-function OverviewButton({
-  label,
-  setInput,
-  message,
-}: {
-  label: string;
-  setInput: UseChatHelpers["setInput"];
-  message: string;
-}) {
-  return (
-    <Button
-      variant="outline"
-      className="h-auto justify-start text-wrap py-3 text-left"
-      onClick={() => {
-        setInput(message);
-      }}
-    >
-      {label}
-    </Button>
-  );
-}

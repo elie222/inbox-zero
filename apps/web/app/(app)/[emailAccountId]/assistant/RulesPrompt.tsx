@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -29,13 +29,14 @@ import {
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
-import { AlertBasic } from "@/components/Alert";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
+import { Notice } from "@/components/Notice";
+import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -59,7 +60,7 @@ export function RulesPrompt() {
     <>
       <LoadingContent loading={isLoading} error={error}>
         {data && (
-          <>
+          <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
               rulesPrompt={data.rulesPrompt}
@@ -73,7 +74,7 @@ export function RulesPrompt() {
                 if (!data.rulesPrompt) onOpenPersonaDialog();
               }}
             />
-          </>
+          </div>
         )}
       </LoadingContent>
       <PersonaDialog
@@ -157,7 +158,7 @@ function RulesPromptForm({
         }
 
         if (viewedProcessingPromptFileDialog) {
-          router.push(prefixPath(emailAccountId, "/assistant?tab=test"));
+          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
         }
 
         mutate();
@@ -222,15 +223,6 @@ function RulesPromptForm({
         }
       />
 
-      {showClearWarning && (
-        <AlertBasic
-          className="mb-2"
-          variant="blue"
-          title="Warning: Deleting text will remove or disable rules"
-          description="Add new rules at the end to keep your existing rules."
-        />
-      )}
-
       <div
         className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
       >
@@ -238,7 +230,7 @@ function RulesPromptForm({
           onSubmit={handleSubmit(onSubmit)}
           className={showExamples ? "sm:col-span-2" : ""}
         >
-          <Label className="font-cal text-base leading-7 dark:text-foreground">
+          <Label className="font-cal text-xl leading-7">
             How your assistant should handle incoming emails
           </Label>
 
@@ -254,7 +246,7 @@ function RulesPromptForm({
               error={errors.rulesPrompt}
               placeholder={`Here's an example of what your prompt might look like:
 
-${personas.other.prompt}
+${personas.other.promptArray.slice(0, 1).join("\n")}
 
 If someone asks about pricing, reply with:
 ---
@@ -269,6 +261,7 @@ Let me know if you're interested!
             <div className="flex flex-wrap gap-2">
               <Button
                 type="submit"
+                variant="primaryBlue"
                 disabled={isSubmitting || isGenerating}
                 loading={isSubmitting}
               >
@@ -326,6 +319,13 @@ Let me know if you're interested!
                 </Button>
               </Tooltip>
             </div>
+
+            {showClearWarning && (
+              <Notice>
+                <strong>Note:</strong> Deleting text will delete rules. Add new
+                rules at the end to keep your existing rules.
+              </Notice>
+            )}
           </div>
         </form>
 
@@ -372,25 +372,63 @@ export function PromptFile() {
   );
 }
 
-function Examples({ onSelect }: { onSelect: (example: string) => void }) {
+function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
   return (
     <div>
-      <SectionHeader>Examples</SectionHeader>
+      <SectionHeader className="text-xl">Examples</SectionHeader>
 
       <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
         <div className="grid grid-cols-1 gap-2">
-          {examplePrompts.map((example) => (
-            <Button
-              key={example}
-              variant="outline"
-              onClick={() => onSelect(example)}
-              className="h-auto w-full justify-start text-wrap py-2 text-left"
-            >
-              {example}
-            </Button>
-          ))}
+          {examplePrompts.map((example) => {
+            const { color } = getActionType(example);
+
+            return (
+              <Button
+                key={example}
+                variant="outline"
+                onClick={() => onSelect(example)}
+                className="h-auto w-full justify-start text-wrap py-2 text-left"
+              >
+                <div className="flex w-full items-start gap-2">
+                  <div
+                    className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
+                  />
+                  <span className="flex-1">{example}</span>
+                </div>
+              </Button>
+            );
+          })}
         </div>
       </ScrollArea>
     </div>
   );
+}
+
+const Examples = memo(PureExamples);
+
+function getActionType(example: string): {
+  type: string;
+  color: string;
+} {
+  const lowerExample = example.toLowerCase();
+  const color = getActionTypeColor(example);
+
+  if (lowerExample.includes("forward")) {
+    return { type: "forward", color };
+  }
+  if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
+    return { type: "reply", color };
+  }
+  if (lowerExample.includes("archive")) {
+    return { type: "archive", color };
+  }
+  if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
+    return { type: "mark", color };
+  }
+  if (lowerExample.includes("label")) {
+    return { type: "label", color };
+  }
+
+  // Default fallback
+  return { type: "other", color };
 }

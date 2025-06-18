@@ -19,6 +19,7 @@ import {
 import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
+import { SafeError } from "@/utils/error";
 
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
@@ -41,7 +42,8 @@ export const archiveThreadAction = actionClient
         labelId,
       });
 
-      if (!isStatusOk(res.status)) return { error: "Failed to archive thread" };
+      if (!isStatusOk(res.status))
+        throw new SafeError("Failed to archive thread");
     },
   );
 
@@ -62,7 +64,8 @@ export const trashThreadAction = actionClient
         actionSource: "user",
       });
 
-      if (!isStatusOk(res.status)) return { error: "Failed to delete thread" };
+      if (!isStatusOk(res.status))
+        throw new SafeError("Failed to delete thread");
     },
   );
 
@@ -74,7 +77,7 @@ export const trashThreadAction = actionClient
 
 //     const res = await trashMessage({ gmail, messageId });
 
-//     if (!isStatusOk(res.status)) return { error: "Failed to delete message" };
+//     if (!isStatusOk(res.status)) throw new SafeError("Failed to delete message");
 //   });
 
 export const markReadThreadAction = actionClient
@@ -87,7 +90,7 @@ export const markReadThreadAction = actionClient
       const res = await markReadThread({ gmail, threadId, read });
 
       if (!isStatusOk(res.status))
-        return { error: "Failed to mark thread as read" };
+        throw new SafeError("Failed to mark thread as read");
     },
   );
 
@@ -104,7 +107,7 @@ export const markImportantMessageAction = actionClient
       const res = await markImportantMessage({ gmail, messageId, important });
 
       if (!isStatusOk(res.status))
-        return { error: "Failed to mark message as important" };
+        throw new SafeError("Failed to mark message as important");
     },
   );
 
@@ -117,7 +120,7 @@ export const markSpamThreadAction = actionClient
     const res = await markSpam({ gmail, threadId });
 
     if (!isStatusOk(res.status))
-      return { error: "Failed to mark thread as spam" };
+      throw new SafeError("Failed to mark thread as spam");
   });
 
 export const createAutoArchiveFilterAction = actionClient
@@ -133,7 +136,7 @@ export const createAutoArchiveFilterAction = actionClient
       const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
 
       if (!isStatusOk(res.status))
-        return { error: "Failed to create auto archive filter" };
+        throw new SafeError("Failed to create auto archive filter");
     },
   );
 
@@ -153,7 +156,8 @@ export const createFilterAction = actionClient
         addLabelIds: [gmailLabelId],
       });
 
-      if (!isStatusOk(res.status)) return { error: "Failed to create filter" };
+      if (!isStatusOk(res.status))
+        throw new SafeError("Failed to create filter");
 
       return res;
     },
@@ -167,7 +171,7 @@ export const deleteFilterAction = actionClient
 
     const res = await deleteFilter({ gmail, id });
 
-    if (!isStatusOk(res.status)) return { error: "Failed to delete filter" };
+    if (!isStatusOk(res.status)) throw new SafeError("Failed to delete filter");
   });
 
 export const createLabelAction = actionClient

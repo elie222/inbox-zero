@@ -263,3 +263,7 @@ export async function trackPaymentSuccess({
 export async function trackStripeEvent(email: string, data: any) {
   return posthogCaptureEvent(email, "Stripe event", data);
 }
+
+export async function trackUserDeleted(userId: string) {
+  return posthogCaptureEvent("anonymous", "User deleted", { userId }, false);
+}

@@ -72,7 +72,7 @@ export function BulkActions({
           <div>
             <Button
               size="sm"
-              variant="outline"
+              variant="default"
               onClick={() => onBulkUnsubscribe(getSelectedValues())}
               loading={bulkUnsubscribeLoading}
             >
@@ -95,7 +95,7 @@ export function BulkActions({
               loading={bulkAutoArchiveLoading}
             >
               <ArchiveIcon className="mr-2 size-4" />
-              Auto Archive
+              Skip Inbox
             </Button>
           </div>
           <div>

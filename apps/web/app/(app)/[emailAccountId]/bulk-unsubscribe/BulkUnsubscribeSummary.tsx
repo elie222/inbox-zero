@@ -34,7 +34,7 @@ export function BulkUnsubscribeSummary() {
             icon: <UserRoundMinusIcon className="h-4 w-4" />,
           },
           {
-            name: "Auto archived",
+            name: "Skip Inbox",
             value: formatStat(
               data?.result?.[NewsletterStatus.AUTO_ARCHIVED] || 0,
             ),

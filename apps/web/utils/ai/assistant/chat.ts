@@ -2,7 +2,8 @@ import { type Message, type StepResult, type Tool, tool } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import {
   createRule,
   partialUpdateRule,
@@ -20,22 +21,20 @@ const logger = createScopedLogger("ai/assistant/chat");
 export const maxDuration = 120;
 
 // schemas
-export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
-
 const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
     aiInstructions: z.string().optional(),
     static: z
       .object({
-        from: z.string().nullable(),
-        to: z.string().nullable(),
-        subject: z.string().nullable(),
+        from: z.string().nullish(),
+        to: z.string().nullish(),
+        subject: z.string().nullish(),
       })
-      .nullable(),
+      .nullish(),
     conditionalOperator: z
       .enum([LogicalOperator.AND, LogicalOperator.OR])
-      .nullable(),
+      .nullish(),
   }),
 });
 export type UpdateRuleConditionSchema = z.infer<
@@ -83,13 +82,13 @@ const updateRuleActionsSchema = z.object({
         ActionType.CALL_WEBHOOK,
       ]),
       fields: z.object({
-        label: z.string().optional(),
-        content: z.string().optional(),
-        webhookUrl: z.string().optional(),
-        to: z.string().optional(),
-        cc: z.string().optional(),
-        bcc: z.string().optional(),
-        subject: z.string().optional(),
+        label: z.string().nullish(),
+        content: z.string().nullish(),
+        webhookUrl: z.string().nullish(),
+        to: z.string().nullish(),
+        cc: z.string().nullish(),
+        bcc: z.string().nullish(),
+        subject: z.string().nullish(),
       }),
     }),
   ),
@@ -113,7 +112,7 @@ export type UpdateRuleActionsResult = {
   }>;
   updatedActions?: Array<{
     type: string;
-    fields: Record<string, string | undefined>;
+    fields: Record<string, string | null>;
   }>;
   error?: string;
 };
@@ -216,6 +215,10 @@ You can set general infomation about the user too that will be passed as context
 Reply Zero is a feature that labels emails that need a reply "To Reply". And labels emails that are awaiting a response "Awaiting". The also is also able to see these in a minimalist UI within Inbox Zero which only shows which emails the user needs to reply to or is awaiting a response on.
 Don't tell the user which tools you're using. The tools you use will be displayed in the UI anyway.
 Don't use placeholders in rules you create. For example, don't use @company.com. Use the user's actual company email address. And if you don't know some information you need, ask the user.
+
+Static conditions:
+- In FROM and TO fields, you can use the pipe symbol (|) to represent OR logic. For example, "@company1.com|@company2.com" will match emails from either domain.
+- In the SUBJECT field, pipe symbols are treated as literal characters and must match exactly.
 
 Learned patterns:
 - Learned patterns override the conditional logic for a rule.

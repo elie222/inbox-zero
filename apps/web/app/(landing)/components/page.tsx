@@ -1,6 +1,5 @@
 "use client";
 
-import { Suspense } from "react";
 import { SparklesIcon } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Container } from "@/components/Container";
@@ -19,6 +18,7 @@ import { Button as ShadButton } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertBasic } from "@/components/Alert";
+import { Notice } from "@/components/Notice";
 import { TestErrorButton } from "@/app/(landing)/components/TestError";
 import { TestActionButton } from "@/app/(landing)/components/TestAction";
 import {
@@ -26,6 +26,9 @@ import {
   useMultiSelectFilter,
 } from "@/components/MultiSelectFilter";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import { Suspense } from "react";
+import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
+import { PremiumTier } from "@prisma/client";
 
 export const maxDuration = 3;
 
@@ -88,6 +91,9 @@ export default function Components() {
             <ShadButton variant="green">ShadButton Green</ShadButton>
             <ShadButton variant="red">ShadButton Red</ShadButton>
             <ShadButton variant="blue">ShadButton Blue</ShadButton>
+            <ShadButton variant="primaryBlue">
+              ShadButton Primary Blue
+            </ShadButton>
           </div>
           <div className="flex flex-wrap gap-2">
             <ShadButton size="xs">ShadButton XS</ShadButton>
@@ -156,10 +162,61 @@ export default function Components() {
         </div>
 
         <div>
+          <div className="underline">Notices</div>
+          <div className="mt-4 space-y-2">
+            <Notice variant="info">
+              <strong>Info:</strong> This is an informational notice with some
+              helpful context.
+            </Notice>
+            <Notice variant="warning">
+              <strong>Warning:</strong> Please be cautious when proceeding with
+              this action.
+            </Notice>
+            <Notice variant="success">
+              <strong>Success:</strong> Your changes have been saved
+              successfully!
+            </Notice>
+            <Notice variant="error">
+              <strong>Error:</strong> Something went wrong. Please try again.
+            </Notice>
+          </div>
+        </div>
+
+        <div>
           <div className="underline">TooltipExplanation</div>
           <div className="mt-4 flex flex-col gap-2">
             <TooltipExplanation size="sm" text="Sm explanation tooltip" />
             <TooltipExplanation size="md" text="Md explanation tooltip" />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Premium Alerts</div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Basic Plan (needs upgrade to Business):
+              </p>
+              <PremiumAiAssistantAlert
+                showSetApiKey={false}
+                tier={PremiumTier.BASIC_MONTHLY}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Pro Plan (needs API key):
+              </p>
+              <PremiumAiAssistantAlert
+                showSetApiKey={true}
+                tier={PremiumTier.PRO_MONTHLY}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Free Plan (needs upgrade):
+              </p>
+              <PremiumAiAssistantAlert showSetApiKey={false} tier={null} />
+            </div>
           </div>
         </div>
 

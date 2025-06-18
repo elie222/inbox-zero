@@ -1,5 +1,5 @@
 {
   "buildCommand": "cd ../.. && turbo run build --filter={apps/web}...",
-  "installCommand": "pnpm install",
+  "installCommand": "cd ../.. && bash clone-marketing.sh && pnpm install",
   "ignoreCommand": ""
 }

@@ -10,7 +10,7 @@ const logger = createScopedLogger("detect-recurring-pattern");
 // const braintrust = new Braintrust("recurring-pattern-detection");
 
 const schema = z.object({
-  matchedRule: z.string().nullable(),
+  matchedRule: z.string().nullish(),
   explanation: z.string(),
 });
 export type DetectPatternResult = z.infer<typeof schema>;

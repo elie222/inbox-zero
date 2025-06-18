@@ -12,7 +12,8 @@ import {
   enableDraftRepliesBody,
   deleteRuleBody,
 } from "@/utils/actions/rule.validation";
-import prisma, { isDuplicateError, isNotFoundError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
 import { aiFindExampleMatches } from "@/utils/ai/example-matches/find-example-matches";
 import { flattenConditions } from "@/utils/condition";
 import {
@@ -43,6 +44,7 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
+import { createRuleHistory } from "@/utils/rule/rule-history";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -110,6 +112,11 @@ export const createRuleAction = actionClient
           include: { actions: true, categoryFilters: true, group: true },
         });
 
+        // Track rule creation in history
+        after(() =>
+          createRuleHistory({ rule, triggerType: "manual_creation" }),
+        );
+
         after(() => updatePromptFileOnRuleCreated({ emailAccountId, rule }));
 
         return { rule };
@@ -153,7 +160,7 @@ export const updateRuleAction = actionClient
           where: { id, emailAccountId },
           include: { actions: true, categoryFilters: true, group: true },
         });
-        if (!currentRule) return { error: "Rule not found" };
+        if (!currentRule) throw new SafeError("Rule not found");
 
         const currentActions = currentRule.actions;
 
@@ -237,6 +244,14 @@ export const updateRuleAction = actionClient
             : []),
         ]);
 
+        // Track rule update in history
+        after(() =>
+          createRuleHistory({
+            rule: updatedRule,
+            triggerType: "manual_update",
+          }),
+        );
+
         // update prompt file
         after(() =>
           updatePromptFileOnRuleUpdated({
@@ -248,16 +263,17 @@ export const updateRuleAction = actionClient
 
         revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
         revalidatePath(prefixPath(emailAccountId, "/assistant"));
+        revalidatePath(prefixPath(emailAccountId, "/automation"));
 
         return { rule: updatedRule };
       } catch (error) {
         if (isDuplicateError(error, "name")) {
-          return { error: "Rule name already exists" };
+          throw new SafeError("Rule name already exists");
         }
         if (isDuplicateError(error, "groupId")) {
-          return {
-            error: "Group already has a rule. Please use the existing rule.",
-          };
+          throw new SafeError(
+            "Group already has a rule. Please use the existing rule.",
+          );
         }
 
         logger.error("Error updating rule", { error });
@@ -275,7 +291,7 @@ export const updateRuleInstructionsAction = actionClient
         where: { id, emailAccountId },
         include: { actions: true, categoryFilters: true, group: true },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
       after(() =>
         updateRuleInstructionsAndPromptFile({
@@ -288,6 +304,7 @@ export const updateRuleInstructionsAction = actionClient
 
       revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
       revalidatePath(prefixPath(emailAccountId, "/assistant"));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
     },
   );
 
@@ -299,7 +316,7 @@ export const updateRuleSettingsAction = actionClient
       const currentRule = await prisma.rule.findUnique({
         where: { id, emailAccountId },
       });
-      if (!currentRule) return { error: "Rule not found" };
+      if (!currentRule) throw new SafeError("Rule not found");
 
       await prisma.rule.update({
         where: { id, emailAccountId },
@@ -308,6 +325,7 @@ export const updateRuleSettingsAction = actionClient
 
       revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
       revalidatePath(prefixPath(emailAccountId, "/assistant"));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
       revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
     },
   );
@@ -325,7 +343,7 @@ export const enableDraftRepliesAction = actionClient
       },
       select: { id: true, actions: true },
     });
-    if (!rule) return { error: "Rule not found" };
+    if (!rule) throw new SafeError("Rule not found");
 
     if (enable) {
       await enableDraftReplies(rule);
@@ -340,6 +358,7 @@ export const enableDraftRepliesAction = actionClient
 
     revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`));
     revalidatePath(prefixPath(emailAccountId, "/assistant"));
+    revalidatePath(prefixPath(emailAccountId, "/automation"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
   });
 
@@ -353,7 +372,7 @@ export const deleteRuleAction = actionClient
     });
     if (!rule) return; // already deleted
     if (rule.emailAccountId !== emailAccountId)
-      return { error: "You don't have permission to delete this rule" };
+      throw new SafeError("You don't have permission to delete this rule");
 
     try {
       await deleteRule({
@@ -382,7 +401,7 @@ export const deleteRuleAction = actionClient
             },
           },
         });
-        if (!emailAccount) return { error: "User not found" };
+        if (!emailAccount) throw new SafeError("User not found");
 
         if (!emailAccount.rulesPrompt) return;
 
@@ -441,7 +460,7 @@ export const createRulesOnboardingAction = actionClient
         where: { id: emailAccountId },
         select: { rulesPrompt: true },
       });
-      if (!emailAccount) return { error: "User not found" };
+      if (!emailAccount) throw new SafeError("User not found");
 
       const promises: Promise<any>[] = [];
 

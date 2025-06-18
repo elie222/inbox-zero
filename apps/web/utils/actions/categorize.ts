@@ -6,7 +6,8 @@ import {
   type CreateCategoryBody,
   createCategoryBody,
 } from "@/utils/actions/categorize.validation";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { defaultCategory } from "@/utils/categories";
 import {
   categorizeSender,
@@ -253,7 +254,7 @@ async function upsertCategory({
     }
   } catch (error) {
     if (isDuplicateError(error, "name"))
-      return { error: "Category with this name already exists" };
+      throw new SafeError("Category with this name already exists");
 
     throw error;
   }

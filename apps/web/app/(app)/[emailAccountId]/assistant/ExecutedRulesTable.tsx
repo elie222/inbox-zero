@@ -11,7 +11,6 @@ import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
 import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
-import { ReportMistake } from "@/app/(app)/[emailAccountId]/assistant/ReportMistake";
 import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
@@ -63,7 +62,6 @@ export function RuleCell({
   status,
   reason,
   message,
-  isTest,
   setInput,
 }: {
   emailAccountId: string;
@@ -71,7 +69,6 @@ export function RuleCell({
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
-  isTest: boolean;
   setInput: SetInputFunction;
 }) {
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -107,6 +104,7 @@ export function RuleCell({
                       href={createAssistantUrl({
                         tab: "rule",
                         ruleId: rule.id,
+                        path: `/assistant/rule/${rule.id}`,
                       })}
                     >
                       View
@@ -135,19 +133,11 @@ export function RuleCell({
           </Badge>
         </HoverCard>
       </div>
-      {setInput ? (
-        <FixWithChat
-          setInput={setInput}
-          message={message}
-          result={{ rule, reason }}
-        />
-      ) : (
-        <ReportMistake
-          result={{ rule, reason }}
-          message={message}
-          isTest={isTest}
-        />
-      )}
+      <FixWithChat
+        setInput={setInput}
+        message={message}
+        result={{ rule, reason }}
+      />
     </div>
   );
 }

@@ -7,7 +7,6 @@ import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
-import clsx from "clsx";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
@@ -27,16 +26,21 @@ import {
 } from "@/utils/actions/premium";
 import type { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
+import { cn } from "@/utils";
+import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
   { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
 ];
 
-export function Pricing(props: {
+export type PricingProps = {
   header?: React.ReactNode;
   showSkipUpgrade?: boolean;
-}) {
+  className?: string;
+};
+
+export default function Pricing(props: PricingProps) {
   const { isPremium, premium, isLoading, error, data } = usePremium();
 
   const isLoggedIn = !!data?.id;
@@ -83,89 +87,55 @@ export function Pricing(props: {
 
   const Layout = TwoColLayout;
 
-  const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
-
-  const hasBothStripeAndLemon = !!(
-    premium?.stripeSubscriptionId && premium?.lemonSqueezyCustomerId
-  );
-
   const router = useRouter();
 
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div
         id="pricing"
-        className="relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8"
+        className={cn(
+          "relative isolate mx-auto max-w-7xl bg-white px-6 pt-10 lg:px-8",
+          props.className,
+        )}
       >
         {header}
 
-        {isPremium && (
+        {!!(
+          premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId
+        ) && (
           <div className="mb-8 mt-8 text-center">
-            {premium?.stripeSubscriptionId && (
-              <Button
-                loading={loadingBillingPortal}
-                onClick={async () => {
-                  setLoadingBillingPortal(true);
-                  const result = await getBillingPortalUrlAction({});
-                  setLoadingBillingPortal(false);
-                  const url = result?.data?.url;
-                  if (result?.serverError || !url) {
-                    toastError({
-                      description:
-                        result?.serverError ||
-                        "Error loading billing portal. Please contact support.",
-                    });
-                  } else {
-                    window.location.href = url;
-                  }
-                }}
-              >
-                <CreditCardIcon className="mr-2 h-4 w-4" />
-                Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
-              </Button>
-            )}
-
-            {premium?.lemonSqueezyCustomerId && (
-              <Button asChild>
-                <Link
-                  href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
-                  target="_blank"
-                >
-                  <CreditCardIcon className="mr-2 h-4 w-4" />
-                  Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
-                </Link>
-              </Button>
-            )}
-
-            <Button variant="primaryBlue" className="ml-2" asChild>
-              <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Go to app
-              </Link>
-            </Button>
+            <ManageSubscription premium={premium} />
 
             {userPremiumTier && (
-              <div className="mx-auto mt-4 max-w-md">
-                <AlertWithButton
-                  className="bg-background"
-                  variant="blue"
-                  title="Add extra users to your account!"
-                  description={`You can upgrade extra accounts to ${capitalCase(
-                    userPremiumTier,
-                  )} for $${
-                    pricingAdditonalEmail[userPremiumTier]
-                  } per email address!`}
-                  icon={null}
-                  button={
-                    <div className="ml-4 whitespace-nowrap">
-                      <Button variant="primaryBlue" asChild>
-                        {/* <Link href="/settings#manage-users">Add users</Link> */}
-                        <Link href="/accounts">Add users</Link>
-                      </Button>
-                    </div>
-                  }
-                />
-              </div>
+              <>
+                <Button variant="primaryBlue" className="ml-2" asChild>
+                  <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+                    <SparklesIcon className="mr-2 h-4 w-4" />
+                    Go to app
+                  </Link>
+                </Button>
+                <div className="mx-auto mt-4 max-w-md">
+                  <AlertWithButton
+                    className="bg-background"
+                    variant="blue"
+                    title="Add extra users to your account!"
+                    description={`You can upgrade extra accounts to ${capitalCase(
+                      userPremiumTier,
+                    )} for $${
+                      pricingAdditonalEmail[userPremiumTier]
+                    } per email address!`}
+                    icon={null}
+                    button={
+                      <div className="ml-4 whitespace-nowrap">
+                        <Button variant="primaryBlue" asChild>
+                          {/* <Link href="/settings#manage-users">Add users</Link> */}
+                          <Link href="/accounts">Add users</Link>
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
+              </>
             )}
           </div>
         )}
@@ -182,7 +152,7 @@ export function Pricing(props: {
                 key={option.value}
                 value={option}
                 className={({ checked }) =>
-                  clsx(
+                  cn(
                     checked ? "bg-black text-white" : "text-gray-500",
                     "cursor-pointer rounded-full px-2.5 py-1",
                   )
@@ -252,7 +222,7 @@ function PriceTier({
         <div className="flex items-center justify-between gap-x-4">
           <h3
             id={tier.name}
-            className={clsx(
+            className={cn(
               tier.mostPopular ? "text-blue-600" : "text-gray-900",
               "font-cal text-lg leading-8",
             )}
@@ -351,7 +321,7 @@ function PriceTier({
           }
         }}
         aria-describedby={tier.name}
-        className={clsx(
+        className={cn(
           tier.mostPopular
             ? "bg-blue-600 text-white shadow-sm hover:bg-blue-500"
             : "text-blue-600 ring-1 ring-inset ring-blue-200 hover:ring-blue-300",
@@ -434,7 +404,7 @@ function PriceTier({
 //   className?: string;
 // }) {
 //   return (
-//     <div className={clsx("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
+//     <div className={cn("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
 //       {children}
 //     </div>
 //   );
@@ -448,7 +418,7 @@ function TwoColLayout({
   className?: string;
 }) {
   return (
-    <div className={clsx("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
+    <div className={cn("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
       {children}
     </div>
   );
@@ -465,7 +435,7 @@ function TwoColLayout({
 // }) {
 //   return (
 //     <div
-//       className={clsx(
+//       className={cn(
 //         index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
 //         index === 0 ? "lg:rounded-r-none" : "",
 //         index === 2 ? "lg:rounded-l-none" : "",
@@ -485,7 +455,7 @@ function TwoColItem({
   className?: string;
 }) {
   return (
-    <div className={clsx("flex flex-col justify-between", className)}>
+    <div className={cn("flex flex-col justify-between", className)}>
       {children}
     </div>
   );

@@ -15,6 +15,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { LoadingContent } from "@/components/LoadingContent";
+import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 
 export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
@@ -55,6 +56,7 @@ export default function SettingsPage(_props: {
           <MultiAccountSection />
           <WebhookSection />
           <ApiKeysSection />
+          <BillingSection />
           <DeleteSection />
         </FormWrapper>
       </TabsContent>

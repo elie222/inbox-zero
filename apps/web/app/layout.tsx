@@ -1,5 +1,5 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
+import type { Metadata } from "next";
 // import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
@@ -25,7 +25,7 @@ const calFont = localFont({
   display: "swap",
 });
 
-const title = "Inbox Zero | Automate and clean your inbox";
+const title = "Inbox Zero | Your AI Executive Assistant for email";
 const description =
   "Inbox Zero is your AI personal assistant for email and the quickest way to reach inbox zero. Automate your email, bulk unsubscribe from newsletters, block cold emails, and view your email analytics. Open-source.";
 

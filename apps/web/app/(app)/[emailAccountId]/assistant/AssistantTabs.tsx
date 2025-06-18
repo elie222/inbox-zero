@@ -1,5 +1,8 @@
 "use client";
 
+import { XIcon } from "lucide-react";
+import { useCallback } from "react";
+import { useQueryState } from "nuqs";
 import useSWR from "swr";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -12,6 +15,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { TypographyP } from "@/components/Typography";
 import { RuleTab } from "@/app/(app)/[emailAccountId]/assistant/RuleTab";
 import type { GetPendingRulesResponse } from "@/app/api/rules/pending/route";
+import { Button } from "@/components/ui/button";
 
 export function AssistantTabs() {
   const { data: pendingData } =
@@ -32,7 +36,7 @@ export function AssistantTabs() {
               {hasPendingRule && (
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               )}
-              <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+              <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             </TabsList>
           </div>
 
@@ -59,6 +63,8 @@ export function AssistantTabs() {
                   videoId="SoeNDVr7ve4"
                 />
               </div> */}
+
+          <CloseArtifactButton />
         </TabsToolbar>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -97,5 +103,17 @@ export function AssistantTabs() {
         </div>
       </Tabs>
     </div>
+  );
+}
+
+function CloseArtifactButton() {
+  const [_tab, setTab] = useQueryState("tab");
+
+  const onClose = useCallback(() => setTab(null), [setTab]);
+
+  return (
+    <Button size="icon" variant="ghost" onClick={onClose}>
+      <XIcon className="size-4" />
+    </Button>
   );
 }

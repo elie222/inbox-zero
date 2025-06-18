@@ -8,12 +8,12 @@ export function hasExampleParams(rule: {
       from?: string | null;
     } | null;
   };
-  actions: { fields?: { content?: string | null } }[];
+  actions: { content?: string | null }[];
 }) {
   return (
     rule.condition.static?.to?.includes("@company.com") ||
     rule.condition.static?.from?.includes("@mycompany.com") ||
-    rule.actions.some((a) => a.fields?.content?.includes("cal.com/example"))
+    rule.actions.some((a) => a.content?.includes("cal.com/example"))
   );
 }
 
@@ -26,36 +26,18 @@ const commonPrompts = [
   "Label emails from @mycompany.com addresses as 'Team'",
 ];
 
-// export const initialChatExamples = [
-//   {
-//     label: "Label all pitch decks and investor updates",
-//     message:
-//       "When I get an email with a pitch deck or investor update, label it as 'Pitch Deck'",
-//   },
-//   {
-//     label: "Respond to sponsorship inquiries with my pricing",
-//     message:
-//       "When I get an email with a sponsorship inquiry, respond with the link to my pricing deck: https://www.example.com/pricing-deck",
-//   },
-//   {
-//     label: "Forward all receipts to my accountant",
-//     message:
-//       "When I get an email with a receipt, forward it to my accountant: jane@example.com",
-//   },
-// ];
-
 export const examplePrompts = [
   ...commonPrompts,
-  'Label pitch decks as "Pitch Deck" and forward them to john@investing.com',
-  'Label receipts as "Receipt" and forward them to jane@accounting.com',
+  'Forward receipts to jane@accounting.com and label them "Receipt"',
+  'Forward pitch decks to john@investing.com and label them "Pitch Deck"',
   "Reply to cold emails by telling them to check out Inbox Zero. Then mark them as spam",
   'Label high priority emails as "High Priority"',
-  "If a founder asks to set up a call, send them my calendar link: https://cal.com/example",
-  "If someone asks to cancel a plan, ask to set up a call by sending my calendar link",
+  "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example",
+  "If someone asks to cancel a plan, draft a reply with the cancellation link: https://company.com/cancel",
   'If a founder sends me an investor update, label it "Investor Update" and archive it',
   'If someone pitches me their startup, label it as "Investing", archive it, and draft a friendly reply that I no longer have time to look at the email but if they get a warm intro, that\'s their best bet to get funding from me',
   "If someone asks for a discount, reply with the discount code INBOX20",
-  "If someone asks for help with Product or Company, tell them I no longer work there, but they should reach out to Company for support",
+  "If someone asks for help with Product or Company, draft a reply telling them I no longer work there, but they should reach out to Company for support",
   "Review any emails from questions@pr.com and see if any are about finance. If so, draft a friendly reply that answers the question",
   'If people ask me to speak at an event, label the email "Speaker Opportunity" and archive it',
   'Label customer emails as "Customer"',
@@ -128,7 +110,7 @@ I've attached my media kit and pricing.
       ...commonPrompts,
       "If a founder asks to set up a call, draft a reply with my calendar link: https://cal.com/example",
       'If a founder sends me an investor update, label it "Investor Update" and archive it',
-      'If a founder pitches me their startup, label it "Pitch Deck", and forward it to analyst@vc.com that asks them to review it',
+      'Forward pitch decks to analyst@vc.com that asks them to review it and label them "Pitch Deck"',
       'Label emails from LPs as "LP"',
       'Label legal documents as "Legal"',
       'Label emails about travel as "Travel"',

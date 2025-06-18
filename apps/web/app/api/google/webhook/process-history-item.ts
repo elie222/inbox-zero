@@ -146,6 +146,7 @@ export async function processHistoryItem(
       const response = await runColdEmailBlocker({
         email: {
           from: message.headers.from,
+          to: "",
           subject: message.headers.subject,
           content,
           id: messageId,

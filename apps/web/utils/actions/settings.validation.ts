@@ -25,7 +25,7 @@ export const saveAiSettingsBody = z
     aiApiKey: z.string().optional(),
   })
   .superRefine((val, ctx) => {
-    if (!val.aiApiKey && val.aiProvider !== Provider.ANTHROPIC) {
+    if (!val.aiApiKey && val.aiProvider !== DEFAULT_PROVIDER) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: "You must provide an API key for this provider",

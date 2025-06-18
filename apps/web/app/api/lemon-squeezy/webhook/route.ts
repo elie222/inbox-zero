@@ -21,7 +21,7 @@ import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
 import {
   cancelledPremium,
   switchedPremiumPlan,
-  upgradedToPremium,
+  startedTrial,
 } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
 import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
@@ -159,7 +159,7 @@ async function subscriptionCreated({
         payload.data.attributes.status === "on_trial"
           ? trackTrialStarted(email, payload.data.attributes)
           : trackUpgradedToPremium(email, payload.data.attributes),
-        upgradedToPremium(email, tier),
+        startedTrial(email, tier),
       ]);
     } catch (error) {
       logger.error("Error capturing event", {

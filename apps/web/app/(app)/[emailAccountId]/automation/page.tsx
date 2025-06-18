@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { SparklesIcon } from "lucide-react";
+import { redirect } from "next/navigation";
+import { MessageCircleIcon, SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -17,8 +17,8 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { AlertWithButton } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
+import { PremiumAlertWithData } from "@/components/PremiumAlert";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -55,7 +55,7 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="content-container mt-2">
+        {/* <div className="content-container mt-2">
           <AlertWithButton
             title="Try our new AI Assistant experience"
             description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
@@ -69,7 +69,9 @@ export default async function AutomationPage({
               </Button>
             }
           />
-        </div>
+        </div> */}
+
+        <PremiumAlertWithData className="content-container mt-2" />
 
         <Tabs defaultValue="prompt">
           <TabsToolbar>
@@ -84,11 +86,20 @@ export default async function AutomationPage({
                     <TabsTrigger value="pending">Pending</TabsTrigger>
                   )}
                 </Suspense>
-                <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+                <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm">
+                <Link
+                  href={prefixPath(emailAccountId, "/assistant/onboarding")}
+                >
+                  <SlidersIcon className="mr-2 hidden size-4 md:block" />
+                  View Setup
+                </Link>
+              </Button>
+
               <OnboardingModal
                 title="Getting started with AI Personal Assistant"
                 description={
@@ -98,31 +109,51 @@ export default async function AutomationPage({
                   </>
                 }
                 videoId="SoeNDVr7ve4"
+                buttonProps={{ size: "sm", variant: "outline" }}
               />
+
+              <Button size="sm" variant="primaryBlue" asChild>
+                <Link href={prefixPath(emailAccountId, "/assistant")}>
+                  <MessageCircleIcon className="mr-2 size-4" />
+                  AI Chat
+                </Link>
+              </Button>
             </div>
           </TabsToolbar>
 
           <TabsContent value="prompt" className="content-container mb-10">
-            <RulesPrompt />
+            <div className="max-w-screen-xl">
+              <RulesPrompt />
+            </div>
           </TabsContent>
           <TabsContent value="rules" className="content-container mb-10">
-            <Rules />
+            <div className="max-w-screen-lg">
+              <Rules />
+            </div>
           </TabsContent>
           <TabsContent value="test" className="content-container mb-10">
-            <Process />
+            <div className="max-w-screen-lg">
+              <Process />
+            </div>
           </TabsContent>
           <TabsContent value="history" className="content-container mb-10">
-            <History />
+            <div className="max-w-screen-lg">
+              <History />
+            </div>
           </TabsContent>
           <Suspense>
             {(await hasPendingRule) && (
               <TabsContent value="pending" className="content-container mb-10">
-                <Pending />
+                <div className="max-w-screen-lg">
+                  <Pending />
+                </div>
               </TabsContent>
             )}
           </Suspense>
           <TabsContent value="knowledge" className="content-container mb-10">
-            <KnowledgeBase />
+            <div className="max-w-screen-lg">
+              <KnowledgeBase />
+            </div>
           </TabsContent>
         </Tabs>
       </Suspense>

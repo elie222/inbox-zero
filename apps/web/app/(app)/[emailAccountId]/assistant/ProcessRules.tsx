@@ -4,6 +4,7 @@ import { useCallback, useState, useRef, useMemo } from "react";
 import useSWR from "swr";
 import useSWRInfinite from "swr/infinite";
 import { parseAsBoolean, useQueryState } from "nuqs";
+import PQueue from "p-queue";
 import {
   BookOpenCheckIcon,
   SparklesIcon,
@@ -23,7 +24,6 @@ import { Table, TableBody, TableRow, TableCell } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
-import { ReportMistake } from "@/app/(app)/[emailAccountId]/assistant/ReportMistake";
 import { Badge } from "@/components/Badge";
 import {
   isAIRule,
@@ -122,6 +122,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const handleRunAll = async () => {
     handleStart();
 
+    // Create a queue with concurrency of 3 to maintain constant flow
+    const processQueue = new PQueue({ concurrency: 3 });
+
     // Increment the page limit each time we run
     setCurrentPageLimit((prev) => prev + (testMode ? 1 : 10));
 
@@ -135,18 +138,40 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       const currentBatch = currentData?.[page]?.messages || [];
 
-      for (const message of currentBatch) {
+      // Filter messages that should be processed
+      const messagesToProcess = currentBatch.filter((message) => {
+        if (results[message.id]) return false;
+        if (handledThreadsRef.current.has(message.threadId)) return false;
+        return true;
+      });
+
+      // Add all messages to the queue for concurrent processing
+      for (const message of messagesToProcess) {
         if (!isRunningAllRef.current) break;
-        if (results[message.id]) continue;
-        if (handledThreadsRef.current.has(message.threadId)) continue;
-        await onRun(message);
-        handledThreadsRef.current.add(message.threadId);
+
+        processQueue.add(async () => {
+          if (!isRunningAllRef.current) return;
+
+          try {
+            await onRun(message);
+            handledThreadsRef.current.add(message.threadId);
+          } catch (error) {
+            console.error(`Failed to process message ${message.id}:`, error);
+            toastError({
+              title: "Failed to process email",
+              description: `Error processing email from ${message.headers.from}: ${error instanceof Error ? error.message : "Unknown error"}`,
+            });
+          }
+        });
       }
 
       // Check if we got new data in the last request
       const lastPage = currentData?.[page];
       if (!lastPage?.nextPageToken || !isRunningAllRef.current) break;
     }
+
+    // Wait for all queued tasks to complete
+    await processQueue.onIdle();
 
     handleStop();
   };
@@ -168,13 +193,13 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       <div className="flex items-center justify-between gap-2 pb-6">
         <div className="flex items-center gap-2">
           {isRunningAll ? (
-            <Button onClick={handleStop} variant="outline">
-              <PauseIcon className="mr-2 h-4 w-4" />
+            <Button onClick={handleStop} variant="outline" size="sm">
+              <PauseIcon className="mr-2 size-4" />
               Stop
             </Button>
           ) : (
-            <Button onClick={handleRunAll}>
-              <BookOpenCheckIcon className="mr-2 h-4 w-4" />
+            <Button onClick={handleRunAll} size="sm">
+              <BookOpenCheckIcon className="mr-2 size-4" />
               {testMode ? "Test All" : "Run on All"}
             </Button>
           )}
@@ -187,8 +212,9 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
             <Button
               variant="ghost"
               onClick={() => setShowCustomForm((show) => !show)}
+              size="sm"
             >
-              <PenSquareIcon className="mr-2 h-4 w-4" />
+              <PenSquareIcon className="mr-2 size-4" />
               Custom
             </Button>
           )}
@@ -200,7 +226,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
       </div>
 
       {hasAiRules && showCustomForm && testMode && (
-        <div className="mt-2">
+        <div className="my-2">
           <TestCustomEmailForm />
         </div>
       )}
@@ -296,22 +322,15 @@ function ProcessRulesRow({
                     emailAccountId={emailAccountId}
                   />
                 </div>
-                {setInput ? (
-                  <FixWithChat
-                    setInput={setInput}
-                    message={message}
-                    result={result}
-                  />
-                ) : (
-                  <ReportMistake
-                    result={result}
-                    message={message}
-                    isTest={testMode}
-                  />
-                )}
+                <FixWithChat
+                  setInput={setInput}
+                  message={message}
+                  result={result}
+                />
                 <Tooltip content={testMode ? "Retest" : "Rerun"}>
                   <Button
                     variant="outline"
+                    size="sm"
                     disabled={isRunning}
                     onClick={() => onRun(true)}
                   >
@@ -325,6 +344,7 @@ function ProcessRulesRow({
             ) : (
               <Button
                 variant="default"
+                size="sm"
                 loading={isRunning}
                 onClick={() => onRun()}
               >
