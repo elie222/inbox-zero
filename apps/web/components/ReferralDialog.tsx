@@ -37,7 +37,7 @@ export function ReferralDialog() {
   );
 }
 
-function Referrals() {
+export function Referrals() {
   const {
     data: codeData,
     isLoading: loadingCode,
