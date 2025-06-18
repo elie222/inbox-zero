@@ -76,8 +76,5 @@ export const dayStatsResponseSchema = z
   )
   .describe("Daily email statistics for the past 7 days");
 
-export type StatsQuery = z.infer<typeof statsQuerySchema>;
-export type SummaryStatsQuery = z.infer<typeof summaryStatsQuerySchema>;
 export type SummaryStatsResponse = z.infer<typeof summaryStatsResponseSchema>;
-export type DayStatsQuery = z.infer<typeof dayStatsQuerySchema>;
 export type DayStatsResponse = z.infer<typeof dayStatsResponseSchema>;

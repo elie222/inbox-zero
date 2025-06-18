@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
-import { dayStatsQuerySchema } from "../validation";
+import { dayStatsQuerySchema, type DayStatsResponse } from "../validation";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getPastSevenDayStats } from "@/app/api/user/stats/day/controller";
@@ -38,7 +38,7 @@ export const GET = withError(async (request) => {
   }
 
   try {
-    const result = await getPastSevenDayStats({
+    const result: DayStatsResponse = await getPastSevenDayStats({
       type: queryResult.data.type,
       gmail,
       emailAccountId,

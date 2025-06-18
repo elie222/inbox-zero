@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
-import { summaryStatsQuerySchema } from "../validation";
+import {
+  summaryStatsQuerySchema,
+  type SummaryStatsResponse,
+} from "../validation";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
 import { getEmailAccountId } from "@/app/api/v1/helpers";
 import { getStatsByPeriod } from "@/app/api/user/stats/by-period/controller";
@@ -37,8 +40,7 @@ export const GET = withError(async (request) => {
   }
 
   try {
-    // Reuse the existing function
-    const result = await getStatsByPeriod({
+    const result: SummaryStatsResponse = await getStatsByPeriod({
       period: queryResult.data.period,
       fromDate: queryResult.data.fromDate,
       toDate: queryResult.data.toDate,
