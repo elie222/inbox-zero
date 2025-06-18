@@ -120,7 +120,6 @@ model EmailAccount {
 
   // Digest email settings
   digestSchedule   Schedule?
-  digestScheduleId String?  @unique
 
   userId    String
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -189,8 +188,9 @@ model Schedule {
   // e.g., 0b1000001 means Sunday and Saturday
   daysOfWeek Int? // 0-127 (2^7 - 1)
 
-  // Time of day stored as DateTime
-  // Only the time portion will be used when checking if it's time to send
+  // Time of day stored as DateTime with canonical date (1970-01-01)
+  // Only the time portion is used, but DateTime preserves timezone info
+  // Example: "1970-01-01T09:30:00Z", "1970-01-01T14:15:00Z"
   timeOfDay DateTime?
 
   emailAccountId String

@@ -118,10 +118,14 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
-    const messages = await getMessagesLargeBatch({
-      gmail,
-      messageIds,
-    });
+    // Skip Gmail API call if there are no messages to process
+    let messages: any[] = [];
+    if (messageIds.length > 0) {
+      messages = await getMessagesLargeBatch({
+        gmail,
+        messageIds,
+      });
+    }
 
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
@@ -194,7 +198,8 @@ async function sendEmail({
     });
 
     // Only update database if email sending succeeded
-    await Promise.all([
+    // Use a transaction to ensure atomicity - all updates succeed or none are applied
+    await prisma.$transaction([
       ...(emailAccount.digestScheduleId
         ? [
             prisma.schedule.update({

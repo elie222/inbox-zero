@@ -2,6 +2,18 @@ import type { Schedule } from "@prisma/client";
 import { addDays, addMilliseconds } from "date-fns";
 
 /**
+ * Creates a canonical timeOfDay Date object using Unix epoch (1970-01-01).
+ * This ensures consistency across all timeOfDay usage while preserving timezone info.
+ *
+ * @param hours - Hour in 24-hour format (0-23)
+ * @param minutes - Minutes (0-59)
+ * @returns Date object with canonical date and specified time
+ */
+export function createCanonicalTimeOfDay(hours: number, minutes: number): Date {
+  return new Date(1970, 0, 1, hours, minutes, 0, 0);
+}
+
+/**
  * Bitmask representation of days of the week.
  * Each bit represents a day, from Sunday (most significant) to Saturday (least significant).
  * Example: 0b1000000 (64) represents Sunday, 0b0100000 (32) represents Monday, etc.
@@ -51,8 +63,10 @@ export function calculateNextScheduleDate(
   // Helper to set the time of day
   function setTime(date: Date) {
     if (timeOfDay) {
-      const timeStr = timeOfDay.toTimeString().split(" ")[0];
-      const [hours, minutes] = timeStr.split(":").map(Number);
+      // Extract time from canonical date (1970-01-01T00:00:00Z + time)
+      // timeOfDay should always use canonical date for consistency
+      const hours = timeOfDay.getHours();
+      const minutes = timeOfDay.getMinutes();
       date.setHours(hours, minutes, 0, 0);
     } else {
       // Reset to midnight when no specific time is set
@@ -72,9 +86,9 @@ export function calculateNextScheduleDate(
 
     // Find the next slot
     for (let i = 0; i < occ; i++) {
-      // Calculate exact offset in milliseconds (slotLength * 24 * 60 * 60 * 1000)
-      const offsetMs = i * slotLength * 24 * 60 * 60 * 1000;
-      const slotDate = addMilliseconds(intervalStart, offsetMs);
+      // Calculate slot offset in days (preserves fractional spacing)
+      const dayOffset = i * slotLength;
+      const slotDate = addDays(intervalStart, dayOffset);
       setTime(slotDate);
       if (slotDate >= fromDate) {
         return slotDate;
@@ -101,8 +115,9 @@ export function calculateNextScheduleDate(
 
         // If timeOfDay is set, set the time
         if (timeOfDay) {
-          const timeStr = timeOfDay.toTimeString().split(" ")[0];
-          const [hours, minutes] = timeStr.split(":").map(Number);
+          // Extract time from canonical date (1970-01-01T00:00:00Z + time)
+          const hours = timeOfDay.getHours();
+          const minutes = timeOfDay.getMinutes();
           nextDate.setHours(hours, minutes, 0, 0);
 
           // If this is today (daysToAdd === 0) and the time has already passed,
@@ -116,6 +131,13 @@ export function calculateNextScheduleDate(
 
         // Reset time to 00:00:00 when timeOfDay is not set to prevent time drift
         nextDate.setHours(0, 0, 0, 0);
+
+        // If this is today (daysToAdd === 0) and midnight has already passed,
+        // continue to the next day
+        if (daysToAdd === 0 && nextDate <= fromDate) {
+          daysToAdd++;
+          continue;
+        }
         return nextDate;
       }
 

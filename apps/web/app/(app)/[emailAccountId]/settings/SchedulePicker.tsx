@@ -7,6 +7,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormItem } from "@/components/ui/form";
+import { createCanonicalTimeOfDay } from "@/utils/frequency";
 
 const frequencies = [
   { value: "daily", label: "Day" },
@@ -47,7 +48,7 @@ export type SchedulePickerFormValues = {
 export function getInitialScheduleProps(digestSchedule?: {
   intervalDays?: number | null;
   daysOfWeek?: number | null;
-  timeOfDay?: string | Date | null;
+  timeOfDay?: Date | null;
 }): SchedulePickerFormValues {
   const initialSchedule = (() => {
     if (!digestSchedule) return "daily";
@@ -74,9 +75,15 @@ export function getInitialScheduleProps(digestSchedule?: {
   })();
   const initialTimeOfDay = digestSchedule?.timeOfDay
     ? (() => {
-        const date = new Date(digestSchedule.timeOfDay);
-        const hours = date.getHours().toString().padStart(2, "0");
-        const minutes = date.getMinutes().toString().padStart(2, "0");
+        // Extract time from canonical date (1970-01-01T00:00:00Z + time)
+        const hours = digestSchedule.timeOfDay
+          .getHours()
+          .toString()
+          .padStart(2, "0");
+        const minutes = digestSchedule.timeOfDay
+          .getMinutes()
+          .toString()
+          .padStart(2, "0");
         return `${hours}:${minutes}`;
       })()
     : "09:00";
@@ -124,12 +131,8 @@ export function mapToSchedule({
   if (ampm === "PM") hour24 += 12;
   if (ampm === "AM" && hour24 === 12) hour24 = 0;
 
-  // Create a date object in the user's local timezone
-  const today = new Date();
-  const timeOfDay = new Date(
-    today.getFullYear(),
-    today.getMonth(),
-    today.getDate(),
+  // Use canonical date (1970-01-01) to store only time information
+  const timeOfDay = createCanonicalTimeOfDay(
     hour24,
     Number.parseInt(minute, 10),
   );
