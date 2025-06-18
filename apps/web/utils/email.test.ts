@@ -84,6 +84,83 @@ describe("email utils", () => {
         "valid@email.com",
       );
     });
+
+    // Test cases for hyphenated email addresses (the bug we're fixing)
+    it("handles email addresses with hyphens in local part", () => {
+      expect(extractEmailAddress("no-reply@example.com")).toBe(
+        "no-reply@example.com",
+      );
+    });
+
+    it("handles email addresses with hyphens in bracketed format", () => {
+      expect(extractEmailAddress("System <no-reply@example.com>")).toBe(
+        "no-reply@example.com",
+      );
+    });
+
+    it("handles multiple hyphens in local part", () => {
+      expect(extractEmailAddress("do-not-reply@example.com")).toBe(
+        "do-not-reply@example.com",
+      );
+    });
+
+    it("handles mixed hyphens and dots in local part", () => {
+      expect(extractEmailAddress("test-user.name@example.com")).toBe(
+        "test-user.name@example.com",
+      );
+    });
+
+    it("handles emails with hyphens at start and end of local part", () => {
+      expect(extractEmailAddress("-test@example.com")).toBe(
+        "-test@example.com",
+      );
+      expect(extractEmailAddress("test-@example.com")).toBe(
+        "test-@example.com",
+      );
+    });
+
+    // Test cases for other potentially problematic characters
+    it("handles email addresses with underscores", () => {
+      expect(extractEmailAddress("user_name@example.com")).toBe(
+        "user_name@example.com",
+      );
+      expect(extractEmailAddress("System <no_reply@example.com>")).toBe(
+        "no_reply@example.com",
+      );
+    });
+
+    it("handles email addresses with numbers", () => {
+      expect(extractEmailAddress("user123@example.com")).toBe(
+        "user123@example.com",
+      );
+      expect(extractEmailAddress("test2024@example.com")).toBe(
+        "test2024@example.com",
+      );
+    });
+
+    it("handles complex real-world email patterns", () => {
+      // Real patterns that might break
+      expect(extractEmailAddress("no-reply+tracking@example.com")).toBe(
+        "no-reply+tracking@example.com",
+      );
+      expect(extractEmailAddress("user.name+tag@example.com")).toBe(
+        "user.name+tag@example.com",
+      );
+      expect(extractEmailAddress("test_user-name+tag@example.com")).toBe(
+        "test_user-name+tag@example.com",
+      );
+    });
+
+    // Edge cases that might expose regex limitations
+    it("handles edge cases that could break regex", () => {
+      // Test what happens with characters we might not support
+      expect(extractEmailAddress("user@sub-domain.example.com")).toBe(
+        "user@sub-domain.example.com",
+      );
+      expect(extractEmailAddress("user@sub.domain-name.com")).toBe(
+        "user@sub.domain-name.com",
+      );
+    });
   });
 
   describe("extractDomainFromEmail", () => {
