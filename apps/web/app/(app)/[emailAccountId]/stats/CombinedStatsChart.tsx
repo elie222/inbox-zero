@@ -4,7 +4,7 @@ import useSWRImmutable from "swr/immutable";
 import type {
   StatsByDayResponse,
   StatsByDayQuery,
-} from "@/app/api/user/stats/day/route";
+} from "@/app/api/user/stats/day/controller";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 
