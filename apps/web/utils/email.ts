@@ -1,6 +1,8 @@
 import type { ParsedMessage } from "@/utils/types";
 import { z } from "zod";
 
+const emailSchema = z.string().email();
+
 // Converts "John Doe <john.doe@gmail>" to "John Doe"
 // Converts "<john.doe@gmail>" to "john.doe@gmail"
 // Converts "john.doe@gmail" to "john.doe@gmail"
@@ -17,8 +19,11 @@ export function extractNameFromEmail(email: string) {
 export function extractEmailAddress(email: string): string {
   if (!email) return "";
 
+  // Trim the input once at the start to handle leading/trailing spaces
+  const trimmedEmail = email.trim();
+
   // Try to extract from angle brackets first
-  const bracketMatch = email.match(/<([^<>]+)>$/);
+  const bracketMatch = trimmedEmail.match(/<([^<>]+)>$/);
   if (bracketMatch) {
     const candidate = bracketMatch[1].trim();
     if (isValidEmail(candidate)) {
@@ -27,13 +32,13 @@ export function extractEmailAddress(email: string): string {
   }
 
   // If no brackets or invalid email in brackets, try the whole string
-  if (isValidEmail(email.trim())) {
-    return email.trim();
+  if (isValidEmail(trimmedEmail)) {
+    return trimmedEmail;
   }
 
   // As a last resort, look for any email-like pattern in the string
   const emailPattern = /\b[^\s<>]+@[^\s<>]+\.[^\s<>]+\b/g;
-  const matches = email.match(emailPattern);
+  const matches = trimmedEmail.match(emailPattern);
   if (matches) {
     // Try each match to find a valid email
     for (const match of matches) {
@@ -46,9 +51,8 @@ export function extractEmailAddress(email: string): string {
   return "";
 }
 
-// Use Zod's built-in email validation
 function isValidEmail(email: string): boolean {
-  return z.string().email().safeParse(email).success;
+  return emailSchema.safeParse(email).success;
 }
 
 // Normalizes email addresses by:
