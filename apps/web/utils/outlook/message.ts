@@ -155,7 +155,12 @@ export async function queryBatchMessages(
     }
 
     const response = await request.get();
-    const messages = await convertMessages(response.value, folderIds);
+    // Filter results to only include inbox messages (since we can't use filter with search)
+    const inboxMessages = response.value.filter(
+      (message: Message) =>
+        message.parentFolderId === folderIds.inbox && !message.isDraft,
+    );
+    const messages = await convertMessages(inboxMessages, folderIds);
 
     // For search, get next page token from @odata.nextLink
     nextPageToken = response["@odata.nextLink"]
@@ -170,20 +175,27 @@ export async function queryBatchMessages(
 
     return { messages, nextPageToken };
   } else {
-    // Non-search path - use skip and orderBy
-    const skip = pageToken ? parseInt(pageToken, 10) : 0;
-    request = request.skip(skip).orderby("receivedDateTime DESC");
+    // Non-search path - use filter, skip and orderBy
+    request = request
+      .filter("parentFolderId eq '" + folderIds.inbox + "'")
+      .skip(pageToken ? parseInt(pageToken, 10) : 0)
+      .orderby("receivedDateTime DESC");
 
     const response = await request.get();
     const messages = await convertMessages(response.value, folderIds);
 
     // For non-search, calculate next page token based on message count
     const hasMore = messages.length === maxResults;
-    nextPageToken = hasMore ? (skip + maxResults).toString() : undefined;
+    nextPageToken = hasMore
+      ? (pageToken
+          ? parseInt(pageToken, 10) + maxResults
+          : maxResults
+        ).toString()
+      : undefined;
 
     logger.info("Non-search results", {
       messageCount: messages.length,
-      skip,
+      skip: pageToken ? parseInt(pageToken, 10) : 0,
       hasMore,
       nextPageToken,
     });

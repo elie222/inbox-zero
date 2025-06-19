@@ -94,7 +94,6 @@ export const runRulesAction = actionClient
         include: { actions: true, categoryFilters: true },
       });
 
-      console.log("TEST LOG 2");
       const result = await runRules({
         isTest,
         client: emailProvider,
@@ -130,7 +129,6 @@ export const testAiCustomContentAction = actionClient
         include: { actions: true, categoryFilters: true },
       });
 
-      console.log("TEST LOG 3");
       const result = await runRules({
         isTest: true,
         client: emailProvider,

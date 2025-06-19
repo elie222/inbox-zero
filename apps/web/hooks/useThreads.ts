@@ -21,9 +21,7 @@ export function useThreads({
   if (fromEmail) searchParams.set("fromEmail", fromEmail);
   if (limit) searchParams.set("limit", limit.toString());
   if (type) searchParams.set("type", type);
-  console.log("TEST LOG 8");
   const url = `/api/${provider === "google" ? "google" : "microsoft"}/threads?${searchParams.toString()}`;
-  console.log("TEST LOG 9");
   const { data, isLoading, error, mutate } = useSWR<ThreadsResponse>(url, {
     refreshInterval,
   });

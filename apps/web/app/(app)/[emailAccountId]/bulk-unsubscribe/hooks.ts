@@ -494,7 +494,6 @@ async function deleteAllFromSender({
   onFinish: () => void;
   emailAccountId: string;
 }) {
-  console.log("TEST LOG 21");
   toast.promise(
     async () => {
       // 1. search gmail for messages from sender

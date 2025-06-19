@@ -103,10 +103,11 @@ export async function replyToEmail(
     conversationId: message.threadId,
   };
 
-  const result = await client
-    .getClient()
-    .api("/me/messages")
-    .post(replyMessage);
+  // Send the email immediately using the sendMail endpoint
+  const result = await client.getClient().api("/me/sendMail").post({
+    message: replyMessage,
+    saveToSentItems: true,
+  });
   return result;
 }
 

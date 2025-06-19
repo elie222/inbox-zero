@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
-import { env } from "@/env";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { logger } from "@/app/api/outlook/webhook/logger";
 

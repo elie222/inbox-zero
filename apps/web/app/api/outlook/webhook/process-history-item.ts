@@ -128,7 +128,7 @@ export async function processHistoryItem(
       logger.info("Skipping. Assistant email.", loggerOptions);
       return;
     }
-
+    /* 
     const isOutbound =
       message.from?.emailAddress?.address?.toLowerCase() ===
       userEmail.toLowerCase();
@@ -150,7 +150,7 @@ export async function processHistoryItem(
       emailAccountId,
       client: emailProvider,
       messageId,
-    });
+    }); 
 
     if (blocked) {
       logger.info("Skipping. Blocked unsubscribed email.", loggerOptions);
@@ -191,7 +191,7 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-    if (emailAccount.autoCategorizeSenders) {
+     if (emailAccount.autoCategorizeSenders) {
       const sender = extractEmailAddress(from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
@@ -202,7 +202,7 @@ export async function processHistoryItem(
       if (!existingSender?.category) {
         await categorizeSender(sender, emailAccount, client, accessToken);
       }
-    }
+    } */
 
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...", loggerOptions);
@@ -244,7 +244,7 @@ export async function processHistoryItem(
   }
 }
 
-async function handleOutbound(
+/* async function handleOutbound(
   emailAccount: ProcessHistoryOptions["emailAccount"],
   message: Message,
   provider: EmailProvider,
@@ -337,3 +337,4 @@ export function shouldRunColdEmailBlocker(
     hasAiAccess
   );
 }
+ */

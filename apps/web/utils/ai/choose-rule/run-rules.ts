@@ -26,12 +26,6 @@ import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-run-rules");
 
-type EmailClient = gmail_v1.Gmail | OutlookClient;
-
-function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
-  return "users" in client;
-}
-
 export type RunRulesResult = {
   rule?: Rule | null;
   actionItems?: ActionItem[];
@@ -53,7 +47,6 @@ export async function runRules({
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
-  console.log("TEST LOG 4");
   const result = await findMatchingRule({
     rules,
     message,
@@ -61,14 +54,12 @@ export async function runRules({
     client,
   });
 
-  console.log("TEST LOG 5");
   analyzeSenderPatternIfAiMatch({
     isTest,
     result,
     message,
     emailAccountId: emailAccount.id,
   });
-  console.log("TEST LOG 6");
 
   logger.trace("Matching rule", { result });
 

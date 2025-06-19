@@ -35,7 +35,6 @@ export default function Mail(props: {
     if (pageIndex > 0 && previousPageData?.nextPageToken) {
       queryParams.set("nextPageToken", previousPageData.nextPageToken);
     }
-    console.log("TEST LOG 22");
     return `/api/google/threads?${queryParams.toString()}`;
   };
 

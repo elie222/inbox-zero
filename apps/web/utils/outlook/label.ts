@@ -212,10 +212,12 @@ export async function labelThread({
   categories: string[];
 }) {
   // In Outlook, we need to update each message in the thread
+  // Escape single quotes in threadId for the filter
+  const escapedThreadId = threadId.replace(/'/g, "''");
   const messages = await client
     .getClient()
     .api(`/me/messages`)
-    .filter(`conversationId eq '${threadId}'`)
+    .filter(`conversationId eq '${escapedThreadId}'`)
     .get();
 
   await Promise.all(
@@ -287,10 +289,67 @@ export async function markReadThread({
   threadId: string;
   read: boolean;
 }) {
-  // In Outlook, we mark messages as read
-  await client.getClient().api(`/me/messages/${threadId}`).patch({
-    isRead: read,
-  });
+  try {
+    // In Outlook, we need to mark each message in the thread as read
+    // Escape single quotes in threadId for the filter
+    const escapedThreadId = threadId.replace(/'/g, "''");
+    const messages = await client
+      .getClient()
+      .api(`/me/messages`)
+      .filter(`conversationId eq '${escapedThreadId}'`)
+      .get();
+
+    // Update each message in the thread
+    await Promise.all(
+      messages.value.map((message: { id: string }) =>
+        client.getClient().api(`/me/messages/${message.id}`).patch({
+          isRead: read,
+        }),
+      ),
+    );
+  } catch (error) {
+    // If the filter fails, try a different approach
+    logger.warn("Filter failed, trying alternative approach", {
+      threadId,
+      error,
+    });
+
+    try {
+      // Try to get messages by conversationId using a different endpoint
+      const messages = await client
+        .getClient()
+        .api(`/me/messages`)
+        .select("id")
+        .get();
+
+      // Filter messages by conversationId manually
+      const threadMessages = messages.value.filter(
+        (message: any) => message.conversationId === threadId,
+      );
+
+      if (threadMessages.length > 0) {
+        // Update each message in the thread
+        await Promise.all(
+          threadMessages.map((message: { id: string }) =>
+            client.getClient().api(`/me/messages/${message.id}`).patch({
+              isRead: read,
+            }),
+          ),
+        );
+      } else {
+        // If no messages found, try treating threadId as a messageId
+        await client.getClient().api(`/me/messages/${threadId}`).patch({
+          isRead: read,
+        });
+      }
+    } catch (directError) {
+      logger.error("Failed to mark message as read", {
+        threadId,
+        error: directError,
+      });
+      throw directError;
+    }
+  }
 }
 
 export async function markImportantMessage({
