@@ -50,13 +50,11 @@ const PROVIDER_CONFIG = {
       const client = getOutlookContactsClient({ accessToken });
       try {
         const profileResponse = await client.getUserProfile();
-        console.log("profileResponse", profileResponse);
 
         // Get photo separately as it requires a different endpoint
         let photoUrl = null;
         try {
           const photo = await client.getUserPhoto();
-          console.log("photoRESPONSE", photo);
           if (photo) {
             photoUrl = photo;
           }
@@ -467,7 +465,7 @@ export async function saveTokens({
   accountRefreshToken,
   providerAccountId,
   emailAccountId,
-  provider = "google",
+  provider,
 }: {
   tokens: {
     access_token?: string;
@@ -475,7 +473,7 @@ export async function saveTokens({
     expires_at?: number;
   };
   accountRefreshToken: string | null;
-  provider?: string;
+  provider: string;
 } & ( // provide one of these:
   | {
       providerAccountId: string;

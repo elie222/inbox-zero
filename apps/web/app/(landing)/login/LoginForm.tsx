@@ -78,7 +78,7 @@ export function LoginForm() {
 
       <Dialog>
         <DialogTrigger asChild>
-          <Button size="2xl" color="white">
+          <Button size="2xl">
             <span className="flex items-center justify-center">
               <Image
                 src="/images/microsoft.svg"
@@ -127,14 +127,6 @@ export function LoginForm() {
           </div>
         </DialogContent>
       </Dialog>
-
-      <Button
-        color="white"
-        size="2xl"
-        link={{ href: "/waitlist-other", target: "_blank" }}
-      >
-        Join the Outlook waitlist
-      </Button>
     </div>
   );
 }
