@@ -1,8 +1,6 @@
 import prisma from "@/utils/prisma";
 import { ActionType, ThreadTrackerType } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
-import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
@@ -10,12 +8,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import type { OutlookClient } from "@/utils/outlook/client";
-
-type EmailClient = gmail_v1.Gmail | OutlookClient;
-
-function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
-  return "users" in client;
-}
+import { EmailProvider } from "@/utils/email/provider";
 
 /**
  * Marks an email thread as needing a reply.
@@ -34,7 +27,7 @@ export async function coordinateReplyProcess({
   threadId: string;
   messageId: string;
   sentAt: Date;
-  client: EmailClient;
+  client: EmailProvider;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     emailAccountId,
@@ -52,14 +45,10 @@ export async function coordinateReplyProcess({
     sentAt,
   });
 
-  let labelsPromise;
-  if (isGmailClient(client)) {
-    const awaitingReplyLabelId = await getAwaitingReplyLabel(client);
-    labelsPromise = removeThreadLabel(client, threadId, awaitingReplyLabelId);
-  } else {
-    // For Outlook, we don't need to do anything with labels at this point
-    labelsPromise = Promise.resolve();
-  }
+  const labelsPromise = client.removeThreadLabel(
+    threadId,
+    await client.getAwaitingReplyLabel(),
+  );
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,
@@ -132,7 +121,7 @@ export async function handleInboundReply({
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
-  client: EmailClient;
+  client: EmailProvider;
 }) {
   // 1. Run rules check
   // 2. If the reply tracking rule is selected then mark as needs reply

@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { GmailProvider } from "@/providers/GmailProvider";
+import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 import { Chat } from "@/components/assistant-chat/chat";
@@ -34,7 +34,7 @@ export default async function AssistantPage({
   }
 
   return (
-    <GmailProvider>
+    <EmailProvider>
       <Suspense>
         <PermissionsCheck />
 
@@ -42,6 +42,6 @@ export default async function AssistantPage({
           <Chat emailAccountId={emailAccountId} />
         </div>
       </Suspense>
-    </GmailProvider>
+    </EmailProvider>
   );
 }

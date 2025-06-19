@@ -1,50 +1,16 @@
-import type { gmail_v1 } from "@googleapis/gmail";
-import {
-  draftEmail as gmailDraftEmail,
-  forwardEmail as gmailForwardEmail,
-  replyToEmail as gmailReplyToEmail,
-  sendEmailWithPlainText as gmailSendEmailWithPlainText,
-} from "@/utils/gmail/mail";
-import {
-  draftEmail as outlookDraftEmail,
-  forwardEmail as outlookForwardEmail,
-  replyToEmail as outlookReplyToEmail,
-  sendEmailWithPlainText as outlookSendEmailWithPlainText,
-} from "@/utils/outlook/mail";
 import { ActionType, type ExecutedRule } from "@prisma/client";
-import {
-  archiveThread as gmailArchiveThread,
-  getOrCreateLabel as gmailGetOrCreateLabel,
-  labelMessage as gmailLabelMessage,
-  markReadThread as gmailMarkReadThread,
-} from "@/utils/gmail/label";
-import {
-  archiveThread as outlookArchiveThread,
-  getOrCreateLabel as outlookGetOrCreateLabel,
-  labelMessage as outlookLabelMessage,
-  markReadThread as outlookMarkReadThread,
-} from "@/utils/outlook/label";
-import { markSpam as gmailMarkSpam } from "@/utils/gmail/spam";
-import { markSpam as outlookMarkSpam } from "@/utils/outlook/spam";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
-import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
-import type { OutlookClient } from "@/utils/outlook/client";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-actions");
 
-type EmailClient = gmail_v1.Gmail | OutlookClient;
-
-function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
-  return "users" in client;
-}
-
 type ActionFunction<T extends Partial<Omit<ActionItem, "type" | "id">>> =
   (options: {
-    client: EmailClient;
+    client: EmailProvider;
     email: EmailForAction;
     args: T;
     userEmail: string;
@@ -54,7 +20,7 @@ type ActionFunction<T extends Partial<Omit<ActionItem, "type" | "id">>> =
   }) => Promise<any>;
 
 export const runActionFunction = async (options: {
-  client: EmailClient;
+  client: EmailProvider;
   email: EmailForAction;
   action: ActionItem;
   userEmail: string;
@@ -106,16 +72,7 @@ const archive: ActionFunction<Record<string, unknown>> = async ({
   email,
   userEmail,
 }) => {
-  if (isGmailClient(client)) {
-    await gmailArchiveThread({
-      gmail: client,
-      threadId: email.threadId,
-      ownerEmail: userEmail,
-      actionSource: "automation",
-    });
-  } else {
-    await outlookArchiveThread({ client, threadId: email.threadId });
-  }
+  await client.archiveThread(email.threadId, userEmail);
 };
 
 const label: ActionFunction<{ label?: string | null }> = async ({
@@ -124,30 +81,7 @@ const label: ActionFunction<{ label?: string | null }> = async ({
   args,
 }) => {
   if (!args.label) return;
-
-  if (isGmailClient(client)) {
-    const label = await gmailGetOrCreateLabel({
-      gmail: client,
-      name: args.label,
-    });
-    if (!label.id)
-      throw new Error("Label not found and unable to create label");
-    await gmailLabelMessage({
-      gmail: client,
-      messageId: email.id,
-      addLabelIds: [label.id],
-    });
-  } else {
-    const label = await outlookGetOrCreateLabel({
-      client,
-      name: args.label,
-    });
-    await outlookLabelMessage({
-      client,
-      messageId: email.id,
-      categories: [label.displayName || ""],
-    });
-  }
+  await client.labelMessage(email.id, args.label);
 };
 
 const draft: ActionFunction<{
@@ -163,21 +97,19 @@ const draft: ActionFunction<{
     content: args.content ?? "",
   };
 
-  if (isGmailClient(client)) {
-    // Run draft creation and previous draft deletion in parallel
-    const [result] = await Promise.all([
-      gmailDraftEmail(client, email, draftArgs),
-      handlePreviousDraftDeletion({
-        gmail: client,
-        executedRule,
-        logger,
-      }),
-    ]);
-    return { draftId: result.data.message?.id };
-  } else {
-    const result = await outlookDraftEmail(client, email, draftArgs);
-    return { draftId: result.id };
-  }
+  const result = await client.draftEmail(
+    {
+      id: email.id,
+      threadId: email.threadId,
+      headers: email.headers,
+      internalDate: email.internalDate,
+      snippet: "",
+      historyId: "",
+      inline: [],
+    },
+    draftArgs,
+  );
+  return { draftId: result.draftId };
 };
 
 const reply: ActionFunction<{
@@ -187,11 +119,18 @@ const reply: ActionFunction<{
 }> = async ({ client, email, args, userEmail, userId, emailAccountId }) => {
   if (!args.content) return;
 
-  if (isGmailClient(client)) {
-    await gmailReplyToEmail(client, email, args.content);
-  } else {
-    await outlookReplyToEmail(client, email, args.content);
-  }
+  await client.replyToEmail(
+    {
+      id: email.id,
+      threadId: email.threadId,
+      headers: email.headers,
+      internalDate: email.internalDate,
+      snippet: "",
+      historyId: "",
+      inline: [],
+    },
+    args.content,
+  );
 
   await coordinateReplyProcess({
     threadId: email.threadId,
@@ -219,11 +158,7 @@ const send_email: ActionFunction<{
     messageText: args.content,
   };
 
-  if (isGmailClient(client)) {
-    await gmailSendEmailWithPlainText(client, emailArgs);
-  } else {
-    await outlookSendEmailWithPlainText(client, emailArgs);
-  }
+  await client.sendEmail(emailArgs);
 };
 
 const forward: ActionFunction<{
@@ -242,22 +177,25 @@ const forward: ActionFunction<{
     content: args.content ?? undefined,
   };
 
-  if (isGmailClient(client)) {
-    await gmailForwardEmail(client, forwardArgs);
-  } else {
-    await outlookForwardEmail(client, forwardArgs);
-  }
+  await client.forwardEmail(
+    {
+      id: email.id,
+      threadId: email.threadId,
+      headers: email.headers,
+      internalDate: email.internalDate,
+      snippet: "",
+      historyId: "",
+      inline: [],
+    },
+    forwardArgs,
+  );
 };
 
 const mark_spam: ActionFunction<Record<string, unknown>> = async ({
   client,
   email,
 }) => {
-  if (isGmailClient(client)) {
-    return await gmailMarkSpam({ gmail: client, threadId: email.threadId });
-  } else {
-    return await outlookMarkSpam(client, email.threadId);
-  }
+  await client.markSpam(email.threadId);
 };
 
 const call_webhook: ActionFunction<{ url?: string | null }> = async ({
@@ -294,19 +232,7 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
   client,
   email,
 }) => {
-  if (isGmailClient(client)) {
-    await gmailMarkReadThread({
-      gmail: client,
-      threadId: email.threadId,
-      read: true,
-    });
-  } else {
-    await outlookMarkReadThread({
-      client,
-      threadId: email.threadId,
-      read: true,
-    });
-  }
+  await client.markRead(email.threadId);
 };
 
 const track_thread: ActionFunction<Record<string, unknown>> = async ({

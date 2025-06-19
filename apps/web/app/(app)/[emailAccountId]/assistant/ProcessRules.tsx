@@ -54,15 +54,30 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
   const { provider } = useAccount();
 
-  const { data, isLoading, isValidating, error, setSize, mutate } =
+  const { data, isLoading, isValidating, error, setSize, mutate, size } =
     useSWRInfinite<GoogleMessagesResponse | OutlookMessagesResponse>(
       (_index, previousPageData) => {
+        // Always return the URL for the first page
+        if (_index === 0) {
+          const params = new URLSearchParams();
+          if (searchQuery) params.set("q", searchQuery);
+          const paramsString = params.toString();
+
+          const endpoint =
+            provider === "google"
+              ? "/api/google/messages"
+              : "/api/microsoft/messages";
+
+          return `${endpoint}${paramsString ? `?${paramsString}` : ""}`;
+        }
+
+        // For subsequent pages, check if we have a next page token
         const pageToken = previousPageData?.nextPageToken;
-        if (previousPageData && !pageToken) return null;
+        if (!pageToken) return null;
 
         const params = new URLSearchParams();
         if (searchQuery) params.set("q", searchQuery);
-        if (pageToken) params.set("pageToken", pageToken);
+        params.set("pageToken", pageToken);
         const paramsString = params.toString();
 
         const endpoint =
@@ -72,9 +87,18 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
         return `${endpoint}${paramsString ? `?${paramsString}` : ""}`;
       },
+      {
+        revalidateFirstPage: false,
+      },
     );
 
-  const onLoadMore = () => setSize((size) => size + 1);
+  const onLoadMore = async () => {
+    const nextSize = size + 1;
+    await setSize(nextSize);
+  };
+
+  // Check if we have more data to load
+  const hasMore = data?.[data.length - 1]?.nextPageToken != null;
 
   // filter out messages in same thread
   // only keep the most recent message in each thread
@@ -248,9 +272,14 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                 className="w-full"
                 onClick={onLoadMore}
                 loading={isValidating}
+                disabled={!hasMore || isValidating}
               >
                 {!isValidating && <ChevronsDownIcon className="mr-2 size-4" />}
-                Load More
+                {isValidating
+                  ? "Loading..."
+                  : hasMore
+                    ? "Load More"
+                    : "No More Messages"}
               </Button>
             </div>
           </Card>

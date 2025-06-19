@@ -2,31 +2,18 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { draftEmail as gmailDraftEmail } from "@/utils/gmail/mail";
-import { draftEmail as outlookDraftEmail } from "@/utils/outlook/mail";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
-import { getThreadMessages as getGmailThreadMessages } from "@/utils/gmail/thread";
-import { getThreadMessages as getOutlookThreadMessages } from "@/utils/outlook/thread";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import { getMessagesBatch } from "@/utils/gmail/message";
-import { getAccessTokenFromClient } from "@/utils/gmail/client";
-import type { OutlookClient } from "@/utils/outlook/client";
-import type { Message } from "@microsoft/microsoft-graph-types";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("generate-reply");
-
-type EmailClient = gmail_v1.Gmail | OutlookClient;
-
-function isGmailClient(client: EmailClient): client is gmail_v1.Gmail {
-  return "users" in client;
-}
 
 export async function generateDraft({
   emailAccountId,
@@ -34,7 +21,7 @@ export async function generateDraft({
   message,
 }: {
   emailAccountId: string;
-  client: EmailClient;
+  client: EmailProvider;
   message: ParsedMessage;
 }) {
   const logger = createScopedLogger("generate-reply").with({
@@ -62,11 +49,7 @@ export async function generateDraft({
   }
 
   // 2. Create draft
-  if (isGmailClient(client)) {
-    await gmailDraftEmail(client, message, { content: result });
-  } else {
-    await outlookDraftEmail(client, message, { content: result });
-  }
+  await client.draftEmail(message, { content: result });
 
   logger.info("Draft created");
 }
@@ -77,7 +60,7 @@ export async function generateDraft({
 export async function fetchMessagesAndGenerateDraft(
   emailAccount: EmailAccountWithAI,
   threadId: string,
-  client: EmailClient,
+  client: EmailProvider,
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } =
     await fetchThreadAndConversationMessages(threadId, client);
@@ -100,34 +83,21 @@ export async function fetchMessagesAndGenerateDraft(
  */
 async function fetchThreadAndConversationMessages(
   threadId: string,
-  client: EmailClient,
+  client: EmailProvider,
 ): Promise<{
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  if (isGmailClient(client)) {
-    // Gmail implementation
-    const threadMessages = await getGmailThreadMessages(threadId, client);
-    const previousConversationMessages = await getMessagesBatch({
-      messageIds: threadMessages.map((msg) => msg.id),
-      accessToken: getAccessTokenFromClient(client),
-    });
+  const threadMessages = await client.getThreadMessages(threadId);
+  const previousConversationMessages =
+    await client.getPreviousConversationMessages(
+      threadMessages.map((msg) => msg.id),
+    );
 
-    return {
-      threadMessages,
-      previousConversationMessages,
-    };
-  } else {
-    // Outlook implementation
-    const threadMessages = await getOutlookThreadMessages(threadId, client);
-
-    // For Outlook, we'll use the same messages as previous conversation messages
-    // since we already have the full thread with all the content we need
-    return {
-      threadMessages,
-      previousConversationMessages: threadMessages,
-    };
-  }
+  return {
+    threadMessages,
+    previousConversationMessages,
+  };
 }
 
 async function generateDraftContent(

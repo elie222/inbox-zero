@@ -1,6 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
-import { getRandomLabelColor } from "@/utils/label";
+import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
+import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 
 const logger = createScopedLogger("outlook/label");
 
@@ -12,30 +13,62 @@ interface OutlookCategory {
 }
 
 // Outlook doesn't have system labels like Gmail, but we map common categories
+// Using same format as Gmail for consistency
 export const OutlookLabel = {
-  INBOX: "Inbox",
-  SENT: "Sent Items",
-  UNREAD: "Unread",
-  STARRED: "Flagged",
-  IMPORTANT: "Important",
-  SPAM: "Junk Email",
-  TRASH: "Deleted Items",
-  DRAFT: "Drafts",
-};
+  INBOX: "INBOX",
+  SENT: "SENT",
+  UNREAD: "UNREAD",
+  STARRED: "STARRED",
+  IMPORTANT: "IMPORTANT",
+  SPAM: "SPAM",
+  TRASH: "TRASH",
+  DRAFT: "DRAFT",
+} as const;
+
+// Outlook supported colors
+export const OUTLOOK_COLORS: Array<string> = [
+  "preset0", // Red
+  "preset1", // Orange
+  "preset2", // Yellow
+  "preset3", // Green
+  "preset4", // Teal
+  "preset5", // Blue
+  "preset6", // Purple
+  "preset7", // Pink
+  "preset8", // Brown
+  "preset9", // Gray
+] as const;
+
+// Map Outlook preset colors to single color values
+export const OUTLOOK_COLOR_MAP = {
+  preset0: "#E74C3C", // Red
+  preset1: "#E67E22", // Orange
+  preset2: "#F1C40F", // Yellow
+  preset3: "#2ECC71", // Green
+  preset4: "#1ABC9C", // Teal
+  preset5: "#3498DB", // Blue
+  preset6: "#9B59B6", // Purple
+  preset7: "#E84393", // Pink
+  preset8: "#795548", // Brown
+  preset9: "#95A5A6", // Gray
+} as const;
 
 export async function getLabels(client: OutlookClient) {
   const response = await client
     .getClient()
     .api("/me/outlook/masterCategories")
     .get();
-  return response.value as OutlookCategory[];
+  return (response.value as OutlookCategory[]).map((label) => ({
+    ...label,
+    name: label.displayName || label.id,
+  }));
 }
 
 export async function getLabelById(options: {
-  gmail: OutlookClient;
+  client: OutlookClient;
   id: string;
 }) {
-  const { gmail: client, id } = options;
+  const { client, id } = options;
   const response = await client
     .getClient()
     .api(`/me/outlook/masterCategories/${id}`)
@@ -53,12 +86,18 @@ export async function createLabel({
   color?: string;
 }) {
   try {
+    // Use a random preset color if none provided or if the provided color is not supported
+    const outlookColor =
+      color && OUTLOOK_COLORS.includes(color)
+        ? color
+        : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
+
     const response = await client
       .getClient()
       .api("/me/outlook/masterCategories")
       .post({
         displayName: name,
-        color: color || getRandomLabelColor(),
+        color: outlookColor,
       });
     return response as OutlookCategory;
   } catch (error) {
@@ -189,14 +228,54 @@ export async function labelThread({
 export async function archiveThread({
   client,
   threadId,
+  ownerEmail,
+  actionSource,
+  labelId,
 }: {
   client: OutlookClient;
   threadId: string;
+  ownerEmail: string;
+  actionSource: TinybirdEmailAction["actionSource"];
+  labelId?: string;
 }) {
   // In Outlook, archiving is moving to the Archive folder
-  await client.getClient().api(`/me/messages/${threadId}/move`).post({
-    destinationId: "archive",
+  const archivePromise = client
+    .getClient()
+    .api(`/me/messages/${threadId}/move`)
+    .post({
+      destinationId: "archive",
+    });
+
+  const publishPromise = publishArchive({
+    ownerEmail,
+    threadId,
+    actionSource,
+    timestamp: Date.now(),
   });
+
+  const [archiveResult, publishResult] = await Promise.allSettled([
+    archivePromise,
+    publishPromise,
+  ]);
+
+  if (archiveResult.status === "rejected") {
+    const error = archiveResult.reason as Error;
+    if (error.message?.includes("Requested entity was not found")) {
+      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
+      return { status: 404, message: "Thread not found" };
+    }
+    logger.error("Failed to archive thread", { threadId, error });
+    throw error;
+  }
+
+  if (publishResult.status === "rejected") {
+    logger.error("Failed to publish archive action", {
+      threadId,
+      error: publishResult.reason,
+    });
+  }
+
+  return archiveResult.value;
 }
 
 export async function markReadThread({
@@ -210,6 +289,43 @@ export async function markReadThread({
 }) {
   // In Outlook, we mark messages as read
   await client.getClient().api(`/me/messages/${threadId}`).patch({
-    isRead: true,
+    isRead: read,
   });
+}
+
+export async function markImportantMessage({
+  client,
+  messageId,
+  important,
+}: {
+  client: OutlookClient;
+  messageId: string;
+  important: boolean;
+}) {
+  // In Outlook, we use the "Important" flag
+  await client
+    .getClient()
+    .api(`/me/messages/${messageId}`)
+    .patch({
+      importance: important ? "high" : "normal",
+    });
+}
+
+export async function getOrCreateInboxZeroLabel({
+  client,
+  key,
+}: {
+  client: OutlookClient;
+  key: InboxZeroLabel;
+}) {
+  const { name } = inboxZeroLabels[key];
+  const labels = await getLabels(client);
+
+  // Return label if it exists
+  const label = labels?.find((label) => label.displayName === name);
+  if (label) return label;
+
+  // Create label if it doesn't exist
+  const createdLabel = await createLabel({ client, name });
+  return createdLabel;
 }

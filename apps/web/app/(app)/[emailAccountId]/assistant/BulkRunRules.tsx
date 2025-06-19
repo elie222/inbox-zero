@@ -175,6 +175,7 @@ async function onRun(
         limit: LIMIT,
         q,
       };
+      console.log("TEST LOG 20");
       const res = await fetchWithAccount({
         url: `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
         emailAccountId,

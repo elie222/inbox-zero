@@ -4,17 +4,19 @@ import prisma from "@/utils/prisma";
 import { assessUser } from "@/utils/assess";
 import { aiAnalyzeWritingStyle } from "@/utils/ai/knowledge/writing-style";
 import { formatBulletList } from "@/utils/string";
-import { getSentMessages } from "@/utils/gmail/message";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
+import { createEmailProvider } from "@/utils/email/provider";
 import { SafeError } from "@/utils/error";
 
 // to help with onboarding and provide the best flow to new users
 export const assessAction = actionClient
   .metadata({ name: "assessUser" })
-  .action(async ({ ctx: { emailAccountId } }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+    });
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
@@ -23,7 +25,7 @@ export const assessAction = actionClient
 
     if (emailAccount?.behaviorProfile) return { success: true, skipped: true };
 
-    const result = await assessUser({ gmail });
+    const result = await assessUser({ client: emailProvider });
     await prisma.emailAccount.update({
       where: { id: emailAccountId },
       data: { behaviorProfile: result },
@@ -34,7 +36,7 @@ export const assessAction = actionClient
 
 export const analyzeWritingStyleAction = actionClient
   .metadata({ name: "analyzeWritingStyle" })
-  .action(async ({ ctx: { emailAccountId } }) => {
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: {
@@ -52,8 +54,11 @@ export const analyzeWritingStyleAction = actionClient
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
     // fetch last 20 sent emails
-    const gmail = await getGmailClientForEmail({ emailAccountId });
-    const sentMessages = await getSentMessages(gmail, 20);
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider,
+    });
+    const sentMessages = await emailProvider.getMessages("in:sent", 20);
 
     // analyze writing style
     const style = await aiAnalyzeWritingStyle({

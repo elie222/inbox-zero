@@ -20,6 +20,7 @@ import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
@@ -178,15 +179,15 @@ export const createLabelAction = actionClient
   .metadata({ name: "createLabel" })
   .schema(z.object({ name: z.string(), description: z.string().optional() }))
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const label = await createLabel({
-        gmail,
+    async ({
+      ctx: { emailAccountId, provider },
+      parsedInput: { name, description },
+    }) => {
+      const emailProvider = await createEmailProvider({
         emailAccountId,
-        name,
-        description,
+        provider,
       });
+      const label = await emailProvider.createLabel(name, description);
       return label;
     },
   );

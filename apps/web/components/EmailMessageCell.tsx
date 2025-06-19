@@ -10,7 +10,7 @@ import { useThread } from "@/hooks/useThread";
 import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
 import { Badge } from "@/components/ui/badge";
-import { useGmail } from "@/providers/GmailProvider";
+import { useEmail } from "@/providers/EmailProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import {
@@ -39,14 +39,26 @@ export function EmailMessageCell({
   labelIds?: string[];
   filterReplyTrackerLabels?: boolean;
 }) {
-  const { userLabels } = useGmail();
+  const { userLabels } = useEmail();
 
   const labelsToDisplay = useMemo(() => {
     const labels = labelIds
-      ?.map((id) => {
-        const label = userLabels[id];
+      ?.map((idOrName) => {
+        // First try to find by ID
+        let label = userLabels[idOrName];
+
+        // If not found by ID, try to find by name
+        if (!label) {
+          const foundLabel = Object.values(userLabels).find(
+            (l) => l.name.toLowerCase() === idOrName.toLowerCase(),
+          );
+          if (foundLabel) {
+            label = foundLabel;
+          }
+        }
+
         if (!label) return null;
-        return { id, name: label.name };
+        return { id: label.id, name: label.name };
       })
       .filter(isDefined)
       .filter((label) => {

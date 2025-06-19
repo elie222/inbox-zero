@@ -121,6 +121,7 @@ async function fetchSenderThreads({
   sender: string;
   emailAccountId: string;
 }) {
+  console.log("TEST LOG 24");
   const url = `/api/google/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
   const res = await fetchWithAccount({
     url,

@@ -31,10 +31,23 @@ async function getMessages({
   try {
     const outlook = await getOutlookClientForEmail({ emailAccountId });
 
+    logger.info("Fetching messages", {
+      emailAccountId,
+      query,
+      pageToken,
+    });
+
     const { messages, nextPageToken } = await queryBatchMessages(outlook, {
       query: query?.trim(),
       maxResults: 20,
       pageToken: pageToken ?? undefined,
+    });
+
+    logger.info("Received messages from Outlook", {
+      emailAccountId,
+      messageCount: messages.length,
+      hasNextPageToken: !!nextPageToken,
+      nextPageToken,
     });
 
     // Filter out draft messages and messages from/to the assistant
@@ -60,6 +73,13 @@ async function getMessages({
       }
 
       return true;
+    });
+
+    logger.info("Filtered messages", {
+      emailAccountId,
+      originalCount: messages.length,
+      filteredCount: incomingMessages.length,
+      hasNextPageToken: !!nextPageToken,
     });
 
     return { messages: incomingMessages, nextPageToken };

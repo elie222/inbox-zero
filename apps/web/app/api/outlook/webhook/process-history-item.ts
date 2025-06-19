@@ -20,6 +20,8 @@ import {
   cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
@@ -65,28 +67,6 @@ export async function processHistoryItem(
       }),
     ]);
 
-    // Log the full message details
-    logger.info("Fetched message details", {
-      ...loggerOptions,
-      messageDetails: {
-        id: message.id,
-        conversationId: message.conversationId,
-        subject: message.subject,
-        from: message.from?.emailAddress,
-        toRecipients: message.toRecipients?.map((r) => r.emailAddress),
-        ccRecipients: message.ccRecipients?.map((r) => r.emailAddress),
-        receivedDateTime: message.receivedDateTime,
-        bodyPreview: message.bodyPreview,
-        importance: message.importance,
-        hasAttachments: message.hasAttachments,
-        categories: message.categories,
-        // Only log first 500 chars of content to avoid huge logs
-        bodyContent: message.body?.content?.substring(0, 500),
-      },
-    });
-
-    return; // TODO: remove this after all the other features have been implemented to work the same as the gmail ones
-
     // if the rule has already been executed, skip
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.", loggerOptions);
@@ -105,6 +85,11 @@ export async function processHistoryItem(
       return;
     }
 
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: "microsoft-entra-id",
+    });
+
     if (
       isAssistantEmail({
         userEmail,
@@ -120,10 +105,17 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
+            date: message.receivedDateTime
+              ? new Date(message.receivedDateTime).toISOString()
+              : new Date().toISOString(),
           },
+          snippet: message.bodyPreview || "",
+          historyId: resourceData.id,
+          inline: [],
         },
         emailAccountId,
         userEmail,
+        provider: emailProvider,
       });
     }
 
@@ -145,7 +137,7 @@ export async function processHistoryItem(
       await handleOutbound(
         emailAccount,
         message,
-        client,
+        emailProvider,
         messageId,
         resourceData.conversationId,
       );
@@ -156,7 +148,7 @@ export async function processHistoryItem(
     const blocked = await blockUnsubscribedEmails({
       from,
       emailAccountId,
-      client,
+      client: emailProvider,
       messageId,
     });
 
@@ -187,7 +179,7 @@ export async function processHistoryItem(
             ? new Date(message.receivedDateTime)
             : new Date(),
         },
-        client,
+        gmail: client,
         emailAccount,
       });
 
@@ -216,7 +208,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        client,
+        client: emailProvider,
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
@@ -224,10 +216,13 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
+            date: message.receivedDateTime
+              ? new Date(message.receivedDateTime).toISOString()
+              : new Date().toISOString(),
           },
-          body: {
-            content: message.body?.content || "",
-          },
+          snippet: message.bodyPreview || "",
+          historyId: resourceData.id,
+          inline: [],
         },
         rules,
         emailAccount,
@@ -252,7 +247,7 @@ export async function processHistoryItem(
 async function handleOutbound(
   emailAccount: ProcessHistoryOptions["emailAccount"],
   message: Message,
-  client: ProcessHistoryOptions["client"],
+  provider: EmailProvider,
   messageId: string,
   conversationId?: string,
 ) {
@@ -264,40 +259,37 @@ async function handleOutbound(
 
   logger.info("Handling outbound reply", loggerOptions);
 
+  const messageHeaders = {
+    from: message.from?.emailAddress?.address || "",
+    to:
+      message.toRecipients?.map((r) => r.emailAddress?.address).join(",") || "",
+    subject: message.subject || "",
+    date: message.receivedDateTime
+      ? new Date(message.receivedDateTime).toISOString()
+      : new Date().toISOString(),
+  };
+
+  const parsedMessage = {
+    id: messageId,
+    threadId: conversationId || messageId,
+    headers: messageHeaders,
+    snippet: message.bodyPreview || "",
+    historyId: message.id || messageId,
+    inline: [],
+  };
+
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
     trackSentDraftStatus({
       emailAccountId: emailAccount.id,
-      message: {
-        id: messageId,
-        threadId: conversationId || messageId,
-        headers: {
-          from: message.from?.emailAddress?.address || "",
-          to:
-            message.toRecipients
-              ?.map((r) => r.emailAddress?.address)
-              .join(",") || "",
-          subject: message.subject || "",
-        },
-      },
-      client,
+      message: parsedMessage,
+      gmail: provider,
     }),
     handleOutboundReply({
       emailAccount,
-      message: {
-        id: messageId,
-        threadId: conversationId || messageId,
-        headers: {
-          from: message.from?.emailAddress?.address || "",
-          to:
-            message.toRecipients
-              ?.map((r) => r.emailAddress?.address)
-              .join(",") || "",
-          subject: message.subject || "",
-        },
-      },
-      client,
+      message: parsedMessage,
+      gmail: provider,
     }),
   ]);
 
@@ -321,7 +313,7 @@ async function handleOutbound(
     await cleanupThreadAIDrafts({
       threadId: conversationId || messageId,
       emailAccountId: emailAccount.id,
-      client,
+      gmail: provider,
     });
   } catch (cleanupError) {
     logger.error("Error during thread draft cleanup", {

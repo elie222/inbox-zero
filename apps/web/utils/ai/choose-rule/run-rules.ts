@@ -22,6 +22,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import type { OutlookClient } from "@/utils/outlook/client";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -46,12 +47,13 @@ export async function runRules({
   emailAccount,
   isTest,
 }: {
-  client: EmailClient;
+  client: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
 }): Promise<RunRulesResult> {
+  console.log("TEST LOG 4");
   const result = await findMatchingRule({
     rules,
     message,
@@ -59,12 +61,14 @@ export async function runRules({
     client,
   });
 
+  console.log("TEST LOG 5");
   analyzeSenderPatternIfAiMatch({
     isTest,
     result,
     message,
     emailAccountId: emailAccount.id,
   });
+  console.log("TEST LOG 6");
 
   logger.trace("Matching rule", { result });
 
@@ -93,7 +97,7 @@ async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
-  client: EmailClient,
+  client: EmailProvider,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,

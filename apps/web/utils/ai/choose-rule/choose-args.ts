@@ -12,6 +12,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("choose-args");
 
@@ -34,7 +35,7 @@ export async function getActionItemsWithAiArgs({
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
-  client: EmailClient;
+  client: EmailProvider;
 }): Promise<Action[]> {
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
