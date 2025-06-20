@@ -12,7 +12,7 @@ if [[ -z "${GITHUB_MARKETING_TOKEN:-}" ]]; then
   exit 0
 fi
 
-if [[ -d "$MARKETING_DIR" ]]; then
+if [[ -d "$MARKETING_DIR/(landing)" ]]; then
   echo "✅ Marketing directory already exists – nothing to clone."
   exit 0
 fi
