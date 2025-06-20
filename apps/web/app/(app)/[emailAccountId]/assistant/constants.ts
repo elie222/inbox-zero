@@ -9,6 +9,7 @@ import {
   ShieldCheckIcon,
   WebhookIcon,
   EyeIcon,
+  FileTextIcon,
 } from "lucide-react";
 import { ActionType } from "@prisma/client";
 
@@ -23,6 +24,7 @@ const ACTION_TYPE_COLORS = {
   [ActionType.MARK_SPAM]: "bg-red-500",
   [ActionType.CALL_WEBHOOK]: "bg-gray-500",
   [ActionType.TRACK_THREAD]: "bg-indigo-500",
+  [ActionType.DIGEST]: "bg-teal-500",
 } as const;
 
 export const ACTION_TYPE_TEXT_COLORS = {
@@ -36,6 +38,7 @@ export const ACTION_TYPE_TEXT_COLORS = {
   [ActionType.MARK_SPAM]: "text-red-500",
   [ActionType.CALL_WEBHOOK]: "text-gray-500",
   [ActionType.TRACK_THREAD]: "text-indigo-500",
+  [ActionType.DIGEST]: "text-teal-500",
 } as const;
 
 export const ACTION_TYPE_ICONS = {
@@ -49,6 +52,7 @@ export const ACTION_TYPE_ICONS = {
   [ActionType.MARK_SPAM]: ShieldCheckIcon,
   [ActionType.CALL_WEBHOOK]: WebhookIcon,
   [ActionType.TRACK_THREAD]: EyeIcon,
+  [ActionType.DIGEST]: FileTextIcon,
 } as const;
 
 // Helper function to get action type from string (for RulesPrompt.tsx)
@@ -75,6 +79,9 @@ export function getActionTypeColor(example: string): string {
   }
   if (lowerExample.includes("label")) {
     return ACTION_TYPE_COLORS[ActionType.LABEL];
+  }
+  if (lowerExample.includes("digest")) {
+    return ACTION_TYPE_COLORS[ActionType.DIGEST];
   }
 
   // Default fallback
