@@ -251,9 +251,9 @@ function AutoArchiveButton<T extends Row>({
         disabled={!hasUnsubscribeAccess}
       >
         {autoArchiveLoading && <ButtonLoader />}
-        <span className="hidden xl:block">Auto Archive</span>
+        <span className="hidden xl:block">Skip Inbox</span>
         <span className="block xl:hidden">
-          <Tooltip content="Auto Archive">
+          <Tooltip content="Skip Inbox">
             <ArchiveIcon className="size-4" />
           </Tooltip>
         </span>
@@ -292,13 +292,13 @@ function AutoArchiveButton<T extends Row>({
                   onDisableAutoArchive();
                 }}
               >
-                <ArchiveXIcon className="mr-2 size-4" /> Disable Auto Archive
+                <ArchiveXIcon className="mr-2 size-4" /> Disable Skip Inbox
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
           )}
 
-          <DropdownMenuLabel>Auto Archive and Label</DropdownMenuLabel>
+          <DropdownMenuLabel>Skip Inbox and Label</DropdownMenuLabel>
           <DropdownMenuSeparator />
           {labels.map((label) => {
             return (
@@ -545,7 +545,7 @@ export function HeaderButton(props: {
 //       {error && <DropdownMenuItem>Error loading groups</DropdownMenuItem>}
 //       <DropdownMenuSeparator />
 //       <DropdownMenuItem asChild>
-//         <Link href={prefixPath(emailAccountId, "/assistant?tab=groups")} target="_blank">
+//         <Link href={prefixPath(emailAccountId, "/automation?tab=groups")} target="_blank">
 //           <PlusCircle className="mr-2 size-4" />
 //           <span>New Group</span>
 //         </Link>

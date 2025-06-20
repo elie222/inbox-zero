@@ -6,7 +6,8 @@ import {
   type CreateCategoryBody,
   createCategoryBody,
 } from "@/utils/actions/categorize.validation";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { defaultCategory } from "@/utils/categories";
 import {
   categorizeSender,
