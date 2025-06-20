@@ -8,8 +8,14 @@ import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { upsertDigest } from "@/utils/digest/index";
+import { hasCronSecret } from "@/utils/cron";
+import { captureException } from "@/utils/error";
 
 export async function POST(request: Request) {
+  if (!hasCronSecret(request)) {
+    captureException(new Error("Unauthorized cron request: api/ai/digest"));
+    return new Response("Unauthorized", { status: 401 });
+  }
   const body = digestBody.parse(await request.json());
   const { emailAccountId, coldEmailId, actionId, message } = body;
 

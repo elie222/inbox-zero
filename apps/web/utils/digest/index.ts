@@ -86,7 +86,7 @@ export async function upsertDigest({
   });
 
   try {
-    // Find or create the digest atomically
+    // Find or create the digest atomically with digestItems included
     const digest =
       (await prisma.digest.findFirst({
         where: {
@@ -96,23 +96,33 @@ export async function upsertDigest({
         orderBy: {
           createdAt: "asc",
         },
+        include: {
+          items: {
+            where: {
+              messageId,
+              threadId,
+            },
+            take: 1,
+          },
+        },
       })) ||
       (await prisma.digest.create({
         data: {
           emailAccountId,
           status: DigestStatus.PENDING,
         },
+        include: {
+          items: {
+            where: {
+              messageId,
+              threadId,
+            },
+            take: 1,
+          },
+        },
       }));
 
-    // Find or create the DigestItem atomically
-    const digestItem = await prisma.digestItem.findFirst({
-      where: {
-        digestId: digest.id,
-        messageId,
-        threadId,
-      },
-    });
-
+    const digestItem = digest.items.length > 0 ? digest.items[0] : null;
     const contentString = JSON.stringify(content);
 
     if (digestItem) {

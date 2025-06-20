@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useEffect } from "react";
 import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
@@ -56,14 +56,23 @@ export function ColdEmailForm({
   const {
     control,
     handleSubmit,
+    reset,
     formState: { errors, isSubmitting },
   } = useForm<UpdateColdEmailSettingsBody>({
     resolver: zodResolver(updateColdEmailSettingsBody),
     defaultValues: {
       coldEmailBlocker: coldEmailBlocker || ColdEmailSetting.DISABLED,
-      coldEmailDigest: coldEmailDigest || false,
+      coldEmailDigest: coldEmailDigest ?? false,
     },
   });
+
+  // Reset form when props change (when data loads)
+  useEffect(() => {
+    reset({
+      coldEmailBlocker: coldEmailBlocker || ColdEmailSetting.DISABLED,
+      coldEmailDigest: coldEmailDigest ?? false,
+    });
+  }, [coldEmailBlocker, coldEmailDigest, reset]);
 
   const onSubmit: SubmitHandler<UpdateColdEmailSettingsBody> = useCallback(
     async (data) => {
@@ -136,7 +145,7 @@ export function ColdEmailForm({
             <div className="flex items-center space-x-3">
               <Checkbox
                 id="coldEmailDigest"
-                checked={field.value}
+                checked={field.value ?? false}
                 onCheckedChange={field.onChange}
               />
               <div className="space-y-1">

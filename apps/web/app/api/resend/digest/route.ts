@@ -8,8 +8,9 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { camelCase } from "lodash";
-import { calculateNextScheduleDate } from "@/utils/frequency";
+import { calculateNextScheduleDate } from "@/utils/schedule";
 import { getMessagesLargeBatch } from "@/utils/gmail/message";
+import type { ParsedMessage } from "@/utils/types";
 import {
   digestCategorySchema,
   sendDigestEmailBody,
@@ -31,6 +32,26 @@ type SendEmailResult = {
   message: string;
 };
 
+// Function to get digest schedule data separately
+async function getDigestSchedule({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  return prisma.schedule.findUnique({
+    where: { emailAccountId },
+    select: {
+      id: true,
+      intervalDays: true,
+      occurrences: true,
+      daysOfWeek: true,
+      timeOfDay: true,
+      lastOccurrenceAt: true,
+      nextOccurrenceAt: true,
+    },
+  });
+}
+
 async function sendEmail({
   emailAccountId,
   force,
@@ -50,6 +71,8 @@ async function sendEmail({
   if (!emailAccount.tokens.access_token) {
     throw new Error("No access token available");
   }
+
+  const digestScheduleData = await getDigestSchedule({ emailAccountId });
 
   const gmail = await getGmailClientWithRefresh({
     accessToken: emailAccount.tokens.access_token,
@@ -119,7 +142,7 @@ async function sendEmail({
     );
 
     // Skip Gmail API call if there are no messages to process
-    let messages: any[] = [];
+    let messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
       messages = await getMessagesLargeBatch({
         gmail,
@@ -200,18 +223,16 @@ async function sendEmail({
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied
     await prisma.$transaction([
-      ...(emailAccount.digestScheduleId
+      ...(digestScheduleData
         ? [
             prisma.schedule.update({
               where: {
-                id: emailAccount.digestScheduleId,
+                id: digestScheduleData.id,
                 emailAccountId,
               },
               data: {
                 lastOccurrenceAt: new Date(),
-                nextOccurrenceAt: calculateNextScheduleDate(
-                  emailAccount.digestSchedule!,
-                ),
+                nextOccurrenceAt: calculateNextScheduleDate(digestScheduleData),
               },
             }),
           ]

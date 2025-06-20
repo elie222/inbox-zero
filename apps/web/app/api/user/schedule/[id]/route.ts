@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withError } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 
-export const GET = withError(
+export const GET = withEmailAccount(
   async (request, { params }: { params: Promise<{ id?: string }> }) => {
+    const emailAccountId = request.auth.emailAccountId;
     const { id } = await params;
     if (!id)
       return NextResponse.json(
-        { error: "Missing frequency id" },
+        { error: "Missing schedule id" },
         { status: 400 },
       );
 
     const schedule = await prisma.schedule.findUnique({
-      where: { id },
+      where: { id, emailAccountId },
     });
 
     if (!schedule) {

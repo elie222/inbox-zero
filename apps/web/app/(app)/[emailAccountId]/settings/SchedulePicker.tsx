@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormItem } from "@/components/ui/form";
-import { createCanonicalTimeOfDay } from "@/utils/frequency";
+import { createCanonicalTimeOfDay } from "@/utils/schedule";
 
 const frequencies = [
   { value: "daily", label: "Day" },
