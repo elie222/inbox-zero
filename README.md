@@ -165,6 +165,64 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In the `Test users` section, click `+Add users`
     3. Enter your email and press `Save`
 
+### Updating .env file with Microsoft OAuth credentials:
+
+- `MICROSOFT_CLIENT_ID` -- Microsoft OAuth client ID
+- `MICROSOFT_CLIENT_SECRET` -- Microsoft OAuth client secret
+
+Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Active Directory app registration:
+
+1. Navigate to Azure Active Directory
+2. Go to "App registrations" in the left sidebar or search it in the searchbar
+3. Click "New registration"
+
+   1. Choose a name for your application
+   2. Under "Supported account types" select "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)"
+   3. Set the Redirect URI:
+      - Platform: Web
+      - URL: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+   4. Click "Register"
+
+4. Get your credentials:
+
+   1. The "Application (client) ID" shown is your `MICROSOFT_CLIENT_ID`
+   2. To get your client secret:
+      - Click "Certificates & secrets" in the left sidebar
+      - Click "New client secret"
+      - Add a description and choose an expiry
+      - Click "Add"
+      - Copy the secret Value (not the ID) - this is your `MICROSOFT_CLIENT_SECRET`
+
+5. Configure API permissions:
+
+   1. In the "Manage" menu click "API permissions" in the left sidebar
+   2. Click "Add a permission"
+   3. Select "Microsoft Graph"
+   4. Select "Delegated permissions"
+   5. Add the following permissions:
+
+      - openid
+      - profile
+      - email
+      - User.Read
+      - offline_access
+      - Mail.ReadWrite
+      - Mail.Send
+      - Mail.ReadBasic
+      - Mail.Read
+      - Mail.Read.Shared
+      - MailboxSettings.ReadWrite
+      - Contacts.ReadWrite
+
+   6. Click "Add permissions"
+   7. Click "Grant admin consent" if you're an admin
+
+6. Update your .env file with the credentials:
+   ```plaintext
+   MICROSOFT_CLIENT_ID=your_client_id_here
+   MICROSOFT_CLIENT_SECRET=your_client_secret_here
+   ```
+
 ### Updating .env file with LLM parameters
 
 You need to set an LLM, but you can use a local one too:
