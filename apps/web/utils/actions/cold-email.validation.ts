@@ -24,6 +24,7 @@ export const updateColdEmailSettingsBody = z.object({
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
     ])
     .nullish(),
+  coldEmailDigest: z.boolean().nullish(),
 });
 export type UpdateColdEmailSettingsBody = z.infer<
   typeof updateColdEmailSettingsBody

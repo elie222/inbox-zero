@@ -204,7 +204,7 @@ export const updateRuleAction = actionClient
                 }),
               ]
             : []),
-          // update existing actions
+          // update actions
           ...actionsToUpdate.map((a) => {
             return prisma.action.update({
               where: { id: a.id },
@@ -464,18 +464,21 @@ export const createRulesOnboardingAction = actionClient
 
       const promises: Promise<any>[] = [];
 
-      const isSet = (value: string): value is "label" | "label_archive" =>
-        value !== "none";
+      const isSet = (
+        value: string | undefined,
+      ): value is "label" | "label_archive" =>
+        value !== "none" && value !== undefined;
 
       // cold email blocker
-      if (isSet(coldEmail)) {
+      if (isSet(coldEmail.action)) {
         const promise = prisma.emailAccount.update({
           where: { id: emailAccountId },
           data: {
             coldEmailBlocker:
-              coldEmail === "label"
+              coldEmail.action === "label"
                 ? ColdEmailSetting.LABEL
                 : ColdEmailSetting.ARCHIVE_AND_LABEL,
+            coldEmailDigest: coldEmail.hasDigest,
           },
         });
         promises.push(promise);
@@ -484,8 +487,11 @@ export const createRulesOnboardingAction = actionClient
       const rules: string[] = [];
 
       // reply tracker
-      if (isSet(toReply)) {
-        const promise = enableReplyTracker({ emailAccountId }).then((res) => {
+      if (isSet(toReply.action)) {
+        const promise = enableReplyTracker({
+          emailAccountId,
+          addDigest: toReply.hasDigest,
+        }).then((res) => {
           if (res?.alreadyEnabled) return;
 
           // Load previous emails needing replies in background
@@ -517,6 +523,7 @@ export const createRulesOnboardingAction = actionClient
         label: string,
         systemType: SystemType,
         emailAccountId: string,
+        hasDigest: boolean,
       ) {
         const existingRule = await prisma.rule.findUnique({
           where: { emailAccountId_systemType: { emailAccountId, systemType } },
@@ -536,6 +543,7 @@ export const createRulesOnboardingAction = actionClient
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
                         : []),
+                      ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
                     ],
                   },
                 },
@@ -567,6 +575,7 @@ export const createRulesOnboardingAction = actionClient
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
                         : []),
+                      ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
                     ],
                   },
                 },
@@ -605,80 +614,85 @@ export const createRulesOnboardingAction = actionClient
       }
 
       // newsletter
-      if (isSet(newsletter)) {
+      if (isSet(newsletter.action)) {
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
           "Label all newsletters as 'Newsletter'",
           false,
-          newsletter,
+          newsletter.action,
           "Newsletter",
           SystemType.NEWSLETTER,
           emailAccountId,
+          !!newsletter.hasDigest,
         );
       } else {
         deleteRule(SystemType.NEWSLETTER, emailAccountId);
       }
 
       // marketing
-      if (isSet(marketing)) {
+      if (isSet(marketing.action)) {
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
           "Label all marketing emails as 'Marketing'",
           false,
-          marketing,
+          marketing.action,
           "Marketing",
           SystemType.MARKETING,
           emailAccountId,
+          !!marketing.hasDigest,
         );
       } else {
         deleteRule(SystemType.MARKETING, emailAccountId);
       }
 
       // calendar
-      if (isSet(calendar)) {
+      if (isSet(calendar.action)) {
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
           "Label all calendar emails as 'Calendar'",
           false,
-          calendar,
+          calendar.action,
           "Calendar",
           SystemType.CALENDAR,
           emailAccountId,
+          !!calendar.hasDigest,
         );
       } else {
         deleteRule(SystemType.CALENDAR, emailAccountId);
       }
 
       // receipt
-      if (isSet(receipt)) {
+      if (isSet(receipt.action)) {
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
           "Label all receipts as 'Receipts'",
           false,
-          receipt,
+          receipt.action,
           "Receipt",
           SystemType.RECEIPT,
           emailAccountId,
+          !!receipt.hasDigest,
         );
       } else {
         deleteRule(SystemType.RECEIPT, emailAccountId);
       }
 
       // notification
-      if (isSet(notification)) {
+      if (isSet(notification.action)) {
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
           "Label all notifications as 'Notifications'",
           false,
-          notification,
+          notification.action,
           "Notification",
           SystemType.NOTIFICATION,
           emailAccountId,
+          !!notification.hasDigest,
         );
       } else {
         deleteRule(SystemType.NOTIFICATION, emailAccountId);
@@ -696,3 +710,28 @@ export const createRulesOnboardingAction = actionClient
       });
     },
   );
+
+export async function getRuleNameByExecutedAction(
+  actionId: string,
+): Promise<string | undefined> {
+  const executedAction = await prisma.executedAction.findUnique({
+    where: { id: actionId },
+    select: {
+      executedRule: {
+        select: {
+          rule: {
+            select: {
+              name: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!executedAction) {
+    throw new Error("Executed action not found");
+  }
+
+  return executedAction.executedRule?.rule?.name;
+}

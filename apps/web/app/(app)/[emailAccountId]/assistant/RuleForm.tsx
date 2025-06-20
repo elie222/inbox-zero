@@ -79,6 +79,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
 import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 import {
@@ -115,6 +116,7 @@ export function RuleForm({
   alwaysEditMode?: boolean;
 }) {
   const { emailAccountId } = useAccount();
+  const digestEnabled = useDigestEnabled();
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
@@ -282,8 +284,9 @@ export function RuleForm({
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
       { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
+      ...(digestEnabled ? [{ label: "Digest", value: ActionType.DIGEST }] : []),
     ];
-  }, []);
+  }, [digestEnabled]);
 
   const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
     rule.groupId,

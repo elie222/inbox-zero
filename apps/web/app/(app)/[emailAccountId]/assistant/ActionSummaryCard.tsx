@@ -186,6 +186,10 @@ export function ActionSummaryCard({
       summaryContent = "Mark as spam";
       break;
 
+    case ActionType.DIGEST:
+      summaryContent = "Add to digest";
+      break;
+
     default:
       summaryContent = actionTypeLabel;
   }

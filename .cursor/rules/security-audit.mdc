@@ -1,0 +1,192 @@
+---
+description: Security audit report commands
+globs: 
+alwaysApply: false
+---
+# Security Audit Tools
+
+## Quick Security Audit Script
+
+Run this from your project root to check for potential security issues:
+
+```bash
+#!/bin/bash
+# security-audit.sh - Quick security audit for API routes
+
+echo "🔍 Security Audit Report"
+echo "========================"
+
+echo -e "\n1. Routes without authentication middleware:"
+echo "   (These should use withAuth, withEmailAccount, or have custom auth)"
+grep -r "export const \(GET\|POST\|PUT\|DELETE\)" apps/web/app/api/ | \
+  grep -v "withEmailAccount\|withAuth\|withError" | \
+  cut -d: -f1 | sort | uniq
+
+echo -e "\n2. Direct Prisma queries without user scoping:"
+echo "   (Check these manually for emailAccountId/userId filtering)"
+grep -r "prisma\.\w*\.find" apps/web/app/api/ | \
+  grep -v "emailAccountId\|userId" | \
+  head -10
+
+echo -e "\n3. Routes using withError (verify they have custom auth):"
+grep -r "withError" apps/web/app/api/ | \
+  grep "export const" | \
+  cut -d: -f1 | sort | uniq
+
+echo -e "\n4. Potential parameter injection points:"
+grep -r "params\." apps/web/app/api/ | \
+  grep -v "await params" | \
+  head -5
+
+echo -e "\n5. 🚨 CRITICAL: Potential unprotected cron endpoints:"
+echo "   (Check manually - these use withError but not hasCronSecret)"
+echo "   (Some may be API endpoints with custom auth like validateApiKey)"
+grep -r "withError.*async.*request" apps/web/app/api/ | \
+  grep -v "hasCronSecret\|hasPostCronSecret\|webhook\|linking\|validateApiKey" | \
+  cut -d: -f1 | sort | uniq
+
+echo -e "\n6. Cron endpoints (verify they use proper secret validation):"
+grep -r "hasCronSecret\|hasPostCronSecret" apps/web/app/api/ | \
+  cut -d: -f1 | sort | uniq
+
+echo -e "\n✅ Audit complete! Review flagged items manually."
+```
+
+## Manual Security Checklist
+
+For each API route, verify:
+
+### Authentication
+- [ ] Uses `withAuth` or `withEmailAccount` middleware
+- [ ] Or uses `withError` with custom authentication logic
+- [ ] No public access to sensitive data
+
+### Authorization  
+- [ ] All database queries include user/account filtering
+- [ ] Uses `emailAccountId` or `userId` in WHERE clauses
+- [ ] Related resources use proper relationship filtering
+
+### Input Validation
+- [ ] Parameters are validated before use
+- [ ] Request bodies use Zod schemas
+- [ ] No direct parameter usage in queries
+
+### Output Security
+- [ ] Only returns necessary fields (use `select`)
+- [ ] No sensitive data in error messages
+- [ ] Consistent error response format
+
+## Security Testing Commands
+
+```bash
+# Find routes without proper middleware
+grep -r "export const" apps/web/app/api/ | grep -v "withEmailAccount\|withAuth\|withError"
+
+# Find potential IDOR vulnerabilities
+grep -r "findUnique.*where.*id" apps/web/app/api/ | grep -v "emailAccountId\|userId"
+
+# Find unvalidated parameter usage
+grep -r "params\." apps/web/app/api/ | grep -v "await.*params"
+
+# Find potential information disclosure in errors
+grep -r "throw.*Error" apps/web/app/api/ | grep -v "SafeError"
+
+# 🚨 CRITICAL: Find unprotected cron endpoints
+grep -r "withError.*async.*request" apps/web/app/api/ | grep -v "hasCronSecret\|hasPostCronSecret\|webhook\|linking"
+
+# Find cron endpoints (verify they have proper authentication)
+grep -r "hasCronSecret\|hasPostCronSecret" apps/web/app/api/
+
+# Check for weak cron secrets (should not exist)
+grep -r "secret.*=.*[\"'].*[\"']" apps/web/app/api/ | grep -v "CRON_SECRET"
+```
+
+## Common Issues to Look For
+
+### 1. Missing User Scoping
+```typescript
+// ❌ BAD: Missing user scoping
+const schedule = await prisma.schedule.findUnique({
+  where: { id: scheduleId }
+});
+
+// ✅ GOOD: Properly scoped
+const schedule = await prisma.schedule.findUnique({
+  where: { id: scheduleId, emailAccountId }
+});
+```
+
+### 2. Information Disclosure
+```typescript
+// ❌ BAD: Reveals internal details
+if (!rule) {
+  throw new Error(`Rule ${ruleId} not found for user ${userId}`);
+}
+
+// ✅ GOOD: Generic error
+if (!rule) {
+  throw new SafeError("Rule not found");
+}
+```
+
+### 3. Unvalidated Parameters
+```typescript
+// ❌ BAD: Direct parameter usage
+const { id } = await params;
+const rule = await prisma.rule.findUnique({ where: { id } });
+
+// ✅ GOOD: Validated parameters
+const { id } = await params;
+if (!id || typeof id !== 'string') {
+  return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+}
+```
+
+## Security Review Process
+
+### Before Code Review
+1. Run the security audit script
+2. Check all flagged routes manually
+3. Verify new routes follow security patterns
+
+### During Code Review
+1. Check middleware usage on new routes
+2. Verify database queries include user scoping
+3. Look for potential IDOR vulnerabilities
+4. Check error handling for information disclosure
+
+### Regular Security Audits
+1. Run audit script weekly
+2. Review any new withError usage
+3. Check for new parameter handling patterns
+4. Monitor for security-related dependencies
+
+## Integration with CI/CD
+
+Add this to your GitHub Actions or CI pipeline:
+
+```yaml
+# .github/workflows/security-audit.yml
+name: Security Audit
+on: [push, pull_request]
+
+jobs:
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run Security Audit
+        run: |
+          # Check for routes without middleware
+          UNPROTECTED=$(grep -r "export const \(GET\|POST\|PUT\|DELETE\)" apps/web/app/api/ | grep -v "withEmailAccount\|withAuth\|withError" | wc -l)
+          if [ $UNPROTECTED -gt 0 ]; then
+            echo "❌ Found $UNPROTECTED potentially unprotected routes"
+            grep -r "export const \(GET\|POST\|PUT\|DELETE\)" apps/web/app/api/ | grep -v "withEmailAccount\|withAuth\|withError"
+            exit 1
+          else
+            echo "✅ All routes use proper middleware"
+          fi
+```
+
+Remember: This audit script helps identify potential issues, but manual review is still essential for security.

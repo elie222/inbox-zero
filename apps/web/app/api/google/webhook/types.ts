@@ -12,7 +12,10 @@ export type ProcessHistoryOptions = {
   hasAiAccess: boolean;
   emailAccount: Pick<
     EmailAccount,
-    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
+    | "coldEmailPrompt"
+    | "coldEmailBlocker"
+    | "autoCategorizeSenders"
+    | "coldEmailDigest"
   > &
     EmailAccountWithAI;
 };

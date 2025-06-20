@@ -37,6 +37,9 @@ export function usePricingFrequencyDefault() {
     ) as PricingFrequencyDefault) || "control"
   );
 }
+export function useDigestEnabled() {
+  return useFeatureFlagEnabled("digest-emails");
+}
 
 export type TestimonialsVariant = "control" | "senja-widget";
 

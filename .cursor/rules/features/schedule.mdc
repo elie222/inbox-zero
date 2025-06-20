@@ -1,0 +1,491 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Schedule Feature - Developer Guide
+
+## What is Schedule?
+
+Schedule is a flexible scheduling system that handles recurring events in the application. It's designed to solve the complex problem of "when should something happen next?" with support for:
+
+- **Custom intervals** - Daily, weekly, monthly, or any number of days
+- **Multiple occurrences** - "3 times per week" or "twice daily"
+- **Specific days** - "Only on weekdays" or "Mondays and Fridays"
+- **Precise timing** - "Every day at 11:00 AM"
+
+**Primary Use Cases:**
+- Digest email scheduling (when to send summary emails)
+- Recurring notifications and reminders
+- Any feature that needs smart, user-configurable scheduling
+
+**Key Benefits:**
+- Handles complex scheduling logic in one place
+- User-friendly configuration via UI components
+- Automatic calculation of next occurrence dates
+- Supports both simple and advanced scheduling patterns
+
+---
+
+## How It Works - Scheduling Logic
+
+### Basic Concepts
+
+```mermaid
+graph TD
+    A[User Sets Schedule] --> B[Calculate Next Date]
+    B --> C[Store nextOccurrenceAt]
+    C --> D[Event Triggers]
+    D --> E[Update lastOccurrenceAt]
+    E --> B
+```
+
+### Scheduling Patterns
+
+**1. Simple Intervals**
+```typescript
+// Every 7 days at 11 AM
+{
+  intervalDays: 7,
+  occurrences: 1,
+  timeOfDay: "11:00"
+}
+```
+
+**2. Multiple Occurrences**
+```typescript
+// 3 times per week (every ~2.33 days)
+{
+  intervalDays: 7,
+  occurrences: 3,
+  timeOfDay: "09:00"
+}
+// Creates evenly spaced slots: Day 1, Day 3.33, Day 5.67
+```
+
+**3. Specific Days**
+```typescript
+// Mondays and Fridays at 2 PM
+{
+  intervalDays: 7,
+  daysOfWeek: 0b0100010, // Binary: Mon=1, Fri=5
+  timeOfDay: "14:00"
+}
+```
+
+### How Multiple Occurrences Work
+
+When `occurrences > 1`, the system divides the interval into equal slots:
+
+```typescript
+// 3 times per week example
+const intervalDays = 7;
+const occurrences = 3;
+const slotSize = intervalDays / occurrences; // 2.33 days
+
+// Slots: 0, 2.33, 4.67 days from interval start
+// Next occurrence = first slot after current time
+```
+
+---
+
+## Implementation Guide
+
+### Setting Up Schedule for a Feature
+
+**Step 1: Add Schedule to your model**
+```prisma
+model YourFeature {
+  id               String        @id
+  scheduleId      String?
+  schedule        Schedule? @relation(fields: [scheduleId], references: [id])
+  // ... other fields
+}
+```
+
+**Step 2: Calculate next occurrence**
+```typescript
+import { calculateNextScheduleDate } from '@/utils/schedule';
+
+const nextDate = calculateNextScheduleDate({
+  intervalDays: schedule.intervalDays,
+  occurrences: schedule.occurrences,
+  daysOfWeek: schedule.daysOfWeek,
+  timeOfDay: schedule.timeOfDay
+});
+
+// Update your model
+await prisma.yourFeature.update({
+  where: { id },
+  data: { nextOccurrenceAt: nextDate }
+});
+```
+
+**Step 3: Check for due events**
+```typescript
+// Find items ready to process
+const dueItems = await prisma.yourFeature.findMany({
+  where: {
+    nextOccurrenceAt: {
+      lte: new Date() // Due now or in the past
+    }
+  }
+});
+```
+
+### Adding Schedule UI to Settings
+
+**Step 1: Use SchedulePicker component**
+```typescript
+import { SchedulePicker } from '@/components/SchedulePicker';
+
+function YourSettingsComponent() {
+  const [schedule, setSchedule] = useState(initialSchedule);
+  
+  return (
+    <SchedulePicker
+      value={schedule}
+      onChange={setSchedule}
+      // Component handles all the complex UI logic
+    />
+  );
+}
+```
+
+**Step 2: Map form data to Schedule**
+```typescript
+import { mapToSchedule } from '@/utils/schedule';
+
+const handleSubmit = async (formData) => {
+  const schedule = mapToSchedule(formData);
+  
+  await updateScheduleAction({
+    emailAccountId,
+    schedule
+  });
+};
+```
+
+### Working with Days of Week Bitmask
+
+The `daysOfWeek` field uses a bitmask where each bit represents a day:
+
+```typescript
+// Bitmask reference (Sunday = 0, Monday = 1, etc.)
+const DAYS = {
+  SUNDAY: 0b0000001,    // 1
+  MONDAY: 0b0000010,    // 2  
+  TUESDAY: 0b0000100,   // 4
+  WEDNESDAY: 0b0001000, // 8
+  THURSDAY: 0b0010000,  // 16
+  FRIDAY: 0b0100000,    // 32
+  SATURDAY: 0b1000000   // 64
+};
+
+// Weekdays only (Mon-Fri)
+const weekdays = DAYS.MONDAY | DAYS.TUESDAY | DAYS.WEDNESDAY | 
+                 DAYS.THURSDAY | DAYS.FRIDAY; // 62
+
+// Weekends only
+const weekends = DAYS.SATURDAY | DAYS.SUNDAY; // 65
+```
+
+---
+
+## Core Components & APIs
+
+### Database Schema
+
+```prisma
+model Schedule {
+  id               String    @id @default(cuid())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  
+  // Scheduling configuration
+  intervalDays     Int?      // Interval length (7 = weekly)
+  occurrences      Int?      // Times per interval (3 = 3x per week)
+  daysOfWeek       Int?      // Bitmask for specific days
+  timeOfDay        DateTime? // Time component only
+  
+  // Tracking
+  lastOccurrenceAt DateTime? // When it last happened
+  nextOccurrenceAt DateTime? // When it should happen next
+  
+  // Relationships
+  emailAccountId   String
+  emailAccount     EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  
+  @@unique([emailAccountId])
+}
+```
+
+### Core Functions
+
+**`calculateNextScheduleDate()`** - Main scheduling function
+```typescript
+function calculateNextScheduleDate(
+  schedule: Pick<Schedule, "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences">,
+  fromDate: Date = new Date()
+): Date
+```
+
+**`mapToSchedule()`** - Convert form data to database format
+```typescript
+function mapToSchedule(formData: ScheduleFormData): Schedule
+```
+
+**`getInitialScheduleProps()`** - Convert database to form format
+```typescript
+function getInitialScheduleProps(schedule?: Schedule): ScheduleFormData
+```
+
+### UI Components
+
+**SchedulePicker** - Complete schedule selection UI
+```typescript
+interface SchedulePickerProps {
+  value: ScheduleFormData;
+  onChange: (value: ScheduleFormData) => void;
+  disabled?: boolean;
+}
+```
+
+**Supported frequency types:**
+- `NEVER` - Disabled
+- `DAILY` - Every day
+- `WEEKLY` - Once per week
+- `MONTHLY` - Once per month  
+- `CUSTOM` - User-defined pattern
+
+---
+
+## Advanced Scheduling Examples
+
+### Complex Patterns
+
+**Twice daily (morning and evening)**
+```typescript
+{
+  intervalDays: 1,
+  occurrences: 2,
+  timeOfDay: "09:00" // Base time, second occurrence ~12 hours later
+}
+```
+
+**Business days only**
+```typescript
+{
+  intervalDays: 7,
+  daysOfWeek: 0b0111110, // Mon-Fri bitmask
+  timeOfDay: "10:00"
+}
+```
+
+**Monthly on specific days**
+```typescript
+{
+  intervalDays: 30,
+  daysOfWeek: 0b0000010, // Mondays only
+  occurrences: 1,
+  timeOfDay: "15:00"
+}
+```
+
+### Handling Edge Cases
+
+**Timezone considerations:**
+```typescript
+// Always work with user's local timezone
+const userTime = new Date().toLocaleString("en-US", {
+  timeZone: user.timezone || "UTC"
+});
+```
+
+**Leap years and month boundaries:**
+```typescript
+// The system handles these automatically
+// 30-day intervals work across month boundaries
+// Leap years are handled by date-fns utilities
+```
+
+---
+
+## Testing & Development
+
+### Testing Schedule Calculations
+
+```typescript
+import { calculateNextScheduleDate } from '@/utils/schedule';
+
+describe('Schedule', () => {
+  it('calculates daily schedule correctly', () => {
+    const next = calculateNextScheduleDate({
+      intervalDays: 1,
+      occurrences: 1,
+      timeOfDay: new Date('2023-01-01T11:00:00')
+    }, new Date('2023-01-01T10:00:00'));
+    
+    expect(next).toEqual(new Date('2023-01-01T11:00:00'));
+  });
+  
+  it('handles multiple occurrences per week', () => {
+    const next = calculateNextScheduleDate({
+      intervalDays: 7,
+      occurrences: 3,
+      timeOfDay: new Date('2023-01-01T09:00:00')
+    }, new Date('2023-01-01T08:00:00'));
+    
+    // Should return first slot of the week
+    expect(next.getHours()).toBe(9);
+  });
+});
+```
+
+### Development Workflow
+
+1. **Design the schedule pattern** - What schedule do you need?
+2. **Test with calculateNextScheduleDate** - Verify the logic works
+3. **Add UI with SchedulePicker** - Let users configure it
+4. **Implement the recurring job** - Use the calculated dates
+5. **Test edge cases** - Timezone changes, DST, month boundaries
+
+---
+
+## Common Patterns & Best Practices
+
+### Updating Schedule Settings
+
+```typescript
+// Always recalculate next occurrence when settings change
+const updateSchedule = async (newSchedule: Schedule) => {
+  const nextOccurrence = calculateNextScheduleDate(newSchedule);
+  
+  await prisma.schedule.update({
+    where: { emailAccountId },
+    data: {
+      ...newSchedule,
+      nextOccurrenceAt: nextOccurrence
+    }
+  });
+};
+```
+
+### Processing Due Events
+
+```typescript
+// Standard pattern for processing scheduled events
+const processDueEvents = async () => {
+  const dueItems = await prisma.feature.findMany({
+    where: {
+      nextOccurrenceAt: { lte: new Date() }
+    },
+    include: { frequency: true }
+  });
+  
+  for (const item of dueItems) {
+    // Process the event
+    await processEvent(item);
+    
+    // Calculate and update next occurrence
+    const nextDate = calculateNextScheduleDate(item.schedule);
+    await prisma.feature.update({
+      where: { id: item.id },
+      data: {
+        lastOccurrenceAt: new Date(),
+        nextOccurrenceAt: nextDate
+      }
+    });
+  }
+};
+```
+
+### Form Integration
+
+```typescript
+// Standard form setup with SchedulePicker
+const ScheduleSettingsForm = () => {
+  const form = useForm({
+    defaultValues: getInitialScheduleProps(currentSchedule)
+  });
+  
+  const onSubmit = async (data) => {
+      const schedule = mapToSchedule(data);
+  await updateScheduleAction(schedule);
+  };
+  
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)}>
+      <SchedulePicker
+        value={form.watch()}
+        onChange={(value) => form.reset(value)}
+      />
+    </form>
+  );
+};
+```
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+**Next occurrence not updating:**
+- Ensure you're calling `calculateNextScheduleDate` after each event
+- Check that `lastOccurrenceAt` is being updated
+- Verify timezone handling is consistent
+
+**FrequencyPicker not saving correctly:**
+- Use `mapToSchedule` to convert form data
+- Check that all required fields are present
+- Validate bitmask values for `daysOfWeek`
+
+**Unexpected scheduling behavior:**
+- Test with fixed dates instead of `new Date()`
+- Check for DST transitions affecting time calculations
+- Verify `intervalDays` and `occurrences` are positive integers
+
+### Debug Tools
+
+```typescript
+// Debug schedule calculation
+const debugSchedule = (schedule: Schedule, fromDate: Date) => {
+  console.log('Input:', { schedule, fromDate });
+  
+  const next = calculateNextScheduleDate(schedule, fromDate);
+  console.log('Next occurrence:', next);
+  
+  const timeDiff = next.getTime() - fromDate.getTime();
+  console.log('Time until next:', timeDiff / (1000 * 60 * 60), 'hours');
+};
+```
+
+---
+
+## File Reference
+
+### Core Implementation
+- `apps/web/utils/schedule.ts` - Main scheduling logic and utilities
+- `apps/web/prisma/schema.prisma` - Schedule model definition
+
+### UI Components
+- `apps/web/app/(app)/[emailAccountId]/settings/SchedulePicker.tsx` - Schedule selection UI
+- `apps/web/app/(app)/[emailAccountId]/settings/DigestMailScheduleSection.tsx` - Digest-specific settings
+
+### Integration Examples
+- `apps/web/utils/actions/settings.ts` - Settings management actions
+- `apps/web/app/api/resend/digest/route.ts` - Digest scheduling implementation
+- `apps/web/app/api/resend/digest/all/route.ts` - Batch processing with schedule checks
+
+### Validation & Types
+- `apps/web/app/api/ai/digest/validation.ts` - API validation schemas
+- `apps/web/types/schedule.ts` - TypeScript type definitions
+
+---
+
+## Related Documentation
+
+- **[Digest Feature](mdc:digest.mdc)** - Primary use case for Schedule
+- **[Prisma Documentation](mdc:https:/prisma.io/docs)** - Database schema patterns
+- **[date-fns Documentation](mdc:https:/date-fns.org)** - Date manipulation utilities used internally
