@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useCallback } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { useHotkeys } from "react-hotkeys-hook";
 import { ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
@@ -11,7 +10,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -67,8 +65,6 @@ export function AccountSwitcherInternal({
     },
     [pathname, activeEmailAccountId, searchParams],
   );
-
-  useAccountHotkeys(emailAccounts, getHref);
 
   if (isLoading) return null;
 
@@ -134,10 +130,6 @@ export function AccountSwitcherInternal({
                       </span>
                     )}
                   </div>
-                  <DropdownMenuShortcut>
-                    {modifierSymbol}
-                    {index + 1}
-                  </DropdownMenuShortcut>
                 </DropdownMenuItem>
               </Link>
             ))}
@@ -156,48 +148,5 @@ export function AccountSwitcherInternal({
         </DropdownMenu>
       </SidebarMenuItem>
     </SidebarMenu>
-  );
-}
-
-function useAccountHotkeys(
-  emailAccounts: GetEmailAccountsResponse["emailAccounts"],
-  getHref: (emailAccountId: string) => string,
-) {
-  const router = useRouter();
-  const { isMac } = useModifierKey();
-  const modifierKey = isMac ? "meta" : "ctrl";
-
-  const accountShortcuts = useMemo(() => {
-    return emailAccounts.slice(0, 9).map((emailAccount, index) => ({
-      hotkey: `${modifierKey}+${index + 1}`,
-      emailAccountId: emailAccount.id,
-    }));
-  }, [emailAccounts, modifierKey]);
-
-  const hotkeyHandler = useCallback(
-    (event: KeyboardEvent) => {
-      const pressedDigit = Number.parseInt(event.key, 10);
-      if (
-        !Number.isNaN(pressedDigit) &&
-        pressedDigit >= 1 &&
-        pressedDigit <= 9
-      ) {
-        const accountIndex = pressedDigit - 1;
-        if (emailAccounts[accountIndex]) {
-          router.push(getHref(emailAccounts[accountIndex].id));
-          event.preventDefault(); // Prevent browser default behavior
-        }
-      }
-    },
-    [emailAccounts, getHref, router],
-  );
-
-  useHotkeys(
-    accountShortcuts.map((s) => s.hotkey).join(","),
-    hotkeyHandler,
-    {
-      preventDefault: true, // Keep for good measure, though handled in callback
-    },
-    [accountShortcuts, hotkeyHandler], // Dependencies for useHotkeys
   );
 }
