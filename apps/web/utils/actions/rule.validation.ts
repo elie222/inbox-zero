@@ -73,6 +73,7 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
+    delayInMinutes: z.number().min(1).max(43200).optional().nullable(),
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {

@@ -91,6 +91,7 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
+import { isSupportedDelayedAction } from "@/utils/delayed-actions";
 
 export function Rule({
   ruleId,
@@ -1214,6 +1215,17 @@ function ActionCard({
 
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
 
+          {/* Delay control for supported action types */}
+          {isSupportedDelayedAction(action.type) && (
+            <DelayInput
+              index={index}
+              register={register}
+              setValue={setValue}
+              watch={watch}
+              errors={errors}
+            />
+          )}
+
           {/* Show the variable pro tip when action has visible fields that can use variables */}
           {shouldShowProTip && <VariableProTip />}
 
@@ -1381,6 +1393,130 @@ function VariableProTip() {
         </span>
         <VariableExamplesDialog />
       </div>
+    </div>
+  );
+}
+
+function DelayInput({
+  index,
+  register,
+  setValue,
+  watch,
+  errors,
+}: {
+  index: number;
+  register: ReturnType<typeof useForm<CreateRuleBody>>["register"];
+  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
+  watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
+  errors: any;
+}) {
+  const delayInMinutes = watch(`actions.${index}.delayInMinutes`);
+
+  // Convert minutes to display value and unit
+  const getDisplayValueAndUnit = (minutes: number | null | undefined) => {
+    if (!minutes || minutes <= 0) return { value: "", unit: "minutes" };
+
+    if (minutes >= 1440 && minutes % 1440 === 0) {
+      // Days (1440 minutes = 1 day)
+      return { value: (minutes / 1440).toString(), unit: "days" };
+    } else if (minutes >= 60 && minutes % 60 === 0) {
+      // Hours (60 minutes = 1 hour)
+      return { value: (minutes / 60).toString(), unit: "hours" };
+    } else {
+      // Minutes
+      return { value: minutes.toString(), unit: "minutes" };
+    }
+  };
+
+  // Maintain separate state for the selected unit to ensure UI updates correctly
+  const [selectedUnit, setSelectedUnit] = useState(() => {
+    const { unit } = getDisplayValueAndUnit(delayInMinutes);
+    return unit;
+  });
+
+  const { value: displayValue } = getDisplayValueAndUnit(delayInMinutes);
+
+  // Convert display value and unit to minutes
+  const convertToMinutes = (value: string, unit: string) => {
+    const numValue = Number.parseInt(value, 10);
+    if (Number.isNaN(numValue) || numValue <= 0) return null;
+
+    switch (unit) {
+      case "minutes":
+        return numValue;
+      case "hours":
+        return numValue * 60;
+      case "days":
+        return numValue * 1440;
+      default:
+        return numValue;
+    }
+  };
+
+  const handleValueChange = (newValue: string) => {
+    const minutes = convertToMinutes(newValue, selectedUnit);
+    setValue(`actions.${index}.delayInMinutes`, minutes);
+  };
+
+  const handleUnitChange = (newUnit: string) => {
+    setSelectedUnit(newUnit);
+    if (displayValue) {
+      const minutes = convertToMinutes(displayValue, newUnit);
+      setValue(`actions.${index}.delayInMinutes`, minutes);
+    }
+  };
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="flex items-center justify-between">
+        <Label label="Delay" name={`actions.${index}.delayInMinutes`} />
+        <TooltipExplanation text="Schedule this action to execute after a delay from when the email was received. Useful for follow-ups, reminders, or giving senders time to respond." />
+      </div>
+      <div className="flex items-center space-x-2">
+        <Input
+          name={`delay-${index}`}
+          type="text"
+          placeholder="0"
+          className="w-20"
+          registerProps={{
+            value: displayValue,
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+              const value = e.target.value.replace(/[^0-9]/g, "");
+              handleValueChange(value);
+            },
+          }}
+        />
+        <Select value={selectedUnit} onValueChange={handleUnitChange}>
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="hours">Hours</SelectItem>
+            <SelectItem value="days">Days</SelectItem>
+          </SelectContent>
+        </Select>
+        <span className="text-xs text-muted-foreground">(max 30 days)</span>
+      </div>
+
+      {/* Hidden input for form registration */}
+      <input
+        type="hidden"
+        {...register(`actions.${index}.delayInMinutes`, {
+          valueAsNumber: true,
+          min: 1,
+          max: 43200, // 30 days in minutes
+        })}
+      />
+
+      {errors?.actions?.[index]?.delayInMinutes && (
+        <ErrorMessage
+          message={
+            errors.actions?.[index]?.delayInMinutes?.message?.toString() ||
+            "Please enter a valid delay between 1 minute and 30 days"
+          }
+        />
+      )}
     </div>
   );
 }
