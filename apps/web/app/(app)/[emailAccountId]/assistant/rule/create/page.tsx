@@ -39,6 +39,7 @@ export default async function CreateRulePage(props: {
             runOnThreads: true,
           }
         }
+        alwaysEditMode
       />
     </div>
   );

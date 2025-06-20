@@ -17,7 +17,8 @@ export function Privacy() {
           </p>
           <p className="mt-2 text-lg leading-8 text-gray-600">
             We're CASA Tier 2 approved and your data is never used to train
-            general AI models.
+            general AI models. We're also in the process of getting SOC2
+            compliance to further strengthen our security and privacy standards.
           </p>
         </div>
       </div>

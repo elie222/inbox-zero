@@ -10,7 +10,7 @@ import {
   type ServerActionResponse,
 } from "@/utils/error";
 import { logErrorToPosthog } from "@/utils/error.server";
-import { isDuplicateError } from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
 
