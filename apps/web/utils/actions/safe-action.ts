@@ -56,6 +56,7 @@ export const actionClient = baseClient
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
       select: {
+        email: true,
         account: {
           select: {
             userId: true,

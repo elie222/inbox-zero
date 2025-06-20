@@ -203,7 +203,7 @@ export const approvePlanAction = actionClient
   .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { userId, emailAccount, emailAccountId },
       parsedInput: { executedRuleId, message },
     }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId });
@@ -219,7 +219,7 @@ export const approvePlanAction = actionClient
         message,
         executedRule,
         userEmail: emailAccount.email,
-        userId: emailAccount.userId,
+        userId,
         emailAccountId,
       });
     },
