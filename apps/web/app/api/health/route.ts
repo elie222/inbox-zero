@@ -27,17 +27,10 @@ export async function GET(request: Request) {
 
     const recentActivity = await prisma.executedRule.findFirst({
       where: {
-        createdAt: {
-          gte: cutoffTime,
-        },
+        createdAt: { gte: cutoffTime },
         status: ExecutedRuleStatus.APPLIED,
       },
-      select: {
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
+      select: { createdAt: true },
     });
 
     const isHealthy = !!recentActivity;
@@ -51,7 +44,7 @@ export async function GET(request: Request) {
       {
         status: isHealthy ? "healthy" : "degraded",
         timestamp: new Date().toISOString(),
-        lastActivityAt: recentActivity?.createdAt?.toISOString() || null,
+        foundActivityAt: recentActivity?.createdAt?.toISOString() || null,
       },
       { status },
     );
