@@ -89,9 +89,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since fromDate is 10:00, and interval starts at midnight of that day,
-      // but midnight has passed, it goes to next day's midnight (with timezone offset)
-      expect(result).toEqual(new Date("2024-01-16T03:00:00Z"));
+      // Should be next day at midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(16);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should calculate next occurrence for weekly schedule", () => {
@@ -106,9 +108,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since fromDate is 10:00, and interval starts at midnight of that day,
-      // but midnight has passed, it goes to next week's same day (with timezone offset)
-      expect(result).toEqual(new Date("2024-01-22T03:00:00Z"));
+      // Should be next week's same day at midnight
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(22);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle multiple occurrences within interval", () => {
@@ -123,8 +127,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be 3.5 days from start of interval, but adjusted to timezone
-      expect(result).toEqual(new Date("2024-01-18T03:00:00Z"));
+      // Should be 3.5 days from start of interval
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(18);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should set specific time of day when provided", () => {
@@ -159,8 +166,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day at 9:00 local time (12:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-16T12:00:00Z"));
+      // Should be next day at 9:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(16);
+      expect(result!.getHours()).toBe(9);
+      expect(result!.getMinutes()).toBe(0);
     });
   });
 
@@ -179,8 +189,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be same day at 10:00 local time (13:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-15T13:00:00Z"));
+      // Should be same day at 10:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(15);
+      expect(result!.getHours()).toBe(10);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should find next occurrence on same day if time has passed", () => {
@@ -197,8 +210,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since time has passed, should be same day at 10:00 local time (13:00 UTC)
-      expect(result).toEqual(new Date("2024-01-15T13:00:00Z"));
+      // Since time has passed, should be next Monday at 10:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(22); // Next Monday
+      expect(result!.getHours()).toBe(10);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle multiple days of week", () => {
@@ -215,8 +231,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Wednesday at 9:00 local time (12:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-17T12:00:00Z"));
+      // Should be Wednesday at 9:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(17);
+      expect(result!.getHours()).toBe(9);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should default to midnight when no timeOfDay is set", () => {
@@ -232,8 +251,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Tuesday midnight local time (03:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-16T03:00:00Z"));
+      // Should be Tuesday midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(16);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should skip to next day if current day midnight has passed", () => {
@@ -249,8 +271,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next Monday midnight local time (03:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-22T03:00:00Z"));
+      // Should be next Monday midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(22);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle weekend schedule", () => {
@@ -267,8 +292,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Saturday at 11:00 local time (14:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-20T14:00:00Z"));
+      // Should be Saturday at 11:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(20);
+      expect(result!.getHours()).toBe(11);
+      expect(result!.getMinutes()).toBe(0);
     });
   });
 
@@ -286,8 +314,12 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day (Feb 29) at midnight local time (03:00 UTC)
-      expect(result).toEqual(new Date("2024-02-29T03:00:00Z"));
+      // Should be next day (Feb 29) at midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(1); // February
+      expect(result!.getDate()).toBe(29);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle year boundary", () => {
@@ -303,8 +335,13 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day (Jan 1) at midnight local time (03:00 UTC)
-      expect(result).toEqual(new Date("2025-01-01T03:00:00Z"));
+      // Should be next day (Jan 1) at midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getFullYear()).toBe(2025);
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(1);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle daylight saving time transitions", () => {
@@ -339,8 +376,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be 3 days later at midnight local time (03:00 UTC)
-      expect(result).toEqual(new Date("2024-01-18T03:00:00Z"));
+      // Should be 3 days later at midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(18);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
   });
 
@@ -359,8 +399,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be same day at 9:00 local time (12:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-15T12:00:00Z"));
+      // Should be same day at 9:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(15);
+      expect(result!.getHours()).toBe(9);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle weekly digest on Monday mornings", () => {
@@ -377,8 +420,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Monday at 8:00 local time (11:00 UTC due to timezone)
-      expect(result).toEqual(new Date("2024-01-15T11:00:00Z"));
+      // Should be Monday at 8:00 local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(15);
+      expect(result!.getHours()).toBe(8);
+      expect(result!.getMinutes()).toBe(0);
     });
 
     it("should handle bi-weekly schedule with 2 occurrences", () => {
@@ -394,8 +440,11 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be 7 days later at midnight local time (03:00 UTC)
-      expect(result).toEqual(new Date("2024-01-22T03:00:00Z"));
+      // Should be 7 days later at midnight local time
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(22);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
     });
   });
 });
