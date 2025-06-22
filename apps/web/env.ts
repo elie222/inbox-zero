@@ -98,6 +98,12 @@ export const env = createEnv({
     LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
+
+    // resend
+    RESEND_FROM_EMAIL: z
+      .string()
+      .optional()
+      .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
   },
   client: {
     // stripe

@@ -10,6 +10,9 @@ export type EmailAccountFullResponse = Awaited<
 async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
+    include: {
+      digestSchedule: true,
+    },
   });
 
   if (!emailAccount) throw new SafeError("Email account not found");

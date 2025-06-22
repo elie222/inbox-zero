@@ -25,6 +25,7 @@ export const actionInputs: Record<
       },
     ],
   },
+  [ActionType.DIGEST]: { fields: [] },
   [ActionType.DRAFT_EMAIL]: {
     fields: [
       {
@@ -183,6 +184,7 @@ export function sanitizeActionFields(
     case ActionType.MARK_SPAM:
     case ActionType.MARK_READ:
     case ActionType.TRACK_THREAD:
+    case ActionType.DIGEST:
       return base;
     case ActionType.LABEL: {
       return {
