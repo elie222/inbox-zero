@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("health");
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +34,10 @@ export async function GET() {
     const isHealthy = !!recentActivity;
     const status = isHealthy ? 200 : 503;
 
+    if (!isHealthy) {
+      logger.error("Health check failed", { recentActivity });
+    }
+
     return NextResponse.json(
       {
         status: isHealthy ? "healthy" : "degraded",
@@ -41,6 +48,9 @@ export async function GET() {
     );
   } catch (error) {
     // If we can't query the database, the system is definitely unhealthy
+
+    logger.error("Health check failed", { error });
+
     return NextResponse.json(
       {
         status: "unhealthy",
