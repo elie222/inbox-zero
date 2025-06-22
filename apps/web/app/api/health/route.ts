@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { env } from "@/env";
 
 const logger = createScopedLogger("health");
 
@@ -9,7 +10,15 @@ export const dynamic = "force-dynamic";
 
 const HEALTH_CHECK_WINDOW_MINUTES = 5;
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Check for health check API key
+  const healthApiKey = request.headers.get("x-health-api-key");
+  const expectedKey = env.HEALTH_API_KEY;
+
+  if (!expectedKey || healthApiKey !== expectedKey) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     // Check for any executed rules in the last 5 minutes
     const cutoffTime = new Date(

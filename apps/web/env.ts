@@ -90,6 +90,7 @@ export const env = createEnv({
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
+    HEALTH_API_KEY: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
