@@ -110,9 +110,13 @@ export function Rule({
 export function RuleForm({
   rule,
   alwaysEditMode = false,
+  onSuccess,
+  isDialog = false,
 }: {
   rule: CreateRuleBody & { id?: string };
   alwaysEditMode?: boolean;
+  onSuccess?: () => void;
+  isDialog?: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -210,7 +214,11 @@ export function RuleForm({
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
+          if (isDialog && onSuccess) {
+            onSuccess();
+          } else {
+            router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
+          }
         }
       } else {
         const res = await createRuleAction(emailAccountId, data);
@@ -230,17 +238,21 @@ export function RuleForm({
             automate: data.automate,
             runOnThreads: data.runOnThreads,
           });
-          router.replace(
-            prefixPath(
-              emailAccountId,
-              `/automation?tab=rule&ruleId=${res.data.rule.id}`,
-            ),
-          );
-          router.push(prefixPath(emailAccountId, "/automation?tab=rules"));
+          if (isDialog && onSuccess) {
+            onSuccess();
+          } else {
+            router.replace(
+              prefixPath(
+                emailAccountId,
+                `/assistant?tab=rule&ruleId=${res.data.rule.id}`,
+              ),
+            );
+            router.push(prefixPath(emailAccountId, "/assistant?tab=rules"));
+          }
         }
       }
     },
-    [userLabels, router, posthog, emailAccountId],
+    [userLabels, router, posthog, emailAccountId, isDialog, onSuccess],
   );
 
   const conditions = watch("conditions");
@@ -315,10 +327,7 @@ export function RuleForm({
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="mx-auto w-full max-w-3xl"
-      >
+      <form onSubmit={handleSubmit(onSubmit)}>
         {isSubmitted && Object.keys(errors).length > 0 && (
           <div className="mt-4">
             <AlertError
@@ -334,7 +343,7 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="mt-8">
+        <div className="mt-4">
           {isNameEditMode ? (
             <Input
               type="text"
