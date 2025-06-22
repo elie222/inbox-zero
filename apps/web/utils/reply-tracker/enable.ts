@@ -11,8 +11,10 @@ import { SafeError } from "@/utils/error";
 
 export async function enableReplyTracker({
   emailAccountId,
+  addDigest,
 }: {
   emailAccountId: string;
+  addDigest?: boolean;
 }) {
   const logger = createScopedLogger("reply-tracker/enable").with({
     emailAccountId,
@@ -109,6 +111,7 @@ export async function enableReplyTracker({
               webhookUrl: null,
             },
           },
+          ...(addDigest ? [{ type: ActionType.DIGEST }] : []),
         ],
       },
       emailAccountId: emailAccount.id,
