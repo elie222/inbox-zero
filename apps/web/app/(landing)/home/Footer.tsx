@@ -27,6 +27,11 @@ const navigation = {
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
     { name: "Changelog", href: "/changelog", target: "_blank" },
+    {
+      name: "Status",
+      href: "https://inbox-zero.openstatus.dev/",
+      target: "_blank",
+    },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
