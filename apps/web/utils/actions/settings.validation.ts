@@ -5,7 +5,7 @@ import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 const scheduleSchema = z.object({
   intervalDays: z.number().nullable(),
   daysOfWeek: z.number().nullable(),
-  timeOfDay: z.date().nullable(),
+  timeOfDay: z.coerce.date().nullable(),
   occurrences: z.number().nullable(),
 });
 

@@ -75,7 +75,7 @@ export default function DigestFrequencyPage() {
     <div className="container max-w-2xl py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Set your digest frequency</CardTitle>
+          <CardTitle>Digest email</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
