@@ -6,7 +6,6 @@ import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
 import { markImportantMessage, markReadThread } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import { createFilter, deleteFilter } from "@/utils/gmail/filter";
 import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
@@ -136,13 +135,15 @@ export const createFilterAction = actionClient
   .schema(z.object({ from: z.string(), gmailLabelId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: { from, gmailLabelId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await createFilter({
-        gmail,
+      const res = await emailProvider.createFilter({
         from,
         addLabelIds: [gmailLabelId],
       });
@@ -157,13 +158,19 @@ export const createFilterAction = actionClient
 export const deleteFilterAction = actionClient
   .metadata({ name: "deleteFilter" })
   .schema(z.object({ id: z.string() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-    const res = await deleteFilter({ gmail, id });
+      const res = await emailProvider.deleteFilter(id);
 
-    if (!isStatusOk(res.status)) throw new SafeError("Failed to delete filter");
-  });
+      if (!isStatusOk(res.status))
+        throw new SafeError("Failed to delete filter");
+    },
+  );
 
 export const createLabelAction = actionClient
   .metadata({ name: "createLabel" })
