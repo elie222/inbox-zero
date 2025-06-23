@@ -3,6 +3,16 @@ import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { ActionType, SystemType } from "@prisma/client";
 
+// Define supported system types for digest settings
+const SUPPORTED_SYSTEM_TYPES = [
+  SystemType.TO_REPLY,
+  SystemType.NEWSLETTER,
+  SystemType.MARKETING,
+  SystemType.CALENDAR,
+  SystemType.RECEIPT,
+  SystemType.NOTIFICATION,
+] as const;
+
 export type GetDigestSettingsResponse = Awaited<
   ReturnType<typeof getDigestSettings>
 >;
@@ -26,14 +36,7 @@ async function getDigestSettings({
       rules: {
         where: {
           systemType: {
-            in: [
-              SystemType.TO_REPLY,
-              SystemType.NEWSLETTER,
-              SystemType.MARKETING,
-              SystemType.CALENDAR,
-              SystemType.RECEIPT,
-              SystemType.NOTIFICATION,
-            ],
+            in: [...SUPPORTED_SYSTEM_TYPES],
           },
         },
         select: {
@@ -80,6 +83,15 @@ async function getDigestSettings({
     [SystemType.RECEIPT]: "receipt",
     [SystemType.NOTIFICATION]: "notification",
   };
+
+  // Verify all supported system types are mapped
+  SUPPORTED_SYSTEM_TYPES.forEach((systemType) => {
+    if (!(systemType in systemTypeToKey)) {
+      throw new Error(
+        `SystemType ${systemType} is not mapped in systemTypeToKey`,
+      );
+    }
+  });
 
   emailAccount.rules.forEach((rule) => {
     if (rule.systemType && rule.systemType in systemTypeToKey) {
