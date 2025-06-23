@@ -78,6 +78,10 @@ export const env = createEnv({
     POSTHOG_PROJECT_ID: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
+    RESEND_FROM_EMAIL: z
+      .string()
+      .optional()
+      .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
@@ -98,12 +102,6 @@ export const env = createEnv({
     LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
-
-    // resend
-    RESEND_FROM_EMAIL: z
-      .string()
-      .optional()
-      .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
 
     DUB_API_KEY: z.string().optional(),
   },
