@@ -23,6 +23,7 @@ export const OutlookLabel = {
   SPAM: "SPAM",
   TRASH: "TRASH",
   DRAFT: "DRAFT",
+  ARCHIVE: "ARCHIVE",
 } as const;
 
 // Outlook supported colors

@@ -120,7 +120,6 @@ export function BulkUnsubscribeSection({
     ? BulkUnsubscribeRowMobile
     : BulkUnsubscribeRowDesktop;
 
-  console.log("data?.newsletters", data?.newsletters);
   const rows = data?.newsletters
     ?.filter(
       search
@@ -169,8 +168,6 @@ export function BulkUnsubscribeSection({
     if (sortColumn === "unread") return row.readPercentage;
     if (sortColumn === "unarchived") return row.archivedPercentage;
   });
-
-  console.log("tableRows", tableRows);
 
   const onlyUnhandled =
     filters.unhandled &&

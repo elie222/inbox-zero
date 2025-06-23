@@ -60,25 +60,13 @@ function getOutlookLabels(
 ): string[] {
   const labels: string[] = [];
 
-  logger.info("Processing message labels", {
-    messageId: message.id,
-    parentFolderId: message.parentFolderId,
-    folderName: message.parentFolderId
-      ? Object.entries(folderIds).find(
-          ([_, id]) => id === message.parentFolderId,
-        )?.[0]
-      : undefined,
-    isDraft: message.isDraft,
-    isRead: message.isRead,
-    categories: message.categories,
-  });
-
   // Check if message is a draft
   if (message.isDraft) {
     labels.push(OutlookLabel.DRAFT);
   }
 
   // Handle read/unread status - Outlook uses isRead property, not a label
+  // isRead can be true, false, or undefined/null
   if (message.isRead === false) {
     labels.push(OutlookLabel.UNREAD);
   }
@@ -88,12 +76,15 @@ function getOutlookLabels(
     const folderKey = Object.entries(folderIds).find(
       ([_, id]) => id === message.parentFolderId,
     )?.[0];
+
     if (folderKey === "inbox") {
       labels.push(OutlookLabel.INBOX);
     } else if (folderKey === "sentitems") {
       labels.push(OutlookLabel.SENT);
     } else if (folderKey === "drafts") {
       labels.push(OutlookLabel.DRAFT);
+    } else if (folderKey === "archive") {
+      labels.push(OutlookLabel.ARCHIVE);
     } else if (folderKey === "junkemail") {
       labels.push(OutlookLabel.SPAM);
     } else if (folderKey === "deleteditems") {
@@ -105,11 +96,6 @@ function getOutlookLabels(
   if (message.categories) {
     labels.push(...message.categories);
   }
-
-  logger.info("Final labels for message", {
-    messageId: message.id,
-    labels,
-  });
 
   return labels;
 }
@@ -214,11 +200,6 @@ async function convertMessages(
   return messages.map((message: Message) => {
     const labelIds = getOutlookLabels(message, folderIds);
 
-    logger.info("Converting message to ParsedMessage", {
-      messageId: message.id,
-      labelIds,
-    });
-
     return {
       id: message.id || "",
       threadId: message.conversationId || "",
@@ -251,6 +232,9 @@ export async function getMessage(
     )
     .get();
 
+  // Get folder IDs to properly map labels
+  const folderIds = await getFolderIds(client);
+
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
@@ -263,7 +247,7 @@ export async function getMessage(
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
-    labelIds: getOutlookLabels(message, {}),
+    labelIds: getOutlookLabels(message, folderIds),
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
@@ -284,7 +268,7 @@ export async function getMessages(
     .api("/me/messages")
     .top(top)
     .select(
-      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
     );
 
   if (options.query) {
@@ -293,13 +277,20 @@ export async function getMessages(
 
   const response = await request.get();
 
+  // Get folder IDs to properly map labels
+  const folderIds = await getFolderIds(client);
+  const messages = await convertMessages(response.value, folderIds);
+
   return {
-    messages: response.value,
+    messages,
     nextPageToken: response["@odata.nextLink"],
   };
 }
 
-function parseOutlookMessage(message: Message): ParsedMessage {
+function parseOutlookMessage(
+  message: Message,
+  folderIds: Record<string, string> = {},
+): ParsedMessage {
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
@@ -311,7 +302,7 @@ function parseOutlookMessage(message: Message): ParsedMessage {
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
-    labelIds: getOutlookLabels(message, {}),
+    labelIds: getOutlookLabels(message, folderIds),
     historyId: "",
     inline: [],
     internalDate: message.receivedDateTime || new Date().toISOString(),
