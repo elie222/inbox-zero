@@ -188,6 +188,14 @@ const nextConfig: NextConfig = {
         source: "/vendor/lemon/affiliate.js",
         destination: "https://lmsqueezy.com/affiliate.js",
       },
+      {
+        source: "/_proxy/dub/track/:path",
+        destination: "https://api.dub.co/track/:path",
+      },
+      {
+        source: "/_proxy/dub/script.js",
+        destination: "https://www.dubcdn.com/analytics/script.js",
+      },
     ];
   },
   // Security headers: https://nextjs.org/docs/app/building-your-application/configuring/progressive-web-apps#8-securing-your-application

@@ -16,6 +16,7 @@ import { getContactsClient } from "@/utils/gmail/client";
 import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { createReferral } from "@/utils/referral/referral-code";
+import { trackDubSignUp } from "@/utils/dub";
 
 const logger = createScopedLogger("auth");
 
@@ -262,10 +263,13 @@ export const getAuthOptions: (options?: {
   events: {
     signIn: async ({ isNewUser, user }) => {
       if (isNewUser && user.email) {
-        const [loopsResult, resendResult] = await Promise.allSettled([
-          createLoopsContact(user.email, user.name?.split(" ")?.[0]),
-          createResendContact({ email: user.email }),
-        ]);
+        const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
+          [
+            createLoopsContact(user.email, user.name?.split(" ")?.[0]),
+            createResendContact({ email: user.email }),
+            trackDubSignUp(user),
+          ],
+        );
 
         if (loopsResult.status === "rejected") {
           const alreadyExists =
@@ -287,6 +291,14 @@ export const getAuthOptions: (options?: {
             error: resendResult.reason,
           });
           captureException(resendResult.reason, undefined, user.email);
+        }
+
+        if (dubResult.status === "rejected") {
+          logger.error("Error tracking Dub sign up", {
+            email: user.email,
+            error: dubResult.reason,
+          });
+          captureException(dubResult.reason, undefined, user.email);
         }
       }
 
