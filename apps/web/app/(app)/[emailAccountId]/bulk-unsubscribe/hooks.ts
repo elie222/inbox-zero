@@ -162,12 +162,14 @@ export function useBulkUnsubscribe<T extends Row>({
 async function autoArchive({
   name,
   labelId,
+  labelName,
   mutate,
   refetchPremium,
   emailAccountId,
 }: {
   name: string;
   labelId: string | undefined;
+  labelName: string | undefined;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
@@ -176,6 +178,7 @@ async function autoArchive({
     emailAccountId,
     from: name,
     gmailLabelId: labelId,
+    labelName: labelName,
   });
   await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail: name,
@@ -216,6 +219,7 @@ export function useAutoArchive<T extends Row>({
     await autoArchive({
       name: item.name,
       labelId: undefined,
+      labelName: undefined,
       mutate,
       refetchPremium,
       emailAccountId,
@@ -252,7 +256,7 @@ export function useAutoArchive<T extends Row>({
   }, [item.name, item.autoArchived?.id, mutate, emailAccountId]);
 
   const onAutoArchiveAndLabel = useCallback(
-    async (labelId: string) => {
+    async (labelId: string, labelName: string) => {
       if (!hasUnsubscribeAccess) return;
 
       setAutoArchiveLoading(true);
@@ -260,6 +264,7 @@ export function useAutoArchive<T extends Row>({
       await autoArchive({
         name: item.name,
         labelId,
+        labelName,
         mutate,
         refetchPremium,
         emailAccountId,
@@ -302,6 +307,7 @@ export function useBulkAutoArchive<T extends Row>({
         await autoArchive({
           name: item.name,
           labelId: undefined,
+          labelName: undefined,
           mutate,
           refetchPremium,
           emailAccountId,

@@ -175,6 +175,7 @@ export interface EmailProvider {
   createAutoArchiveFilter(options: {
     from: string;
     gmailLabelId?: string;
+    labelName?: string;
   }): Promise<any>;
   getMessagesWithPagination(options: {
     query?: string;
@@ -832,10 +833,14 @@ export class OutlookProvider implements EmailProvider {
     return createOutlookFilter({ client: this.client, ...options });
   }
 
-  async createAutoArchiveFilter(options: { from: string }): Promise<any> {
+  async createAutoArchiveFilter(options: {
+    from: string;
+    labelName?: string;
+  }): Promise<any> {
     return createOutlookAutoArchiveFilter({
       client: this.client,
       from: options.from,
+      labelName: options.labelName,
     });
   }
 

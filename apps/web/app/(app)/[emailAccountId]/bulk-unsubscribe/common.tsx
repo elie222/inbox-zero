@@ -306,7 +306,7 @@ function AutoArchiveButton<T extends Row>({
                 key={label.id}
                 onClick={async () => {
                   posthog.capture("Clicked Auto Archive and Label");
-                  await onAutoArchiveAndLabel(label.id!);
+                  await onAutoArchiveAndLabel(label.id!, label.name!);
                 }}
               >
                 {label.name}

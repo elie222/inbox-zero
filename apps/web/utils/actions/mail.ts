@@ -112,11 +112,17 @@ export const markSpamThreadAction = actionClient
 
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
-  .schema(z.object({ from: z.string(), gmailLabelId: z.string().optional() }))
+  .schema(
+    z.object({
+      from: z.string(),
+      gmailLabelId: z.string().optional(),
+      labelName: z.string().optional(),
+    }),
+  )
   .action(
     async ({
       ctx: { emailAccountId, provider },
-      parsedInput: { from, gmailLabelId },
+      parsedInput: { from, gmailLabelId, labelName },
     }) => {
       const emailProvider = await createEmailProvider({
         emailAccountId,
@@ -126,6 +132,7 @@ export const createAutoArchiveFilterAction = actionClient
       await emailProvider.createAutoArchiveFilter({
         from,
         gmailLabelId,
+        labelName,
       });
     },
   );
