@@ -173,7 +173,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/soc2",
-        destination: "https://trust.inc/inbox-zero",
+        destination: "https://security.getinboxzero.com/",
         permanent: true,
       },
     ];

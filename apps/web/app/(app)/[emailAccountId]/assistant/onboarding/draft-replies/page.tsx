@@ -9,10 +9,13 @@ import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
   const { emailAccountId } = useAccount();
+  const digestEnabled = useDigestEnabled();
+
   const onSetDraftReplies = useCallback(
     async (value: string) => {
       const result = await enableDraftRepliesAction(emailAccountId, {
@@ -25,11 +28,17 @@ export default function DraftRepliesPage() {
         });
       }
 
-      router.push(
-        prefixPath(emailAccountId, "/assistant/onboarding/digest-frequency"),
-      );
+      if (digestEnabled) {
+        router.push(
+          prefixPath(emailAccountId, "/assistant/onboarding/digest-frequency"),
+        );
+      } else {
+        router.push(
+          prefixPath(emailAccountId, "/assistant/onboarding/completed"),
+        );
+      }
     },
-    [router, emailAccountId],
+    [router, emailAccountId, digestEnabled],
   );
 
   return (

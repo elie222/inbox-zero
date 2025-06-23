@@ -7,7 +7,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormItem } from "@/components/ui/form";
-import { createCanonicalTimeOfDay } from "@/utils/frequency";
+import { createCanonicalTimeOfDay } from "@/utils/schedule";
 
 const frequencies = [
   { value: "daily", label: "Day" },
@@ -76,11 +76,11 @@ export function getInitialScheduleProps(digestSchedule?: {
   const initialTimeOfDay = digestSchedule?.timeOfDay
     ? (() => {
         // Extract time from canonical date (1970-01-01T00:00:00Z + time)
-        const hours = digestSchedule.timeOfDay
+        const hours = new Date(digestSchedule.timeOfDay)
           .getHours()
           .toString()
           .padStart(2, "0");
-        const minutes = digestSchedule.timeOfDay
+        const minutes = new Date(digestSchedule.timeOfDay)
           .getMinutes()
           .toString()
           .padStart(2, "0");

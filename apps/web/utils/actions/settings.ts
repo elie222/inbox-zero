@@ -8,7 +8,7 @@ import {
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
-import { calculateNextScheduleDate } from "@/utils/frequency";
+import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 
@@ -38,20 +38,13 @@ export const updateAiSettingsAction = actionClientUser
       ctx: { userId },
       parsedInput: { aiProvider, aiModel, aiApiKey },
     }) => {
-      try {
-        await prisma.user.update({
-          where: { id: userId },
-          data: {
-            aiProvider: aiProvider || DEFAULT_PROVIDER,
-            aiModel,
-            aiApiKey,
-          },
-        });
-
-        return { success: true };
-      } catch (error) {
-        throw new SafeError("Failed to update settings", 500);
-      }
+      await prisma.user.update({
+        where: { id: userId },
+        data:
+          aiProvider === DEFAULT_PROVIDER
+            ? { aiProvider: null, aiModel: null, aiApiKey: null }
+            : { aiProvider, aiModel, aiApiKey },
+      });
     },
   );
 
@@ -60,11 +53,10 @@ export const updateDigestScheduleAction = actionClient
   .schema(saveDigestScheduleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { schedule } }) => {
     try {
+      // Check if email account exists
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { id: emailAccountId },
-        select: {
-          digestScheduleId: true,
-        },
+        select: { id: true },
       });
 
       if (!emailAccount) {
@@ -73,45 +65,33 @@ export const updateDigestScheduleAction = actionClient
 
       if (schedule) {
         // Create or update the Schedule
-        const scheduleRecord = await prisma.schedule.upsert({
+        await prisma.schedule.upsert({
           where: {
             emailAccountId,
           },
           create: {
-            ...schedule,
             emailAccountId,
+            intervalDays: schedule.intervalDays,
+            daysOfWeek: schedule.daysOfWeek,
+            timeOfDay: schedule.timeOfDay,
+            occurrences: schedule.occurrences,
             lastOccurrenceAt: new Date(),
             nextOccurrenceAt: calculateNextScheduleDate(schedule),
           },
           update: {
-            ...schedule,
+            intervalDays: schedule.intervalDays,
+            daysOfWeek: schedule.daysOfWeek,
+            timeOfDay: schedule.timeOfDay,
+            occurrences: schedule.occurrences,
             lastOccurrenceAt: new Date(),
             nextOccurrenceAt: calculateNextScheduleDate(schedule),
           },
         });
-
-        // Update the email account with the new digest frequency ID
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: {
-            digestScheduleId: scheduleRecord.id,
-          },
+      } else {
+        // If schedule is null, delete the existing schedule if it exists
+        await prisma.schedule.deleteMany({
+          where: { emailAccountId },
         });
-      } else if (emailAccount.digestScheduleId) {
-        // If frequency is set to NEVER, delete the Schedule
-        await prisma.$transaction([
-          prisma.schedule.delete({
-            where: {
-              id: emailAccount.digestScheduleId,
-            },
-          }),
-          prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data: {
-              digestScheduleId: null,
-            },
-          }),
-        ]);
       }
 
       return { success: true };
