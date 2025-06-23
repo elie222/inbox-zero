@@ -4,12 +4,7 @@ import { z } from "zod";
 import { createLabel } from "@/app/api/google/labels/create/controller";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
-import { trashThread } from "@/utils/gmail/trash";
-import {
-  archiveThread,
-  markImportantMessage,
-  markReadThread,
-} from "@/utils/gmail/label";
+import { markImportantMessage, markReadThread } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import {
   createAutoArchiveFilter,
@@ -30,21 +25,19 @@ export const archiveThreadAction = actionClient
   .schema(z.object({ threadId: z.string(), labelId: z.string().optional() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId, emailAccount, provider },
       parsedInput: { threadId, labelId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const res = await archiveThread({
-        gmail,
-        threadId,
-        ownerEmail: emailAccount.email,
-        actionSource: "user",
-        labelId,
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
       });
 
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to archive thread");
+      await emailProvider.archiveThreadWithLabel(
+        threadId,
+        emailAccount.email,
+        labelId,
+      );
     },
   );
 
@@ -53,20 +46,15 @@ export const trashThreadAction = actionClient
   .schema(z.object({ threadId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId, emailAccount, provider },
       parsedInput: { threadId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const res = await trashThread({
-        gmail,
-        threadId,
-        ownerEmail: emailAccount.email,
-        actionSource: "user",
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
       });
 
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to delete thread");
+      await emailProvider.trashThread(threadId, emailAccount.email, "user");
     },
   );
 
@@ -85,13 +73,16 @@ export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
   .schema(z.object({ threadId: z.string(), read: z.boolean() }))
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { threadId, read } }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+    async ({
+      ctx: { emailAccountId, provider },
+      parsedInput: { threadId, read },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await markReadThread({ gmail, threadId, read });
-
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to mark thread as read");
+      await emailProvider.markReadThread(threadId, read);
     },
   );
 

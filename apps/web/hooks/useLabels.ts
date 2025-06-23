@@ -46,9 +46,10 @@ export function useAllLabels() {
       return data.labels.filter(isUserLabel).sort(sortLabels);
     } else {
       return data.labels
+        .filter((label) => label.id && label.name) // Filter out labels without id or name
         .map((label) => ({
-          id: label.id,
-          name: label.name,
+          id: label.id!,
+          name: label.name!,
           type: "user" as const,
           color: label.color,
         }))
@@ -78,9 +79,10 @@ export function useLabels() {
       return data.labels.filter(isUserLabel).sort(sortLabels);
     } else {
       return data.labels
+        .filter((label) => label.id && label.name) // Filter out labels without id or name
         .map((label) => ({
-          id: label.id,
-          name: label.name,
+          id: label.id!,
+          name: label.name!,
           type: "user" as const,
           color: label.color,
         }))

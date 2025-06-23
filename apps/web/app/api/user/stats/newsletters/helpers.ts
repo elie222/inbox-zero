@@ -10,24 +10,8 @@ const logger = createScopedLogger("newsletter-helpers");
 export async function getAutoArchiveFilters(emailProvider: EmailProvider) {
   try {
     const filters = await emailProvider.getFiltersList();
-    logger.info("All filters retrieved", {
-      totalFilters: filters.length,
-      filters: filters.map((f) => ({
-        id: f.id,
-        criteria: f.criteria,
-        action: f.action,
-      })),
-    });
 
     const autoArchiveFilters = filters.filter(isAutoArchiveFilter);
-    logger.info("Auto-archive filters found", {
-      autoArchiveCount: autoArchiveFilters.length,
-      autoArchiveFilters: autoArchiveFilters.map((f) => ({
-        id: f.id,
-        criteria: f.criteria,
-        action: f.action,
-      })),
-    });
 
     return autoArchiveFilters;
   } catch (error) {

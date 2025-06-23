@@ -87,13 +87,6 @@ async function getEmailMessages(
     throw new Error("Email account not found");
   }
 
-  logger.info("Getting email messages", {
-    emailAccountId,
-    provider: emailAccount.account.provider,
-    types,
-    options,
-  });
-
   const emailProvider = await createEmailProvider({
     emailAccountId,
     provider: emailAccount.account.provider,
@@ -108,14 +101,6 @@ async function getEmailMessages(
     findNewsletterStatus({ emailAccountId }),
   ]);
 
-  logger.info("Retrieved data", {
-    emailAccountId,
-    countsLength: counts.length,
-    autoArchiveFiltersLength: autoArchiveFilters.length,
-    userNewslettersLength: userNewsletters.length,
-    sampleCounts: counts.slice(0, 3),
-  });
-
   const newsletters = counts.map((email) => {
     const from = extractEmailAddress(email.from);
     return {
@@ -127,12 +112,6 @@ async function getEmailMessages(
       autoArchived: findAutoArchiveFilter(autoArchiveFilters, from),
       status: userNewsletters?.find((n) => n.email === from)?.status,
     };
-  });
-
-  logger.info("Processed newsletters", {
-    emailAccountId,
-    newslettersLength: newsletters.length,
-    sampleNewsletters: newsletters.slice(0, 3),
   });
 
   if (!options.filters?.length) return { newsletters };
@@ -216,6 +195,7 @@ async function getNewsletterCounts(
 
   // Always exclude drafts
   whereConditions.push("draft = false");
+  whereConditions.push("sent = false");
 
   // Always filter by userId
   whereConditions.push(`"emailAccountId" = $${queryParams.length + 1}`);

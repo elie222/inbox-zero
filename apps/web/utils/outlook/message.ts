@@ -20,7 +20,7 @@ const WELL_KNOWN_FOLDERS = {
   junkemail: "junkemail",
 } as const;
 
-async function getFolderIds(client: OutlookClient) {
+export async function getFolderIds(client: OutlookClient) {
   if (folderIdCache) return folderIdCache;
 
   // First get the well-known folders
@@ -106,10 +106,12 @@ export async function queryBatchMessages(
     query,
     maxResults = 20,
     pageToken,
+    folderId,
   }: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    folderId?: string;
   },
 ) {
   if (maxResults > 20) {
@@ -125,6 +127,7 @@ export async function queryBatchMessages(
     maxResults,
     hasQuery: !!query,
     pageToken,
+    folderId,
   });
 
   // Build the base request
@@ -147,8 +150,13 @@ export async function queryBatchMessages(
     }
 
     const response = await request.get();
-    // Don't filter by inbox only - process all messages to properly categorize them
-    const messages = await convertMessages(response.value, folderIds);
+    // Filter messages by folder if specified
+    const filteredMessages = folderId
+      ? response.value.filter(
+          (message: Message) => message.parentFolderId === folderId,
+        )
+      : response.value;
+    const messages = await convertMessages(filteredMessages, folderIds);
 
     // For search, get next page token from @odata.nextLink
     nextPageToken = response["@odata.nextLink"]
@@ -164,7 +172,11 @@ export async function queryBatchMessages(
     return { messages, nextPageToken };
   } else {
     // Non-search path - use filter, skip and orderBy
-    // Don't filter by inbox only - fetch all messages to properly categorize them
+    // Add folder filter if specified
+    if (folderId) {
+      request = request.filter(`parentFolderId eq '${folderId}'`);
+    }
+
     request = request
       .skip(pageToken ? parseInt(pageToken, 10) : 0)
       .orderby("receivedDateTime DESC");

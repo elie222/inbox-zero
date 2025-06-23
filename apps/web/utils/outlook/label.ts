@@ -241,44 +241,145 @@ export async function archiveThread({
   actionSource: TinybirdEmailAction["actionSource"];
   labelId?: string;
 }) {
-  // In Outlook, archiving is moving to the Archive folder
-  const archivePromise = client
-    .getClient()
-    .api(`/me/messages/${threadId}/move`)
-    .post({
-      destinationId: "archive",
-    });
+  try {
+    // In Outlook, archiving is moving to the Archive folder
+    // We need to move each message in the thread individually
+    // Escape single quotes in threadId for the filter
+    const escapedThreadId = threadId.replace(/'/g, "''");
+    const messages = await client
+      .getClient()
+      .api(`/me/messages`)
+      .filter(`conversationId eq '${escapedThreadId}'`)
+      .get();
 
-  const publishPromise = publishArchive({
-    ownerEmail,
-    threadId,
-    actionSource,
-    timestamp: Date.now(),
-  });
+    const archivePromise = Promise.all(
+      messages.value.map(async (message: { id: string }) => {
+        try {
+          return await client
+            .getClient()
+            .api(`/me/messages/${message.id}/move`)
+            .post({
+              destinationId: "archive",
+            });
+        } catch (error) {
+          // Log the error but don't fail the entire operation
+          logger.warn("Failed to move message to archive", {
+            messageId: message.id,
+            threadId,
+            error: error instanceof Error ? error.message : error,
+          });
+          return null;
+        }
+      }),
+    );
 
-  const [archiveResult, publishResult] = await Promise.allSettled([
-    archivePromise,
-    publishPromise,
-  ]);
-
-  if (archiveResult.status === "rejected") {
-    const error = archiveResult.reason as Error;
-    if (error.message?.includes("Requested entity was not found")) {
-      logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
-      return { status: 404, message: "Thread not found" };
-    }
-    logger.error("Failed to archive thread", { threadId, error });
-    throw error;
-  }
-
-  if (publishResult.status === "rejected") {
-    logger.error("Failed to publish archive action", {
+    const publishPromise = publishArchive({
+      ownerEmail,
       threadId,
-      error: publishResult.reason,
+      actionSource,
+      timestamp: Date.now(),
     });
-  }
 
-  return archiveResult.value;
+    const [archiveResult, publishResult] = await Promise.allSettled([
+      archivePromise,
+      publishPromise,
+    ]);
+
+    if (archiveResult.status === "rejected") {
+      const error = archiveResult.reason as Error;
+      if (error.message?.includes("Requested entity was not found")) {
+        logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
+        return { status: 404, message: "Thread not found" };
+      }
+      logger.error("Failed to archive thread", { threadId, error });
+      throw error;
+    }
+
+    if (publishResult.status === "rejected") {
+      logger.error("Failed to publish archive action", {
+        threadId,
+        error: publishResult.reason,
+      });
+    }
+
+    return { status: 200 };
+  } catch (error) {
+    // If the filter fails, try a different approach
+    logger.warn("Filter failed, trying alternative approach", {
+      threadId,
+      error,
+    });
+
+    try {
+      // Try to get messages by conversationId using a different endpoint
+      const messages = await client
+        .getClient()
+        .api(`/me/messages`)
+        .select("id")
+        .get();
+
+      // Filter messages by conversationId manually
+      const threadMessages = messages.value.filter(
+        (message: any) => message.conversationId === threadId,
+      );
+
+      if (threadMessages.length > 0) {
+        // Move each message in the thread to the archive folder
+        const movePromises = threadMessages.map(
+          async (message: { id: string }) => {
+            try {
+              return await client
+                .getClient()
+                .api(`/me/messages/${message.id}/move`)
+                .post({
+                  destinationId: "archive",
+                });
+            } catch (moveError) {
+              // Log the error but don't fail the entire operation
+              logger.warn("Failed to move message to archive", {
+                messageId: message.id,
+                threadId,
+                error:
+                  moveError instanceof Error ? moveError.message : moveError,
+              });
+              return null;
+            }
+          },
+        );
+
+        await Promise.allSettled(movePromises);
+      } else {
+        // If no messages found, try treating threadId as a messageId
+        await client.getClient().api(`/me/messages/${threadId}/move`).post({
+          destinationId: "archive",
+        });
+      }
+
+      // Publish the archive action
+      try {
+        await publishArchive({
+          ownerEmail,
+          threadId,
+          actionSource,
+          timestamp: Date.now(),
+        });
+      } catch (publishError) {
+        logger.error("Failed to publish archive action", {
+          email: ownerEmail,
+          threadId,
+          error: publishError,
+        });
+      }
+
+      return { status: 200 };
+    } catch (directError) {
+      logger.error("Failed to archive thread", {
+        threadId,
+        error: directError,
+      });
+      throw directError;
+    }
+  }
 }
 
 export async function markReadThread({

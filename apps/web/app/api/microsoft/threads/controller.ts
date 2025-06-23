@@ -4,6 +4,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { getCategory } from "@/utils/redis/category";
+import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
@@ -24,23 +25,20 @@ export async function getThreads({
 
   // Build the filter query for Microsoft Graph API
   function getFilter() {
-    const filters = [];
-
+    // Use a simpler approach to avoid complex filter errors
     if (query.fromEmail) {
       // Escape single quotes in email address
       const escapedEmail = query.fromEmail.replace(/'/g, "''");
-      filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+      return `from/emailAddress/address eq '${escapedEmail}'`;
     }
 
     if (query.q) {
       // Escape single quotes in search query
       const escapedQuery = query.q.replace(/'/g, "''");
-      filters.push(
-        `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
-      );
+      return `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`;
     }
 
-    return filters.length > 0 ? filters.join(" and ") : undefined;
+    return undefined;
   }
 
   // Get messages from Microsoft Graph API
@@ -58,15 +56,19 @@ export async function getThreads({
   let request = client
     .api(endpoint)
     .select(
-      "id,conversationId,subject,bodyPreview,from,receivedDateTime,isDraft",
+      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body",
     )
-    .top(query.limit || 50)
-    .orderby("receivedDateTime DESC");
+    .top(query.limit || 50);
 
   // Add filter if present
   const filter = getFilter();
   if (filter) {
     request = request.filter(filter);
+  }
+
+  // Only add ordering if we don't have a fromEmail filter to avoid complexity
+  if (!query.fromEmail) {
+    request = request.orderby("receivedDateTime DESC");
   }
 
   // Handle pagination
@@ -76,9 +78,19 @@ export async function getThreads({
 
   const response = await request.get();
 
+  // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
+  let sortedMessages = response.value;
+  if (query.fromEmail) {
+    sortedMessages = response.value.sort(
+      (a: any, b: any) =>
+        new Date(b.receivedDateTime).getTime() -
+        new Date(a.receivedDateTime).getTime(),
+    );
+  }
+
   // Group messages by conversationId to create threads
   const messagesByThread = new Map<string, any[]>();
-  response.value.forEach((message: any) => {
+  sortedMessages.forEach((message: any) => {
     const messages = messagesByThread.get(message.conversationId) || [];
     messages.push(message);
     messagesByThread.set(message.conversationId, messages);
@@ -112,15 +124,9 @@ export async function getThreads({
 
       return {
         id: threadId,
-        messages: messages.map((msg) => ({
-          id: msg.id,
-          threadId: msg.conversationId,
-          snippet: msg.bodyPreview,
-          subject: msg.subject,
-          from: msg.from,
-          receivedAt: msg.receivedDateTime,
-          isDraft: msg.isDraft,
-        })),
+        messages: messages.map((msg) =>
+          convertMicrosoftMessageToParsedMessage(msg),
+        ),
         snippet: messages[0]?.bodyPreview,
         plan,
         category: await getCategory({ emailAccountId, threadId }),
@@ -155,4 +161,29 @@ export function getFolderId(type?: string | null) {
       if (!type || type === "undefined" || type === "null") return "inbox";
       return type;
   }
+}
+
+// Helper function to convert Microsoft Graph message to ParsedMessage format
+function convertMicrosoftMessageToParsedMessage(msg: any): ParsedMessage {
+  return {
+    id: msg.id || "",
+    threadId: msg.conversationId || "",
+    snippet: msg.bodyPreview || "",
+    historyId: "",
+    labelIds: [],
+    attachments: [],
+    inline: [],
+    headers: {
+      from: msg.from?.emailAddress?.address || "",
+      to: msg.toRecipients?.[0]?.emailAddress?.address || "",
+      subject: msg.subject || "",
+      date: msg.receivedDateTime || new Date().toISOString(),
+    },
+    textPlain: "",
+    textHtml: msg.body?.content || "",
+    internalDate: msg.receivedDateTime || new Date().toISOString(),
+    // Include other required properties from gmail_v1.Schema$Message
+    sizeEstimate: 0,
+    raw: "",
+  };
 }

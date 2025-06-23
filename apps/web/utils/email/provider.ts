@@ -48,12 +48,14 @@ import {
   markReadThread as gmailMarkReadThread,
   removeThreadLabel as gmailRemoveThreadLabel,
 } from "@/utils/gmail/label";
+import { trashThread as gmailTrashThread } from "@/utils/gmail/trash";
 import {
   archiveThread as outlookArchiveThread,
   getOrCreateLabel as outlookGetOrCreateLabel,
   labelMessage as outlookLabelMessage,
   markReadThread as outlookMarkReadThread,
 } from "@/utils/outlook/label";
+import { trashThread as outlookTrashThread } from "@/utils/outlook/trash";
 import { markSpam as gmailMarkSpam } from "@/utils/gmail/spam";
 import { markSpam as outlookMarkSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
@@ -121,6 +123,16 @@ export interface EmailProvider {
     messageIds: string[],
   ): Promise<ParsedMessage[]>;
   archiveThread(threadId: string, ownerEmail: string): Promise<void>;
+  archiveThreadWithLabel(
+    threadId: string,
+    ownerEmail: string,
+    labelId?: string,
+  ): Promise<void>;
+  trashThread(
+    threadId: string,
+    ownerEmail: string,
+    actionSource: "user" | "automation",
+  ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getAwaitingReplyLabel(): Promise<string>;
@@ -143,6 +155,7 @@ export interface EmailProvider {
   ): Promise<void>;
   markSpam(threadId: string): Promise<void>;
   markRead(threadId: string): Promise<void>;
+  markReadThread(threadId: string, read: boolean): Promise<void>;
   getDraft(draftId: string): Promise<ParsedMessage | null>;
   deleteDraft(draftId: string): Promise<void>;
   createLabel(name: string, description?: string): Promise<EmailLabel>;
@@ -266,6 +279,33 @@ export class GmailProvider implements EmailProvider {
       threadId,
       ownerEmail,
       actionSource: "automation",
+    });
+  }
+
+  async archiveThreadWithLabel(
+    threadId: string,
+    ownerEmail: string,
+    labelId?: string,
+  ): Promise<void> {
+    await gmailArchiveThread({
+      gmail: this.client,
+      threadId,
+      ownerEmail,
+      actionSource: "user",
+      labelId,
+    });
+  }
+
+  async trashThread(
+    threadId: string,
+    ownerEmail: string,
+    actionSource: "user" | "automation",
+  ): Promise<void> {
+    await gmailTrashThread({
+      gmail: this.client,
+      threadId,
+      ownerEmail,
+      actionSource,
     });
   }
 
@@ -481,6 +521,14 @@ export class GmailProvider implements EmailProvider {
   getAccessToken(): string {
     return getAccessTokenFromClient(this.client);
   }
+
+  async markReadThread(threadId: string, read: boolean): Promise<void> {
+    await gmailMarkReadThread({
+      gmail: this.client,
+      threadId,
+      read,
+    });
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -571,6 +619,33 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       ownerEmail,
       actionSource: "automation",
+    });
+  }
+
+  async archiveThreadWithLabel(
+    threadId: string,
+    ownerEmail: string,
+    labelId?: string,
+  ): Promise<void> {
+    await outlookArchiveThread({
+      client: this.client,
+      threadId,
+      ownerEmail,
+      actionSource: "user",
+      labelId,
+    });
+  }
+
+  async trashThread(
+    threadId: string,
+    ownerEmail: string,
+    actionSource: "user" | "automation",
+  ): Promise<void> {
+    await outlookTrashThread({
+      client: this.client,
+      threadId,
+      ownerEmail,
+      actionSource,
     });
   }
 
@@ -708,11 +783,6 @@ export class OutlookProvider implements EmailProvider {
   async getFiltersList(): Promise<EmailFilter[]> {
     try {
       const response = await getOutlookFiltersList({ client: this.client });
-      logger.info("Outlook getFiltersList response", {
-        responseValue: response.value,
-        responseKeys: Object.keys(response),
-        filterCount: response.value?.length || 0,
-      });
 
       const mappedFilters = (response.value || []).map((filter: any) => {
         const mappedFilter = {
@@ -727,16 +797,7 @@ export class OutlookProvider implements EmailProvider {
               : undefined,
           },
         };
-        logger.info("Mapped Outlook filter", {
-          originalFilter: filter,
-          mappedFilter,
-        });
         return mappedFilter;
-      });
-
-      logger.info("Outlook getFiltersList result", {
-        mappedFilters,
-        count: mappedFilters.length,
       });
 
       return mappedFilters;
@@ -809,6 +870,14 @@ export class OutlookProvider implements EmailProvider {
 
   getAccessToken(): string {
     return this.client.getAccessToken();
+  }
+
+  async markReadThread(threadId: string, read: boolean): Promise<void> {
+    await outlookMarkReadThread({
+      client: this.client,
+      threadId,
+      read,
+    });
   }
 }
 
