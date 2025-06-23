@@ -148,7 +148,7 @@ const nextConfig: NextConfig = {
       },
       {
         source: "/affiliates",
-        destination: "https://inboxzero.lemonsqueezy.com/affiliates",
+        destination: "https://partners.dub.co/programs/inboxzero",
         permanent: true,
       },
       {
