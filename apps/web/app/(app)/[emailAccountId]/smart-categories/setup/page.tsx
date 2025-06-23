@@ -2,12 +2,13 @@ import { SetUpCategories } from "@/app/(app)/[emailAccountId]/smart-categories/s
 import { SmartCategoriesOnboarding } from "@/app/(app)/[emailAccountId]/smart-categories/setup/SmartCategoriesOnboarding";
 import { ClientOnly } from "@/components/ClientOnly";
 import { getUserCategories } from "@/utils/category.server";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function SetupCategoriesPage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const params = await props.params;
-  const emailAccountId = params.emailAccountId;
+  const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const categories = await getUserCategories({ emailAccountId });
 

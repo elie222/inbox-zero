@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { CategorizeSendersProgress } from "@/app/(app)/[emailAccountId]/smart-categories/CategorizeProgress";
 import { getCategorizationProgress } from "@/utils/redis/categorization-progress";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -36,6 +37,7 @@ export default async function CategoriesPage({
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { emailAccountId } = await params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const [senders, categories, emailAccount, progress] = await Promise.all([
     prisma.newsletter.findMany({
