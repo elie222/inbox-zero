@@ -106,9 +106,9 @@ export default function DigestFrequencyPage() {
           <Image
             src="/images/assistant/digest.png"
             alt="Digest Email Example"
-            width={800}
+            width={672}
             height={1200}
-            className="mx-auto rounded border-4 border-blue-50 shadow-sm"
+            className="mx-auto max-w-2xl rounded border-4 border-blue-50 shadow-sm"
           />
         }
       />
