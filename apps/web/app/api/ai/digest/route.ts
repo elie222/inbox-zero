@@ -7,9 +7,9 @@ import { RuleName } from "@/utils/rule/consts";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { upsertDigest } from "@/utils/digest/index";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
+import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 
 export async function POST(request: Request) {
   if (!hasCronSecret(request)) {
@@ -52,5 +52,97 @@ export async function POST(request: Request) {
   } catch (error) {
     logger.error("Failed to process digest", { error });
     return new NextResponse("Internal Server Error", { status: 500 });
+  }
+}
+
+async function upsertDigest({
+  messageId,
+  threadId,
+  emailAccountId,
+  actionId,
+  coldEmailId,
+  content,
+}: {
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  actionId?: string;
+  coldEmailId?: string;
+  content: DigestEmailSummarySchema;
+}) {
+  const logger = createScopedLogger("upsert-digest").with({
+    messageId,
+    threadId,
+    emailAccountId,
+    actionId,
+    coldEmailId,
+  });
+
+  try {
+    // Find or create the digest atomically with digestItems included
+    const digest =
+      (await prisma.digest.findFirst({
+        where: {
+          emailAccountId,
+          status: DigestStatus.PENDING,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        include: {
+          items: {
+            where: {
+              messageId,
+              threadId,
+            },
+            take: 1,
+          },
+        },
+      })) ||
+      (await prisma.digest.create({
+        data: {
+          emailAccountId,
+          status: DigestStatus.PENDING,
+        },
+        include: {
+          items: {
+            where: {
+              messageId,
+              threadId,
+            },
+            take: 1,
+          },
+        },
+      }));
+
+    const digestItem = digest.items.length > 0 ? digest.items[0] : null;
+    const contentString = JSON.stringify(content);
+
+    if (digestItem) {
+      logger.info("Updating existing digest");
+      await prisma.digestItem.update({
+        where: { id: digestItem.id },
+        data: {
+          content: contentString,
+          ...(actionId ? { actionId } : {}),
+          ...(coldEmailId ? { coldEmailId } : {}),
+        },
+      });
+    } else {
+      logger.info("Creating new digest");
+      await prisma.digestItem.create({
+        data: {
+          messageId,
+          threadId,
+          content: contentString,
+          digestId: digest.id,
+          ...(actionId ? { actionId } : {}),
+          ...(coldEmailId ? { coldEmailId } : {}),
+        },
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to upsert digest", { error });
+    throw error;
   }
 }
