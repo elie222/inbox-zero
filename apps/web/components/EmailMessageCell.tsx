@@ -103,14 +103,15 @@ export function EmailMessageCell({
         >
           <ExternalLinkIcon className="h-4 w-4" />
         </Link>
-        {!hideViewEmailButton && (
-          <ViewEmailButton
-            threadId={threadId}
-            messageId={messageId}
-            size="xs"
-            className="ml-1.5"
-          />
-        )}
+        {!hideViewEmailButton ||
+          (provider === "microsoft-entra-id" && (
+            <ViewEmailButton
+              threadId={threadId}
+              messageId={messageId}
+              size="xs"
+              className="ml-1.5"
+            />
+          ))}
         {labelsToDisplay && labelsToDisplay.length > 0 && (
           <span className="ml-2 flex flex-wrap items-center gap-1">
             {labelsToDisplay.map((label) => (
