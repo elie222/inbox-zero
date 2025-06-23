@@ -1,19 +1,44 @@
-import type { gmail_v1 } from "@googleapis/gmail";
+import type { EmailProvider, EmailFilter } from "@/utils/email/provider";
 import { extractEmailAddress } from "@/utils/email";
-import { getFiltersList } from "@/utils/gmail/filter";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 import { GmailLabel } from "@/utils/gmail/label";
+import { createScopedLogger } from "@/utils/logger";
 
-export async function getAutoArchiveFilters(gmail: gmail_v1.Gmail) {
-  const filters = await getFiltersList({ gmail });
-  const autoArchiveFilters = filters.data.filter?.filter(isAutoArchiveFilter);
+const logger = createScopedLogger("newsletter-helpers");
 
-  return autoArchiveFilters || [];
+export async function getAutoArchiveFilters(emailProvider: EmailProvider) {
+  try {
+    const filters = await emailProvider.getFiltersList();
+    logger.info("All filters retrieved", {
+      totalFilters: filters.length,
+      filters: filters.map((f) => ({
+        id: f.id,
+        criteria: f.criteria,
+        action: f.action,
+      })),
+    });
+
+    const autoArchiveFilters = filters.filter(isAutoArchiveFilter);
+    logger.info("Auto-archive filters found", {
+      autoArchiveCount: autoArchiveFilters.length,
+      autoArchiveFilters: autoArchiveFilters.map((f) => ({
+        id: f.id,
+        criteria: f.criteria,
+        action: f.action,
+      })),
+    });
+
+    return autoArchiveFilters;
+  } catch (error) {
+    logger.error("Error getting auto-archive filters", { error });
+    // Return empty array instead of throwing, so the newsletter stats still work
+    return [];
+  }
 }
 
 export function findAutoArchiveFilter(
-  autoArchiveFilters: gmail_v1.Schema$Filter[],
+  autoArchiveFilters: EmailFilter[],
   fromEmail: string,
 ) {
   return autoArchiveFilters.find((filter) => {
@@ -36,7 +61,7 @@ export async function findNewsletterStatus({
 
 export function filterNewsletters<
   T extends {
-    autoArchived?: gmail_v1.Schema$Filter;
+    autoArchived?: EmailFilter;
     status?: NewsletterStatus | null;
   },
 >(
@@ -63,9 +88,24 @@ export function filterNewsletters<
   });
 }
 
-function isAutoArchiveFilter(filter: gmail_v1.Schema$Filter) {
-  return (
+function isAutoArchiveFilter(filter: EmailFilter) {
+  // For Gmail: check if it removes INBOX label or adds TRASH label
+  const isGmailArchive =
     filter.action?.removeLabelIds?.includes(GmailLabel.INBOX) ||
-    filter.action?.addLabelIds?.includes(GmailLabel.TRASH)
-  );
+    filter.action?.addLabelIds?.includes(GmailLabel.TRASH);
+
+  // For Outlook: check if it moves to archive folder (removeLabelIds contains "INBOX")
+  const isOutlookArchive = filter.action?.removeLabelIds?.includes("INBOX");
+
+  const result = isGmailArchive || isOutlookArchive;
+
+  logger.info("Checking if filter is auto-archive", {
+    filterId: filter.id,
+    filterAction: filter.action,
+    isGmailArchive,
+    isOutlookArchive,
+    result,
+  });
+
+  return result;
 }

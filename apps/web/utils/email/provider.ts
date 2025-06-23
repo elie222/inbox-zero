@@ -9,6 +9,7 @@ import {
 import {
   getMessage as getOutlookMessage,
   getMessages as getOutlookMessages,
+  queryBatchMessages as getOutlookBatchMessages,
 } from "@/utils/outlook/message";
 import {
   getLabels as getGmailLabels,
@@ -70,6 +71,16 @@ import {
   getDraft as getOutlookDraft,
   deleteDraft as deleteOutlookDraft,
 } from "@/utils/outlook/draft";
+import {
+  getFiltersList as getGmailFiltersList,
+  createFilter as createGmailFilter,
+  deleteFilter as deleteGmailFilter,
+} from "@/utils/gmail/filter";
+import {
+  getFiltersList as getOutlookFiltersList,
+  createFilter as createOutlookFilter,
+  deleteFilter as deleteOutlookFilter,
+} from "@/utils/outlook/filter";
 
 const logger = createScopedLogger("email-provider");
 
@@ -85,6 +96,17 @@ export interface EmailLabel {
   name: string;
   type: string;
   threadsTotal?: number;
+}
+
+export interface EmailFilter {
+  id: string;
+  criteria?: {
+    from?: string;
+  };
+  action?: {
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  };
 }
 
 export interface EmailProvider {
@@ -128,6 +150,25 @@ export interface EmailProvider {
   getOriginalMessage(
     originalMessageId: string | undefined,
   ): Promise<ParsedMessage | null>;
+  getFiltersList(): Promise<EmailFilter[]>;
+  createFilter(options: {
+    from: string;
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  }): Promise<any>;
+  deleteFilter(id: string): Promise<any>;
+  getMessagesWithPagination(options: {
+    query?: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }>;
+  getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
+  getAccessToken(): string;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -209,14 +250,14 @@ export class GmailProvider implements EmailProvider {
     query?: string,
     maxResults: number = 50,
   ): Promise<ParsedMessage[]> {
-    const response = await getGmailMessages(this.client, { query, maxResults });
+    const response = await getGmailMessages(this.client, {
+      query,
+      maxResults,
+    });
     const messages = response.messages || [];
-
-    const messagePromises = messages.map((message) =>
-      this.getMessage(message.id!),
-    );
-
-    return Promise.all(messagePromises);
+    return messages
+      .filter((message) => message.payload)
+      .map((message) => parseMessage(message as any));
   }
 
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
@@ -365,6 +406,81 @@ export class GmailProvider implements EmailProvider {
     if (!originalMessage) return null;
     return parseMessage(originalMessage);
   }
+
+  async getFiltersList(): Promise<EmailFilter[]> {
+    const response = await getGmailFiltersList({ gmail: this.client });
+    return (response.data.filter || []).map((filter) => ({
+      id: filter.id || "",
+      criteria: {
+        from: filter.criteria?.from || undefined,
+      },
+      action: {
+        addLabelIds: filter.action?.addLabelIds || undefined,
+        removeLabelIds: filter.action?.removeLabelIds || undefined,
+      },
+    }));
+  }
+
+  async createFilter(options: {
+    from: string;
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  }): Promise<any> {
+    return createGmailFilter({ gmail: this.client, ...options });
+  }
+
+  async deleteFilter(id: string): Promise<any> {
+    return deleteGmailFilter({ gmail: this.client, id });
+  }
+
+  async getMessagesWithPagination(options: {
+    query?: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    // Build query string for date filtering
+    let query = options.query || "";
+
+    if (options.before) {
+      query += ` before:${Math.floor(options.before.getTime() / 1000) + 1}`;
+    }
+
+    if (options.after) {
+      query += ` after:${Math.floor(options.after.getTime() / 1000) - 1}`;
+    }
+
+    const response = await getGmailMessages(this.client, {
+      query: query.trim() || undefined,
+      maxResults: options.maxResults || 20,
+      pageToken: options.pageToken || undefined,
+    });
+
+    const messages = response.messages || [];
+    const messagePromises = messages.map((message) =>
+      this.getMessage(message.id!),
+    );
+
+    return {
+      messages: await Promise.all(messagePromises),
+      nextPageToken: response.nextPageToken || undefined,
+    };
+  }
+
+  async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
+    return getMessagesBatch({
+      messageIds,
+      accessToken: getAccessTokenFromClient(this.client),
+    });
+  }
+
+  getAccessToken(): string {
+    return getAccessTokenFromClient(this.client);
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -424,11 +540,29 @@ export class OutlookProvider implements EmailProvider {
     query?: string,
     maxResults: number = 50,
   ): Promise<ParsedMessage[]> {
-    const response = await getOutlookMessages(this.client, {
-      query,
-      maxResults,
-    });
-    return response.messages || [];
+    const allMessages: ParsedMessage[] = [];
+    let pageToken: string | undefined = undefined;
+    const pageSize = 20; // Outlook API limit
+
+    while (allMessages.length < maxResults) {
+      const response = await getOutlookBatchMessages(this.client, {
+        query,
+        maxResults: Math.min(pageSize, maxResults - allMessages.length),
+        pageToken,
+      });
+
+      const messages = response.messages || [];
+      allMessages.push(...messages);
+
+      // If we got fewer messages than requested, we've reached the end
+      if (messages.length < pageSize || !response.nextPageToken) {
+        break;
+      }
+
+      pageToken = response.nextPageToken;
+    }
+
+    return allMessages;
   }
 
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
@@ -570,6 +704,112 @@ export class OutlookProvider implements EmailProvider {
       return null;
     }
   }
+
+  async getFiltersList(): Promise<EmailFilter[]> {
+    try {
+      const response = await getOutlookFiltersList({ client: this.client });
+      logger.info("Outlook getFiltersList response", {
+        responseValue: response.value,
+        responseKeys: Object.keys(response),
+        filterCount: response.value?.length || 0,
+      });
+
+      const mappedFilters = (response.value || []).map((filter: any) => {
+        const mappedFilter = {
+          id: filter.id || "",
+          criteria: {
+            from: filter.conditions?.senderContains?.[0] || undefined,
+          },
+          action: {
+            addLabelIds: filter.actions?.applyCategories || undefined,
+            removeLabelIds: filter.actions?.moveToFolder
+              ? ["INBOX"]
+              : undefined,
+          },
+        };
+        logger.info("Mapped Outlook filter", {
+          originalFilter: filter,
+          mappedFilter,
+        });
+        return mappedFilter;
+      });
+
+      logger.info("Outlook getFiltersList result", {
+        mappedFilters,
+        count: mappedFilters.length,
+      });
+
+      return mappedFilters;
+    } catch (error) {
+      logger.error("Error in Outlook getFiltersList", { error });
+      throw error;
+    }
+  }
+
+  async createFilter(options: {
+    from: string;
+    addLabelIds?: string[];
+    removeLabelIds?: string[];
+  }): Promise<any> {
+    return createOutlookFilter({ client: this.client, ...options });
+  }
+
+  async deleteFilter(id: string): Promise<any> {
+    return deleteOutlookFilter({ client: this.client, id });
+  }
+
+  async getMessagesWithPagination(options: {
+    query?: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    // For Outlook, we need to handle date filtering differently
+    // Microsoft Graph API uses different date filtering syntax
+    let query = options.query || "";
+
+    // Build date filter for Outlook
+    const dateFilters: string[] = [];
+    if (options.before) {
+      dateFilters.push(`receivedDateTime lt ${options.before.toISOString()}`);
+    }
+    if (options.after) {
+      dateFilters.push(`receivedDateTime gt ${options.after.toISOString()}`);
+    }
+
+    // Combine date filters with existing query
+    if (dateFilters.length > 0) {
+      const dateFilter = dateFilters.join(" and ");
+      query = query ? `${query} and ${dateFilter}` : dateFilter;
+    }
+
+    const response = await getOutlookBatchMessages(this.client, {
+      query: query.trim() || undefined,
+      maxResults: options.maxResults || 20,
+      pageToken: options.pageToken,
+    });
+
+    return {
+      messages: response.messages || [],
+      nextPageToken: response.nextPageToken,
+    };
+  }
+
+  async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
+    // For Outlook, we need to fetch messages individually since there's no batch endpoint
+    const messagePromises = messageIds.map((messageId) =>
+      this.getMessage(messageId),
+    );
+    return Promise.all(messagePromises);
+  }
+
+  getAccessToken(): string {
+    return this.client.getAccessToken();
+  }
 }
 
 export async function createEmailProvider({
@@ -577,7 +817,7 @@ export async function createEmailProvider({
   provider,
 }: {
   emailAccountId: string;
-  provider: string;
+  provider: string | null;
 }): Promise<EmailProvider> {
   if (provider === "google") {
     const client = await getGmailClientForEmail({ emailAccountId });

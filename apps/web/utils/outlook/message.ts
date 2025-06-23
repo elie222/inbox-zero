@@ -69,12 +69,18 @@ function getOutlookLabels(
         )?.[0]
       : undefined,
     isDraft: message.isDraft,
+    isRead: message.isRead,
     categories: message.categories,
   });
 
   // Check if message is a draft
   if (message.isDraft) {
     labels.push(OutlookLabel.DRAFT);
+  }
+
+  // Handle read/unread status - Outlook uses isRead property, not a label
+  if (message.isRead === false) {
+    labels.push(OutlookLabel.UNREAD);
   }
 
   // Map folder ID to label
@@ -140,7 +146,7 @@ export async function queryBatchMessages(
     .getClient()
     .api("/me/messages")
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .top(maxResults);
 
@@ -155,12 +161,8 @@ export async function queryBatchMessages(
     }
 
     const response = await request.get();
-    // Filter results to only include inbox messages (since we can't use filter with search)
-    const inboxMessages = response.value.filter(
-      (message: Message) =>
-        message.parentFolderId === folderIds.inbox && !message.isDraft,
-    );
-    const messages = await convertMessages(inboxMessages, folderIds);
+    // Don't filter by inbox only - process all messages to properly categorize them
+    const messages = await convertMessages(response.value, folderIds);
 
     // For search, get next page token from @odata.nextLink
     nextPageToken = response["@odata.nextLink"]
@@ -176,8 +178,8 @@ export async function queryBatchMessages(
     return { messages, nextPageToken };
   } else {
     // Non-search path - use filter, skip and orderBy
+    // Don't filter by inbox only - fetch all messages to properly categorize them
     request = request
-      .filter("parentFolderId eq '" + folderIds.inbox + "'")
       .skip(pageToken ? parseInt(pageToken, 10) : 0)
       .orderby("receivedDateTime DESC");
 
@@ -245,7 +247,7 @@ export async function getMessage(
     .getClient()
     .api(`/me/messages/${messageId}`)
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .get();
 
@@ -282,7 +284,7 @@ export async function getMessages(
     .api("/me/messages")
     .top(top)
     .select(
-      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId",
     );
 
   if (options.query) {

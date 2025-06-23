@@ -71,8 +71,6 @@ export function useLabels() {
     provider === "google" ? "/api/google/labels" : "/api/outlook/labels",
   );
 
-  console.log("LABELS data", data);
-
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
 
