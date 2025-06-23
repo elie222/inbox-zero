@@ -6,11 +6,7 @@ import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
 import { markImportantMessage, markReadThread } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import {
-  createAutoArchiveFilter,
-  createFilter,
-  deleteFilter,
-} from "@/utils/gmail/filter";
+import { createFilter, deleteFilter } from "@/utils/gmail/filter";
 import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
@@ -120,15 +116,18 @@ export const createAutoArchiveFilterAction = actionClient
   .schema(z.object({ from: z.string(), gmailLabelId: z.string().optional() }))
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: { from, gmailLabelId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to create auto archive filter");
+      await emailProvider.createAutoArchiveFilter({
+        from,
+        gmailLabelId,
+      });
     },
   );
 

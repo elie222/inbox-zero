@@ -51,11 +51,9 @@ export async function createFilter(options: {
 export async function createAutoArchiveFilter({
   client,
   from,
-  gmailLabelId,
 }: {
   client: OutlookClient;
   from: string;
-  gmailLabelId?: string;
 }) {
   try {
     // For Outlook, we'll create a rule that moves messages to archive

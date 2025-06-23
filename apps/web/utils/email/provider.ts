@@ -77,11 +77,13 @@ import {
   getFiltersList as getGmailFiltersList,
   createFilter as createGmailFilter,
   deleteFilter as deleteGmailFilter,
+  createAutoArchiveFilter,
 } from "@/utils/gmail/filter";
 import {
   getFiltersList as getOutlookFiltersList,
   createFilter as createOutlookFilter,
   deleteFilter as deleteOutlookFilter,
+  createAutoArchiveFilter as createOutlookAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 
 const logger = createScopedLogger("email-provider");
@@ -170,6 +172,10 @@ export interface EmailProvider {
     removeLabelIds?: string[];
   }): Promise<any>;
   deleteFilter(id: string): Promise<any>;
+  createAutoArchiveFilter(options: {
+    from: string;
+    gmailLabelId?: string;
+  }): Promise<any>;
   getMessagesWithPagination(options: {
     query?: string;
     maxResults?: number;
@@ -467,6 +473,17 @@ export class GmailProvider implements EmailProvider {
     removeLabelIds?: string[];
   }): Promise<any> {
     return createGmailFilter({ gmail: this.client, ...options });
+  }
+
+  async createAutoArchiveFilter(options: {
+    from: string;
+    gmailLabelId?: string;
+  }): Promise<any> {
+    return createAutoArchiveFilter({
+      gmail: this.client,
+      from: options.from,
+      gmailLabelId: options.gmailLabelId,
+    });
   }
 
   async deleteFilter(id: string): Promise<any> {
@@ -813,6 +830,13 @@ export class OutlookProvider implements EmailProvider {
     removeLabelIds?: string[];
   }): Promise<any> {
     return createOutlookFilter({ client: this.client, ...options });
+  }
+
+  async createAutoArchiveFilter(options: { from: string }): Promise<any> {
+    return createOutlookAutoArchiveFilter({
+      client: this.client,
+      from: options.from,
+    });
   }
 
   async deleteFilter(id: string): Promise<any> {
