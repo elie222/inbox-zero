@@ -17,7 +17,7 @@ type CategoryConfig = {
   hasDigest: boolean | undefined;
 };
 
-export type GetOnboardingPreferencesResponse = Awaited<
+export type GetCategorizationPreferencesResponse = Awaited<
   ReturnType<typeof getUserPreferences>
 >;
 

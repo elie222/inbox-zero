@@ -33,17 +33,17 @@ import {
   SeeExampleDialogButton,
 } from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
 import { categoryConfig } from "@/utils/category-config";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
 export function CategoriesSetup({
-  emailAccountId,
   defaultValues,
 }: {
-  emailAccountId: string;
   defaultValues?: Partial<CreateRulesOnboardingBody>;
 }) {
   const router = useRouter();
+  const { emailAccountId } = useAccount();
 
   const [showExampleDialog, setShowExampleDialog] = useState(false);
 
