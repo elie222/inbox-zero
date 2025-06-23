@@ -11,30 +11,30 @@ import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 
+const LOGGER_NAME = "digest";
+
 export async function POST(request: Request) {
   if (!hasCronSecret(request)) {
     captureException(new Error("Unauthorized cron request: api/ai/digest"));
     return new Response("Unauthorized", { status: 401 });
   }
-  const body = digestBody.parse(await request.json());
-  const { emailAccountId, coldEmailId, actionId, message } = body;
 
-  const logger = createScopedLogger("digest").with({
-    emailAccountId,
-    messageId: message.id,
-  });
+  const logger = createScopedLogger(LOGGER_NAME);
 
   try {
+    const body = digestBody.parse(await request.json());
+    const { emailAccountId, coldEmailId, actionId, message } = body;
+
+    logger.with({ emailAccountId, messageId: message.id });
+
     const emailAccount = await getEmailAccountWithAi({ emailAccountId });
     if (!emailAccount) {
       throw new Error("Email account not found");
     }
 
-    const ruleName =
-      (actionId && (await getRuleNameByExecutedAction(actionId))) ||
-      RuleName.ColdEmail;
+    const ruleName = await resolveRuleName(actionId);
     const summary = await aiSummarizeEmailForDigest({
-      ruleName: ruleName,
+      ruleName,
       emailAccount,
       messageToSummarize: message,
     });
@@ -43,8 +43,8 @@ export async function POST(request: Request) {
       messageId: message.id || "",
       threadId: message.threadId || "",
       emailAccountId,
-      actionId: actionId === undefined ? undefined : actionId,
-      coldEmailId: coldEmailId === undefined ? undefined : coldEmailId,
+      actionId,
+      coldEmailId,
       content: summary,
     });
 
@@ -53,6 +53,13 @@ export async function POST(request: Request) {
     logger.error("Failed to process digest", { error });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
+}
+
+async function resolveRuleName(actionId?: string): Promise<string> {
+  if (!actionId) return RuleName.ColdEmail;
+
+  const ruleName = await getRuleNameByExecutedAction(actionId);
+  return ruleName || RuleName.ColdEmail;
 }
 
 async function upsertDigest({
@@ -70,7 +77,7 @@ async function upsertDigest({
   coldEmailId?: string;
   content: DigestEmailSummarySchema;
 }) {
-  const logger = createScopedLogger("upsert-digest").with({
+  const logger = createScopedLogger(LOGGER_NAME).with({
     messageId,
     threadId,
     emailAccountId,
@@ -79,70 +86,117 @@ async function upsertDigest({
   });
 
   try {
-    // Find or create the digest atomically with digestItems included
-    const digest =
-      (await prisma.digest.findFirst({
-        where: {
-          emailAccountId,
-          status: DigestStatus.PENDING,
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-        include: {
-          items: {
-            where: {
-              messageId,
-              threadId,
-            },
-            take: 1,
-          },
-        },
-      })) ||
-      (await prisma.digest.create({
-        data: {
-          emailAccountId,
-          status: DigestStatus.PENDING,
-        },
-        include: {
-          items: {
-            where: {
-              messageId,
-              threadId,
-            },
-            take: 1,
-          },
-        },
-      }));
-
-    const digestItem = digest.items.length > 0 ? digest.items[0] : null;
+    const digest = await findOrCreateDigest(
+      emailAccountId,
+      messageId,
+      threadId,
+    );
+    const existingItem = digest.items[0];
     const contentString = JSON.stringify(content);
 
-    if (digestItem) {
-      logger.info("Updating existing digest");
-      await prisma.digestItem.update({
-        where: { id: digestItem.id },
-        data: {
-          content: contentString,
-          ...(actionId ? { actionId } : {}),
-          ...(coldEmailId ? { coldEmailId } : {}),
-        },
-      });
+    if (existingItem) {
+      logger.info("Updating existing digest item");
+      await updateDigestItem(
+        existingItem.id,
+        contentString,
+        actionId,
+        coldEmailId,
+      );
     } else {
-      logger.info("Creating new digest");
-      await prisma.digestItem.create({
-        data: {
-          messageId,
-          threadId,
-          content: contentString,
-          digestId: digest.id,
-          ...(actionId ? { actionId } : {}),
-          ...(coldEmailId ? { coldEmailId } : {}),
-        },
+      logger.info("Creating new digest item");
+      await createDigestItem({
+        digestId: digest.id,
+        messageId,
+        threadId,
+        contentString,
+        actionId,
+        coldEmailId,
       });
     }
   } catch (error) {
     logger.error("Failed to upsert digest", { error });
     throw error;
   }
+}
+
+async function findOrCreateDigest(
+  emailAccountId: string,
+  messageId: string,
+  threadId: string,
+) {
+  const digestWithItem = await prisma.digest.findFirst({
+    where: {
+      emailAccountId,
+      status: DigestStatus.PENDING,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    include: {
+      items: {
+        where: { messageId, threadId },
+        take: 1,
+      },
+    },
+  });
+
+  if (digestWithItem) {
+    return digestWithItem;
+  }
+
+  return await prisma.digest.create({
+    data: {
+      emailAccountId,
+      status: DigestStatus.PENDING,
+    },
+    include: {
+      items: {
+        where: { messageId, threadId },
+        take: 1,
+      },
+    },
+  });
+}
+
+async function updateDigestItem(
+  itemId: string,
+  contentString: string,
+  actionId?: string,
+  coldEmailId?: string,
+) {
+  return await prisma.digestItem.update({
+    where: { id: itemId },
+    data: {
+      content: contentString,
+      ...(actionId && { actionId }),
+      ...(coldEmailId && { coldEmailId }),
+    },
+  });
+}
+
+async function createDigestItem({
+  digestId,
+  messageId,
+  threadId,
+  contentString,
+  actionId,
+  coldEmailId,
+}: {
+  digestId: string;
+  messageId: string;
+  threadId: string;
+  contentString: string;
+  actionId?: string;
+  coldEmailId?: string;
+}) {
+  return await prisma.digestItem.create({
+    data: {
+      messageId,
+      threadId,
+      content: contentString,
+      digestId,
+      ...(actionId && { actionId }),
+      ...(coldEmailId && { coldEmailId }),
+    },
+  });
 }
