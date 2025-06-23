@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -45,6 +45,11 @@ import {
 import { prefixPath } from "@/utils/path";
 import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { ClientOnly } from "@/components/ClientOnly";
+import Image from "next/image";
+import {
+  ExampleDialog,
+  SeeExampleDialogButton,
+} from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -56,6 +61,8 @@ export function CategoriesSetup({
   defaultValues?: Partial<CreateRulesOnboardingBody>;
 }) {
   const router = useRouter();
+
+  const [showExampleDialog, setShowExampleDialog] = useState(false);
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
@@ -111,8 +118,25 @@ export function CategoriesSetup({
           We'll automatically categorize your emails to help you focus on what
           matters.
           <br />
-          You can add custom categories and rules later.
+          You can add custom categories and rules later.{" "}
+          <SeeExampleDialogButton onClick={() => setShowExampleDialog(true)} />
         </TypographyP>
+
+        <ExampleDialog
+          open={showExampleDialog}
+          onOpenChange={setShowExampleDialog}
+          title="Organize your emails"
+          description="This is an example of what your inbox will look like. You can add more labels later."
+          image={
+            <Image
+              src="/images/assistant/labels.png"
+              alt="Categorize your emails"
+              width={1200}
+              height={800}
+              className="mx-auto rounded border-4 border-blue-50 shadow-sm"
+            />
+          }
+        />
 
         <div className="mt-4 grid grid-cols-1 gap-4">
           <CategoryCard

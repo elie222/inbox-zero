@@ -16,12 +16,9 @@ import {
   ASSISTANT_ONBOARDING_COOKIE,
 } from "@/utils/cookies";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  ExampleDialog,
+  SeeExampleDialogButton,
+} from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
 
 export default function DigestFrequencyPage() {
   const { emailAccountId } = useAccount();
@@ -83,13 +80,9 @@ export default function DigestFrequencyPage() {
               Choose how often you want to receive your digest emails. These
               emails will include a summary of the actions taken on your behalf,
               based on your selected preferences.{" "}
-              <button
-                type="button"
+              <SeeExampleDialogButton
                 onClick={() => setShowExampleDialog(true)}
-                className="text-primary underline hover:no-underline"
-              >
-                See example
-              </button>
+              />
             </p>
             <SchedulePicker onChange={setDigestScheduleValue} />
             <Button
@@ -104,23 +97,21 @@ export default function DigestFrequencyPage() {
         </CardContent>
       </Card>
 
-      <Dialog open={showExampleDialog} onOpenChange={setShowExampleDialog}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>Digest Email Example</DialogTitle>
-            <DialogDescription>
-              This is an example of what your digest email will look like.
-            </DialogDescription>
-          </DialogHeader>
+      <ExampleDialog
+        open={showExampleDialog}
+        onOpenChange={setShowExampleDialog}
+        title="Digest Email Example"
+        description="This is an example of what your digest email will look like."
+        image={
           <Image
             src="/images/assistant/digest.png"
             alt="Digest Email Example"
             width={800}
             height={1200}
-            className="mx-auto"
+            className="mx-auto rounded border-4 border-blue-50 shadow-sm"
           />
-        </DialogContent>
-      </Dialog>
+        }
+      />
     </div>
   );
 }
