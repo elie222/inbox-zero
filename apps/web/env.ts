@@ -104,6 +104,8 @@ export const env = createEnv({
       .string()
       .optional()
       .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
+
+    DUB_API_KEY: z.string().optional(),
   },
   client: {
     // stripe
@@ -153,6 +155,7 @@ export const env = createEnv({
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
+    NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -207,5 +210,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
+    NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
   },
 });
