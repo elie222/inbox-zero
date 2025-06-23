@@ -14,11 +14,13 @@ import { LoadStats } from "@/providers/StatLoaderProvider";
 import { Card } from "@/components/ui/card";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function SetupPage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
