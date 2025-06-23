@@ -3,7 +3,7 @@
 import useSWR from "swr";
 import { Card } from "@/components/ui/card";
 import { CategoriesSetup } from "./CategoriesSetup";
-import type { GetOnboardingPreferencesResponse } from "@/app/api/user/onboarding-preferences/route";
+import type { GetCategorizationPreferencesResponse } from "@/app/api/user/categorization-preferences/route";
 import { LoadingContent } from "@/components/LoadingContent";
 
 export default function OnboardingPage() {
@@ -11,8 +11,8 @@ export default function OnboardingPage() {
     data: defaultValues,
     isLoading,
     error,
-  } = useSWR<GetOnboardingPreferencesResponse>(
-    "/api/user/onboarding-preferences",
+  } = useSWR<GetCategorizationPreferencesResponse>(
+    "/api/user/categorization-preferences",
   );
 
   return (
