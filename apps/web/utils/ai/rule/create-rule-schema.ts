@@ -76,6 +76,15 @@ const actionSchema = z.object({
     .describe(
       "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
     ),
+  delayInMinutes: z
+    .number()
+    .min(1)
+    .max(43200)
+    .nullish()
+    .transform((val) => (val === 0 || val == null ? null : val))
+    .describe(
+      "Optional delay in minutes (1 min to 30 days) before executing this action",
+    ),
 });
 
 export const createRuleSchema = z.object({

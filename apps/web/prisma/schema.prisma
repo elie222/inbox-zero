@@ -463,7 +463,6 @@ model ScheduledAction {
   executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([executedRuleId, actionType])
   // Indexes for cron job performance
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
@@ -843,7 +842,6 @@ enum ExecutedRuleStatus {
   PENDING
   SKIPPED
   ERROR
-  SCHEDULED
 }
 
 enum GroupItemType {

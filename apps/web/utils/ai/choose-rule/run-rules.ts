@@ -130,7 +130,6 @@ async function executeMatchedRule(
           rule,
           actionItems: immediateActions, // Only save immediate actions as ExecutedActions
           reason,
-          hasDelayedActions: delayedActions.length > 0,
         },
       );
 
@@ -213,19 +212,12 @@ async function saveExecutedRule(
     rule,
     actionItems,
     reason,
-    hasDelayedActions,
   }: {
     rule: RuleWithActionsAndCategories;
     actionItems: ActionItem[];
     reason?: string;
-    hasDelayedActions?: boolean;
   },
 ) {
-  // Determine status based on whether there are delayed actions
-  const status = hasDelayedActions
-    ? ExecutedRuleStatus.SCHEDULED
-    : ExecutedRuleStatus.PENDING;
-
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
@@ -235,7 +227,7 @@ async function saveExecutedRule(
     messageId,
     threadId,
     automated: !!rule?.automate,
-    status,
+    status: ExecutedRuleStatus.PENDING,
     reason,
     rule: rule?.id ? { connect: { id: rule.id } } : undefined,
     emailAccount: { connect: { id: emailAccountId } },

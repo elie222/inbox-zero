@@ -1464,7 +1464,9 @@ function DelayInput({
 
   const handleValueChange = (newValue: string) => {
     const minutes = convertToMinutes(newValue, selectedUnit);
-    setValue(`actions.${index}.delayInMinutes`, minutes);
+    setValue(`actions.${index}.delayInMinutes`, minutes, {
+      shouldValidate: true,
+    });
   };
 
   const handleUnitChange = (newUnit: string) => {
@@ -1512,9 +1514,12 @@ function DelayInput({
       <input
         type="hidden"
         {...register(`actions.${index}.delayInMinutes`, {
-          valueAsNumber: true,
-          min: 1,
-          max: 43200, // 30 days in minutes
+          setValueAs: (value) => {
+            if (value === "" || value == null || Number.isNaN(Number(value))) {
+              return null;
+            }
+            return Number(value);
+          },
         })}
       />
 

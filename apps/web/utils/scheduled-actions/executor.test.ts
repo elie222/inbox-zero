@@ -19,6 +19,9 @@ vi.mock("@/utils/ai/choose-rule/execute", () => ({
 vi.mock("@/utils/gmail/message", () => ({
   getMessage: vi.fn(),
 }));
+vi.mock("@/utils/mail", () => ({
+  parseMessage: vi.fn(),
+}));
 
 describe("executor", () => {
   beforeEach(() => {
@@ -71,6 +74,18 @@ describe("executor", () => {
         draftId: null,
         wasDraftSent: null,
       });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "PENDING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
       prisma.scheduledAction.count.mockResolvedValue(0);
       prisma.executedRule.update.mockResolvedValue({
         id: "rule-123",
@@ -93,8 +108,21 @@ describe("executor", () => {
         "@/utils/gmail/client"
       );
       const { getMessage } = await import("@/utils/gmail/message");
+      const { parseMessage } = await import("@/utils/mail");
 
       (executeAct as any).mockResolvedValue(undefined);
+      (parseMessage as any).mockReturnValue({
+        id: "msg-123",
+        threadId: "thread-123",
+        headers: {},
+        textPlain: "test content",
+        textHtml: "<p>test content</p>",
+        attachments: [],
+        internalDate: "1234567890",
+        snippet: "",
+        historyId: "",
+        inline: [],
+      });
       (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
         id: "account-123",
         userId: "user-123",
@@ -139,6 +167,34 @@ describe("executor", () => {
         status: ScheduledActionStatus.PENDING,
         retryCount: 1,
       });
+      prisma.executedAction.create.mockResolvedValue({
+        id: "executed-action-123",
+        type: ActionType.ARCHIVE,
+        label: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        executedRuleId: "rule-123",
+        subject: null,
+        content: null,
+        to: null,
+        cc: null,
+        bcc: null,
+        url: null,
+        draftId: null,
+        wasDraftSent: null,
+      });
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "rule-123",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        messageId: "msg-123",
+        threadId: "thread-123",
+        emailAccountId: "account-123",
+        status: "PENDING",
+        automated: true,
+        reason: null,
+        ruleId: null,
+      } as any);
 
       const { executeAct } = await import("@/utils/ai/choose-rule/execute");
       const { getEmailAccountWithAiAndTokens } = await import(
@@ -148,8 +204,21 @@ describe("executor", () => {
         "@/utils/gmail/client"
       );
       const { getMessage } = await import("@/utils/gmail/message");
+      const { parseMessage } = await import("@/utils/mail");
 
       (executeAct as any).mockRejectedValue(new Error("Execution failed"));
+      (parseMessage as any).mockReturnValue({
+        id: "msg-123",
+        threadId: "thread-123",
+        headers: {},
+        textPlain: "test content",
+        textHtml: "<p>test content</p>",
+        attachments: [],
+        internalDate: "1234567890",
+        snippet: "",
+        historyId: "",
+        inline: [],
+      });
       (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
         id: "account-123",
         userId: "user-123",

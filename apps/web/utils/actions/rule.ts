@@ -76,7 +76,17 @@ export const createRuleAction = actionClient
               ? {
                   createMany: {
                     data: actions.map(
-                      ({ type, label, subject, content, to, cc, bcc, url }) => {
+                      ({
+                        type,
+                        label,
+                        subject,
+                        content,
+                        to,
+                        cc,
+                        bcc,
+                        url,
+                        delayInMinutes,
+                      }) => {
                         return sanitizeActionFields({
                           type,
                           label: label?.value,
@@ -86,6 +96,7 @@ export const createRuleAction = actionClient
                           cc: cc?.value,
                           bcc: bcc?.value,
                           url: url?.value,
+                          delayInMinutes,
                         });
                       },
                     ),
@@ -217,6 +228,7 @@ export const updateRuleAction = actionClient
                 cc: a.cc?.value,
                 bcc: a.bcc?.value,
                 url: a.url?.value,
+                delayInMinutes: a.delayInMinutes,
               }),
             });
           }),
@@ -235,6 +247,7 @@ export const updateRuleAction = actionClient
                         cc: a.cc?.value,
                         bcc: a.bcc?.value,
                         url: a.url?.value,
+                        delayInMinutes: a.delayInMinutes,
                       }),
                       ruleId: id,
                     };

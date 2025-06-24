@@ -162,13 +162,21 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
 
 type ActionFieldsSelection = Pick<
   Prisma.ActionCreateInput,
-  "type" | "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url"
+  | "type"
+  | "label"
+  | "subject"
+  | "content"
+  | "to"
+  | "cc"
+  | "bcc"
+  | "url"
+  | "delayInMinutes"
 >;
 
 export function sanitizeActionFields(
   action: Partial<ActionFieldsSelection> & { type: ActionType },
-): ActionFieldsSelection {
-  const base = {
+): any {
+  const base: any = {
     type: action.type,
     label: null,
     subject: null,
@@ -178,6 +186,11 @@ export function sanitizeActionFields(
     bcc: null,
     url: null,
   };
+
+  // Only include delayInMinutes if it has a value
+  if (action.delayInMinutes != null) {
+    base.delayInMinutes = action.delayInMinutes;
+  }
 
   switch (action.type) {
     case ActionType.ARCHIVE:

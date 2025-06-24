@@ -3,7 +3,7 @@
  * Runs every 15 minutes to process due delayed actions
  */
 
-import { NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { withError } from "@/utils/middleware";
 import { hasPostCronSecret } from "@/utils/cron";
 import {

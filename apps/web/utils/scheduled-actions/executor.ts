@@ -8,6 +8,7 @@ import {
   ActionType,
   ExecutedRuleStatus,
   ScheduledActionStatus,
+  type ScheduledAction,
 } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -15,7 +16,10 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { executeAct } from "@/utils/ai/choose-rule/execute";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
+import type { ParsedMessage } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
+import { parseMessage } from "@/utils/mail";
+import { formatError } from "@/utils/error";
 
 const logger = createScopedLogger("scheduled-actions-executor");
 
@@ -30,12 +34,16 @@ const PERMANENT_ERROR_CODES = [
   "FAILED_PRECONDITION",
 ];
 
+// Helper to extract error code (reusing existing formatError for messages)
+function getErrorCode(error: unknown): string | number | undefined {
+  const err = error as any;
+  return err?.code ?? err?.status;
+}
+
 /**
  * Execute a scheduled action
  */
-export async function executeScheduledAction(scheduledAction: any) {
-  const startTime = Date.now();
-
+export async function executeScheduledAction(scheduledAction: ScheduledAction) {
   logger.info("Executing scheduled action", {
     scheduledActionId: scheduledAction.id,
     actionType: scheduledAction.actionType,
@@ -102,20 +110,16 @@ export async function executeScheduledAction(scheduledAction: any) {
     // Check if all scheduled actions for this ExecutedRule are complete
     await checkAndCompleteExecutedRule(scheduledAction.executedRuleId);
 
-    const duration = Date.now() - startTime;
     logger.info("Successfully executed scheduled action", {
       scheduledActionId: scheduledAction.id,
       executedActionId: executedAction?.id,
-      duration,
     });
 
     return { success: true, executedActionId: executedAction?.id };
-  } catch (error) {
-    const duration = Date.now() - startTime;
+  } catch (error: unknown) {
     logger.error("Failed to execute scheduled action", {
       scheduledActionId: scheduledAction.id,
       error,
-      duration,
     });
 
     // Determine if this is a permanent or temporary error
@@ -138,7 +142,7 @@ export async function executeScheduledAction(scheduledAction: any) {
  */
 async function validateEmailState(
   gmail: gmail_v1.Gmail,
-  scheduledAction: any,
+  scheduledAction: ScheduledAction,
 ): Promise<EmailForAction | null> {
   try {
     const message = await getMessage(scheduledAction.messageId, gmail, "full");
@@ -152,9 +156,7 @@ async function validateEmailState(
     }
 
     // Parse the message to get the correct format
-    const parsedMessage = await import("@/utils/mail").then((m) =>
-      m.parseMessage(message),
-    );
+    const parsedMessage = parseMessage(message);
 
     // Convert to EmailForAction format
     const emailForAction: EmailForAction = {
@@ -168,8 +170,10 @@ async function validateEmailState(
     };
 
     return emailForAction;
-  } catch (error: any) {
-    if (error?.code === 404 || error?.message?.includes("not found")) {
+  } catch (error: unknown) {
+    const code = getErrorCode(error);
+    const message = formatError(error);
+    if (code === 404 || message.includes("not found")) {
       logger.info("Email not found during validation", {
         messageId: scheduledAction.messageId,
         scheduledActionId: scheduledAction.id,
@@ -195,7 +199,7 @@ async function executeDelayedAction({
   actionItem: ActionItem;
   emailMessage: EmailForAction;
   emailAccount: { email: string; userId: string; id: string };
-  scheduledAction: any;
+  scheduledAction: ScheduledAction;
 }) {
   // Create a temporary ExecutedRule and ExecutedAction for the executeAct function
   const tempExecutedAction = await prisma.executedAction.create({
@@ -214,10 +218,29 @@ async function executeDelayedAction({
     },
   });
 
-  // Use existing executeAct function with temporary executed rule
-  const tempExecutedRule = {
-    id: scheduledAction.executedRuleId,
-    actionItems: [tempExecutedAction],
+  // Get the complete ExecutedRule to satisfy the type requirements
+  const executedRule = await prisma.executedRule.findUnique({
+    where: { id: scheduledAction.executedRuleId },
+    include: { actionItems: true },
+  });
+
+  if (!executedRule) {
+    throw new Error(`ExecutedRule ${scheduledAction.executedRuleId} not found`);
+  }
+
+  // Create a ParsedMessage from EmailForAction to match executeAct signature
+  const parsedMessage: ParsedMessage = {
+    id: emailMessage.id,
+    threadId: emailMessage.threadId,
+    headers: emailMessage.headers,
+    textPlain: emailMessage.textPlain,
+    textHtml: emailMessage.textHtml,
+    attachments: emailMessage.attachments,
+    internalDate: emailMessage.internalDate,
+    // Required ParsedMessage fields that aren't used in action execution
+    snippet: "",
+    historyId: "",
+    inline: [],
   };
 
   await executeAct({
@@ -225,8 +248,8 @@ async function executeDelayedAction({
     userEmail: emailAccount.email,
     userId: emailAccount.userId,
     emailAccountId: emailAccount.id,
-    executedRule: tempExecutedRule as any,
-    message: emailMessage as any, // Cast to match expected type
+    executedRule,
+    message: parsedMessage,
   });
 
   return tempExecutedAction;
@@ -235,24 +258,24 @@ async function executeDelayedAction({
 /**
  * Check if an error is permanent and should not be retried
  */
-function isPermanentFailure(error: any): boolean {
+function isPermanentFailure(error: unknown): boolean {
   if (!error) return false;
 
-  const errorCode = error.code || error.status;
-  const errorMessage = error.message || "";
+  const code = getErrorCode(error);
+  const message = formatError(error);
 
   // Check for specific error codes
-  if (PERMANENT_ERROR_CODES.includes(errorCode)) {
+  if (code && PERMANENT_ERROR_CODES.includes(String(code))) {
     return true;
   }
 
   // Check for specific error messages
   if (
-    errorMessage.includes("Permission denied") ||
-    errorMessage.includes("Invalid argument") ||
-    errorMessage.includes("Not found") ||
-    errorMessage.includes("Forbidden") ||
-    errorMessage.includes("Email account not found")
+    message.includes("Permission denied") ||
+    message.includes("Invalid argument") ||
+    message.includes("Not found") ||
+    message.includes("Forbidden") ||
+    message.includes("Email account not found")
   ) {
     return true;
   }
@@ -290,10 +313,10 @@ async function markActionCompleted(
  */
 async function markActionFailed(
   scheduledActionId: string,
-  error: any,
+  error: unknown,
   isPermanent: boolean,
 ) {
-  const errorMessage = error?.message || String(error);
+  const errorMessage = formatError(error);
 
   await prisma.scheduledAction.update({
     where: { id: scheduledActionId },
@@ -313,9 +336,10 @@ async function markActionFailed(
 /**
  * Schedule a retry for a failed action
  */
-async function scheduleRetry(scheduledActionId: string, error: any) {
+async function scheduleRetry(scheduledActionId: string, error: unknown) {
   const retryDelay = 15 * 60 * 1000; // 15 minutes
   const retryAt = new Date(Date.now() + retryDelay);
+  const message = formatError(error);
 
   await prisma.scheduledAction.update({
     where: { id: scheduledActionId },
@@ -323,14 +347,14 @@ async function scheduleRetry(scheduledActionId: string, error: any) {
       status: ScheduledActionStatus.PENDING,
       scheduledFor: retryAt,
       retryCount: { increment: 1 },
-      errorMessage: `Retry scheduled: ${error?.message || String(error)}`,
+      errorMessage: `Retry scheduled: ${message}`,
     },
   });
 
   logger.info("Scheduled action retry", {
     scheduledActionId,
     retryAt,
-    errorMessage: error?.message,
+    errorMessage: message,
   });
 }
 
