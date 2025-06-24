@@ -3,7 +3,7 @@ import type { ThreadsResponse as GmailThreadsResponse } from "@/app/api/google/t
 import type { ThreadsResponse as MicrosoftThreadsResponse } from "@/app/api/microsoft/threads/controller";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
-type ThreadsResponse = GmailThreadsResponse | MicrosoftThreadsResponse;
+export type ThreadsResponse = GmailThreadsResponse | MicrosoftThreadsResponse;
 
 export function useThreads({
   fromEmail,

@@ -50,7 +50,7 @@ import {
   useDeleteAllFromSender,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
-import type { UserLabel } from "@/hooks/useLabels";
+import { EmailLabel } from "@/providers/EmailProvider";
 
 export function ActionCell<T extends Row>({
   item,
@@ -69,7 +69,7 @@ export function ActionCell<T extends Row>({
   refetchPremium: () => Promise<any>;
   onOpenNewsletter: (row: T) => void;
   selected: boolean;
-  labels: UserLabel[];
+  labels: EmailLabel[];
   openPremiumModal: () => void;
   userEmail: string;
   emailAccountId: string;
@@ -215,7 +215,7 @@ function AutoArchiveButton<T extends Row>({
   mutate: () => Promise<void>;
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
-  labels: UserLabel[];
+  labels: EmailLabel[];
   emailAccountId: string;
 }) {
   const {
@@ -377,7 +377,7 @@ export function MoreDropdown<T extends Row>({
   item: T;
   userEmail: string;
   emailAccountId: string;
-  labels: UserLabel[];
+  labels: EmailLabel[];
   posthog: PostHog;
 }) {
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({

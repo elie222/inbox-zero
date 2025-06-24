@@ -2,14 +2,14 @@ import {
   DropdownMenuSubContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import type { UserLabel } from "@/hooks/useLabels";
+import { EmailLabel } from "@/providers/EmailProvider";
 
 export function LabelsSubMenu({
   labels,
   onClick,
 }: {
-  labels: UserLabel[];
-  onClick: (label: UserLabel) => void;
+  labels: EmailLabel[];
+  onClick: (label: EmailLabel) => void;
 }) {
   return (
     <DropdownMenuSubContent className="max-h-[415px] overflow-auto">

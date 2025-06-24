@@ -24,6 +24,7 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export async function processHistoryItem(
   {
@@ -93,13 +94,18 @@ export async function processHistoryItem(
       emailToCheck: message.headers.to,
     });
 
+    const provider = await createEmailProvider({
+      emailAccountId,
+      provider: "google",
+    });
+
     if (isForAssistant) {
       logger.info("Passing through assistant email.", loggerOptions);
       return processAssistantEmail({
         message,
         emailAccountId,
         userEmail,
-        gmail,
+        provider,
       });
     }
 
@@ -182,7 +188,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        gmail,
+        client: provider,
         message,
         rules,
         emailAccount,

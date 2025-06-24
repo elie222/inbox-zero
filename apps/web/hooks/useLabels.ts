@@ -4,6 +4,7 @@ import type { LabelsResponse } from "@/app/api/google/labels/route";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { labelVisibility } from "@/utils/gmail/constants";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { EmailLabel } from "@/providers/EmailProvider";
 
 export type UserLabel = {
   id: string;
@@ -29,7 +30,7 @@ export type GenericLabel = UserLabel | OutlookLabel;
 type SortableLabel = {
   id: string | null | undefined;
   name: string | null | undefined;
-  type: "user";
+  type: string | null;
   color?: any;
 };
 
@@ -71,19 +72,25 @@ export function useLabels() {
     provider === "google" ? "/api/google/labels" : "/api/outlook/labels",
   );
 
-  console.log("LABELS data", data);
-
-  const userLabels = useMemo(() => {
+  const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];
 
     if (provider === "google") {
-      return data.labels.filter(isUserLabel).sort(sortLabels);
+      return data.labels
+        .filter(isUserLabel)
+        .map((label) => ({
+          id: label.id || "",
+          name: label.name || "",
+          type: label.type || null,
+          color: label.color,
+        }))
+        .sort(sortLabels);
     } else {
       return data.labels
         .map((label) => ({
-          id: label.id,
-          name: label.name,
-          type: "user" as const,
+          id: label.id || "",
+          name: label.name || "",
+          type: label.type || null,
           color: label.color,
         }))
         .sort(sortLabels);

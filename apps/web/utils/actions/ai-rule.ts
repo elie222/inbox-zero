@@ -204,7 +204,7 @@ export const approvePlanAction = actionClient
   .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount, provider },
+      ctx: { emailAccountId, emailAccount, provider, userId },
       parsedInput: { executedRuleId, message },
     }) => {
       const emailProvider = await createEmailProvider({
