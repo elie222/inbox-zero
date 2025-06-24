@@ -9,9 +9,7 @@ const scheduleSchema = z.object({
   occurrences: z.number().nullable(),
 });
 
-export const saveDigestScheduleBody = z.object({
-  schedule: scheduleSchema.nullable(),
-});
+export const saveDigestScheduleBody = z.object({ schedule: scheduleSchema });
 export type SaveDigestScheduleBody = z.infer<typeof saveDigestScheduleBody>;
 
 export const saveEmailUpdateSettingsBody = z.object({
@@ -52,3 +50,16 @@ export const saveAiSettingsBody = z
     }
   });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
+
+export const updateDigestCategoriesBody = z.object({
+  toReply: z.boolean().optional(),
+  newsletter: z.boolean().optional(),
+  marketing: z.boolean().optional(),
+  calendar: z.boolean().optional(),
+  receipt: z.boolean().optional(),
+  notification: z.boolean().optional(),
+  coldEmail: z.boolean().optional(),
+});
+export type UpdateDigestCategoriesBody = z.infer<
+  typeof updateDigestCategoriesBody
+>;

@@ -5,25 +5,10 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ControllerRenderProps } from "react-hook-form";
-import {
-  Mail,
-  Newspaper,
-  Megaphone,
-  Calendar,
-  Receipt,
-  Bell,
-  Users,
-} from "lucide-react";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-} from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -31,7 +16,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import {
   createRulesOnboardingBody,
@@ -43,24 +27,23 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { useDigestEnabled } from "@/hooks/useFeatureFlags";
-import { ClientOnly } from "@/components/ClientOnly";
 import Image from "next/image";
 import {
   ExampleDialog,
   SeeExampleDialogButton,
 } from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
+import { categoryConfig } from "@/utils/category-config";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
 export function CategoriesSetup({
-  emailAccountId,
   defaultValues,
 }: {
-  emailAccountId: string;
   defaultValues?: Partial<CreateRulesOnboardingBody>;
 }) {
   const router = useRouter();
+  const { emailAccountId } = useAccount();
 
   const [showExampleDialog, setShowExampleDialog] = useState(false);
 
@@ -69,31 +52,24 @@ export function CategoriesSetup({
     defaultValues: {
       toReply: {
         action: defaultValues?.toReply?.action || "label",
-        hasDigest: defaultValues?.toReply?.hasDigest || false,
       },
       newsletter: {
         action: defaultValues?.newsletter?.action || "label",
-        hasDigest: defaultValues?.newsletter?.hasDigest || false,
       },
       marketing: {
         action: defaultValues?.marketing?.action || "label_archive",
-        hasDigest: defaultValues?.marketing?.hasDigest || false,
       },
       calendar: {
         action: defaultValues?.calendar?.action || "label",
-        hasDigest: defaultValues?.calendar?.hasDigest || false,
       },
       receipt: {
         action: defaultValues?.receipt?.action || "label",
-        hasDigest: defaultValues?.receipt?.hasDigest || false,
       },
       notification: {
         action: defaultValues?.notification?.action || "label",
-        hasDigest: defaultValues?.notification?.hasDigest || false,
       },
       coldEmail: {
         action: defaultValues?.coldEmail?.action || "label_archive",
-        hasDigest: defaultValues?.coldEmail?.hasDigest || false,
       },
     },
   });
@@ -139,55 +115,16 @@ export function CategoriesSetup({
         />
 
         <div className="mt-4 grid grid-cols-1 gap-4">
-          <CategoryCard
-            id="toReply"
-            label="To Reply"
-            tooltipText="Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
-            icon={<Mail className="h-5 w-5 text-blue-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="newsletter"
-            label="Newsletter"
-            tooltipText="Newsletters, blogs, and publications"
-            icon={<Newspaper className="h-5 w-5 text-purple-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="marketing"
-            label="Marketing"
-            tooltipText="Promotional emails about sales and offers"
-            icon={<Megaphone className="h-5 w-5 text-green-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="calendar"
-            label="Calendar"
-            tooltipText="Events, appointments, and reminders"
-            icon={<Calendar className="h-5 w-5 text-yellow-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="receipt"
-            label="Receipt"
-            tooltipText="Invoices, receipts, and payments"
-            icon={<Receipt className="h-5 w-5 text-orange-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="notification"
-            label="Notification"
-            tooltipText="Alerts, status updates, and system messages"
-            icon={<Bell className="h-5 w-5 text-red-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="coldEmail"
-            label="Cold Email"
-            tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
-            icon={<Users className="h-5 w-5 text-indigo-500" />}
-            form={form}
-          />
+          {categoryConfig.map((category) => (
+            <CategoryCard
+              key={category.key}
+              id={category.key}
+              label={category.label}
+              tooltipText={category.tooltipText}
+              icon={category.icon}
+              form={form}
+            />
+          ))}
         </div>
 
         <div className="mt-6 flex flex-col gap-2">
@@ -239,9 +176,6 @@ function CategoryCard({
           )}
         </div>
         <div className="ml-auto flex items-center gap-4">
-          <ClientOnly>
-            <DigestCheckbox form={form} id={id} />
-          </ClientOnly>
           <FormField
             control={form.control}
             name={id}
@@ -282,47 +216,5 @@ function CategoryCard({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function DigestCheckbox({
-  form,
-  id,
-}: {
-  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
-  id: keyof CreateRulesOnboardingBody;
-}) {
-  const digestEnabled = useDigestEnabled();
-
-  if (!digestEnabled) return null;
-
-  return (
-    <FormField
-      control={form.control}
-      name={id}
-      render={({
-        field,
-      }: {
-        field: ControllerRenderProps<
-          CreateRulesOnboardingBody,
-          keyof CreateRulesOnboardingBody
-        >;
-      }) => (
-        <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-          <FormControl>
-            <Checkbox
-              checked={!!field.value?.hasDigest}
-              onCheckedChange={(checked) => {
-                field.onChange({
-                  ...field.value,
-                  hasDigest: checked,
-                });
-              }}
-            />
-          </FormControl>
-          <FormLabel className="text-sm font-normal">Digest</FormLabel>
-        </FormItem>
-      )}
-    />
   );
 }

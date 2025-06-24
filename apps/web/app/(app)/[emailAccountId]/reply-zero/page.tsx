@@ -14,6 +14,7 @@ import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { ActionType } from "@prisma/client";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export const maxDuration = 300;
 
@@ -26,6 +27,8 @@ export default async function ReplyTrackerPage(props: {
   }>;
 }) {
   const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
+
   const searchParams = await props.searchParams;
 
   const cookieStore = await cookies();

@@ -6,13 +6,14 @@ import {
   getLastJob,
 } from "@/app/(app)/[emailAccountId]/clean/helpers";
 import { CleanRun } from "@/app/(app)/[emailAccountId]/clean/CleanRun";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function CleanRunPage(props: {
   params: Promise<{ emailAccountId: string }>;
   searchParams: Promise<{ jobId: string; isPreviewBatch: string }>;
 }) {
-  const params = await props.params;
-  const emailAccountId = params.emailAccountId;
+  const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const searchParams = await props.searchParams;
 

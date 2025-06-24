@@ -73,6 +73,7 @@
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",
         "GITHUB_MARKETING_TOKEN",
+        "DUB_API_KEY",
 
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
@@ -114,7 +115,8 @@
         "NEXT_PUBLIC_BEDROCK_SONNET_MODEL",
         "NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL",
         "NEXT_PUBLIC_OLLAMA_MODEL",
-        "NEXT_PUBLIC_APP_HOME_PATH"
+        "NEXT_PUBLIC_APP_HOME_PATH",
+        "NEXT_PUBLIC_DUB_REFER_DOMAIN"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },
