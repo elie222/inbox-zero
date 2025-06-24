@@ -2,6 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import { extractEmailAddress } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import { getMessages } from "@/utils/gmail/message";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("reply-tracker/query");
 
@@ -14,7 +15,7 @@ const logger = createScopedLogger("reply-tracker/query");
  * @returns An object containing `hasReplied` (boolean) and `receivedCount` (number, capped at receivedThreshold).
  */
 export async function checkSenderReplyHistory(
-  gmail: gmail_v1.Gmail,
+  gmail: EmailProvider,
   senderEmail: string,
   receivedThreshold: number,
 ): Promise<{ hasReplied: boolean; receivedCount: number }> {

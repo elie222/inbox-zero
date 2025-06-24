@@ -17,6 +17,8 @@ import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import type { OutlookClient } from "@/utils/outlook/client";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -29,13 +31,13 @@ export type RunRulesResult = {
 };
 
 export async function runRules({
-  gmail,
+  client,
   message,
   rules,
   emailAccount,
   isTest,
 }: {
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   emailAccount: EmailAccountWithAI;
@@ -45,7 +47,7 @@ export async function runRules({
     rules,
     message,
     emailAccount,
-    gmail,
+    client,
   });
 
   analyzeSenderPatternIfAiMatch({
@@ -62,7 +64,7 @@ export async function runRules({
       result.rule,
       message,
       emailAccount,
-      gmail,
+      client,
       result.reason,
       result.matchReasons,
       isTest,
@@ -82,7 +84,7 @@ async function executeMatchedRule(
   rule: RuleWithActionsAndCategories,
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
@@ -92,7 +94,7 @@ async function executeMatchedRule(
     message,
     emailAccount,
     selectedRule: rule,
-    gmail,
+    client,
   });
 
   // handle action
@@ -115,7 +117,7 @@ async function executeMatchedRule(
 
   if (shouldExecute) {
     await executeAct({
-      gmail,
+      client,
       userEmail: emailAccount.email,
       userId: emailAccount.userId,
       emailAccountId: emailAccount.id,

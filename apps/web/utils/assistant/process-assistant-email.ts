@@ -1,16 +1,12 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { isDefined, type ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
-import { emailToContent, parseMessage } from "@/utils/mail";
-import { replyToEmail } from "@/utils/gmail/mail";
-import { getThreadMessages } from "@/utils/gmail/thread";
+import { emailToContent } from "@/utils/mail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { getOrCreateInboxZeroLabel, labelMessage } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("process-assistant-email");
 
@@ -18,21 +14,21 @@ type ProcessAssistantEmailArgs = {
   emailAccountId: string;
   userEmail: string;
   message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
 };
 
 export async function processAssistantEmail({
   emailAccountId,
   userEmail,
   message,
-  gmail,
+  provider,
 }: ProcessAssistantEmailArgs) {
-  return withProcessingLabels(message.id, gmail, () =>
+  return withProcessingLabels(message.id, provider, () =>
     processAssistantEmailInternal({
       emailAccountId,
       userEmail,
       message,
-      gmail,
+      provider,
     }),
   );
 }
@@ -41,7 +37,7 @@ async function processAssistantEmailInternal({
   emailAccountId,
   userEmail,
   message,
-  gmail,
+  provider,
 }: ProcessAssistantEmailArgs) {
   if (!verifyUserSentEmail({ message, userEmail })) {
     logger.error("Unauthorized assistant access attempt", {
@@ -64,12 +60,11 @@ async function processAssistantEmailInternal({
   // 2. get first message in thread to the personal assistant
   // 3. get the referenced message from that message
 
-  const threadMessages = await getThreadMessages(message.threadId, gmail);
+  const threadMessages = await provider.getThreadMessages(message.threadId);
 
   if (!threadMessages?.length) {
     logger.error("No thread messages found", loggerOptions);
-    await replyToEmail(
-      gmail,
+    await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't read any messages.",
     );
@@ -87,8 +82,7 @@ async function processAssistantEmailInternal({
     logger.error("No first message to assistant found", {
       messageId: message.id,
     });
-    await replyToEmail(
-      gmail,
+    await provider.replyToEmail(
       message,
       "Something went wrong. I couldn't find the first message to the personal assistant.",
     );
@@ -96,7 +90,7 @@ async function processAssistantEmailInternal({
   }
 
   const originalMessageId = firstMessageToAssistant.headers["in-reply-to"];
-  const originalMessage = await getOriginalMessage(originalMessageId, gmail);
+  const originalMessage = await provider.getOriginalMessage(originalMessageId);
 
   const [emailAccount, executedRule, senderCategory] = await Promise.all([
     prisma.emailAccount.findUnique({
@@ -227,12 +221,7 @@ async function processAssistantEmailInternal({
   const lastToolCall = toolCalls[toolCalls.length - 1];
 
   if (lastToolCall?.toolName === "reply") {
-    await replyToEmail(
-      gmail,
-      message,
-      lastToolCall.args.content,
-      replaceName(message.headers.to, "Assistant"),
-    );
+    await provider.replyToEmail(message, lastToolCall.args.content);
   }
 }
 
@@ -254,32 +243,16 @@ function replaceName(email: string, name: string) {
   return `${name} <${emailAddress}>`;
 }
 
-async function getOriginalMessage(
-  originalMessageId: string | undefined,
-  gmail: gmail_v1.Gmail,
-) {
-  if (!originalMessageId) return null;
-  const originalMessage = await getMessageByRfc822Id(originalMessageId, gmail);
-  if (!originalMessage) return null;
-  return parseMessage(originalMessage);
-}
-
 // Label the message with processing and assistant labels, and remove the processing label when done
 async function withProcessingLabels<T>(
   messageId: string,
-  gmail: gmail_v1.Gmail,
+  provider: EmailProvider,
   fn: () => Promise<T>,
 ): Promise<T> {
   // Get labels first so we can reuse them
   const results = await Promise.allSettled([
-    getOrCreateInboxZeroLabel({
-      gmail,
-      key: "processing",
-    }),
-    getOrCreateInboxZeroLabel({
-      gmail,
-      key: "assistant",
-    }),
+    provider.getOrCreateInboxZeroLabel("processing"),
+    provider.getOrCreateInboxZeroLabel("assistant"),
   ]);
 
   const [processingLabelResult, assistantLabelResult] = results;
@@ -304,11 +277,7 @@ async function withProcessingLabels<T>(
 
   if (labels.length) {
     // Fire and forget the initial labeling
-    labelMessage({
-      gmail,
-      messageId,
-      addLabelIds: labels,
-    }).catch((error) => {
+    provider.labelMessage(messageId, labels[0]).catch((error) => {
       logger.error("Error labeling message", { error });
     });
   }
@@ -322,13 +291,11 @@ async function withProcessingLabels<T>(
         ? processingLabel.value?.id
         : undefined;
     if (processingLabelId) {
-      await labelMessage({
-        gmail,
-        messageId,
-        removeLabelIds: [processingLabelId],
-      }).catch((error) => {
-        logger.error("Error removing processing label", { error });
-      });
+      await provider
+        .removeThreadLabel(messageId, processingLabelId)
+        .catch((error) => {
+          logger.error("Error removing processing label", { error });
+        });
     }
   }
 }
