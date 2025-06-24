@@ -45,7 +45,7 @@ import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
-import { getGmailSearchUrl, getGmailUrl } from "@/utils/url";
+import { getEmailUrl, getGmailSearchUrl, getGmailUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import {
@@ -521,6 +521,8 @@ function ExpandedRows({
   sender: string;
   userEmail: string;
 }) {
+  const { provider } = useAccount();
+
   const { data, isLoading, error } = useThreads({
     fromEmail: sender,
     limit: 5,
@@ -555,28 +557,41 @@ function ExpandedRows({
 
   return (
     <>
-      {data.threads.map((thread) => (
-        <TableRow key={thread.id} className="bg-muted/50">
-          <TableCell className="py-3">
-            <ViewEmailButton threadId={thread.id} messageId={thread.id} />
-          </TableCell>
-          <TableCell className="py-3">
-            <Link
-              href={getGmailUrl(thread.id, userEmail)}
-              target="_blank"
-              className="hover:underline"
-            >
-              {thread.messages[0].headers.subject}
-            </Link>
-          </TableCell>
-          <TableCell className="py-3">
-            {decodeSnippet(thread.messages[0].snippet)}
-          </TableCell>
-          <TableCell className="text-nowrap py-3">
-            {formatShortDate(new Date(thread.messages[0].headers.date))}
-          </TableCell>
-        </TableRow>
-      ))}
+      {data.threads.map((thread) => {
+        const firstMessage = thread.messages[0];
+        // Handle both Google (with headers) and Microsoft (direct properties) message structures
+        const subject =
+          "headers" in firstMessage
+            ? firstMessage.headers.subject
+            : firstMessage.subject;
+        const date =
+          "headers" in firstMessage
+            ? firstMessage.headers.date
+            : firstMessage.receivedAt;
+
+        return (
+          <TableRow key={thread.id} className="bg-muted/50">
+            <TableCell className="py-3">
+              <ViewEmailButton threadId={thread.id} messageId={thread.id} />
+            </TableCell>
+            <TableCell className="py-3">
+              <Link
+                href={getEmailUrl(thread.id, userEmail, provider)}
+                target="_blank"
+                className="hover:underline"
+              >
+                {subject}
+              </Link>
+            </TableCell>
+            <TableCell className="py-3">
+              {decodeSnippet(thread.messages[0].snippet)}
+            </TableCell>
+            <TableCell className="text-nowrap py-3">
+              {formatShortDate(new Date(date))}
+            </TableCell>
+          </TableRow>
+        );
+      })}
     </>
   );
 }

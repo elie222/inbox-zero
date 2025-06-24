@@ -7,6 +7,7 @@ import type { Executing, Thread } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { ThreadsResponse } from "@/hooks/useThreads";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});
@@ -14,7 +15,7 @@ export function useExecutePlan(refetch: () => void) {
   const { emailAccountId } = useAccount();
 
   const executePlan = useCallback(
-    async (thread: Thread) => {
+    async (thread: ThreadsResponse["threads"][number]) => {
       if (!thread.plan?.rule) return;
 
       setExecutingPlan((s) => ({ ...s, [thread.id!]: true }));
@@ -41,7 +42,7 @@ export function useExecutePlan(refetch: () => void) {
   );
 
   const rejectPlan = useCallback(
-    async (thread: Thread) => {
+    async (thread: ThreadsResponse["threads"][number]) => {
       setRejectingPlan((s) => ({ ...s, [thread.id!]: true }));
 
       if (thread.plan?.id) {
