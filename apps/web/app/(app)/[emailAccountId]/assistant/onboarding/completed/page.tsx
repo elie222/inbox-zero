@@ -24,13 +24,12 @@ export default function CompletedPage(props: {
 
           <div className="mt-6 space-y-4">
             <TypographyP>
-              We've configured your inbox with smart defaults to help you stay
-              organized. Your emails will be automatically categorized.
+              Your emails will be automatically categorized.
             </TypographyP>
 
             <TypographyP>
-              Want to customize further? You can chat with the assistant to
-              create custom rules and fine-tune your preferences anytime.
+              Want to customize further? You can update your rules on the
+              Assistant page and fine-tune your preferences anytime.
             </TypographyP>
           </div>
 

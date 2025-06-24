@@ -27,6 +27,8 @@ import {
 } from "@/components/MultiSelectFilter";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
+import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
+import { PremiumTier } from "@prisma/client";
 
 export const maxDuration = 3;
 
@@ -185,6 +187,36 @@ export default function Components() {
           <div className="mt-4 flex flex-col gap-2">
             <TooltipExplanation size="sm" text="Sm explanation tooltip" />
             <TooltipExplanation size="md" text="Md explanation tooltip" />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">Premium Alerts</div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Basic Plan (needs upgrade to Business):
+              </p>
+              <PremiumAiAssistantAlert
+                showSetApiKey={false}
+                tier={PremiumTier.BASIC_MONTHLY}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Pro Plan (needs API key):
+              </p>
+              <PremiumAiAssistantAlert
+                showSetApiKey={true}
+                tier={PremiumTier.PRO_MONTHLY}
+              />
+            </div>
+            <div>
+              <p className="mb-2 text-sm text-muted-foreground">
+                Free Plan (needs upgrade):
+              </p>
+              <PremiumAiAssistantAlert showSetApiKey={false} tier={null} />
+            </div>
           </div>
         </div>
 

@@ -55,8 +55,8 @@ export const TestCustomEmailForm = () => {
           registerProps={register("content", { required: true })}
           error={errors.content}
         />
-        <Button type="submit" loading={isSubmitting}>
-          <SparklesIcon className="mr-2 h-4 w-4" />
+        <Button type="submit" loading={isSubmitting} size="sm">
+          <SparklesIcon className="mr-2 size-4" />
           Test
         </Button>
       </form>

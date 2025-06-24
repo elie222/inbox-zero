@@ -89,7 +89,8 @@ export function DeleteSection() {
                         account.
                       </p>
                       <p className="mb-3">
-                        You can manage your subscription by going to the{" "}
+                        You can manage your subscription by clicking "Manage
+                        Subscription" above or going to the{" "}
                         <Link
                           href="/premium"
                           className="text-blue-600 underline hover:text-blue-800"

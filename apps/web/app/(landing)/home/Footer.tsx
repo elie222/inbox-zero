@@ -40,6 +40,7 @@ const navigation = {
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
+    { name: "SOC2 (In Progress)", href: "/soc2", target: "_blank" },
     { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [

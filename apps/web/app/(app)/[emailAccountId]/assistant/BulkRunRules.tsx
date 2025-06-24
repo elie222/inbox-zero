@@ -61,8 +61,8 @@ export function BulkRunRules() {
             {data && (
               <>
                 <SectionDescription>
-                  This runs your rules on emails currently in your inbox (that
-                  have not been previously processed).
+                  This runs your rules on unread emails currently in your inbox
+                  (that have not been previously processed).
                 </SectionDescription>
 
                 {!!queue.size && (
@@ -159,7 +159,7 @@ async function onRun(
   const endDateInSeconds = endDate ? dateToSeconds(endDate) : "";
   const q = `after:${startDateInSeconds} ${
     endDate ? `before:${endDateInSeconds}` : ""
-  }`;
+  } is:unread`;
 
   let aborted = false;
 

@@ -257,7 +257,7 @@ export function BulkUnsubscribeSection({
                     }),
                 },
                 {
-                  label: "Auto Archived",
+                  label: "Skip Inbox",
                   checked: filters.autoArchived,
                   setChecked: () =>
                     setFilters({
