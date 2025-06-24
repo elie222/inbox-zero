@@ -49,7 +49,8 @@
         "SENTRY_PROJECT",
 
         "LOG_ZOD_ERRORS",
-
+        "ENABLE_DEBUG_LOGS",
+        
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "LEMON_SQUEEZY_API_KEY",
 

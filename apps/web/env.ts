@@ -67,6 +67,7 @@ export const env = createEnv({
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
+    ENABLE_DEBUG_LOGS: z.coerce.boolean().default(false),
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     LEMON_SQUEEZY_API_KEY: z.string().optional(),
