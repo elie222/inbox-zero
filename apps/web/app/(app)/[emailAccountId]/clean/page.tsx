@@ -3,6 +3,7 @@ import { getLastJob } from "@/app/(app)/[emailAccountId]/clean/helpers";
 import { ConfirmationStep } from "@/app/(app)/[emailAccountId]/clean/ConfirmationStep";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function CleanPage({
   params,
@@ -10,6 +11,7 @@ export default async function CleanPage({
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { emailAccountId } = await params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const lastJob = await getLastJob({ emailAccountId });
   if (!lastJob) redirect(prefixPath(emailAccountId, "/clean/onboarding"));

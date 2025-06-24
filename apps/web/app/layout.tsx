@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 // import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
+import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
 import "../styles/globals.css";
@@ -92,6 +93,13 @@ export default async function RootLayout({
         {/* <Analytics /> */}
         <AxiomWebVitals />
         <UTM />
+        {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
+          <DubAnalytics
+            apiHost="/_proxy/dub"
+            scriptProps={{ src: "/_proxy/dub/script.js" }}
+            domainsConfig={{ refer: env.NEXT_PUBLIC_DUB_REFER_DOMAIN }}
+          />
+        )}
         {env.NEXT_PUBLIC_GTM_ID ? (
           <GoogleTagManager gtmId={env.NEXT_PUBLIC_GTM_ID} />
         ) : null}

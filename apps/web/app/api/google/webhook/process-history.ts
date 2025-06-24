@@ -35,6 +35,7 @@ export async function processHistoryForUser(
       lastSyncedHistoryId: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
+      coldEmailDigest: true,
       autoCategorizeSenders: true,
       account: {
         select: {

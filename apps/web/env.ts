@@ -82,6 +82,10 @@ export const env = createEnv({
     POSTHOG_PROJECT_ID: z.string().optional(),
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
+    RESEND_FROM_EMAIL: z
+      .string()
+      .optional()
+      .default("Inbox Zero <updates@transactional.getinboxzero.com>"),
     CRON_SECRET: z.string().optional(),
     LOOPS_API_SECRET: z.string().optional(),
     FB_CONVERSION_API_ACCESS_TOKEN: z.string().optional(),
@@ -94,6 +98,7 @@ export const env = createEnv({
     INTERNAL_API_KEY: z.string(),
     WHITELIST_FROM: z.string().optional(),
     USE_BACKUP_MODEL: z.coerce.boolean().optional().default(false),
+    HEALTH_API_KEY: z.string().optional(),
 
     // license
     LICENSE_1_SEAT_VARIANT_ID: z.coerce.number().optional(),
@@ -101,6 +106,8 @@ export const env = createEnv({
     LICENSE_5_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_10_SEAT_VARIANT_ID: z.coerce.number().optional(),
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
+
+    DUB_API_KEY: z.string().optional(),
   },
   client: {
     // stripe
@@ -150,6 +157,7 @@ export const env = createEnv({
       .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
+    NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -204,5 +212,6 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
+    NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
   },
 });

@@ -3,8 +3,10 @@ import { nanoid } from "nanoid";
 import { resend } from "./client";
 import type { ReactElement } from "react";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
+import DigestEmail, { type DigestEmailProps } from "../emails/digest";
 
 const sendEmail = async ({
+  from,
   to,
   subject,
   react,
@@ -12,6 +14,7 @@ const sendEmail = async ({
   tags,
   unsubscribeToken,
 }: {
+  from: string;
   to: string;
   subject: string;
   react: ReactElement;
@@ -30,7 +33,7 @@ const sendEmail = async ({
   const text = await render(react, { plainText: true });
 
   const result = await resend.emails.send({
-    from: "Inbox Zero <updates@transactional.getinboxzero.com>",
+    from,
     to: test ? "delivered@resend.dev" : to,
     subject,
     react,
@@ -79,15 +82,18 @@ const sendEmail = async ({
 // };
 
 export const sendSummaryEmail = async ({
+  from,
   to,
   test,
   emailProps,
 }: {
+  from: string;
   to: string;
   test?: boolean;
   emailProps: SummaryEmailProps;
 }) => {
   sendEmail({
+    from,
     to,
     subject: "Your weekly email summary",
     react: <SummaryEmail {...emailProps} />,
@@ -97,6 +103,33 @@ export const sendSummaryEmail = async ({
       {
         name: "category",
         value: "activity-update",
+      },
+    ],
+  });
+};
+
+export const sendDigestEmail = async ({
+  from,
+  to,
+  test,
+  emailProps,
+}: {
+  from: string;
+  to: string;
+  test?: boolean;
+  emailProps: DigestEmailProps;
+}) => {
+  sendEmail({
+    from,
+    to,
+    subject: "Your email digest",
+    react: <DigestEmail {...emailProps} />,
+    test,
+    unsubscribeToken: emailProps.unsubscribeToken,
+    tags: [
+      {
+        name: "category",
+        value: "digest",
       },
     ],
   });

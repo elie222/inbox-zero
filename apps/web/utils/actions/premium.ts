@@ -490,6 +490,9 @@ export const generateCheckoutSessionAction = actionClientUser
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
       line_items: [{ price: priceId, quantity }],
+      metadata: {
+        dubCustomerId: userId,
+      },
     });
 
     after(() => trackStripeCheckoutCreated(user.email));

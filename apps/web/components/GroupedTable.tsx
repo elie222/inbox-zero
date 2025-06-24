@@ -434,7 +434,7 @@ function GroupRow({
                 <Link
                   href={prefixPath(
                     emailAccountId,
-                    `/automation?tab=rule&ruleId=${rule.id}`,
+                    `/assistant?tab=rule&ruleId=${rule.id}`,
                   )}
                   target="_blank"
                 >

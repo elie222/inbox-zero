@@ -86,6 +86,9 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
         break;
       case ActionType.TRACK_THREAD:
         break;
+      case ActionType.DIGEST:
+        actions.push("add to digest");
+        break;
       default:
         console.warn(`Unknown action type: ${action.type}`);
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

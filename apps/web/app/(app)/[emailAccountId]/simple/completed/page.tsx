@@ -10,20 +10,22 @@ import { SimpleProgressCompleted } from "@/app/(app)/[emailAccountId]/simple/Sim
 import { ShareOnTwitterButton } from "@/app/(app)/[emailAccountId]/simple/completed/ShareOnTwitterButton";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import prisma from "@/utils/prisma";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function SimpleCompletedPage(props: {
   params: Promise<{ emailAccountId: string }>;
 }) {
-  const params = await props.params;
+  const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
-    emailAccountId: params.emailAccountId,
+    emailAccountId,
   });
 
   if (!accessToken) throw new Error("Account not found");
 
   const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: params.emailAccountId },
+    where: { id: emailAccountId },
     select: { email: true },
   });
 
@@ -35,7 +37,7 @@ export default async function SimpleCompletedPage(props: {
     query: { q: "newer_than:1d in:inbox" },
     gmail,
     accessToken,
-    emailAccountId: params.emailAccountId,
+    emailAccountId,
   });
 
   return (

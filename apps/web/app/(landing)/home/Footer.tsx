@@ -5,6 +5,7 @@ const navigation = {
     { name: "AI Email Assistant", href: "/ai-automation" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
+    { name: "Clean your inbox", href: "/clean-inbox" },
     { name: "Cold Email Blocker", href: "/block-cold-emails" },
     { name: "Email Analytics", href: "/email-analytics" },
     { name: "Open Source", href: "/github", target: "_blank" },
@@ -27,6 +28,11 @@ const navigation = {
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
     { name: "Changelog", href: "/changelog", target: "_blank" },
+    {
+      name: "Status",
+      href: "https://inbox-zero.openstatus.dev/",
+      target: "_blank",
+    },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },

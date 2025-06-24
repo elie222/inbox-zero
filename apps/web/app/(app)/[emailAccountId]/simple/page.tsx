@@ -12,6 +12,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { getGmailClientForEmailId } from "@/utils/account";
 import { prefixPath } from "@/utils/path";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +20,8 @@ export default async function SimplePage(props: {
   params: Promise<{ emailAccountId: string }>;
   searchParams: Promise<{ pageToken?: string; type?: string }>;
 }) {
-  const params = await props.params;
-  const emailAccountId = params.emailAccountId;
+  const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const searchParams = await props.searchParams;
 

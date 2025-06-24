@@ -7,6 +7,7 @@ import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 import { Chat } from "@/components/assistant-chat/chat";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -16,6 +17,7 @@ export default async function AssistantPage({
   params: Promise<{ emailAccountId: string }>;
 }) {
   const { emailAccountId } = await params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   // onboarding redirect
   const cookieStore = await cookies();
