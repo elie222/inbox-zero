@@ -171,8 +171,10 @@ async function executeDelayedAction({
   emailAccount: { email: string; userId: string; id: string };
   scheduledAction: ScheduledAction;
 }) {
-  // Create a temporary ExecutedRule and ExecutedAction for the executeAct function
-  const tempExecutedAction = await prisma.executedAction.create({
+  // Create ExecutedAction record to integrate with existing executeAct function.
+  // This allows us to reuse the existing action execution logic for delayed actions
+  // while maintaining proper audit trail and database consistency.
+  const executedAction = await prisma.executedAction.create({
     data: {
       type: actionItem.type,
       label: actionItem.label,
@@ -222,7 +224,7 @@ async function executeDelayedAction({
     message: parsedMessage,
   });
 
-  return tempExecutedAction;
+  return executedAction;
 }
 
 /**
