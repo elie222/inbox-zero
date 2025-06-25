@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/Input";
 import {
   Select,
   SelectContent,
@@ -107,15 +106,12 @@ export function ScheduledActionsTable() {
       const response = await fetch(`/api/admin/scheduled-actions?${params}`);
       if (response.ok) {
         const data = await response.json();
-        console.log("API Response:", data); // Debug log
-        console.log("All rules:", data.allRules); // Debug log
         setActions(data.scheduledActions || []);
         setAllRules(data.allRules || []);
         setTotalCount(data.totalCount || 0);
         setStatusCounts(data.statusCounts || {});
       }
     } catch (error) {
-      console.error("Failed to fetch scheduled actions:", error);
       setActions([]);
     } finally {
       setIsLoading(false);
@@ -227,16 +223,15 @@ export function ScheduledActionsTable() {
 
       {/* Filters */}
       <div className="mb-6 flex flex-wrap gap-4">
-        <Input
+        <input
           name="email"
           type="email"
           placeholder="Filter by email..."
-          registerProps={{
-            value: emailFilter,
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-              setEmailFilter(e.target.value),
-          }}
-          className="w-64"
+          value={emailFilter}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+            setEmailFilter(e.target.value)
+          }
+          className="block w-64 rounded-md border-slate-300 bg-background shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700 sm:text-sm"
         />
 
         <Select value={ruleFilter} onValueChange={setRuleFilter}>
