@@ -175,8 +175,8 @@ type ActionFieldsSelection = Pick<
 
 export function sanitizeActionFields(
   action: Partial<ActionFieldsSelection> & { type: ActionType },
-): any {
-  const base: any = {
+): ActionFieldsSelection {
+  const base: ActionFieldsSelection = {
     type: action.type,
     label: null,
     subject: null,
@@ -185,12 +185,8 @@ export function sanitizeActionFields(
     cc: null,
     bcc: null,
     url: null,
+    delayInMinutes: action.delayInMinutes ?? null,
   };
-
-  // Only include delayInMinutes if it has a value
-  if (action.delayInMinutes != null) {
-    base.delayInMinutes = action.delayInMinutes;
-  }
 
   switch (action.type) {
     case ActionType.ARCHIVE:

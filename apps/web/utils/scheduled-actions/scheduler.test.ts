@@ -2,10 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@prisma/client";
 import { cancelScheduledActions } from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
-import type { ActionItem } from "@/utils/ai/types";
 import prisma from "@/utils/__mocks__/prisma";
-
-// Run with: pnpm test utils/scheduled-actions/scheduler.test.ts
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
