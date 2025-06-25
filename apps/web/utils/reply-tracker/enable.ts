@@ -110,8 +110,11 @@ export async function enableReplyTracker({
               bcc: null,
               webhookUrl: null,
             },
+            delayInMinutes: null,
           },
-          ...(addDigest ? [{ type: ActionType.DIGEST }] : []),
+          ...(addDigest
+            ? [{ type: ActionType.DIGEST, delayInMinutes: null }]
+            : []),
         ],
       },
       emailAccountId: emailAccount.id,

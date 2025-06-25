@@ -4,6 +4,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
 } from "@prisma/client";
+import { NINETY_DAYS_MINUTES } from "@/utils/date";
 
 const conditionSchema = z
   .object({
@@ -78,12 +79,11 @@ const actionSchema = z.object({
     ),
   delayInMinutes: z
     .number()
-    .min(1)
-    .max(43200)
+    .min(1, "Minimum supported delay is 1 minute")
+    .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
     .nullish()
-    .transform((val) => (val === 0 || val == null ? null : val))
     .describe(
-      "Optional delay in minutes (1 min to 30 days) before executing this action",
+      "Optional delay in minutes (1 min to 90 days) before executing this action",
     ),
 });
 

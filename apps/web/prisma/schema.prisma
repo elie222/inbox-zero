@@ -451,8 +451,7 @@ model ScheduledAction {
   // Execution tracking
   executedAt       DateTime?
   executedActionId String?   @unique
-  errorMessage     String?
-  retryCount       Int       @default(0)
+
 
   // Timestamps
   createdAt DateTime @default(now())

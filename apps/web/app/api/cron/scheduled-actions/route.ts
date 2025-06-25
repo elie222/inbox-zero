@@ -1,8 +1,3 @@
-/**
- * Cron job for executing scheduled actions
- * Runs every 15 minutes to process due delayed actions
- */
-
 import type { NextRequest } from "next/server";
 import { withError } from "@/utils/middleware";
 import { hasPostCronSecret } from "@/utils/cron";
@@ -17,7 +12,7 @@ const logger = createScopedLogger("cron-scheduled-actions");
 
 export const maxDuration = 300; // 5 minutes
 
-async function handler(request: NextRequest) {
+export const POST = withError(async (request: NextRequest) => {
   if (!hasPostCronSecret(request)) {
     return new Response("Unauthorized", { status: 401 });
   }
@@ -35,18 +30,9 @@ async function handler(request: NextRequest) {
 
     logger.info("Processing scheduled actions", { count: dueActions.length });
 
-    const results = {
-      processed: 0,
-      successful: 0,
-      failed: 0,
-      retried: 0,
-    };
-
     // Process each scheduled action
     for (const scheduledAction of dueActions) {
       try {
-        results.processed++;
-
         // Mark as executing to prevent duplicate processing
         const markedAction = await markActionAsExecuting(scheduledAction.id);
         if (!markedAction) {
@@ -60,26 +46,17 @@ async function handler(request: NextRequest) {
         const executionResult = await executeScheduledAction(scheduledAction);
 
         if (executionResult.success) {
-          results.successful++;
           logger.info("Successfully executed scheduled action", {
             scheduledActionId: scheduledAction.id,
             executedActionId: executionResult.executedActionId,
           });
-        } else if (executionResult.retry) {
-          results.retried++;
-          logger.info("Scheduled action for retry", {
-            scheduledActionId: scheduledAction.id,
-            error: executionResult.error,
-          });
         } else {
-          results.failed++;
-          logger.error("Permanently failed scheduled action", {
+          logger.error("Failed to execute scheduled action", {
             scheduledActionId: scheduledAction.id,
             error: executionResult.error,
           });
         }
       } catch (error) {
-        results.failed++;
         logger.error("Failed to process scheduled action", {
           scheduledActionId: scheduledAction.id,
           error,
@@ -87,16 +64,11 @@ async function handler(request: NextRequest) {
       }
     }
 
-    logger.info("Completed scheduled actions cron job", results);
+    logger.info("Completed scheduled actions cron job");
 
-    return new Response(JSON.stringify(results), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response("OK", { status: 200 });
   } catch (error) {
     logger.error("Scheduled actions cron job failed", { error });
     return new Response("Internal server error", { status: 500 });
   }
-}
-
-export const POST = withError(handler);
+});

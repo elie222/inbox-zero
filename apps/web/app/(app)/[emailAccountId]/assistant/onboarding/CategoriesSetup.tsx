@@ -207,6 +207,9 @@ function CategoryCard({
                     <SelectItem value="label_archive">
                       Label + Skip Inbox
                     </SelectItem>
+                    <SelectItem value="label_archive_1_week">
+                      Label + Archive after a week
+                    </SelectItem>
                     <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>

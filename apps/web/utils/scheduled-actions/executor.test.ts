@@ -45,19 +45,17 @@ describe("executor", () => {
       cc: null,
       bcc: null,
       url: null,
-      errorMessage: null,
-      retryCount: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
       executedAt: null,
       executedActionId: null,
-    };
+    } as any;
 
     it("should successfully execute action and mark as completed", async () => {
       prisma.scheduledAction.update.mockResolvedValue({
         ...mockScheduledAction,
         status: ScheduledActionStatus.COMPLETED,
-      });
+      } as any);
       prisma.executedAction.create.mockResolvedValue({
         id: "executed-action-123",
         type: ActionType.ARCHIVE,
@@ -156,17 +154,15 @@ describe("executor", () => {
           status: ScheduledActionStatus.COMPLETED,
           executedAt: expect.any(Date),
           executedActionId: "executed-action-123",
-          errorMessage: null,
         },
       });
     });
 
-    it("should handle execution errors and schedule retry", async () => {
+    it("should handle execution errors and mark as failed", async () => {
       prisma.scheduledAction.update.mockResolvedValue({
         ...mockScheduledAction,
-        status: ScheduledActionStatus.PENDING,
-        retryCount: 1,
-      });
+        status: ScheduledActionStatus.FAILED,
+      } as any);
       prisma.executedAction.create.mockResolvedValue({
         id: "executed-action-123",
         type: ActionType.ARCHIVE,
@@ -246,14 +242,10 @@ describe("executor", () => {
       const result = await executeScheduledAction(mockScheduledAction);
 
       expect(result.success).toBe(false);
-      expect(result.retry).toBe(true);
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
         where: { id: "scheduled-action-123" },
         data: {
-          status: ScheduledActionStatus.PENDING,
-          scheduledFor: expect.any(Date),
-          retryCount: { increment: 1 },
-          errorMessage: "Retry scheduled: Execution failed",
+          status: ScheduledActionStatus.FAILED,
         },
       });
     });
@@ -262,7 +254,7 @@ describe("executor", () => {
       prisma.scheduledAction.update.mockResolvedValue({
         ...mockScheduledAction,
         status: ScheduledActionStatus.EXECUTING,
-      });
+      } as any);
 
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
@@ -275,7 +267,6 @@ describe("executor", () => {
         where: { id: "scheduled-action-123" },
         data: {
           status: ScheduledActionStatus.FAILED,
-          errorMessage: "[PERMANENT] Email account not found",
         },
       });
     });

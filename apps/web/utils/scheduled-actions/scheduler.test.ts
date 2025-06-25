@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActionType, ScheduledActionStatus } from "@prisma/client";
 import { cancelScheduledActions } from "./scheduler";
-import { isSupportedDelayedAction } from "@/utils/delayed-actions";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 import type { ActionItem } from "@/utils/ai/types";
 import prisma from "@/utils/__mocks__/prisma";
 
@@ -15,19 +15,22 @@ describe("scheduler", () => {
     vi.clearAllMocks();
   });
 
-  describe("isSupportedDelayedAction", () => {
+  describe("canActionBeDelayed", () => {
     it("should return true for supported actions", () => {
-      expect(isSupportedDelayedAction(ActionType.ARCHIVE)).toBe(true);
-      expect(isSupportedDelayedAction(ActionType.LABEL)).toBe(true);
-      expect(isSupportedDelayedAction(ActionType.MARK_READ)).toBe(true);
-      expect(isSupportedDelayedAction(ActionType.MARK_SPAM)).toBe(true);
+      expect(canActionBeDelayed(ActionType.ARCHIVE)).toBe(true);
+      expect(canActionBeDelayed(ActionType.LABEL)).toBe(true);
+      expect(canActionBeDelayed(ActionType.MARK_READ)).toBe(true);
+      expect(canActionBeDelayed(ActionType.REPLY)).toBe(true);
+      expect(canActionBeDelayed(ActionType.SEND_EMAIL)).toBe(true);
+      expect(canActionBeDelayed(ActionType.FORWARD)).toBe(true);
+      expect(canActionBeDelayed(ActionType.DRAFT_EMAIL)).toBe(true);
+      expect(canActionBeDelayed(ActionType.CALL_WEBHOOK)).toBe(true);
     });
 
     it("should return false for unsupported actions", () => {
-      expect(isSupportedDelayedAction(ActionType.REPLY)).toBe(false);
-      expect(isSupportedDelayedAction(ActionType.SEND_EMAIL)).toBe(false);
-      expect(isSupportedDelayedAction(ActionType.FORWARD)).toBe(false);
-      expect(isSupportedDelayedAction(ActionType.DRAFT_EMAIL)).toBe(false);
+      expect(canActionBeDelayed(ActionType.MARK_SPAM)).toBe(false);
+      expect(canActionBeDelayed(ActionType.TRACK_THREAD)).toBe(false);
+      expect(canActionBeDelayed(ActionType.DIGEST)).toBe(false);
     });
   });
 
@@ -48,7 +51,6 @@ describe("scheduler", () => {
         },
         data: {
           status: ScheduledActionStatus.CANCELLED,
-          errorMessage: "Superseded by new rule",
         },
       });
 
@@ -85,7 +87,6 @@ describe("scheduler", () => {
         },
         data: {
           status: ScheduledActionStatus.CANCELLED,
-          errorMessage: "Custom reason",
         },
       });
     });

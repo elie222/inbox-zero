@@ -1,8 +1,3 @@
-/**
- * Executor service for scheduled actions
- * Handles execution, validation, and completion of delayed actions
- */
-
 import type { gmail_v1 } from "@googleapis/gmail";
 import {
   ActionType,
@@ -22,23 +17,6 @@ import { parseMessage } from "@/utils/mail";
 import { formatError } from "@/utils/error";
 
 const logger = createScopedLogger("scheduled-actions-executor");
-
-// Maximum retry attempts for failed actions
-const MAX_RETRY_ATTEMPTS = 3;
-
-// Permanent errors that should not be retried
-const PERMANENT_ERROR_CODES = [
-  "PERMISSION_DENIED",
-  "NOT_FOUND",
-  "INVALID_ARGUMENT",
-  "FAILED_PRECONDITION",
-];
-
-// Helper to extract error code (reusing existing formatError for messages)
-function getErrorCode(error: unknown): string | number | undefined {
-  const err = error as any;
-  return err?.code ?? err?.status;
-}
 
 /**
  * Execute a scheduled action
@@ -122,18 +100,8 @@ export async function executeScheduledAction(scheduledAction: ScheduledAction) {
       error,
     });
 
-    // Determine if this is a permanent or temporary error
-    const isPermanentError = isPermanentFailure(error);
-    const shouldRetry =
-      !isPermanentError && scheduledAction.retryCount < MAX_RETRY_ATTEMPTS;
-
-    if (shouldRetry) {
-      await scheduleRetry(scheduledAction.id, error);
-      return { success: false, retry: true, error };
-    } else {
-      await markActionFailed(scheduledAction.id, error, isPermanentError);
-      return { success: false, retry: false, error };
-    }
+    await markActionFailed(scheduledAction.id, error);
+    return { success: false, error };
   }
 }
 
@@ -171,9 +139,11 @@ async function validateEmailState(
 
     return emailForAction;
   } catch (error: unknown) {
-    const code = getErrorCode(error);
-    const message = formatError(error);
-    if (code === 404 || message.includes("not found")) {
+    // Check for Gmail's standard "not found" error message
+    if (
+      error instanceof Error &&
+      error.message === "Requested entity was not found."
+    ) {
       logger.info("Email not found during validation", {
         messageId: scheduledAction.messageId,
         scheduledActionId: scheduledAction.id,
@@ -256,34 +226,6 @@ async function executeDelayedAction({
 }
 
 /**
- * Check if an error is permanent and should not be retried
- */
-function isPermanentFailure(error: unknown): boolean {
-  if (!error) return false;
-
-  const code = getErrorCode(error);
-  const message = formatError(error);
-
-  // Check for specific error codes
-  if (code && PERMANENT_ERROR_CODES.includes(String(code))) {
-    return true;
-  }
-
-  // Check for specific error messages
-  if (
-    message.includes("Permission denied") ||
-    message.includes("Invalid argument") ||
-    message.includes("Not found") ||
-    message.includes("Forbidden") ||
-    message.includes("Email account not found")
-  ) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
  * Mark scheduled action as completed
  */
 async function markActionCompleted(
@@ -297,7 +239,6 @@ async function markActionCompleted(
       status: ScheduledActionStatus.COMPLETED,
       executedAt: new Date(),
       executedActionId: executedActionId || undefined,
-      errorMessage: reason || null,
     },
   });
 
@@ -311,50 +252,17 @@ async function markActionCompleted(
 /**
  * Mark scheduled action as failed
  */
-async function markActionFailed(
-  scheduledActionId: string,
-  error: unknown,
-  isPermanent: boolean,
-) {
-  const errorMessage = formatError(error);
-
+async function markActionFailed(scheduledActionId: string, error: unknown) {
   await prisma.scheduledAction.update({
     where: { id: scheduledActionId },
     data: {
       status: ScheduledActionStatus.FAILED,
-      errorMessage: `${isPermanent ? "[PERMANENT] " : ""}${errorMessage}`,
     },
   });
 
   logger.warn("Marked scheduled action as failed", {
     scheduledActionId,
-    isPermanent,
-    errorMessage,
-  });
-}
-
-/**
- * Schedule a retry for a failed action
- */
-async function scheduleRetry(scheduledActionId: string, error: unknown) {
-  const retryDelay = 15 * 60 * 1000; // 15 minutes
-  const retryAt = new Date(Date.now() + retryDelay);
-  const message = formatError(error);
-
-  await prisma.scheduledAction.update({
-    where: { id: scheduledActionId },
-    data: {
-      status: ScheduledActionStatus.PENDING,
-      scheduledFor: retryAt,
-      retryCount: { increment: 1 },
-      errorMessage: `Retry scheduled: ${message}`,
-    },
-  });
-
-  logger.info("Scheduled action retry", {
-    scheduledActionId,
-    retryAt,
-    errorMessage: message,
+    error,
   });
 }
 

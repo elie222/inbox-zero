@@ -7,7 +7,7 @@ import { ActionType, ScheduledActionStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
-import { isSupportedDelayedAction } from "@/utils/delayed-actions";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
 
 const logger = createScopedLogger("scheduled-actions");
 
@@ -29,7 +29,7 @@ export async function createScheduledAction({
   emailAccountId: string;
   scheduledFor: Date;
 }) {
-  if (!isSupportedDelayedAction(actionItem.type)) {
+  if (!canActionBeDelayed(actionItem.type)) {
     throw new Error(
       `Action type ${actionItem.type} is not supported for delayed execution`,
     );
@@ -99,7 +99,7 @@ export async function scheduleDelayedActions({
     (item) =>
       item.delayInMinutes != null &&
       item.delayInMinutes > 0 &&
-      isSupportedDelayedAction(item.type),
+      canActionBeDelayed(item.type),
   );
 
   if (delayedActions.length === 0) {
@@ -160,7 +160,6 @@ export async function cancelScheduledActions({
       },
       data: {
         status: ScheduledActionStatus.CANCELLED,
-        errorMessage: reason,
       },
     });
 
@@ -189,7 +188,7 @@ export async function cancelScheduledActions({
 /**
  * Get due scheduled actions for cron job execution
  */
-export async function getDueScheduledActions(limit = 50) {
+export async function getDueScheduledActions(limit = 100) {
   try {
     const dueActions = await prisma.scheduledAction.findMany({
       where: {

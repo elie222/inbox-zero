@@ -1,17 +1,16 @@
 import { ActionType } from "@prisma/client";
 
-// Supported action types for delayed execution
-const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
-  ActionType.ARCHIVE,
-  ActionType.LABEL,
-  ActionType.MARK_READ,
+// Action types that do NOT support delayed execution
+const UNSUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.MARK_SPAM,
+  ActionType.TRACK_THREAD,
+  ActionType.DIGEST,
 ];
 
 /**
  * Check if an action type supports delayed execution
  * This is a client-safe utility function
  */
-export function isSupportedDelayedAction(actionType: ActionType): boolean {
-  return SUPPORTED_DELAYED_ACTIONS.includes(actionType);
+export function canActionBeDelayed(actionType: ActionType): boolean {
+  return !UNSUPPORTED_DELAYED_ACTIONS.includes(actionType);
 }
