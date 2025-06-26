@@ -87,10 +87,17 @@ export async function createQStashScheduledAction({
     // Generate deduplication ID to prevent duplicate execution
     const deduplicationId = `scheduled-action-${scheduledAction.id}`;
 
+    // Validate delayInMinutes before scheduling
+    if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
+      throw new Error(
+        `Invalid delayInMinutes: ${actionItem.delayInMinutes}. Must be a positive number.`,
+      );
+    }
+
     // Schedule with QStash
     const qstashMessageId = await scheduleWithQStash({
       payload,
-      delayInMinutes: actionItem.delayInMinutes!,
+      delayInMinutes: actionItem.delayInMinutes,
       deduplicationId,
     });
 
@@ -184,8 +191,19 @@ export async function scheduleQStashDelayedActions({
   const scheduledActions = [];
 
   for (const actionItem of delayedActions) {
+    // Additional validation (defensive programming)
+    if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
+      logger.warn("Skipping action with invalid delayInMinutes", {
+        actionType: actionItem.type,
+        delayInMinutes: actionItem.delayInMinutes,
+        executedRuleId,
+        messageId,
+      });
+      continue;
+    }
+
     // Calculate delay from current time using date-fns
-    const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes!);
+    const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes);
 
     const scheduledAction = await createQStashScheduledAction({
       executedRuleId,

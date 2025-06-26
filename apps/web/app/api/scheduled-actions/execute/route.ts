@@ -1,5 +1,6 @@
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import type { NextRequest } from "next/server";
+import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler";
@@ -11,13 +12,15 @@ const logger = createScopedLogger("qstash-scheduled-actions-executor");
 
 export const maxDuration = 300; // 5 minutes
 
-interface ScheduledActionPayload {
-  scheduledActionId: string;
-  emailAccountId: string;
-  messageId: string;
-  threadId: string;
-  actionType: string;
-}
+const ScheduledActionPayloadSchema = z.object({
+  scheduledActionId: z.string().min(1, "Scheduled action ID is required"),
+  emailAccountId: z.string().min(1, "Email account ID is required"),
+  messageId: z.string().min(1, "Message ID is required"),
+  threadId: z.string().min(1, "Thread ID is required"),
+  actionType: z.string().min(1, "Action type is required"),
+});
+
+type ScheduledActionPayload = z.infer<typeof ScheduledActionPayloadSchema>;
 
 export const POST = verifySignatureAppRouter(
   withError(async (request: NextRequest) => {
@@ -28,7 +31,20 @@ export const POST = verifySignatureAppRouter(
         headers: Object.fromEntries(request.headers.entries()),
       });
 
-      const payload: ScheduledActionPayload = await request.json();
+      // Parse and validate the request payload
+      const rawPayload = await request.json();
+      const validationResult =
+        ScheduledActionPayloadSchema.safeParse(rawPayload);
+
+      if (!validationResult.success) {
+        logger.error("Invalid payload structure", {
+          errors: validationResult.error.errors,
+          receivedPayload: rawPayload,
+        });
+        return new Response("Invalid payload structure", { status: 400 });
+      }
+
+      const payload = validationResult.data;
 
       logger.info("Received QStash scheduled action execution request", {
         scheduledActionId: payload.scheduledActionId,
