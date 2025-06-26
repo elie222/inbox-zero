@@ -2,20 +2,23 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
-import Image from "next/image";
-import { DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { DialogTitle } from "@/components/ui/dialog";
-import { DialogHeader } from "@/components/ui/dialog";
-import { DialogContent } from "@/components/ui/dialog";
-import { DialogTrigger } from "@/components/ui/dialog";
-import { Dialog } from "@/components/ui/dialog";
+import {
+  DialogFooter,
+  DialogTitle,
+  DialogHeader,
+  DialogContent,
+  DialogTrigger,
+  Dialog,
+} from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 
 export function AddAccount() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const handleConnectGoogle = async () => {
     setIsLoading(true);
@@ -54,12 +57,26 @@ export function AddAccount() {
     setIsLoading(false);
   };
 
+  const handleYes = () => {
+    setIsDialogOpen(false);
+    handleMergeGoogle();
+  };
+
+  const handleNo = () => {
+    setIsDialogOpen(false);
+    handleConnectGoogle();
+  };
+
   return (
     <Card className="flex items-center justify-center">
       <CardContent className="flex flex-col items-center p-6">
-        <Dialog>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button disabled={isLoading} className="mt-auto">
+            <Button
+              disabled={isLoading}
+              className="mt-auto"
+              onClick={() => setIsDialogOpen(true)}
+            >
               <Image
                 src="/images/google.svg"
                 alt=""
@@ -74,33 +91,13 @@ export function AddAccount() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add or Merge Google Account</DialogTitle>
-              <DialogDescription>
-                Choose an action:
-                <ul className="mb-2 mt-2 list-disc pl-5">
-                  <li>
-                    <b>Connect Account:</b> Add an account that you haven't yet
-                    added to Inbox Zero.
-                  </li>
-                  <li>
-                    <b>Merge Another Account:</b> Sign in with a Google account
-                    that's currently linked to a *different* Inbox Zero user.
-                  </li>
-                </ul>
-              </DialogDescription>
+              <DialogTitle>
+                Has the account you want to add already signed up to Inbox Zero?
+              </DialogTitle>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:justify-end">
-              <Button variant="outline">Cancel</Button>
-              <Button
-                variant="secondary"
-                disabled={isLoading}
-                onClick={handleMergeGoogle}
-              >
-                Merge Another Account
-              </Button>
-              <Button disabled={isLoading} onClick={handleConnectGoogle}>
-                {isLoading ? "Connecting..." : "Connect Account"}
-              </Button>
+            <DialogFooter className="gap-1.5 sm:justify-end">
+              <Button onClick={handleYes}>Yes</Button>
+              <Button onClick={handleNo}>No</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
