@@ -1245,11 +1245,14 @@ function ActionCard({
             <div className="mt-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <DelayInputControls
-                    index={index}
-                    delayInMinutes={watch(`actions.${index}.delayInMinutes`)}
-                    setValue={setValue}
-                  />
+                  {/* Show delay input controls when delay has been enabled */}
+                  {watch(`actions.${index}.delayInMinutes`) !== null && (
+                    <DelayInputControls
+                      index={index}
+                      delayInMinutes={watch(`actions.${index}.delayInMinutes`)}
+                      setValue={setValue}
+                    />
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -1260,9 +1263,7 @@ function ActionCard({
                   <Toggle
                     name={`actions.${index}.delayEnabled`}
                     label="Delay"
-                    enabled={
-                      (watch(`actions.${index}.delayInMinutes`) ?? 0) > 0
-                    }
+                    enabled={watch(`actions.${index}.delayInMinutes`) !== null}
                     onChange={(enabled: boolean) => {
                       if (enabled) {
                         setValue(`actions.${index}.delayInMinutes`, 60, {
@@ -1482,7 +1483,10 @@ function DelayInputControls({
   const delayConfig = useMemo(() => {
     // Convert minutes to display value and unit
     const getDisplayValueAndUnit = (minutes: number | null | undefined) => {
-      if (!minutes || minutes <= 0) return { value: "", unit: "hours" };
+      if (minutes === null || minutes === undefined)
+        return { value: "", unit: "hours" };
+      // -1 means enabled but empty input
+      if (minutes === -1 || minutes <= 0) return { value: "", unit: "hours" };
 
       if (minutes >= 1440 && minutes % 1440 === 0) {
         // Days (1440 minutes = 1 day)
@@ -1499,7 +1503,9 @@ function DelayInputControls({
     // Convert display value and unit to minutes
     const convertToMinutes = (value: string, unit: string) => {
       const numValue = Number.parseInt(value, 10);
-      if (Number.isNaN(numValue) || numValue <= 0) return null;
+      // If empty or invalid, return -1 to indicate "enabled but empty"
+      // This distinguishes from null (disabled) and valid values (> 0)
+      if (Number.isNaN(numValue) || numValue <= 0) return -1;
 
       switch (unit) {
         case "minutes":
