@@ -1,20 +1,38 @@
 /**
- * Scheduler service for delayed actions
+ * Scheduler service for delayed actions using QStash
  * Handles creation, cancellation, and management of scheduled actions
  */
 
-import { ActionType, ScheduledActionStatus } from "@prisma/client";
+import type { ActionType } from "@prisma/client";
+import { ScheduledActionStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { env } from "@/env";
+import { getCronSecretHeader } from "@/utils/cron";
+import { Client } from "@upstash/qstash";
+import { addMinutes, getUnixTime } from "date-fns";
 
-const logger = createScopedLogger("scheduled-actions");
+const logger = createScopedLogger("qstash-scheduled-actions");
+
+interface ScheduledActionPayload {
+  scheduledActionId: string;
+  emailAccountId: string;
+  messageId: string;
+  threadId: string;
+  actionType: ActionType;
+}
+
+function getQstashClient() {
+  if (!env.QSTASH_TOKEN) return null;
+  return new Client({ token: env.QSTASH_TOKEN });
+}
 
 /**
- * Create a scheduled action for delayed execution
+ * Create a scheduled action and queue it with QStash
  */
-export async function createScheduledAction({
+export async function createQStashScheduledAction({
   executedRuleId,
   actionItem,
   messageId,
@@ -36,6 +54,7 @@ export async function createScheduledAction({
   }
 
   try {
+    // Create the scheduled action record first
     const scheduledAction = await prisma.scheduledAction.create({
       data: {
         executedRuleId,
@@ -56,17 +75,45 @@ export async function createScheduledAction({
       },
     });
 
-    logger.info("Created scheduled action", {
+    // Create QStash payload
+    const payload: ScheduledActionPayload = {
+      scheduledActionId: scheduledAction.id,
+      emailAccountId,
+      messageId,
+      threadId,
+      actionType: actionItem.type,
+    };
+
+    // Generate deduplication ID to prevent duplicate execution
+    const deduplicationId = `scheduled-action-${scheduledAction.id}`;
+
+    // Schedule with QStash
+    const qstashMessageId = await scheduleWithQStash({
+      payload,
+      delayInMinutes: actionItem.delayInMinutes!,
+      deduplicationId,
+    });
+
+    // Store the QStash message ID for efficient cancellation
+    if (qstashMessageId) {
+      await prisma.scheduledAction.update({
+        where: { id: scheduledAction.id },
+        data: { qstashMessageId },
+      });
+    }
+
+    logger.info("Created and scheduled action with QStash", {
       scheduledActionId: scheduledAction.id,
       actionType: actionItem.type,
       scheduledFor,
       messageId,
       threadId,
+      deduplicationId,
     });
 
     return scheduledAction;
   } catch (error) {
-    logger.error("Failed to create scheduled action", {
+    logger.error("Failed to create QStash scheduled action", {
       error,
       executedRuleId,
       actionType: actionItem.type,
@@ -78,9 +125,37 @@ export async function createScheduledAction({
 }
 
 /**
- * Schedule delayed actions for a set of action items
+ * Schedule delayed actions for a set of action items using QStash
  */
 export async function scheduleDelayedActions({
+  executedRuleId,
+  actionItems,
+  messageId,
+  threadId,
+  emailAccountId,
+  emailInternalDate,
+}: {
+  executedRuleId: string;
+  actionItems: ActionItem[];
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  emailInternalDate: Date;
+}) {
+  return scheduleQStashDelayedActions({
+    executedRuleId,
+    actionItems,
+    messageId,
+    threadId,
+    emailAccountId,
+    emailInternalDate,
+  });
+}
+
+/**
+ * Schedule delayed actions using QStash for a set of action items
+ */
+export async function scheduleQStashDelayedActions({
   executedRuleId,
   actionItems,
   messageId,
@@ -109,11 +184,10 @@ export async function scheduleDelayedActions({
   const scheduledActions = [];
 
   for (const actionItem of delayedActions) {
-    const scheduledFor = new Date(
-      emailInternalDate.getTime() + actionItem.delayInMinutes! * 60 * 1000,
-    );
+    // Calculate delay from current time using date-fns
+    const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes!);
 
-    const scheduledAction = await createScheduledAction({
+    const scheduledAction = await createQStashScheduledAction({
       executedRuleId,
       actionItem,
       messageId,
@@ -125,7 +199,7 @@ export async function scheduleDelayedActions({
     scheduledActions.push(scheduledAction);
   }
 
-  logger.info("Scheduled delayed actions", {
+  logger.info("Scheduled delayed actions with QStash", {
     count: scheduledActions.length,
     executedRuleId,
     messageId,
@@ -136,7 +210,7 @@ export async function scheduleDelayedActions({
 }
 
 /**
- * Cancel existing scheduled actions for a message
+ * Cancel existing scheduled actions for a message using QStash
  * Used when new rules override previous scheduled actions
  */
 export async function cancelScheduledActions({
@@ -150,7 +224,68 @@ export async function cancelScheduledActions({
   threadId?: string;
   reason?: string;
 }) {
+  return cancelQStashScheduledActions({
+    emailAccountId,
+    messageId,
+    threadId,
+    reason,
+  });
+}
+
+/**
+ * Cancel existing scheduled actions and their QStash schedules
+ */
+export async function cancelQStashScheduledActions({
+  emailAccountId,
+  messageId,
+  threadId,
+  reason = "Superseded by new rule",
+}: {
+  emailAccountId: string;
+  messageId: string;
+  threadId?: string;
+  reason?: string;
+}) {
   try {
+    // First, get the scheduled actions that will be cancelled
+    const actionsToCancel = await prisma.scheduledAction.findMany({
+      where: {
+        emailAccountId,
+        messageId,
+        ...(threadId && { threadId }),
+        status: ScheduledActionStatus.PENDING,
+      },
+      select: { id: true, qstashMessageId: true },
+    });
+
+    if (actionsToCancel.length === 0) {
+      return 0;
+    }
+
+    // Cancel the QStash messages first for efficiency
+    const client = getQstashClient();
+    if (client) {
+      for (const action of actionsToCancel) {
+        if (action.qstashMessageId) {
+          try {
+            await cancelQStashMessage(client, action.qstashMessageId);
+            logger.info("Cancelled QStash message", {
+              scheduledActionId: action.id,
+              qstashMessageId: action.qstashMessageId,
+            });
+          } catch (error) {
+            // Log but don't fail the entire operation if QStash cancellation fails
+            logger.warn("Failed to cancel QStash message", {
+              scheduledActionId: action.id,
+              qstashMessageId: action.qstashMessageId,
+              error,
+            });
+          }
+        }
+      }
+    }
+
+    // Cancel in database
     const cancelledActions = await prisma.scheduledAction.updateMany({
       where: {
         emailAccountId,
@@ -163,19 +298,17 @@ export async function cancelScheduledActions({
       },
     });
 
-    if (cancelledActions.count > 0) {
-      logger.info("Cancelled scheduled actions", {
-        count: cancelledActions.count,
-        emailAccountId,
-        messageId,
-        threadId,
-        reason,
-      });
-    }
+    logger.info("Cancelled QStash scheduled actions", {
+      count: cancelledActions.count,
+      emailAccountId,
+      messageId,
+      threadId,
+      reason,
+    });
 
     return cancelledActions.count;
   } catch (error) {
-    logger.error("Failed to cancel scheduled actions", {
+    logger.error("Failed to cancel QStash scheduled actions", {
       error,
       emailAccountId,
       messageId,
@@ -186,42 +319,90 @@ export async function cancelScheduledActions({
 }
 
 /**
- * Get due scheduled actions for cron job execution
+ * Schedule a message with QStash
  */
-export async function getDueScheduledActions(limit = 100) {
+async function scheduleWithQStash({
+  payload,
+  delayInMinutes,
+  deduplicationId,
+}: {
+  payload: ScheduledActionPayload;
+  delayInMinutes: number;
+  deduplicationId: string;
+}) {
+  const client = getQstashClient();
+  const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/scheduled-actions/execute`;
+
+  // Calculate the absolute timestamp when the action should execute using date-fns
+  const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
+
   try {
-    const dueActions = await prisma.scheduledAction.findMany({
-      where: {
-        status: ScheduledActionStatus.PENDING,
-        scheduledFor: {
-          lte: new Date(),
+    if (client) {
+      const response = await client.publishJSON({
+        url,
+        body: payload,
+        notBefore, // Absolute delay using unix timestamp
+        deduplicationId,
+        contentBasedDeduplication: false,
+        headers: getCronSecretHeader(),
+      });
+
+      const messageId =
+        "messageId" in response ? response.messageId : undefined;
+
+      logger.info("Successfully scheduled with QStash", {
+        scheduledActionId: payload.scheduledActionId,
+        qstashMessageId: messageId,
+        notBefore,
+        delayInMinutes,
+        deduplicationId,
+      });
+
+      return messageId;
+    } else {
+      // Fallback - just log and continue without scheduling
+      logger.warn(
+        "QStash client not available, scheduled action will not execute automatically",
+        {
+          scheduledActionId: payload.scheduledActionId,
         },
-      },
-      include: {
-        emailAccount: true,
-        executedRule: true,
-      },
-      orderBy: {
-        scheduledFor: "asc",
-      },
-      take: limit,
-    });
-
-    logger.trace("Found due scheduled actions", {
-      count: dueActions.length,
-    });
-
-    return dueActions;
+      );
+      return null;
+    }
   } catch (error) {
-    logger.error("Failed to get due scheduled actions", { error });
+    logger.error("Failed to schedule with QStash", {
+      error,
+      scheduledActionId: payload.scheduledActionId,
+      deduplicationId,
+    });
+    throw error;
+  }
+}
+
+/**
+ * Cancel a QStash message using the message ID
+ */
+async function cancelQStashMessage(
+  client: InstanceType<typeof Client>,
+  messageId: string,
+) {
+  try {
+    await client.http.request({
+      path: ["v2", "messages", messageId],
+      method: "DELETE",
+    });
+    logger.info("Successfully cancelled QStash message", { messageId });
+  } catch (error) {
+    logger.error("Failed to cancel QStash message", { messageId, error });
     throw error;
   }
 }
 
 /**
  * Mark scheduled action as executing to prevent duplicate execution
+ * Returns null if action cannot be executed (already executing, cancelled, etc.)
  */
-export async function markActionAsExecuting(scheduledActionId: string) {
+export async function markQStashActionAsExecuting(scheduledActionId: string) {
   try {
     const updatedAction = await prisma.scheduledAction.update({
       where: {
@@ -235,8 +416,8 @@ export async function markActionAsExecuting(scheduledActionId: string) {
 
     return updatedAction;
   } catch (error) {
-    // If update fails, the action might already be executing or completed
-    logger.warn("Failed to mark action as executing", {
+    // If update fails, the action might already be executing, completed, or cancelled
+    logger.warn("Failed to mark QStash action as executing", {
       scheduledActionId,
       error,
     });

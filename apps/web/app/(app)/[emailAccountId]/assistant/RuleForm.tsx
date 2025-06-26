@@ -1079,65 +1079,6 @@ function ActionCard({
           </Button>
         </div>
         <div className="space-y-4 sm:col-span-2">
-          {/* AI Generated and Delay Enabled toggles in a row */}
-          {(action.type === ActionType.LABEL ||
-            canActionBeDelayed(action.type)) && (
-            <div className="flex items-center justify-between">
-              {/* AI generated toggle for LABEL actions */}
-              {action.type === ActionType.LABEL ? (
-                <div className="flex items-center space-x-2">
-                  <TooltipExplanation
-                    side="right"
-                    text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
-                  />
-                  <Toggle
-                    name={`actions.${index}.label.ai`}
-                    label="AI generated"
-                    enabled={!!action.label?.ai}
-                    onChange={(enabled: boolean) => {
-                      setValue(
-                        `actions.${index}.label`,
-                        enabled
-                          ? { value: "", ai: true }
-                          : { value: "", ai: false },
-                      );
-                    }}
-                  />
-                </div>
-              ) : (
-                <div />
-              )}
-
-              {/* Delay enabled toggle for supported action types */}
-              {canActionBeDelayed(action.type) && (
-                <div className="flex items-center space-x-2">
-                  <TooltipExplanation
-                    text="Schedule this action to execute after a delay from when the email was received. Useful for follow-ups, reminders, or giving senders time to respond."
-                    side="left"
-                  />
-                  <Toggle
-                    name={`actions.${index}.delayEnabled`}
-                    label="Delay"
-                    enabled={
-                      (watch(`actions.${index}.delayInMinutes`) ?? 0) > 0
-                    }
-                    onChange={(enabled: boolean) => {
-                      if (enabled) {
-                        setValue(`actions.${index}.delayInMinutes`, 60, {
-                          shouldValidate: true,
-                        });
-                      } else {
-                        setValue(`actions.${index}.delayInMinutes`, null, {
-                          shouldValidate: true,
-                        });
-                      }
-                    }}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
           {fields.map((field) => {
             const isAiGenerated = !!action[field.name]?.ai;
             const value = watch(`actions.${index}.${field.name}.value`) || "";
@@ -1157,6 +1098,28 @@ function ActionCard({
               >
                 <div className="flex items-center justify-between">
                   <Label name={field.name} label={field.label} />
+                  {field.name === "label" &&
+                    action.type === ActionType.LABEL && (
+                      <div className="flex items-center space-x-2">
+                        <TooltipExplanation
+                          side="left"
+                          text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
+                        />
+                        <Toggle
+                          name={`actions.${index}.label.ai`}
+                          label="AI generated"
+                          enabled={!!action.label?.ai}
+                          onChange={(enabled: boolean) => {
+                            setValue(
+                              `actions.${index}.label`,
+                              enabled
+                                ? { value: "", ai: true }
+                                : { value: "", ai: false },
+                            );
+                          }}
+                        />
+                      </div>
+                    )}
                 </div>
 
                 {field.name === "label" && !isAiGenerated ? (
@@ -1274,32 +1237,61 @@ function ActionCard({
 
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
 
-          {/* Show delay input for all actions that support delays */}
-          {canActionBeDelayed(action.type) &&
-            (watch(`actions.${index}.delayInMinutes`) ?? 0) > 0 && (
-              <div className="mt-4">
-                <DelayInputControls
-                  index={index}
-                  delayInMinutes={watch(`actions.${index}.delayInMinutes`)}
-                  setValue={setValue}
-                />
-                {errors?.actions?.[index]?.delayInMinutes && (
-                  <div className="mt-2">
-                    <ErrorMessage
-                      message={
-                        errors.actions?.[
-                          index
-                        ]?.delayInMinutes?.message?.toString() ||
-                        "Please enter a valid delay between 1 minute and 90 days"
-                      }
-                    />
-                  </div>
-                )}
-              </div>
-            )}
-
           {/* Show the variable pro tip when action has visible fields that can use variables */}
           {shouldShowProTip && <VariableProTip />}
+
+          {/* Show delay toggle and input for all actions that support delays */}
+          {canActionBeDelayed(action.type) && (
+            <div className="mt-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <DelayInputControls
+                    index={index}
+                    delayInMinutes={watch(`actions.${index}.delayInMinutes`)}
+                    setValue={setValue}
+                  />
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <TooltipExplanation
+                    text="Schedule this action to execute after a delay from when the email was received. Useful for follow-ups, reminders, or giving senders time to respond."
+                    side="right"
+                  />
+                  <Toggle
+                    name={`actions.${index}.delayEnabled`}
+                    label="Delay"
+                    enabled={
+                      (watch(`actions.${index}.delayInMinutes`) ?? 0) > 0
+                    }
+                    onChange={(enabled: boolean) => {
+                      if (enabled) {
+                        setValue(`actions.${index}.delayInMinutes`, 60, {
+                          shouldValidate: true,
+                        });
+                      } else {
+                        setValue(`actions.${index}.delayInMinutes`, null, {
+                          shouldValidate: true,
+                        });
+                      }
+                    }}
+                  />
+                </div>
+              </div>
+
+              {errors?.actions?.[index]?.delayInMinutes && (
+                <div className="mt-2">
+                  <ErrorMessage
+                    message={
+                      errors.actions?.[
+                        index
+                      ]?.delayInMinutes?.message?.toString() ||
+                      "Please enter a valid delay between 1 minute and 90 days"
+                    }
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Hidden input for form registration */}
           {canActionBeDelayed(action.type) && (

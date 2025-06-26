@@ -6,6 +6,13 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
+vi.mock("@/utils/upstash", () => ({
+  qstash: {
+    messages: {
+      delete: vi.fn().mockResolvedValue({}),
+    },
+  },
+}));
 
 describe("scheduler", () => {
   beforeEach(() => {
@@ -33,11 +40,30 @@ describe("scheduler", () => {
 
   describe("cancelScheduledActions", () => {
     it("should cancel scheduled actions for a message", async () => {
+      // Mock finding actions to cancel
+      prisma.scheduledAction.findMany.mockResolvedValue([
+        { id: "action-1", qstashMessageId: "qstash-msg-1" },
+        { id: "action-2", qstashMessageId: "qstash-msg-2" },
+      ] as any);
+
+      // Mock updating actions as cancelled
       prisma.scheduledAction.updateMany.mockResolvedValue({ count: 2 });
 
       const result = await cancelScheduledActions({
         messageId: "msg-123",
         emailAccountId: "account-123",
+      });
+
+      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith({
+        where: {
+          emailAccountId: "account-123",
+          messageId: "msg-123",
+          status: ScheduledActionStatus.PENDING,
+        },
+        select: {
+          id: true,
+          qstashMessageId: true,
+        },
       });
 
       expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({
@@ -55,6 +81,7 @@ describe("scheduler", () => {
     });
 
     it("should return zero when no actions to cancel", async () => {
+      prisma.scheduledAction.findMany.mockResolvedValue([]);
       prisma.scheduledAction.updateMany.mockResolvedValue({ count: 0 });
 
       const result = await cancelScheduledActions({
@@ -66,6 +93,9 @@ describe("scheduler", () => {
     });
 
     it("should include threadId when provided", async () => {
+      prisma.scheduledAction.findMany.mockResolvedValue([
+        { id: "action-1", qstashMessageId: "qstash-msg-1" },
+      ] as any);
       prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 });
 
       await cancelScheduledActions({
@@ -73,6 +103,19 @@ describe("scheduler", () => {
         emailAccountId: "account-123",
         threadId: "thread-123",
         reason: "Custom reason",
+      });
+
+      expect(prisma.scheduledAction.findMany).toHaveBeenCalledWith({
+        where: {
+          emailAccountId: "account-123",
+          messageId: "msg-123",
+          threadId: "thread-123",
+          status: ScheduledActionStatus.PENDING,
+        },
+        select: {
+          id: true,
+          qstashMessageId: true,
+        },
       });
 
       expect(prisma.scheduledAction.updateMany).toHaveBeenCalledWith({

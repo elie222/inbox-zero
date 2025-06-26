@@ -9,12 +9,11 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import { executeAct } from "@/utils/ai/choose-rule/execute";
+import { runActionFunction } from "@/utils/ai/actions";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { ParsedMessage } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
-import { formatError } from "@/utils/error";
 
 const logger = createScopedLogger("scheduled-actions-executor");
 
@@ -171,9 +170,7 @@ async function executeDelayedAction({
   emailAccount: { email: string; userId: string; id: string };
   scheduledAction: ScheduledAction;
 }) {
-  // Create ExecutedAction record to integrate with existing executeAct function.
-  // This allows us to reuse the existing action execution logic for delayed actions
-  // while maintaining proper audit trail and database consistency.
+  // Create ExecutedAction record first to maintain audit trail
   const executedAction = await prisma.executedAction.create({
     data: {
       type: actionItem.type,
@@ -190,7 +187,7 @@ async function executeDelayedAction({
     },
   });
 
-  // Get the complete ExecutedRule to satisfy the type requirements
+  // Get the complete ExecutedRule for context
   const executedRule = await prisma.executedRule.findUnique({
     where: { id: scheduledAction.executedRuleId },
     include: { actionItems: true },
@@ -200,7 +197,7 @@ async function executeDelayedAction({
     throw new Error(`ExecutedRule ${scheduledAction.executedRuleId} not found`);
   }
 
-  // Create a ParsedMessage from EmailForAction to match executeAct signature
+  // Create a ParsedMessage from EmailForAction
   const parsedMessage: ParsedMessage = {
     id: emailMessage.id,
     threadId: emailMessage.threadId,
@@ -215,13 +212,26 @@ async function executeDelayedAction({
     inline: [],
   };
 
-  await executeAct({
+  logger.info("Executing delayed action", {
+    actionType: executedAction.type,
+    executedActionId: executedAction.id,
+    messageId: parsedMessage.id,
+  });
+
+  // Execute the specific action directly using runActionFunction
+  await runActionFunction({
     gmail,
+    email: parsedMessage,
+    action: executedAction,
     userEmail: emailAccount.email,
     userId: emailAccount.userId,
     emailAccountId: emailAccount.id,
     executedRule,
-    message: parsedMessage,
+  });
+
+  logger.info("Successfully executed delayed action", {
+    actionType: executedAction.type,
+    executedActionId: executedAction.id,
   });
 
   return executedAction;

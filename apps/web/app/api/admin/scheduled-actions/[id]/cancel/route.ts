@@ -6,7 +6,7 @@ import { isAdmin } from "@/utils/admin";
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const session = await auth();
@@ -19,7 +19,7 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { id } = params;
+    const { id } = await params;
 
     const scheduledAction = await prisma.scheduledAction.findUnique({
       where: { id },

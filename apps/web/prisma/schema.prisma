@@ -439,7 +439,6 @@ model ScheduledAction {
   emailAccountId String
   status         ScheduledActionStatus @default(PENDING)
 
-  // ActionItem data storage
   label   String?
   subject String?
   content String?
@@ -448,23 +447,21 @@ model ScheduledAction {
   bcc     String?
   url     String?
 
-  // Execution tracking
+  qstashMessageId String? // QStash message ID for efficient cancellation
+
   executedAt       DateTime?
   executedActionId String?   @unique
 
-
-  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
   emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  // Indexes for cron job performance
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
+  @@index([qstashMessageId])
 }
 
 // Notes:

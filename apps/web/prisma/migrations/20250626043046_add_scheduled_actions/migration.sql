@@ -36,6 +36,7 @@ CREATE TABLE "ScheduledAction" (
     "cc" TEXT,
     "bcc" TEXT,
     "url" TEXT,
+    "qstashMessageId" TEXT,
     "executedAt" TIMESTAMP(3),
     "executedActionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -52,6 +53,9 @@ CREATE INDEX "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("sta
 
 -- CreateIndex
 CREATE INDEX "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
+
+-- CreateIndex
+CREATE INDEX "ScheduledAction_qstashMessageId_idx" ON "ScheduledAction"("qstashMessageId");
 
 -- AddForeignKey
 ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;

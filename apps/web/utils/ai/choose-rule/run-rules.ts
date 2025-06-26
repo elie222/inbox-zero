@@ -18,8 +18,8 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import {
-  scheduleDelayedActions,
-  cancelScheduledActions,
+  scheduleQStashDelayedActions,
+  cancelQStashScheduledActions,
 } from "@/utils/scheduled-actions/scheduler";
 
 const logger = createScopedLogger("ai-run-rules");
@@ -101,7 +101,7 @@ async function executeMatchedRule(
 
   // Cancel any existing scheduled actions for this message
   if (!isTest) {
-    await cancelScheduledActions({
+    await cancelQStashScheduledActions({
       emailAccountId: emailAccount.id,
       messageId: message.id,
       threadId: message.threadId,
@@ -135,7 +135,7 @@ async function executeMatchedRule(
 
   // Schedule delayed actions if any exist
   if (executedRule && delayedActions.length > 0 && !isTest) {
-    await scheduleDelayedActions({
+    await scheduleQStashDelayedActions({
       executedRuleId: executedRule.id,
       actionItems: delayedActions,
       messageId: message.id,
@@ -221,7 +221,12 @@ async function saveExecutedRule(
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
-        data: actionItems?.map(sanitizeActionFields) || [],
+        data:
+          actionItems?.map((item) => {
+            const { delayInMinutes, ...executedActionFields } =
+              sanitizeActionFields(item);
+            return executedActionFields;
+          }) || [],
       },
     },
     messageId,
