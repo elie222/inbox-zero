@@ -30,9 +30,10 @@ export default async function AssistantPage({
       select: { id: true },
     });
 
-    if (!hasRule) {
-      redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
-    }
+    // FIXME: redirected too many times
+    // if (!hasRule) {
+    //   redirect(prefixPath(emailAccountId, "/assistant?onboarding=true"));
+    // }
   }
 
   return (
