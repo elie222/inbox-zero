@@ -50,7 +50,7 @@ import {
   useDeleteAllFromSender,
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
-import { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export function ActionCell<T extends Row>({
   item,

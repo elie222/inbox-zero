@@ -30,7 +30,6 @@ import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import { useThreads } from "@/hooks/useThreads";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { onAutoArchive } from "@/utils/actions/client";
-import { Thread } from "@/components/email-list/types";
 
 export function NewsletterModal(props: {
   newsletter?: Pick<Row, "name" | "unsubscribeLink" | "autoArchived">;
@@ -200,7 +199,7 @@ function UnarchivedEmails({
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <EmailList
-          threads={data.threads as Thread[]}
+          threads={data.threads}
           emptyMessage={
             <AlertBasic
               title="No unarchived emails"
@@ -232,7 +231,7 @@ function AllEmails({
     <LoadingContent loading={isLoading} error={error}>
       {data && (
         <EmailList
-          threads={data.threads as Thread[]} // TODO: FIX FOR OUTLOOK
+          threads={data.threads}
           emptyMessage={
             <AlertBasic
               title="No emails"

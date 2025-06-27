@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { LabelsResponse } from "@/app/api/google/labels/route";
-import type { gmail_v1 } from "@googleapis/gmail";
-import { labelVisibility } from "@/utils/gmail/constants";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EmailLabel } from "@/providers/EmailProvider";
 
@@ -43,19 +41,10 @@ export function useAllLabels() {
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
 
-    if (provider === "google") {
-      return data.labels.filter(isUserLabel).sort(sortLabels);
-    } else {
-      return data.labels
-        .map((label) => ({
-          id: label.id,
-          name: label.name,
-          type: "user" as const,
-          color: label.color,
-        }))
-        .sort(sortLabels);
-    }
-  }, [data?.labels, provider]);
+    return data.labels
+      .filter((label) => label.type === "user")
+      .sort(sortLabels);
+  }, [data?.labels]);
 
   return {
     userLabels,
@@ -75,27 +64,16 @@ export function useLabels() {
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];
 
-    if (provider === "google") {
-      return data.labels
-        .filter(isUserLabel)
-        .map((label) => ({
-          id: label.id || "",
-          name: label.name || "",
-          type: label.type || null,
-          color: label.color,
-        }))
-        .sort(sortLabels);
-    } else {
-      return data.labels
-        .map((label) => ({
-          id: label.id || "",
-          name: label.name || "",
-          type: label.type || null,
-          color: label.color,
-        }))
-        .sort(sortLabels);
-    }
-  }, [data?.labels, provider]);
+    return data.labels
+      .filter((label) => label.type === "user")
+      .map((label) => ({
+        id: label.id || "",
+        name: label.name || "",
+        type: label.type || null,
+        color: label.color,
+      }))
+      .sort(sortLabels);
+  }, [data?.labels]);
 
   return {
     userLabels,
@@ -107,20 +85,13 @@ export function useLabels() {
 
 export function useSplitLabels() {
   const { userLabels, isLoading, error, mutate } = useLabels();
-  const { provider } = useAccount();
 
   const { visibleLabels, hiddenLabels } = useMemo(
     () => ({
-      visibleLabels:
-        provider === "google"
-          ? userLabels.filter((label) => !isHiddenLabel(label as UserLabel))
-          : userLabels, // Outlook doesn't have hidden labels
-      hiddenLabels:
-        provider === "google"
-          ? userLabels.filter((label) => isHiddenLabel(label as UserLabel))
-          : [],
+      visibleLabels: userLabels,
+      hiddenLabels: [],
     }),
-    [userLabels, provider],
+    [userLabels],
   );
 
   return {
@@ -141,12 +112,4 @@ function sortLabels(a: SortableLabel, b: SortableLabel) {
   if (!aName.startsWith("[") && bName.startsWith("[")) return -1;
 
   return aName.localeCompare(bName);
-}
-
-function isUserLabel(label: gmail_v1.Schema$Label): label is UserLabel {
-  return label.type === "user";
-}
-
-function isHiddenLabel(label: UserLabel) {
-  return label.labelListVisibility === labelVisibility.labelHide;
 }
