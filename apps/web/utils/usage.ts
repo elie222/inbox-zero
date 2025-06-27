@@ -121,6 +121,7 @@ const costs: Record<
   "google/gemini-2.5-pro-preview-03-25": gemini2_5pro,
   "google/gemini-2.5-pro-preview-06-05": gemini2_5pro,
   "google/gemini-2.5-pro-preview": gemini2_5pro,
+  "google/gemini-2.5-pro": gemini2_5pro,
   "meta-llama/llama-4-maverick": {
     input: 0.2 / 1_000_000,
     output: 0.85 / 1_000_000,
