@@ -87,11 +87,15 @@ export function FixWithChat({
                   setInput(input);
                 } else {
                   // redirect to the assistant page
+                  const searchParams = new URLSearchParams();
+                  searchParams.set("input", input);
+                  if (currentTab) searchParams.set("tab", currentTab);
+
                   router.push(
                     createAssistantUrl({
                       input,
                       tab: currentTab || undefined,
-                      path: `/assistant${currentTab ? `?tab=${currentTab}` : ""}`,
+                      path: `/assistant${searchParams.toString()}`,
                     }),
                   );
                 }
