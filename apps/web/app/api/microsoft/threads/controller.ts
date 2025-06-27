@@ -4,8 +4,36 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { getCategory } from "@/utils/redis/category";
+import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
+
+// Helper function to convert Outlook messages to ParsedMessage format
+function convertOutlookMessages(messages: any[]): ParsedMessage[] {
+  return messages.map((message) => {
+    const subject = message.subject || "";
+    const date = message.receivedDateTime || new Date().toISOString();
+    return {
+      id: message.id || "",
+      threadId: message.conversationId || "",
+      snippet: message.bodyPreview || "",
+      textPlain: message.body?.content || "",
+      textHtml: message.body?.content || "",
+      headers: {
+        from: message.from?.emailAddress?.address || "",
+        to: message.toRecipients?.[0]?.emailAddress?.address || "",
+        subject,
+        date,
+      },
+      subject,
+      date,
+      labelIds: [], // We'll handle labels separately if needed
+      internalDate: date,
+      historyId: "",
+      inline: [],
+    };
+  });
+}
 
 export async function getThreads({
   query,
@@ -58,7 +86,7 @@ export async function getThreads({
   let request = client
     .api(endpoint)
     .select(
-      "id,conversationId,subject,bodyPreview,from,receivedDateTime,isDraft",
+      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
     )
     .top(query.limit || 50)
     .orderby("receivedDateTime DESC");
@@ -110,17 +138,12 @@ export async function getThreads({
     Array.from(messagesByThread.entries()).map(async ([threadId, messages]) => {
       const plan = plans.find((p) => p.threadId === threadId);
 
+      // Convert messages to ParsedMessage format
+      const parsedMessages = convertOutlookMessages(messages);
+
       return {
         id: threadId,
-        messages: messages.map((msg) => ({
-          id: msg.id,
-          threadId: msg.conversationId,
-          snippet: msg.bodyPreview,
-          subject: msg.subject,
-          from: msg.from,
-          receivedAt: msg.receivedDateTime,
-          isDraft: msg.isDraft,
-        })),
+        messages: parsedMessages,
         snippet: messages[0]?.bodyPreview,
         plan,
         category: await getCategory({ emailAccountId, threadId }),

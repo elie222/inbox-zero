@@ -559,15 +559,8 @@ function ExpandedRows({
     <>
       {data.threads.map((thread) => {
         const firstMessage = thread.messages[0];
-        // Handle both Google (with headers) and Microsoft (direct properties) message structures
-        const subject =
-          "headers" in firstMessage
-            ? firstMessage.headers.subject
-            : firstMessage.subject;
-        const date =
-          "headers" in firstMessage
-            ? firstMessage.headers.date
-            : firstMessage.receivedAt;
+        const subject = firstMessage.subject;
+        const date = firstMessage.date;
 
         return (
           <TableRow key={thread.id} className="bg-muted/50">
