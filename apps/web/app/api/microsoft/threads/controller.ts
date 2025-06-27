@@ -27,7 +27,7 @@ function convertOutlookMessages(messages: any[]): ParsedMessage[] {
       },
       subject,
       date,
-      labelIds: [], // We'll handle labels separately if needed
+      labelIds: [],
       internalDate: date,
       historyId: "",
       inline: [],

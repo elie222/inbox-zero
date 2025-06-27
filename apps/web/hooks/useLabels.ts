@@ -41,7 +41,6 @@ export function useAllLabels() {
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
 
-    // Both APIs now return the same unified structure
     return data.labels
       .filter((label) => label.type === "user")
       .sort(sortLabels);
@@ -65,7 +64,6 @@ export function useLabels() {
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];
 
-    // Both APIs now return the same unified structure
     return data.labels
       .filter((label) => label.type === "user")
       .map((label) => ({
@@ -90,8 +88,8 @@ export function useSplitLabels() {
 
   const { visibleLabels, hiddenLabels } = useMemo(
     () => ({
-      visibleLabels: userLabels, // Both APIs now return the same structure
-      hiddenLabels: [], // Hidden labels are handled at the API level
+      visibleLabels: userLabels,
+      hiddenLabels: [],
     }),
     [userLabels],
   );
