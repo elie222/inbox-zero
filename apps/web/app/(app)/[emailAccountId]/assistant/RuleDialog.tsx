@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -39,11 +38,11 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        {!ruleId && (
-          <DialogHeader>
-            <DialogTitle>Create Rule</DialogTitle>
-          </DialogHeader>
-        )}
+        <DialogHeader>
+          <DialogTitle className={ruleId ? "sr-only" : ""}>
+            {ruleId ? "Edit Rule" : "Create Rule"}
+          </DialogTitle>
+        </DialogHeader>
         <div>
           {ruleId ? (
             <LoadingContent loading={isLoading} error={error}>

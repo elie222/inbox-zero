@@ -23,9 +23,7 @@ export function useAssistantNavigation(emailAccountId: string) {
       ruleId?: string;
       path: `/${string}`;
       input?: string;
-      // [key: string]: string | undefined;
     }) => {
-      // If we're on the assistant page, use current search params as base to preserve existing params
       return prefixPath(
         emailAccountId,
         `/assistant${assistantSearchParamsSerializer(searchParams, params)}`,

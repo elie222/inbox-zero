@@ -182,33 +182,33 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <div className="flex items-center justify-between px-2 pt-2">
-        {messages.length > MAX_MESSAGES ? (
-          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-            The chat is too long. Please start a new conversation.
-          </div>
-        ) : (
-          <div />
-        )}
+      <SWRProvider>
+        <div className="flex items-center justify-between px-2 pt-2">
+          {messages.length > MAX_MESSAGES ? (
+            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+              The chat is too long. Please start a new conversation.
+            </div>
+          ) : (
+            <div />
+          )}
 
-        <div className="flex items-center gap-1">
-          <NewChatButton />
-          <ExamplesDialog setInput={setInput} />
-          <SWRProvider>
+          <div className="flex items-center gap-1">
+            <NewChatButton />
+            <ExamplesDialog setInput={setInput} />
             <ChatHistoryDropdown />
-          </SWRProvider>
-          <OpenArtifactButton />
+            <OpenArtifactButton />
+          </div>
         </div>
-      </div>
 
-      <Messages
-        status={status}
-        messages={messages}
-        setMessages={setMessages}
-        setInput={setInput}
-        reload={reload}
-        isArtifactVisible={false}
-      />
+        <Messages
+          status={status}
+          messages={messages}
+          setMessages={setMessages}
+          setInput={setInput}
+          reload={reload}
+          isArtifactVisible={false}
+        />
+      </SWRProvider>
 
       <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
         <MultimodalInput
