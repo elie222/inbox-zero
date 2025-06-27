@@ -5,10 +5,10 @@
 
 */
 -- DropForeignKey
-ALTER TABLE "EmailAccount" DROP CONSTRAINT "EmailAccount_digestScheduleId_fkey";
+ALTER TABLE "EmailAccount" DROP CONSTRAINT IF EXISTS "EmailAccount_digestScheduleId_fkey";
 
 -- DropIndex
-DROP INDEX "EmailAccount_digestScheduleId_key";
+DROP INDEX IF EXISTS "EmailAccount_digestScheduleId_key";
 
 -- AlterTable
-ALTER TABLE "EmailAccount" DROP COLUMN "digestScheduleId";
+ALTER TABLE "EmailAccount" DROP COLUMN IF EXISTS "digestScheduleId";
