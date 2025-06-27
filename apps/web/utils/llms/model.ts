@@ -6,7 +6,6 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
-// import sample from "lodash/sample";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -191,14 +190,14 @@ function selectDefaultModel(userAi: UserAIFields) {
     if (aiProvider === Provider.CUSTOM) {
       // choose randomly between bedrock sonnet 3.7, sonnet 4, and openrouter
       const models = [
-        {
-          provider: Provider.ANTHROPIC,
-          model: Model.CLAUDE_3_7_SONNET_BEDROCK,
-        },
-        {
-          provider: Provider.ANTHROPIC,
-          model: Model.CLAUDE_4_SONNET_BEDROCK,
-        },
+        // {
+        //   provider: Provider.ANTHROPIC,
+        //   model: Model.CLAUDE_3_7_SONNET_BEDROCK,
+        // },
+        // {
+        //   provider: Provider.ANTHROPIC,
+        //   model: Model.CLAUDE_4_SONNET_BEDROCK,
+        // },
         {
           provider: Provider.OPENROUTER,
           model: null,
@@ -217,7 +216,7 @@ function selectDefaultModel(userAi: UserAIFields) {
           const models = [
             // "anthropic/claude-3.7-sonnet",
             // "anthropic/claude-sonnet-4",
-            "google/gemini-2.5-pro-preview-06-05",
+            "google/gemini-2.5-pro",
           ];
           return models[Math.floor(Math.random() * models.length)];
         }
@@ -226,7 +225,7 @@ function selectDefaultModel(userAi: UserAIFields) {
           models: [
             // "anthropic/claude-sonnet-4",
             // "anthropic/claude-3.7-sonnet",
-            "google/gemini-2.5-pro-preview-06-05",
+            "google/gemini-2.5-pro",
           ],
           provider: {
             // max 3 options
