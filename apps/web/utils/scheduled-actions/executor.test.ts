@@ -16,6 +16,9 @@ vi.mock("@/utils/user/get", () => ({
 vi.mock("@/utils/ai/choose-rule/execute", () => ({
   executeAct: vi.fn(),
 }));
+vi.mock("@/utils/ai/actions", () => ({
+  runActionFunction: vi.fn(),
+}));
 vi.mock("@/utils/gmail/message", () => ({
   getMessage: vi.fn(),
 }));
@@ -98,7 +101,7 @@ describe("executor", () => {
         ruleId: null,
       });
 
-      const { executeAct } = await import("@/utils/ai/choose-rule/execute");
+      const { runActionFunction } = await import("@/utils/ai/actions");
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
       );
@@ -108,7 +111,7 @@ describe("executor", () => {
       const { getMessage } = await import("@/utils/gmail/message");
       const { parseMessage } = await import("@/utils/mail");
 
-      (executeAct as any).mockResolvedValue(undefined);
+      (runActionFunction as any).mockResolvedValue(undefined);
       (parseMessage as any).mockReturnValue({
         id: "msg-123",
         threadId: "thread-123",
@@ -192,7 +195,7 @@ describe("executor", () => {
         ruleId: null,
       } as any);
 
-      const { executeAct } = await import("@/utils/ai/choose-rule/execute");
+      const { runActionFunction } = await import("@/utils/ai/actions");
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
       );
@@ -202,7 +205,9 @@ describe("executor", () => {
       const { getMessage } = await import("@/utils/gmail/message");
       const { parseMessage } = await import("@/utils/mail");
 
-      (executeAct as any).mockRejectedValue(new Error("Execution failed"));
+      (runActionFunction as any).mockRejectedValue(
+        new Error("Execution failed"),
+      );
       (parseMessage as any).mockReturnValue({
         id: "msg-123",
         threadId: "thread-123",
