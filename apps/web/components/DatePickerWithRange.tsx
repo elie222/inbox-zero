@@ -22,7 +22,7 @@ export function DatePickerWithRange({
   onSetDateRange: (dateRange?: DateRange) => void;
 }) {
   return (
-    <Popover>
+    <Popover modal={true}>
       <PopoverTrigger asChild>
         <Button
           id="date"

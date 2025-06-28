@@ -23,7 +23,7 @@ export function SetDateDropdown({
   disabled?: boolean;
 }) {
   return (
-    <Popover>
+    <Popover modal={true}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
