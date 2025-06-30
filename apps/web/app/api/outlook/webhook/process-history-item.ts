@@ -112,6 +112,10 @@ export async function processHistoryItem(
           snippet: message.bodyPreview || "",
           historyId: resourceData.id,
           inline: [],
+          subject,
+          date: message.receivedDateTime
+            ? new Date(message.receivedDateTime).toISOString()
+            : new Date().toISOString(),
         },
         emailAccountId,
         userEmail,
@@ -223,6 +227,10 @@ export async function processHistoryItem(
           snippet: message.bodyPreview || "",
           historyId: resourceData.id,
           inline: [],
+          subject,
+          date: message.receivedDateTime
+            ? new Date(message.receivedDateTime).toISOString()
+            : new Date().toISOString(),
         },
         rules,
         emailAccount,

@@ -32,6 +32,10 @@ type SortableLabel = {
   color?: any;
 };
 
+function isHidden(label: EmailLabel): boolean {
+  return label.labelListVisibility === "labelHide";
+}
+
 export function useAllLabels() {
   const { provider } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
@@ -71,6 +75,8 @@ export function useLabels() {
         name: label.name || "",
         type: label.type || null,
         color: label.color,
+        labelListVisibility: label.labelListVisibility,
+        messageListVisibility: label.messageListVisibility,
       }))
       .sort(sortLabels);
   }, [data?.labels]);
@@ -86,13 +92,24 @@ export function useLabels() {
 export function useSplitLabels() {
   const { userLabels, isLoading, error, mutate } = useLabels();
 
-  const { visibleLabels, hiddenLabels } = useMemo(
-    () => ({
-      visibleLabels: userLabels,
-      hiddenLabels: [],
-    }),
-    [userLabels],
-  );
+  const { visibleLabels, hiddenLabels } = useMemo(() => {
+    // Split labels into visible and hidden categories
+    const visible: EmailLabel[] = [];
+    const hidden: EmailLabel[] = [];
+
+    userLabels.forEach((label) => {
+      if (isHidden(label)) {
+        hidden.push(label);
+      } else {
+        visible.push(label);
+      }
+    });
+
+    return {
+      visibleLabels: visible,
+      hiddenLabels: hidden,
+    };
+  }, [userLabels]);
 
   return {
     visibleLabels,
