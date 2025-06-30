@@ -5,7 +5,6 @@ import { withError } from "@/utils/middleware";
 import { env } from "@/env";
 import {
   trackPaymentSuccess,
-  trackSubscriptionCancelled,
   trackSubscriptionCustom,
   trackSubscriptionTrialStarted,
   trackSwitchedPremiumPlan,
@@ -18,11 +17,7 @@ import {
   upgradeToPremiumLemon,
 } from "@/utils/premium/server";
 import type { Payload } from "@/app/api/lemon-squeezy/webhook/types";
-import {
-  cancelledPremium,
-  switchedPremiumPlan,
-  startedTrial,
-} from "@inboxzero/loops";
+import { switchedPremiumPlan, startedTrial } from "@inboxzero/loops";
 import { SafeError } from "@/utils/error";
 import { getLemonSubscriptionTier } from "@/app/(app)/premium/config";
 import { createScopedLogger } from "@/utils/logger";
@@ -315,17 +310,17 @@ async function subscriptionCancelled({
 
   if (!updatedPremium) return NextResponse.json({ ok: true });
 
-  const email = getEmailFromPremium(updatedPremium);
-  if (email) {
-    await Promise.allSettled([
-      trackSubscriptionCancelled(
-        email,
-        payload.data.attributes.status,
-        payload.data.attributes,
-      ),
-      cancelledPremium(email),
-    ]);
-  }
+  // const email = getEmailFromPremium(updatedPremium);
+  // if (email) {
+  //   await Promise.allSettled([
+  //     trackSubscriptionCancelled(
+  //       email,
+  //       payload.data.attributes.status,
+  //       payload.data.attributes,
+  //     ),
+  //     cancelledPremium(email),
+  //   ]);
+  // }
 
   return NextResponse.json({ ok: true });
 }
