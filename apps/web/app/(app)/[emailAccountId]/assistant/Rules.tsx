@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { toast } from "sonner";
-import { capitalCase } from "capital-case";
 import {
   MoreHorizontalIcon,
   PenIcon,
@@ -11,8 +10,9 @@ import {
   Trash2Icon,
   ToggleRightIcon,
   ToggleLeftIcon,
+  InfoIcon,
 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,12 +53,16 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
+import { getActionDisplay } from "@/utils/action-display";
+import { RuleDialog } from "./RuleDialog";
+import { useDialogState } from "@/hooks/useDialogState";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
 export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
   const { data: emailAccountData } = useEmailAccountFull();
+  const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
 
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -156,6 +160,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       from: null,
       subject: null,
       body: null,
+      promptText: null,
     };
     return [...(baseRules || []), coldEmailBlockerRule];
   }, [baseRules, emailAccountData, emailAccountId]);
@@ -207,7 +212,20 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                       className={!rule.enabled ? "bg-muted opacity-60" : ""}
                     >
                       <TableCell className="font-medium">
-                        <Link href={href} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isColdEmailBlocker) {
+                              window.open(href, "_blank");
+                            } else {
+                              ruleDialog.open({
+                                ruleId: rule.id,
+                                editMode: false,
+                              });
+                            }
+                          }}
+                          className="flex items-center gap-2 text-left hover:underline"
+                        >
                           {!rule.enabled && (
                             <Badge color="red" className="mr-2">
                               Disabled
@@ -215,16 +233,17 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           )}
                           {rule.name}
                           {!rule.automate && (
-                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab.">
+                            <Tooltip content="Actions for matched emails will require manual approval in the 'Pending' tab. You can change this in the rule settings by clicking this badge.">
                               <Badge
                                 color="yellow"
                                 className="ml-auto text-nowrap"
                               >
                                 Requires Approval
+                                <InfoIcon className="ml-1.5 size-3" />
                               </Badge>
                             </Tooltip>
                           )}
-                        </Link>
+                        </button>
                       </TableCell>
                       {size === "md" && (
                         <TableCell>
@@ -275,16 +294,20 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem asChild>
-                              <Link
-                                href={href}
-                                target={
-                                  isColdEmailBlocker ? "_blank" : undefined
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (isColdEmailBlocker) {
+                                  window.open(href, "_blank");
+                                } else {
+                                  ruleDialog.open({
+                                    ruleId: rule.id,
+                                    editMode: true,
+                                  });
                                 }
-                              >
-                                <PenIcon className="mr-2 size-4" />
-                                Edit
-                              </Link>
+                              }}
+                            >
+                              <PenIcon className="mr-2 size-4" />
+                              Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem asChild>
                               <Link
@@ -297,7 +320,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                     : createAssistantUrl({
                                         tab: "history",
                                         ruleId: rule.id,
-                                        path: "/assistant?tab=history",
+                                        path: "/automation?tab=history",
                                       })
                                 }
                                 target={
@@ -395,27 +418,33 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               </TableBody>
             </Table>
           ) : (
-            <NoRules />
+            <NoRules
+              onCreateRule={() => {
+                ruleDialog.open();
+              }}
+            />
           )}
         </LoadingContent>
       </Card>
 
       {hasRules && (
-        <div className="my-2 flex justify-end gap-2">
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-              <PenIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule via Prompt
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-              <PlusIcon className="mr-2 hidden size-4 md:block" />
-              Add Rule Manually
-            </Link>
-          </Button>
-        </div>
+        <AddRuleButtons
+          onCreateRule={() => {
+            ruleDialog.open();
+          }}
+        />
       )}
+
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.close}
+        onSuccess={() => {
+          mutate();
+          ruleDialog.close();
+        }}
+        editMode={ruleDialog.data?.editMode}
+      />
     </div>
   );
 }
@@ -430,7 +459,7 @@ export function ActionBadges({
   }[];
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex gap-2">
       {actions.map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
@@ -441,8 +470,7 @@ export function ActionBadges({
             color={getActionColor(action.type)}
             className="w-fit text-nowrap"
           >
-            {capitalCase(action.type)}
-            {action.label && `: ${action.label}`}
+            {getActionDisplay(action)}
           </Badge>
         );
       })}
@@ -450,8 +478,7 @@ export function ActionBadges({
   );
 }
 
-function NoRules() {
-  const { emailAccountId } = useAccount();
+function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
   return (
     <>
       <CardHeader>
@@ -463,12 +490,26 @@ function NoRules() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Button type="button" variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/assistant/rule/create")}>
-            Add Rule Manually
-          </Link>
-        </Button>
+        <AddRuleButtons onCreateRule={onCreateRule} />
       </CardContent>
     </>
+  );
+}
+
+function AddRuleButtons({ onCreateRule }: { onCreateRule?: () => void }) {
+  const { emailAccountId } = useAccount();
+  return (
+    <div className="my-2 flex justify-end gap-2">
+      <Button asChild variant="outline" size="sm">
+        <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
+          <PenIcon className="mr-2 hidden size-4 md:block" />
+          Add Rule via Prompt
+        </Link>
+      </Button>
+      <Button variant="outline" size="sm" onClick={onCreateRule}>
+        <PlusIcon className="mr-2 hidden size-4 md:block" />
+        Add Rule Manually
+      </Button>
+    </div>
   );
 }

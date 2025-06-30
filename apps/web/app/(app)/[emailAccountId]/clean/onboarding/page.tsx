@@ -8,6 +8,7 @@ import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/[emailAccountId]/clean/types";
 import { CleanAction } from "@prisma/client";
 import { getGmailClientForEmailId } from "@/utils/account";
+import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 
 export default async function CleanPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -23,8 +24,8 @@ export default async function CleanPage(props: {
     skipAttachment?: string;
   }>;
 }) {
-  const params = await props.params;
-  const emailAccountId = params.emailAccountId;
+  const { emailAccountId } = await props.params;
+  await checkUserOwnsEmailAccount({ emailAccountId });
 
   const gmail = await getGmailClientForEmailId({ emailAccountId });
   const { unhandledCount } = await getUnhandledCount(gmail);

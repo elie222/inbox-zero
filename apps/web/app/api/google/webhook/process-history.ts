@@ -35,6 +35,7 @@ export async function processHistoryForUser(
       lastSyncedHistoryId: true,
       coldEmailBlocker: true,
       coldEmailPrompt: true,
+      coldEmailDigest: true,
       autoCategorizeSenders: true,
       account: {
         select: {
@@ -79,6 +80,7 @@ export async function processHistoryForUser(
   if (!premium) {
     logger.info("Account not premium", {
       email,
+      emailAccountId: emailAccount.id,
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
@@ -95,7 +97,10 @@ export async function processHistoryForUser(
   const userHasAiAccess = hasAiAccess(premium.tier, emailAccount.user.aiApiKey);
 
   if (!userHasAiAccess) {
-    logger.trace("Does not have ai access", { email });
+    logger.trace("Does not have ai access", {
+      email,
+      emailAccountId: emailAccount.id,
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
       accessToken: emailAccount.account?.access_token,

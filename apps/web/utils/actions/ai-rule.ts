@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import prisma, { isNotFoundError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {

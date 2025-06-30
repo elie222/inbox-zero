@@ -27,6 +27,7 @@ import {
 import type { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
+import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
 
 const frequencies = [
   { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
@@ -86,12 +87,6 @@ export default function Pricing(props: PricingProps) {
 
   const Layout = TwoColLayout;
 
-  const [loadingBillingPortal, setLoadingBillingPortal] = useState(false);
-
-  const hasBothStripeAndLemon = !!(
-    premium?.stripeSubscriptionId && premium?.lemonSqueezyCustomerId
-  );
-
   const router = useRouter();
 
   return (
@@ -105,73 +100,42 @@ export default function Pricing(props: PricingProps) {
       >
         {header}
 
-        {isPremium && (
+        {!!(
+          premium?.stripeSubscriptionId || premium?.lemonSqueezyCustomerId
+        ) && (
           <div className="mb-8 mt-8 text-center">
-            {premium?.stripeSubscriptionId && (
-              <Button
-                loading={loadingBillingPortal}
-                onClick={async () => {
-                  setLoadingBillingPortal(true);
-                  const result = await getBillingPortalUrlAction({});
-                  setLoadingBillingPortal(false);
-                  const url = result?.data?.url;
-                  if (result?.serverError || !url) {
-                    toastError({
-                      description:
-                        result?.serverError ||
-                        "Error loading billing portal. Please contact support.",
-                    });
-                  } else {
-                    window.location.href = url;
-                  }
-                }}
-              >
-                <CreditCardIcon className="mr-2 h-4 w-4" />
-                Manage{hasBothStripeAndLemon ? " Stripe" : ""} subscription
-              </Button>
-            )}
-
-            {premium?.lemonSqueezyCustomerId && (
-              <Button asChild>
-                <Link
-                  href={`https://${env.NEXT_PUBLIC_LEMON_STORE_ID}.lemonsqueezy.com/billing`}
-                  target="_blank"
-                >
-                  <CreditCardIcon className="mr-2 h-4 w-4" />
-                  Manage{hasBothStripeAndLemon ? " Lemon" : ""} subscription
-                </Link>
-              </Button>
-            )}
-
-            <Button variant="primaryBlue" className="ml-2" asChild>
-              <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Go to app
-              </Link>
-            </Button>
+            <ManageSubscription premium={premium} />
 
             {userPremiumTier && (
-              <div className="mx-auto mt-4 max-w-md">
-                <AlertWithButton
-                  className="bg-background"
-                  variant="blue"
-                  title="Add extra users to your account!"
-                  description={`You can upgrade extra accounts to ${capitalCase(
-                    userPremiumTier,
-                  )} for $${
-                    pricingAdditonalEmail[userPremiumTier]
-                  } per email address!`}
-                  icon={null}
-                  button={
-                    <div className="ml-4 whitespace-nowrap">
-                      <Button variant="primaryBlue" asChild>
-                        {/* <Link href="/settings#manage-users">Add users</Link> */}
-                        <Link href="/accounts">Add users</Link>
-                      </Button>
-                    </div>
-                  }
-                />
-              </div>
+              <>
+                <Button variant="primaryBlue" className="ml-2" asChild>
+                  <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
+                    <SparklesIcon className="mr-2 h-4 w-4" />
+                    Go to app
+                  </Link>
+                </Button>
+                <div className="mx-auto mt-4 max-w-md">
+                  <AlertWithButton
+                    className="bg-background"
+                    variant="blue"
+                    title="Add extra users to your account!"
+                    description={`You can upgrade extra accounts to ${capitalCase(
+                      userPremiumTier,
+                    )} for $${
+                      pricingAdditonalEmail[userPremiumTier]
+                    } per email address!`}
+                    icon={null}
+                    button={
+                      <div className="ml-4 whitespace-nowrap">
+                        <Button variant="primaryBlue" asChild>
+                          {/* <Link href="/settings#manage-users">Add users</Link> */}
+                          <Link href="/accounts">Add users</Link>
+                        </Button>
+                      </div>
+                    }
+                  />
+                </div>
+              </>
             )}
           </div>
         )}

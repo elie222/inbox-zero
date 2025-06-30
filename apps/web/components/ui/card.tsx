@@ -105,6 +105,34 @@ const CardGreen = React.forwardRef<
 ));
 CardGreen.displayName = "CardGreen";
 
+const ActionCard = React.forwardRef<
+  HTMLDivElement,
+  React.HTMLAttributes<HTMLDivElement> & {
+    icon?: React.ReactNode;
+    title: string;
+    description: string;
+    action?: React.ReactNode;
+  }
+>(({ className, icon, title, description, action, ...props }, ref) => (
+  <CardGreen ref={ref} className={cn("max-w-2xl", className)} {...props}>
+    <div className="flex items-center justify-between gap-4 p-6">
+      <div className="flex items-start gap-3">
+        {icon && (
+          <div className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400">
+            {icon}
+          </div>
+        )}
+        <div>
+          <h3 className="text-lg font-semibold">{title}</h3>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+        </div>
+      </div>
+      {action && <div className="flex-shrink-0">{action}</div>}
+    </div>
+  </CardGreen>
+));
+ActionCard.displayName = "ActionCard";
+
 export {
   Card,
   CardHeader,
@@ -114,4 +142,5 @@ export {
   CardContent,
   CardBasic,
   CardGreen,
+  ActionCard,
 };

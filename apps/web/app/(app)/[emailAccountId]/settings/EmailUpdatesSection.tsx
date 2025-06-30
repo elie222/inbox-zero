@@ -52,7 +52,10 @@ function SummaryUpdateSectionForm({
     formState: { errors, isSubmitting },
   } = useForm<SaveEmailUpdateSettingsBody>({
     resolver: zodResolver(saveEmailUpdateSettingsBody),
-    defaultValues: { summaryEmailFrequency },
+    defaultValues: {
+      summaryEmailFrequency:
+        summaryEmailFrequency === "WEEKLY" ? "WEEKLY" : "NEVER",
+    },
   });
 
   const onSubmit: SubmitHandler<SaveEmailUpdateSettingsBody> = useCallback(

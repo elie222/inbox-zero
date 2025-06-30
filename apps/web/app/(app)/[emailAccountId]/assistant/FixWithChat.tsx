@@ -1,4 +1,5 @@
 import { useRouter } from "next/navigation";
+import { useQueryState } from "nuqs";
 import { MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
@@ -38,6 +39,7 @@ export function FixWithChat({
   const { isModalOpen, setIsModalOpen } = useModal();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const router = useRouter();
+  const [currentTab] = useQueryState("tab");
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -88,8 +90,8 @@ export function FixWithChat({
                   router.push(
                     createAssistantUrl({
                       input,
-                      tab: "history",
-                      path: "/assistant?tab=history",
+                      tab: currentTab || undefined,
+                      path: `/assistant${currentTab ? `?tab=${currentTab}` : ""}`,
                     }),
                   );
                 }

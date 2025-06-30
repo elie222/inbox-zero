@@ -27,6 +27,11 @@ const navigation = {
     },
     { name: "Feature Requests", href: "/feature-requests", target: "_blank" },
     { name: "Changelog", href: "/changelog", target: "_blank" },
+    {
+      name: "Status",
+      href: "https://inbox-zero.openstatus.dev/",
+      target: "_blank",
+    },
   ],
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
@@ -40,6 +45,7 @@ const navigation = {
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
+    { name: "SOC2 (In Progress)", href: "/soc2", target: "_blank" },
     { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [

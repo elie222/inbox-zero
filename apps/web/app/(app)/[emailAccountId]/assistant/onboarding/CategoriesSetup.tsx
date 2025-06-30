@@ -1,19 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ControllerRenderProps } from "react-hook-form";
-import {
-  Mail,
-  Newspaper,
-  Megaphone,
-  Calendar,
-  Receipt,
-  Bell,
-  Users,
-} from "lucide-react";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,28 +27,50 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
+import Image from "next/image";
+import {
+  ExampleDialog,
+  SeeExampleDialogButton,
+} from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
+import { categoryConfig } from "@/utils/category-config";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
 export function CategoriesSetup({
-  emailAccountId,
   defaultValues,
 }: {
-  emailAccountId: string;
   defaultValues?: Partial<CreateRulesOnboardingBody>;
 }) {
   const router = useRouter();
+  const { emailAccountId } = useAccount();
+
+  const [showExampleDialog, setShowExampleDialog] = useState(false);
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
     defaultValues: {
-      toReply: defaultValues?.toReply || "label",
-      newsletter: defaultValues?.newsletter || "label",
-      marketing: defaultValues?.marketing || "label_archive",
-      calendar: defaultValues?.calendar || "label",
-      receipt: defaultValues?.receipt || "label",
-      notification: defaultValues?.notification || "label",
-      coldEmail: defaultValues?.coldEmail || "label_archive",
+      toReply: {
+        action: defaultValues?.toReply?.action || "label",
+      },
+      newsletter: {
+        action: defaultValues?.newsletter?.action || "label",
+      },
+      marketing: {
+        action: defaultValues?.marketing?.action || "label_archive",
+      },
+      calendar: {
+        action: defaultValues?.calendar?.action || "label",
+      },
+      receipt: {
+        action: defaultValues?.receipt?.action || "label",
+      },
+      notification: {
+        action: defaultValues?.notification?.action || "label",
+      },
+      coldEmail: {
+        action: defaultValues?.coldEmail?.action || "label_archive",
+      },
     },
   });
 
@@ -81,59 +94,37 @@ export function CategoriesSetup({
           We'll automatically categorize your emails to help you focus on what
           matters.
           <br />
-          You can add custom categories and rules later.
+          You can add custom categories and rules later.{" "}
+          <SeeExampleDialogButton onClick={() => setShowExampleDialog(true)} />
         </TypographyP>
 
+        <ExampleDialog
+          open={showExampleDialog}
+          onOpenChange={setShowExampleDialog}
+          title="Organize your emails"
+          description="This is an example of what your inbox will look like. You can add more labels later."
+          image={
+            <Image
+              src="/images/assistant/labels.png"
+              alt="Categorize your emails"
+              width={1200}
+              height={800}
+              className="mx-auto rounded border-4 border-blue-50 shadow-sm"
+            />
+          }
+        />
+
         <div className="mt-4 grid grid-cols-1 gap-4">
-          <CategoryCard
-            id="toReply"
-            label="To Reply"
-            tooltipText="Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses"
-            icon={<Mail className="h-5 w-5 text-blue-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="newsletter"
-            label="Newsletter"
-            tooltipText="Newsletters, blogs, and publications"
-            icon={<Newspaper className="h-5 w-5 text-purple-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="marketing"
-            label="Marketing"
-            tooltipText="Promotional emails about sales and offers"
-            icon={<Megaphone className="h-5 w-5 text-green-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="calendar"
-            label="Calendar"
-            tooltipText="Events, appointments, and reminders"
-            icon={<Calendar className="h-5 w-5 text-yellow-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="receipt"
-            label="Receipt"
-            tooltipText="Invoices, receipts, and payments"
-            icon={<Receipt className="h-5 w-5 text-orange-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="notification"
-            label="Notification"
-            tooltipText="Alerts, status updates, and system messages"
-            icon={<Bell className="h-5 w-5 text-red-500" />}
-            form={form}
-          />
-          <CategoryCard
-            id="coldEmail"
-            label="Cold Email"
-            tooltipText="Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before"
-            icon={<Users className="h-5 w-5 text-indigo-500" />}
-            form={form}
-          />
+          {categoryConfig.map((category) => (
+            <CategoryCard
+              key={category.key}
+              id={category.key}
+              label={category.label}
+              tooltipText={category.tooltipText}
+              icon={category.icon}
+              form={form}
+            />
+          ))}
         </div>
 
         <div className="mt-6 flex flex-col gap-2">
@@ -198,8 +189,13 @@ function CategoryCard({
             }) => (
               <FormItem>
                 <Select
-                  onValueChange={field.onChange}
-                  defaultValue={field.value}
+                  onValueChange={(value) => {
+                    field.onChange({
+                      ...(field.value ?? {}),
+                      action: value,
+                    });
+                  }}
+                  defaultValue={field.value.action}
                 >
                   <FormControl>
                     <SelectTrigger className="w-[180px]">

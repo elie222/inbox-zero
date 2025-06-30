@@ -23,10 +23,16 @@ export const updateColdEmailSettingsAction = actionClient
   .metadata({ name: "updateColdEmailSettings" })
   .schema(updateColdEmailSettingsBody)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { coldEmailBlocker } }) => {
+    async ({
+      ctx: { emailAccountId },
+      parsedInput: { coldEmailBlocker, coldEmailDigest },
+    }) => {
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
-        data: { coldEmailBlocker },
+        data: {
+          coldEmailBlocker,
+          coldEmailDigest: coldEmailDigest ?? undefined,
+        },
       });
     },
   );
