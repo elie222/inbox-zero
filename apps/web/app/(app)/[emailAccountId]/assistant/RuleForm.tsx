@@ -859,7 +859,7 @@ export function RuleForm({
               variant="secondary"
               size="sm"
               onClick={() => {
-                append({ type: ActionType.LABEL, delayInMinutes: null } as any);
+                append({ type: ActionType.LABEL, delayInMinutes: null });
                 setIsActionsEditMode(true);
               }}
             >
@@ -869,7 +869,7 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="mt-[67px] flex items-center justify-end space-x-2">
+        <div className="flex items-center justify-end space-x-2">
           <TooltipExplanation
             size="md"
             side="left"
