@@ -197,7 +197,9 @@ describe("calculateNextScheduleDate", () => {
     });
 
     it("should find next occurrence on same day if time has passed", () => {
-      const fromDate = new Date("2024-01-15T12:00:00Z"); // Monday 12 PM
+      // Create a date where the scheduled time has definitely passed
+      // Using a local time that's after 10:00 AM to ensure timezone independence
+      const fromDate = new Date("2024-01-15T15:00:00Z"); // Monday 3 PM UTC
       const timeOfDay = createCanonicalTimeOfDay(10, 0);
 
       const result = calculateNextScheduleDate(

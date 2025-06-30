@@ -347,6 +347,7 @@ function mapActionFields(
       subject: a.fields?.subject,
       content: a.fields?.content,
       url: a.fields?.webhookUrl,
+      delayInMinutes: a.delayInMinutes,
     }),
   );
 }

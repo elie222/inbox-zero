@@ -17,6 +17,10 @@ import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import {
+  scheduleQStashDelayedActions,
+  cancelQStashScheduledActions,
+} from "@/utils/scheduled-actions/scheduler";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -95,6 +99,24 @@ async function executeMatchedRule(
     gmail,
   });
 
+  // Cancel any existing scheduled actions for this message
+  if (!isTest) {
+    await cancelQStashScheduledActions({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      threadId: message.threadId,
+      reason: "Superseded by new rule execution",
+    });
+  }
+
+  // Separate immediate and delayed actions
+  const immediateActions = actionItems.filter(
+    (item) => !item.delayInMinutes || item.delayInMinutes <= 0,
+  );
+  const delayedActions = actionItems.filter(
+    (item) => item.delayInMinutes != null && item.delayInMinutes > 0,
+  );
+
   // handle action
   const executedRule = isTest
     ? undefined
@@ -106,12 +128,27 @@ async function executeMatchedRule(
         },
         {
           rule,
-          actionItems,
+          actionItems: immediateActions, // Only save immediate actions as ExecutedActions
           reason,
         },
       );
 
-  const shouldExecute = executedRule && rule.automate;
+  // Schedule delayed actions if any exist
+  if (executedRule && delayedActions.length > 0 && !isTest) {
+    await scheduleQStashDelayedActions({
+      executedRuleId: executedRule.id,
+      actionItems: delayedActions,
+      messageId: message.id,
+      threadId: message.threadId,
+      emailAccountId: emailAccount.id,
+      emailInternalDate: message.internalDate
+        ? new Date(message.internalDate)
+        : new Date(),
+    });
+  }
+
+  const shouldExecute =
+    executedRule && rule.automate && immediateActions.length > 0;
 
   if (shouldExecute) {
     await executeAct({
@@ -184,7 +221,12 @@ async function saveExecutedRule(
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
-        data: actionItems?.map(sanitizeActionFields) || [],
+        data:
+          actionItems?.map((item) => {
+            const { delayInMinutes, ...executedActionFields } =
+              sanitizeActionFields(item);
+            return executedActionFields;
+          }) || [],
       },
     },
     messageId,
