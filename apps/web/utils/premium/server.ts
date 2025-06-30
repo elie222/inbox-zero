@@ -130,8 +130,8 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
 
 export async function updateAccountSeatsForPremium(
   premium: {
-    lemonSqueezySubscriptionItemId: number | null;
     stripeSubscriptionItemId: string | null;
+    lemonSqueezySubscriptionItemId?: number | null;
   },
   totalSeats: number,
 ) {

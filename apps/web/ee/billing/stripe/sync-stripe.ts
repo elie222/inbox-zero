@@ -1,8 +1,10 @@
+import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
+import { updateAccountSeatsForPremium } from "@/utils/premium/server";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -93,7 +95,7 @@ export async function syncStripeDataToDb({
       ? new Date(subscription.trial_end * 1000)
       : null;
 
-    await prisma.premium.update({
+    const updatedPremium = await prisma.premium.update({
       where: { stripeCustomerId: customerId },
       data: {
         tier,
@@ -114,6 +116,14 @@ export async function syncStripeDataToDb({
           ? new Date(subscription.ended_at * 1000)
           : null,
       },
+      select: {
+        stripeSubscriptionItemId: true,
+        users: {
+          select: {
+            _count: true,
+          },
+        },
+      },
     });
 
     // Handle Loops events based on state changes
@@ -126,6 +136,21 @@ export async function syncStripeDataToDb({
     logger.info("Successfully updated Premium record from Stripe data", {
       customerId,
     });
+
+    // Count all email accounts for all users
+    const totalSeats = sumBy(
+      updatedPremium.users,
+      (user) => user._count.emailAccounts,
+    );
+
+    await updateAccountSeatsForPremium(updatedPremium, totalSeats).catch(
+      (error) => {
+        logger.error("Error updating account seats for premium", {
+          customerId,
+          error,
+        });
+      },
+    );
   } catch (error) {
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     throw error;
