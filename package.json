@@ -24,7 +24,7 @@
     "prettier-plugin-tailwindcss": "0.6.12",
     "turbo": "2.5.4"
   },
-  "packageManager": "pnpm@10.11.0",
+  "packageManager": "pnpm@10.12.1",
   "lint-staged": {
     "*.{ts,tsx,md}": "prettier --write"
   },

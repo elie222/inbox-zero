@@ -9,7 +9,10 @@ export type EmailLabel = {
   id: string;
   name: string;
   type?: string | null;
-  color?: string | null;
+  color?: {
+    textColor?: string | null;
+    backgroundColor?: string | null;
+  };
 };
 
 export type EmailLabels = Record<string, EmailLabel>;
@@ -35,15 +38,22 @@ export function EmailProvider(props: { children: React.ReactNode }) {
 
     return rawUserLabels.reduce((acc, label) => {
       if (label.id && label.name) {
-        let color;
+        let color: EmailLabel["color"];
+
         if (provider === "google") {
-          color = label.color as string;
+          // For Google, color is already in the correct format
+          color = label.color;
         } else {
-          // For Outlook, map the preset color to actual color value
+          // For Outlook, map the preset color string to actual color value
           const presetColor = label.color as string;
-          color =
+          const backgroundColor =
             OUTLOOK_COLOR_MAP[presetColor as keyof typeof OUTLOOK_COLOR_MAP] ||
             "#95A5A6"; // Default gray if preset not found
+
+          color = {
+            backgroundColor,
+            textColor: null,
+          };
         }
 
         acc[label.id] = {

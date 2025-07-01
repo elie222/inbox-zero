@@ -29,8 +29,8 @@ export async function createLabel({
 
   const dbPromise = prisma.label.upsert({
     where: {
-      outlookLabelId_emailAccountId: {
-        outlookLabelId: label.id,
+      gmailLabelId_emailAccountId: {
+        gmailLabelId: label.id,
         emailAccountId,
       },
     },
@@ -38,7 +38,7 @@ export async function createLabel({
     create: {
       name,
       description,
-      outlookLabelId: label.id,
+      gmailLabelId: label.id,
       enabled: true,
       emailAccountId,
     },

@@ -1,5 +1,5 @@
 import { Client } from "@microsoft/microsoft-graph-client";
-import type { User, Photo } from "@microsoft/microsoft-graph-types";
+import type { User } from "@microsoft/microsoft-graph-types";
 import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";

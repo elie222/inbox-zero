@@ -6,7 +6,6 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { createOllama } from "ollama-ai-provider";
-// import sample from "lodash/sample";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -77,12 +76,6 @@ function selectModel(
     }
     case Provider.OPENROUTER: {
       const model = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
-      // // choose random model to handle rate limits better
-      // sample([
-      //   Model.CLAUDE_3_5_SONNET_OPENROUTER,
-      //   Model.CLAUDE_3_7_SONNET_OPENROUTER,
-      //   Model.CLAUDE_4_SONNET_OPENROUTER,
-      // ]);
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -109,7 +102,7 @@ function selectModel(
       };
     }
 
-    // this is messy. might be better to have two providers. one for bedrock and one for anthropic
+    // this is messy. better to have two providers. one for bedrock and one for anthropic
     case Provider.ANTHROPIC: {
       if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
         const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
@@ -141,7 +134,8 @@ function selectModel(
       }
     }
     default: {
-      throw new Error("LLM provider not supported");
+      logger.error("LLM provider not supported", { aiProvider });
+      throw new Error(`LLM provider not supported: ${aiProvider}`);
     }
   }
 }
@@ -181,40 +175,76 @@ function selectDefaultModel(userAi: UserAIFields) {
   const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
   let aiModel: string | null = null;
+  const providerOptions: Record<string, any> = {};
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
   if (aiApiKey) {
     aiProvider = userAi.aiProvider || defaultProvider;
-
-    if (userAi.aiModel) {
-      aiModel = userAi.aiModel;
-    }
+    aiModel = userAi.aiModel || null;
   } else {
     aiProvider = defaultProvider;
-  }
+    aiModel = env.DEFAULT_LLM_MODEL || null;
 
-  const providerOptions: Record<string, any> = {};
+    // Allow custom logic in production with fallbacks that doesn't impact self-hosters
+    if (aiProvider === Provider.CUSTOM) {
+      // choose randomly between bedrock sonnet 3.7, sonnet 4, and openrouter
+      const models = [
+        // {
+        //   provider: Provider.ANTHROPIC,
+        //   model: Model.CLAUDE_3_7_SONNET_BEDROCK,
+        // },
+        // {
+        //   provider: Provider.ANTHROPIC,
+        //   model: Model.CLAUDE_4_SONNET_BEDROCK,
+        // },
+        {
+          provider: Provider.OPENROUTER,
+          model: null,
+        },
+      ];
 
-  // Add OpenRouter-specific provider options
-  // TODO: shouldn't be hard coded
-  if (defaultProvider === Provider.OPENROUTER) {
-    providerOptions.openrouter = {
-      // random order to make better use of stronger models with lower rate limits
-      models: [
-        // "anthropic/claude-3.5-sonnet",
-        "anthropic/claude-3.7-sonnet",
-        "anthropic/claude-sonnet-4",
-        // "google/gemini-2.5-pro-preview-03-25",
-      ],
-      // provider: {
-      //   order: [
-      //     "Amazon Bedrock",
-      //     "Google AI Studio",
-      //     "Anthropic",
-      //   ],
-      // },
-    };
+      const selectedProviderAndModel =
+        models[Math.floor(Math.random() * models.length)];
+
+      aiProvider = selectedProviderAndModel.provider;
+      aiModel = selectedProviderAndModel.model;
+
+      if (aiProvider === Provider.OPENROUTER) {
+        function selectRandomModel() {
+          // to avoid rate limits, we'll select a random model
+          const models = [
+            // "anthropic/claude-3.7-sonnet",
+            // "anthropic/claude-sonnet-4",
+            "google/gemini-2.5-pro",
+          ];
+          return models[Math.floor(Math.random() * models.length)];
+        }
+        aiModel = selectRandomModel() || null;
+        providerOptions.openrouter = {
+          models: [
+            // "anthropic/claude-sonnet-4",
+            // "anthropic/claude-3.7-sonnet",
+            "google/gemini-2.5-pro",
+          ],
+          provider: {
+            // max 3 options
+            order: [
+              "Google Vertex",
+              "Google AI Studio",
+              // "Amazon Bedrock",
+              // "Anthropic",
+            ],
+          },
+        };
+      } else {
+        return selectModel({
+          aiProvider: Provider.ANTHROPIC,
+          aiModel,
+          aiApiKey: null,
+        });
+      }
+    }
   }
 
   return selectModel(

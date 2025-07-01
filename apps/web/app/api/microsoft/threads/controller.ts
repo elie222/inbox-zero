@@ -8,6 +8,33 @@ import type { ParsedMessage } from "@/utils/types";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
+// Helper function to convert Outlook messages to ParsedMessage format
+function convertOutlookMessages(messages: any[]): ParsedMessage[] {
+  return messages.map((message) => {
+    const subject = message.subject || "";
+    const date = message.receivedDateTime || new Date().toISOString();
+    return {
+      id: message.id || "",
+      threadId: message.conversationId || "",
+      snippet: message.bodyPreview || "",
+      textPlain: message.body?.content || "",
+      textHtml: message.body?.content || "",
+      headers: {
+        from: message.from?.emailAddress?.address || "",
+        to: message.toRecipients?.[0]?.emailAddress?.address || "",
+        subject,
+        date,
+      },
+      subject,
+      date,
+      labelIds: [],
+      internalDate: date,
+      historyId: "",
+      inline: [],
+    };
+  });
+}
+
 export async function getThreads({
   query,
   outlook,
@@ -64,7 +91,7 @@ export async function getThreads({
   let request = client
     .api(endpoint)
     .select(
-      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,parentFolderId",
+      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
     )
     .top(query.limit || 50);
 
@@ -130,11 +157,12 @@ export async function getThreads({
     Array.from(messagesByThread.entries()).map(async ([threadId, messages]) => {
       const plan = plans.find((p) => p.threadId === threadId);
 
+      // Convert messages to ParsedMessage format
+      const parsedMessages = convertOutlookMessages(messages);
+
       return {
         id: threadId,
-        messages: messages.map((msg) =>
-          convertMicrosoftMessageToParsedMessage(msg),
-        ),
+        messages: parsedMessages,
         snippet: messages[0]?.bodyPreview,
         plan,
         category: await getCategory({ emailAccountId, threadId }),
@@ -169,29 +197,4 @@ export function getFolderId(type?: string | null) {
       if (!type || type === "undefined" || type === "null") return "inbox";
       return type;
   }
-}
-
-// Helper function to convert Microsoft Graph message to ParsedMessage format
-function convertMicrosoftMessageToParsedMessage(msg: any): ParsedMessage {
-  return {
-    id: msg.id || "",
-    threadId: msg.conversationId || "",
-    snippet: msg.bodyPreview || "",
-    historyId: "",
-    labelIds: [],
-    attachments: [],
-    inline: [],
-    headers: {
-      from: msg.from?.emailAddress?.address || "",
-      to: msg.toRecipients?.[0]?.emailAddress?.address || "",
-      subject: msg.subject || "",
-      date: msg.receivedDateTime || new Date().toISOString(),
-    },
-    textPlain: "",
-    textHtml: msg.body?.content || "",
-    internalDate: msg.receivedDateTime || new Date().toISOString(),
-    // Include other required properties from gmail_v1.Schema$Message
-    sizeEstimate: 0,
-    raw: "",
-  };
 }

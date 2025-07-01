@@ -3,7 +3,7 @@
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { MessageText } from "@/components/Typography";
-import { getGmailUrl } from "@/utils/url";
+import { getEmailUrl } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
@@ -11,6 +11,7 @@ import { snippetRemoveReply } from "@/utils/gmail/snippet";
 import { extractNameFromEmail } from "@/utils/email";
 import { Badge } from "@/components/ui/badge";
 import { useEmail } from "@/providers/EmailProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { useMemo } from "react";
 import { isDefined } from "@/utils/types";
 import {
@@ -40,6 +41,7 @@ export function EmailMessageCell({
   filterReplyTrackerLabels?: boolean;
 }) {
   const { userLabels } = useEmail();
+  const { provider } = useAccount();
 
   const labelsToDisplay = useMemo(() => {
     const labels = labelIds
@@ -92,12 +94,16 @@ export function EmailMessageCell({
         </span>{" "}
         <Link
           className="ml-2 hover:text-foreground"
-          href={getGmailUrl(messageId, userEmail)}
+          href={getEmailUrl(
+            provider === "google" ? messageId : threadId,
+            userEmail,
+            provider,
+          )}
           target="_blank"
         >
           <ExternalLinkIcon className="h-4 w-4" />
         </Link>
-        {!hideViewEmailButton && (
+        {!hideViewEmailButton && provider === "google" && (
           <ViewEmailButton
             threadId={threadId}
             messageId={messageId}

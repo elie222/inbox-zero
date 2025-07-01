@@ -9,9 +9,24 @@
         "DIRECT_URL",
         "NEXTAUTH_SECRET",
         "NEXTAUTH_URL",
+
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
+        "GOOGLE_PUBSUB_TOPIC_NAME",
+        "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+        "GOOGLE_ENCRYPT_SECRET",
+        "GOOGLE_ENCRYPT_SALT",
+
+        "MICROSOFT_CLIENT_ID",
+        "MICROSOFT_CLIENT_SECRET",
+        "MICROSOFT_ENCRYPT_SECRET",
+        "MICROSOFT_ENCRYPT_SALT",
+
         "DEFAULT_LLM_PROVIDER",
+        "DEFAULT_LLM_MODEL",
+        "ECONOMY_LLM_PROVIDER",
+        "ECONOMY_LLM_MODEL",
+
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
         "BEDROCK_ACCESS_KEY",
@@ -21,41 +36,50 @@
         "GROQ_API_KEY",
         "OPENROUTER_API_KEY",
         "OLLAMA_BASE_URL",
+
         "UPSTASH_REDIS_URL",
         "UPSTASH_REDIS_TOKEN",
         "REDIS_URL",
         "QSTASH_TOKEN",
         "QSTASH_CURRENT_SIGNING_KEY",
         "QSTASH_NEXT_SIGNING_KEY",
-        "GOOGLE_PUBSUB_TOPIC_NAME",
-        "GOOGLE_PUBSUB_VERIFICATION_TOKEN",
+
         "SENTRY_AUTH_TOKEN",
         "SENTRY_ORGANIZATION",
         "SENTRY_PROJECT",
+
         "LOG_ZOD_ERRORS",
+        "ENABLE_DEBUG_LOGS",
+        
         "LEMON_SQUEEZY_SIGNING_SECRET",
         "LEMON_SQUEEZY_API_KEY",
+
         "TINYBIRD_TOKEN",
         "TINYBIRD_BASE_URL",
         "TINYBIRD_ENCRYPT_SECRET",
         "TINYBIRD_ENCRYPT_SALT",
-        "GOOGLE_ENCRYPT_SECRET",
-        "GOOGLE_ENCRYPT_SALT",
+
         "POSTHOG_API_SECRET",
         "POSTHOG_PROJECT_ID",
+
         "RESEND_API_KEY",
         "RESEND_AUDIENCE_ID",
-        "CRON_SECRET",
+
         "LOOPS_API_SECRET",
+
+        "CRON_SECRET",
+
         "ADMINS",
         "WEBHOOK_URL",
         "INTERNAL_API_KEY",
         "USE_BACKUP_MODEL",
         "WHITELIST_FROM",
         "API_KEY_SALT",
+        "HEALTH_API_KEY",
         "FB_CONVERSION_API_ACCESS_TOKEN",
         "FB_PIXEL_ID",
         "GITHUB_MARKETING_TOKEN",
+        "DUB_API_KEY",
 
         "STRIPE_SECRET_KEY",
         "STRIPE_WEBHOOK_SECRET",
@@ -97,7 +121,8 @@
         "NEXT_PUBLIC_BEDROCK_SONNET_MODEL",
         "NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL",
         "NEXT_PUBLIC_OLLAMA_MODEL",
-        "NEXT_PUBLIC_APP_HOME_PATH"
+        "NEXT_PUBLIC_APP_HOME_PATH",
+        "NEXT_PUBLIC_DUB_REFER_DOMAIN"
       ],
       "outputs": [".next/**", "!.next/cache/**"]
     },

@@ -1,7 +1,8 @@
 "use server";
 
 import { z } from "zod";
-import prisma, { isNotFoundError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isNotFoundError } from "@/utils/prisma-helpers";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
@@ -137,6 +138,8 @@ export const testAiCustomContentAction = actionClient
           threadId: "testThreadId",
           snippet: content,
           textPlain: content,
+          subject: "",
+          date: new Date().toISOString(),
           headers: {
             date: new Date().toISOString(),
             from: "",
@@ -203,7 +206,7 @@ export const approvePlanAction = actionClient
   .schema(z.object({ executedRuleId: z.string(), message: z.any() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount, provider },
+      ctx: { emailAccountId, emailAccount, provider, userId },
       parsedInput: { executedRuleId, message },
     }) => {
       const emailProvider = await createEmailProvider({
@@ -222,7 +225,7 @@ export const approvePlanAction = actionClient
         message,
         executedRule,
         userEmail: emailAccount.email,
-        userId: emailAccount.userId,
+        userId,
         emailAccountId,
       });
     },
@@ -517,7 +520,7 @@ export const generateRulesPromptAction = actionClient
       emailAccountId,
       provider,
     });
-    const lastSentMessages = await emailProvider.getMessages("in:sent", 50);
+    const lastSentMessages = await emailProvider.getSentMessages(50);
 
     const labels = await emailProvider.getLabels();
     const labelsWithCounts = labels.map((label) => ({

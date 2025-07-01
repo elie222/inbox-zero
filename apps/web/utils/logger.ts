@@ -52,7 +52,7 @@ export function createScopedLogger(scope: string) {
       warn: (message: string, ...args: unknown[]) =>
         console.warn(formatMessage("warn", message, args)),
       trace: (message: string, ...args: unknown[]) => {
-        if (process.env.NODE_ENV !== "production") {
+        if (env.ENABLE_DEBUG_LOGS) {
           console.log(formatMessage("trace", message, args));
         }
       },
@@ -73,7 +73,7 @@ function createAxiomLogger(scope: string) {
     warn: (message: string, args?: Record<string, unknown>) =>
       log.warn(message, { scope, ...fields, ...args }),
     trace: (message: string, args?: Record<string, unknown>) => {
-      if (process.env.NODE_ENV !== "production") {
+      if (env.ENABLE_DEBUG_LOGS) {
         log.debug(message, { scope, ...fields, ...args });
       }
     },

@@ -2,8 +2,10 @@ import useSWR from "swr";
 import type { ThreadsResponse as GmailThreadsResponse } from "@/app/api/google/threads/controller";
 import type { ThreadsResponse as MicrosoftThreadsResponse } from "@/app/api/microsoft/threads/controller";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import type { Thread as EmailThread } from "@/components/email-list/types";
 
-type ThreadsResponse = GmailThreadsResponse | MicrosoftThreadsResponse;
+export type ThreadsResponse = GmailThreadsResponse | MicrosoftThreadsResponse;
+export type Thread = EmailThread;
 
 export function useThreads({
   fromEmail,

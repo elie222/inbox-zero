@@ -81,6 +81,7 @@ export const getGmailClientWithRefresh = async ({
         },
         accountRefreshToken: refreshToken,
         emailAccountId,
+        provider: "google",
       });
     }
 

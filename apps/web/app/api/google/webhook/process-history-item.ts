@@ -24,6 +24,8 @@ import {
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 export async function processHistoryItem(
   {
@@ -81,31 +83,36 @@ export async function processHistoryItem(
       return;
     }
 
-    const message = parseMessage(gmailMessage);
+    const parsedMessage = parseMessage(gmailMessage);
 
-    if (isIgnoredSender(message.headers.from)) {
+    if (isIgnoredSender(parsedMessage.headers.from)) {
       logger.info("Skipping. Ignored sender.", loggerOptions);
       return;
     }
 
     const isForAssistant = isAssistantEmail({
       userEmail,
-      emailToCheck: message.headers.to,
+      emailToCheck: parsedMessage.headers.to,
+    });
+
+    const provider = await createEmailProvider({
+      emailAccountId,
+      provider: "google",
     });
 
     if (isForAssistant) {
       logger.info("Passing through assistant email.", loggerOptions);
       return processAssistantEmail({
-        message,
+        message: parsedMessage,
         emailAccountId,
         userEmail,
-        gmail,
+        provider,
       });
     }
 
     const isFromAssistant = isAssistantEmail({
       userEmail,
-      emailToCheck: message.headers.from,
+      emailToCheck: parsedMessage.headers.from,
     });
 
     if (isFromAssistant) {
@@ -113,16 +120,16 @@ export async function processHistoryItem(
       return;
     }
 
-    const isOutbound = message.labelIds?.includes(GmailLabel.SENT);
+    const isOutbound = parsedMessage.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutbound(emailAccount, message, gmail);
+      await handleOutbound(emailAccount, parsedMessage, gmail);
       return;
     }
 
     // check if unsubscribed
     const blocked = await blockUnsubscribedEmails({
-      from: message.headers.from,
+      from: parsedMessage.headers.from,
       emailAccountId,
       gmail,
       messageId,
@@ -141,23 +148,33 @@ export async function processHistoryItem(
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...", loggerOptions);
 
-      const content = emailToContent(message);
+      const content = emailToContent(parsedMessage);
 
       const response = await runColdEmailBlocker({
         email: {
-          from: message.headers.from,
+          from: parsedMessage.headers.from,
           to: "",
-          subject: message.headers.subject,
+          subject: parsedMessage.headers.subject,
           content,
           id: messageId,
           threadId,
-          date: internalDateToDate(message.internalDate),
+          date: internalDateToDate(parsedMessage.internalDate),
         },
         gmail,
         emailAccount,
       });
 
       if (response.isColdEmail) {
+        if (emailAccount.coldEmailDigest && response.coldEmailId) {
+          logger.info("Enqueuing a cold email digest item", {
+            coldEmailId: response.coldEmailId,
+          });
+          await enqueueDigestItem({
+            email: parsedMessage,
+            emailAccountId,
+            coldEmailId: response.coldEmailId,
+          });
+        }
         logger.info("Skipping. Cold email detected.", loggerOptions);
         return;
       }
@@ -166,7 +183,7 @@ export async function processHistoryItem(
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
     if (emailAccount.autoCategorizeSenders) {
-      const sender = extractEmailAddress(message.headers.from);
+      const sender = extractEmailAddress(parsedMessage.headers.from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
           email_emailAccountId: { email: sender, emailAccountId },
@@ -182,8 +199,8 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        gmail,
-        message,
+        client: provider,
+        message: parsedMessage,
         rules,
         emailAccount,
         isTest: false,

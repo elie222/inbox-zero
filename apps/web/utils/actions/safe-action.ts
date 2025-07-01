@@ -55,11 +55,17 @@ export const actionClient = baseClient
     // validate user owns this email
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
-      include: {
-        account: true,
+      select: {
+        email: true,
+        account: {
+          select: {
+            userId: true,
+            provider: true,
+          },
+        },
       },
     });
-    if (!emailAccount || emailAccount?.userId !== userId)
+    if (!emailAccount || emailAccount?.account.userId !== userId)
       throw new SafeError("Unauthorized");
 
     return withServerActionInstrumentation(metadata?.name, async () => {

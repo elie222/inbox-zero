@@ -9,6 +9,7 @@ function setUtmCookies() {
   const utmCampaign = urlParams.get("utm_campaign");
   const utmTerm = urlParams.get("utm_term");
   const affiliate = urlParams.get("aff_ref");
+  const referralCode = urlParams.get("ref");
 
   // expires in 30 days
   const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
@@ -23,6 +24,8 @@ function setUtmCookies() {
     document.cookie = `utm_term=${utmTerm}; expires=${expires}; path=/`;
   if (affiliate)
     document.cookie = `affiliate=${affiliate}; expires=${expires}; path=/`;
+  if (referralCode)
+    document.cookie = `referral_code=${referralCode}; expires=${expires}; path=/`;
 }
 
 export function UTM() {

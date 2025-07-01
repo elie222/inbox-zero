@@ -239,6 +239,7 @@ async function sendEmail({
     const token = await createUnsubscribeToken({ emailAccountId });
 
     return sendSummaryEmail({
+      from: env.RESEND_FROM_EMAIL,
       to: userEmail,
       emailProps: {
         baseUrl: env.NEXT_PUBLIC_BASE_URL,

@@ -12,7 +12,6 @@ import {
   TagIcon,
   BellIcon,
   ReplyIcon,
-  FocusIcon,
 } from "lucide-react";
 import Image from "next/image";
 

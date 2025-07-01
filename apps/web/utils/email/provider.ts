@@ -192,6 +192,11 @@ export interface EmailProvider {
   }>;
   getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]>;
   getAccessToken(): string;
+  checkIfReplySent(senderEmail: string): Promise<boolean>;
+  countReceivedMessages(
+    senderEmail: string,
+    threshold: number,
+  ): Promise<number>;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -553,6 +558,57 @@ export class GmailProvider implements EmailProvider {
       threadId,
       read,
     });
+  }
+
+  async checkIfReplySent(senderEmail: string): Promise<boolean> {
+    try {
+      const query = `from:me to:${senderEmail} label:sent`;
+      const response = await getGmailMessages(this.client, {
+        query,
+        maxResults: 1,
+      });
+      const sent = (response.messages?.length ?? 0) > 0;
+      logger.info("Checked for sent reply", { senderEmail, sent });
+      return sent;
+    } catch (error) {
+      logger.error("Error checking if reply was sent", {
+        error,
+        senderEmail,
+      });
+      return true; // Default to true on error (safer for TO_REPLY filtering)
+    }
+  }
+
+  async countReceivedMessages(
+    senderEmail: string,
+    threshold: number,
+  ): Promise<number> {
+    try {
+      const query = `from:${senderEmail}`;
+      logger.info(`Checking received message count (up to ${threshold})`, {
+        senderEmail,
+        threshold,
+      });
+
+      // Fetch up to the threshold number of message IDs.
+      const response = await getGmailMessages(this.client, {
+        query,
+        maxResults: threshold,
+      });
+      const count = response.messages?.length ?? 0;
+
+      logger.info("Received message count check result", {
+        senderEmail,
+        count,
+      });
+      return count;
+    } catch (error) {
+      logger.error("Error counting received messages", {
+        error,
+        senderEmail,
+      });
+      return 0; // Default to 0 on error
+    }
   }
 }
 
@@ -930,6 +986,56 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       read,
     });
+  }
+  async checkIfReplySent(senderEmail: string): Promise<boolean> {
+    try {
+      const query = `from:me to:${senderEmail}`;
+      const response = await getOutlookMessages(this.client, {
+        query,
+        maxResults: 1,
+      });
+      const sent = (response.messages?.length ?? 0) > 0;
+      logger.info("Checked for sent reply", { senderEmail, sent });
+      return sent;
+    } catch (error) {
+      logger.error("Error checking if reply was sent", {
+        error,
+        senderEmail,
+      });
+      return true; // Default to true on error (safer for TO_REPLY filtering)
+    }
+  }
+
+  async countReceivedMessages(
+    senderEmail: string,
+    threshold: number,
+  ): Promise<number> {
+    try {
+      const query = `from:${senderEmail}`;
+      logger.info(`Checking received message count (up to ${threshold})`, {
+        senderEmail,
+        threshold,
+      });
+
+      // Fetch up to the threshold number of messages
+      const response = await getOutlookMessages(this.client, {
+        query,
+        maxResults: threshold,
+      });
+      const count = response.messages?.length ?? 0;
+
+      logger.info("Received message count check result", {
+        senderEmail,
+        count,
+      });
+      return count;
+    } catch (error) {
+      logger.error("Error counting received messages", {
+        error,
+        senderEmail,
+      });
+      return 0; // Default to 0 on error
+    }
   }
 }
 

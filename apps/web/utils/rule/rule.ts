@@ -1,5 +1,6 @@
 import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
-import prisma, { isDuplicateError } from "@/utils/prisma";
+import prisma from "@/utils/prisma";
+import { isDuplicateError } from "@/utils/prisma-helpers";
 import { createScopedLogger } from "@/utils/logger";
 import {
   ActionType,
@@ -11,6 +12,7 @@ import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { SafeError } from "@/utils/error";
+import { createRuleHistory } from "@/utils/rule/rule-history";
 
 const logger = createScopedLogger("rule");
 
@@ -33,11 +35,13 @@ export async function safeCreateRule({
   emailAccountId,
   categoryNames,
   systemType,
+  triggerType = "ai_creation",
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryNames?: string[] | null;
   systemType?: SystemType | null;
+  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
 }) {
   const categoryIds = await getUserCategoriesForNames({
     emailAccountId,
@@ -50,6 +54,7 @@ export async function safeCreateRule({
       emailAccountId,
       categoryIds,
       systemType,
+      triggerType,
     });
     return rule;
   } catch (error) {
@@ -59,6 +64,7 @@ export async function safeCreateRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
         emailAccountId,
         categoryIds,
+        triggerType,
       });
       return rule;
     }
@@ -79,11 +85,13 @@ export async function safeUpdateRule({
   result,
   emailAccountId,
   categoryIds,
+  triggerType = "ai_update",
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
+  triggerType?: "ai_update" | "manual_update" | "system_update";
 }) {
   try {
     const rule = await updateRule({
@@ -91,6 +99,7 @@ export async function safeUpdateRule({
       result,
       emailAccountId,
       categoryIds,
+      triggerType,
     });
     return { id: rule.id };
   } catch (error) {
@@ -100,6 +109,7 @@ export async function safeUpdateRule({
         result: { ...result, name: `${result.name} - ${Date.now()}` },
         emailAccountId,
         categoryIds,
+        triggerType: "ai_creation", // Default for safeUpdateRule fallback
       });
       return { id: rule.id };
     }
@@ -121,15 +131,17 @@ export async function createRule({
   emailAccountId,
   categoryIds,
   systemType,
+  triggerType = "ai_creation",
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
   systemType?: SystemType | null;
+  triggerType?: "ai_creation" | "manual_creation" | "system_creation";
 }) {
   const mappedActions = mapActionFields(result.actions);
 
-  return prisma.rule.create({
+  const rule = await prisma.rule.create({
     data: {
       name: result.name,
       emailAccountId,
@@ -163,6 +175,11 @@ export async function createRule({
     },
     include: { actions: true, categoryFilters: true, group: true },
   });
+
+  // Track rule creation in history
+  await createRuleHistory({ rule, triggerType });
+
+  return rule;
 }
 
 async function updateRule({
@@ -170,13 +187,15 @@ async function updateRule({
   result,
   emailAccountId,
   categoryIds,
+  triggerType = "ai_update",
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
+  triggerType?: "ai_update" | "manual_update" | "system_update";
 }) {
-  return prisma.rule.update({
+  const rule = await prisma.rule.update({
     where: { id: ruleId },
     data: {
       name: result.name,
@@ -201,7 +220,13 @@ async function updateRule({
           }
         : undefined,
     },
+    include: { actions: true, categoryFilters: true, group: true },
   });
+
+  // Track rule update in history
+  await createRuleHistory({ rule, triggerType });
+
+  return rule;
 }
 
 export async function updateRuleActions({

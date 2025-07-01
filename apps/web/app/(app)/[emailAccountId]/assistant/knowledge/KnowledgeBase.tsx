@@ -91,29 +91,31 @@ export function KnowledgeBase() {
               {data?.items.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3}>
-                    <p className="mx-auto my-8 max-w-prose text-center">
-                      Knowledge base entries are used to help draft responses to
-                      emails.
-                      <br />
-                      Click "Add" to create one.
-                      <br />
-                      <br />
-                      <strong className="text-left">Notes:</strong>
-                      <ul className="list-disc text-left">
-                        <li>
-                          Placing all knowledge in one entry is perfectly fine.
-                        </li>
-                        <li>
-                          When our AI drafts replies it also has access to
-                          previous conversations with the person you're talking
-                          to.
-                        </li>
-                        <li>
-                          This information is only used to draft replies. You
-                          must click "Send" to send the reply.
-                        </li>
-                      </ul>
-                    </p>
+                    <div className="mx-auto my-8 max-w-prose text-center">
+                      <p>
+                        Knowledge base entries are used to help draft responses
+                        to emails.
+                        <br />
+                        Click "Add" to create one.
+                      </p>
+                      <div className="mt-4">
+                        <strong className="text-left">Notes:</strong>
+                        <ul className="mt-2 list-disc space-y-1 text-left">
+                          <li>
+                            Placing all knowledge in one entry is perfectly
+                            fine.
+                          </li>
+                          <li>
+                            When our AI drafts replies it also has access to
+                            previous conversations with the person you're
+                            talking to.
+                          </li>
+                          <li>
+                            This information is only used to draft replies.
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (

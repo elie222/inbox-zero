@@ -5,6 +5,7 @@ import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/provider";
+import { enqueueDigestItem } from "@/utils/digest/index";
 
 const logger = createScopedLogger("ai-actions");
 
@@ -62,6 +63,8 @@ export const runActionFunction = async (options: {
       return mark_read(opts);
     case ActionType.TRACK_THREAD:
       return track_thread(opts);
+    case ActionType.DIGEST:
+      return digest(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -249,4 +252,9 @@ const track_thread: ActionFunction<Record<string, unknown>> = async ({
     sentAt: internalDateToDate(email.internalDate),
     client,
   });
+};
+
+const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
+  const actionId = args.id;
+  await enqueueDigestItem({ email, emailAccountId, actionId });
 };

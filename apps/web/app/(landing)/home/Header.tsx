@@ -28,7 +28,7 @@ import {
 } from "@/components/ui/navigation-menu";
 
 const navigation = [
-  { name: "FAQ", href: "/#faq" },
+  { name: "Enterprise", href: "/enterprise" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
   { name: "Affiliates", href: "/affiliates", target: "_blank" as const },
   { name: "Pricing", href: "/#pricing" },

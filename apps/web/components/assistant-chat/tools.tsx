@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { useQueryState } from "nuqs";
 import type {
   UpdateAboutSchema,
   UpdateRuleConditionSchema,
@@ -19,6 +19,8 @@ import { Tooltip } from "@/components/Tooltip";
 import { deleteRuleAction } from "@/utils/actions/rule";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ExpandableText } from "@/components/ExpandableText";
+import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { useDialogState } from "@/hooks/useDialogState";
 
 export function ToolCard({
   toolName,
@@ -419,53 +421,57 @@ function AddToKnowledgeBase({ args }: { args: AddToKnowledgeBaseSchema }) {
 
 function RuleActions({ ruleId }: { ruleId: string }) {
   const { emailAccountId } = useAccount();
-  const [_, setRuleId] = useQueryStates({
-    tab: parseAsString,
-    ruleId: parseAsString,
-  });
+  const ruleDialog = useDialogState<{ ruleId: string }>();
 
   return (
-    <div className="flex items-center gap-1">
+    <>
       {/* Don't use tooltips as they force scroll to bottom. Real fix is to adjust useScrollToBottom hook to not do that */}
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        onClick={() => setRuleId({ ruleId, tab: "rule" })}
-      >
-        <EyeIcon className="size-4" />
-      </Button>
-      <Button
-        variant="ghost"
-        size="sm"
-        className="h-8 w-8 p-0"
-        onClick={async () => {
-          const yes = confirm("Are you sure you want to delete this rule?");
-          if (yes) {
-            try {
-              const result = await deleteRuleAction(emailAccountId, {
-                id: ruleId,
-              });
-              if (result?.serverError) {
-                toastError({ description: result.serverError });
-              } else {
-                toastSuccess({
-                  description: "The rule has been deleted.",
+      <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={() => ruleDialog.open({ ruleId })}
+        >
+          <EyeIcon className="size-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 w-8 p-0"
+          onClick={async () => {
+            const yes = confirm("Are you sure you want to delete this rule?");
+            if (yes) {
+              try {
+                const result = await deleteRuleAction(emailAccountId, {
+                  id: ruleId,
                 });
+                if (result?.serverError) {
+                  toastError({ description: result.serverError });
+                } else {
+                  toastSuccess({
+                    description: "The rule has been deleted.",
+                  });
+                }
+              } catch (error) {
+                toastError({ description: "Failed to delete rule." });
               }
-            } catch (error) {
-              toastError({ description: "Failed to delete rule." });
             }
-          }
-        }}
-      >
-        <TrashIcon className="size-4" />
-      </Button>
-    </div>
+          }}
+        >
+          <TrashIcon className="size-4" />
+        </Button>
+      </div>
+
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.close}
+        editMode={false}
+      />
+    </>
   );
 }
-
-// Common Components
 
 function ToolCardHeader({
   title,

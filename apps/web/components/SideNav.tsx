@@ -15,6 +15,7 @@ import {
   CogIcon,
   CrownIcon,
   FileIcon,
+  GiftIcon,
   InboxIcon,
   type LucideIcon,
   MailsIcon,
@@ -53,6 +54,7 @@ import { ClientOnly } from "@/components/ClientOnly";
 import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
+import { ReferralDialog } from "@/components/ReferralDialog";
 
 type NavItem = {
   name: string;
@@ -138,12 +140,6 @@ export const useNavigation = () => {
 };
 
 const bottomLinks: NavItem[] = [
-  // {
-  //   name: "Onboarding",
-  //   href: "/onboarding",
-  //   icon: ListCheckIcon,
-  //   hideInMail: true,
-  // },
   {
     name: "Help Center",
     href: "https://docs.getinboxzero.com",
@@ -312,6 +308,10 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarContent>
 
       <SidebarFooter className="pb-4">
+        <ClientOnly>
+          <ReferralDialog />
+        </ClientOnly>
+
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
       </SidebarFooter>
     </Sidebar>

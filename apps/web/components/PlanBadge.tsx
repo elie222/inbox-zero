@@ -112,7 +112,7 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
     case ActionType.DRAFT_EMAIL:
       return (
         <div>
-          <Badge color="pink">Draft email</Badge>
+          <Badge color="pink">Draft reply</Badge>
           <ActionContent action={action} />
         </div>
       );
