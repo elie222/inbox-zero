@@ -74,6 +74,9 @@ const STRIPE_PRICE_ID_CONFIG: Record<
       "price_1RfoILKGf8mwZWHnDiUMj6no",
       "price_1RfeAFKGf8mwZWHnnnPzFEky",
       "price_1RfSoHKGf8mwZWHnxTsSDTqW",
+      "price_1Rg0QfKGf8mwZWHnDsiocBVD",
+      "price_1Rg0LEKGf8mwZWHndYXYg7ie",
+      "price_1Rg03pKGf8mwZWHnWMNeQzLc",
     ],
   },
   [PremiumTier.BUSINESS_ANNUALLY]: {
