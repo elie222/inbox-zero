@@ -4,8 +4,10 @@ import { TopSection } from "@/components/TopSection";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
+import { AdminSyncStripe } from "@/app/(app)/admin/AdminSyncStripe";
 
-export const maxDuration = 300;
+// NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
+export const maxDuration = 800;
 
 export default async function AdminPage() {
   const session = await auth();
@@ -26,6 +28,7 @@ export default async function AdminPage() {
       <div className="m-8 space-y-8">
         <AdminUpgradeUserForm />
         <AdminUserControls />
+        <AdminSyncStripe />
       </div>
     </div>
   );

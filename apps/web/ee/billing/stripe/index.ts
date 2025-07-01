@@ -31,6 +31,11 @@ export const updateStripeSubscriptionItemQuantity = async ({
 }) => {
   const quantityToSet = Math.max(1, quantity);
 
+  logger.info("Updating Stripe subscription item quantity", {
+    subscriptionItemId,
+    quantityAttempted: quantityToSet,
+  });
+
   if (!subscriptionItemId) {
     logger.error("Missing subscriptionItemId for updating quantity");
     throw new Error("Subscription Item ID is required to update quantity.");

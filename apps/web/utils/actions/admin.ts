@@ -7,6 +7,7 @@ import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
+import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 
 const logger = createScopedLogger("Admin Action");
 
@@ -52,4 +53,19 @@ export const adminDeleteAccountAction = adminActionClient
     }
 
     return { success: "User deleted" };
+  });
+
+export const adminSyncStripeForAllUsersAction = adminActionClient
+  .metadata({ name: "syncStripeForAllUsers" })
+  .action(async () => {
+    const users = await prisma.premium.findMany({
+      where: { stripeCustomerId: { not: null } },
+      select: { stripeCustomerId: true },
+      orderBy: { updatedAt: "asc" },
+    });
+    for (const premium of users) {
+      if (!premium.stripeCustomerId) continue;
+      console.log(`Syncing Stripe for ${premium.stripeCustomerId}`);
+      await syncStripeDataToDb({ customerId: premium.stripeCustomerId });
+    }
   });
