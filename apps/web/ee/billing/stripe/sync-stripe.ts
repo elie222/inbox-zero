@@ -5,6 +5,7 @@ import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
 import { updateAccountSeatsForPremium } from "@/utils/premium/server";
+import type { Prisma } from "@prisma/client";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -118,6 +119,7 @@ export async function syncStripeDataToDb({
       },
       select: {
         stripeSubscriptionItemId: true,
+        pendingInvites: true,
         users: {
           select: {
             _count: true,
@@ -137,22 +139,33 @@ export async function syncStripeDataToDb({
       customerId,
     });
 
-    // Count all email accounts for all users
-    const totalSeats = sumBy(
-      updatedPremium.users,
-      (user) => user._count.emailAccounts,
-    );
-
-    await updateAccountSeatsForPremium(updatedPremium, totalSeats).catch(
-      (error) => {
-        logger.error("Error updating account seats for premium", {
-          customerId,
-          error,
-        });
-      },
-    );
+    await syncSeats(updatedPremium);
   } catch (error) {
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     throw error;
+  }
+}
+
+async function syncSeats(
+  premium: Prisma.PremiumGetPayload<{
+    select: {
+      users: { select: { _count: { select: { emailAccounts: true } } } };
+      pendingInvites: true;
+      stripeSubscriptionItemId: true;
+    };
+  }>,
+) {
+  try {
+    // total seats = premium users + pending invites
+    const totalSeats =
+      sumBy(premium.users, (u) => u._count.emailAccounts) +
+      (premium.pendingInvites?.length || 0);
+
+    await updateAccountSeatsForPremium(premium, totalSeats);
+  } catch (error) {
+    logger.error("Error updating account seats for premium", {
+      stripeSubscriptionItemId: premium.stripeSubscriptionItemId,
+      error,
+    });
   }
 }
