@@ -5,11 +5,13 @@ import { parseMessage } from "@/utils/mail";
 import {
   getMessage as getGmailMessage,
   getMessages as getGmailMessages,
+  getSentMessages as getGmailSentMessages,
 } from "@/utils/gmail/message";
 import {
   getMessage as getOutlookMessage,
   getMessages as getOutlookMessages,
   queryBatchMessages as getOutlookBatchMessages,
+  getFolderIds,
 } from "@/utils/outlook/message";
 import {
   getLabels as getGmailLabels,
@@ -120,6 +122,7 @@ export interface EmailProvider {
   getLabelById(labelId: string): Promise<EmailLabel | null>;
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessages(query?: string, maxResults?: number): Promise<ParsedMessage[]>;
+  getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(
     messageIds: string[],
@@ -278,6 +281,10 @@ export class GmailProvider implements EmailProvider {
     return messages
       .filter((message) => message.payload)
       .map((message) => parseMessage(message as any));
+  }
+
+  async getSentMessages(maxResults: number = 20): Promise<ParsedMessage[]> {
+    return getGmailSentMessages(this.client, maxResults);
   }
 
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
@@ -629,6 +636,22 @@ export class OutlookProvider implements EmailProvider {
     }
 
     return allMessages;
+  }
+
+  async getSentMessages(maxResults: number = 20): Promise<ParsedMessage[]> {
+    const folderIds = await getFolderIds(this.client);
+    const sentItemsFolderId = folderIds.sentitems;
+
+    if (!sentItemsFolderId) {
+      throw new Error("Could not find sent items folder");
+    }
+
+    const response = await getOutlookBatchMessages(this.client, {
+      maxResults,
+      folderId: sentItemsFolderId,
+    });
+
+    return response.messages || [];
   }
 
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {

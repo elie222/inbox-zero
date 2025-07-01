@@ -141,40 +141,97 @@ export async function queryBatchMessages(
 
   let nextPageToken: string | undefined;
 
-  if (query?.trim()) {
-    // Search path - use search and skipToken
-    request = request.search(query.trim());
+  // Check if query is an OData filter (contains operators like eq, gt, lt, etc.)
+  const isODataFilter =
+    query?.includes(" eq ") ||
+    query?.includes(" gt ") ||
+    query?.includes(" lt ") ||
+    query?.includes(" ge ") ||
+    query?.includes(" le ") ||
+    query?.includes(" ne ") ||
+    query?.includes(" and ") ||
+    query?.includes(" or ");
 
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    }
+  // Always filter to only include inbox and archive folders
+  const inboxFolderId = folderIds.inbox;
+  const archiveFolderId = folderIds.archive;
 
-    const response = await request.get();
-    // Filter messages by folder if specified
-    const filteredMessages = folderId
-      ? response.value.filter(
-          (message: Message) => message.parentFolderId === folderId,
-        )
-      : response.value;
-    const messages = await convertMessages(filteredMessages, folderIds);
-
-    // For search, get next page token from @odata.nextLink
-    nextPageToken = response["@odata.nextLink"]
-      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-        undefined
-      : undefined;
-
-    logger.info("Search results", {
-      messageCount: messages.length,
-      hasNextPageToken: !!nextPageToken,
+  if (!inboxFolderId || !archiveFolderId) {
+    logger.warn("Missing required folder IDs", {
+      inboxFolderId,
+      archiveFolderId,
     });
+  }
 
-    return { messages, nextPageToken };
+  if (query?.trim()) {
+    if (isODataFilter) {
+      // Filter path - use filter and skipToken
+      // Combine the existing filter with folder restrictions
+      const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+      const combinedFilter = query.trim()
+        ? `${query.trim()} and ${folderFilter}`
+        : folderFilter;
+      request = request.filter(combinedFilter);
+
+      if (pageToken) {
+        request = request.skipToken(pageToken);
+      }
+
+      const response = await request.get();
+      const messages = await convertMessages(response.value, folderIds);
+
+      // For filter, get next page token from @odata.nextLink
+      nextPageToken = response["@odata.nextLink"]
+        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+          undefined
+        : undefined;
+
+      logger.info("Filter results", {
+        messageCount: messages.length,
+        hasNextPageToken: !!nextPageToken,
+      });
+
+      return { messages, nextPageToken };
+    } else {
+      // Search path - use search and skipToken
+      request = request.search(query.trim());
+
+      if (pageToken) {
+        request = request.skipToken(pageToken);
+      }
+
+      const response = await request.get();
+      // Filter messages to only include inbox and archive folders
+      const filteredMessages = response.value.filter(
+        (message: Message) =>
+          message.parentFolderId === inboxFolderId ||
+          message.parentFolderId === archiveFolderId,
+      );
+      const messages = await convertMessages(filteredMessages, folderIds);
+
+      // For search, get next page token from @odata.nextLink
+      nextPageToken = response["@odata.nextLink"]
+        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+          undefined
+        : undefined;
+
+      logger.info("Search results", {
+        messageCount: messages.length,
+        hasNextPageToken: !!nextPageToken,
+      });
+
+      return { messages, nextPageToken };
+    }
   } else {
     // Non-search path - use filter, skip and orderBy
-    // Add folder filter if specified
+    // Always filter to only include inbox and archive folders
+    const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+
+    // If a specific folder is requested, override the default filter
     if (folderId) {
       request = request.filter(`parentFolderId eq '${folderId}'`);
+    } else {
+      request = request.filter(folderFilter);
     }
 
     request = request

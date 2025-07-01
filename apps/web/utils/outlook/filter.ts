@@ -28,7 +28,6 @@ export async function createFilter(options: {
       actions: {
         moveToFolder: removeLabelIds?.includes("INBOX") ? "archive" : undefined,
         markAsRead: removeLabelIds?.includes("UNREAD") ? true : undefined,
-        // Note: Outlook doesn't have a direct equivalent to Gmail's label system
         // Categories would need to be handled separately
       },
     };
@@ -38,7 +37,7 @@ export async function createFilter(options: {
       .api("/me/mailFolders/inbox/messageRules")
       .post(rule);
 
-    return response;
+    return { status: 201, data: response };
   } catch (error) {
     if (isFilterExistsError(error)) {
       logger.warn("Filter already exists", { from });
@@ -78,7 +77,7 @@ export async function createAutoArchiveFilter({
       .api("/me/mailFolders/inbox/messageRules")
       .post(rule);
 
-    return response;
+    return { status: 201, data: response };
   } catch (error) {
     if (isFilterExistsError(error)) {
       logger.warn("Auto-archive filter already exists", { from });
@@ -95,10 +94,12 @@ export async function deleteFilter(options: {
   const { client, id } = options;
 
   try {
-    return await client
+    const response = await client
       .getClient()
       .api(`/me/mailFolders/inbox/messageRules/${id}`)
       .delete();
+
+    return { status: 204, data: response };
   } catch (error) {
     logger.error("Error deleting Outlook filter", { id, error });
     throw error;
@@ -107,51 +108,10 @@ export async function deleteFilter(options: {
 
 export async function getFiltersList(options: { client: OutlookClient }) {
   try {
-    logger.info("Getting Outlook filters list");
-
-    // Try the simpler endpoint first
-    let response;
-    try {
-      response = await options.client.getClient().api("/me/messageRules").get();
-
-      logger.info("Successfully got filters from /me/messageRules");
-    } catch (error) {
-      logger.warn(
-        "Failed to get filters from /me/messageRules, trying /me/mailFolders/inbox/messageRules",
-        { error },
-      );
-
-      response = await options.client
-        .getClient()
-        .api("/me/mailFolders/inbox/messageRules")
-        .get();
-
-      logger.info(
-        "Successfully got filters from /me/mailFolders/inbox/messageRules",
-      );
-    }
-
-    logger.info("Outlook getFiltersList raw response", {
-      response,
-      responseKeys: Object.keys(response),
-      hasValue: !!response.value,
-      valueLength: response.value?.length || 0,
-      valueType: typeof response.value,
-      isArray: Array.isArray(response.value),
-    });
-
-    if (response.value) {
-      response.value.forEach((filter: any, index: number) => {
-        logger.info(`Filter ${index}:`, {
-          id: filter.id,
-          displayName: filter.displayName,
-          conditions: filter.conditions,
-          actions: filter.actions,
-          isEnabled: filter.isEnabled,
-          sequence: filter.sequence,
-        });
-      });
-    }
+    const response = await options.client
+      .getClient()
+      .api("/me/mailFolders/inbox/messageRules")
+      .get();
 
     return response;
   } catch (error) {

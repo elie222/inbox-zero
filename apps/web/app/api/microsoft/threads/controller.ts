@@ -25,38 +25,46 @@ export async function getThreads({
 
   // Build the filter query for Microsoft Graph API
   function getFilter() {
-    // Use a simpler approach to avoid complex filter errors
+    const filters: string[] = [];
+
+    // Add folder filter based on type
+    if (query.type === "all") {
+      // For "all" type, include both inbox and archive
+      filters.push(
+        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+      );
+    } else {
+      // Default to inbox only
+      filters.push("parentFolderId eq 'inbox'");
+    }
+
+    // Add other filters
     if (query.fromEmail) {
       // Escape single quotes in email address
       const escapedEmail = query.fromEmail.replace(/'/g, "''");
-      return `from/emailAddress/address eq '${escapedEmail}'`;
+      filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
     }
 
     if (query.q) {
       // Escape single quotes in search query
       const escapedQuery = query.q.replace(/'/g, "''");
-      return `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`;
+      filters.push(
+        `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
+      );
     }
 
-    return undefined;
+    return filters.length > 0 ? filters.join(" and ") : undefined;
   }
 
   // Get messages from Microsoft Graph API
-  let endpoint = "/me/messages";
-
-  // If folder is specified, use the folder-specific endpoint
-  if (query.folderId) {
-    const folderId = getFolderId(query.folderId);
-    if (folderId) {
-      endpoint = `/me/mailFolders/${folderId}/messages`;
-    }
-  }
+  // Always use the main messages endpoint since we're filtering by folder in the query
+  const endpoint = "/me/messages";
 
   // Build the request
   let request = client
     .api(endpoint)
     .select(
-      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body",
+      "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,parentFolderId",
     )
     .top(query.limit || 50);
 

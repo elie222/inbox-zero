@@ -148,18 +148,6 @@ async function getNewsletterCounts(
     andClause?: boolean;
   },
 ): Promise<NewsletterCountResult[]> {
-  logger.info("Getting newsletter counts", {
-    emailAccountId: options.emailAccountId,
-    fromDate: options.fromDate,
-    toDate: options.toDate,
-    read: options.read,
-    unread: options.unread,
-    archived: options.archived,
-    unarchived: options.unarchived,
-    limit: options.limit,
-    orderBy: options.orderBy,
-  });
-
   // Collect SQL query conditions
   const whereConditions: string[] = [];
   const queryParams: Array<string | Date> = [];
@@ -232,25 +220,12 @@ async function getNewsletterCounts(
     ${Prisma.raw(limitClause)}
   `;
 
-  logger.info("Executing newsletter counts query", {
-    whereClause,
-    orderByClause,
-    limitClause,
-    queryParams,
-    querySql: query.sql,
-  });
-
   try {
     const results = await prisma.$queryRawUnsafe<NewsletterCountRawResult[]>(
       query.sql,
       ...queryParams,
       ...query.values,
     );
-
-    logger.info("Newsletter counts query results", {
-      resultsLength: results.length,
-      sampleResults: results.slice(0, 3),
-    });
 
     // Convert BigInt values to regular numbers
     return results.map((result) => ({

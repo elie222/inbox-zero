@@ -27,7 +27,10 @@ export function findAutoArchiveFilter(
 ) {
   return autoArchiveFilters.find((filter) => {
     const from = extractEmailAddress(fromEmail);
-    return filter.criteria?.from?.includes(from) && isAutoArchiveFilter(filter);
+    return (
+      filter.criteria?.from?.toLowerCase().includes(from.toLowerCase()) &&
+      isAutoArchiveFilter(filter)
+    );
   });
 }
 
@@ -82,14 +85,6 @@ function isAutoArchiveFilter(filter: EmailFilter) {
   const isOutlookArchive = filter.action?.removeLabelIds?.includes("INBOX");
 
   const result = isGmailArchive || isOutlookArchive;
-
-  logger.info("Checking if filter is auto-archive", {
-    filterId: filter.id,
-    filterAction: filter.action,
-    isGmailArchive,
-    isOutlookArchive,
-    result,
-  });
 
   return result;
 }
