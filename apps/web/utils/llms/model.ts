@@ -214,26 +214,26 @@ function selectDefaultModel(userAi: UserAIFields) {
         function selectRandomModel() {
           // to avoid rate limits, we'll select a random model
           const models = [
-            // "anthropic/claude-3.7-sonnet",
-            // "anthropic/claude-sonnet-4",
             "google/gemini-2.5-pro",
+            "anthropic/claude-sonnet-4",
+            // "anthropic/claude-3.7-sonnet",
           ];
           return models[Math.floor(Math.random() * models.length)];
         }
         aiModel = selectRandomModel() || null;
         providerOptions.openrouter = {
           models: [
-            // "anthropic/claude-sonnet-4",
-            // "anthropic/claude-3.7-sonnet",
             "google/gemini-2.5-pro",
+            "anthropic/claude-sonnet-4",
+            // "anthropic/claude-3.7-sonnet",
           ],
           provider: {
             // max 3 options
             order: [
               "Google Vertex",
               "Google AI Studio",
+              "Anthropic",
               // "Amazon Bedrock",
-              // "Anthropic",
             ],
           },
         };
