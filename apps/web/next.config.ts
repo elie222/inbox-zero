@@ -29,10 +29,6 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
-        hostname: "pbs.twimg.com",
-      },
-      {
-        protocol: "https",
         hostname: "ph-avatars.imgix.net",
       },
       {

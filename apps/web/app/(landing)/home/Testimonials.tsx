@@ -19,8 +19,7 @@ const featuredTestimonial = {
   author: {
     name: "Jonni Lundy",
     handle: "jonnilundy",
-    imageUrl:
-      "https://pbs.twimg.com/profile_images/1651273413053542400/6ul40RRM_400x400.jpg",
+    imageUrl: "/images/testimonials/jonnilundy.jpg",
     logoUrl: "/images/logos/resend.svg",
   },
 };
@@ -30,8 +29,7 @@ const stevenTestimonial: Testimonial = {
   author: {
     name: "Steven Tey",
     handle: "steventey",
-    imageUrl:
-      "https://pbs.twimg.com/profile_images/1506792347840888834/dS-r50Je_400x400.jpg",
+    imageUrl: "/images/testimonials/steventey.jpg",
   },
 };
 
