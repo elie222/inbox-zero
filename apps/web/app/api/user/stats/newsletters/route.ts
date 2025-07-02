@@ -181,10 +181,6 @@ async function getNewsletterCounts(
     whereConditions.push("inbox = false");
   }
 
-  // Always exclude drafts
-  whereConditions.push("draft = false");
-  whereConditions.push("sent = false");
-
   // Always filter by userId
   whereConditions.push(`"emailAccountId" = $${queryParams.length + 1}`);
   queryParams.push(options.emailAccountId);
