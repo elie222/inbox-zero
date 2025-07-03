@@ -75,7 +75,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
-  const { emailAccountId, userEmail } = useAccount();
+  const { emailAccountId, userEmail, provider } = useAccount();
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -212,6 +212,7 @@ export function GroupedTable({
                 await addToArchiveSenderQueue({
                   sender: sender.address,
                   emailAccountId,
+                  provider,
                 });
               }
             };

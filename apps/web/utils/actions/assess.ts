@@ -53,12 +53,12 @@ export const analyzeWritingStyleAction = actionClient
 
     if (emailAccount?.writingStyle) return { success: true, skipped: true };
 
-    // fetch last 20 sent emails
+    // fetch last 20 sent emails using the provider's getSentMessages method
     const emailProvider = await createEmailProvider({
       emailAccountId,
       provider,
     });
-    const sentMessages = await emailProvider.getMessages("in:sent", 20);
+    const sentMessages = await emailProvider.getSentMessages(20);
 
     // analyze writing style
     const style = await aiAnalyzeWritingStyle({

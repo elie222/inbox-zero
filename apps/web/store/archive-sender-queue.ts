@@ -1,10 +1,15 @@
 import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
 import { archiveEmails } from "./archive-queue";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse as GoogleGetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse as MicrosoftGetThreadsResponse } from "@/app/api/microsoft/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
 import { fetchWithAccount } from "@/utils/fetch";
+
+type GetThreadsResponse =
+  | GoogleGetThreadsResponse
+  | MicrosoftGetThreadsResponse;
 
 type ArchiveStatus = "pending" | "processing" | "completed";
 
@@ -22,12 +27,14 @@ export async function addToArchiveSenderQueue({
   onSuccess,
   onError,
   emailAccountId,
+  provider,
 }: {
   sender: string;
   labelId?: string;
   onSuccess?: (totalThreads: number) => void;
   onError?: (sender: string) => void;
   emailAccountId: string;
+  provider: string;
 }) {
   // Add sender with pending status
   jotaiStore.set(archiveSenderQueueAtom, (prev) => {
@@ -40,7 +47,11 @@ export async function addToArchiveSenderQueue({
   });
 
   try {
-    const threads = await fetchSenderThreads({ sender, emailAccountId });
+    const threads = await fetchSenderThreads({
+      sender,
+      emailAccountId,
+      provider,
+    });
     const threadIds = threads.map((t) => t.id).filter(isDefined);
 
     // Update with thread IDs
@@ -117,11 +128,14 @@ export const useArchiveSenderStatus = (sender: string) => {
 async function fetchSenderThreads({
   sender,
   emailAccountId,
+  provider,
 }: {
   sender: string;
   emailAccountId: string;
+  provider: string;
 }) {
-  const url = `/api/google/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
+  const apiEndpoint = provider === "google" ? "google" : "microsoft";
+  const url = `/api/${apiEndpoint}/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
   const res = await fetchWithAccount({
     url,
     emailAccountId,

@@ -99,14 +99,14 @@ export const useNavigation = () => {
 
   // Clean category items
   const cleanItems: NavItem[] = useMemo(
-    () =>
-      provider === "google"
+    () => [
+      {
+        name: "Bulk Unsubscribe",
+        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
+        icon: MailsIcon,
+      },
+      ...(provider === "google"
         ? [
-            {
-              name: "Bulk Unsubscribe",
-              href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
-              icon: MailsIcon,
-            },
             {
               name: "Deep Clean",
               href: prefixPath(emailAccountId, "/clean"),
@@ -118,7 +118,8 @@ export const useNavigation = () => {
               icon: BarChartBigIcon,
             },
           ]
-        : [],
+        : []),
+    ],
     [emailAccountId, provider],
   );
 

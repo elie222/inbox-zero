@@ -20,7 +20,7 @@ const WELL_KNOWN_FOLDERS = {
   junkemail: "junkemail",
 } as const;
 
-async function getFolderIds(client: OutlookClient) {
+export async function getFolderIds(client: OutlookClient) {
   if (folderIdCache) return folderIdCache;
 
   // First get the well-known folders
@@ -60,21 +60,15 @@ function getOutlookLabels(
 ): string[] {
   const labels: string[] = [];
 
-  logger.info("Processing message labels", {
-    messageId: message.id,
-    parentFolderId: message.parentFolderId,
-    folderName: message.parentFolderId
-      ? Object.entries(folderIds).find(
-          ([_, id]) => id === message.parentFolderId,
-        )?.[0]
-      : undefined,
-    isDraft: message.isDraft,
-    categories: message.categories,
-  });
-
   // Check if message is a draft
   if (message.isDraft) {
     labels.push(OutlookLabel.DRAFT);
+  }
+
+  // Handle read/unread status - Outlook uses isRead property, not a label
+  // isRead can be true, false, or undefined/null
+  if (message.isRead === false) {
+    labels.push(OutlookLabel.UNREAD);
   }
 
   // Map folder ID to label
@@ -82,12 +76,15 @@ function getOutlookLabels(
     const folderKey = Object.entries(folderIds).find(
       ([_, id]) => id === message.parentFolderId,
     )?.[0];
+
     if (folderKey === "inbox") {
       labels.push(OutlookLabel.INBOX);
     } else if (folderKey === "sentitems") {
       labels.push(OutlookLabel.SENT);
     } else if (folderKey === "drafts") {
       labels.push(OutlookLabel.DRAFT);
+    } else if (folderKey === "archive") {
+      labels.push(OutlookLabel.ARCHIVE);
     } else if (folderKey === "junkemail") {
       labels.push(OutlookLabel.SPAM);
     } else if (folderKey === "deleteditems") {
@@ -100,11 +97,6 @@ function getOutlookLabels(
     labels.push(...message.categories);
   }
 
-  logger.info("Final labels for message", {
-    messageId: message.id,
-    labels,
-  });
-
   return labels;
 }
 
@@ -114,10 +106,12 @@ export async function queryBatchMessages(
     query,
     maxResults = 20,
     pageToken,
+    folderId,
   }: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
+    folderId?: string;
   },
 ) {
   if (maxResults > 20) {
@@ -133,6 +127,7 @@ export async function queryBatchMessages(
     maxResults,
     hasQuery: !!query,
     pageToken,
+    folderId,
   });
 
   // Build the base request
@@ -140,44 +135,106 @@ export async function queryBatchMessages(
     .getClient()
     .api("/me/messages")
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .top(maxResults);
 
   let nextPageToken: string | undefined;
 
-  if (query?.trim()) {
-    // Search path - use search and skipToken
-    request = request.search(query.trim());
+  // Check if query is an OData filter (contains operators like eq, gt, lt, etc.)
+  const isODataFilter =
+    query?.includes(" eq ") ||
+    query?.includes(" gt ") ||
+    query?.includes(" lt ") ||
+    query?.includes(" ge ") ||
+    query?.includes(" le ") ||
+    query?.includes(" ne ") ||
+    query?.includes(" and ") ||
+    query?.includes(" or ");
 
-    if (pageToken) {
-      request = request.skipToken(pageToken);
-    }
+  // Always filter to only include inbox and archive folders
+  const inboxFolderId = folderIds.inbox;
+  const archiveFolderId = folderIds.archive;
 
-    const response = await request.get();
-    // Filter results to only include inbox messages (since we can't use filter with search)
-    const inboxMessages = response.value.filter(
-      (message: Message) =>
-        message.parentFolderId === folderIds.inbox && !message.isDraft,
-    );
-    const messages = await convertMessages(inboxMessages, folderIds);
-
-    // For search, get next page token from @odata.nextLink
-    nextPageToken = response["@odata.nextLink"]
-      ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
-        undefined
-      : undefined;
-
-    logger.info("Search results", {
-      messageCount: messages.length,
-      hasNextPageToken: !!nextPageToken,
+  if (!inboxFolderId || !archiveFolderId) {
+    logger.warn("Missing required folder IDs", {
+      inboxFolderId,
+      archiveFolderId,
     });
+  }
 
-    return { messages, nextPageToken };
+  if (query?.trim()) {
+    if (isODataFilter) {
+      // Filter path - use filter and skipToken
+      // Combine the existing filter with folder restrictions
+      const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+      const combinedFilter = query.trim()
+        ? `${query.trim()} and ${folderFilter}`
+        : folderFilter;
+      request = request.filter(combinedFilter);
+
+      if (pageToken) {
+        request = request.skipToken(pageToken);
+      }
+
+      const response = await request.get();
+      const messages = await convertMessages(response.value, folderIds);
+
+      // For filter, get next page token from @odata.nextLink
+      nextPageToken = response["@odata.nextLink"]
+        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+          undefined
+        : undefined;
+
+      logger.info("Filter results", {
+        messageCount: messages.length,
+        hasNextPageToken: !!nextPageToken,
+      });
+
+      return { messages, nextPageToken };
+    } else {
+      // Search path - use search and skipToken
+      request = request.search(query.trim());
+
+      if (pageToken) {
+        request = request.skipToken(pageToken);
+      }
+
+      const response = await request.get();
+      // Filter messages to only include inbox and archive folders
+      const filteredMessages = response.value.filter(
+        (message: Message) =>
+          message.parentFolderId === inboxFolderId ||
+          message.parentFolderId === archiveFolderId,
+      );
+      const messages = await convertMessages(filteredMessages, folderIds);
+
+      // For search, get next page token from @odata.nextLink
+      nextPageToken = response["@odata.nextLink"]
+        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+          undefined
+        : undefined;
+
+      logger.info("Search results", {
+        messageCount: messages.length,
+        hasNextPageToken: !!nextPageToken,
+      });
+
+      return { messages, nextPageToken };
+    }
   } else {
     // Non-search path - use filter, skip and orderBy
+    // Always filter to only include inbox and archive folders
+    const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+
+    // If a specific folder is requested, override the default filter
+    if (folderId) {
+      request = request.filter(`parentFolderId eq '${folderId}'`);
+    } else {
+      request = request.filter(folderFilter);
+    }
+
     request = request
-      .filter("parentFolderId eq '" + folderIds.inbox + "'")
       .skip(pageToken ? parseInt(pageToken, 10) : 0)
       .orderby("receivedDateTime DESC");
 
@@ -212,11 +269,6 @@ async function convertMessages(
   return messages.map((message: Message) => {
     const labelIds = getOutlookLabels(message, folderIds);
 
-    logger.info("Converting message to ParsedMessage", {
-      messageId: message.id,
-      labelIds,
-    });
-
     return {
       id: message.id || "",
       threadId: message.conversationId || "",
@@ -247,9 +299,12 @@ export async function getMessage(
     .getClient()
     .api(`/me/messages/${messageId}`)
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .get();
+
+  // Get folder IDs to properly map labels
+  const folderIds = await getFolderIds(client);
 
   return {
     id: message.id || "",
@@ -263,7 +318,7 @@ export async function getMessage(
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
-    labelIds: getOutlookLabels(message, {}),
+    labelIds: getOutlookLabels(message, folderIds),
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
@@ -286,7 +341,7 @@ export async function getMessages(
     .api("/me/messages")
     .top(top)
     .select(
-      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,categories,parentFolderId",
+      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
     );
 
   if (options.query) {
@@ -295,13 +350,20 @@ export async function getMessages(
 
   const response = await request.get();
 
+  // Get folder IDs to properly map labels
+  const folderIds = await getFolderIds(client);
+  const messages = await convertMessages(response.value, folderIds);
+
   return {
-    messages: response.value,
+    messages,
     nextPageToken: response["@odata.nextLink"],
   };
 }
 
-function parseOutlookMessage(message: Message): ParsedMessage {
+function parseOutlookMessage(
+  message: Message,
+  folderIds: Record<string, string> = {},
+): ParsedMessage {
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
@@ -313,7 +375,7 @@ function parseOutlookMessage(message: Message): ParsedMessage {
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
-    labelIds: getOutlookLabels(message, {}),
+    labelIds: getOutlookLabels(message, folderIds),
     historyId: "",
     inline: [],
     internalDate: message.receivedDateTime || new Date().toISOString(),

@@ -52,8 +52,20 @@ export async function getThreads({
 
   // Build the filter query for Microsoft Graph API
   function getFilter() {
-    const filters = [];
+    const filters: string[] = [];
 
+    // Add folder filter based on type
+    if (query.type === "all") {
+      // For "all" type, include both inbox and archive
+      filters.push(
+        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+      );
+    } else {
+      // Default to inbox only
+      filters.push("parentFolderId eq 'inbox'");
+    }
+
+    // Add other filters
     if (query.fromEmail) {
       // Escape single quotes in email address
       const escapedEmail = query.fromEmail.replace(/'/g, "''");
@@ -72,15 +84,8 @@ export async function getThreads({
   }
 
   // Get messages from Microsoft Graph API
-  let endpoint = "/me/messages";
-
-  // If folder is specified, use the folder-specific endpoint
-  if (query.folderId) {
-    const folderId = getFolderId(query.folderId);
-    if (folderId) {
-      endpoint = `/me/mailFolders/${folderId}/messages`;
-    }
-  }
+  // Always use the main messages endpoint since we're filtering by folder in the query
+  const endpoint = "/me/messages";
 
   // Build the request
   let request = client
@@ -88,13 +93,17 @@ export async function getThreads({
     .select(
       "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
     )
-    .top(query.limit || 50)
-    .orderby("receivedDateTime DESC");
+    .top(query.limit || 50);
 
   // Add filter if present
   const filter = getFilter();
   if (filter) {
     request = request.filter(filter);
+  }
+
+  // Only add ordering if we don't have a fromEmail filter to avoid complexity
+  if (!query.fromEmail) {
+    request = request.orderby("receivedDateTime DESC");
   }
 
   // Handle pagination
@@ -104,9 +113,19 @@ export async function getThreads({
 
   const response = await request.get();
 
+  // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
+  let sortedMessages = response.value;
+  if (query.fromEmail) {
+    sortedMessages = response.value.sort(
+      (a: any, b: any) =>
+        new Date(b.receivedDateTime).getTime() -
+        new Date(a.receivedDateTime).getTime(),
+    );
+  }
+
   // Group messages by conversationId to create threads
   const messagesByThread = new Map<string, any[]>();
-  response.value.forEach((message: any) => {
+  sortedMessages.forEach((message: any) => {
     const messages = messagesByThread.get(message.conversationId) || [];
     messages.push(message);
     messagesByThread.set(message.conversationId, messages);

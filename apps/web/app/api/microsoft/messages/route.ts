@@ -5,15 +5,9 @@ import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { getOutlookClientForEmail } from "@/utils/account";
 import { queryBatchMessages } from "@/utils/outlook/message";
+import { getFolderIds } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("api/microsoft/messages");
-
-// Outlook equivalent of Gmail labels
-const OutlookLabel = {
-  DRAFT: "draft",
-  SENT: "sent",
-  INBOX: "inbox",
-} as const;
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -37,10 +31,19 @@ async function getMessages({
       pageToken,
     });
 
+    // Get folder IDs to get the inbox folder ID
+    const folderIds = await getFolderIds(outlook);
+    const inboxFolderId = folderIds.inbox;
+
+    if (!inboxFolderId) {
+      throw new Error("Could not find inbox folder ID");
+    }
+
     const { messages, nextPageToken } = await queryBatchMessages(outlook, {
       query: query?.trim(),
       maxResults: 20,
       pageToken: pageToken ?? undefined,
+      folderId: inboxFolderId,
     });
 
     logger.info("Received messages from Outlook", {
@@ -52,11 +55,8 @@ async function getMessages({
 
     // Filter out draft messages and messages from/to the assistant
     const incomingMessages = messages.filter((message) => {
-      const isDraft = message.labelIds?.includes(OutlookLabel.DRAFT);
       const fromEmail = message.headers.from;
       const toEmail = message.headers.to;
-
-      if (isDraft) return false;
 
       // Don't include messages from/to the assistant
       if (

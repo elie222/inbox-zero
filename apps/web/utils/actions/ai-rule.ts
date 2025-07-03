@@ -138,6 +138,8 @@ export const testAiCustomContentAction = actionClient
           threadId: "testThreadId",
           snippet: content,
           textPlain: content,
+          subject: "",
+          date: new Date().toISOString(),
           headers: {
             date: new Date().toISOString(),
             from: "",
@@ -520,7 +522,7 @@ export const generateRulesPromptAction = actionClient
       emailAccountId,
       provider,
     });
-    const lastSentMessages = await emailProvider.getMessages("in:sent", 50);
+    const lastSentMessages = await emailProvider.getSentMessages(50);
 
     const labels = await emailProvider.getLabels();
     const labelsWithCounts = labels.map((label) => ({

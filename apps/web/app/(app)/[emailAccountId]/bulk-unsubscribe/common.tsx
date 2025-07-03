@@ -51,6 +51,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/hooks";
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function ActionCell<T extends Row>({
   item,
@@ -306,7 +307,7 @@ function AutoArchiveButton<T extends Row>({
                 key={label.id}
                 onClick={async () => {
                   posthog.capture("Clicked Auto Archive and Label");
-                  await onAutoArchiveAndLabel(label.id!);
+                  await onAutoArchiveAndLabel(label.id!, label.name!);
                 }}
               >
                 {label.name}
@@ -380,6 +381,7 @@ export function MoreDropdown<T extends Row>({
   labels: EmailLabel[];
   posthog: PostHog;
 }) {
+  const { provider } = useAccount();
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
@@ -406,12 +408,17 @@ export function MoreDropdown<T extends Row>({
             <span>View stats</span>
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem asChild>
-          <Link href={getGmailSearchUrl(item.name, userEmail)} target="_blank">
-            <ExternalLinkIcon className="mr-2 size-4" />
-            <span>View in Gmail</span>
-          </Link>
-        </DropdownMenuItem>
+        {provider === "google" && (
+          <DropdownMenuItem asChild>
+            <Link
+              href={getGmailSearchUrl(item.name, userEmail)}
+              target="_blank"
+            >
+              <ExternalLinkIcon className="mr-2 size-4" />
+              <span>View in Gmail</span>
+            </Link>
+          </DropdownMenuItem>
+        )}
 
         {/* <DropdownMenuSub>
           <DropdownMenuSubTrigger>
