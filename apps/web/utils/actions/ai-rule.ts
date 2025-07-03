@@ -147,6 +147,8 @@ export const testAiCustomContentAction = actionClient
           historyId: "",
           inline: [],
           internalDate: new Date().toISOString(),
+          subject: "",
+          date: new Date().toISOString(),
         },
         rules,
         emailAccount,

@@ -233,6 +233,8 @@ async function convertMessages(
       internalDate: message.receivedDateTime || new Date().toISOString(),
       historyId: "",
       inline: [],
+      subject: message.subject || "",
+      date: message.receivedDateTime || new Date().toISOString(),
     };
   });
 }
@@ -265,6 +267,8 @@ export async function getMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
+    subject: message.subject || "",
+    date: message.receivedDateTime || new Date().toISOString(),
   };
 }
 
@@ -313,5 +317,7 @@ function parseOutlookMessage(message: Message): ParsedMessage {
     historyId: "",
     inline: [],
     internalDate: message.receivedDateTime || new Date().toISOString(),
+    subject: message.subject || "",
+    date: message.receivedDateTime || new Date().toISOString(),
   };
 }

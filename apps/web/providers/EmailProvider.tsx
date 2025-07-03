@@ -13,6 +13,8 @@ export type EmailLabel = {
     textColor?: string | null;
     backgroundColor?: string | null;
   };
+  labelListVisibility?: string;
+  messageListVisibility?: string;
 };
 
 export type EmailLabels = Record<string, EmailLabel>;
@@ -61,6 +63,8 @@ export function EmailProvider(props: { children: React.ReactNode }) {
           name: label.name,
           type: label.type,
           color,
+          labelListVisibility: label.labelListVisibility,
+          messageListVisibility: label.messageListVisibility,
         };
       }
       return acc;

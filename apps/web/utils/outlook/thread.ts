@@ -170,5 +170,7 @@ export async function getThreadMessages(
     historyId: "",
     inline: [],
     internalDate: msg.receivedDateTime || new Date().toISOString(),
+    subject: msg.subject || "",
+    date: msg.receivedDateTime || new Date().toISOString(),
   }));
 }
