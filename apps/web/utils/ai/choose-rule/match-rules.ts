@@ -52,7 +52,6 @@ async function findPotentialMatchingRules({
     instructions: string;
   })[] = [];
 
-  // Check for calendar preset match
   const isCalendarEvent = hasIcsAttachment(message);
   if (isCalendarEvent) {
     const calendarRule = rules.find(
@@ -72,15 +71,13 @@ async function findPotentialMatchingRules({
     }
   }
 
-  // groups singleton
-  let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   // only load once and only when needed
+  let groups: Awaited<ReturnType<typeof getGroupsWithRules>>;
   async function getGroups({ emailAccountId }: { emailAccountId: string }) {
     if (!groups) groups = await getGroupsWithRules({ emailAccountId });
     return groups;
   }
 
-  // sender singleton
   let sender: { categoryId: string | null } | null | undefined;
   async function getSender({ emailAccountId }: { emailAccountId: string }) {
     if (typeof sender === "undefined") {
@@ -101,7 +98,6 @@ async function findPotentialMatchingRules({
   for (const rule of rules) {
     const { runOnThreads, conditionalOperator: operator } = rule;
 
-    // skip if not thread and not run on threads
     if (isThread && !runOnThreads) continue;
 
     const conditionTypes = getConditionTypes(rule);
@@ -135,7 +131,6 @@ async function findPotentialMatchingRules({
       Object.keys(conditionTypes) as ConditionType[],
     );
 
-    // static
     if (conditionTypes.STATIC) {
       const match = matchesStaticRule(rule, message);
       if (match) {
@@ -149,7 +144,6 @@ async function findPotentialMatchingRules({
       }
     }
 
-    // category
     if (conditionTypes.CATEGORY) {
       const matchedCategory = await matchesCategoryRule(
         rule,
@@ -171,14 +165,12 @@ async function findPotentialMatchingRules({
       }
     }
 
-    // ai
-    // we'll need to run the LLM later to determine if it matches
     if (conditionTypes.AI && isAIRule(rule)) {
+      // we'll need to run the LLM later to determine if it matches
       potentialMatches.push(rule);
     }
   }
 
-  // Apply TO_REPLY preset filter before returning potential matches
   const filteredPotentialMatches = await filterToReplyPreset(
     potentialMatches,
     message,
@@ -365,23 +357,36 @@ async function matchesCategoryRule(
   return matchedFilter;
 }
 
-// Helper function to filter out TO_REPLY preset if conditions met
-async function filterToReplyPreset(
+export async function filterToReplyPreset(
   potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
   message: ParsedMessage,
   gmail: gmail_v1.Gmail,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
-  const toReplyRuleIndex = potentialMatches.findIndex(
+  const toReplyRule = potentialMatches.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
 
-  if (toReplyRuleIndex === -1) {
-    return potentialMatches; // No TO_REPLY rule found
-  }
+  if (!toReplyRule) return potentialMatches;
 
   const senderEmail = message.headers.from;
-  if (!senderEmail) {
-    return potentialMatches; // Cannot check history without sender email
+  if (!senderEmail) return potentialMatches;
+
+  const extractedSenderEmail = extractEmailAddress(senderEmail);
+
+  const noReplyPrefixes = [
+    "noreply@",
+    "no-reply@",
+    "notifications@",
+    "info@",
+    "newsletter@",
+    "updates@",
+    "account@",
+  ];
+
+  if (
+    noReplyPrefixes.some((prefix) => extractedSenderEmail.startsWith(prefix))
+  ) {
+    return potentialMatches;
   }
 
   try {
@@ -391,20 +396,18 @@ async function filterToReplyPreset(
       TO_REPLY_RECEIVED_THRESHOLD,
     );
 
-    // If user hasn't replied and received count meets/exceeds the threshold, filter out the rule.
     if (!hasReplied && receivedCount >= TO_REPLY_RECEIVED_THRESHOLD) {
       logger.info(
         "Filtering out TO_REPLY rule due to no prior reply and high received count",
         {
-          ruleId: potentialMatches[toReplyRuleIndex].id,
+          ruleId: toReplyRule.id,
           senderEmail,
           receivedCount,
         },
       );
-      return potentialMatches.filter((_, index) => index !== toReplyRuleIndex);
+      return potentialMatches.filter((r) => r.id !== toReplyRule.id);
     }
   } catch (error) {
-    // Log the error but proceed without filtering in case of failure
     logger.error("Error checking reply history for TO_REPLY filter", {
       senderEmail,
       error,
