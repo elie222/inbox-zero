@@ -1,15 +1,10 @@
 import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
 import { archiveEmails } from "./archive-queue";
-import type { GetThreadsResponse as GoogleGetThreadsResponse } from "@/app/api/google/threads/basic/route";
-import type { GetThreadsResponse as MicrosoftGetThreadsResponse } from "@/app/api/microsoft/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
 import { fetchWithAccount } from "@/utils/fetch";
-
-type GetThreadsResponse =
-  | GoogleGetThreadsResponse
-  | MicrosoftGetThreadsResponse;
 
 type ArchiveStatus = "pending" | "processing" | "completed";
 
@@ -47,12 +42,13 @@ export async function addToArchiveSenderQueue({
   });
 
   try {
-    const threads = await fetchSenderThreads({
+    const data = await fetchSenderThreads({
       sender,
       emailAccountId,
       provider,
     });
-    const threadIds = threads.map((t) => t.id).filter(isDefined);
+    const threads = data.threads;
+    const threadIds = threads.map((t: any) => t.id).filter(isDefined);
 
     // Update with thread IDs
     jotaiStore.set(archiveSenderQueueAtom, (prev) => {
@@ -134,8 +130,7 @@ async function fetchSenderThreads({
   emailAccountId: string;
   provider: string;
 }) {
-  const apiEndpoint = provider === "google" ? "google" : "microsoft";
-  const url = `/api/${apiEndpoint}/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
+  const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
   const res = await fetchWithAccount({
     url,
     emailAccountId,

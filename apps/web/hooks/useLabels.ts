@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import useSWR from "swr";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
-import { useAccount } from "@/providers/EmailAccountProvider";
+import type { LabelsResponse } from "@/app/api/labels/route";
 import { EmailLabel } from "@/providers/EmailProvider";
 
 export type UserLabel = {
@@ -33,10 +32,8 @@ type SortableLabel = {
 };
 
 export function useAllLabels() {
-  const { provider } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
-    provider === "google" ? "/api/google/labels" : "/api/outlook/labels",
-  );
+  const { data, isLoading, error, mutate } =
+    useSWR<LabelsResponse>("/api/labels");
 
   const userLabels = useMemo(() => {
     if (!data?.labels) return [];
@@ -56,10 +53,8 @@ export function useAllLabels() {
 }
 
 export function useLabels() {
-  const { provider } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<LabelsResponse>(
-    provider === "google" ? "/api/google/labels" : "/api/outlook/labels",
-  );
+  const { data, isLoading, error, mutate } =
+    useSWR<LabelsResponse>("/api/labels");
 
   const userLabels: EmailLabel[] = useMemo(() => {
     if (!data?.labels) return [];

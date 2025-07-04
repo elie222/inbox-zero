@@ -266,27 +266,31 @@ async function convertMessages(
   messages: Message[],
   folderIds: Record<string, string>,
 ): Promise<ParsedMessage[]> {
-  return messages.map((message: Message) => {
-    const labelIds = getOutlookLabels(message, folderIds);
+  return messages
+    .filter((message: Message) => !message.isDraft) // Filter out drafts
+    .map((message: Message) => {
+      const labelIds = getOutlookLabels(message, folderIds);
 
-    return {
-      id: message.id || "",
-      threadId: message.conversationId || "",
-      snippet: message.bodyPreview || "",
-      textPlain: message.body?.content || "",
-      textHtml: message.body?.content || "",
-      headers: {
-        from: message.from?.emailAddress?.address || "",
-        to: message.toRecipients?.[0]?.emailAddress?.address || "",
+      return {
+        id: message.id || "",
+        threadId: message.conversationId || "",
+        snippet: message.bodyPreview || "",
+        textPlain: message.body?.content || "",
+        textHtml: message.body?.content || "",
+        headers: {
+          from: message.from?.emailAddress?.address || "",
+          to: message.toRecipients?.[0]?.emailAddress?.address || "",
+          subject: message.subject || "",
+          date: message.receivedDateTime || new Date().toISOString(),
+        },
         subject: message.subject || "",
         date: message.receivedDateTime || new Date().toISOString(),
-      },
-      labelIds,
-      internalDate: message.receivedDateTime || new Date().toISOString(),
-      historyId: "",
-      inline: [],
-    };
-  });
+        labelIds,
+        internalDate: message.receivedDateTime || new Date().toISOString(),
+        historyId: "",
+        inline: [],
+      };
+    });
 }
 
 export async function getMessage(
@@ -316,6 +320,8 @@ export async function getMessage(
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
+    subject: message.subject || "",
+    date: message.receivedDateTime || new Date().toISOString(),
     labelIds: getOutlookLabels(message, folderIds),
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
@@ -371,6 +377,8 @@ function parseOutlookMessage(
       subject: message.subject || "",
       date: message.receivedDateTime || new Date().toISOString(),
     },
+    subject: message.subject || "",
+    date: message.receivedDateTime || new Date().toISOString(),
     labelIds: getOutlookLabels(message, folderIds),
     historyId: "",
     inline: [],

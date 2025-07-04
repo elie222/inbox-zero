@@ -18,6 +18,7 @@ import {
   getLabelById as getGmailLabelById,
   createLabel as createGmailLabel,
   getOrCreateInboxZeroLabel as getOrCreateGmailInboxZeroLabel,
+  GmailLabel,
 } from "@/utils/gmail/label";
 import {
   getLabels as getOutlookLabels,
@@ -30,6 +31,7 @@ import {
   getOutlookClientForEmail,
 } from "@/utils/account";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
   draftEmail as gmailDraftEmail,
@@ -66,6 +68,13 @@ import { getThreadMessages as getGmailThreadMessages } from "@/utils/gmail/threa
 import { getThreadMessages as getOutlookThreadMessages } from "@/utils/outlook/thread";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import { getGmailAttachment } from "@/utils/gmail/attachment";
+import { getOutlookAttachment } from "@/utils/outlook/attachment";
+import {
+  getThreadsBatch,
+  getThreadsWithNextPageToken,
+} from "@/utils/gmail/thread";
+import { decodeSnippet } from "@/utils/gmail/decode";
 import { getAwaitingReplyLabel as getGmailAwaitingReplyLabel } from "@/utils/reply-tracker/label";
 import {
   getDraft as getGmailDraft,
@@ -102,6 +111,10 @@ export interface EmailLabel {
   name: string;
   type: string;
   threadsTotal?: number;
+  color?: {
+    textColor?: string;
+    backgroundColor?: string;
+  };
 }
 
 export interface EmailFilter {
@@ -197,6 +210,18 @@ export interface EmailProvider {
     senderEmail: string,
     threshold: number,
   ): Promise<number>;
+  getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ data: string; size: number }>;
+  getThreadsWithQuery(options: {
+    query?: ThreadsQuery;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }>;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -610,6 +635,114 @@ export class GmailProvider implements EmailProvider {
       return 0; // Default to 0 on error
     }
   }
+
+  async getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ data: string; size: number }> {
+    const attachment = await getGmailAttachment(
+      this.client,
+      messageId,
+      attachmentId,
+    );
+    return {
+      data: attachment.data || "",
+      size: attachment.size || 0,
+    };
+  }
+
+  async getThreadsWithQuery(options: {
+    query?: ThreadsQuery;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }> {
+    const query = options.query;
+
+    function getQuery() {
+      if (query?.q) {
+        return query.q;
+      }
+      if (query?.fromEmail) {
+        return `from:${query.fromEmail}`;
+      }
+      if (query?.type === "archive") {
+        return `-label:${GmailLabel.INBOX}`;
+      }
+      return undefined;
+    }
+
+    function getLabelIds(type?: string | null) {
+      switch (type) {
+        case "inbox":
+          return [GmailLabel.INBOX];
+        case "sent":
+          return [GmailLabel.SENT];
+        case "draft":
+          return [GmailLabel.DRAFT];
+        case "trash":
+          return [GmailLabel.TRASH];
+        case "spam":
+          return [GmailLabel.SPAM];
+        case "starred":
+          return [GmailLabel.STARRED];
+        case "important":
+          return [GmailLabel.IMPORTANT];
+        case "unread":
+          return [GmailLabel.UNREAD];
+        case "archive":
+          return undefined;
+        case "all":
+          return undefined;
+        default:
+          if (!type || type === "undefined" || type === "null")
+            return [GmailLabel.INBOX];
+          return [type];
+      }
+    }
+
+    const { threads: gmailThreads, nextPageToken } =
+      await getThreadsWithNextPageToken({
+        gmail: this.client,
+        q: getQuery(),
+        labelIds: query?.labelId
+          ? [query.labelId]
+          : getLabelIds(query?.type) || [],
+        maxResults: options.maxResults || 50,
+        pageToken: options.pageToken || undefined,
+      });
+
+    const threadIds =
+      gmailThreads?.map((t) => t.id).filter((id): id is string => !!id) || [];
+    const threads = await getThreadsBatch(
+      threadIds,
+      getAccessTokenFromClient(this.client),
+    );
+
+    const emailThreads: EmailThread[] = threads
+      .map((thread) => {
+        const id = thread.id;
+        if (!id) return null;
+
+        const emailThread: EmailThread = {
+          id,
+          messages:
+            thread.messages?.map((message) => parseMessage(message as any)) ||
+            [],
+          snippet: decodeSnippet(thread.snippet),
+          historyId: thread.historyId || undefined,
+        };
+        return emailThread;
+      })
+      .filter((thread): thread is EmailThread => thread !== null);
+
+    return {
+      threads: emailThreads,
+      nextPageToken: nextPageToken || undefined,
+    };
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -956,10 +1089,19 @@ export class OutlookProvider implements EmailProvider {
       query = query ? `${query} and ${dateFilter}` : dateFilter;
     }
 
+    // Get folder IDs to get the inbox folder ID
+    const folderIds = await getFolderIds(this.client);
+    const inboxFolderId = folderIds.inbox;
+
+    if (!inboxFolderId) {
+      throw new Error("Could not find inbox folder ID");
+    }
+
     const response = await getOutlookBatchMessages(this.client, {
       query: query.trim() || undefined,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
+      folderId: inboxFolderId, // Pass the inbox folder ID to match original behavior
     });
 
     return {
@@ -1036,6 +1178,178 @@ export class OutlookProvider implements EmailProvider {
       });
       return 0; // Default to 0 on error
     }
+  }
+
+  async getAttachment(
+    messageId: string,
+    attachmentId: string,
+  ): Promise<{ data: string; size: number }> {
+    const attachment = await getOutlookAttachment(
+      this.client,
+      messageId,
+      attachmentId,
+    );
+
+    // Outlook attachments return the data directly, not base64 encoded
+    // We need to convert it to base64 for consistency with Gmail
+    const data = attachment.contentBytes
+      ? Buffer.from(attachment.contentBytes, "base64").toString("base64")
+      : "";
+
+    return {
+      data,
+      size: attachment.size || 0,
+    };
+  }
+
+  async getThreadsWithQuery(options: {
+    query?: ThreadsQuery;
+    maxResults?: number;
+    pageToken?: string;
+  }): Promise<{
+    threads: EmailThread[];
+    nextPageToken?: string;
+  }> {
+    const query = options.query;
+    const client = this.client.getClient();
+
+    // Build the filter query for Microsoft Graph API
+    function getFilter() {
+      const filters: string[] = [];
+
+      // Add folder filter based on type
+      if (query?.type === "all") {
+        // For "all" type, include both inbox and archive
+        filters.push(
+          "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+        );
+      } else {
+        // Default to inbox only
+        filters.push("parentFolderId eq 'inbox'");
+      }
+
+      // Add other filters
+      if (query?.fromEmail) {
+        // Escape single quotes in email address
+        const escapedEmail = query.fromEmail.replace(/'/g, "''");
+        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+      }
+
+      if (query?.q) {
+        // Escape single quotes in search query
+        const escapedQuery = query.q.replace(/'/g, "''");
+        filters.push(
+          `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
+        );
+      }
+
+      return filters.length > 0 ? filters.join(" and ") : undefined;
+    }
+
+    // Get messages from Microsoft Graph API
+    const endpoint = "/me/messages";
+
+    // Build the request
+    let request = client
+      .api(endpoint)
+      .select(
+        "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+      )
+      .top(options.maxResults || 50);
+
+    // Add filter if present
+    const filter = getFilter();
+    if (filter) {
+      request = request.filter(filter);
+    }
+
+    // Only add ordering if we don't have a fromEmail filter to avoid complexity
+    if (!query?.fromEmail) {
+      request = request.orderby("receivedDateTime DESC");
+    }
+
+    // Handle pagination
+    if (options.pageToken) {
+      request = request.skipToken(options.pageToken);
+    }
+
+    const response = await request.get();
+
+    // Sort messages by receivedDateTime if we filtered by fromEmail (since we couldn't use orderby)
+    let sortedMessages = response.value;
+    if (query?.fromEmail) {
+      sortedMessages = response.value.sort(
+        (a: any, b: any) =>
+          new Date(b.receivedDateTime).getTime() -
+          new Date(a.receivedDateTime).getTime(),
+      );
+    }
+
+    // Group messages by conversationId to create threads
+    const messagesByThread = new Map<string, any[]>();
+    sortedMessages.forEach((message: any) => {
+      // Skip messages without conversationId
+      if (!message.conversationId) {
+        logger.warn("Message missing conversationId", {
+          messageId: message.id,
+        });
+        return;
+      }
+
+      const messages = messagesByThread.get(message.conversationId) || [];
+      messages.push(message);
+      messagesByThread.set(message.conversationId, messages);
+    });
+
+    // Convert to EmailThread format
+    const threads: EmailThread[] = Array.from(messagesByThread.entries())
+      .filter(([threadId, messages]) => messages.length > 0) // Filter out empty threads
+      .map(([threadId, messages]) => {
+        // Convert messages to ParsedMessage format
+        const parsedMessages: ParsedMessage[] = messages.map((message) => {
+          const subject = message.subject || "";
+          const date = message.receivedDateTime || new Date().toISOString();
+
+          // Add proper null checks for from and toRecipients
+          const fromAddress = message.from?.emailAddress?.address || "";
+          const toAddress =
+            message.toRecipients?.[0]?.emailAddress?.address || "";
+
+          return {
+            id: message.id || "",
+            threadId: message.conversationId || "",
+            snippet: message.bodyPreview || "",
+            textPlain: message.body?.content || "",
+            textHtml: message.body?.content || "",
+            headers: {
+              from: fromAddress,
+              to: toAddress,
+              subject,
+              date,
+            },
+            subject,
+            date,
+            labelIds: [],
+            internalDate: date,
+            historyId: "",
+            inline: [],
+          };
+        });
+
+        return {
+          id: threadId,
+          messages: parsedMessages,
+          snippet: messages[0]?.bodyPreview || "",
+        };
+      });
+
+    return {
+      threads,
+      nextPageToken: response["@odata.nextLink"]
+        ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
+          undefined
+        : undefined,
+    };
   }
 }
 

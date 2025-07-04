@@ -329,7 +329,7 @@ function AddLabelModal() {
           // TODO this doesn't work properly. still needs a page refresh
           // the problem is further up in this file where we're using useGmail
           // refetch labels
-          mutate("/api/google/labels");
+          mutate("/api/labels");
           mutate("/api/user/labels");
 
           setIsOpen(false);

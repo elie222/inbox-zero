@@ -16,8 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { MessagesResponse as GoogleMessagesResponse } from "@/app/api/google/messages/route";
-import type { MessagesResponse as OutlookMessagesResponse } from "@/app/api/microsoft/messages/route";
+import type { MessagesResponse } from "@/app/api/messages/route";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import type { RulesResponse } from "@/app/api/user/rules/route";
@@ -42,9 +41,7 @@ import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat"
 import { useChat } from "@/components/assistant-chat/ChatContext";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
 
-type Message =
-  | GoogleMessagesResponse["messages"][number]
-  | OutlookMessagesResponse["messages"][number];
+type Message = MessagesResponse["messages"][number];
 
 export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [searchQuery, setSearchQuery] = useQueryState("search");
@@ -56,7 +53,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const { provider } = useAccount();
 
   const { data, isLoading, isValidating, error, setSize, mutate, size } =
-    useSWRInfinite<GoogleMessagesResponse | OutlookMessagesResponse>(
+    useSWRInfinite<MessagesResponse>(
       (_index, previousPageData) => {
         // Always return the URL for the first page
         if (_index === 0) {
@@ -64,12 +61,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
           if (searchQuery) params.set("q", searchQuery);
           const paramsString = params.toString();
 
-          const endpoint =
-            provider === "google"
-              ? "/api/google/messages"
-              : "/api/microsoft/messages";
-
-          return `${endpoint}${paramsString ? `?${paramsString}` : ""}`;
+          return `/api/messages${paramsString ? `?${paramsString}` : ""}`;
         }
 
         // For subsequent pages, check if we have a next page token
@@ -81,12 +73,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
         params.set("pageToken", pageToken);
         const paramsString = params.toString();
 
-        const endpoint =
-          provider === "google"
-            ? "/api/google/messages"
-            : "/api/microsoft/messages";
-
-        return `${endpoint}${paramsString ? `?${paramsString}` : ""}`;
+        return `/api/messages${paramsString ? `?${paramsString}` : ""}`;
       },
       {
         revalidateFirstPage: false,
