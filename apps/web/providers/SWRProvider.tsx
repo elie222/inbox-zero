@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useState, createContext, useMemo } from "react";
+import {
+  useCallback,
+  useState,
+  createContext,
+  useMemo,
+  useEffect,
+  useRef,
+} from "react";
 import { SWRConfig, mutate } from "swr";
 import { captureException } from "@/utils/error";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -89,6 +96,7 @@ const SWRContext = createContext<Context>(defaultContextValue);
 export const SWRProvider = (props: { children: React.ReactNode }) => {
   const [provider, setProvider] = useState(new Map());
   const { emailAccountId } = useAccount();
+  const previousEmailAccountIdRef = useRef<string | null>(null);
 
   const resetCache = useCallback(() => {
     // based on: https://swr.vercel.app/docs/mutation#mutate-multiple-items
@@ -97,6 +105,18 @@ export const SWRProvider = (props: { children: React.ReactNode }) => {
     // not sure we also need this approach anymore to clear cache but keeping both for now
     setProvider(new Map());
   }, []);
+
+  // Reset cache when emailAccountId changes (account switching)
+  useEffect(() => {
+    if (
+      emailAccountId &&
+      previousEmailAccountIdRef.current &&
+      emailAccountId !== previousEmailAccountIdRef.current
+    ) {
+      resetCache();
+    }
+    previousEmailAccountIdRef.current = emailAccountId;
+  }, [emailAccountId, resetCache]);
 
   const enhancedFetcher = useCallback(
     async (url: string, init?: RequestInit) => {
