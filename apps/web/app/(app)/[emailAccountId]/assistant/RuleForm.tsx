@@ -91,6 +91,7 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
+import { EmailLabel } from "@/providers/EmailProvider";
 
 export function Rule({
   ruleId,
@@ -977,7 +978,7 @@ function ActionCard({
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   control: ReturnType<typeof useForm<CreateRuleBody>>["control"];
   errors: any;
-  userLabels: NonNullable<LabelsResponse["labels"]>;
+  userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
   emailAccountId: string;
@@ -1264,7 +1265,7 @@ function LabelCombobox({
 }: {
   value: string;
   onChangeValue: (value: string) => void;
-  userLabels: NonNullable<LabelsResponse["labels"]>;
+  userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
   emailAccountId: string;

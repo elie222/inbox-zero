@@ -1,6 +1,7 @@
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import type { NewsletterStatus } from "@prisma/client";
 import type { UserLabel } from "@/hooks/useLabels";
+import { EmailLabel } from "@/providers/EmailProvider";
 
 export type Row = {
   name: string;
@@ -20,7 +21,7 @@ export interface RowProps {
   archivedPercentage: number;
 
   onOpenNewsletter: (row: Newsletter) => void;
-  labels: UserLabel[];
+  labels: EmailLabel[];
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;

@@ -10,8 +10,9 @@ import {
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
-import { getGmailClientForEmail } from "@/utils/account";
+import { createEmailProvider } from "@/utils/email/provider";
 import { createScopedLogger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("newsletter-stats");
 
@@ -72,14 +73,31 @@ async function getEmailMessages(
   const { emailAccountId } = options;
   const types = getTypeFilters(options.types);
 
-  const gmail = await getGmailClientForEmail({ emailAccountId });
+  // Get the email account to determine the provider
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { provider: true },
+      },
+    },
+  });
+
+  if (!emailAccount) {
+    throw new Error("Email account not found");
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+  });
 
   const [counts, autoArchiveFilters, userNewsletters] = await Promise.all([
     getNewsletterCounts({
       ...options,
       ...types,
     }),
-    getAutoArchiveFilters(gmail),
+    getAutoArchiveFilters(emailProvider),
     findNewsletterStatus({ emailAccountId }),
   ]);
 
@@ -113,9 +131,9 @@ type NewsletterCountResult = {
 
 type NewsletterCountRawResult = {
   from: string;
-  count: bigint;
-  inboxEmails: bigint;
-  readEmails: bigint;
+  count: number;
+  inboxEmails: number;
+  readEmails: number;
   unsubscribeLink: string | null;
 };
 
@@ -185,9 +203,9 @@ async function getNewsletterCounts(
     WITH email_message_stats AS (
       SELECT 
         "from",
-        COUNT(*) as "count",
-        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END) as "inboxEmails",
-        SUM(CASE WHEN read = true THEN 1 ELSE 0 END) as "readEmails",
+        COUNT(*)::int as "count",
+        SUM(CASE WHEN inbox = true THEN 1 ELSE 0 END)::int as "inboxEmails",
+        SUM(CASE WHEN read = true THEN 1 ELSE 0 END)::int as "readEmails",
         MAX("unsubscribeLink") as "unsubscribeLink"
       FROM "EmailMessage"
       ${Prisma.raw(whereClause)}
@@ -208,13 +226,17 @@ async function getNewsletterCounts(
     // Convert BigInt values to regular numbers
     return results.map((result) => ({
       from: result.from,
-      count: Number(result.count),
-      inboxEmails: Number(result.inboxEmails),
-      readEmails: Number(result.readEmails),
+      count: result.count,
+      inboxEmails: result.inboxEmails,
+      readEmails: result.readEmails,
       unsubscribeLink: result.unsubscribeLink,
     }));
   } catch (error) {
-    logger.error("getNewsletterCounts error", { error });
+    logger.error("getNewsletterCounts error", {
+      error,
+      errorMessage: (error as any)?.message,
+      errorStack: (error as any)?.stack,
+    });
     return [];
   }
 }
@@ -230,6 +252,15 @@ function getOrderByClause(orderBy: string): string {
     default:
       return '"count" DESC';
   }
+}
+
+// Helper function to extract unsubscribe links from email content
+function extractUnsubscribeLink(content: string): string | null {
+  // Simple regex to find unsubscribe links
+  const unsubscribeRegex =
+    /(?:unsubscribe|opt.?out|remove).*?(?:https?:\/\/[^\s<>"']+)/gi;
+  const match = unsubscribeRegex.exec(content);
+  return match ? match[0] : null;
 }
 
 export const GET = withEmailAccount(async (request) => {

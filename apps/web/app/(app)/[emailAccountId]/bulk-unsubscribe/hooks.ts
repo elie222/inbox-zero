@@ -12,20 +12,28 @@ import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse as GoogleGetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse as MicrosoftGetThreadsResponse } from "@/app/api/microsoft/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
+import { useAccount } from "@/providers/EmailAccountProvider";
+
+type GetThreadsResponse =
+  | GoogleGetThreadsResponse
+  | MicrosoftGetThreadsResponse;
 
 async function unsubscribeAndArchive({
   newsletterEmail,
   mutate,
   refetchPremium,
   emailAccountId,
+  provider,
 }: {
   newsletterEmail: string;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
+  provider: string;
 }) {
   await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail,
@@ -37,6 +45,7 @@ async function unsubscribeAndArchive({
   await addToArchiveSenderQueue({
     sender: newsletterEmail,
     emailAccountId,
+    provider,
   });
 }
 
@@ -56,6 +65,7 @@ export function useUnsubscribe<T extends Row>({
   refetchPremium: () => Promise<any>;
 }) {
   const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
+  const { provider } = useAccount();
 
   const onUnsubscribe = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -77,6 +87,7 @@ export function useUnsubscribe<T extends Row>({
           mutate,
           refetchPremium,
           emailAccountId,
+          provider,
         });
       }
     } catch (error) {
@@ -93,6 +104,7 @@ export function useUnsubscribe<T extends Row>({
     refetchPremium,
     posthog,
     emailAccountId,
+    provider,
   ]);
 
   return {
@@ -120,6 +132,7 @@ export function useBulkUnsubscribe<T extends Row>({
 }) {
   const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] =
     React.useState(false);
+  const { provider } = useAccount();
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
@@ -137,6 +150,7 @@ export function useBulkUnsubscribe<T extends Row>({
               mutate,
               refetchPremium,
               emailAccountId,
+              provider,
             });
           } catch (error) {
             captureException(error);
@@ -150,7 +164,14 @@ export function useBulkUnsubscribe<T extends Row>({
 
       setBulkUnsubscribeLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, posthog, refetchPremium, emailAccountId],
+    [
+      hasUnsubscribeAccess,
+      mutate,
+      posthog,
+      refetchPremium,
+      emailAccountId,
+      provider,
+    ],
   );
 
   return {
@@ -162,20 +183,25 @@ export function useBulkUnsubscribe<T extends Row>({
 async function autoArchive({
   name,
   labelId,
+  labelName,
   mutate,
   refetchPremium,
   emailAccountId,
+  provider,
 }: {
   name: string;
   labelId: string | undefined;
+  labelName: string | undefined;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
+  provider: string;
 }) {
   await onAutoArchive({
     emailAccountId,
     from: name,
     gmailLabelId: labelId,
+    labelName: labelName,
   });
   await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail: name,
@@ -188,6 +214,7 @@ async function autoArchive({
     sender: name,
     labelId,
     emailAccountId,
+    provider,
   });
 }
 
@@ -207,6 +234,7 @@ export function useAutoArchive<T extends Row>({
   emailAccountId: string;
 }) {
   const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
+  const { provider } = useAccount();
 
   const onAutoArchiveClick = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -216,9 +244,11 @@ export function useAutoArchive<T extends Row>({
     await autoArchive({
       name: item.name,
       labelId: undefined,
+      labelName: undefined,
       mutate,
       refetchPremium,
       emailAccountId,
+      provider,
     });
 
     posthog.capture("Clicked Auto Archive");
@@ -231,6 +261,7 @@ export function useAutoArchive<T extends Row>({
     hasUnsubscribeAccess,
     posthog,
     emailAccountId,
+    provider,
   ]);
 
   const onDisableAutoArchive = useCallback(async () => {
@@ -252,7 +283,7 @@ export function useAutoArchive<T extends Row>({
   }, [item.name, item.autoArchived?.id, mutate, emailAccountId]);
 
   const onAutoArchiveAndLabel = useCallback(
-    async (labelId: string) => {
+    async (labelId: string, labelName: string) => {
       if (!hasUnsubscribeAccess) return;
 
       setAutoArchiveLoading(true);
@@ -260,14 +291,23 @@ export function useAutoArchive<T extends Row>({
       await autoArchive({
         name: item.name,
         labelId,
+        labelName,
         mutate,
         refetchPremium,
         emailAccountId,
+        provider,
       });
 
       setAutoArchiveLoading(false);
     },
-    [item.name, mutate, refetchPremium, hasUnsubscribeAccess, emailAccountId],
+    [
+      item.name,
+      mutate,
+      refetchPremium,
+      hasUnsubscribeAccess,
+      emailAccountId,
+      provider,
+    ],
   );
 
   return {
@@ -291,6 +331,7 @@ export function useBulkAutoArchive<T extends Row>({
 }) {
   const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] =
     React.useState(false);
+  const { provider } = useAccount();
 
   const onBulkAutoArchive = useCallback(
     async (items: T[]) => {
@@ -302,15 +343,17 @@ export function useBulkAutoArchive<T extends Row>({
         await autoArchive({
           name: item.name,
           labelId: undefined,
+          labelName: undefined,
           mutate,
           refetchPremium,
           emailAccountId,
+          provider,
         });
       }
 
       setBulkAutoArchiveLoading(false);
     },
-    [hasUnsubscribeAccess, mutate, refetchPremium, emailAccountId],
+    [hasUnsubscribeAccess, mutate, refetchPremium, emailAccountId, provider],
   );
 
   return {
@@ -398,10 +441,12 @@ async function archiveAll({
   name,
   onFinish,
   emailAccountId,
+  provider,
 }: {
   name: string;
   onFinish: () => void;
   emailAccountId: string;
+  provider: string;
 }) {
   toast.promise(
     async () => {
@@ -409,6 +454,7 @@ async function archiveAll({
         addToArchiveSenderQueue({
           sender: name,
           emailAccountId,
+          provider,
           onSuccess: (totalThreads) => {
             onFinish();
             resolve(totalThreads);
@@ -440,6 +486,7 @@ export function useArchiveAll<T extends Row>({
   emailAccountId: string;
 }) {
   const [archiveAllLoading, setArchiveAllLoading] = React.useState(false);
+  const { provider } = useAccount();
 
   const onArchiveAll = async () => {
     setArchiveAllLoading(true);
@@ -450,6 +497,7 @@ export function useArchiveAll<T extends Row>({
       name: item.name,
       onFinish: () => setArchiveAllLoading(false),
       emailAccountId,
+      provider,
     });
 
     setArchiveAllLoading(false);
@@ -470,6 +518,8 @@ export function useBulkArchive<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const { provider } = useAccount();
+
   const onBulkArchive = async (items: T[]) => {
     posthog.capture("Clicked Bulk Archive");
 
@@ -478,6 +528,7 @@ export function useBulkArchive<T extends Row>({
         name: item.name,
         onFinish: mutate,
         emailAccountId,
+        provider,
       });
     }
   };
@@ -489,16 +540,19 @@ async function deleteAllFromSender({
   name,
   onFinish,
   emailAccountId,
+  provider,
 }: {
   name: string;
   onFinish: () => void;
   emailAccountId: string;
+  provider: string;
 }) {
   toast.promise(
     async () => {
-      // 1. search gmail for messages from sender
+      // 1. search for messages from sender
+      const apiEndpoint = provider === "google" ? "google" : "microsoft";
       const res = await fetchWithAccount({
-        url: `/api/google/threads/basic?from=${name}`,
+        url: `/api/${apiEndpoint}/threads/basic?from=${name}`,
         emailAccountId,
       });
       const data: GetThreadsResponse = await res.json();
@@ -541,6 +595,7 @@ export function useDeleteAllFromSender<T extends Row>({
   emailAccountId: string;
 }) {
   const [deleteAllLoading, setDeleteAllLoading] = React.useState(false);
+  const { provider } = useAccount();
 
   const onDeleteAll = async () => {
     setDeleteAllLoading(true);
@@ -551,6 +606,7 @@ export function useDeleteAllFromSender<T extends Row>({
       name: item.name,
       onFinish: () => setDeleteAllLoading(false),
       emailAccountId,
+      provider,
     });
   };
 
@@ -569,14 +625,17 @@ export function useBulkDelete<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
+  const { provider } = useAccount();
+
   const onBulkDelete = async (items: T[]) => {
     posthog.capture("Clicked Bulk Delete");
 
     for (const item of items) {
       await deleteAllFromSender({
         name: item.name,
-        onFinish: mutate,
+        onFinish: () => mutate(),
         emailAccountId,
+        provider,
       });
     }
   };

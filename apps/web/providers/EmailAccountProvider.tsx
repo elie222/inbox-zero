@@ -9,6 +9,7 @@ type Context = {
   emailAccountId: string;
   userEmail: string;
   isLoading: boolean;
+  provider: string;
 };
 
 const EmailAccountContext = createContext<Context | undefined>(undefined);
@@ -60,6 +61,7 @@ export function EmailAccountProvider({
         isLoading,
         emailAccountId: emailAccountId ?? "",
         userEmail: emailAccount?.email ?? "",
+        provider: emailAccount?.account?.provider ?? "",
       }}
     >
       {children}

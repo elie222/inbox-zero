@@ -9,6 +9,7 @@ import { handleInboundReply } from "@/utils/reply-tracker/inbound";
 import { getAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import prisma from "@/utils/prisma";
 import { prefixPath } from "@/utils/path";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
@@ -94,10 +95,16 @@ export async function processPreviousSentEmails({
       } else {
         // inbound
         logger.info("Processing inbound reply", loggerOptions);
+
+        const provider = await createEmailProvider({
+          emailAccountId: emailAccount.id,
+          provider: "google",
+        });
+
         await handleInboundReply({
           emailAccount,
           message: latestMessage,
-          gmail,
+          client: provider,
         });
       }
 
