@@ -1,8 +1,5 @@
 import useSWR from "swr";
-import type {
-  ThreadQuery,
-  ThreadResponse,
-} from "@/app/api/google/threads/[id]/route";
+import type { ThreadQuery, ThreadResponse } from "@/app/api/threads/[id]/route";
 
 export function useThread(
   { id }: ThreadQuery,
@@ -10,6 +7,6 @@ export function useThread(
 ) {
   const searchParams = new URLSearchParams();
   if (options?.includeDrafts) searchParams.set("includeDrafts", "true");
-  const url = `/api/google/threads/${id}?${searchParams.toString()}`;
+  const url = `/api/threads/${id}?${searchParams.toString()}`;
   return useSWR<ThreadResponse>(url);
 }

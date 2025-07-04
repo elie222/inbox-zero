@@ -138,8 +138,6 @@ export const testAiCustomContentAction = actionClient
           threadId: "testThreadId",
           snippet: content,
           textPlain: content,
-          subject: "",
-          date: new Date().toISOString(),
           headers: {
             date: new Date().toISOString(),
             from: "",

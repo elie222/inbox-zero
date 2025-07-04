@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { messageQuerySchema } from "@/app/api/microsoft/messages/validation";
+import { messageQuerySchema } from "@/app/api/messages/validation";
 import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { getOutlookClientForEmail } from "@/utils/account";
-import { queryBatchMessages } from "@/utils/outlook/message";
-import { getFolderIds } from "@/utils/outlook/message";
+import { GmailLabel } from "@/utils/gmail/label";
+import { createEmailProvider } from "@/utils/email/provider";
+import prisma from "@/utils/prisma";
 
-const logger = createScopedLogger("api/microsoft/messages");
+const logger = createScopedLogger("api/messages");
 
 export type MessagesResponse = Awaited<ReturnType<typeof getMessages>>;
 
@@ -23,37 +23,33 @@ async function getMessages({
   userEmail: string;
 }) {
   try {
-    const outlook = await getOutlookClientForEmail({ emailAccountId });
-
-    logger.info("Fetching messages", {
-      emailAccountId,
-      query,
-      pageToken,
+    // Get the email account to determine the provider
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        account: {
+          select: { provider: true },
+        },
+      },
     });
 
-    // Get folder IDs to get the inbox folder ID
-    const folderIds = await getFolderIds(outlook);
-    const inboxFolderId = folderIds.inbox;
-
-    if (!inboxFolderId) {
-      throw new Error("Could not find inbox folder ID");
+    if (!emailAccount) {
+      throw new Error("Email account not found");
     }
 
-    const { messages, nextPageToken } = await queryBatchMessages(outlook, {
-      query: query?.trim(),
-      maxResults: 20,
-      pageToken: pageToken ?? undefined,
-      folderId: inboxFolderId,
-    });
-
-    logger.info("Received messages from Outlook", {
+    const emailProvider = await createEmailProvider({
       emailAccountId,
-      messageCount: messages.length,
-      hasNextPageToken: !!nextPageToken,
-      nextPageToken,
+      provider: emailAccount.account.provider,
     });
 
-    // Filter out draft messages and messages from/to the assistant
+    const { messages, nextPageToken } =
+      await emailProvider.getMessagesWithPagination({
+        query: query?.trim(),
+        maxResults: 20,
+        pageToken: pageToken ?? undefined,
+      });
+
+    // Filter messages based on provider-specific logic
     const incomingMessages = messages.filter((message) => {
       const fromEmail = message.headers.from;
       const toEmail = message.headers.to;
@@ -72,14 +68,25 @@ async function getMessages({
         return false;
       }
 
-      return true;
-    });
+      // Provider-specific filtering
+      if (emailAccount.account.provider === "google") {
+        const isSent = message.labelIds?.includes(GmailLabel.SENT);
+        const isDraft = message.labelIds?.includes(GmailLabel.DRAFT);
+        const isInbox = message.labelIds?.includes(GmailLabel.INBOX);
 
-    logger.info("Filtered messages", {
-      emailAccountId,
-      originalCount: messages.length,
-      filteredCount: incomingMessages.length,
-      hasNextPageToken: !!nextPageToken,
+        if (isDraft) return false;
+
+        if (isSent) {
+          // Only show sent message that are in the inbox
+          return isInbox;
+        }
+      } else if (emailAccount.account.provider === "microsoft-entra-id") {
+        // For Outlook, we already filter out drafts in the message fetching
+        // No additional filtering needed here
+      }
+
+      // Return all other messages
+      return true;
     });
 
     return { messages: incomingMessages, nextPageToken };

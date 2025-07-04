@@ -6,6 +6,7 @@ export const threadsQuery = z.object({
   type: z.string().nullish(),
   q: z.string().nullish(),
   nextPageToken: z.string().nullish(),
-  folderId: z.string().nullish(), // Outlook uses folderId instead of labelId as Google does
+  labelId: z.string().nullish(), // For Google
+  folderId: z.string().nullish(), // For Microsoft
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
