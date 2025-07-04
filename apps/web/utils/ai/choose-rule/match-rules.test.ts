@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { findMatchingRule, matchesStaticRule } from "./match-rules";
+import {
+  findMatchingRule,
+  matchesStaticRule,
+  filterToReplyPreset,
+} from "./match-rules";
 import {
   type Category,
   CategoryFilterType,
@@ -9,6 +13,7 @@ import {
   LogicalOperator,
   type Newsletter,
   type Prisma,
+  SystemType,
 } from "@prisma/client";
 import type {
   RuleWithActionsAndCategories,
@@ -28,6 +33,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
 vi.mock("@/utils/ai/choose-rule/ai-choose-rule", () => ({
   aiChooseRule: vi.fn(),
+}));
+vi.mock("@/utils/reply-tracker/check-sender-reply-history", () => ({
+  checkSenderReplyHistory: vi.fn(),
 }));
 
 describe("matchesStaticRule", () => {
@@ -1018,6 +1026,260 @@ describe("findMatchingRule", () => {
       `Matched learned pattern: "FROM: central@example.com"`,
     );
     expect(aiChooseRule).not.toHaveBeenCalled();
+  });
+});
+
+describe("filterToReplyPreset", () => {
+  it("should filter out no-reply emails from TO_REPLY rules", async () => {
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+    const otherRule = {
+      ...getRule({
+        systemType: SystemType.NEWSLETTER,
+      }),
+      instructions: "Handle newsletter",
+    };
+
+    const potentialMatches = [toReplyRule, otherRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "noreply@company.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should return all rules when sender is a no-reply address
+    expect(result).toHaveLength(2);
+    expect(result).toContain(toReplyRule);
+    expect(result).toContain(otherRule);
+  });
+
+  it("should return all rules when no TO_REPLY rule exists", async () => {
+    const newsletterRule = {
+      ...getRule({
+        systemType: SystemType.NEWSLETTER,
+      }),
+      instructions: "Handle newsletter",
+    };
+    const receiptRule = {
+      ...getRule({
+        systemType: SystemType.RECEIPT,
+      }),
+      instructions: "Handle receipts",
+    };
+
+    const potentialMatches = [newsletterRule, receiptRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "user@example.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should return all rules when no TO_REPLY rule exists
+    expect(result).toHaveLength(2);
+    expect(result).toContain(newsletterRule);
+    expect(result).toContain(receiptRule);
+  });
+
+  it("should filter out TO_REPLY rule when sender has high received count and no replies", async () => {
+    const { checkSenderReplyHistory } = await import(
+      "@/utils/reply-tracker/check-sender-reply-history"
+    );
+
+    (checkSenderReplyHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      {
+        hasReplied: false,
+        receivedCount: 15, // Above threshold of 10
+      },
+    );
+
+    const toReplyRule = {
+      ...getRule({
+        id: "to-reply-rule",
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+    const otherRule = {
+      ...getRule({
+        systemType: SystemType.NEWSLETTER,
+      }),
+      instructions: "Handle newsletter",
+    };
+
+    const potentialMatches = [toReplyRule, otherRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "sender@example.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should filter out TO_REPLY rule
+    expect(result).toHaveLength(1);
+    expect(result).not.toContain(toReplyRule);
+    expect(result).toContain(otherRule);
+    expect(checkSenderReplyHistory).toHaveBeenCalledWith(
+      gmail,
+      "sender@example.com",
+      10,
+    );
+  });
+
+  it("should keep TO_REPLY rule when sender has prior replies", async () => {
+    const { checkSenderReplyHistory } = await import(
+      "@/utils/reply-tracker/check-sender-reply-history"
+    );
+
+    (checkSenderReplyHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      {
+        hasReplied: true,
+        receivedCount: 20, // High count but has replies
+      },
+    );
+
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+    const otherRule = {
+      ...getRule({
+        systemType: SystemType.NEWSLETTER,
+      }),
+      instructions: "Handle newsletter",
+    };
+
+    const potentialMatches = [toReplyRule, otherRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "friend@example.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should keep TO_REPLY rule because sender has replied before
+    expect(result).toHaveLength(2);
+    expect(result).toContain(toReplyRule);
+    expect(result).toContain(otherRule);
+  });
+
+  it("should keep TO_REPLY rule when received count is below threshold", async () => {
+    const { checkSenderReplyHistory } = await import(
+      "@/utils/reply-tracker/check-sender-reply-history"
+    );
+
+    (checkSenderReplyHistory as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+      {
+        hasReplied: false,
+        receivedCount: 5, // Below threshold of 10
+      },
+    );
+
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+
+    const potentialMatches = [toReplyRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "newcontact@example.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should keep TO_REPLY rule because received count is low
+    expect(result).toHaveLength(1);
+    expect(result).toContain(toReplyRule);
+  });
+
+  it("should handle multiple no-reply prefix variations", async () => {
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+
+    const noReplyVariations = [
+      "no-reply@company.com",
+      "notifications@service.com",
+      "info@business.org",
+      "newsletter@news.com",
+      "updates@app.io",
+      "account@bank.com",
+    ];
+
+    for (const email of noReplyVariations) {
+      const message = getMessage({
+        headers: getHeaders({ from: email }),
+      });
+
+      const result = await filterToReplyPreset([toReplyRule], message, gmail);
+
+      // All no-reply variations should return the rule (not filtered)
+      expect(result).toHaveLength(1);
+      expect(result).toContain(toReplyRule);
+    }
+  });
+
+  it("should handle errors from checkSenderReplyHistory gracefully", async () => {
+    const { checkSenderReplyHistory } = await import(
+      "@/utils/reply-tracker/check-sender-reply-history"
+    );
+
+    (checkSenderReplyHistory as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+      new Error("API error"),
+    );
+
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+
+    const potentialMatches = [toReplyRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "user@example.com" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should return all rules when error occurs
+    expect(result).toHaveLength(1);
+    expect(result).toContain(toReplyRule);
+  });
+
+  it("should return all rules when message has no from header", async () => {
+    const toReplyRule = {
+      ...getRule({
+        systemType: SystemType.TO_REPLY,
+      }),
+      instructions: "Reply to important emails",
+    };
+
+    const potentialMatches = [toReplyRule];
+
+    const message = getMessage({
+      headers: getHeaders({ from: "" }),
+    });
+
+    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+
+    // Should return all rules when no sender email
+    expect(result).toHaveLength(1);
+    expect(result).toContain(toReplyRule);
   });
 });
 
