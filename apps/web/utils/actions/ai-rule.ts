@@ -138,8 +138,6 @@ export const testAiCustomContentAction = actionClient
           threadId: "testThreadId",
           snippet: content,
           textPlain: content,
-          subject: "",
-          date: new Date().toISOString(),
           headers: {
             date: new Date().toISOString(),
             from: "",
@@ -149,6 +147,8 @@ export const testAiCustomContentAction = actionClient
           historyId: "",
           inline: [],
           internalDate: new Date().toISOString(),
+          subject: "",
+          date: new Date().toISOString(),
         },
         rules,
         emailAccount,

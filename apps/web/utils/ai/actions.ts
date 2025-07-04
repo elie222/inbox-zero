@@ -109,6 +109,8 @@ const draft: ActionFunction<{
       snippet: "",
       historyId: "",
       inline: [],
+      subject: email.headers.subject,
+      date: email.headers.date,
     },
     draftArgs,
   );
@@ -131,6 +133,8 @@ const reply: ActionFunction<{
       snippet: "",
       historyId: "",
       inline: [],
+      subject: email.headers.subject,
+      date: email.headers.date,
     },
     args.content,
   );
@@ -189,6 +193,8 @@ const forward: ActionFunction<{
       snippet: "",
       historyId: "",
       inline: [],
+      subject: email.headers.subject,
+      date: email.headers.date,
     },
     forwardArgs,
   );

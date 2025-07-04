@@ -64,15 +64,24 @@ const STRIPE_PRICE_ID_CONFIG: Record<
     oldPriceIds?: string[];
   }
 > = {
-  [PremiumTier.BASIC_MONTHLY]: {},
-  [PremiumTier.BASIC_ANNUALLY]: {},
+  [PremiumTier.BASIC_MONTHLY]: { priceId: "price_1RfeDLKGf8mwZWHn6UW8wJcY" },
+  [PremiumTier.BASIC_ANNUALLY]: { priceId: "price_1RfeDLKGf8mwZWHn5kfC8gcM" },
   [PremiumTier.PRO_MONTHLY]: {},
   [PremiumTier.PRO_ANNUALLY]: {},
   [PremiumTier.BUSINESS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
+    oldPriceIds: [
+      "price_1RfoILKGf8mwZWHnDiUMj6no",
+      "price_1RfeAFKGf8mwZWHnnnPzFEky",
+      "price_1RfSoHKGf8mwZWHnxTsSDTqW",
+      "price_1Rg0QfKGf8mwZWHnDsiocBVD",
+      "price_1Rg0LEKGf8mwZWHndYXYg7ie",
+      "price_1Rg03pKGf8mwZWHnWMNeQzLc",
+    ],
   },
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
+    oldPriceIds: ["price_1RfSoxKGf8mwZWHngHcug4YM"],
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
@@ -108,19 +117,6 @@ export function getStripePriceId({
 }
 
 // --- End Stripe Configuration --- //
-
-const tierToVariantId: Record<PremiumTier, number | null> = {
-  [PremiumTier.BASIC_MONTHLY]: env.NEXT_PUBLIC_BASIC_MONTHLY_VARIANT_ID,
-  [PremiumTier.BASIC_ANNUALLY]: env.NEXT_PUBLIC_BASIC_ANNUALLY_VARIANT_ID,
-  [PremiumTier.PRO_MONTHLY]: env.NEXT_PUBLIC_PRO_MONTHLY_VARIANT_ID,
-  [PremiumTier.PRO_ANNUALLY]: env.NEXT_PUBLIC_PRO_ANNUALLY_VARIANT_ID,
-  [PremiumTier.BUSINESS_MONTHLY]: env.NEXT_PUBLIC_BUSINESS_MONTHLY_VARIANT_ID,
-  [PremiumTier.BUSINESS_ANNUALLY]: env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: null,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: null,
-  [PremiumTier.COPILOT_MONTHLY]: env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID,
-  [PremiumTier.LIFETIME]: null,
-};
 
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;

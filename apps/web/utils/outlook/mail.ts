@@ -144,6 +144,8 @@ export async function forwardEmail(
     historyId: "",
     inline: [],
     internalDate: originalMessage.receivedDateTime || new Date().toISOString(),
+    subject: originalMessage.subject || "",
+    date: originalMessage.receivedDateTime || new Date().toISOString(),
   };
 
   const forwardMessage: OutlookMessageRequest = {

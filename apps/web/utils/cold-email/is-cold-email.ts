@@ -16,6 +16,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import { hasPreviousCommunicationsWithSenderOrDomain } from "@/utils/gmail/message";
 import type { EmailForLLM } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -59,6 +60,71 @@ export async function isColdEmail({
   const hasPreviousEmail =
     email.date && email.id
       ? await hasPreviousCommunicationsWithSenderOrDomain(gmail, {
+          from: email.from,
+          date: email.date,
+          messageId: email.id,
+        })
+      : false;
+
+  if (hasPreviousEmail) {
+    logger.info("Has previous email", loggerOptions);
+    return { isColdEmail: false, reason: "hasPreviousEmail" };
+  }
+
+  // otherwise run through ai to see if it's a cold email
+  const res = await aiIsColdEmail(email, emailAccount);
+
+  logger.info("AI is cold email?", {
+    ...loggerOptions,
+    coldEmail: res.coldEmail,
+  });
+
+  return {
+    isColdEmail: !!res.coldEmail,
+    reason: "ai",
+    aiReason: res.reason,
+  };
+}
+
+// New function that works with EmailProvider
+export async function isColdEmailWithProvider({
+  email,
+  emailAccount,
+  provider,
+}: {
+  email: EmailForLLM & { threadId?: string };
+  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
+  provider: EmailProvider;
+}): Promise<{
+  isColdEmail: boolean;
+  reason: ColdEmailBlockerReason;
+  aiReason?: string | null;
+}> {
+  const loggerOptions = {
+    email: emailAccount.email,
+    threadId: email.threadId,
+    messageId: email.id,
+  };
+
+  logger.info("Checking is cold email", loggerOptions);
+
+  // Check if we marked it as a cold email already
+  const isColdEmailer = await isKnownColdEmailSender({
+    from: email.from,
+    emailAccountId: emailAccount.id,
+  });
+
+  if (isColdEmailer) {
+    logger.info("Known cold email sender", {
+      ...loggerOptions,
+      from: email.from,
+    });
+    return { isColdEmail: true, reason: "ai-already-labeled" };
+  }
+
+  const hasPreviousEmail =
+    email.date && email.id
+      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
           from: email.from,
           date: email.date,
           messageId: email.id,
@@ -175,6 +241,33 @@ export async function runColdEmailBlocker(options: {
   return { ...response, coldEmailId: coldEmail.id };
 }
 
+// New function that works with EmailProvider
+export async function runColdEmailBlockerWithProvider(options: {
+  email: EmailForLLM & { threadId: string };
+  provider: EmailProvider;
+  emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
+    EmailAccountWithAI;
+}): Promise<{
+  isColdEmail: boolean;
+  reason: ColdEmailBlockerReason;
+  aiReason?: string | null;
+  coldEmailId?: string | null;
+}> {
+  const response = await isColdEmailWithProvider({
+    email: options.email,
+    emailAccount: options.emailAccount,
+    provider: options.provider,
+  });
+
+  if (!response.isColdEmail) return { ...response, coldEmailId: null };
+
+  const coldEmail = await blockColdEmailWithProvider({
+    ...options,
+    aiReason: response.aiReason ?? null,
+  });
+  return { ...response, coldEmailId: coldEmail.id };
+}
+
 export async function blockColdEmail(options: {
   gmail: gmail_v1.Gmail;
   email: { from: string; id: string; threadId: string };
@@ -237,6 +330,71 @@ export async function blockColdEmail(options: {
       addLabelIds: addLabelIds.length ? addLabelIds : undefined,
       removeLabelIds: removeLabelIds.length ? removeLabelIds : undefined,
     });
+  }
+
+  return coldEmail;
+}
+
+// New function that works with EmailProvider
+export async function blockColdEmailWithProvider(options: {
+  provider: EmailProvider;
+  email: { from: string; id: string; threadId: string };
+  emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
+  aiReason: string | null;
+}): Promise<ColdEmail> {
+  const { provider, email, emailAccount, aiReason } = options;
+
+  const coldEmail = await prisma.coldEmail.upsert({
+    where: {
+      emailAccountId_fromEmail: {
+        emailAccountId: emailAccount.id,
+        fromEmail: email.from,
+      },
+    },
+    update: { status: ColdEmailStatus.AI_LABELED_COLD },
+    create: {
+      status: ColdEmailStatus.AI_LABELED_COLD,
+      fromEmail: email.from,
+      emailAccountId: emailAccount.id,
+      reason: aiReason,
+      messageId: email.id,
+      threadId: email.threadId,
+    },
+  });
+
+  if (
+    emailAccount.coldEmailBlocker === ColdEmailSetting.LABEL ||
+    emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+    emailAccount.coldEmailBlocker ===
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
+  ) {
+    if (!emailAccount.email) throw new Error("User email is required");
+
+    // For Outlook, we'll use categories instead of labels
+    const coldEmailLabel =
+      await provider.getOrCreateInboxZeroLabel("cold_email");
+
+    const shouldArchive =
+      emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
+      emailAccount.coldEmailBlocker ===
+        ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+
+    const shouldMarkRead =
+      emailAccount.coldEmailBlocker ===
+      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
+
+    // For Outlook, we'll use the provider's labelMessage method
+    // The provider will handle the differences between Gmail labels and Outlook categories
+    await provider.labelMessage(email.id, coldEmailLabel.name);
+
+    // For archiving and marking as read, we'll need to implement these in the provider
+    if (shouldArchive) {
+      await provider.archiveThread(email.threadId, emailAccount.email);
+    }
+
+    if (shouldMarkRead) {
+      await provider.markReadThread(email.threadId, true);
+    }
   }
 
   return coldEmail;

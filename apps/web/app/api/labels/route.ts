@@ -11,6 +11,8 @@ export type UnifiedLabel = {
     textColor?: string | null;
     backgroundColor?: string | null;
   };
+  labelListVisibility?: string;
+  messageListVisibility?: string;
 };
 
 export type LabelsResponse = {
@@ -52,6 +54,8 @@ export const GET = withEmailAccount(async (request) => {
     name: label.name,
     type: label.type,
     color: label.color,
+    labelListVisibility: label.labelListVisibility,
+    messageListVisibility: label.messageListVisibility,
   }));
 
   return NextResponse.json({ labels: unifiedLabels });

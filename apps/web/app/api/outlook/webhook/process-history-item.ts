@@ -1,13 +1,13 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import prisma from "@/utils/prisma";
-import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/outlook/webhook/block-unsubscribed-emails";
-import { categorizeSender } from "@/utils/categorize/senders/categorize";
+import { categorizeSenderWithProvider } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
+import { handleOutboundReplyWithProvider } from "@/utils/reply-tracker/outbound";
 import type {
   ProcessHistoryOptions,
   OutlookResourceData,
@@ -16,8 +16,8 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import {
-  trackSentDraftStatus,
-  cleanupThreadAIDrafts,
+  trackSentDraftStatusWithProvider,
+  cleanupThreadAIDraftsWithProvider,
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -112,6 +112,10 @@ export async function processHistoryItem(
           snippet: message.bodyPreview || "",
           historyId: resourceData.id,
           inline: [],
+          subject,
+          date: message.receivedDateTime
+            ? new Date(message.receivedDateTime).toISOString()
+            : new Date().toISOString(),
         },
         emailAccountId,
         userEmail,
@@ -128,7 +132,7 @@ export async function processHistoryItem(
       logger.info("Skipping. Assistant email.", loggerOptions);
       return;
     }
-    /* 
+
     const isOutbound =
       message.from?.emailAddress?.address?.toLowerCase() ===
       userEmail.toLowerCase();
@@ -148,9 +152,9 @@ export async function processHistoryItem(
     const blocked = await blockUnsubscribedEmails({
       from,
       emailAccountId,
-      client: emailProvider,
+      client,
       messageId,
-    }); 
+    });
 
     if (blocked) {
       logger.info("Skipping. Blocked unsubscribed email.", loggerOptions);
@@ -167,7 +171,7 @@ export async function processHistoryItem(
 
       const content = message.body?.content || "";
 
-      const response = await runColdEmailBlocker({
+      const response = await runColdEmailBlockerWithProvider({
         email: {
           from,
           to: to.join(","),
@@ -179,7 +183,7 @@ export async function processHistoryItem(
             ? new Date(message.receivedDateTime)
             : new Date(),
         },
-        gmail: client,
+        provider: emailProvider,
         emailAccount,
       });
 
@@ -191,7 +195,7 @@ export async function processHistoryItem(
 
     // categorize a sender if we haven't already
     // this is used for category filters in ai rules
-     if (emailAccount.autoCategorizeSenders) {
+    if (emailAccount.autoCategorizeSenders) {
       const sender = extractEmailAddress(from);
       const existingSender = await prisma.newsletter.findUnique({
         where: {
@@ -200,9 +204,9 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, emailAccount, client, accessToken);
+        await categorizeSenderWithProvider(sender, emailAccount, emailProvider);
       }
-    } */
+    }
 
     if (hasAutomationRules && hasAiAccess) {
       logger.info("Running rules...", loggerOptions);
@@ -223,6 +227,10 @@ export async function processHistoryItem(
           snippet: message.bodyPreview || "",
           historyId: resourceData.id,
           inline: [],
+          subject,
+          date: message.receivedDateTime
+            ? new Date(message.receivedDateTime).toISOString()
+            : new Date().toISOString(),
         },
         rules,
         emailAccount,
@@ -244,7 +252,7 @@ export async function processHistoryItem(
   }
 }
 
-/* async function handleOutbound(
+async function handleOutbound(
   emailAccount: ProcessHistoryOptions["emailAccount"],
   message: Message,
   provider: EmailProvider,
@@ -276,20 +284,24 @@ export async function processHistoryItem(
     snippet: message.bodyPreview || "",
     historyId: message.id || messageId,
     inline: [],
+    subject: message.subject || "",
+    date: message.receivedDateTime
+      ? new Date(message.receivedDateTime).toISOString()
+      : new Date().toISOString(),
   };
 
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
-    trackSentDraftStatus({
+    trackSentDraftStatusWithProvider({
       emailAccountId: emailAccount.id,
       message: parsedMessage,
-      gmail: provider,
+      provider: provider,
     }),
-    handleOutboundReply({
+    handleOutboundReplyWithProvider({
       emailAccount,
       message: parsedMessage,
-      gmail: provider,
+      provider: provider,
     }),
   ]);
 
@@ -310,10 +322,10 @@ export async function processHistoryItem(
   // Run cleanup for any other old/unmodified drafts in the thread
   // Must happen after previous steps
   try {
-    await cleanupThreadAIDrafts({
+    await cleanupThreadAIDraftsWithProvider({
       threadId: conversationId || messageId,
       emailAccountId: emailAccount.id,
-      gmail: provider,
+      provider: provider,
     });
   } catch (cleanupError) {
     logger.error("Error during thread draft cleanup", {
@@ -337,4 +349,3 @@ export function shouldRunColdEmailBlocker(
     hasAiAccess
   );
 }
- */

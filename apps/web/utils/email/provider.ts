@@ -6,6 +6,7 @@ import {
   getMessage as getGmailMessage,
   getMessages as getGmailMessages,
   getSentMessages as getGmailSentMessages,
+  hasPreviousCommunicationsWithSenderOrDomain,
 } from "@/utils/gmail/message";
 import {
   getMessage as getOutlookMessage,
@@ -64,8 +65,14 @@ import { markSpam as gmailMarkSpam } from "@/utils/gmail/spam";
 import { markSpam as outlookMarkSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import { createScopedLogger } from "@/utils/logger";
-import { getThreadMessages as getGmailThreadMessages } from "@/utils/gmail/thread";
-import { getThreadMessages as getOutlookThreadMessages } from "@/utils/outlook/thread";
+import {
+  getThreadMessages as getGmailThreadMessages,
+  getThreadsFromSenderWithSubject as getGmailThreadsFromSenderWithSubject,
+} from "@/utils/gmail/thread";
+import {
+  getThreadMessages as getOutlookThreadMessages,
+  getThreadsFromSenderWithSubject as getOutlookThreadsFromSenderWithSubject,
+} from "@/utils/outlook/thread";
 import { getMessagesBatch } from "@/utils/gmail/message";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { getGmailAttachment } from "@/utils/gmail/attachment";
@@ -75,7 +82,15 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { getAwaitingReplyLabel as getGmailAwaitingReplyLabel } from "@/utils/reply-tracker/label";
+import {
+  getAwaitingReplyLabel as getGmailAwaitingReplyLabel,
+  getReplyTrackingLabels,
+} from "@/utils/reply-tracker/label";
+import { getOrCreateLabels as getOutlookOrCreateLabels } from "@/utils/outlook/label";
+import {
+  AWAITING_REPLY_LABEL_NAME,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 import {
   getDraft as getGmailDraft,
   deleteDraft as deleteGmailDraft,
@@ -115,6 +130,8 @@ export interface EmailLabel {
     textColor?: string;
     backgroundColor?: string;
   };
+  labelListVisibility?: string;
+  messageListVisibility?: string;
 }
 
 export interface EmailFilter {
@@ -222,6 +239,19 @@ export interface EmailProvider {
     threads: EmailThread[];
     nextPageToken?: string;
   }>;
+  hasPreviousCommunicationsWithSenderOrDomain(options: {
+    from: string;
+    date: Date;
+    messageId: string;
+  }): Promise<boolean>;
+  getThreadsFromSenderWithSubject(
+    sender: string,
+    limit: number,
+  ): Promise<Array<{ id: string; snippet: string; subject: string }>>;
+  getReplyTrackingLabels(): Promise<{
+    awaitingReplyLabelId: string;
+    needsReplyLabelId: string;
+  }>;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -274,6 +304,8 @@ export class GmailProvider implements EmailProvider {
         name: label.name!,
         type: label.type!,
         threadsTotal: label.threadsTotal || undefined,
+        labelListVisibility: label.labelListVisibility || undefined,
+        messageListVisibility: label.messageListVisibility || undefined,
       }));
   }
 
@@ -743,6 +775,33 @@ export class GmailProvider implements EmailProvider {
       nextPageToken: nextPageToken || undefined,
     };
   }
+
+  async hasPreviousCommunicationsWithSenderOrDomain(options: {
+    from: string;
+    date: Date;
+    messageId: string;
+  }): Promise<boolean> {
+    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
+  }
+
+  async getThreadsFromSenderWithSubject(
+    sender: string,
+    limit: number,
+  ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
+    return getGmailThreadsFromSenderWithSubject(
+      this.client,
+      this.getAccessToken(),
+      sender,
+      limit,
+    );
+  }
+
+  async getReplyTrackingLabels(): Promise<{
+    awaitingReplyLabelId: string;
+    needsReplyLabelId: string;
+  }> {
+    return getReplyTrackingLabels(this.client);
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -967,11 +1026,6 @@ export class OutlookProvider implements EmailProvider {
   async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
     // For Outlook, we don't need to do anything with labels at this point
     return Promise.resolve();
-  }
-
-  async getAwaitingReplyLabel(): Promise<string> {
-    // For Outlook, we don't need to do anything with labels at this point
-    return Promise.resolve("");
   }
 
   async createLabel(name: string, description?: string): Promise<EmailLabel> {
@@ -1349,6 +1403,70 @@ export class OutlookProvider implements EmailProvider {
         ? new URL(response["@odata.nextLink"]).searchParams.get("$skiptoken") ||
           undefined
         : undefined,
+    };
+  }
+
+  async hasPreviousCommunicationsWithSenderOrDomain(options: {
+    from: string;
+    date: Date;
+    messageId: string;
+  }): Promise<boolean> {
+    try {
+      const response = await this.client
+        .getClient()
+        .api("/me/messages")
+        .filter(
+          `from/emailAddress/address eq '${options.from}' and receivedDateTime lt ${options.date.toISOString()}`,
+        )
+        .top(2)
+        .select("id")
+        .get();
+
+      // Check if there are any messages from this sender before the current date
+      // and exclude the current message
+      const hasPreviousEmail = response.value.some(
+        (message: { id: string }) => message.id !== options.messageId,
+      );
+
+      return hasPreviousEmail;
+    } catch (error) {
+      logger.error("Error checking previous communications", {
+        error,
+        options,
+      });
+      return false;
+    }
+  }
+
+  async getThreadsFromSenderWithSubject(
+    sender: string,
+    limit: number,
+  ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
+    return getOutlookThreadsFromSenderWithSubject(this.client, sender, limit);
+  }
+
+  async getAwaitingReplyLabel(): Promise<string> {
+    const [awaitingReplyLabel] = await getOutlookOrCreateLabels({
+      client: this.client,
+      names: [AWAITING_REPLY_LABEL_NAME],
+    });
+
+    return awaitingReplyLabel.id || "";
+  }
+
+  async getReplyTrackingLabels(): Promise<{
+    awaitingReplyLabelId: string;
+    needsReplyLabelId: string;
+  }> {
+    const [awaitingReplyLabel, needsReplyLabel] =
+      await getOutlookOrCreateLabels({
+        client: this.client,
+        names: [AWAITING_REPLY_LABEL_NAME, NEEDS_REPLY_LABEL_NAME],
+      });
+
+    return {
+      awaitingReplyLabelId: awaitingReplyLabel.id || "",
+      needsReplyLabelId: needsReplyLabel.id || "",
     };
   }
 }
