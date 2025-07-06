@@ -74,32 +74,28 @@ export function AddAccount() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add or Merge Google Account</DialogTitle>
+              <DialogTitle>Add Google Account</DialogTitle>
               <DialogDescription>
-                Choose an action:
-                <ul className="mb-2 mt-2 list-disc pl-5">
-                  <li>
-                    <b>Connect Account:</b> Add an account that you haven't yet
-                    added to Inbox Zero.
-                  </li>
-                  <li>
-                    <b>Merge Another Account:</b> Sign in with a Google account
-                    that's currently linked to a *different* Inbox Zero user.
-                  </li>
-                </ul>
+                Does the account you want to add already have an Inbox Zero
+                account? If yes, we'll link it to your current account.
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:justify-end">
-              <Button variant="outline">Cancel</Button>
+            <DialogFooter>
               <Button
-                variant="secondary"
+                variant="outline"
+                size="sm"
                 disabled={isLoading}
                 onClick={handleMergeGoogle}
               >
-                Merge Another Account
+                {isLoading ? "Connecting..." : "Yes"}
               </Button>
-              <Button disabled={isLoading} onClick={handleConnectGoogle}>
-                {isLoading ? "Connecting..." : "Connect Account"}
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isLoading}
+                onClick={handleConnectGoogle}
+              >
+                {isLoading ? "Connecting..." : "No"}
               </Button>
             </DialogFooter>
           </DialogContent>
