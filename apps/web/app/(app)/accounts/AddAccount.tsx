@@ -15,10 +15,11 @@ import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 
 export function AddAccount() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
 
   const handleConnectGoogle = async () => {
-    setIsLoading(true);
+    setIsConnecting(true);
     try {
       await signIn("google", { callbackUrl: "/accounts", redirect: true });
     } catch (error) {
@@ -28,11 +29,11 @@ export function AddAccount() {
         description: "Please try again or contact support",
       });
     }
-    setIsLoading(false);
+    setIsConnecting(false);
   };
 
   const handleMergeGoogle = async () => {
-    setIsLoading(true);
+    setIsMerging(true);
     try {
       const response = await fetch("/api/google/linking/auth-url", {
         method: "GET",
@@ -51,7 +52,7 @@ export function AddAccount() {
         description: "Please try again or contact support",
       });
     }
-    setIsLoading(false);
+    setIsMerging(false);
   };
 
   return (
@@ -59,7 +60,7 @@ export function AddAccount() {
       <CardContent className="flex flex-col items-center p-6">
         <Dialog>
           <DialogTrigger asChild>
-            <Button disabled={isLoading} className="mt-auto">
+            <Button disabled={isConnecting} className="mt-auto">
               <Image
                 src="/images/google.svg"
                 alt=""
@@ -68,38 +69,36 @@ export function AddAccount() {
                 unoptimized
               />
               <span className="ml-2">
-                {isLoading ? "Connecting..." : "Add Google Account"}
+                {isConnecting ? "Connecting..." : "Add Google Account"}
               </span>
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add or Merge Google Account</DialogTitle>
+              <DialogTitle>Add Google Account</DialogTitle>
               <DialogDescription>
-                Choose an action:
-                <ul className="mb-2 mt-2 list-disc pl-5">
-                  <li>
-                    <b>Connect Account:</b> Add an account that you haven't yet
-                    added to Inbox Zero.
-                  </li>
-                  <li>
-                    <b>Merge Another Account:</b> Sign in with a Google account
-                    that's currently linked to a *different* Inbox Zero user.
-                  </li>
-                </ul>
+                Does the account you want to add already have an Inbox Zero
+                account? If yes, we'll link it to your current account.
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:justify-end">
-              <Button variant="outline">Cancel</Button>
+            <DialogFooter>
               <Button
-                variant="secondary"
-                disabled={isLoading}
+                variant="outline"
+                size="sm"
+                loading={isMerging}
+                disabled={isMerging || isConnecting}
                 onClick={handleMergeGoogle}
               >
-                Merge Another Account
+                Yes
               </Button>
-              <Button disabled={isLoading} onClick={handleConnectGoogle}>
-                {isLoading ? "Connecting..." : "Connect Account"}
+              <Button
+                variant="outline"
+                size="sm"
+                loading={isConnecting}
+                disabled={isMerging || isConnecting}
+                onClick={handleConnectGoogle}
+              >
+                No
               </Button>
             </DialogFooter>
           </DialogContent>
