@@ -77,6 +77,7 @@ function selectModel(
     case Provider.OPENROUTER: {
       const model = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
       // TODO: will complete this PR once openrouter support for ai sdk v5 is released: https://github.com/OpenRouterTeam/ai-sdk-provider/pull/77/files
+      // This may help: too: https://ai-sdk.dev/providers/openai-compatible-providers
       // ai sdk v5 doesn't support openrouter yet
       // const openrouter = createOpenRouter({
       //   apiKey: aiApiKey || env.OPENROUTER_API_KEY,
