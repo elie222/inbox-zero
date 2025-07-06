@@ -15,10 +15,11 @@ import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 
 export function AddAccount() {
-  const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
 
   const handleConnectGoogle = async () => {
-    setIsLoading(true);
+    setIsConnecting(true);
     try {
       await signIn("google", { callbackUrl: "/accounts", redirect: true });
     } catch (error) {
@@ -28,11 +29,11 @@ export function AddAccount() {
         description: "Please try again or contact support",
       });
     }
-    setIsLoading(false);
+    setIsConnecting(false);
   };
 
   const handleMergeGoogle = async () => {
-    setIsLoading(true);
+    setIsMerging(true);
     try {
       const response = await fetch("/api/google/linking/auth-url", {
         method: "GET",
@@ -51,7 +52,7 @@ export function AddAccount() {
         description: "Please try again or contact support",
       });
     }
-    setIsLoading(false);
+    setIsMerging(false);
   };
 
   return (
@@ -59,7 +60,7 @@ export function AddAccount() {
       <CardContent className="flex flex-col items-center p-6">
         <Dialog>
           <DialogTrigger asChild>
-            <Button disabled={isLoading} className="mt-auto">
+            <Button disabled={isConnecting} className="mt-auto">
               <Image
                 src="/images/google.svg"
                 alt=""
@@ -68,7 +69,7 @@ export function AddAccount() {
                 unoptimized
               />
               <span className="ml-2">
-                {isLoading ? "Connecting..." : "Add Google Account"}
+                {isConnecting ? "Connecting..." : "Add Google Account"}
               </span>
             </Button>
           </DialogTrigger>
@@ -84,18 +85,20 @@ export function AddAccount() {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isLoading}
+                loading={isMerging}
+                disabled={isMerging || isConnecting}
                 onClick={handleMergeGoogle}
               >
-                {isLoading ? "Connecting..." : "Yes"}
+                Yes
               </Button>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={isLoading}
+                loading={isConnecting}
+                disabled={isMerging || isConnecting}
                 onClick={handleConnectGoogle}
               >
-                {isLoading ? "Connecting..." : "No"}
+                No
               </Button>
             </DialogFooter>
           </DialogContent>
