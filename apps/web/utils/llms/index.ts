@@ -1,7 +1,7 @@
 import type { z } from "zod";
 import {
   APICallError,
-  type CoreMessage,
+  type ModelMessage,
   type Tool,
   type JSONValue,
   generateObject,
@@ -10,7 +10,7 @@ import {
   streamText,
   type StepResult,
   smoothStream,
-  type Message,
+  stepCountIs,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -100,7 +100,7 @@ type ChatCompletionObjectArgs<T> = {
   | {
       system?: never;
       prompt?: never;
-      messages: CoreMessage[];
+      messages: ModelMessage[];
     }
 );
 
@@ -132,6 +132,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
+      output: "object",
       providerOptions,
       ...commonOptions,
     });
@@ -170,7 +171,7 @@ export async function chatCompletionStream({
   useEconomyModel?: boolean;
   system?: string;
   prompt?: string;
-  messages?: Message[];
+  messages?: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
@@ -193,7 +194,7 @@ export async function chatCompletionStream({
     prompt,
     messages,
     tools,
-    maxSteps,
+    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
     providerOptions,
     ...commonOptions,
     experimental_transform: smoothStream({ chunking: "word" }),
@@ -243,7 +244,7 @@ type ChatCompletionToolsArgs = {
   | {
       system?: never;
       prompt?: never;
-      messages: CoreMessage[];
+      messages: ModelMessage[];
     }
 );
 
@@ -275,7 +276,7 @@ async function chatCompletionToolsInternal({
       system,
       prompt,
       messages,
-      maxSteps,
+      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       providerOptions,
       ...commonOptions,
     });
@@ -324,13 +325,13 @@ async function streamCompletionTools({
     useEconomyModel,
   );
 
-  const result = await streamText({
+  const result = streamText({
     model: llmModel,
     tools,
     toolChoice: "required",
     prompt,
     system,
-    maxSteps,
+    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
     providerOptions,
     ...commonOptions,
     onFinish: async ({ usage, text }) => {

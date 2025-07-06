@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 // import { SuggestedActions } from "./suggested-actions";
 import { cn } from "@/utils";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 
 function PureMultimodalInput({
   // chatId,
@@ -25,16 +26,16 @@ function PureMultimodalInput({
   className,
 }: {
   // chatId?: string;
-  input: UseChatHelpers["input"];
-  setInput: UseChatHelpers["setInput"];
-  status: UseChatHelpers["status"];
+  input: UseChatHelpers<ChatMessage>["input"];
+  setInput: UseChatHelpers<ChatMessage>["setInput"];
+  status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
   // attachments: Array<Attachment>;
   // setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
   // messages: Array<UIMessage>;
-  setMessages: UseChatHelpers["setMessages"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   // append: UseChatHelpers["append"];
-  handleSubmit: UseChatHelpers["handleSubmit"];
+  handleSubmit: UseChatHelpers<ChatMessage>["handleSubmit"];
   className?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -168,7 +169,7 @@ function PureStopButton({
   setMessages,
 }: {
   stop: () => void;
-  setMessages: UseChatHelpers["setMessages"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
 }) {
   return (
     <Button

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { InvalidToolArgumentsError } from "ai";
+import { InvalidArgumentError } from "ai";
 import { chatCompletionTools, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
@@ -80,7 +80,7 @@ export async function aiGenerateArgs({
         tools: {
           apply_rule: {
             description: "Apply the rule with the given arguments.",
-            parameters: z.object(
+            inputSchema: z.object(
               Object.fromEntries(
                 parameters.map((p) => [
                   `${p.type}-${p.actionId}`,
@@ -94,7 +94,7 @@ export async function aiGenerateArgs({
         userEmail: emailAccount.email,
       }),
     {
-      retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
+      retryIf: (error: unknown) => InvalidArgumentError.isInstance(error),
       maxRetries: 3,
       delayMs: 1_000,
     },
@@ -104,7 +104,7 @@ export async function aiGenerateArgs({
 
   if (!toolCall?.toolName) return;
 
-  const toolCallArgs = toolCall.args;
+  const toolCallArgs = toolCall.input;
 
   logger.trace("Tool call args", { toolCallArgs });
 

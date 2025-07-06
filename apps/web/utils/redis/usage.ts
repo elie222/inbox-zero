@@ -1,5 +1,6 @@
 import "server-only";
 import { z } from "zod";
+import type { LanguageModelUsage } from "ai";
 import { redis } from "@/utils/redis";
 
 const usageSchema = z.object({
@@ -23,11 +24,7 @@ export async function getUsage(options: { email: string }) {
 
 export async function saveUsage(options: {
   email: string;
-  usage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  usage: LanguageModelUsage;
   cost: number;
 }) {
   const { email, usage, cost } = options;
@@ -35,10 +32,14 @@ export async function saveUsage(options: {
   const key = getUsageKey(email);
 
   Promise.all([
+    // TODO: this isn't openai specific, it can be any llm
     redis.hincrby(key, "openaiCalls", 1),
-    redis.hincrby(key, "openaiTokensUsed", usage.totalTokens),
-    redis.hincrby(key, "openaiCompletionTokensUsed", usage.completionTokens),
-    redis.hincrby(key, "openaiPromptTokensUsed", usage.promptTokens),
+    redis.hincrby(key, "openaiTokensUsed", usage.totalTokens ?? 0),
+    redis.hincrby(key, "openaiCompletionTokensUsed", usage.outputTokens ?? 0),
+    redis.hincrby(key, "openaiPromptTokensUsed", usage.inputTokens ?? 0),
+    redis.hincrby(key, "cachedInputTokensUsed", usage.cachedInputTokens ?? 0),
+    redis.hincrby(key, "reasoningTokensUsed", usage.reasoningTokens ?? 0),
+
     redis.hincrbyfloat(key, "cost", cost),
   ]);
 }

@@ -1,4 +1,8 @@
-import { appendClientMessage, appendResponseMessages } from "ai";
+import {
+  convertToModelMessages,
+  createUIMessageStream,
+  JsonToSseTransformStream,
+} from "ai";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -7,6 +11,7 @@ import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma, type ChatMessage } from "@prisma/client";
+import { convertToUIMessages } from "@/components/assistant-chat/helpers";
 
 export const maxDuration = 120;
 
@@ -23,7 +28,6 @@ const assistantInputSchema = z.object({
     id: z.string(),
     createdAt: z.coerce.date(),
     role: z.enum(["user"]),
-    content: z.string().min(1).max(3000),
     parts: z.array(textPartSchema),
     // experimental_attachments: z
     //   .array(
@@ -69,31 +73,18 @@ export const POST = withEmailAccount(async (request) => {
   }
 
   const { message } = data;
-  const mappedDbMessages = chat.messages.map((dbMsg: ChatMessage) => {
-    return {
-      ...dbMsg,
-      role: convertDbRoleToSdkRole(dbMsg.role),
-      content: "",
-      parts: dbMsg.parts as any,
-    };
-  });
-
-  const messages = appendClientMessage({
-    messages: mappedDbMessages,
-    message,
-  });
+  const uiMessages = [message, ...convertToUIMessages(chat)];
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
     id: message.id,
     role: "user",
     parts: message.parts,
-    // attachments: message.experimental_attachments ?? [],
   });
 
   try {
     const result = await aiProcessAssistantChat({
-      messages,
+      messages: convertToModelMessages(uiMessages),
       emailAccountId,
       user,
       onFinish: async ({ response }) => {
@@ -120,12 +111,11 @@ export const POST = withEmailAccount(async (request) => {
           parts: assistantMessage.parts
             ? (assistantMessage.parts as Prisma.InputJsonValue)
             : Prisma.JsonNull,
-          // attachments: assistantMessage.experimental_attachments ?? [],
         });
       },
     });
 
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse();
   } catch (error) {
     logger.error("Error in assistant chat", { error });
     return NextResponse.json(
@@ -165,23 +155,6 @@ async function getChatById(chatId: string) {
     include: { messages: true },
   });
   return chat;
-}
-
-function convertDbRoleToSdkRole(
-  role: string,
-): "user" | "assistant" | "system" | "data" {
-  switch (role) {
-    case "user":
-      return "user";
-    case "assistant":
-      return "assistant";
-    case "system":
-      return "system";
-    case "data":
-      return "data";
-    default:
-      return "assistant";
-  }
 }
 
 function getTrailingMessageId<T extends { id: string }>(
