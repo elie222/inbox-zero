@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo } from "react";
+import { useCallback, useEffect, useState, memo, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -123,12 +123,17 @@ function RulesPromptForm({
     getValues,
     setValue,
     watch,
+    reset,
   } = useForm<SaveRulesPromptBody>({
     resolver: zodResolver(saveRulesPromptBody),
     defaultValues: { rulesPrompt: rulesPrompt || undefined },
   });
 
   const currentPrompt = watch("rulesPrompt");
+
+  useEffect(() => {
+    reset({ rulesPrompt: rulesPrompt || undefined });
+  }, [rulesPrompt, reset]);
 
   useEffect(() => {
     setShowClearWarning(!!rulesPrompt && currentPrompt === "");
@@ -429,6 +434,5 @@ function getActionType(example: string): {
     return { type: "label", color };
   }
 
-  // Default fallback
   return { type: "other", color };
 }
