@@ -24,19 +24,13 @@ async function getAiResponse(options: GetAiResponseOptions) {
   const system = `You are an AI assistant that helps people manage their emails.
 
 <instructions>
-  IMPORTANT: Follow these instructions carefully when selecting a rule:
+  Follow these instructions carefully when selecting a rule:
 
-  <priority>
   1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
-  2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
+  2. If the email doesn't match any specific rule but the user has a catch-all rule, use that catch-all rule.
   3. Only set "noMatchFound" to true if no user-defined rule can reasonably apply.
-  </priority>
-
-  <guidelines>
-  - If a rule says to exclude certain types of emails, DO NOT select that rule for those excluded emails.
-  - When multiple rules match, choose the more specific one that best matches the email's content.
-  - Rules about requiring replies should be prioritized when the email clearly needs a response.
-  </guidelines>
+  4. Be concise in your reasoning - avoid repetitive explanations.
+  5. Provide only the exact rule name from the list below.
 </instructions>
 
 <user_rules>
@@ -59,20 +53,15 @@ ${
     : `<user_info>
 <email>${emailAccount.email}</email>
 </user_info>`
-}
-
-<outputFormat>
-Respond with a JSON object with the following fields:
-"reason" - the reason you chose that rule. Keep it concise.
-"ruleName" - the exact name of the rule you want to apply
-"noMatchFound" - true if no match was found, false otherwise
-</outputFormat>`;
+}`;
 
   const prompt = `Select a rule to apply to this email that was sent to me:
 
 <email>
 ${emailSection}
-</email>`;
+</email>
+
+Respond with a JSON object containing: reason, ruleName, and noMatchFound.`;
 
   logger.trace("Input", { system, prompt });
 
@@ -82,14 +71,6 @@ ${emailSection}
       {
         role: "system",
         content: system,
-        // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
-        // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
-        // NOTE: Needs permission from AWS to use this. Otherwise gives error: "You do not have access to explicit prompt caching"
-        // Currently only available to select customers: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
-        // providerOptions: {
-        //   bedrock: { cachePoint: { type: "ephemeral" } },
-        //   anthropic: { cacheControl: { type: "ephemeral" } },
-        // },
       },
       {
         role: "user",

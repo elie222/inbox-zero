@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
@@ -195,3 +196,42 @@ export const updateDigestCategoriesAction = actionClient
       return { success: true };
     },
   );
+
+export const ensureDefaultDigestScheduleAction = actionClient
+  .metadata({ name: "ensureDefaultDigestSchedule" })
+  .schema(z.object({ timeOfDay: z.date() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { timeOfDay } }) => {
+    try {
+      // Check if user already has a digest schedule
+      const existingSchedule = await prisma.schedule.findUnique({
+        where: { emailAccountId },
+        select: { id: true },
+      });
+
+      // If no schedule exists, create a default one
+      if (!existingSchedule) {
+        const defaultSchedule = {
+          intervalDays: 7,
+          daysOfWeek: 1 << (6 - 1), // Monday (bit 5 set = Monday)
+          timeOfDay: timeOfDay, // Use provided date/time from user to set the accurate users timezone
+          occurrences: 1,
+        };
+
+        await prisma.schedule.create({
+          data: {
+            emailAccountId,
+            intervalDays: defaultSchedule.intervalDays,
+            daysOfWeek: defaultSchedule.daysOfWeek,
+            timeOfDay: defaultSchedule.timeOfDay,
+            occurrences: defaultSchedule.occurrences,
+            lastOccurrenceAt: new Date(),
+            nextOccurrenceAt: calculateNextScheduleDate(defaultSchedule),
+          },
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      throw new SafeError("Failed to ensure digest schedule", 500);
+    }
+  });
