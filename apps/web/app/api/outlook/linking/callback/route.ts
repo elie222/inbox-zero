@@ -4,10 +4,14 @@ import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
+import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
 export const GET = withError(async (request: NextRequest) => {
+  if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET)
+    throw new SafeError("Microsoft login not enabled");
+
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
   const receivedState = searchParams.get("state");
@@ -60,8 +64,8 @@ export const GET = withError(async (request: NextRequest) => {
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID!,
-          client_secret: env.MICROSOFT_CLIENT_SECRET!,
+          client_id: env.MICROSOFT_CLIENT_ID,
+          client_secret: env.MICROSOFT_CLIENT_SECRET,
           code,
           grant_type: "authorization_code",
           redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`,

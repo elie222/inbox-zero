@@ -1,7 +1,6 @@
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import type { NewsletterStatus } from "@prisma/client";
-import type { UserLabel } from "@/hooks/useLabels";
-import { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export type Row = {
   name: string;
