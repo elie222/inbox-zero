@@ -54,34 +54,3 @@ export function createDisplayValueForInput(input: string): string | undefined {
 
   return displayValue;
 }
-
-/**
- * Extracts the full email content for tooltip display
- */
-export function extractEmailContentForTooltip(input: string): string | null {
-  if (!hasEmailData(input)) {
-    return null;
-  }
-
-  const emailDetailsMatch = input.match(
-    /Email details:\s*\*From\*:([\s\S]*?)(?=\n\n|\nCurrent rule|$)/,
-  );
-  if (!emailDetailsMatch) {
-    return null;
-  }
-
-  const emailDetails = emailDetailsMatch[1].trim();
-
-  // Format the email details nicely for the tooltip
-  const fromMatch = emailDetails.match(/\*From\*:\s*(.+?)(?:\n|$)/);
-  const subjectMatch = emailDetails.match(/\*Subject\*:\s*(.+?)(?:\n|$)/);
-  const contentMatch = emailDetails.match(
-    /\*Content\*:\s*([\s\S]*?)(?:\n\*|$)/,
-  );
-
-  if (!fromMatch || !subjectMatch || !contentMatch) {
-    return null;
-  }
-
-  return `From: ${fromMatch[1].trim()}\nSubject: ${subjectMatch[1].trim()}\nContent: ${contentMatch[1].trim()}`;
-}

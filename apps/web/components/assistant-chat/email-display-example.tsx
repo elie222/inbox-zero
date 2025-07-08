@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { MultimodalInput } from "./multimodal-input";
-import {
-  createDisplayValueForInput,
-  extractEmailContentForTooltip,
-} from "@/utils/email-display";
+import { createDisplayValueForInput } from "@/utils/email-display";
 
 export function EmailDisplayExample() {
   const [input, setInput] = useState("");
@@ -39,7 +36,6 @@ This email appears to be a meeting confirmation.
 The rule that should have been applied was: "Meeting Confirmations"`;
 
   const displayValue = createDisplayValueForInput(input);
-  const emailTooltipContent = extractEmailContentForTooltip(input);
 
   return (
     <div className="space-y-4 p-4">
@@ -67,14 +63,6 @@ The rule that should have been applied was: "Meeting Confirmations"`;
         {displayValue && (
           <div className="text-xs text-gray-600">
             <strong>Example:</strong> {exampleDisplay}
-            {emailTooltipContent && (
-              <div className="mt-2">
-                <strong>Tooltip content:</strong>
-                <div className="whitespace-pre-wrap rounded bg-gray-200 p-2 text-xs">
-                  {emailTooltipContent}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
