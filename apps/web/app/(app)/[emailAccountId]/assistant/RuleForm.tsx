@@ -50,7 +50,6 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
-import type { LabelsResponse } from "@/app/api/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables } from "@/utils/template";
@@ -91,7 +90,7 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
-import { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export function Rule({
   ruleId,
