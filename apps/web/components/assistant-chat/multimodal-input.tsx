@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useRef, useEffect, useCallback, memo } from "react";
+import { useRef, useEffect, useCallback, memo, useState } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import type { UseChatHelpers } from "@ai-sdk/react";
@@ -9,6 +9,13 @@ import { ArrowUpIcon } from "lucide-react";
 import { StopIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { extractEmailContentForTooltip } from "@/utils/email-display";
 // import { SuggestedActions } from "./suggested-actions";
 import { cn } from "@/utils";
 
@@ -23,6 +30,7 @@ function PureMultimodalInput({
   // append,
   handleSubmit,
   className,
+  displayValue,
 }: {
   // chatId?: string;
   input: UseChatHelpers["input"];
@@ -36,9 +44,11 @@ function PureMultimodalInput({
   // append: UseChatHelpers["append"];
   handleSubmit: UseChatHelpers["handleSubmit"];
   className?: string;
+  displayValue?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -92,6 +102,16 @@ function PureMultimodalInput({
     // adjustHeight(); // handled in useEffect
   };
 
+  const handleFocus = () => {
+    if (displayValue !== undefined && displayValue !== input) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+  };
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const submitForm = useCallback(() => {
     // window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -106,40 +126,68 @@ function PureMultimodalInput({
     }
   }, [handleSubmit, setLocalStorageInput, width]);
 
+  // Use displayValue if provided and not editing, otherwise use input
+  const visibleValue =
+    displayValue !== undefined && !isEditing ? displayValue : input;
+
+  // Extract email content for tooltip
+  const emailTooltipContent = extractEmailContentForTooltip(input);
+
   return (
     <div className="relative flex w-full flex-col gap-4">
       {/* {messages.length === 0 && (
         <SuggestedActions append={append} chatId={chatId} />
       )} */}
 
-      <Textarea
-        data-testid="multimodal-input"
-        ref={textareaRef}
-        placeholder="Send a message..."
-        value={input}
-        onChange={handleInput}
-        className={cn(
-          "max-h-[calc(75dvh)] min-h-[24px] resize-none overflow-hidden rounded-2xl bg-muted pb-10 !text-base dark:border-zinc-700",
-          className,
-        )}
-        rows={2}
-        autoFocus
-        onKeyDown={(event) => {
-          if (
-            event.key === "Enter" &&
-            !event.shiftKey &&
-            !event.nativeEvent.isComposing
-          ) {
-            event.preventDefault();
+      {displayValue !== undefined && !isEditing && emailTooltipContent ? (
+        <TooltipProvider>
+          <div
+            className={cn(
+              "max-h-[calc(75dvh)] min-h-[24px] cursor-text resize-none overflow-hidden rounded-2xl bg-muted p-3 pb-10 !text-base dark:border-zinc-700",
+              className,
+            )}
+            onClick={() => setIsEditing(true)}
+          >
+            <RichTextDisplay
+              text={visibleValue}
+              emailTooltipContent={emailTooltipContent}
+            />
+          </div>
+        </TooltipProvider>
+      ) : (
+        <Textarea
+          data-testid="multimodal-input"
+          ref={textareaRef}
+          placeholder="Send a message..."
+          value={visibleValue}
+          onChange={handleInput}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          className={cn(
+            "max-h-[calc(75dvh)] min-h-[24px] resize-none overflow-hidden rounded-2xl bg-muted pb-10 !text-base dark:border-zinc-700",
+            className,
+          )}
+          rows={2}
+          autoFocus
+          onKeyDown={(event) => {
+            if (
+              event.key === "Enter" &&
+              !event.shiftKey &&
+              !event.nativeEvent.isComposing
+            ) {
+              event.preventDefault();
 
-            if (status !== "ready") {
-              toast.error("Please wait for the model to finish its response!");
-            } else {
-              submitForm();
+              if (status !== "ready") {
+                toast.error(
+                  "Please wait for the model to finish its response!",
+                );
+              } else {
+                submitForm();
+              }
             }
-          }
-        }}
-      />
+          }}
+        />
+      )}
 
       <div className="absolute bottom-0 right-0 flex w-fit flex-row justify-end p-2">
         {status === "submitted" ? (
@@ -157,6 +205,7 @@ export const MultimodalInput = memo(
   (prevProps, nextProps) => {
     if (prevProps.input !== nextProps.input) return false;
     if (prevProps.status !== nextProps.status) return false;
+    if (prevProps.displayValue !== nextProps.displayValue) return false;
     // if (!equal(prevProps.attachments, nextProps.attachments)) return false;
 
     return true;
@@ -213,3 +262,52 @@ const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   if (prevProps.input !== nextProps.input) return false;
   return true;
 });
+
+function RichTextDisplay({
+  text,
+  emailTooltipContent,
+}: {
+  text: string;
+  emailTooltipContent: string;
+}) {
+  // Split text by lines to process each line
+  const lines = text.split("\n");
+
+  return (
+    <div className="whitespace-pre-wrap">
+      {lines.map((line, index) => {
+        // Check if this line contains the email tag
+        const emailTagMatch = line.match(/📧 \[([^\]]+)\]/);
+
+        if (emailTagMatch) {
+          const subject = emailTagMatch[1];
+          const beforeTag = line.substring(0, line.indexOf("📧"));
+          const afterTag = line.substring(
+            line.indexOf("📧") + emailTagMatch[0].length,
+          );
+
+          return (
+            <div key={index}>
+              {beforeTag}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex cursor-help items-center rounded-md bg-blue-100 px-2 py-1 text-sm font-medium text-blue-800 transition-colors hover:bg-blue-200">
+                    📧 [{subject}]
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-md">
+                  <div className="whitespace-pre-wrap text-sm">
+                    {emailTooltipContent}
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+              {afterTag}
+            </div>
+          );
+        }
+
+        return <div key={index}>{line}</div>;
+      })}
+    </div>
+  );
+}
