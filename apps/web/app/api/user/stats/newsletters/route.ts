@@ -12,7 +12,6 @@ import { Prisma } from "@prisma/client";
 import { extractEmailAddress } from "@/utils/email";
 import { createEmailProvider } from "@/utils/email/provider";
 import { createScopedLogger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("newsletter-stats");
 
