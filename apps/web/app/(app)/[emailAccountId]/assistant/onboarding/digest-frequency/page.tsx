@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useState, useEffect } from "react";
-import { updateDigestCategoriesAction } from "@/utils/actions/settings";
+import {
+  updateDigestCategoriesAction,
+  updateDigestScheduleAction,
+  ensureDefaultDigestScheduleAction,
+} from "@/utils/actions/settings";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -53,6 +57,13 @@ export default function DigestFrequencyPage() {
     }
   }, [digestSettings]);
 
+  useEffect(() => {
+    // Ensure user has a digest schedule entry when they visit this page, otherwise the digest is not sent
+    const timeOfDay = new Date();
+    timeOfDay.setHours(11, 0, 0, 0); // 11 AM in user's timezone
+    ensureDefaultDigestScheduleAction(emailAccountId, { timeOfDay });
+  }, [emailAccountId]);
+
   const updateDigestCategories = updateDigestCategoriesAction.bind(
     null,
     emailAccountId,
@@ -68,19 +79,43 @@ export default function DigestFrequencyPage() {
   const handleFinish = async () => {
     setIsLoading(true);
     try {
+      // Save digest categories
       const result = await updateDigestCategories(settings);
 
       if (result?.serverError) {
         toastError({
           description: "Failed to save digest settings. Please try again.",
         });
-      } else {
-        toastSuccess({ description: "Digest settings saved!" });
-        markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-        router.push(
-          prefixPath(emailAccountId, "/assistant/onboarding/completed"),
-        );
+        return;
       }
+
+      // Ensure a default digest schedule is set if none exists
+      const updateDigestSchedule = updateDigestScheduleAction.bind(
+        null,
+        emailAccountId,
+      );
+
+      const scheduleResult = await updateDigestSchedule({
+        schedule: {
+          intervalDays: 7,
+          daysOfWeek: 1 << (6 - 1), // Monday (1)
+          timeOfDay: new Date(new Date().setHours(11, 0, 0, 0)), // 11 AM
+          occurrences: 1,
+        },
+      });
+
+      if (scheduleResult?.serverError) {
+        toastError({
+          description: "Failed to set digest frequency. Please try again.",
+        });
+        return;
+      }
+
+      toastSuccess({ description: "Digest settings saved!" });
+      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+      router.push(
+        prefixPath(emailAccountId, "/assistant/onboarding/completed"),
+      );
     } catch (error) {
       toastError({
         description: "Failed to save digest settings. Please try again.",
