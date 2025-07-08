@@ -1,7 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { createLabel } from "@/app/api/google/labels/create/controller";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
 import { markImportantMessage, markReadThread } from "@/utils/gmail/label";

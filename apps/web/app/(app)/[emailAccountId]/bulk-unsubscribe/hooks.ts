@@ -12,15 +12,10 @@ import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import type { GetThreadsResponse as GoogleGetThreadsResponse } from "@/app/api/google/threads/basic/route";
-import type { GetThreadsResponse as MicrosoftGetThreadsResponse } from "@/app/api/microsoft/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
 import { useAccount } from "@/providers/EmailAccountProvider";
-
-type GetThreadsResponse =
-  | GoogleGetThreadsResponse
-  | MicrosoftGetThreadsResponse;
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -550,18 +545,17 @@ async function deleteAllFromSender({
   toast.promise(
     async () => {
       // 1. search for messages from sender
-      const apiEndpoint = provider === "google" ? "google" : "microsoft";
       const res = await fetchWithAccount({
-        url: `/api/${apiEndpoint}/threads/basic?from=${name}`,
+        url: `/api/threads/basic?fromEmail=${name}`,
         emailAccountId,
       });
       const data: GetThreadsResponse = await res.json();
 
       // 2. delete messages
-      if (data?.length) {
+      if (data?.threads?.length) {
         await new Promise<void>((resolve, reject) => {
           deleteEmails({
-            threadIds: data.map((t) => t.id).filter(isDefined),
+            threadIds: data.threads.map((t: any) => t.id).filter(isDefined),
             onSuccess: () => {
               onFinish();
               resolve();
@@ -572,7 +566,7 @@ async function deleteAllFromSender({
         });
       }
 
-      return data.length;
+      return data.threads?.length || 0;
     },
     {
       loading: `Deleting all emails from ${name}`,

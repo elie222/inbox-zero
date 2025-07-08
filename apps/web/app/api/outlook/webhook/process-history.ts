@@ -129,11 +129,6 @@ export async function processHistoryForUser({
       emailAccountId: emailAccount.id,
     });
 
-    logger.info("Processing message", {
-      email: emailAccount.email,
-      messageId: resourceData.id,
-    });
-
     await processHistoryItem(resourceData, {
       client: outlookClient.getClient(),
       accessToken: emailAccount.account.access_token,
@@ -141,11 +136,6 @@ export async function processHistoryForUser({
       hasAiAccess: userHasAiAccess,
       rules: emailAccount.rules,
       emailAccount,
-    });
-
-    logger.info("Completed processing message", {
-      email: emailAccount.email,
-      messageId: resourceData.id,
     });
 
     return NextResponse.json({ ok: true });

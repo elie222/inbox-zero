@@ -1,9 +1,6 @@
-import type { ThreadsResponse as GmailThreadsResponse } from "@/app/api/google/threads/controller";
-import type { ThreadsResponse as MicrosoftThreadsResponse } from "@/app/api/microsoft/threads/controller";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 
-type FullThread =
-  | GmailThreadsResponse["threads"][number]
-  | MicrosoftThreadsResponse["threads"][number];
+type FullThread = ThreadsResponse["threads"][number];
 // defining it explicitly to make it easier to understand the type
 export type Thread = {
   id: FullThread["id"];

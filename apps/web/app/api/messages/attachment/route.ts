@@ -1,22 +1,11 @@
-import { z } from "zod";
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getGmailAttachment } from "@/utils/gmail/attachment";
-import { getGmailClientForEmail } from "@/utils/account";
-
-const attachmentQuery = z.object({
-  messageId: z.string(),
-  attachmentId: z.string(),
-  mimeType: z.string(),
-  filename: z.string(),
-});
-// export type AttachmentQuery = z.infer<typeof attachmentQuery>;
-// export type AttachmentResponse = Awaited<ReturnType<typeof getGmailAttachment>>;
+import { attachmentQuery } from "@/app/api/messages/validation";
+import { createEmailProvider } from "@/utils/email/provider";
+import prisma from "@/utils/prisma";
 
 export const GET = withEmailAccount(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
-
-  const gmail = await getGmailClientForEmail({ emailAccountId });
 
   const { searchParams } = new URL(request.url);
 
@@ -27,13 +16,36 @@ export const GET = withEmailAccount(async (request) => {
     filename: searchParams.get("filename"),
   });
 
-  const attachmentData = await getGmailAttachment(
-    gmail,
+  // Get the email account to determine the provider
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: {
+        select: { provider: true },
+      },
+    },
+  });
+
+  if (!emailAccount) {
+    return NextResponse.json(
+      { error: "Email account not found" },
+      { status: 404 },
+    );
+  }
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount.account.provider,
+  });
+
+  const attachmentData = await emailProvider.getAttachment(
     query.messageId,
     query.attachmentId,
   );
 
-  if (!attachmentData.data) return NextResponse.json({ error: "No data" });
+  if (!attachmentData.data) {
+    return NextResponse.json({ error: "No data" }, { status: 404 });
+  }
 
   const decodedData = Buffer.from(attachmentData.data, "base64");
 
