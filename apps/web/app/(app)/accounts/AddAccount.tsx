@@ -16,190 +16,142 @@ import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/r
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
 
 export function AddAccount() {
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleConnectGoogle = async () => {
-    setIsLoading(true);
-    try {
-      await signIn("google", { callbackUrl: "/accounts", redirect: true });
-    } catch (error) {
-      console.error("Error initiating Google link:", error);
-      toastError({
-        title: "Error initiating Google link",
-        description: "Please try again or contact support",
-      });
-    }
-    setIsLoading(false);
+    await signIn("google", { callbackUrl: "/accounts", redirect: true });
   };
 
   const handleMergeGoogle = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/google/linking/auth-url", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const response = await fetch("/api/google/linking/auth-url", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
 
-      const data: GetAuthLinkUrlResponse = await response.json();
+    const data: GetAuthLinkUrlResponse = await response.json();
 
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error initiating Google link:", error);
-      toastError({
-        title: "Error initiating Google link",
-        description: "Please try again or contact support",
-      });
-    }
-    setIsLoading(false);
+    window.location.href = data.url;
   };
 
   const handleConnectMicrosoft = async () => {
-    setIsLoading(true);
-    try {
-      await signIn("microsoft-entra-id", {
-        callbackUrl: "/accounts",
-        redirect: true,
-      });
-    } catch (error) {
-      console.error("Error initiating Microsoft link:", error);
-      toastError({
-        title: "Error initiating Microsoft link",
-        description: "Please try again or contact support",
-      });
-    }
-    setIsLoading(false);
+    await signIn("microsoft-entra-id", {
+      callbackUrl: "/accounts",
+      redirect: true,
+    });
   };
 
   const handleMergeMicrosoft = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/outlook/linking/auth-url", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+    const response = await fetch("/api/outlook/linking/auth-url", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
 
-      const data: GetOutlookAuthLinkUrlResponse = await response.json();
+    const data: GetOutlookAuthLinkUrlResponse = await response.json();
 
-      window.location.href = data.url;
-    } catch (error) {
-      console.error("Error initiating Microsoft link:", error);
-      toastError({
-        title: "Error initiating Microsoft link",
-        description: "Please try again or contact support",
-      });
-    }
-    setIsLoading(false);
+    window.location.href = data.url;
   };
 
   return (
     <Card className="flex items-center justify-center">
-      <CardContent className="flex flex-col items-center p-6">
-        <div className="flex w-full flex-col gap-4">
-          {/* Google Account */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button disabled={isLoading} className="w-full">
-                <Image
-                  src="/images/google.svg"
-                  alt=""
-                  width={24}
-                  height={24}
-                  unoptimized
-                />
-                <span className="ml-2">
-                  {isLoading ? "Connecting..." : "Add Google Account"}
-                </span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add or Merge Google Account</DialogTitle>
-                <DialogDescription>
-                  Choose an action:
-                  <ul className="mb-2 mt-2 list-disc pl-5">
-                    <li>
-                      <b>Connect Account:</b> Add an account that you haven't
-                      yet added to Inbox Zero.
-                    </li>
-                    <li>
-                      <b>Merge Another Account:</b> Sign in with a Google
-                      account that's currently linked to a *different* Inbox
-                      Zero user.
-                    </li>
-                  </ul>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2 sm:justify-end">
-                <Button variant="outline">Cancel</Button>
-                <Button
-                  variant="secondary"
-                  disabled={isLoading}
-                  onClick={handleMergeGoogle}
-                >
-                  Merge Another Account
-                </Button>
-                <Button disabled={isLoading} onClick={handleConnectGoogle}>
-                  {isLoading ? "Connecting..." : "Connect Account"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Microsoft Account */}
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button disabled={isLoading} className="w-full">
-                <Image
-                  src="/images/microsoft.svg"
-                  alt=""
-                  width={24}
-                  height={24}
-                  unoptimized
-                />
-                <span className="ml-2">
-                  {isLoading ? "Connecting..." : "Add Microsoft Account"}
-                </span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add or Merge Microsoft Account</DialogTitle>
-                <DialogDescription>
-                  Choose an action:
-                  <ul className="mb-2 mt-2 list-disc pl-5">
-                    <li>
-                      <b>Connect Account:</b> Add an account that you haven't
-                      yet added to Inbox Zero.
-                    </li>
-                    <li>
-                      <b>Merge Another Account:</b> Sign in with a Microsoft
-                      account that's currently linked to a *different* Inbox
-                      Zero user.
-                    </li>
-                  </ul>
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter className="gap-2 sm:justify-end">
-                <Button variant="outline">Cancel</Button>
-                <Button
-                  variant="secondary"
-                  disabled={isLoading}
-                  onClick={handleMergeMicrosoft}
-                >
-                  Merge Another Account
-                </Button>
-                <Button disabled={isLoading} onClick={handleConnectMicrosoft}>
-                  {isLoading ? "Connecting..." : "Connect Account"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+      <CardContent className="flex flex-col items-center gap-4 p-6">
+        <AddEmailAccount
+          name="Google"
+          image="/images/google.svg"
+          handleConnect={handleConnectGoogle}
+          handleMerge={handleMergeGoogle}
+        />
+        <AddEmailAccount
+          name="Microsoft"
+          image="/images/microsoft.svg"
+          handleConnect={handleConnectMicrosoft}
+          handleMerge={handleMergeMicrosoft}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+function AddEmailAccount({
+  name,
+  image,
+  handleConnect,
+  handleMerge,
+}: {
+  name: "Google" | "Microsoft";
+  image: string;
+  handleConnect: () => Promise<void>;
+  handleMerge: () => Promise<void>;
+}) {
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
+
+  const onConnect = async () => {
+    setIsConnecting(true);
+    try {
+      await handleConnect();
+    } catch (error) {
+      console.error(`Error initiating ${name} link:`, error);
+      toastError({
+        title: `Error initiating ${name} link`,
+        description: "Please try again or contact support",
+      });
+    }
+    setIsConnecting(false);
+  };
+
+  const onMerge = async () => {
+    setIsMerging(true);
+
+    try {
+      await handleMerge();
+    } catch (error) {
+      console.error(`Error initiating ${name} link:`, error);
+      toastError({
+        title: `Error initiating ${name} link`,
+        description: "Please try again or contact support",
+      });
+    }
+
+    setIsMerging(false);
+  };
+
+  return (
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button disabled={isConnecting} className="mt-auto">
+          <Image src={image} alt="" width={24} height={24} unoptimized />
+          <span className="ml-2">
+            {isConnecting ? "Connecting..." : `Add ${name} Account`}
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add {name} Account</DialogTitle>
+          <DialogDescription>
+            Does the account you want to add already have an Inbox Zero account?
+            If yes, we'll link it to your current account.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isMerging}
+            disabled={isMerging || isConnecting}
+            onClick={onMerge}
+          >
+            Yes
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isConnecting}
+            disabled={isMerging || isConnecting}
+            onClick={onConnect}
+          >
+            No
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

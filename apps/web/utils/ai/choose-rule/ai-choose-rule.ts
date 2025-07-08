@@ -30,6 +30,8 @@ async function getAiResponse(options: GetAiResponseOptions) {
   1. Match the email to a SPECIFIC user-defined rule that addresses the email's exact content or purpose.
   2. If the email doesn't match any specific rule but the user has a catch-all rule (like "emails that don't match other criteria"), use that catch-all rule.
   3. Only set "noMatchFound" to true if no user-defined rule can reasonably apply.
+  4. Be concise in your reasoning - avoid repetitive explanations.
+  5. Provide only the exact rule name from the list below.
   </priority>
 
   <guidelines>
@@ -62,7 +64,7 @@ ${
 }
 
 <outputFormat>
-Respond with a JSON object with the following fields:
+Respond with a valid JSON object with the following fields:
 "reason" - the reason you chose that rule. Keep it concise.
 "ruleName" - the exact name of the rule you want to apply
 "noMatchFound" - true if no match was found, false otherwise
