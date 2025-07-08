@@ -48,7 +48,7 @@ export function createDisplayValueForInput(input: string): string | undefined {
   // Replace the email details section with simplified version
   const emailDetailsPattern =
     /Email details:\s*\*From\*:[\s\S]*?\*Content\*:[\s\S]*?(?=\n\n|\nCurrent rule|$)/;
-  const replacement = `Email details:\n📧 [${subject}]`;
+  const replacement = `Email details:\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📧 [${subject}]\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   const displayValue = input.replace(emailDetailsPattern, replacement);
 
