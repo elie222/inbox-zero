@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo, useRef } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -214,8 +214,6 @@ function RulesPromptForm({
     },
     [setValue, getValues],
   );
-
-  // const [showExamples, setShowExamples] = useState(false);
 
   return (
     <div>
