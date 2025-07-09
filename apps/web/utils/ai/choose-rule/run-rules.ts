@@ -21,6 +21,7 @@ import {
   scheduleDelayedActions,
   cancelScheduledActions,
 } from "@/utils/scheduled-actions/scheduler";
+import groupBy from "lodash/groupBy";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -109,12 +110,10 @@ async function executeMatchedRule(
     });
   }
 
-  // Separate immediate and delayed actions
-  const immediateActions = actionItems.filter(
-    (item) => !item.delayInMinutes || item.delayInMinutes <= 0,
-  );
-  const delayedActions = actionItems.filter(
-    (item) => item.delayInMinutes != null && item.delayInMinutes > 0,
+  const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
+    item.delayInMinutes != null && item.delayInMinutes > 0
+      ? "delayedActions"
+      : "immediateActions",
   );
 
   // handle action

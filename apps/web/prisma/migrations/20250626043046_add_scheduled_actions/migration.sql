@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS "ScheduledAction" (
     "cc" TEXT,
     "bcc" TEXT,
     "url" TEXT,
-    "qstashMessageId" TEXT,
+    "queueId" TEXT,
     "executedAt" TIMESTAMP(3),
     "executedActionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -41,7 +41,7 @@ CREATE INDEX IF NOT EXISTS "ScheduledAction_status_scheduledFor_idx" ON "Schedul
 CREATE INDEX IF NOT EXISTS "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "ScheduledAction_qstashMessageId_idx" ON "ScheduledAction"("qstashMessageId");
+CREATE INDEX IF NOT EXISTS "ScheduledAction_queueId_idx" ON "ScheduledAction"("queueId");
 
 -- AddForeignKey
 ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;

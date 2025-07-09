@@ -15,7 +15,7 @@ import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
-import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -92,14 +92,7 @@ const updateRuleActionsSchema = z.object({
         bcc: z.string().nullish(),
         subject: z.string().nullish(),
       }),
-      delayInMinutes: z
-        .number()
-        .min(1, "Minimum supported delay is 1 minute")
-        .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
-        .nullish()
-        .describe(
-          "Optional delay in minutes (1 min to 90 days) before executing this action",
-        ),
+      delayInMinutes: delayInMinutesSchema,
     }),
   ),
 });

@@ -77,16 +77,16 @@ export async function createScheduledAction({
       );
     }
 
-    const qstashMessageId = await scheduleMessage({
+    const queueId = await scheduleMessage({
       payload,
       delayInMinutes: actionItem.delayInMinutes,
       deduplicationId,
     });
 
-    if (qstashMessageId) {
+    if (queueId) {
       await prisma.scheduledAction.update({
         where: { id: scheduledAction.id },
-        data: { qstashMessageId },
+        data: { queueId },
       });
     }
 
@@ -199,7 +199,7 @@ export async function cancelScheduledActions({
         ...(threadId && { threadId }),
         status: ScheduledActionStatus.PENDING,
       },
-      select: { id: true, qstashMessageId: true },
+      select: { id: true, queueId: true },
     });
 
     if (actionsToCancel.length === 0) {
@@ -210,18 +210,18 @@ export async function cancelScheduledActions({
     const client = getQstashClient();
     if (client) {
       for (const action of actionsToCancel) {
-        if (action.qstashMessageId) {
+        if (action.queueId) {
           try {
-            await cancelMessage(client, action.qstashMessageId);
+            await cancelMessage(client, action.queueId);
             logger.info("Cancelled QStash message", {
               scheduledActionId: action.id,
-              qstashMessageId: action.qstashMessageId,
+              queueId: action.queueId,
             });
           } catch (error) {
             // Log but don't fail the entire operation if QStash cancellation fails
             logger.warn("Failed to cancel QStash message", {
               scheduledActionId: action.id,
-              qstashMessageId: action.qstashMessageId,
+              queueId: action.queueId,
               error,
             });
           }
@@ -277,7 +277,6 @@ async function scheduleMessage({
   const client = getQstashClient();
   const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/scheduled-actions/execute`;
 
-  // Calculate the absolute timestamp when the action should execute using date-fns
   const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
 
   try {
@@ -291,12 +290,14 @@ async function scheduleMessage({
         headers: getCronSecretHeader(),
       });
 
+      // The messageId here has a different meaning because it is
+      // the QStash identifier and not the usual messageId of the email
       const messageId =
         "messageId" in response ? response.messageId : undefined;
 
       logger.info("Successfully scheduled with QStash", {
         scheduledActionId: payload.scheduledActionId,
-        qstashMessageId: messageId,
+        queueId: messageId,
         notBefore,
         delayInMinutes,
         deduplicationId,

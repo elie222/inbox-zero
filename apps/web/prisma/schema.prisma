@@ -118,7 +118,6 @@ model EmailAccount {
   outboundReplyTracking Boolean           @default(false)
   autoCategorizeSenders Boolean           @default(false)
 
-  // Digest email settings
   digestSchedule Schedule?
 
   userId    String
@@ -336,7 +335,6 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  // Optional static fields to use for this action
   label   String?
   subject String?
   content String?
@@ -344,8 +342,7 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
-
-  delayInMinutes Int? // Optional delay in minutes (1 min to 30 days)
+  delayInMinutes Int?
 }
 
 model RuleHistory {
@@ -431,6 +428,8 @@ model ExecutedAction {
 
 model ScheduledAction {
   id             String                @id @default(cuid())
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
   executedRuleId String
   actionType     ActionType
   messageId      String
@@ -447,13 +446,10 @@ model ScheduledAction {
   bcc     String?
   url     String?
 
-  qstashMessageId String? // QStash message ID for efficient cancellation
+  queueId String?
 
   executedAt       DateTime?
   executedActionId String?   @unique
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 
   executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
   executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
@@ -461,7 +457,6 @@ model ScheduledAction {
 
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
-  @@index([qstashMessageId])
 }
 
 // Notes:

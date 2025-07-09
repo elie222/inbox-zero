@@ -8,6 +8,12 @@ import {
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 
+export const delayInMinutesSchema = z
+  .number()
+  .min(1, "Minimum supported delay is 1 minute")
+  .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
+  .nullish();
+
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
   ActionType.DRAFT_EMAIL,
@@ -74,11 +80,7 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
-    delayInMinutes: z
-      .number()
-      .min(1, "Minimum supported delay is 1 minute")
-      .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
-      .nullish(),
+    delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {

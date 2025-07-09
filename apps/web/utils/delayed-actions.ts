@@ -12,10 +12,6 @@ const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.MARK_READ,
 ];
 
-/**
- * Check if an action type supports delayed execution
- * This is a client-safe utility function
- */
 export function canActionBeDelayed(actionType: ActionType): boolean {
   return SUPPORTED_DELAYED_ACTIONS.includes(actionType);
 }

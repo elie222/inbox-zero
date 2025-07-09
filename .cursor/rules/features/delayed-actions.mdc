@@ -50,7 +50,7 @@ model ScheduledAction {
   url     String?
   
   // QStash integration
-  qstashMessageId String? // For efficient cancellation
+  queueId String?
   
   // Execution tracking
   executedAt       DateTime?
@@ -83,7 +83,7 @@ model ScheduledAction {
    ```
 
 3. **Deduplication**: Uses unique IDs to prevent duplicate execution
-4. **Message ID Storage**: QStash message ID stored for efficient cancellation
+4. **Message ID Storage**: QStash queueId stored for efficient cancellation (field: queueId)
 
 ### Execution Process
 
