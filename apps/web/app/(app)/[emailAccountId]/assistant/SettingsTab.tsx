@@ -1,3 +1,5 @@
+import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/AboutSetting";
+import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/DigestSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/DraftReplies";
 import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
@@ -22,6 +24,8 @@ export function SettingsTab() {
       <TabsContent value="rules">
         <div className="max-w-screen-lg space-y-2">
           <DraftReplies />
+          <AboutSetting />
+          <DigestSetting />
           <Rules />
         </div>
       </TabsContent>

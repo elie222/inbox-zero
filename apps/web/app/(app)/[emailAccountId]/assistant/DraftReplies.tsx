@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Toggle } from "@/components/Toggle";
 import { KnowledgeDialog } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeDialog";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
@@ -11,6 +10,7 @@ import { useRules } from "@/hooks/useRules";
 import { ActionType, SystemType } from "@prisma/client";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SettingCard } from "@/components/SettingCard";
 
 export function DraftReplies() {
   const { enabled, toggleDraftReplies, loading, error } = useDraftReplies();
@@ -29,17 +29,11 @@ export function DraftReplies() {
   );
 
   return (
-    <Card>
-      <CardContent className="p-4">
+    <SettingCard
+      title="Auto draft replies"
+      description="Automatically draft replies written in your tone to emails needing a reply."
+      right={
         <div className="flex items-center gap-4">
-          <div className="flex-1">
-            <h3 className="font-medium">Auto Draft Replies</h3>
-            <p className="text-sm text-muted-foreground">
-              Automatically draft replies written in your tone to emails needing
-              a reply.
-            </p>
-          </div>
-
           {enabled && <KnowledgeDialog />}
 
           <LoadingContent
@@ -54,8 +48,8 @@ export function DraftReplies() {
             />
           </LoadingContent>
         </div>
-      </CardContent>
-    </Card>
+      }
+    />
   );
 }
 
