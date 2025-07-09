@@ -12,11 +12,10 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_ENCRYPT_SECRET: z.string(),
     GOOGLE_ENCRYPT_SALT: z.string(),
-    // Azure AD SSO for enterprise customers
-    AZURE_AD_CLIENT_ID: z.string().optional(),
-    AZURE_AD_CLIENT_SECRET: z.string().optional(),
-    AZURE_AD_TENANT_ID: z.string().optional(),
-    // SAML SSO for enterprise customers
+    // Google Workspace SSO configuration
+    GOOGLE_WORKSPACE_DOMAIN: z.string().optional(), // Restrict to specific domain
+    GOOGLE_WORKSPACE_CUSTOMER_ID: z.string().optional(), // For advanced workspace integration
+    // SAML SSO for enterprise customers (who still need Gmail access)
     SAML_IDP_CERT: z.string().optional(),
     SAML_IDP_ENTRY_POINT: z.string().optional(),
     SAML_IDP_ISSUER: z.string().optional(),
@@ -164,6 +163,7 @@ export const env = createEnv({
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
+    NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN: z.string().optional(),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -219,5 +219,7 @@ export const env = createEnv({
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
+    NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN:
+      process.env.NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN,
   },
 });

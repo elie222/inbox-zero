@@ -21,6 +21,7 @@ export function LoginForm() {
   const error = searchParams?.get("error");
 
   const [loading, setLoading] = useState(false);
+  const isWorkspaceRestricted = env.NEXT_PUBLIC_GOOGLE_WORKSPACE_DOMAIN;
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -35,7 +36,11 @@ export function LoginForm() {
                 height={24}
                 unoptimized
               />
-              <span className="ml-2">Sign in with Google</span>
+              <span className="ml-2">
+                {isWorkspaceRestricted
+                  ? "Sign in with Google Workspace"
+                  : "Sign in with Google"}
+              </span>
             </span>
           </Button>
         </DialogTrigger>

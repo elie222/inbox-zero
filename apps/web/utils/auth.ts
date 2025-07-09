@@ -5,7 +5,7 @@ import type { NextAuthConfig, DefaultSession } from "next-auth";
 import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
-import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
+
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
@@ -18,6 +18,11 @@ import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { createReferral } from "@/utils/referral/referral-code";
 import { trackDubSignUp } from "@/utils/dub";
+import {
+  validateWorkspaceAuth,
+  extractWorkspaceInfo,
+  createWorkspaceUserMetadata,
+} from "@/utils/auth/workspace-sso";
 
 const logger = createScopedLogger("auth");
 
@@ -44,24 +49,6 @@ export const getAuthOptions: (options?: {
         },
       },
     }),
-    // Azure AD SSO Provider for enterprise customers
-    // Note: Users will still need to connect their Google account for Gmail access
-    ...(env.AZURE_AD_CLIENT_ID &&
-    env.AZURE_AD_CLIENT_SECRET &&
-    env.AZURE_AD_TENANT_ID
-      ? [
-          MicrosoftEntraIDProvider({
-            clientId: env.AZURE_AD_CLIENT_ID,
-            clientSecret: env.AZURE_AD_CLIENT_SECRET,
-            authorization: {
-              params: {
-                scope: "openid profile email User.Read",
-                tenant: env.AZURE_AD_TENANT_ID,
-              },
-            },
-          }),
-        ]
-      : []),
   ],
   // logger: {
   //   error: (error) => {
@@ -280,7 +267,40 @@ export const getAuthOptions: (options?: {
     },
   },
   events: {
-    signIn: async ({ isNewUser, user }) => {
+    signIn: async ({ isNewUser, user, profile }) => {
+      if (user.email) {
+        // Validate workspace authentication if configured
+        const workspaceValidation = await validateWorkspaceAuth(
+          user.email,
+          profile,
+        );
+        if (!workspaceValidation.isValid) {
+          logger.warn("Workspace authentication failed", {
+            email: user.email,
+            reason: workspaceValidation.reason,
+          });
+          throw new Error(
+            workspaceValidation.reason || "Authentication failed",
+          );
+        }
+
+        // Add workspace metadata to user profile
+        if (isNewUser) {
+          const workspaceInfo = extractWorkspaceInfo(user.email, profile);
+          const workspaceMetadata = createWorkspaceUserMetadata(workspaceInfo);
+
+          logger.info("New user signed in", {
+            email: user.email,
+            isWorkspaceUser: workspaceInfo.isWorkspaceUser,
+            domain: workspaceInfo.domain,
+            organizationId: workspaceInfo.organizationId,
+          });
+
+          // Store workspace metadata (could be extended to save to user profile)
+          // For now, we'll just log it
+        }
+      }
+
       if (isNewUser && user.email) {
         const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
           [
