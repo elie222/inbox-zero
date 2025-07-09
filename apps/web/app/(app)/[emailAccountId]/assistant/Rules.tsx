@@ -420,7 +420,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       </Card>
 
       {hasRules && (
-        <AddRuleButtons
+        <AddRuleButton
           onCreateRule={() => {
             ruleDialog.open();
           }}
@@ -487,25 +487,18 @@ function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <AddRuleButtons onCreateRule={onCreateRule} />
+        <AddRuleButton onCreateRule={onCreateRule} />
       </CardContent>
     </>
   );
 }
 
-function AddRuleButtons({ onCreateRule }: { onCreateRule?: () => void }) {
-  const { emailAccountId } = useAccount();
+function AddRuleButton({ onCreateRule }: { onCreateRule?: () => void }) {
   return (
-    <div className="my-2 flex justify-end gap-2">
-      <Button asChild variant="outline" size="sm">
-        <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-          <PenIcon className="mr-2 hidden size-4 md:block" />
-          Add Rule via Prompt
-        </Link>
-      </Button>
-      <Button variant="outline" size="sm" onClick={onCreateRule}>
+    <div className="my-2">
+      <Button size="sm" onClick={onCreateRule}>
         <PlusIcon className="mr-2 hidden size-4 md:block" />
-        Add Rule Manually
+        Add Rule
       </Button>
     </div>
   );

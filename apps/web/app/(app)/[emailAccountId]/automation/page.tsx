@@ -2,15 +2,12 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MessageCircleIcon, SettingsIcon, SlidersIcon } from "lucide-react";
+import { MessageCircleIcon, SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Rules } from "@/app/(app)/[emailAccountId]/assistant/Rules";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
-import { KnowledgeBase } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeBase";
-import { RulesPrompt } from "@/app/(app)/[emailAccountId]/assistant/RulesPrompt";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
@@ -20,6 +17,7 @@ import { prefixPath } from "@/utils/path";
 import { Button } from "@/components/ui/button";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/SettingsTab";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -75,12 +73,11 @@ export default async function AutomationPage({
 
         <PremiumAlertWithData className="content-container mt-2" />
 
-        <Tabs defaultValue="prompt">
+        <Tabs defaultValue="settings">
           <TabsToolbar>
             <div className="w-full overflow-x-auto">
               <TabsList>
-                <TabsTrigger value="prompt">Prompt</TabsTrigger>
-                <TabsTrigger value="rules">Rules</TabsTrigger>
+                <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="test">Test</TabsTrigger>
                 <TabsTrigger value="history">History</TabsTrigger>
                 <Suspense>
@@ -88,23 +85,10 @@ export default async function AutomationPage({
                     <TabsTrigger value="pending">Pending</TabsTrigger>
                   )}
                 </Suspense>
-                <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
               </TabsList>
             </div>
 
             <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link
-                  href={prefixPath(
-                    emailAccountId,
-                    "/assistant/onboarding/draft-replies",
-                  )}
-                >
-                  <SettingsIcon className="mr-2 hidden size-4 md:block" />
-                  Auto draft settings
-                </Link>
-              </Button>
-
               <Button asChild variant="outline" size="sm">
                 <Link
                   href={prefixPath(emailAccountId, "/assistant/onboarding")}
@@ -135,15 +119,8 @@ export default async function AutomationPage({
             </div>
           </TabsToolbar>
 
-          <TabsContent value="prompt" className="content-container mb-10">
-            <div className="max-w-screen-xl">
-              <RulesPrompt />
-            </div>
-          </TabsContent>
-          <TabsContent value="rules" className="content-container mb-10">
-            <div className="max-w-screen-lg">
-              <Rules />
-            </div>
+          <TabsContent value="settings" className="content-container mb-10">
+            <SettingsTab />
           </TabsContent>
           <TabsContent value="test" className="content-container mb-10">
             <div className="max-w-screen-lg">
@@ -164,11 +141,6 @@ export default async function AutomationPage({
               </TabsContent>
             )}
           </Suspense>
-          <TabsContent value="knowledge" className="content-container mb-10">
-            <div className="max-w-screen-lg">
-              <KnowledgeBase />
-            </div>
-          </TabsContent>
         </Tabs>
       </Suspense>
     </GmailProvider>
