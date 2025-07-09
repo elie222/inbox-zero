@@ -14,7 +14,9 @@ import {
   ChevronDownIcon,
   InboxIcon,
   LogOutIcon,
+  MessageCircleReplyIcon,
   RibbonIcon,
+  ShieldCheckIcon,
   TagIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -53,6 +55,16 @@ function ProfileDropdown() {
       name: "Mail (Beta)",
       href: prefixPath(emailAccountId, "/mail"),
       icon: InboxIcon,
+    },
+    {
+      name: "Reply Zero",
+      href: prefixPath(emailAccountId, "/reply-zero"),
+      icon: MessageCircleReplyIcon,
+    },
+    {
+      name: "Cold Email Blocker",
+      href: prefixPath(emailAccountId, "/cold-email-blocker"),
+      icon: ShieldCheckIcon,
     },
     {
       name: "Sender Categories",
