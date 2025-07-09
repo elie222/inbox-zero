@@ -5,6 +5,8 @@ import type { NextAuthConfig, DefaultSession } from "next-auth";
 import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
+import MicrosoftEntraIDProvider from "next-auth/providers/microsoft-entra-id";
+import GitHubProvider from "next-auth/providers/github";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
@@ -43,6 +45,37 @@ export const getAuthOptions: (options?: {
         },
       },
     }),
+    // Azure AD SSO Provider
+    ...(env.AZURE_AD_CLIENT_ID &&
+    env.AZURE_AD_CLIENT_SECRET &&
+    env.AZURE_AD_TENANT_ID
+      ? [
+          AzureADProvider({
+            clientId: env.AZURE_AD_CLIENT_ID,
+            clientSecret: env.AZURE_AD_CLIENT_SECRET,
+            tenantId: env.AZURE_AD_TENANT_ID,
+            authorization: {
+              params: {
+                scope: "openid profile email User.Read",
+              },
+            },
+          }),
+        ]
+      : []),
+    // GitHub SSO Provider
+    ...(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_SECRET
+      ? [
+          GitHubProvider({
+            clientId: env.GITHUB_CLIENT_ID,
+            clientSecret: env.GITHUB_CLIENT_SECRET,
+            authorization: {
+              params: {
+                scope: "read:user user:email",
+              },
+            },
+          }),
+        ]
+      : []),
   ],
   // logger: {
   //   error: (error) => {
