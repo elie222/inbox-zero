@@ -89,13 +89,13 @@ function FeatureCard({
 
 const features = [
   {
-    href: "/reply-zero",
-    icon: MailIcon,
-    iconBg: "bg-blue-100 dark:bg-blue-900/50",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    title: "Reply Zero",
+    href: "/automation",
+    icon: BotIcon,
+    iconBg: "bg-green-100 dark:bg-green-900/50",
+    iconColor: "text-green-600 dark:text-green-400",
+    title: "AI Assistant",
     description:
-      "Track emails needing replies & follow-ups. Get AI-drafted responses",
+      "Your personal email assistant that organizes, archives, and drafts replies",
   },
   {
     href: "/bulk-unsubscribe",
@@ -106,13 +106,13 @@ const features = [
     description: "Easily unsubscribe from unwanted newsletters in one click",
   },
   {
-    href: "/automation",
-    icon: BotIcon,
-    iconBg: "bg-green-100 dark:bg-green-900/50",
-    iconColor: "text-green-600 dark:text-green-400",
-    title: "AI Assistant",
+    href: "/reply-zero",
+    icon: MailIcon,
+    iconBg: "bg-blue-100 dark:bg-blue-900/50",
+    iconColor: "text-blue-600 dark:text-blue-400",
+    title: "Reply Zero",
     description:
-      "Your personal email assistant that organizes, archives, and drafts replies",
+      "Track emails needing replies & follow-ups. Get AI-drafted responses",
   },
   {
     href: "/cold-email-blocker",
