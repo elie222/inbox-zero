@@ -22,6 +22,8 @@ export function SettingsTab() {
       <TabsContent value="rules">
         <div className="max-w-screen-lg space-y-2">
           <DraftReplies />
+          {/* <AboutSetting />
+          <DigestSetting /> */}
           <Rules />
         </div>
       </TabsContent>

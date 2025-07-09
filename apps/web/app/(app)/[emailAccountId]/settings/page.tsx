@@ -1,12 +1,8 @@
 "use client";
 
 import { FormWrapper } from "@/components/Form";
-import { AboutSectionForm } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
-// import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
-// import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
-import { EmailUpdatesSection } from "@/app/(app)/[emailAccountId]/settings/EmailUpdatesSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -18,6 +14,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { DigestMailFrequencySection } from "@/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection";
 import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
+import { AboutSectionFull } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
 
 export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
@@ -40,7 +37,7 @@ export default function SettingsPage(_props: {
         <LoadingContent loading={isLoading} error={error}>
           {data && (
             <FormWrapper>
-              <AboutSectionForm about={data?.about} mutate={mutate} />
+              <AboutSectionFull />
               {/* this is only used in Gmail when sending a new message. disabling for now. */}
               {/* <SignatureSectionForm signature={user.signature} /> */}
               {/* <LabelsSection /> */}
