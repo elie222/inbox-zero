@@ -12,14 +12,11 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_ENCRYPT_SECRET: z.string(),
     GOOGLE_ENCRYPT_SALT: z.string(),
-    // Azure AD SSO
+    // Azure AD SSO for enterprise customers
     AZURE_AD_CLIENT_ID: z.string().optional(),
     AZURE_AD_CLIENT_SECRET: z.string().optional(),
     AZURE_AD_TENANT_ID: z.string().optional(),
-    // GitHub SSO
-    GITHUB_CLIENT_ID: z.string().optional(),
-    GITHUB_CLIENT_SECRET: z.string().optional(),
-    // SAML SSO
+    // SAML SSO for enterprise customers
     SAML_IDP_CERT: z.string().optional(),
     SAML_IDP_ENTRY_POINT: z.string().optional(),
     SAML_IDP_ISSUER: z.string().optional(),
