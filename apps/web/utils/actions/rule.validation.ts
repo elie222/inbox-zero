@@ -172,7 +172,7 @@ export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 const categoryAction = z.enum([
   "label",
   "label_archive",
-  "label_archive_1_week",
+  "label_archive_delayed",
   "none",
 ]);
 export type CategoryAction = z.infer<typeof categoryAction>;

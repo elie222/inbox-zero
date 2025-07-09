@@ -1,8 +1,3 @@
----
-description: 
-globs: 
-alwaysApply: false
----
 # Delayed Actions Feature
 
 ## Overview
@@ -81,10 +76,6 @@ model ScheduledAction {
      url: `${process.env.NEXTAUTH_URL}/api/scheduled-actions/execute`,
      body: {
        scheduledActionId: scheduledAction.id,
-       emailAccountId,
-       messageId,
-       threadId,
-       actionType,
      },
      notBefore, // Unix timestamp for when to execute
      deduplicationId: `scheduled-action-${scheduledAction.id}`,
@@ -111,6 +102,83 @@ model ScheduledAction {
 - **Deduplication**: Prevents duplicate execution with unique IDs
 - **Monitoring**: Better observability through QStash dashboard
 - **Cancellation**: Direct message cancellation using stored message IDs
+
+## Key Functions
+
+### Core Scheduling Functions
+
+```typescript
+// Create and schedule a single delayed action
+export async function createScheduledAction({
+  executedRuleId,
+  actionItem,
+  messageId,
+  threadId,
+  emailAccountId,
+  scheduledFor,
+})
+
+// Schedule multiple delayed actions for a rule execution
+export async function scheduleDelayedActions({
+  executedRuleId,
+  actionItems,
+  messageId,
+  threadId,
+  emailAccountId,
+})
+
+// Cancel existing scheduled actions (e.g., when new rule overrides)
+export async function cancelScheduledActions({
+  emailAccountId,
+  messageId,
+  threadId,
+  reason,
+})
+```
+
+### Usage in Rule Execution
+
+```typescript
+// In run-rules.ts
+// Cancel any existing scheduled actions for this message
+await cancelScheduledActions({
+  emailAccountId: emailAccount.id,
+  messageId: message.id,
+  threadId: message.threadId,
+  reason: "Superseded by new rule execution",
+});
+
+// Schedule delayed actions if any exist
+if (executedRule && delayedActions.length > 0 && !isTest) {
+  await scheduleDelayedActions({
+    executedRuleId: executedRule.id,
+    actionItems: delayedActions,
+    messageId: message.id,
+    threadId: message.threadId,
+    emailAccountId: emailAccount.id,
+  });
+}
+```
+
+## Migration Safety
+
+The database migration includes `IF NOT EXISTS` clauses to prevent conflicts:
+
+```sql
+-- CreateEnum
+CREATE TYPE IF NOT EXISTS "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+
+-- AlterTable
+ALTER TABLE "Action" ADD COLUMN IF NOT EXISTS "delayInMinutes" INTEGER;
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "ScheduledAction" (
+  -- table definition
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
+```
 
 ## Usage Examples
 

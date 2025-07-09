@@ -480,7 +480,7 @@ export const createRulesOnboardingAction = actionClient
 
       const isSet = (
         value: string | undefined,
-      ): value is "label" | "label_archive" | "label_archive_1_week" =>
+      ): value is "label" | "label_archive" | "label_archive_delayed" =>
         value !== "none" && value !== undefined;
 
       // cold email blocker
@@ -533,7 +533,7 @@ export const createRulesOnboardingAction = actionClient
         instructions: string,
         promptFileInstructions: string,
         runOnThreads: boolean,
-        categoryAction: "label" | "label_archive" | "label_archive_1_week",
+        categoryAction: "label" | "label_archive" | "label_archive_delayed",
         label: string,
         systemType: SystemType,
         emailAccountId: string,
@@ -556,7 +556,7 @@ export const createRulesOnboardingAction = actionClient
                       { type: ActionType.LABEL, label },
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
-                        : categoryAction === "label_archive_1_week"
+                        : categoryAction === "label_archive_delayed"
                           ? [
                               {
                                 type: ActionType.ARCHIVE,
@@ -595,7 +595,7 @@ export const createRulesOnboardingAction = actionClient
                       { type: ActionType.LABEL, label },
                       ...(categoryAction === "label_archive"
                         ? [{ type: ActionType.ARCHIVE }]
-                        : categoryAction === "label_archive_1_week"
+                        : categoryAction === "label_archive_delayed"
                           ? [
                               {
                                 type: ActionType.ARCHIVE,
@@ -621,7 +621,7 @@ export const createRulesOnboardingAction = actionClient
             `${promptFileInstructions}${
               categoryAction === "label_archive"
                 ? " and archive them"
-                : categoryAction === "label_archive_1_week"
+                : categoryAction === "label_archive_delayed"
                   ? " and archive them after a week"
                   : ""
             }.`,

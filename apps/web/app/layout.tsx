@@ -26,7 +26,7 @@ const calFont = localFont({
   display: "swap",
 });
 
-const title = "Inbox Zero | Your AI Executive Assistant for email";
+const title = "Inbox Zero | Automate and clean your inbox";
 const description =
   "Inbox Zero is your AI personal assistant for email and the quickest way to reach inbox zero. Automate your email, bulk unsubscribe from newsletters, block cold emails, and view your email analytics. Open-source.";
 

@@ -92,6 +92,7 @@ import {
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { mutate } from "swr";
 
 export function Rule({
   ruleId,
@@ -148,6 +149,7 @@ export function RuleForm({
     watch,
     setValue,
     control,
+    reset,
     formState: { errors, isSubmitting, isSubmitted },
     trigger,
   } = form;
@@ -162,7 +164,7 @@ export function RuleForm({
   });
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const { userLabels, isLoading, mutate } = useLabels();
+  const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
   const {
     categories,
     isLoading: categoriesLoading,
@@ -266,6 +268,25 @@ export function RuleForm({
       (type) => !usedConditions.has(type),
     ) as CoreConditionType | undefined;
   }, [conditions]);
+
+  // Reset form when rule data changes
+  useEffect(() => {
+    if (rule) {
+      reset({
+        ...rule,
+        actions: [
+          ...rule.actions.map((action) => ({
+            ...action,
+            delayInMinutes: action.delayInMinutes,
+            content: {
+              ...action.content,
+              setManually: !!action.content?.value,
+            },
+          })),
+        ],
+      });
+    }
+  }, [rule, reset]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -838,7 +859,7 @@ export function RuleForm({
                 errors={errors}
                 userLabels={userLabels}
                 isLoading={isLoading}
-                mutate={mutate}
+                mutate={mutateLabels}
                 emailAccountId={emailAccountId}
                 remove={remove}
                 typeOptions={typeOptions}
@@ -982,7 +1003,7 @@ function ActionCard({
   errors: any;
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
-  mutate: () => void;
+  mutate: (data?: any) => void;
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
@@ -998,6 +1019,14 @@ function ActionCard({
     action.type === ActionType.DRAFT_EMAIL
       ? !!watch(`actions.${index}.content.setManually`)
       : false;
+
+  const actionCanBeDelayed = useMemo(
+    () => canActionBeDelayed(action.type),
+    [action.type],
+  );
+
+  const delayValue = watch(`actions.${index}.delayInMinutes`);
+  const delayEnabled = delayValue !== null && delayValue !== undefined;
 
   // Helper function to determine if a field can use variables based on context
   const canFieldUseVariables = (
@@ -1140,6 +1169,7 @@ function ActionCard({
                   </div>
                 ) : field.name === "label" && isAiGenerated ? (
                   <div className="mt-2">
+                    the field
                     <input
                       className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                       type="text"
@@ -1236,20 +1266,15 @@ function ActionCard({
           })}
 
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
-
-          {/* Show the variable pro tip when action has visible fields that can use variables */}
           {shouldShowProTip && <VariableProTip />}
-
-          {/* Show delay toggle and input for all actions that support delays */}
-          {canActionBeDelayed(action.type) && (
+          {actionCanBeDelayed && (
             <div className="mt-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  {/* Show delay input controls when delay has been enabled */}
-                  {watch(`actions.${index}.delayInMinutes`) !== null && (
+                  {delayEnabled && (
                     <DelayInputControls
                       index={index}
-                      delayInMinutes={watch(`actions.${index}.delayInMinutes`)}
+                      delayInMinutes={delayValue}
                       setValue={setValue}
                     />
                   )}
@@ -1257,23 +1282,18 @@ function ActionCard({
 
                 <div className="flex items-center space-x-2">
                   <TooltipExplanation
-                    text="Schedule this action to execute after a delay from when the email was received. Useful for follow-ups, reminders, or giving senders time to respond."
+                    text="Schedule this action to execute after a delay from when the email was received. For example, archive an email a week after receiving it."
                     side="right"
                   />
                   <Toggle
                     name={`actions.${index}.delayEnabled`}
                     label="Delay"
-                    enabled={watch(`actions.${index}.delayInMinutes`) !== null}
+                    enabled={delayEnabled}
                     onChange={(enabled: boolean) => {
-                      if (enabled) {
-                        setValue(`actions.${index}.delayInMinutes`, 60, {
-                          shouldValidate: true,
-                        });
-                      } else {
-                        setValue(`actions.${index}.delayInMinutes`, null, {
-                          shouldValidate: true,
-                        });
-                      }
+                      const newValue = enabled ? 60 : null;
+                      setValue(`actions.${index}.delayInMinutes`, newValue, {
+                        shouldValidate: true,
+                      });
                     }}
                   />
                 </div>
@@ -1282,24 +1302,13 @@ function ActionCard({
               {errors?.actions?.[index]?.delayInMinutes && (
                 <div className="mt-2">
                   <ErrorMessage
-                    message={
-                      errors.actions?.[
-                        index
-                      ]?.delayInMinutes?.message?.toString() ||
-                      "Please enter a valid delay between 1 minute and 90 days"
-                    }
+                    message={errors.actions?.[
+                      index
+                    ]?.delayInMinutes?.message?.toString()}
                   />
                 </div>
               )}
             </div>
-          )}
-
-          {/* Hidden input for form registration */}
-          {canActionBeDelayed(action.type) && (
-            <input
-              type="hidden"
-              {...register(`actions.${index}.delayInMinutes`)}
-            />
           )}
 
           {hasExpandableFields && (
@@ -1481,44 +1490,6 @@ function DelayInputControls({
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
 }) {
   const delayConfig = useMemo(() => {
-    // Convert minutes to display value and unit
-    const getDisplayValueAndUnit = (minutes: number | null | undefined) => {
-      if (minutes === null || minutes === undefined)
-        return { value: "", unit: "hours" };
-      // -1 means enabled but empty input
-      if (minutes === -1 || minutes <= 0) return { value: "", unit: "hours" };
-
-      if (minutes >= 1440 && minutes % 1440 === 0) {
-        // Days (1440 minutes = 1 day)
-        return { value: (minutes / 1440).toString(), unit: "days" };
-      } else if (minutes >= 60 && minutes % 60 === 0) {
-        // Hours (60 minutes = 1 hour)
-        return { value: (minutes / 60).toString(), unit: "hours" };
-      } else {
-        // Minutes
-        return { value: minutes.toString(), unit: "minutes" };
-      }
-    };
-
-    // Convert display value and unit to minutes
-    const convertToMinutes = (value: string, unit: string) => {
-      const numValue = Number.parseInt(value, 10);
-      // If empty or invalid, return -1 to indicate "enabled but empty"
-      // This distinguishes from null (disabled) and valid values (> 0)
-      if (Number.isNaN(numValue) || numValue <= 0) return -1;
-
-      switch (unit) {
-        case "minutes":
-          return numValue;
-        case "hours":
-          return numValue * 60;
-        case "days":
-          return numValue * 1440;
-        default:
-          return numValue;
-      }
-    };
-
     const { value: displayValue, unit } =
       getDisplayValueAndUnit(delayInMinutes);
 
@@ -1577,4 +1548,36 @@ function DelayInputControls({
       </div>
     </div>
   );
+}
+
+// minutes to user-friendly UI format
+function getDisplayValueAndUnit(minutes: number | null | undefined) {
+  if (minutes === null || minutes === undefined)
+    return { value: "", unit: "hours" };
+  if (minutes === -1 || minutes <= 0) return { value: "", unit: "hours" };
+
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    return { value: (minutes / 1440).toString(), unit: "days" };
+  } else if (minutes >= 60 && minutes % 60 === 0) {
+    return { value: (minutes / 60).toString(), unit: "hours" };
+  } else {
+    return { value: minutes.toString(), unit: "minutes" };
+  }
+}
+
+// user-friendly UI format to minutes
+function convertToMinutes(value: string, unit: string) {
+  const numValue = Number.parseInt(value, 10);
+  if (Number.isNaN(numValue) || numValue <= 0) return -1;
+
+  switch (unit) {
+    case "minutes":
+      return numValue;
+    case "hours":
+      return numValue * 60;
+    case "days":
+      return numValue * 1440;
+    default:
+      return numValue;
+  }
 }

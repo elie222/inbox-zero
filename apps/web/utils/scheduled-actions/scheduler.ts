@@ -1,9 +1,3 @@
-/**
- * Scheduler service for delayed actions using QStash
- * Handles creation, cancellation, and management of scheduled actions
- */
-
-import type { ActionType } from "@prisma/client";
 import { ScheduledActionStatus } from "@prisma/client";
 import prisma from "@/utils/prisma";
 import type { ActionItem } from "@/utils/ai/types";
@@ -18,10 +12,6 @@ const logger = createScopedLogger("qstash-scheduled-actions");
 
 interface ScheduledActionPayload {
   scheduledActionId: string;
-  emailAccountId: string;
-  messageId: string;
-  threadId: string;
-  actionType: ActionType;
 }
 
 function getQstashClient() {
@@ -32,7 +22,7 @@ function getQstashClient() {
 /**
  * Create a scheduled action and queue it with QStash
  */
-export async function createQStashScheduledAction({
+export async function createScheduledAction({
   executedRuleId,
   actionItem,
   messageId,
@@ -75,33 +65,24 @@ export async function createQStashScheduledAction({
       },
     });
 
-    // Create QStash payload
     const payload: ScheduledActionPayload = {
       scheduledActionId: scheduledAction.id,
-      emailAccountId,
-      messageId,
-      threadId,
-      actionType: actionItem.type,
     };
 
-    // Generate deduplication ID to prevent duplicate execution
     const deduplicationId = `scheduled-action-${scheduledAction.id}`;
 
-    // Validate delayInMinutes before scheduling
     if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
       throw new Error(
         `Invalid delayInMinutes: ${actionItem.delayInMinutes}. Must be a positive number.`,
       );
     }
 
-    // Schedule with QStash
-    const qstashMessageId = await scheduleWithQStash({
+    const qstashMessageId = await scheduleMessage({
       payload,
       delayInMinutes: actionItem.delayInMinutes,
       deduplicationId,
     });
 
-    // Store the QStash message ID for efficient cancellation
     if (qstashMessageId) {
       await prisma.scheduledAction.update({
         where: { id: scheduledAction.id },
@@ -132,7 +113,7 @@ export async function createQStashScheduledAction({
 }
 
 /**
- * Schedule delayed actions for a set of action items using QStash
+ * Schedule delayed actions using QStash for a set of action items
  */
 export async function scheduleDelayedActions({
   executedRuleId,
@@ -140,42 +121,12 @@ export async function scheduleDelayedActions({
   messageId,
   threadId,
   emailAccountId,
-  emailInternalDate,
 }: {
   executedRuleId: string;
   actionItems: ActionItem[];
   messageId: string;
   threadId: string;
   emailAccountId: string;
-  emailInternalDate: Date;
-}) {
-  return scheduleQStashDelayedActions({
-    executedRuleId,
-    actionItems,
-    messageId,
-    threadId,
-    emailAccountId,
-    emailInternalDate,
-  });
-}
-
-/**
- * Schedule delayed actions using QStash for a set of action items
- */
-export async function scheduleQStashDelayedActions({
-  executedRuleId,
-  actionItems,
-  messageId,
-  threadId,
-  emailAccountId,
-  emailInternalDate,
-}: {
-  executedRuleId: string;
-  actionItems: ActionItem[];
-  messageId: string;
-  threadId: string;
-  emailAccountId: string;
-  emailInternalDate: Date;
 }) {
   const delayedActions = actionItems.filter(
     (item) =>
@@ -191,7 +142,6 @@ export async function scheduleQStashDelayedActions({
   const scheduledActions = [];
 
   for (const actionItem of delayedActions) {
-    // Additional validation (defensive programming)
     if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
       logger.warn("Skipping action with invalid delayInMinutes", {
         actionType: actionItem.type,
@@ -202,10 +152,9 @@ export async function scheduleQStashDelayedActions({
       continue;
     }
 
-    // Calculate delay from current time using date-fns
     const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes);
 
-    const scheduledAction = await createQStashScheduledAction({
+    const scheduledAction = await createScheduledAction({
       executedRuleId,
       actionItem,
       messageId,
@@ -228,32 +177,9 @@ export async function scheduleQStashDelayedActions({
 }
 
 /**
- * Cancel existing scheduled actions for a message using QStash
- * Used when new rules override previous scheduled actions
- */
-export async function cancelScheduledActions({
-  emailAccountId,
-  messageId,
-  threadId,
-  reason = "Superseded by new rule",
-}: {
-  emailAccountId: string;
-  messageId: string;
-  threadId?: string;
-  reason?: string;
-}) {
-  return cancelQStashScheduledActions({
-    emailAccountId,
-    messageId,
-    threadId,
-    reason,
-  });
-}
-
-/**
  * Cancel existing scheduled actions and their QStash schedules
  */
-export async function cancelQStashScheduledActions({
+export async function cancelScheduledActions({
   emailAccountId,
   messageId,
   threadId,
@@ -286,7 +212,7 @@ export async function cancelQStashScheduledActions({
       for (const action of actionsToCancel) {
         if (action.qstashMessageId) {
           try {
-            await cancelQStashMessage(client, action.qstashMessageId);
+            await cancelMessage(client, action.qstashMessageId);
             logger.info("Cancelled QStash message", {
               scheduledActionId: action.id,
               qstashMessageId: action.qstashMessageId,
@@ -339,7 +265,7 @@ export async function cancelQStashScheduledActions({
 /**
  * Schedule a message with QStash
  */
-async function scheduleWithQStash({
+async function scheduleMessage({
   payload,
   delayInMinutes,
   deduplicationId,
@@ -400,7 +326,7 @@ async function scheduleWithQStash({
 /**
  * Cancel a QStash message using the message ID
  */
-async function cancelQStashMessage(
+async function cancelMessage(
   client: InstanceType<typeof Client>,
   messageId: string,
 ) {

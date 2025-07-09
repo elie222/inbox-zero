@@ -8,19 +8,13 @@ import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@prisma/client";
 
-const logger = createScopedLogger("qstash-scheduled-actions-executor");
+const logger = createScopedLogger("scheduled-actions-executor");
 
 export const maxDuration = 300; // 5 minutes
 
-const ScheduledActionPayloadSchema = z.object({
+const scheduledActionBody = z.object({
   scheduledActionId: z.string().min(1, "Scheduled action ID is required"),
-  emailAccountId: z.string().min(1, "Email account ID is required"),
-  messageId: z.string().min(1, "Message ID is required"),
-  threadId: z.string().min(1, "Thread ID is required"),
-  actionType: z.string().min(1, "Action type is required"),
 });
-
-type ScheduledActionPayload = z.infer<typeof ScheduledActionPayloadSchema>;
 
 export const POST = verifySignatureAppRouter(
   withError(async (request: NextRequest) => {
@@ -31,10 +25,8 @@ export const POST = verifySignatureAppRouter(
         headers: Object.fromEntries(request.headers.entries()),
       });
 
-      // Parse and validate the request payload
       const rawPayload = await request.json();
-      const validationResult =
-        ScheduledActionPayloadSchema.safeParse(rawPayload);
+      const validationResult = scheduledActionBody.safeParse(rawPayload);
 
       if (!validationResult.success) {
         logger.error("Invalid payload structure", {
@@ -48,13 +40,9 @@ export const POST = verifySignatureAppRouter(
 
       logger.info("Received QStash scheduled action execution request", {
         scheduledActionId: payload.scheduledActionId,
-        emailAccountId: payload.emailAccountId,
-        messageId: payload.messageId,
-        actionType: payload.actionType,
         payload,
       });
 
-      // Get the scheduled action from database
       const scheduledAction = await prisma.scheduledAction.findUnique({
         where: { id: payload.scheduledActionId },
         include: {

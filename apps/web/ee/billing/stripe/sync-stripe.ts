@@ -1,8 +1,11 @@
+import sumBy from "lodash/sumBy";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
+import { updateAccountSeatsForPremium } from "@/utils/premium/server";
+import type { Prisma } from "@prisma/client";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 
@@ -93,7 +96,7 @@ export async function syncStripeDataToDb({
       ? new Date(subscription.trial_end * 1000)
       : null;
 
-    await prisma.premium.update({
+    const updatedPremium = await prisma.premium.update({
       where: { stripeCustomerId: customerId },
       data: {
         tier,
@@ -114,6 +117,15 @@ export async function syncStripeDataToDb({
           ? new Date(subscription.ended_at * 1000)
           : null,
       },
+      select: {
+        stripeSubscriptionItemId: true,
+        pendingInvites: true,
+        users: {
+          select: {
+            _count: true,
+          },
+        },
+      },
     });
 
     // Handle Loops events based on state changes
@@ -126,8 +138,34 @@ export async function syncStripeDataToDb({
     logger.info("Successfully updated Premium record from Stripe data", {
       customerId,
     });
+
+    await syncSeats(updatedPremium);
   } catch (error) {
     logger.error("Error syncing Stripe data to DB", { customerId, error });
     throw error;
+  }
+}
+
+async function syncSeats(
+  premium: Prisma.PremiumGetPayload<{
+    select: {
+      users: { select: { _count: { select: { emailAccounts: true } } } };
+      pendingInvites: true;
+      stripeSubscriptionItemId: true;
+    };
+  }>,
+) {
+  try {
+    // total seats = premium users + pending invites
+    const totalSeats =
+      sumBy(premium.users, (u) => u._count.emailAccounts) +
+      (premium.pendingInvites?.length || 0);
+
+    await updateAccountSeatsForPremium(premium, totalSeats);
+  } catch (error) {
+    logger.error("Error updating account seats for premium", {
+      stripeSubscriptionItemId: premium.stripeSubscriptionItemId,
+      error,
+    });
   }
 }

@@ -1,26 +1,12 @@
-/*
-  Warnings:
-
-  - You are about to drop the column `digestScheduleId` on the `EmailAccount` table. All the data in the column will be lost.
-
-*/
 -- CreateEnum
-CREATE TYPE "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+CREATE TYPE IF NOT EXISTS "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
--- DropForeignKey
-ALTER TABLE "EmailAccount" DROP CONSTRAINT "EmailAccount_digestScheduleId_fkey";
-
--- DropIndex
-DROP INDEX "EmailAccount_digestScheduleId_key";
 
 -- AlterTable
-ALTER TABLE "Action" ADD COLUMN     "delayInMinutes" INTEGER;
-
--- AlterTable
-ALTER TABLE "EmailAccount" DROP COLUMN "digestScheduleId";
+ALTER TABLE "Action" ADD COLUMN IF NOT EXISTS "delayInMinutes" INTEGER;
 
 -- CreateTable
-CREATE TABLE "ScheduledAction" (
+CREATE TABLE IF NOT EXISTS "ScheduledAction" (
     "id" TEXT NOT NULL,
     "executedRuleId" TEXT NOT NULL,
     "actionType" "ActionType" NOT NULL,
@@ -46,16 +32,16 @@ CREATE TABLE "ScheduledAction" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
+CREATE UNIQUE INDEX IF NOT EXISTS "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
 
 -- CreateIndex
-CREATE INDEX "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("status", "scheduledFor");
+CREATE INDEX IF NOT EXISTS "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("status", "scheduledFor");
 
 -- CreateIndex
-CREATE INDEX "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
+CREATE INDEX IF NOT EXISTS "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
 
 -- CreateIndex
-CREATE INDEX "ScheduledAction_qstashMessageId_idx" ON "ScheduledAction"("qstashMessageId");
+CREATE INDEX IF NOT EXISTS "ScheduledAction_qstashMessageId_idx" ON "ScheduledAction"("qstashMessageId");
 
 -- AddForeignKey
 ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;

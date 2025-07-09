@@ -18,8 +18,8 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import {
-  scheduleQStashDelayedActions,
-  cancelQStashScheduledActions,
+  scheduleDelayedActions,
+  cancelScheduledActions,
 } from "@/utils/scheduled-actions/scheduler";
 
 const logger = createScopedLogger("ai-run-rules");
@@ -101,7 +101,7 @@ async function executeMatchedRule(
 
   // Cancel any existing scheduled actions for this message
   if (!isTest) {
-    await cancelQStashScheduledActions({
+    await cancelScheduledActions({
       emailAccountId: emailAccount.id,
       messageId: message.id,
       threadId: message.threadId,
@@ -135,15 +135,12 @@ async function executeMatchedRule(
 
   // Schedule delayed actions if any exist
   if (executedRule && delayedActions.length > 0 && !isTest) {
-    await scheduleQStashDelayedActions({
+    await scheduleDelayedActions({
       executedRuleId: executedRule.id,
       actionItems: delayedActions,
       messageId: message.id,
       threadId: message.threadId,
       emailAccountId: emailAccount.id,
-      emailInternalDate: message.internalDate
-        ? new Date(message.internalDate)
-        : new Date(),
     });
   }
 

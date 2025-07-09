@@ -9,8 +9,6 @@ import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("premium");
 
-const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
-
 export async function upgradeToPremiumLemon(options: {
   userId: string;
   tier: PremiumTier;
@@ -130,8 +128,8 @@ export async function updateAccountSeats({ userId }: { userId: string }) {
 
 export async function updateAccountSeatsForPremium(
   premium: {
-    lemonSqueezySubscriptionItemId: number | null;
     stripeSubscriptionItemId: string | null;
+    lemonSqueezySubscriptionItemId?: number | null;
   },
   totalSeats: number,
 ) {
