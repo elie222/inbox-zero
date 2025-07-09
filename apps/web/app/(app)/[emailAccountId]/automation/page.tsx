@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/SettingsTab";
+import { PageHeading } from "@/components/Typography";
+import { TabSelect } from "@/components/TabSelect";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -71,10 +73,39 @@ export default async function AutomationPage({
           />
         </div> */}
 
+        <PageHeading className="content-container">Assistant</PageHeading>
+
         <PremiumAlertWithData className="content-container mt-2" />
 
+        <div className="max-w-screen-xl">
+          <div className="content-container">
+            <div className="border-b border-neutral-200">
+              <TabSelect
+                options={[
+                  {
+                    id: "settings",
+                    label: "Settings",
+                    href: `/${emailAccountId}/automation/settings`,
+                  },
+                  {
+                    id: "test",
+                    label: "Test",
+                    href: `/${emailAccountId}/automation/test`,
+                  },
+                  {
+                    id: "history",
+                    label: "History",
+                    href: `/${emailAccountId}/automation/history`,
+                  },
+                ]}
+                selected="settings"
+              />
+            </div>
+          </div>
+        </div>
+
         <Tabs defaultValue="settings">
-          <TabsToolbar>
+          {/* <TabsToolbar>
             <div className="w-full overflow-x-auto">
               <TabsList>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -117,7 +148,7 @@ export default async function AutomationPage({
                 </Link>
               </Button>
             </div>
-          </TabsToolbar>
+          </TabsToolbar> */}
 
           <TabsContent value="settings" className="content-container mb-10">
             <SettingsTab />
