@@ -12,7 +12,7 @@ import {
   ToggleLeftIcon,
   InfoIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +56,7 @@ import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
+import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -63,6 +64,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
+  const coldEmailDialog = useDialogState();
 
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -195,16 +197,6 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                 {rules.map((rule) => {
                   const isColdEmailBlocker =
                     rule.id === COLD_EMAIL_BLOCKER_RULE_ID;
-                  const href = isColdEmailBlocker
-                    ? prefixPath(
-                        emailAccountId,
-                        "/cold-email-blocker?tab=settings",
-                      )
-                    : createAssistantUrl({
-                        tab: "rule",
-                        ruleId: rule.id,
-                        path: `/assistant/rule/${rule.id}`,
-                      });
 
                   return (
                     <TableRow
@@ -216,7 +208,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           type="button"
                           onClick={() => {
                             if (isColdEmailBlocker) {
-                              window.open(href, "_blank");
+                              coldEmailDialog.open();
                             } else {
                               ruleDialog.open({
                                 ruleId: rule.id,
@@ -297,7 +289,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
-                                  window.open(href, "_blank");
+                                  coldEmailDialog.open();
                                 } else {
                                   ruleDialog.open({
                                     ruleId: rule.id,
@@ -444,6 +436,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
           ruleDialog.close();
         }}
         editMode={ruleDialog.data?.editMode}
+      />
+
+      <ColdEmailDialog
+        isOpen={coldEmailDialog.isOpen}
+        onClose={coldEmailDialog.close}
       />
     </div>
   );
