@@ -21,13 +21,16 @@ export function SettingsTab() {
         </div>
       </TabsContent>
       <TabsContent value="rules">
-        <div className="max-w-screen-lg space-y-2">
-          <DraftReplies />
+        <div className="max-w-screen-lg">
           <Rules />
-          <AboutSetting />
           {/* <DigestSetting /> */}
         </div>
       </TabsContent>
+
+      <div className="mt-8 max-w-screen-lg space-y-2">
+        <DraftReplies />
+        <AboutSetting />
+      </div>
     </Tabs>
   );
 }
