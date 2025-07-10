@@ -42,8 +42,8 @@ describe("scheduler", () => {
     it("should cancel scheduled actions for a message", async () => {
       // Mock finding actions to cancel
       prisma.scheduledAction.findMany.mockResolvedValue([
-        { id: "action-1", queueId: "qstash-msg-1" },
-        { id: "action-2", queueId: "qstash-msg-2" },
+        { id: "action-1", scheduledId: "qstash-msg-1" },
+        { id: "action-2", scheduledId: "qstash-msg-2" },
       ] as any);
 
       // Mock updating actions as cancelled
@@ -62,7 +62,7 @@ describe("scheduler", () => {
         },
         select: {
           id: true,
-          queueId: true,
+          scheduledId: true,
         },
       });
 
@@ -94,7 +94,7 @@ describe("scheduler", () => {
 
     it("should include threadId when provided", async () => {
       prisma.scheduledAction.findMany.mockResolvedValue([
-        { id: "action-1", queueId: "qstash-msg-1" },
+        { id: "action-1", scheduledId: "qstash-msg-1" },
       ] as any);
       prisma.scheduledAction.updateMany.mockResolvedValue({ count: 1 });
 
@@ -114,7 +114,7 @@ describe("scheduler", () => {
         },
         select: {
           id: true,
-          queueId: true,
+          scheduledId: true,
         },
       });
 

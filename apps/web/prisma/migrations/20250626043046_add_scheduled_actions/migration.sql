@@ -1,6 +1,9 @@
 -- CreateEnum
 CREATE TYPE IF NOT EXISTS "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
+-- CreateEnum
+CREATE TYPE IF NOT EXISTS "SchedulingStatus" AS ENUM ('PENDING', 'SCHEDULED', 'FAILED', 'UNAVAILABLE');
+
 
 -- AlterTable
 ALTER TABLE "Action" ADD COLUMN IF NOT EXISTS "delayInMinutes" INTEGER;
@@ -15,6 +18,7 @@ CREATE TABLE IF NOT EXISTS "ScheduledAction" (
     "scheduledFor" TIMESTAMP(3) NOT NULL,
     "emailAccountId" TEXT NOT NULL,
     "status" "ScheduledActionStatus" NOT NULL DEFAULT 'PENDING',
+    "schedulingStatus" "SchedulingStatus" NOT NULL DEFAULT 'PENDING',
     "label" TEXT,
     "subject" TEXT,
     "content" TEXT,
@@ -22,7 +26,7 @@ CREATE TABLE IF NOT EXISTS "ScheduledAction" (
     "cc" TEXT,
     "bcc" TEXT,
     "url" TEXT,
-    "queueId" TEXT,
+    "scheduledId" TEXT,
     "executedAt" TIMESTAMP(3),
     "executedActionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -39,9 +43,6 @@ CREATE INDEX IF NOT EXISTS "ScheduledAction_status_scheduledFor_idx" ON "Schedul
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
-
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "ScheduledAction_queueId_idx" ON "ScheduledAction"("queueId");
 
 -- AddForeignKey
 ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;

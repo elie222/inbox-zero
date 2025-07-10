@@ -77,16 +77,19 @@ export async function createScheduledAction({
       );
     }
 
-    const queueId = await scheduleMessage({
+    const scheduledId = await scheduleMessage({
       payload,
       delayInMinutes: actionItem.delayInMinutes,
       deduplicationId,
     });
 
-    if (queueId) {
+    if (scheduledId) {
       await prisma.scheduledAction.update({
         where: { id: scheduledAction.id },
-        data: { queueId },
+        data: {
+          scheduledId,
+          schedulingStatus: "SCHEDULED" as const,
+        },
       });
     }
 
@@ -142,17 +145,7 @@ export async function scheduleDelayedActions({
   const scheduledActions = [];
 
   for (const actionItem of delayedActions) {
-    if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
-      logger.warn("Skipping action with invalid delayInMinutes", {
-        actionType: actionItem.type,
-        delayInMinutes: actionItem.delayInMinutes,
-        executedRuleId,
-        messageId,
-      });
-      continue;
-    }
-
-    const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes);
+    const scheduledFor = addMinutes(new Date(), actionItem.delayInMinutes!);
 
     const scheduledAction = await createScheduledAction({
       executedRuleId,
@@ -199,7 +192,7 @@ export async function cancelScheduledActions({
         ...(threadId && { threadId }),
         status: ScheduledActionStatus.PENDING,
       },
-      select: { id: true, queueId: true },
+      select: { id: true, scheduledId: true },
     });
 
     if (actionsToCancel.length === 0) {
@@ -210,18 +203,18 @@ export async function cancelScheduledActions({
     const client = getQstashClient();
     if (client) {
       for (const action of actionsToCancel) {
-        if (action.queueId) {
+        if (action.scheduledId) {
           try {
-            await cancelMessage(client, action.queueId);
+            await cancelMessage(client, action.scheduledId);
             logger.info("Cancelled QStash message", {
               scheduledActionId: action.id,
-              queueId: action.queueId,
+              scheduledId: action.scheduledId,
             });
           } catch (error) {
             // Log but don't fail the entire operation if QStash cancellation fails
             logger.warn("Failed to cancel QStash message", {
               scheduledActionId: action.id,
-              queueId: action.queueId,
+              scheduledId: action.scheduledId,
               error,
             });
           }
@@ -297,7 +290,7 @@ async function scheduleMessage({
 
       logger.info("Successfully scheduled with QStash", {
         scheduledActionId: payload.scheduledActionId,
-        queueId: messageId,
+        scheduledId: messageId,
         notBefore,
         delayInMinutes,
         deduplicationId,
@@ -305,14 +298,24 @@ async function scheduleMessage({
 
       return messageId;
     } else {
-      // Fallback - just log and continue without scheduling
-      logger.warn(
-        "QStash client not available, scheduled action will not execute automatically",
+      // QStash client not available - update the database record to reflect this
+      logger.error(
+        "QStash client not available, scheduled action cannot be executed",
         {
           scheduledActionId: payload.scheduledActionId,
         },
       );
-      return null;
+
+      await prisma.scheduledAction.update({
+        where: { id: payload.scheduledActionId },
+        data: {
+          schedulingStatus: "UNAVAILABLE" as const,
+        },
+      });
+
+      throw new Error(
+        "QStash client not available - scheduled action cannot be executed",
+      );
     }
   } catch (error) {
     logger.error("Failed to schedule with QStash", {
@@ -320,6 +323,14 @@ async function scheduleMessage({
       scheduledActionId: payload.scheduledActionId,
       deduplicationId,
     });
+
+    await prisma.scheduledAction.update({
+      where: { id: payload.scheduledActionId },
+      data: {
+        schedulingStatus: "FAILED" as const,
+      },
+    });
+
     throw error;
   }
 }

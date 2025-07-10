@@ -437,6 +437,7 @@ model ScheduledAction {
   scheduledFor   DateTime
   emailAccountId String
   status         ScheduledActionStatus @default(PENDING)
+  schedulingStatus SchedulingStatus    @default(PENDING)
 
   label   String?
   subject String?
@@ -894,4 +895,11 @@ enum ScheduledActionStatus {
   COMPLETED
   FAILED
   CANCELLED
+}
+
+enum SchedulingStatus {
+  PENDING
+  SCHEDULED
+  FAILED
+  UNAVAILABLE
 }
