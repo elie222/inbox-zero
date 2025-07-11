@@ -43,7 +43,7 @@ export function TopNav({ trigger }: { trigger: React.ReactNode }) {
 
 function ProfileDropdown() {
   const { data: session, status } = useSession();
-  const { emailAccountId, emailAccount } = useAccount();
+  const { emailAccountId, emailAccount, provider } = useAccount();
 
   const userNavigation = [
     {
@@ -51,26 +51,30 @@ function ProfileDropdown() {
       href: prefixPath(emailAccountId, "/usage"),
       icon: BarChartIcon,
     },
-    {
-      name: "Mail (Beta)",
-      href: prefixPath(emailAccountId, "/mail"),
-      icon: InboxIcon,
-    },
-    {
-      name: "Reply Zero",
-      href: prefixPath(emailAccountId, "/reply-zero"),
-      icon: MessageCircleReplyIcon,
-    },
-    {
-      name: "Cold Email Blocker",
-      href: prefixPath(emailAccountId, "/cold-email-blocker"),
-      icon: ShieldCheckIcon,
-    },
-    {
-      name: "Sender Categories",
-      href: prefixPath(emailAccountId, "/smart-categories"),
-      icon: TagIcon,
-    },
+    ...(provider === "google"
+      ? [
+          {
+            name: "Mail (Beta)",
+            href: prefixPath(emailAccountId, "/mail"),
+            icon: InboxIcon,
+          },
+          {
+            name: "Sender Categories",
+            href: prefixPath(emailAccountId, "/smart-categories"),
+            icon: TagIcon,
+          },
+          {
+            name: "Reply Zero",
+            href: prefixPath(emailAccountId, "/reply-zero"),
+            icon: MessageCircleReplyIcon,
+          },
+          {
+            name: "Cold Email Blocker",
+            href: prefixPath(emailAccountId, "/cold-email-blocker"),
+            icon: ShieldCheckIcon,
+          },
+        ]
+      : []),
     {
       name: "Early Access",
       href: "/early-access",

@@ -6,7 +6,8 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
-import { unwatchEmails } from "@/app/api/google/watch/controller";
+import { unwatchEmails } from "@/app/api/watch/controller";
+import { createEmailProvider } from "@/utils/email/provider";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
@@ -37,8 +38,10 @@ export async function processHistoryForUser(
       coldEmailPrompt: true,
       coldEmailDigest: true,
       autoCategorizeSenders: true,
+      watchEmailsSubscriptionId: true,
       account: {
         select: {
+          provider: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,
@@ -85,11 +88,14 @@ export async function processHistoryForUser(
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
     });
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider || "google",
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      provider,
+      subscriptionId: emailAccount.watchEmailsSubscriptionId,
     });
     return NextResponse.json({ ok: true });
   }
@@ -101,11 +107,14 @@ export async function processHistoryForUser(
       email,
       emailAccountId: emailAccount.id,
     });
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider || "google",
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      provider,
+      subscriptionId: emailAccount.watchEmailsSubscriptionId,
     });
     return NextResponse.json({ ok: true });
   }

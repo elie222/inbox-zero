@@ -15,7 +15,7 @@ export function EmailAttachments({ message }: { message: ThreadMessage }) {
           filename: attachment.filename,
         });
 
-        const url = `/api/google/messages/attachment?${searchParams.toString()}`;
+        const url = `/api/messages/attachment?${searchParams.toString()}`;
 
         return (
           <CardBasic key={attachment.filename} className="p-4">

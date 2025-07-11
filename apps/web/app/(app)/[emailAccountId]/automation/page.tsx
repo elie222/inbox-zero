@@ -11,7 +11,7 @@ import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { TabsToolbar } from "@/components/TabsToolbar";
-import { GmailProvider } from "@/providers/GmailProvider";
+import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
 import { Button } from "@/components/ui/button";
@@ -51,7 +51,7 @@ export default async function AutomationPage({
   });
 
   return (
-    <GmailProvider>
+    <EmailProvider>
       <Suspense>
         <PermissionsCheck />
 
@@ -143,6 +143,6 @@ export default async function AutomationPage({
           </Suspense>
         </Tabs>
       </Suspense>
-    </GmailProvider>
+    </EmailProvider>
   );
 }

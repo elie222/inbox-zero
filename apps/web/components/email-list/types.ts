@@ -1,4 +1,4 @@
-import type { ThreadsResponse } from "@/app/api/google/threads/controller";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 
 type FullThread = ThreadsResponse["threads"][number];
 // defining it explicitly to make it easier to understand the type

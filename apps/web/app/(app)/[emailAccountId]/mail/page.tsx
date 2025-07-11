@@ -5,8 +5,8 @@ import useSWRInfinite from "swr/infinite";
 import { useSetAtom } from "jotai";
 import { List } from "@/components/email-list/EmailList";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { ThreadsQuery } from "@/app/api/google/threads/validation";
-import type { ThreadsResponse } from "@/app/api/google/threads/controller";
+import type { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 import { refetchEmailListAtom } from "@/store/email";
 import { BetaBanner } from "@/app/(app)/[emailAccountId]/mail/BetaBanner";
 import { ClientOnly } from "@/components/ClientOnly";
@@ -35,7 +35,7 @@ export default function Mail(props: {
     if (pageIndex > 0 && previousPageData?.nextPageToken) {
       queryParams.set("nextPageToken", previousPageData.nextPageToken);
     }
-    return `/api/google/threads?${queryParams.toString()}`;
+    return `/api/threads?${queryParams.toString()}`;
   };
 
   const { data, size, setSize, isLoading, error, mutate } =

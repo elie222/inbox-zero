@@ -12,7 +12,7 @@ import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";
 import { deleteEmails } from "@/store/archive-queue";
 import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
 
@@ -162,12 +162,14 @@ export function useBulkUnsubscribe<T extends Row>({
 async function autoArchive({
   name,
   labelId,
+  labelName,
   mutate,
   refetchPremium,
   emailAccountId,
 }: {
   name: string;
   labelId: string | undefined;
+  labelName: string | undefined;
   mutate: () => Promise<void>;
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
@@ -176,6 +178,7 @@ async function autoArchive({
     emailAccountId,
     from: name,
     gmailLabelId: labelId,
+    labelName: labelName,
   });
   await setNewsletterStatusAction(emailAccountId, {
     newsletterEmail: name,
@@ -216,6 +219,7 @@ export function useAutoArchive<T extends Row>({
     await autoArchive({
       name: item.name,
       labelId: undefined,
+      labelName: undefined,
       mutate,
       refetchPremium,
       emailAccountId,
@@ -252,7 +256,7 @@ export function useAutoArchive<T extends Row>({
   }, [item.name, item.autoArchived?.id, mutate, emailAccountId]);
 
   const onAutoArchiveAndLabel = useCallback(
-    async (labelId: string) => {
+    async (labelId: string, labelName: string) => {
       if (!hasUnsubscribeAccess) return;
 
       setAutoArchiveLoading(true);
@@ -260,6 +264,7 @@ export function useAutoArchive<T extends Row>({
       await autoArchive({
         name: item.name,
         labelId,
+        labelName,
         mutate,
         refetchPremium,
         emailAccountId,
@@ -302,6 +307,7 @@ export function useBulkAutoArchive<T extends Row>({
         await autoArchive({
           name: item.name,
           labelId: undefined,
+          labelName: undefined,
           mutate,
           refetchPremium,
           emailAccountId,
@@ -496,18 +502,18 @@ async function deleteAllFromSender({
 }) {
   toast.promise(
     async () => {
-      // 1. search gmail for messages from sender
+      // 1. search for messages from sender
       const res = await fetchWithAccount({
-        url: `/api/google/threads/basic?from=${name}`,
+        url: `/api/threads/basic?fromEmail=${name}`,
         emailAccountId,
       });
       const data: GetThreadsResponse = await res.json();
 
       // 2. delete messages
-      if (data?.length) {
+      if (data?.threads?.length) {
         await new Promise<void>((resolve, reject) => {
           deleteEmails({
-            threadIds: data.map((t) => t.id).filter(isDefined),
+            threadIds: data.threads.map((t) => t.id).filter(isDefined),
             onSuccess: () => {
               onFinish();
               resolve();
@@ -518,7 +524,7 @@ async function deleteAllFromSender({
         });
       }
 
-      return data.length;
+      return data.threads?.length || 0;
     },
     {
       loading: `Deleting all emails from ${name}`,
@@ -575,7 +581,7 @@ export function useBulkDelete<T extends Row>({
     for (const item of items) {
       await deleteAllFromSender({
         name: item.name,
-        onFinish: mutate,
+        onFinish: () => mutate(),
         emailAccountId,
       });
     }
