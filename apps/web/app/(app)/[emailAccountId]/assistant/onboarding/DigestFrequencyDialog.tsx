@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { SchedulePicker } from "@/app/(app)/[emailAccountId]/settings/SchedulePicker";
+import { DigestUpdateSectionForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import { updateDigestScheduleAction } from "@/utils/actions/settings";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { SaveDigestScheduleBody } from "@/utils/actions/settings.validation";
@@ -78,7 +78,7 @@ export function DigestFrequencyDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="py-4">
-          <SchedulePicker onChange={setDigestScheduleValue} />
+          <DigestUpdateSectionForm />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

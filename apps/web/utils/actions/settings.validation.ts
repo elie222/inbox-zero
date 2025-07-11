@@ -51,15 +51,7 @@ export const saveAiSettingsBody = z
   });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
-export const updateDigestCategoriesBody = z.object({
-  toReply: z.boolean().optional(),
-  newsletter: z.boolean().optional(),
-  marketing: z.boolean().optional(),
-  calendar: z.boolean().optional(),
-  receipt: z.boolean().optional(),
-  notification: z.boolean().optional(),
-  coldEmail: z.boolean().optional(),
+export const updateDigestItemsBody = z.object({
+  ruleDigestPreferences: z.record(z.string(), z.boolean()),
 });
-export type UpdateDigestCategoriesBody = z.infer<
-  typeof updateDigestCategoriesBody
->;
+export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;

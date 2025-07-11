@@ -1,12 +1,11 @@
 "use server";
 
-import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
   saveEmailUpdateSettingsBody,
   saveDigestScheduleBody,
-  updateDigestCategoriesBody,
+  updateDigestItemsBody,
 } from "@/utils/actions/settings.validation";
 import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
@@ -56,16 +55,6 @@ export const updateDigestScheduleAction = actionClient
   .schema(saveDigestScheduleBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { schedule } }) => {
     try {
-      // Check if email account exists
-      const emailAccount = await prisma.emailAccount.findUnique({
-        where: { id: emailAccountId },
-        select: { id: true },
-      });
-
-      if (!emailAccount) {
-        return { serverError: "Email account not found" };
-      }
-
       if (schedule) {
         // Create or update the Schedule
         await prisma.schedule.upsert({
@@ -92,9 +81,7 @@ export const updateDigestScheduleAction = actionClient
         });
       } else {
         // If schedule is null, delete the existing schedule if it exists
-        await prisma.schedule.deleteMany({
-          where: { emailAccountId },
-        });
+        await prisma.schedule.deleteMany({ where: { emailAccountId } });
       }
 
       return { success: true };
@@ -103,135 +90,52 @@ export const updateDigestScheduleAction = actionClient
     }
   });
 
-export const updateDigestCategoriesAction = actionClient
-  .metadata({ name: "updateDigestCategories" })
-  .schema(updateDigestCategoriesBody)
+export const updateDigestItemsAction = actionClient
+  .metadata({ name: "updateDigestItems" })
+  .schema(updateDigestItemsBody)
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: {
-        toReply,
-        newsletter,
-        marketing,
-        calendar,
-        receipt,
-        notification,
-        coldEmail,
-      },
+      parsedInput: { ruleDigestPreferences },
     }) => {
-      const promises: Promise<any>[] = [];
+      const promises = Object.entries(ruleDigestPreferences).map(
+        async ([ruleId, enabled]) => {
+          // Verify the rule belongs to this email account
+          const rule = await prisma.rule.findUnique({
+            where: {
+              id: ruleId,
+              emailAccountId,
+            },
+            select: { id: true, actions: true },
+          });
 
-      // Update cold email digest setting
-      if (coldEmail !== undefined) {
-        promises.push(
-          prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data: { coldEmailDigest: coldEmail },
-          }),
-        );
-      }
+          if (!rule) return;
 
-      // Update rule digest settings
-      const systemTypeMap = {
-        toReply: SystemType.TO_REPLY,
-        newsletter: SystemType.NEWSLETTER,
-        marketing: SystemType.MARKETING,
-        calendar: SystemType.CALENDAR,
-        receipt: SystemType.RECEIPT,
-        notification: SystemType.NOTIFICATION,
-      };
+          const hasDigestAction = rule.actions.some(
+            (action) => action.type === ActionType.DIGEST,
+          );
 
-      for (const [key, systemType] of Object.entries(systemTypeMap)) {
-        const value = {
-          toReply,
-          newsletter,
-          marketing,
-          calendar,
-          receipt,
-          notification,
-        }[key as keyof typeof systemTypeMap];
-
-        if (value !== undefined) {
-          const promise = async () => {
-            const rule = await prisma.rule.findUnique({
-              where: {
-                emailAccountId_systemType: {
-                  emailAccountId,
-                  systemType,
-                },
+          if (enabled && !hasDigestAction) {
+            // Add DIGEST action
+            await prisma.action.create({
+              data: {
+                ruleId: rule.id,
+                type: ActionType.DIGEST,
               },
-              select: { id: true, actions: true },
             });
-
-            if (!rule) return;
-
-            const hasDigestAction = rule.actions.some(
-              (action) => action.type === ActionType.DIGEST,
-            );
-
-            if (value && !hasDigestAction) {
-              // Add DIGEST action
-              await prisma.action.create({
-                data: {
-                  ruleId: rule.id,
-                  type: ActionType.DIGEST,
-                },
-              });
-            } else if (!value && hasDigestAction) {
-              // Remove DIGEST action
-              await prisma.action.deleteMany({
-                where: {
-                  ruleId: rule.id,
-                  type: ActionType.DIGEST,
-                },
-              });
-            }
-          };
-
-          promises.push(promise());
-        }
-      }
+          } else if (!enabled && hasDigestAction) {
+            // Remove DIGEST action
+            await prisma.action.deleteMany({
+              where: {
+                ruleId: rule.id,
+                type: ActionType.DIGEST,
+              },
+            });
+          }
+        },
+      );
 
       await Promise.all(promises);
       return { success: true };
     },
   );
-
-export const ensureDefaultDigestScheduleAction = actionClient
-  .metadata({ name: "ensureDefaultDigestSchedule" })
-  .schema(z.object({ timeOfDay: z.date() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { timeOfDay } }) => {
-    try {
-      // Check if user already has a digest schedule
-      const existingSchedule = await prisma.schedule.findUnique({
-        where: { emailAccountId },
-        select: { id: true },
-      });
-
-      // If no schedule exists, create a default one
-      if (!existingSchedule) {
-        const defaultSchedule = {
-          intervalDays: 7,
-          daysOfWeek: 1 << (6 - 1), // Monday (bit 5 set = Monday)
-          timeOfDay: timeOfDay, // Use provided date/time from user to set the accurate users timezone
-          occurrences: 1,
-        };
-
-        await prisma.schedule.create({
-          data: {
-            emailAccountId,
-            intervalDays: defaultSchedule.intervalDays,
-            daysOfWeek: defaultSchedule.daysOfWeek,
-            timeOfDay: defaultSchedule.timeOfDay,
-            occurrences: defaultSchedule.occurrences,
-            lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextScheduleDate(defaultSchedule),
-          },
-        });
-      }
-
-      return { success: true };
-    } catch (error) {
-      throw new SafeError("Failed to ensure digest schedule", 500);
-    }
-  });

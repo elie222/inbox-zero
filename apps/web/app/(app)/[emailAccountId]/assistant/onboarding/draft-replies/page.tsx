@@ -28,17 +28,11 @@ export default function DraftRepliesPage() {
         });
       }
 
-      if (digestEnabled) {
-        router.push(
-          prefixPath(emailAccountId, "/assistant/onboarding/digest-frequency"),
-        );
-      } else {
-        router.push(
-          prefixPath(emailAccountId, "/assistant/onboarding/completed"),
-        );
-      }
+      router.push(
+        prefixPath(emailAccountId, "/assistant/onboarding/completed"),
+      );
     },
-    [router, emailAccountId, digestEnabled],
+    [router, emailAccountId],
   );
 
   return (
