@@ -37,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -58,7 +59,11 @@ export function RulesPrompt() {
 
   return (
     <>
-      <LoadingContent loading={isLoading} error={error}>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="h-[60vh] w-full" />}
+      >
         {data && (
           <div className="mt-4">
             <RulesPromptForm
@@ -335,43 +340,6 @@ Let me know if you're interested!
         {showExamples && <Examples onSelect={addExamplePrompt} />}
       </div>
     </div>
-  );
-}
-
-export function PromptFile() {
-  const { emailAccountId } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<
-    RulesPromptResponse,
-    { error: string }
-  >("/api/user/rules/prompt");
-
-  const { isModalOpen, setIsModalOpen } = useModal();
-
-  const [persona, setPersona] = useState<string | null>(null);
-
-  const personaPrompt = persona
-    ? personas[persona as keyof typeof personas]?.prompt
-    : undefined;
-
-  return (
-    <LoadingContent loading={isLoading} error={error}>
-      {data && (
-        <>
-          <RulesPromptForm
-            emailAccountId={emailAccountId}
-            rulesPrompt={data.rulesPrompt}
-            personaPrompt={personaPrompt}
-            onOpenPersonaDialog={() => setIsModalOpen(true)}
-            mutate={mutate}
-          />
-          <PersonaDialog
-            isOpen={isModalOpen}
-            setIsOpen={setIsModalOpen}
-            onSelect={setPersona}
-          />
-        </>
-      )}
-    </LoadingContent>
   );
 }
 
