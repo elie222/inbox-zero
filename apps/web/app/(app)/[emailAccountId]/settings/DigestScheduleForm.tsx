@@ -10,7 +10,11 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { FormItem } from "@/components/ui/form";
-import { createCanonicalTimeOfDay } from "@/utils/schedule";
+import {
+  createCanonicalTimeOfDay,
+  dayOfWeekToBitmask,
+  bitmaskToDayOfWeek,
+} from "@/utils/schedule";
 import { Button } from "@/components/ui/button";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { updateDigestScheduleAction } from "@/utils/actions/settings";
@@ -137,9 +141,9 @@ function DigestScheduleFormInner({
           intervalDays = 1;
       }
 
-      let hour24 = Number.parseInt(hour, 10) % 12;
-      if (ampm === "PM") hour24 += 12;
+      let hour24 = Number.parseInt(hour, 10);
       if (ampm === "AM" && hour24 === 12) hour24 = 0;
+      else if (ampm === "PM" && hour24 !== 12) hour24 += 12;
 
       // Use canonical date (1970-01-01) to store only time information
       const timeOfDay = createCanonicalTimeOfDay(
@@ -150,7 +154,7 @@ function DigestScheduleFormInner({
       const scheduleData = {
         intervalDays,
         occurrences: 1,
-        daysOfWeek: 1 << (6 - Number.parseInt(dayOfWeek, 10)),
+        daysOfWeek: dayOfWeekToBitmask(Number.parseInt(dayOfWeek, 10)),
         timeOfDay,
       };
 
@@ -334,11 +338,8 @@ function getInitialScheduleProps(
 
   const initialDayOfWeek = (() => {
     if (!digestSchedule || digestSchedule.daysOfWeek == null) return "1";
-    for (let i = 0; i < 7; i++) {
-      if ((digestSchedule.daysOfWeek & (1 << (6 - i))) !== 0)
-        return i.toString();
-    }
-    return "1";
+    const dayOfWeek = bitmaskToDayOfWeek(digestSchedule.daysOfWeek);
+    return dayOfWeek !== null ? dayOfWeek.toString() : "1";
   })();
 
   const initialTimeOfDay = digestSchedule?.timeOfDay
