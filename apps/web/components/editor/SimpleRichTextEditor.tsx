@@ -114,7 +114,7 @@ export function SimpleRichTextEditor({
     <div className={cn("relative w-full", className)}>
       <div
         className={cn(
-          "min-h-[300px] rounded-md border border-input bg-background",
+          "rounded-md border border-input bg-background",
           "focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
           error &&
             "border-red-500 focus-within:border-red-500 focus-within:ring-red-500",

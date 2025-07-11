@@ -244,12 +244,11 @@ function RulesPromptForm({
 
           <div className="mt-1.5 space-y-4">
             <SimpleRichTextEditor
-              className="min-h-[300px]"
               registerProps={register("rulesPrompt", { required: true })}
               name="rulesPrompt"
               error={errors.rulesPrompt}
               defaultValue={rulesPrompt || ""}
-              minHeight={300}
+              minHeight={600}
               placeholder={`Here's an example of what your prompt might look like:
 
 * ${personas.other.promptArray[0]}
