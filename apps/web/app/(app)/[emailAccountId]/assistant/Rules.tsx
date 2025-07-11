@@ -66,6 +66,8 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
 
+  const onCreateRule = () => ruleDialog.open();
+
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
@@ -170,7 +172,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const hasRules = !!rules?.length;
 
   return (
-    <div className="pb-4">
+    <div>
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -189,7 +191,9 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <span className="sr-only">User Actions</span>
+                    <div className="flex justify-end">
+                      <AddRuleButton onClick={onCreateRule} />
+                    </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -273,7 +277,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           </div>
                         </TableCell>
                       )} */}
-                      <TableCell>
+                      <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -410,22 +414,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               </TableBody>
             </Table>
           ) : (
-            <NoRules
-              onCreateRule={() => {
-                ruleDialog.open();
-              }}
-            />
+            <NoRules onCreateRule={onCreateRule} />
           )}
         </LoadingContent>
       </Card>
-
-      {hasRules && (
-        <AddRuleButton
-          onCreateRule={() => {
-            ruleDialog.open();
-          }}
-        />
-      )}
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
@@ -475,7 +467,7 @@ export function ActionBadges({
   );
 }
 
-function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
+function NoRules({ onCreateRule }: { onCreateRule: () => void }) {
   return (
     <>
       <CardHeader>
@@ -487,16 +479,16 @@ function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <AddRuleButton onCreateRule={onCreateRule} />
+        <AddRuleButton onClick={onCreateRule} />
       </CardContent>
     </>
   );
 }
 
-function AddRuleButton({ onCreateRule }: { onCreateRule?: () => void }) {
+function AddRuleButton({ onClick }: { onClick: () => void }) {
   return (
     <div className="my-2">
-      <Button size="sm" onClick={onCreateRule}>
+      <Button size="sm" onClick={onClick}>
         <PlusIcon className="mr-2 hidden size-4 md:block" />
         Add Rule
       </Button>

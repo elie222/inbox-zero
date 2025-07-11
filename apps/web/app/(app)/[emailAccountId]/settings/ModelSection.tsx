@@ -38,7 +38,7 @@ export function ModelSection() {
     <FormSection>
       <FormSectionLeft
         title="AI Model"
-        description="Choose your AI model and use your own API key."
+        description="Use the default model at no cost, or choose a custom model with your own API key."
       />
 
       <LoadingContent loading={isLoading || isLoadingModels} error={error}>
