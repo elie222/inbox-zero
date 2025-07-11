@@ -24,7 +24,7 @@ There are two parts to Inbox Zero:
 
 If you're looking to contribute to the project, the email client is the best place to do this.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_ENCRYPT_SECRET,GOOGLE_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
 
 Thanks to Vercel for sponsoring Inbox Zero in support of open-source software.
 
@@ -106,8 +106,8 @@ The required environment variables:
 Secrets:
 
 - `NEXTAUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
-- `GOOGLE_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
-- `GOOGLE_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
+- `EMAIL_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
+- `EMAIL_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 
 Redis:
 
@@ -320,7 +320,7 @@ ngrok http --domain=XYZ.ngrok-free.app 3000
 
 And then update the webhook endpoint in the [Google PubSub subscriptions dashboard](https://console.cloud.google.com/cloudpubsub/subscription/list).
 
-To start watching emails visit: `/api/google/watch/all`
+To start watching emails visit: `/api/watch/all`
 
 ### Watching for email updates
 
@@ -330,7 +330,7 @@ The Google watch is necessary. Others are optional.
 ```json
   "crons": [
     {
-      "path": "/api/google/watch/all",
+      "path": "/api/watch/all",
       "schedule": "0 1 * * *"
     },
     {

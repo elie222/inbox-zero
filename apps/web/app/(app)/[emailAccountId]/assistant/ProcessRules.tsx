@@ -50,13 +50,11 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
     parseAsBoolean.withDefault(false),
   );
 
-  const { provider } = useAccount();
-
   const { data, isLoading, isValidating, error, setSize, mutate, size } =
     useSWRInfinite<MessagesResponse>(
-      (_index, previousPageData) => {
+      (index, previousPageData) => {
         // Always return the URL for the first page
-        if (_index === 0) {
+        if (index === 0) {
           const params = new URLSearchParams();
           if (searchQuery) params.set("q", searchQuery);
           const paramsString = params.toString();

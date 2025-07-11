@@ -93,6 +93,10 @@ export const getOutlookClientWithRefresh = async ({
 
   // Refresh token
   try {
+    if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+      throw new Error("Microsoft login not enabled - missing credentials");
+    }
+
     const response = await fetch(
       "https://login.microsoftonline.com/common/oauth2/v2.0/token",
       {
@@ -101,8 +105,8 @@ export const getOutlookClientWithRefresh = async ({
           "Content-Type": "application/x-www-form-urlencoded",
         },
         body: new URLSearchParams({
-          client_id: env.MICROSOFT_CLIENT_ID!,
-          client_secret: env.MICROSOFT_CLIENT_SECRET!,
+          client_id: env.MICROSOFT_CLIENT_ID,
+          client_secret: env.MICROSOFT_CLIENT_SECRET,
           refresh_token: refreshToken,
           grant_type: "refresh_token",
           scope: SCOPES.join(" "),
@@ -148,10 +152,14 @@ export const getAccessTokenFromClient = (client: OutlookClient): string => {
 
 // Helper function to get the OAuth2 URL for linking accounts
 export function getLinkingOAuth2Url() {
+  if (!env.MICROSOFT_CLIENT_ID) {
+    throw new Error("Microsoft login not enabled - missing client ID");
+  }
+
   const baseUrl =
     "https://login.microsoftonline.com/common/oauth2/v2.0/authorize";
   const params = new URLSearchParams({
-    client_id: env.MICROSOFT_CLIENT_ID!,
+    client_id: env.MICROSOFT_CLIENT_ID,
     response_type: "code",
     redirect_uri: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/linking/callback`,
     scope: SCOPES.join(" "),

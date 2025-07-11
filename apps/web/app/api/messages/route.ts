@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import { withEmailAccount } from "@/utils/middleware";
+import { withEmailProvider } from "@/utils/middleware";
 import { messageQuerySchema } from "@/app/api/messages/validation";
 import { createScopedLogger } from "@/utils/logger";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { GmailLabel } from "@/utils/gmail/label";
-import { createEmailProvider } from "@/utils/email/provider";
-import prisma from "@/utils/prisma";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("api/messages");
 
@@ -16,32 +15,15 @@ async function getMessages({
   pageToken,
   emailAccountId,
   userEmail,
+  emailProvider,
 }: {
   query?: string | null;
   pageToken?: string | null;
   emailAccountId: string;
   userEmail: string;
+  emailProvider: EmailProvider;
 }) {
   try {
-    // Get the email account to determine the provider
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        account: {
-          select: { provider: true },
-        },
-      },
-    });
-
-    if (!emailAccount) {
-      throw new Error("Email account not found");
-    }
-
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: emailAccount.account.provider,
-    });
-
     const { messages, nextPageToken } =
       await emailProvider.getMessagesWithPagination({
         query: query?.trim(),
@@ -69,7 +51,7 @@ async function getMessages({
       }
 
       // Provider-specific filtering
-      if (emailAccount.account.provider === "google") {
+      if (emailProvider.name === "google") {
         const isSent = message.labelIds?.includes(GmailLabel.SENT);
         const isDraft = message.labelIds?.includes(GmailLabel.DRAFT);
         const isInbox = message.labelIds?.includes(GmailLabel.INBOX);
@@ -80,7 +62,7 @@ async function getMessages({
           // Only show sent message that are in the inbox
           return isInbox;
         }
-      } else if (emailAccount.account.provider === "microsoft-entra-id") {
+      } else if (emailProvider.name === "microsoft-entra-id") {
         // For Outlook, we already filter out drafts in the message fetching
         // No additional filtering needed here
       }
@@ -101,9 +83,9 @@ async function getMessages({
   }
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const userEmail = request.auth.email;
+export const GET = withEmailProvider(async (request) => {
+  const { emailProvider } = request;
+  const { emailAccountId, email: userEmail } = request.auth;
 
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
@@ -114,6 +96,7 @@ export const GET = withEmailAccount(async (request) => {
     query: r.q,
     pageToken: r.pageToken,
     userEmail,
+    emailProvider,
   });
   return NextResponse.json(result);
 });

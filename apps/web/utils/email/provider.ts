@@ -111,6 +111,10 @@ import {
   deleteFilter as deleteOutlookFilter,
   createAutoArchiveFilter as createOutlookAutoArchiveFilter,
 } from "@/utils/outlook/filter";
+import { processHistoryForUser as processGmailHistory } from "@/app/api/google/webhook/process-history";
+import { processHistoryForUser as processOutlookHistory } from "@/app/api/outlook/webhook/process-history";
+import { watchGmail, unwatchGmail } from "@/utils/gmail/watch";
+import { watchOutlook, unwatchOutlook } from "@/utils/outlook/watch";
 
 const logger = createScopedLogger("email-provider");
 
@@ -146,6 +150,7 @@ export interface EmailFilter {
 }
 
 export interface EmailProvider {
+  readonly name: "google" | "microsoft-entra-id";
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
@@ -252,11 +257,26 @@ export interface EmailProvider {
     awaitingReplyLabelId: string;
     needsReplyLabelId: string;
   }>;
+  processHistory(options: {
+    emailAddress: string;
+    historyId?: number;
+    startHistoryId?: number;
+    subscriptionId?: string;
+    resourceData?: {
+      id: string;
+      conversationId?: string;
+    };
+  }): Promise<void>;
+  watchEmails(): Promise<{
+    expirationDate: Date;
+    subscriptionId?: string;
+  } | null>;
+  unwatchEmails(subscriptionId?: string): Promise<void>;
 }
 
 export class GmailProvider implements EmailProvider {
+  readonly name = "google";
   private client: gmail_v1.Gmail;
-
   constructor(client: gmail_v1.Gmail) {
     this.client = client;
   }
@@ -802,9 +822,48 @@ export class GmailProvider implements EmailProvider {
   }> {
     return getReplyTrackingLabels(this.client);
   }
+
+  async processHistory(options: {
+    emailAddress: string;
+    historyId?: number;
+    startHistoryId?: number;
+    subscriptionId?: string;
+    resourceData?: {
+      id: string;
+      conversationId?: string;
+    };
+  }): Promise<void> {
+    await processGmailHistory(
+      {
+        emailAddress: options.emailAddress,
+        historyId: options.historyId || 0,
+      },
+      {
+        startHistoryId: options.startHistoryId?.toString(),
+      },
+    );
+  }
+
+  async watchEmails(): Promise<{
+    expirationDate: Date;
+    subscriptionId?: string;
+  } | null> {
+    const res = await watchGmail(this.client);
+
+    if (res.expiration) {
+      const expirationDate = new Date(+res.expiration);
+      return { expirationDate };
+    }
+    return null;
+  }
+
+  async unwatchEmails(subscriptionId?: string): Promise<void> {
+    await unwatchGmail(this.client);
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
+  readonly name = "microsoft-entra-id";
   private client: OutlookClient;
 
   constructor(client: OutlookClient) {
@@ -1068,21 +1127,27 @@ export class OutlookProvider implements EmailProvider {
     try {
       const response = await getOutlookFiltersList({ client: this.client });
 
-      const mappedFilters = (response.value || []).map((filter: any) => {
-        const mappedFilter = {
-          id: filter.id || "",
-          criteria: {
-            from: filter.conditions?.senderContains?.[0] || undefined,
-          },
-          action: {
-            addLabelIds: filter.actions?.applyCategories || undefined,
-            removeLabelIds: filter.actions?.moveToFolder
-              ? ["INBOX"]
-              : undefined,
-          },
-        };
-        return mappedFilter;
-      });
+      const mappedFilters = (response.value || []).map(
+        (filter: {
+          id: string;
+          conditions: { senderContains: string[] };
+          actions: { applyCategories: string[]; moveToFolder: string };
+        }) => {
+          const mappedFilter = {
+            id: filter.id || "",
+            criteria: {
+              from: filter.conditions?.senderContains?.[0] || undefined,
+            },
+            action: {
+              addLabelIds: filter.actions?.applyCategories || undefined,
+              removeLabelIds: filter.actions?.moveToFolder
+                ? ["INBOX"]
+                : undefined,
+            },
+          };
+          return mappedFilter;
+        },
+      );
 
       return mappedFilters;
     } catch (error) {
@@ -1271,8 +1336,11 @@ export class OutlookProvider implements EmailProvider {
     function getFilter() {
       const filters: string[] = [];
 
-      // Add folder filter based on type
-      if (query?.type === "all") {
+      // Add folder filter based on type or labelId
+      if (query?.labelId) {
+        // Use labelId as parentFolderId (should be lowercase for Outlook)
+        filters.push(`parentFolderId eq '${query.labelId.toLowerCase()}'`);
+      } else if (query?.type === "all") {
         // For "all" type, include both inbox and archive
         filters.push(
           "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
@@ -1333,27 +1401,50 @@ export class OutlookProvider implements EmailProvider {
     let sortedMessages = response.value;
     if (query?.fromEmail) {
       sortedMessages = response.value.sort(
-        (a: any, b: any) =>
+        (a: { receivedDateTime: string }, b: { receivedDateTime: string }) =>
           new Date(b.receivedDateTime).getTime() -
           new Date(a.receivedDateTime).getTime(),
       );
     }
 
     // Group messages by conversationId to create threads
-    const messagesByThread = new Map<string, any[]>();
-    sortedMessages.forEach((message: any) => {
-      // Skip messages without conversationId
-      if (!message.conversationId) {
-        logger.warn("Message missing conversationId", {
-          messageId: message.id,
-        });
-        return;
-      }
+    const messagesByThread = new Map<
+      string,
+      {
+        conversationId: string;
+        id: string;
+        bodyPreview: string;
+        body: { content: string };
+        from: { emailAddress: { address: string } };
+        toRecipients: { emailAddress: { address: string } }[];
+        receivedDateTime: string;
+        subject: string;
+      }[]
+    >();
+    sortedMessages.forEach(
+      (message: {
+        conversationId: string;
+        id: string;
+        bodyPreview: string;
+        body: { content: string };
+        from: { emailAddress: { address: string } };
+        toRecipients: { emailAddress: { address: string } }[];
+        receivedDateTime: string;
+        subject: string;
+      }) => {
+        // Skip messages without conversationId
+        if (!message.conversationId) {
+          logger.warn("Message missing conversationId", {
+            messageId: message.id,
+          });
+          return;
+        }
 
-      const messages = messagesByThread.get(message.conversationId) || [];
-      messages.push(message);
-      messagesByThread.set(message.conversationId, messages);
-    });
+        const messages = messagesByThread.get(message.conversationId) || [];
+        messages.push(message);
+        messagesByThread.set(message.conversationId, messages);
+      },
+    );
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
@@ -1468,6 +1559,55 @@ export class OutlookProvider implements EmailProvider {
       awaitingReplyLabelId: awaitingReplyLabel.id || "",
       needsReplyLabelId: needsReplyLabel.id || "",
     };
+  }
+
+  async processHistory(options: {
+    emailAddress: string;
+    historyId?: number;
+    startHistoryId?: number;
+    subscriptionId?: string;
+    resourceData?: {
+      id: string;
+      conversationId?: string;
+    };
+  }): Promise<void> {
+    if (!options.subscriptionId) {
+      throw new Error(
+        "subscriptionId is required for Outlook history processing",
+      );
+    }
+
+    await processOutlookHistory({
+      subscriptionId: options.subscriptionId,
+      resourceData: options.resourceData || {
+        id: options.historyId?.toString() || "0",
+        conversationId: options.startHistoryId?.toString(),
+      },
+    });
+  }
+
+  async watchEmails(): Promise<{
+    expirationDate: Date;
+    subscriptionId?: string;
+  } | null> {
+    const subscription = await watchOutlook(this.client.getClient());
+
+    if (subscription.expirationDateTime) {
+      const expirationDate = new Date(subscription.expirationDateTime);
+      return {
+        expirationDate,
+        subscriptionId: subscription.id,
+      };
+    }
+    return null;
+  }
+
+  async unwatchEmails(subscriptionId?: string): Promise<void> {
+    if (!subscriptionId) {
+      logger.warn("No subscription ID provided for Outlook unwatch");
+      return;
+    }
+    await unwatchOutlook(this.client.getClient(), subscriptionId);
   }
 }
 

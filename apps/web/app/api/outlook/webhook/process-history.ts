@@ -4,7 +4,8 @@ import prisma from "@/utils/prisma";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
-import { unwatchEmails } from "@/app/api/outlook/watch/controller";
+import { unwatchEmails } from "@/app/api/watch/controller";
+import { createEmailProvider } from "@/utils/email/provider";
 import type {
   ProcessHistoryOptions,
   OutlookResourceData,
@@ -31,6 +32,7 @@ export async function processHistoryForUser({
       autoCategorizeSenders: true,
       account: {
         select: {
+          provider: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,
@@ -76,11 +78,13 @@ export async function processHistoryForUser({
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
     });
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider || "microsoft-entra-id",
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      provider,
       subscriptionId,
     });
     return NextResponse.json({ ok: true });
@@ -90,11 +94,13 @@ export async function processHistoryForUser({
 
   if (!userHasAiAccess) {
     logger.trace("Does not have ai access", { email: emailAccount.email });
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider || "microsoft-entra-id",
+    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      provider,
       subscriptionId,
     });
     return NextResponse.json({ ok: true });

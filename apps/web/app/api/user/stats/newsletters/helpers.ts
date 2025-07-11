@@ -11,7 +11,9 @@ export async function getAutoArchiveFilters(emailProvider: EmailProvider) {
   try {
     const filters = await emailProvider.getFiltersList();
 
-    const autoArchiveFilters = filters.filter(isAutoArchiveFilter);
+    const autoArchiveFilters = filters.filter((filter) =>
+      isAutoArchiveFilter(filter, emailProvider),
+    );
 
     return autoArchiveFilters;
   } catch (error) {
@@ -24,12 +26,13 @@ export async function getAutoArchiveFilters(emailProvider: EmailProvider) {
 export function findAutoArchiveFilter(
   autoArchiveFilters: EmailFilter[],
   fromEmail: string,
+  emailProvider: EmailProvider,
 ) {
   return autoArchiveFilters.find((filter) => {
     const from = extractEmailAddress(fromEmail);
     return (
       filter.criteria?.from?.toLowerCase().includes(from.toLowerCase()) &&
-      isAutoArchiveFilter(filter)
+      isAutoArchiveFilter(filter, emailProvider)
     );
   });
 }
@@ -75,16 +78,26 @@ export function filterNewsletters<
   });
 }
 
-function isAutoArchiveFilter(filter: EmailFilter) {
+function isAutoArchiveFilter(filter: EmailFilter, provider: EmailProvider) {
+  switch (provider.name) {
+    case "google":
+      return isGmailAutoArchiveFilter(filter);
+    case "microsoft-entra-id":
+      return isOutlookAutoArchiveFilter(filter);
+    default:
+      return false;
+  }
+}
+
+function isGmailAutoArchiveFilter(filter: EmailFilter): boolean {
   // For Gmail: check if it removes INBOX label or adds TRASH label
-  const isGmailArchive =
+  return Boolean(
     filter.action?.removeLabelIds?.includes(GmailLabel.INBOX) ||
-    filter.action?.addLabelIds?.includes(GmailLabel.TRASH);
+      filter.action?.addLabelIds?.includes(GmailLabel.TRASH),
+  );
+}
 
+function isOutlookAutoArchiveFilter(filter: EmailFilter): boolean {
   // For Outlook: check if it moves to archive folder (removeLabelIds contains "INBOX")
-  const isOutlookArchive = filter.action?.removeLabelIds?.includes("INBOX");
-
-  const result = isGmailArchive || isOutlookArchive;
-
-  return result;
+  return Boolean(filter.action?.removeLabelIds?.includes("INBOX"));
 }

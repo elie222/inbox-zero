@@ -3,7 +3,7 @@
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { MessageText } from "@/components/Typography";
-import { getEmailUrl } from "@/utils/url";
+import { getEmailUrlForMessage } from "@/utils/url";
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { useThread } from "@/hooks/useThread";
@@ -94,11 +94,7 @@ export function EmailMessageCell({
         </span>{" "}
         <Link
           className="ml-2 hover:text-foreground"
-          href={getEmailUrl(
-            provider === "google" ? messageId : threadId,
-            userEmail,
-            provider,
-          )}
+          href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
           target="_blank"
         >
           <ExternalLinkIcon className="h-4 w-4" />

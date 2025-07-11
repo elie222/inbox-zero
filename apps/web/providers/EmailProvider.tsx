@@ -31,32 +31,38 @@ const EmailContext = createContext<Context>({
 
 export const useEmail = () => useContext<Context>(EmailContext);
 
+function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
+  if (!provider) {
+    return undefined;
+  }
+
+  if (provider === "google") {
+    return label.color;
+  } else if (provider === "microsoft-entra-id") {
+    const presetColor = label.color as string;
+    const backgroundColor =
+      OUTLOOK_COLOR_MAP[presetColor as keyof typeof OUTLOOK_COLOR_MAP] ||
+      "#95A5A6"; // Default gray if preset not found
+
+    return {
+      backgroundColor,
+      textColor: null,
+    };
+  }
+
+  throw new Error(`Unsupported provider: ${provider}`);
+}
+
 export function EmailProvider(props: { children: React.ReactNode }) {
-  const { provider } = useAccount();
+  const { provider, isLoading: accountIsLoading } = useAccount();
   const { userLabels: rawUserLabels, isLoading } = useLabels();
 
   const userLabels = useMemo(() => {
-    if (!rawUserLabels) return {};
+    if (!rawUserLabels || !provider || accountIsLoading) return {};
 
     return rawUserLabels.reduce((acc, label) => {
       if (label.id && label.name) {
-        let color: EmailLabel["color"];
-
-        if (provider === "google") {
-          // For Google, color is already in the correct format
-          color = label.color;
-        } else {
-          // For Outlook, map the preset color string to actual color value
-          const presetColor = label.color as string;
-          const backgroundColor =
-            OUTLOOK_COLOR_MAP[presetColor as keyof typeof OUTLOOK_COLOR_MAP] ||
-            "#95A5A6"; // Default gray if preset not found
-
-          color = {
-            backgroundColor,
-            textColor: null,
-          };
-        }
+        const color = mapLabelColor(provider, label);
 
         acc[label.id] = {
           id: label.id,
@@ -69,11 +75,11 @@ export function EmailProvider(props: { children: React.ReactNode }) {
       }
       return acc;
     }, {} as EmailLabels);
-  }, [rawUserLabels, provider]);
+  }, [rawUserLabels, provider, accountIsLoading]);
 
   const value = useMemo(
-    () => ({ userLabels, labelsIsLoading: isLoading }),
-    [userLabels, isLoading],
+    () => ({ userLabels, labelsIsLoading: isLoading || accountIsLoading }),
+    [userLabels, isLoading, accountIsLoading],
   );
 
   return (

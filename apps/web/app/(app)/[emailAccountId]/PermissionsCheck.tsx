@@ -10,7 +10,7 @@ const permissionsChecked: Record<string, boolean> = {};
 
 export function PermissionsCheck() {
   const router = useRouter();
-  const { emailAccountId, provider } = useAccount();
+  const { emailAccountId } = useAccount();
 
   useEffect(() => {
     if (permissionsChecked[emailAccountId]) return;
@@ -22,7 +22,7 @@ export function PermissionsCheck() {
       if (result?.data?.hasRefreshToken === false)
         router.replace(prefixPath(emailAccountId, "/permissions/consent"));
     });
-  }, [router, emailAccountId, provider]);
+  }, [router, emailAccountId]);
 
   return null;
 }

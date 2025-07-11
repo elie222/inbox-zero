@@ -1,21 +1,21 @@
 import { NextResponse } from "next/server";
-import { withEmailAccount } from "@/utils/middleware";
-import { createEmailProvider } from "@/utils/email/provider";
+import { withEmailProvider } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
-import prisma from "@/utils/prisma";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 
 const logger = createScopedLogger("api/threads/batch");
 
 export type ThreadsBatchResponse = {
-  threads: any[];
+  threads: ThreadsResponse["threads"];
 };
 
 export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailProvider(async (request) => {
+  const { emailProvider } = request;
+  const { emailAccountId } = request.auth;
 
   const { searchParams } = new URL(request.url);
   const threadIdsParam = searchParams.get("threadIds");
@@ -34,31 +34,6 @@ export const GET = withEmailAccount(async (request) => {
   }
 
   try {
-    // Get the email account to determine the provider
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        account: {
-          select: {
-            provider: true,
-          },
-        },
-      },
-    });
-
-    if (!emailAccount) {
-      return NextResponse.json(
-        { error: "Email account not found" },
-        { status: 404 },
-      );
-    }
-
-    const provider = emailAccount.account.provider;
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider,
-    });
-
     // Get threads using the provider
     const threads = await Promise.all(
       threadIds.map(async (threadId) => {
@@ -72,7 +47,7 @@ export const GET = withEmailAccount(async (request) => {
     );
 
     const validThreads = threads.filter(
-      (thread): thread is any => thread !== null,
+      (thread): thread is ThreadsResponse["threads"][number] => thread !== null,
     );
 
     return NextResponse.json({ threads: validThreads });

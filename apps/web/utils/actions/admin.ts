@@ -1,8 +1,6 @@
 "use server";
 
 import { z } from "zod";
-import { processHistoryForUser as processGmailHistory } from "@/app/api/google/webhook/process-history";
-import { processHistoryForUser as processOutlookHistory } from "@/app/api/outlook/webhook/process-history";
 import type Stripe from "stripe";
 import { createScopedLogger } from "@/utils/logger";
 import { deleteUser } from "@/utils/user/delete";
@@ -11,6 +9,7 @@ import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("Admin Action");
 
@@ -29,11 +28,13 @@ export const adminProcessHistoryAction = adminActionClient
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email: emailAddress.toLowerCase() },
         select: {
+          id: true,
           account: {
             select: {
               provider: true,
             },
           },
+          watchEmailsSubscriptionId: true,
         },
       });
 
@@ -43,43 +44,27 @@ export const adminProcessHistoryAction = adminActionClient
 
       const provider = emailAccount.account?.provider;
 
-      if (provider === "google") {
-        await processGmailHistory(
-          {
-            emailAddress,
-            historyId: historyId ? historyId : 0,
-          },
-          {
-            startHistoryId: startHistoryId
-              ? startHistoryId.toString()
-              : undefined,
-          },
-        );
-      } else if (provider === "microsoft-entra-id") {
-        // For Outlook, we need to get the subscription ID
-        const subscription = await prisma.emailAccount.findUnique({
-          where: { email: emailAddress.toLowerCase() },
-          select: {
-            watchEmailsSubscriptionId: true,
-          },
-        });
-
-        if (!subscription?.watchEmailsSubscriptionId) {
-          throw new SafeError("No subscription ID found for Outlook account");
-        }
-
-        // For Outlook, we need to get the message ID from the history ID
-        // This is a simplified version - you might need to adjust this based on your needs
-        await processOutlookHistory({
-          subscriptionId: subscription.watchEmailsSubscriptionId,
-          resourceData: {
-            id: historyId?.toString() || "0",
-            conversationId: startHistoryId?.toString(),
-          },
-        });
-      } else {
-        throw new SafeError(`Unsupported provider: ${provider}`);
+      if (!provider) {
+        throw new SafeError("No provider found for email account");
       }
+
+      // Create the email provider
+      const emailProvider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider,
+      });
+
+      // Use the unified processHistory method
+      await emailProvider.processHistory({
+        emailAddress,
+        historyId,
+        startHistoryId,
+        subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
+        resourceData: {
+          id: historyId?.toString() || "0",
+          conversationId: startHistoryId?.toString(),
+        },
+      });
     },
   );
 

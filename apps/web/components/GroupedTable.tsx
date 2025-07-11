@@ -45,7 +45,7 @@ import {
   addToArchiveSenderQueue,
   useArchiveSenderStatus,
 } from "@/store/archive-sender-queue";
-import { getEmailUrl, getGmailSearchUrl, getGmailUrl } from "@/utils/url";
+import { getEmailUrl, getGmailSearchUrl } from "@/utils/url";
 import { MessageText } from "@/components/Typography";
 import { CreateCategoryDialog } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
 import {
@@ -75,7 +75,7 @@ export function GroupedTable({
   emailGroups: EmailGroup[];
   categories: CategoryWithRules[];
 }) {
-  const { emailAccountId, userEmail, provider } = useAccount();
+  const { emailAccountId, userEmail } = useAccount();
 
   const categoryMap = useMemo(() => {
     return categories.reduce<Record<string, CategoryWithRules>>(
@@ -212,7 +212,6 @@ export function GroupedTable({
                 await addToArchiveSenderQueue({
                   sender: sender.address,
                   emailAccountId,
-                  provider,
                 });
               }
             };

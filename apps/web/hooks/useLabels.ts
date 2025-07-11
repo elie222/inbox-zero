@@ -28,7 +28,10 @@ type SortableLabel = {
   id: string | null | undefined;
   name: string | null | undefined;
   type: string | null;
-  color?: any;
+  color?: {
+    textColor?: string | null;
+    backgroundColor?: string | null;
+  };
 };
 
 function isHidden(label: EmailLabel): boolean {

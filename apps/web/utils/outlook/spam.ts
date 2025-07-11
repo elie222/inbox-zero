@@ -53,7 +53,8 @@ export async function markSpam(client: OutlookClient, threadId: string) {
 
       // Filter messages by conversationId manually
       const threadMessages = messages.value.filter(
-        (message: any) => message.conversationId === threadId,
+        (message: { conversationId: string }) =>
+          message.conversationId === threadId,
       );
 
       if (threadMessages.length > 0) {

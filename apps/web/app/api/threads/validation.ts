@@ -7,6 +7,5 @@ export const threadsQuery = z.object({
   q: z.string().nullish(),
   nextPageToken: z.string().nullish(),
   labelId: z.string().nullish(), // For Google
-  folderId: z.string().nullish(), // For Microsoft
 });
 export type ThreadsQuery = z.infer<typeof threadsQuery>;
