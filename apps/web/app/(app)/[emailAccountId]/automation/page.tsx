@@ -56,8 +56,7 @@ export default async function AutomationPage({
     <GmailProvider>
       <Suspense>
         <PermissionsCheck />
-
-        {/* <div className="content-container mt-2">
+        {/* <div className=" mt-2">
           <AlertWithButton
             title="Try our new AI Assistant experience"
             description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
@@ -72,40 +71,38 @@ export default async function AutomationPage({
             }
           />
         </div> */}
+        <div className="mx-4">
+          <div className="w-screen-xl mx-auto max-w-screen-xl">
+            <div className="w-full">
+              <PremiumAlertWithData className="mb-2" />
 
-        <PageHeading className="content-container">Assistant</PageHeading>
+              <PageHeading>Assistant</PageHeading>
 
-        <PremiumAlertWithData className="content-container mt-2" />
+              <div className="border-b border-neutral-200">
+                <TabSelect
+                  options={[
+                    {
+                      id: "settings",
+                      label: "Settings",
+                      href: `/${emailAccountId}/automation?tab=settings`,
+                    },
+                    {
+                      id: "test",
+                      label: "Test",
+                      href: `/${emailAccountId}/automation?tab=test`,
+                    },
+                    {
+                      id: "history",
+                      label: "History",
+                      href: `/${emailAccountId}/automation?tab=history`,
+                    },
+                  ]}
+                  selected="settings"
+                />
+              </div>
 
-        <div className="max-w-screen-xl">
-          <div className="content-container">
-            <div className="border-b border-neutral-200">
-              <TabSelect
-                options={[
-                  {
-                    id: "settings",
-                    label: "Settings",
-                    href: `/${emailAccountId}/automation/settings`,
-                  },
-                  {
-                    id: "test",
-                    label: "Test",
-                    href: `/${emailAccountId}/automation/test`,
-                  },
-                  {
-                    id: "history",
-                    label: "History",
-                    href: `/${emailAccountId}/automation/history`,
-                  },
-                ]}
-                selected="settings"
-              />
-            </div>
-          </div>
-        </div>
-
-        <Tabs defaultValue="settings">
-          {/* <TabsToolbar>
+              <Tabs defaultValue="settings">
+                {/* <TabsToolbar>
             <div className="w-full overflow-x-auto">
               <TabsList>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -150,29 +147,26 @@ export default async function AutomationPage({
             </div>
           </TabsToolbar> */}
 
-          <TabsContent value="settings" className="content-container mb-10">
-            <SettingsTab />
-          </TabsContent>
-          <TabsContent value="test" className="content-container mb-10">
-            <div className="max-w-screen-lg">
-              <Process />
+                <TabsContent value="settings" className="mb-10">
+                  <SettingsTab />
+                </TabsContent>
+                <TabsContent value="test" className="mb-10">
+                  <Process />
+                </TabsContent>
+                <TabsContent value="history" className="mb-10">
+                  <History />
+                </TabsContent>
+                <Suspense>
+                  {(await hasPendingRule) && (
+                    <TabsContent value="pending" className="mb-10">
+                      <Pending />
+                    </TabsContent>
+                  )}
+                </Suspense>
+              </Tabs>
             </div>
-          </TabsContent>
-          <TabsContent value="history" className="content-container mb-10">
-            <div className="max-w-screen-lg">
-              <History />
-            </div>
-          </TabsContent>
-          <Suspense>
-            {(await hasPendingRule) && (
-              <TabsContent value="pending" className="content-container mb-10">
-                <div className="max-w-screen-lg">
-                  <Pending />
-                </div>
-              </TabsContent>
-            )}
-          </Suspense>
-        </Tabs>
+          </div>
+        </div>
       </Suspense>
     </GmailProvider>
   );
