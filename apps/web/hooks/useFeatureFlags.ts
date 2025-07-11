@@ -38,8 +38,8 @@ export function usePricingFrequencyDefault() {
   );
 }
 export function useDigestEnabled() {
-  // return useFeatureFlagEnabled("digest-emails");
-  return true;
+  return useFeatureFlagEnabled("digest-emails");
+  // return true;
 }
 
 export type TestimonialsVariant = "control" | "senja-widget";
