@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function SettingsTab() {
   return (
     <Tabs defaultValue="prompt" searchParam="settings-tab">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pt-2">
         <span className="text-sm font-medium">View as:</span>
         <TabsList>
           <TabsTrigger value="prompt">Prompt</TabsTrigger>
@@ -17,17 +17,13 @@ export function SettingsTab() {
       </div>
 
       <TabsContent value="prompt">
-        <div className="max-w-screen-xl">
-          <RulesPrompt />
-        </div>
+        <RulesPrompt />
       </TabsContent>
       <TabsContent value="rules">
-        <div className="max-w-screen-lg">
-          <Rules />
-        </div>
+        <Rules />
       </TabsContent>
 
-      <div className="mt-8 max-w-screen-lg space-y-2">
+      <div className="mt-8 space-y-2">
         <DraftReplies />
         <AboutSetting />
         <DigestSetting />
