@@ -248,20 +248,15 @@ function RulesPromptForm({
               name="rulesPrompt"
               error={errors.rulesPrompt}
               defaultValue={rulesPrompt || ""}
+              value={currentPrompt}
               minHeight={600}
               placeholder={`Here's an example of what your prompt might look like:
 
 * ${personas.other.promptArray[0]}
 * ${personas.other.promptArray[1]}
-
 * If someone asks about pricing, reply with:
----
-Hi NAME!
-
-I'm currently offering a 10% discount for the first 10 customers.
-
-Let me know if you're interested!
----`}
+> Hi NAME!
+> I'm currently offering a 10% discount. Let me know if you're interested!`}
             />
 
             <div className="flex flex-wrap gap-2">
