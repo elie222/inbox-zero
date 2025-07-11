@@ -141,7 +141,7 @@ export function DigestScheduleForm() {
         timeOfDay,
       };
 
-      execute({ schedule: scheduleData });
+      execute(scheduleData);
     },
     [execute],
   );

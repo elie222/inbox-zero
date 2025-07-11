@@ -11,8 +11,7 @@ import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
-import { SafeError } from "@/utils/error";
-import { SystemType, ActionType } from "@prisma/client";
+import { ActionType, type Prisma } from "@prisma/client";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -53,41 +52,29 @@ export const updateAiSettingsAction = actionClientUser
 export const updateDigestScheduleAction = actionClient
   .metadata({ name: "updateDigestSchedule" })
   .schema(saveDigestScheduleBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { schedule } }) => {
-    try {
-      if (schedule) {
-        // Create or update the Schedule
-        await prisma.schedule.upsert({
-          where: {
-            emailAccountId,
-          },
-          create: {
-            emailAccountId,
-            intervalDays: schedule.intervalDays,
-            daysOfWeek: schedule.daysOfWeek,
-            timeOfDay: schedule.timeOfDay,
-            occurrences: schedule.occurrences,
-            lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextScheduleDate(schedule),
-          },
-          update: {
-            intervalDays: schedule.intervalDays,
-            daysOfWeek: schedule.daysOfWeek,
-            timeOfDay: schedule.timeOfDay,
-            occurrences: schedule.occurrences,
-            lastOccurrenceAt: new Date(),
-            nextOccurrenceAt: calculateNextScheduleDate(schedule),
-          },
-        });
-      } else {
-        // If schedule is null, delete the existing schedule if it exists
-        await prisma.schedule.deleteMany({ where: { emailAccountId } });
-      }
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const { intervalDays, daysOfWeek, timeOfDay, occurrences } = parsedInput;
 
-      return { success: true };
-    } catch (error) {
-      throw new SafeError("Failed to update settings", 500);
-    }
+    const create: Prisma.ScheduleUpsertArgs["create"] = {
+      emailAccountId,
+      intervalDays,
+      daysOfWeek,
+      timeOfDay,
+      occurrences,
+      lastOccurrenceAt: new Date(),
+      nextOccurrenceAt: calculateNextScheduleDate(parsedInput),
+    };
+
+    // remove emailAccountId for update
+    const { emailAccountId: _emailAccountId, ...update } = create;
+
+    await prisma.schedule.upsert({
+      where: { emailAccountId },
+      create,
+      update,
+    });
+
+    return { success: true };
   });
 
 export const updateDigestItemsAction = actionClient
