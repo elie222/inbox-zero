@@ -39,6 +39,78 @@ export const DAYS = {
 const maskFor = (jsDay: number) => 1 << (6 - jsDay);
 
 /**
+ * Converts a JavaScript day of week (0-6, Sunday-Saturday) to its corresponding bitmask.
+ * This is a public version of the internal maskFor function.
+ *
+ * @param jsDay - JavaScript day of week (0 = Sunday, 6 = Saturday)
+ * @returns The bitmask for the given day
+ * @throws Error if jsDay is not between 0 and 6
+ *
+ * @example
+ * // Convert Sunday (0) to bitmask
+ * const sundayMask = dayOfWeekToBitmask(0); // Returns 64 (0b1000000)
+ *
+ * // Convert Wednesday (3) to bitmask
+ * const wednesdayMask = dayOfWeekToBitmask(3); // Returns 8 (0b0001000)
+ */
+export function dayOfWeekToBitmask(jsDay: number): number {
+  if (jsDay < 0 || jsDay > 6 || !Number.isInteger(jsDay)) {
+    throw new Error(
+      `Invalid day of week: ${jsDay}. Must be integer between 0 and 6.`,
+    );
+  }
+  return maskFor(jsDay);
+}
+
+/**
+ * Converts a bitmask back to the first JavaScript day of week (0-6, Sunday-Saturday) it represents.
+ * If multiple days are set in the bitmask, returns the first one found (Sunday first).
+ *
+ * @param bitmask - The days of week bitmask
+ * @returns The first JavaScript day of week (0-6), or null if no days are set
+ *
+ * @example
+ * // Convert Sunday bitmask to JS day
+ * const day = bitmaskToDayOfWeek(64); // Returns 0 (Sunday)
+ *
+ * // Convert Wednesday bitmask to JS day
+ * const day = bitmaskToDayOfWeek(8); // Returns 3 (Wednesday)
+ *
+ * // Multiple days set - returns first one
+ * const day = bitmaskToDayOfWeek(64 | 8); // Returns 0 (Sunday, first day found)
+ */
+export function bitmaskToDayOfWeek(bitmask: number): number | null {
+  if (bitmask === 0) return null;
+
+  for (let jsDay = 0; jsDay < 7; jsDay++) {
+    if (bitmask & maskFor(jsDay)) {
+      return jsDay;
+    }
+  }
+  return null;
+}
+
+/**
+ * Gets all JavaScript days of week (0-6, Sunday-Saturday) represented in a bitmask.
+ *
+ * @param bitmask - The days of week bitmask
+ * @returns Array of JavaScript day numbers (0-6) that are set in the bitmask
+ *
+ * @example
+ * // Get all days from a bitmask with multiple days
+ * const days = bitmaskToDaysOfWeek(64 | 8); // Returns [0, 3] (Sunday and Wednesday)
+ */
+export function bitmaskToDaysOfWeek(bitmask: number): number[] {
+  const days: number[] = [];
+  for (let jsDay = 0; jsDay < 7; jsDay++) {
+    if (bitmask & maskFor(jsDay)) {
+      days.push(jsDay);
+    }
+  }
+  return days;
+}
+
+/**
  * Calculates the next occurrence date based on schedule settings.
  *
  * @param schedule - The schedule configuration
