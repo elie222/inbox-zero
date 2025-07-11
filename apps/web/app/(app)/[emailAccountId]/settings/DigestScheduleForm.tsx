@@ -18,7 +18,6 @@ import { useAction } from "next-safe-action/hooks";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorMessage } from "@/components/Input";
-import { useRules } from "@/hooks/useRules";
 
 type DigestScheduleFormValues = {
   schedule: string;
@@ -63,11 +62,6 @@ const ampmOptions = [
 export function DigestScheduleForm() {
   const { emailAccountId } = useAccount();
 
-  const {
-    data: rules,
-    isLoading: isRulesLoading,
-    error: rulesError,
-  } = useRules();
   const { data, isLoading, error, mutate } = useSWR<GetDigestScheduleResponse>(
     "/api/user/digest-schedule",
   );
@@ -147,10 +141,7 @@ export function DigestScheduleForm() {
   );
 
   return (
-    <LoadingContent
-      loading={isLoading || isRulesLoading}
-      error={error || rulesError}
-    >
+    <LoadingContent loading={isLoading} error={error}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <Label className="mb-2 mt-4">When to send the digest:</Label>
 
