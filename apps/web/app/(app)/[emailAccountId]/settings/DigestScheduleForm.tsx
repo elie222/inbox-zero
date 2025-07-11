@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useCallback } from "react";
 import useSWR from "swr";
@@ -18,14 +19,17 @@ import { useAction } from "next-safe-action/hooks";
 import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorMessage } from "@/components/Input";
+import { zodResolver } from "@hookform/resolvers/zod";
 
-type DigestScheduleFormValues = {
-  schedule: string;
-  dayOfWeek: string;
-  hour: string;
-  minute: string;
-  ampm: "AM" | "PM";
-};
+const digestScheduleFormSchema = z.object({
+  schedule: z.string(),
+  dayOfWeek: z.string(),
+  hour: z.string(),
+  minute: z.string(),
+  ampm: z.enum(["AM", "PM"]),
+});
+
+type DigestScheduleFormValues = z.infer<typeof digestScheduleFormSchema>;
 
 const frequencies = [
   { value: "daily", label: "Day" },
@@ -86,6 +90,7 @@ function DigestScheduleFormInner({
     setValue,
     formState: { errors, isSubmitting },
   } = useForm<DigestScheduleFormValues>({
+    resolver: zodResolver(digestScheduleFormSchema),
     defaultValues: getInitialScheduleProps(data),
   });
 
