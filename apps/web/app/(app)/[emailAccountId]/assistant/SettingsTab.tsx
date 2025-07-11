@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export function SettingsTab() {
   return (
     <Tabs defaultValue="prompt" searchParam="settings-tab">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pt-2">
         <span className="text-sm font-medium">View as:</span>
         <TabsList>
           <TabsTrigger value="prompt">Prompt</TabsTrigger>

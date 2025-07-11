@@ -22,6 +22,24 @@ import { TabSelect } from "@/components/TabSelect";
 
 export const maxDuration = 300; // Applies to the actions
 
+const tabOptions = (emailAccountId: string) => [
+  {
+    id: "settings",
+    label: "Settings",
+    href: `/${emailAccountId}/automation?tab=settings`,
+  },
+  {
+    id: "test",
+    label: "Test",
+    href: `/${emailAccountId}/automation?tab=test`,
+  },
+  {
+    id: "history",
+    label: "History",
+    href: `/${emailAccountId}/automation?tab=history`,
+  },
+];
+
 export default async function AutomationPage({
   params,
   searchParams,
@@ -49,10 +67,12 @@ export default async function AutomationPage({
     }
   }
 
-  const hasPendingRule = prisma.rule.findFirst({
-    where: { emailAccountId, automate: false },
-    select: { id: true },
-  });
+  const hasPendingRule = prisma.rule
+    .findFirst({
+      where: { emailAccountId, automate: false },
+      select: { id: true },
+    })
+    .then((rule) => rule !== null);
 
   return (
     <GmailProvider>
@@ -69,45 +89,24 @@ export default async function AutomationPage({
                 <ExtraActions emailAccountId={emailAccountId} />
               </div>
 
-              <div className="border-b border-neutral-200">
-                <TabSelect
-                  options={[
-                    {
-                      id: "settings",
-                      label: "Settings",
-                      href: `/${emailAccountId}/automation?tab=settings`,
-                    },
-                    {
-                      id: "test",
-                      label: "Test",
-                      href: `/${emailAccountId}/automation?tab=test`,
-                    },
-                    {
-                      id: "history",
-                      label: "History",
-                      href: `/${emailAccountId}/automation?tab=history`,
-                    },
-                  ]}
-                  selected={tab ?? "settings"}
-                />
+              <div className="border-b border-neutral-200 pt-2">
+                <Suspense
+                  fallback={
+                    <TabSelect
+                      options={tabOptions(emailAccountId)}
+                      selected={tab ?? "settings"}
+                    />
+                  }
+                >
+                  <TabNavigation
+                    emailAccountId={emailAccountId}
+                    tab={tab}
+                    hasPendingRule={hasPendingRule}
+                  />
+                </Suspense>
               </div>
 
               <Tabs defaultValue="settings">
-                {/* <TabsToolbar>
-            <div className="w-full overflow-x-auto">
-              <TabsList>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-                <TabsTrigger value="test">Test</TabsTrigger>
-                <TabsTrigger value="history">History</TabsTrigger>
-                <Suspense>
-                  {(await hasPendingRule) && (
-                    <TabsTrigger value="pending">Pending</TabsTrigger>
-                  )}
-                </Suspense>
-              </TabsList>
-            </div>
-          </TabsToolbar> */}
-
                 <TabsContent value="settings" className="mb-10">
                   <SettingsTab />
                 </TabsContent>
@@ -118,11 +117,7 @@ export default async function AutomationPage({
                   <History />
                 </TabsContent>
                 <Suspense>
-                  {(await hasPendingRule) && (
-                    <TabsContent value="pending" className="mb-10">
-                      <Pending />
-                    </TabsContent>
-                  )}
+                  <PendingTab hasPendingRule={hasPendingRule} />
                 </Suspense>
               </Tabs>
             </div>
@@ -130,6 +125,50 @@ export default async function AutomationPage({
         </div>
       </Suspense>
     </GmailProvider>
+  );
+}
+
+async function TabNavigation({
+  emailAccountId,
+  tab,
+  hasPendingRule,
+}: {
+  emailAccountId: string;
+  tab: string;
+  hasPendingRule: Promise<boolean>;
+}) {
+  return (
+    <TabSelect
+      options={[
+        ...tabOptions(emailAccountId),
+        ...((await hasPendingRule)
+          ? [
+              {
+                id: "pending",
+                label: "Pending",
+                href: `/${emailAccountId}/automation?tab=pending`,
+              },
+            ]
+          : []),
+      ]}
+      selected={tab ?? "settings"}
+    />
+  );
+}
+
+async function PendingTab({
+  hasPendingRule,
+}: {
+  hasPendingRule: Promise<boolean>;
+}) {
+  const hasPendingRuleValue = await hasPendingRule;
+
+  if (!hasPendingRuleValue) return null;
+
+  return (
+    <TabsContent value="pending" className="mb-10">
+      <Pending />
+    </TabsContent>
   );
 }
 
