@@ -1,54 +1,73 @@
 import { NextResponse } from "next/server";
-import { withEmailAccount } from "@/utils/middleware";
-import { threadsQuery } from "@/app/api/threads/validation";
-import { createEmailProvider } from "@/utils/email/provider";
+import { withEmailProvider } from "@/utils/middleware";
+import { ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("api/threads");
+
+export const dynamic = "force-dynamic";
+
+export const maxDuration = 30;
+
+export const GET = withEmailProvider(async (request) => {
+  const { emailProvider } = request;
+  const { emailAccountId } = request.auth;
+
+  const { searchParams } = new URL(request.url);
+  const limit = searchParams.get("limit");
+  const fromEmail = searchParams.get("fromEmail");
+  const type = searchParams.get("type");
+  const nextPageToken = searchParams.get("nextPageToken");
+  const q = searchParams.get("q");
+  const labelId = searchParams.get("labelId");
+
+  const query = threadsQuery.parse({
+    limit,
+    fromEmail,
+    type,
+    nextPageToken,
+    q,
+    labelId,
+  });
+
+  try {
+    const threads = await getThreads({
+      query,
+      emailAccountId,
+      emailProvider,
+    });
+    return NextResponse.json(threads);
+  } catch (error) {
+    logger.error("Error fetching threads", { error, emailAccountId });
+    return NextResponse.json(
+      { error: "Failed to fetch threads" },
+      { status: 500 },
+    );
+  }
+});
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 
 async function getThreads({
   query,
   emailAccountId,
-  userEmail,
+  emailProvider,
 }: {
-  query: any;
+  query: ThreadsQuery;
   emailAccountId: string;
-  userEmail: string;
+  emailProvider: EmailProvider;
 }) {
-  // Get the email account to determine the provider
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      account: {
-        select: {
-          provider: true,
-        },
-      },
-    },
-  });
-
-  if (!emailAccount) {
-    throw new Error("Email account not found");
-  }
-
-  const provider = emailAccount.account.provider;
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-  });
-
   // Get threads using the provider
   const { threads, nextPageToken } = await emailProvider.getThreadsWithQuery({
     query,
     maxResults: query.limit || 50,
-    pageToken: query.nextPageToken,
+    pageToken: query.nextPageToken || undefined,
   });
 
   // Get executed rules for these threads
@@ -98,46 +117,3 @@ async function getThreads({
     nextPageToken,
   };
 }
-
-export const dynamic = "force-dynamic";
-
-export const maxDuration = 30;
-
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
-  const userEmail = request.auth.email;
-
-  const { searchParams } = new URL(request.url);
-  const limit = searchParams.get("limit");
-  const fromEmail = searchParams.get("fromEmail");
-  const type = searchParams.get("type");
-  const nextPageToken = searchParams.get("nextPageToken");
-  const q = searchParams.get("q");
-  const labelId = searchParams.get("labelId");
-  const folderId = searchParams.get("folderId");
-
-  const query = threadsQuery.parse({
-    limit,
-    fromEmail,
-    type,
-    nextPageToken,
-    q,
-    labelId,
-    folderId,
-  });
-
-  try {
-    const threads = await getThreads({
-      query,
-      emailAccountId,
-      userEmail,
-    });
-    return NextResponse.json(threads);
-  } catch (error) {
-    logger.error("Error fetching threads", { error, emailAccountId });
-    return NextResponse.json(
-      { error: "Failed to fetch threads" },
-      { status: 500 },
-    );
-  }
-});

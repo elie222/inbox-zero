@@ -5,7 +5,7 @@ import { decodeSnippet } from "@/utils/gmail/decode";
 import { ActionBadgeExpanded } from "@/components/PlanBadge";
 import { Tooltip } from "@/components/Tooltip";
 import { EmailDate } from "@/components/email-list/EmailDate";
-import { getGmailUrl } from "@/utils/url";
+import { getEmailUrlForMessage } from "@/utils/url";
 import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { ExecutedRuleStatus } from "@prisma/client";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import type { SetInputFunction } from "@/components/assistant-chat/types";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailCell({
   from,
@@ -43,7 +44,11 @@ export function EmailCell({
       </div>
       <div className="mt-1 flex items-center font-medium">
         <span>{subject}</span>
-        <OpenInGmailButton messageId={messageId} userEmail={userEmail} />
+        <OpenInGmailButton
+          messageId={messageId}
+          threadId={threadId}
+          userEmail={userEmail}
+        />
         <ViewEmailButton
           threadId={threadId}
           messageId={messageId}
@@ -168,14 +173,18 @@ export function DateCell({ createdAt }: { createdAt: Date }) {
 
 function OpenInGmailButton({
   messageId,
+  threadId,
   userEmail,
 }: {
   messageId: string;
+  threadId: string;
   userEmail: string;
 }) {
+  const { provider } = useAccount();
+
   return (
     <Link
-      href={getGmailUrl(messageId, userEmail)}
+      href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
       target="_blank"
       className="ml-2 text-muted-foreground hover:text-foreground"
     >

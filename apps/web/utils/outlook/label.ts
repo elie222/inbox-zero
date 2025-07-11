@@ -320,7 +320,8 @@ export async function archiveThread({
 
       // Filter messages by conversationId manually
       const threadMessages = messages.value.filter(
-        (message: any) => message.conversationId === threadId,
+        (message: { conversationId: string }) =>
+          message.conversationId === threadId,
       );
 
       if (threadMessages.length > 0) {
@@ -426,7 +427,8 @@ export async function markReadThread({
 
       // Filter messages by conversationId manually
       const threadMessages = messages.value.filter(
-        (message: any) => message.conversationId === threadId,
+        (message: { conversationId: string }) =>
+          message.conversationId === threadId,
       );
 
       if (threadMessages.length > 0) {

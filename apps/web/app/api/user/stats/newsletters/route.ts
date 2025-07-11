@@ -1,19 +1,19 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { withEmailAccount } from "@/utils/middleware";
-import {
-  filterNewsletters,
-  findAutoArchiveFilter,
-  findNewsletterStatus,
-  getAutoArchiveFilters,
-} from "@/app/api/user/stats/newsletters/helpers";
+import { withEmailProvider } from "@/utils/middleware";
+import { extractEmailAddress } from "@/utils/email";
+import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
-import { extractEmailAddress } from "@/utils/email";
-import { createEmailProvider } from "@/utils/email/provider";
-import { createScopedLogger } from "@/utils/logger";
+import { z } from "zod";
+import { EmailProvider } from "@/utils/email/provider";
+import {
+  getAutoArchiveFilters,
+  findNewsletterStatus,
+  findAutoArchiveFilter,
+  filterNewsletters,
+} from "@/app/api/user/stats/newsletters/helpers";
 
-const logger = createScopedLogger("newsletter-stats");
+const logger = createScopedLogger("api/user/stats/newsletters");
 
 const newsletterStatsQuery = z.object({
   limit: z.coerce.number().nullish(),
@@ -31,6 +31,7 @@ const newsletterStatsQuery = z.object({
     .transform((arr) => arr?.filter(Boolean)),
   includeMissingUnsubscribe: z.boolean().optional(),
 });
+
 export type NewsletterStatsQuery = z.infer<typeof newsletterStatsQuery>;
 export type NewsletterStatsResponse = Awaited<
   ReturnType<typeof getEmailMessages>
@@ -67,29 +68,13 @@ function getTypeFilters(types: NewsletterStatsQuery["types"]) {
 }
 
 async function getEmailMessages(
-  options: { emailAccountId: string } & NewsletterStatsQuery,
+  options: {
+    emailAccountId: string;
+    emailProvider: EmailProvider;
+  } & NewsletterStatsQuery,
 ) {
-  const { emailAccountId } = options;
+  const { emailAccountId, emailProvider } = options;
   const types = getTypeFilters(options.types);
-
-  // Get the email account to determine the provider
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      account: {
-        select: { provider: true },
-      },
-    },
-  });
-
-  if (!emailAccount) {
-    throw new Error("Email account not found");
-  }
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: emailAccount.account.provider,
-  });
 
   const [counts, autoArchiveFilters, userNewsletters] = await Promise.all([
     getNewsletterCounts({
@@ -108,7 +93,11 @@ async function getEmailMessages(
       inboxEmails: email.inboxEmails,
       readEmails: email.readEmails,
       unsubscribeLink: email.unsubscribeLink,
-      autoArchived: findAutoArchiveFilter(autoArchiveFilters, from),
+      autoArchived: findAutoArchiveFilter(
+        autoArchiveFilters,
+        from,
+        emailProvider,
+      ),
       status: userNewsletters?.find((n) => n.email === from)?.status,
     };
   });
@@ -233,8 +222,8 @@ async function getNewsletterCounts(
   } catch (error) {
     logger.error("getNewsletterCounts error", {
       error,
-      errorMessage: (error as any)?.message,
-      errorStack: (error as any)?.stack,
+      errorMessage: error instanceof Error ? error.message : String(error),
+      errorStack: error instanceof Error ? error.stack : undefined,
     });
     return [];
   }
@@ -253,17 +242,9 @@ function getOrderByClause(orderBy: string): string {
   }
 }
 
-// Helper function to extract unsubscribe links from email content
-function extractUnsubscribeLink(content: string): string | null {
-  // Simple regex to find unsubscribe links
-  const unsubscribeRegex =
-    /(?:unsubscribe|opt.?out|remove).*?(?:https?:\/\/[^\s<>"']+)/gi;
-  const match = unsubscribeRegex.exec(content);
-  return match ? match[0] : null;
-}
-
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailProvider(async (request) => {
+  const { emailProvider } = request;
+  const { emailAccountId } = request.auth;
 
   const { searchParams } = new URL(request.url);
   const params = newsletterStatsQuery.parse({
@@ -280,6 +261,7 @@ export const GET = withEmailAccount(async (request) => {
   const result = await getEmailMessages({
     ...params,
     emailAccountId,
+    emailProvider,
   });
 
   return NextResponse.json(result);

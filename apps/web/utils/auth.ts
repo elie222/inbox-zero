@@ -408,18 +408,38 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   const provider =
     PROVIDER_CONFIG[account.provider as keyof typeof PROVIDER_CONFIG];
 
+  const getProviderCredentials = (
+    provider: string,
+  ): { clientId: string; clientSecret: string } => {
+    if (provider === "google") {
+      return {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      };
+    }
+
+    if (provider === "microsoft-entra-id") {
+      if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+        logger.error("Microsoft login not enabled - missing credentials");
+        throw new Error("Microsoft login not enabled - missing credentials");
+      }
+      return {
+        clientId: env.MICROSOFT_CLIENT_ID,
+        clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      };
+    }
+
+    logger.error(`Unsupported provider: ${provider}`);
+    throw new Error(`Unsupported provider: ${provider}`);
+  };
+
   try {
+    const { clientId, clientSecret } = getProviderCredentials(account.provider);
     const response = await fetch(provider.tokenUrl, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id:
-          account.provider === "google"
-            ? env.GOOGLE_CLIENT_ID
-            : env.MICROSOFT_CLIENT_ID!,
-        client_secret:
-          account.provider === "google"
-            ? env.GOOGLE_CLIENT_SECRET
-            : env.MICROSOFT_CLIENT_SECRET!,
+        client_id: clientId,
+        client_secret: clientSecret,
         grant_type: "refresh_token",
         refresh_token: account.refresh_token,
       }),

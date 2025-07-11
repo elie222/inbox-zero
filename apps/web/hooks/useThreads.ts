@@ -16,7 +16,6 @@ export function useThreads({
   limit?: number;
   refreshInterval?: number;
 }) {
-  const { provider } = useAccount();
   const searchParams = new URLSearchParams();
   if (fromEmail) searchParams.set("fromEmail", fromEmail);
   if (limit) searchParams.set("limit", limit.toString());

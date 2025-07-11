@@ -1,12 +1,8 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
-import { withEmailAccount } from "@/utils/middleware";
-import { createEmailProvider } from "@/utils/email/provider";
-import { parseMessages } from "@/utils/mail";
-import prisma from "@/utils/prisma";
-import { getCategory } from "@/utils/redis/category";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { withEmailProvider } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
+import { EmailProvider } from "@/utils/email/provider";
 
 const threadQuery = z.object({ id: z.string() });
 export type ThreadQuery = z.infer<typeof threadQuery>;
@@ -17,35 +13,10 @@ const logger = createScopedLogger("api/threads/[id]");
 async function getThread(
   id: string,
   includeDrafts: boolean,
-  emailAccountId: string,
+  emailProvider: EmailProvider,
 ) {
-  // Get the email account to determine the provider
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      account: {
-        select: {
-          provider: true,
-        },
-      },
-    },
-  });
-
-  if (!emailAccount) {
-    throw new Error("Email account not found");
-  }
-
-  const provider = emailAccount.account.provider;
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider,
-  });
-
-  // Get the thread using the provider
   const thread = await emailProvider.getThread(id);
 
-  // For the unified API, we return the thread with parsed messages
-  // The parseMessages function expects a different format, so we handle it differently
   const filteredMessages = includeDrafts
     ? thread.messages
     : thread.messages.filter((msg) => !msg.labelIds?.includes("DRAFT"));
@@ -57,8 +28,9 @@ export const dynamic = "force-dynamic";
 
 export const maxDuration = 30;
 
-export const GET = withEmailAccount(async (request, context) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailProvider(async (request, context) => {
+  const { emailProvider } = request;
+  const { emailAccountId } = request.auth;
 
   const params = await context.params;
   const { id } = threadQuery.parse(params);
@@ -67,7 +39,7 @@ export const GET = withEmailAccount(async (request, context) => {
   const includeDrafts = searchParams.get("includeDrafts") === "true";
 
   try {
-    const thread = await getThread(id, includeDrafts, emailAccountId);
+    const thread = await getThread(id, includeDrafts, emailProvider);
     return NextResponse.json(thread);
   } catch (error) {
     logger.error("Error fetching thread", {

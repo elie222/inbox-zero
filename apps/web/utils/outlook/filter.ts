@@ -153,7 +153,7 @@ export async function createCategoryFilter({
       .get();
 
     let category = categories.value.find(
-      (cat: any) => cat.displayName === categoryName,
+      (cat: { displayName: string }) => cat.displayName === categoryName,
     );
 
     if (!category) {

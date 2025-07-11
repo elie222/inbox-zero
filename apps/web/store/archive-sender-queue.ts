@@ -22,14 +22,12 @@ export async function addToArchiveSenderQueue({
   onSuccess,
   onError,
   emailAccountId,
-  provider,
 }: {
   sender: string;
   labelId?: string;
   onSuccess?: (totalThreads: number) => void;
   onError?: (sender: string) => void;
   emailAccountId: string;
-  provider: string;
 }) {
   // Add sender with pending status
   jotaiStore.set(archiveSenderQueueAtom, (prev) => {
@@ -45,10 +43,11 @@ export async function addToArchiveSenderQueue({
     const data = await fetchSenderThreads({
       sender,
       emailAccountId,
-      provider,
     });
     const threads = data.threads;
-    const threadIds = threads.map((t: any) => t.id).filter(isDefined);
+    const threadIds = threads
+      .map((t: { id: string }) => t.id)
+      .filter(isDefined);
 
     // Update with thread IDs
     jotaiStore.set(archiveSenderQueueAtom, (prev) => {
@@ -124,11 +123,9 @@ export const useArchiveSenderStatus = (sender: string) => {
 async function fetchSenderThreads({
   sender,
   emailAccountId,
-  provider,
 }: {
   sender: string;
   emailAccountId: string;
-  provider: string;
 }) {
   const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
   const res = await fetchWithAccount({

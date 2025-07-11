@@ -176,9 +176,6 @@ importers:
       '@microsoft/microsoft-graph-client':
         specifier: 3.0.7
         version: 3.0.7
-      '@microsoft/microsoft-graph-types':
-        specifier: 2.40.0
-        version: 2.40.0
       '@mux/mux-player-react':
         specifier: 3.4.0
         version: 3.4.0(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -513,6 +510,9 @@ importers:
       '@inboxzero/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
+      '@microsoft/microsoft-graph-types':
+        specifier: ^2.40.0
+        version: 2.40.0
       '@testing-library/react':
         specifier: 16.3.0
         version: 16.3.0(@testing-library/dom@10.2.0)(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)

@@ -6,20 +6,67 @@ function getOutlookBaseUrl() {
   return "https://outlook.live.com/mail/0";
 }
 
+const PROVIDER_CONFIG: Record<
+  string,
+  {
+    buildUrl: (
+      messageOrThreadId: string,
+      emailAddress?: string | null,
+    ) => string;
+    selectId: (messageId: string, threadId: string) => string;
+  }
+> = {
+  "microsoft-entra-id": {
+    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
+      // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
+      // The message ID needs to be URL-encoded for Outlook
+      const encodedMessageId = encodeURIComponent(messageOrThreadId);
+      return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
+    },
+    selectId: (messageId: string, threadId: string) => threadId,
+  },
+  google: {
+    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
+      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
+    selectId: (messageId: string, threadId: string) => messageId,
+  },
+  default: {
+    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
+      `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
+    selectId: (messageId: string, threadId: string) => threadId,
+  },
+} as const;
+
+function getProviderConfig(
+  provider?: string,
+): (typeof PROVIDER_CONFIG)[keyof typeof PROVIDER_CONFIG] {
+  return PROVIDER_CONFIG[provider ?? "default"];
+}
+
 export function getEmailUrl(
   messageOrThreadId: string,
   emailAddress?: string | null,
   provider?: string,
-) {
-  if (provider === "microsoft-entra-id") {
-    // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
-    // The message ID needs to be URL-encoded for Outlook
-    const encodedMessageId = encodeURIComponent(messageOrThreadId);
-    return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
-  }
+): string {
+  const config = getProviderConfig(provider);
+  return config.buildUrl(messageOrThreadId, emailAddress);
+}
 
-  // Default to Gmail format
-  return `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`;
+/**
+ * Get the appropriate email URL based on provider and available IDs.
+ * For Google, uses messageId if available, otherwise threadId.
+ * For other providers, uses threadId.
+ */
+export function getEmailUrlForMessage(
+  messageId: string,
+  threadId: string,
+  emailAddress?: string | null,
+  provider?: string,
+) {
+  const config = getProviderConfig(provider);
+  const idToUse = config.selectId(messageId, threadId);
+
+  return getEmailUrl(idToUse, emailAddress, provider);
 }
 
 // Keep the old function name for backward compatibility
