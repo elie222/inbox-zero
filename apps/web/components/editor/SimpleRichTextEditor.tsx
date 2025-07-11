@@ -86,7 +86,6 @@ export const SimpleRichTextEditor = forwardRef<
       onUpdate: useCallback(
         ({ editor }: { editor: Editor }) => {
           const markdown = editor.storage.markdown.getMarkdown();
-          // Update the hidden form field with markdown content
           if (registerProps?.onChange) {
             registerProps.onChange({
               target: { name: name || registerProps.name, value: markdown },
@@ -168,12 +167,6 @@ export const SimpleRichTextEditor = forwardRef<
           style={{ minHeight }}
         >
           <EditorContent editor={editor} />
-          {/* Hidden input for form registration */}
-          <input
-            type="hidden"
-            {...registerProps}
-            value={editor?.storage.markdown.getMarkdown() || ""}
-          />
         </div>
         {error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
       </div>
