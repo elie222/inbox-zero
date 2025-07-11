@@ -43,6 +43,26 @@ export const updateStripeSubscriptionItemQuantity = async ({
 
   try {
     const stripe = getStripe();
+
+    // First, get the current subscription item to check if quantity has changed
+    const currentItem =
+      await stripe.subscriptionItems.retrieve(subscriptionItemId);
+
+    if (currentItem.quantity === quantityToSet) {
+      logger.info("Quantity unchanged, skipping update", {
+        subscriptionItemId,
+        currentQuantity: currentItem.quantity,
+        requestedQuantity: quantityToSet,
+      });
+      return currentItem;
+    }
+
+    logger.info("Quantity changed, updating Stripe", {
+      subscriptionItemId,
+      currentQuantity: currentItem.quantity,
+      newQuantity: quantityToSet,
+    });
+
     const updatedItem = await stripe.subscriptionItems.update(
       subscriptionItemId,
       {
