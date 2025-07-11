@@ -22,11 +22,11 @@ import { ErrorMessage } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 const digestScheduleFormSchema = z.object({
-  schedule: z.string(),
-  dayOfWeek: z.string(),
-  hour: z.string(),
-  minute: z.string(),
-  ampm: z.enum(["AM", "PM"]),
+  schedule: z.string().min(1, "Please select a frequency"),
+  dayOfWeek: z.string().min(1, "Please select a day"),
+  hour: z.string().min(1, "Please select an hour"),
+  minute: z.string().min(1, "Please select minutes"),
+  ampm: z.enum(["AM", "PM"], { required_error: "Please select AM or PM" }),
 });
 
 type DigestScheduleFormValues = z.infer<typeof digestScheduleFormSchema>;
