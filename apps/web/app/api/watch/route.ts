@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withEmailProvider } from "@/utils/middleware";
+import { withAuth, withEmailProvider } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "./controller";
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const logger = createScopedLogger("api/watch");
 
-export const GET = withEmailProvider(async (request) => {
+export const GET = withAuth(async (request) => {
   const userId = request.auth.userId;
   const results = [];
 
