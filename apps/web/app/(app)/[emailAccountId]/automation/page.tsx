@@ -6,11 +6,10 @@ import { MessageCircleIcon, SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
 import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
@@ -25,10 +24,13 @@ export const maxDuration = 300; // Applies to the actions
 
 export default async function AutomationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ emailAccountId: string }>;
+  searchParams: Promise<{ tab: string }>;
 }) {
   const { emailAccountId } = await params;
+  const { tab } = await searchParams;
   await checkUserOwnsEmailAccount({ emailAccountId });
 
   // onboarding redirect
@@ -56,27 +58,16 @@ export default async function AutomationPage({
     <GmailProvider>
       <Suspense>
         <PermissionsCheck />
-        {/* <div className=" mt-2">
-          <AlertWithButton
-            title="Try our new AI Assistant experience"
-            description="This is the legacy assistant interface. Experience our improved AI Assistant with better conversation flow and enhanced capabilities."
-            icon={<SparklesIcon className="h-4 w-4" />}
-            variant="blue"
-            button={
-              <Button asChild variant="blue">
-                <Link href={prefixPath(emailAccountId, "/assistant")}>
-                  Try New Assistant
-                </Link>
-              </Button>
-            }
-          />
-        </div> */}
+
         <div className="mx-4">
           <div className="w-screen-xl mx-auto max-w-screen-xl">
             <div className="w-full">
               <PremiumAlertWithData className="mb-2" />
 
-              <PageHeading>Assistant</PageHeading>
+              <div className="flex items-center justify-between">
+                <PageHeading>Assistant</PageHeading>
+                <ExtraActions emailAccountId={emailAccountId} />
+              </div>
 
               <div className="border-b border-neutral-200">
                 <TabSelect
@@ -97,7 +88,7 @@ export default async function AutomationPage({
                       href: `/${emailAccountId}/automation?tab=history`,
                     },
                   ]}
-                  selected="settings"
+                  selected={tab ?? "settings"}
                 />
               </div>
 
@@ -114,36 +105,6 @@ export default async function AutomationPage({
                   )}
                 </Suspense>
               </TabsList>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button asChild variant="outline" size="sm">
-                <Link
-                  href={prefixPath(emailAccountId, "/assistant/onboarding")}
-                >
-                  <SlidersIcon className="mr-2 hidden size-4 md:block" />
-                  View Setup
-                </Link>
-              </Button>
-
-              <OnboardingModal
-                title="Getting started with AI Personal Assistant"
-                description={
-                  <>
-                    Learn how to use the AI Personal Assistant to automatically
-                    label, archive, and more.
-                  </>
-                }
-                videoId="SoeNDVr7ve4"
-                buttonProps={{ size: "sm", variant: "outline" }}
-              />
-
-              <Button size="sm" variant="primaryBlue" asChild>
-                <Link href={prefixPath(emailAccountId, "/assistant")}>
-                  <MessageCircleIcon className="mr-2 size-4" />
-                  AI Chat
-                </Link>
-              </Button>
             </div>
           </TabsToolbar> */}
 
@@ -169,5 +130,37 @@ export default async function AutomationPage({
         </div>
       </Suspense>
     </GmailProvider>
+  );
+}
+
+function ExtraActions({ emailAccountId }: { emailAccountId: string }) {
+  return (
+    <div className="flex items-center gap-2">
+      <Button asChild variant="ghost" size="sm">
+        <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
+          <SlidersIcon className="mr-2 hidden size-4 md:block" />
+          View Setup
+        </Link>
+      </Button>
+
+      <OnboardingModal
+        title="Getting started with AI Personal Assistant"
+        description={
+          <>
+            Learn how to use the AI Personal Assistant to automatically label,
+            archive, and more.
+          </>
+        }
+        videoId="SoeNDVr7ve4"
+        buttonProps={{ size: "sm", variant: "ghost" }}
+      />
+
+      <Button size="sm" variant="primaryBlue" asChild>
+        <Link href={prefixPath(emailAccountId, "/assistant")}>
+          <MessageCircleIcon className="mr-2 size-4" />
+          AI Chat
+        </Link>
+      </Button>
+    </div>
   );
 }

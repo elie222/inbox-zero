@@ -17,17 +17,13 @@ export function SettingsTab() {
       </div>
 
       <TabsContent value="prompt">
-        <div className="max-w-screen-xl">
-          <RulesPrompt />
-        </div>
+        <RulesPrompt />
       </TabsContent>
       <TabsContent value="rules">
-        <div className="max-w-screen-lg">
-          <Rules />
-        </div>
+        <Rules />
       </TabsContent>
 
-      <div className="mt-8 max-w-screen-lg space-y-2">
+      <div className="mt-8 space-y-2">
         <DraftReplies />
         <AboutSetting />
         <DigestSetting />
