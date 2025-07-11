@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type {
   StatsByWeekResponse,
   StatsByWeekParams,
-} from "@/app/api/user/stats/by-period/route";
+} from "@/app/api/user/stats/by-period/controller";
 import { DetailedStatsFilter } from "@/app/(app)/[emailAccountId]/stats/DetailedStatsFilter";
 import { getDateRangeParams } from "@/app/(app)/[emailAccountId]/stats/params";
 
