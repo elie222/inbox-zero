@@ -380,7 +380,7 @@ function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
     <div>
       <SectionHeader className="text-xl">Examples</SectionHeader>
 
-      <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
+      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
         <div className="grid grid-cols-1 gap-2">
           {examplePrompts.map((example) => {
             const { color } = getActionType(example);

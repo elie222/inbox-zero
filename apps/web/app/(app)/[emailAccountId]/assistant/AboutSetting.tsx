@@ -21,7 +21,7 @@ export function AboutSetting() {
         <Dialog>
           <DialogTrigger asChild>
             <Button variant="outline" size="sm">
-              Configure
+              Edit
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
