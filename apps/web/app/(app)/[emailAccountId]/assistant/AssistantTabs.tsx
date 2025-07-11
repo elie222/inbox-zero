@@ -36,7 +36,6 @@ export function AssistantTabs() {
               {hasPendingRule && (
                 <TabsTrigger value="pending">Pending</TabsTrigger>
               )}
-              <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
             </TabsList>
           </div>
 
@@ -93,9 +92,6 @@ export function AssistantTabs() {
               <Pending />
             </TabsContent>
           )}
-          <TabsContent value="knowledge" className="content-container pb-4">
-            <KnowledgeBase />
-          </TabsContent>
           {/* Set via search params. Not a visible tab. */}
           <TabsContent value="rule" className="content-container pb-4">
             <RuleTab />

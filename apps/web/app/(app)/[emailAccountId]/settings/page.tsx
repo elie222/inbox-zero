@@ -1,12 +1,8 @@
 "use client";
 
-import { FormWrapper } from "@/components/Form";
-import { AboutSectionForm } from "@/app/(app)/[emailAccountId]/settings/AboutSectionForm";
-// import { SignatureSectionForm } from "@/app/(app)/settings/SignatureSectionForm";
-// import { LabelsSection } from "@/app/(app)/settings/LabelsSection";
+import { FormSection, FormWrapper } from "@/components/Form";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
-import { EmailUpdatesSection } from "@/app/(app)/[emailAccountId]/settings/EmailUpdatesSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
@@ -18,6 +14,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { DigestMailFrequencySection } from "@/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection";
 import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
+import { SectionDescription } from "@/components/Typography";
 
 export default function SettingsPage(_props: {
   params: Promise<{ emailAccountId: string }>;
@@ -26,24 +23,39 @@ export default function SettingsPage(_props: {
   const digestEnabled = useDigestEnabled();
 
   return (
-    <Tabs defaultValue="email">
+    <Tabs defaultValue="user">
       <TabsToolbar>
         <div className="w-full overflow-x-auto">
           <TabsList>
-            <TabsTrigger value="email">Email</TabsTrigger>
             <TabsTrigger value="user">User</TabsTrigger>
+            <TabsTrigger value="email">Email Account</TabsTrigger>
           </TabsList>
         </div>
       </TabsToolbar>
+
+      <TabsContent value="user">
+        <FormWrapper>
+          <MultiAccountSection />
+          <BillingSection />
+          <ModelSection />
+          <WebhookSection />
+          <ApiKeysSection />
+          <DeleteSection />
+        </FormWrapper>
+      </TabsContent>
 
       <TabsContent value="email" className="content-container mb-10">
         <LoadingContent loading={isLoading} error={error}>
           {data && (
             <FormWrapper>
-              <AboutSectionForm about={data?.about} mutate={mutate} />
+              <FormSection className="py-4">
+                <SectionDescription>
+                  Settings for {data.email}
+                </SectionDescription>
+              </FormSection>
+
               {/* this is only used in Gmail when sending a new message. disabling for now. */}
               {/* <SignatureSectionForm signature={user.signature} /> */}
-              {/* <LabelsSection /> */}
               {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
@@ -58,16 +70,6 @@ export default function SettingsPage(_props: {
             </FormWrapper>
           )}
         </LoadingContent>
-      </TabsContent>
-      <TabsContent value="user">
-        <FormWrapper>
-          <ModelSection />
-          <MultiAccountSection />
-          <WebhookSection />
-          <ApiKeysSection />
-          <BillingSection />
-          <DeleteSection />
-        </FormWrapper>
       </TabsContent>
     </Tabs>
   );

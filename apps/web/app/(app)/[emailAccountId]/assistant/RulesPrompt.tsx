@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo, useRef } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -215,8 +215,6 @@ function RulesPromptForm({
     [setValue, getValues],
   );
 
-  // const [showExamples, setShowExamples] = useState(false);
-
   return (
     <div>
       <ProcessingPromptFileDialog
@@ -382,7 +380,7 @@ function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
     <div>
       <SectionHeader className="text-xl">Examples</SectionHeader>
 
-      <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
+      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
         <div className="grid grid-cols-1 gap-2">
           {examplePrompts.map((example) => {
             const { color } = getActionType(example);

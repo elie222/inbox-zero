@@ -12,7 +12,7 @@ import {
   ToggleLeftIcon,
   InfoIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,6 +56,7 @@ import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
+import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -63,6 +64,9 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const { data, isLoading, error, mutate } = useRules();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
+  const coldEmailDialog = useDialogState();
+
+  const onCreateRule = () => ruleDialog.open();
 
   const { emailAccountId } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -168,7 +172,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
   const hasRules = !!rules?.length;
 
   return (
-    <div className="pb-4">
+    <div>
       <Card>
         <LoadingContent loading={isLoading} error={error}>
           {hasRules ? (
@@ -187,7 +191,9 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <span className="sr-only">User Actions</span>
+                    <div className="flex justify-end">
+                      <AddRuleButton onClick={onCreateRule} />
+                    </div>
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -195,16 +201,6 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                 {rules.map((rule) => {
                   const isColdEmailBlocker =
                     rule.id === COLD_EMAIL_BLOCKER_RULE_ID;
-                  const href = isColdEmailBlocker
-                    ? prefixPath(
-                        emailAccountId,
-                        "/cold-email-blocker?tab=settings",
-                      )
-                    : createAssistantUrl({
-                        tab: "rule",
-                        ruleId: rule.id,
-                        path: `/assistant/rule/${rule.id}`,
-                      });
 
                   return (
                     <TableRow
@@ -216,7 +212,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           type="button"
                           onClick={() => {
                             if (isColdEmailBlocker) {
-                              window.open(href, "_blank");
+                              coldEmailDialog.open();
                             } else {
                               ruleDialog.open({
                                 ruleId: rule.id,
@@ -281,7 +277,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           </div>
                         </TableCell>
                       )} */}
-                      <TableCell>
+                      <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -297,7 +293,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
-                                  window.open(href, "_blank");
+                                  coldEmailDialog.open();
                                 } else {
                                   ruleDialog.open({
                                     ruleId: rule.id,
@@ -418,22 +414,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               </TableBody>
             </Table>
           ) : (
-            <NoRules
-              onCreateRule={() => {
-                ruleDialog.open();
-              }}
-            />
+            <NoRules onCreateRule={onCreateRule} />
           )}
         </LoadingContent>
       </Card>
-
-      {hasRules && (
-        <AddRuleButtons
-          onCreateRule={() => {
-            ruleDialog.open();
-          }}
-        />
-      )}
 
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
@@ -444,6 +428,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
           ruleDialog.close();
         }}
         editMode={ruleDialog.data?.editMode}
+      />
+
+      <ColdEmailDialog
+        isOpen={coldEmailDialog.isOpen}
+        onClose={coldEmailDialog.close}
       />
     </div>
   );
@@ -478,7 +467,7 @@ export function ActionBadges({
   );
 }
 
-function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
+function NoRules({ onCreateRule }: { onCreateRule: () => void }) {
   return (
     <>
       <CardHeader>
@@ -490,25 +479,18 @@ function NoRules({ onCreateRule }: { onCreateRule?: () => void }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <AddRuleButtons onCreateRule={onCreateRule} />
+        <AddRuleButton onClick={onCreateRule} />
       </CardContent>
     </>
   );
 }
 
-function AddRuleButtons({ onCreateRule }: { onCreateRule?: () => void }) {
-  const { emailAccountId } = useAccount();
+function AddRuleButton({ onClick }: { onClick: () => void }) {
   return (
-    <div className="my-2 flex justify-end gap-2">
-      <Button asChild variant="outline" size="sm">
-        <Link href={prefixPath(emailAccountId, "/automation?tab=prompt")}>
-          <PenIcon className="mr-2 hidden size-4 md:block" />
-          Add Rule via Prompt
-        </Link>
-      </Button>
-      <Button variant="outline" size="sm" onClick={onCreateRule}>
+    <div className="my-2">
+      <Button size="sm" onClick={onClick}>
         <PlusIcon className="mr-2 hidden size-4 md:block" />
-        Add Rule Manually
+        Add Rule
       </Button>
     </div>
   );
