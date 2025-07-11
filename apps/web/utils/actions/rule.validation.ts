@@ -6,6 +6,13 @@ import {
   SystemType,
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
+import { NINETY_DAYS_MINUTES } from "@/utils/date";
+
+export const delayInMinutesSchema = z
+  .number()
+  .min(1, "Minimum supported delay is 1 minute")
+  .max(NINETY_DAYS_MINUTES, "Maximum supported delay is 90 days")
+  .nullish();
 
 const zodActionType = z.enum([
   ActionType.ARCHIVE,
@@ -73,6 +80,7 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
+    delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
     if (data.type === ActionType.LABEL && !data.label?.value?.trim()) {
@@ -163,7 +171,12 @@ export type UpdateRuleSettingsBody = z.infer<typeof updateRuleSettingsBody>;
 export const enableDraftRepliesBody = z.object({ enable: z.boolean() });
 export type EnableDraftRepliesBody = z.infer<typeof enableDraftRepliesBody>;
 
-const categoryAction = z.enum(["label", "label_archive", "none"]);
+const categoryAction = z.enum([
+  "label",
+  "label_archive",
+  "label_archive_delayed",
+  "none",
+]);
 export type CategoryAction = z.infer<typeof categoryAction>;
 
 const categoryConfig = z.object({

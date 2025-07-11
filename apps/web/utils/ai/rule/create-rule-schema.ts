@@ -4,6 +4,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
 } from "@prisma/client";
+import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 
 const conditionSchema = z
   .object({
@@ -76,6 +77,7 @@ const actionSchema = z.object({
     .describe(
       "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
     ),
+  delayInMinutes: delayInMinutesSchema,
 });
 
 export const createRuleSchema = z.object({

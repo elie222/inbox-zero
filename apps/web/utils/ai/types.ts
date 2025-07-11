@@ -22,4 +22,5 @@ export type ActionItem = {
   cc?: ExecutedAction["cc"];
   bcc?: ExecutedAction["bcc"];
   url?: ExecutedAction["url"];
+  delayInMinutes?: number | null;
 };
