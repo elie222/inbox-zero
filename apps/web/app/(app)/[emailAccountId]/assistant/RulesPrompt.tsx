@@ -269,7 +269,6 @@ Let me know if you're interested!
             <div className="flex flex-wrap gap-2">
               <Button
                 type="submit"
-                variant="primaryBlue"
                 disabled={isSubmitting || isGenerating}
                 loading={isSubmitting}
               >
