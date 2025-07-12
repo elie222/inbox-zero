@@ -18,9 +18,11 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     
-    # Only run for core team members (those with write access)
+    # Run only for core team members (those with write access) and skip WIP PRs
     if: |
-      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      !contains(github.event.pull_request.title, 'WIP') &&
+      !contains(github.event.pull_request.title, 'wip')
     
     runs-on: ubuntu-latest
     permissions:
@@ -38,9 +40,6 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@beta
-        # Skip review for WIP PRs
-        if: |
-          !contains(github.event.pull_request.title, 'WIP')
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
