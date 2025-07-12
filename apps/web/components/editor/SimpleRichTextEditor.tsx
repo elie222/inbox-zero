@@ -8,6 +8,7 @@ import { useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import type { FieldError } from "react-hook-form";
+import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
   registerProps?: UseFormRegisterReturn;
@@ -48,16 +49,18 @@ export const SimpleRichTextEditor = forwardRef<
     const editor = useEditor({
       extensions: [
         StarterKit.configure({
-          // Only include minimal features: bold, headings, lists
           italic: false,
           strike: false,
-          code: false,
+          code: {
+            HTMLAttributes: {
+              class: "simple-editor-highlight",
+            },
+          },
           codeBlock: false,
           blockquote: {},
           horizontalRule: false,
           dropcursor: false,
           gapcursor: false,
-          // Configure lists to preserve formatting
           bulletList: {
             keepMarks: true,
             keepAttributes: false,
@@ -66,11 +69,6 @@ export const SimpleRichTextEditor = forwardRef<
             keepMarks: true,
             keepAttributes: false,
           },
-        }),
-        Markdown.configure({
-          html: false,
-          transformPastedText: true,
-          transformCopiedText: true,
         }),
         ...(placeholder
           ? [
@@ -81,6 +79,13 @@ export const SimpleRichTextEditor = forwardRef<
               }),
             ]
           : []),
+        Markdown.configure({
+          html: false,
+          transformPastedText: true,
+          transformCopiedText: true,
+          breaks: false,
+          linkify: false,
+        }),
       ],
       content: defaultValue || "",
       onUpdate: useCallback(
@@ -97,7 +102,8 @@ export const SimpleRichTextEditor = forwardRef<
       editorProps: {
         attributes: {
           class: cn(
-            "px-3 py-2 max-w-none focus:outline-none prose prose-sm max-w-none",
+            "p-3 max-w-none focus:outline-none max-w-none simple-rich-editor",
+            "prose prose-sm",
             "prose-headings:font-cal prose-headings:text-foreground",
             "prose-p:text-foreground prose-li:text-foreground",
             "prose-strong:text-foreground prose-strong:font-semibold",
