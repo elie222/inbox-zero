@@ -13,7 +13,7 @@ import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { Input } from "@/components/Input";
+import { SimpleRichTextEditor } from "@/components/editor/SimpleRichTextEditor";
 import {
   saveRulesPromptBody,
   type SaveRulesPromptBody,
@@ -243,27 +243,19 @@ function RulesPromptForm({
           </Label>
 
           <div className="mt-1.5 space-y-4">
-            <Input
-              className="min-h-[300px] border-input"
+            <SimpleRichTextEditor
               registerProps={register("rulesPrompt", { required: true })}
               name="rulesPrompt"
-              type="text"
-              autosizeTextarea
-              rows={30}
-              maxRows={50}
               error={errors.rulesPrompt}
+              value={currentPrompt}
+              minHeight={600}
               placeholder={`Here's an example of what your prompt might look like:
 
-${personas.other.promptArray.slice(0, 1).join("\n")}
-
-If someone asks about pricing, reply with:
----
-Hi NAME!
-
-I'm currently offering a 10% discount for the first 10 customers.
-
-Let me know if you're interested!
----`}
+* ${personas.other.promptArray[0]}
+* ${personas.other.promptArray[1]}
+* If someone asks about pricing, reply with:
+> Hi NAME!
+> I'm currently offering a 10% discount. Let me know if you're interested!`}
             />
 
             <div className="flex flex-wrap gap-2">
