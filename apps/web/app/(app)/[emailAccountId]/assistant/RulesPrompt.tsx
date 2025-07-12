@@ -247,7 +247,6 @@ function RulesPromptForm({
               registerProps={register("rulesPrompt", { required: true })}
               name="rulesPrompt"
               error={errors.rulesPrompt}
-              defaultValue={rulesPrompt || ""}
               value={currentPrompt}
               minHeight={600}
               placeholder={`Here's an example of what your prompt might look like:
