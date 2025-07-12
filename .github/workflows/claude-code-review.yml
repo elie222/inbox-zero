@@ -18,6 +18,10 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     
+    # Only run for core team members (those with write access)
+    if: |
+      contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association)
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,6 +38,9 @@ jobs:
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@beta
+        # Skip review for WIP PRs
+        if: |
+          !contains(github.event.pull_request.title, 'WIP')
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
 
@@ -47,7 +54,6 @@ jobs:
             - Potential bugs or issues
             - Performance considerations
             - Security concerns
-            - Test coverage
             
             Be constructive and helpful in your feedback.
 
