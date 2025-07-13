@@ -4,10 +4,12 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
+import { useCallback, useEffect, forwardRef } from "react";
 import { cn } from "@/utils";
 import type { UseFormRegisterReturn } from "react-hook-form";
 import type { FieldError } from "react-hook-form";
+import { useLabels } from "@/hooks/useLabels";
+import { createLabelMentionExtension } from "./extensions/LabelMention";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
@@ -22,14 +24,8 @@ interface SimpleRichTextEditorProps {
   minHeight?: number;
 }
 
-export interface SimpleRichTextEditorRef {
-  insertText: (text: string) => void;
-  appendText: (text: string) => void;
-  getMarkdown: () => string;
-}
-
 export const SimpleRichTextEditor = forwardRef<
-  SimpleRichTextEditorRef,
+  unknown,
   SimpleRichTextEditorProps
 >(
   (
@@ -46,107 +42,88 @@ export const SimpleRichTextEditor = forwardRef<
     },
     ref,
   ) => {
-    const editor = useEditor({
-      extensions: [
-        StarterKit.configure({
-          italic: false,
-          strike: false,
-          code: {
-            HTMLAttributes: {
-              class: "simple-editor-highlight",
-            },
-          },
-          codeBlock: false,
-          blockquote: {},
-          horizontalRule: false,
-          dropcursor: false,
-          gapcursor: false,
-          bulletList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-          orderedList: {
-            keepMarks: true,
-            keepAttributes: false,
-          },
-        }),
-        ...(placeholder
-          ? [
-              Placeholder.configure({
-                placeholder,
-                showOnlyWhenEditable: true,
-                showOnlyCurrent: false,
-              }),
-            ]
-          : []),
-        Markdown.configure({
-          html: false,
-          transformPastedText: true,
-          transformCopiedText: true,
-          breaks: false,
-          linkify: false,
-        }),
-      ],
-      content: defaultValue || "",
-      onUpdate: useCallback(
-        ({ editor }: { editor: Editor }) => {
-          const markdown = editor.storage.markdown.getMarkdown();
-          if (registerProps?.onChange) {
-            registerProps.onChange({
-              target: { name: name || registerProps.name, value: markdown },
-            });
-          }
-        },
-        [registerProps, name],
-      ),
-      editorProps: {
-        attributes: {
-          class: cn(
-            "p-3 max-w-none focus:outline-none max-w-none simple-rich-editor",
-            "prose prose-sm",
-            "prose-headings:font-cal prose-headings:text-foreground",
-            "prose-p:text-foreground prose-li:text-foreground",
-            "prose-strong:text-foreground prose-strong:font-semibold",
-            "prose-ul:text-foreground prose-ol:text-foreground",
-            "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-            // Placeholder styles
-            "[&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
-            "[&_p.is-editor-empty:first-child::before]:float-left",
-            "[&_p.is-editor-empty:first-child::before]:text-muted-foreground",
-            "[&_p.is-editor-empty:first-child::before]:pointer-events-none",
-            "[&_p.is-editor-empty:first-child::before]:h-0",
-            disabled && "opacity-50 cursor-not-allowed",
-          ),
-          style: `min-height: ${minHeight}px`,
-          ...(placeholder && { "data-placeholder": placeholder }),
-        },
-      },
-      editable: !disabled,
-    });
+    const { userLabels } = useLabels();
 
-    // Expose editor methods via ref
-    useImperativeHandle(
-      ref,
-      () => ({
-        insertText: (text: string) => {
-          if (editor) {
-            editor.chain().focus().insertContent(text).run();
-          }
+    const editor = useEditor(
+      {
+        extensions: [
+          StarterKit.configure({
+            italic: false,
+            strike: false,
+            code: {
+              HTMLAttributes: {
+                class: "simple-editor-highlight",
+              },
+            },
+            codeBlock: false,
+            blockquote: {},
+            horizontalRule: false,
+            dropcursor: false,
+            gapcursor: false,
+            bulletList: {
+              keepMarks: true,
+              keepAttributes: false,
+            },
+            orderedList: {
+              keepMarks: true,
+              keepAttributes: false,
+            },
+          }),
+          ...(placeholder
+            ? [
+                Placeholder.configure({
+                  placeholder,
+                  showOnlyWhenEditable: true,
+                  showOnlyCurrent: false,
+                }),
+              ]
+            : []),
+          Markdown.configure({
+            html: false,
+            transformPastedText: true,
+            transformCopiedText: true,
+            breaks: false,
+            linkify: false,
+          }),
+          ...(userLabels ? [createLabelMentionExtension(userLabels)] : []),
+        ],
+        content: defaultValue || "",
+        onUpdate: useCallback(
+          ({ editor }: { editor: Editor }) => {
+            const markdown = editor.storage.markdown.getMarkdown();
+            if (registerProps?.onChange) {
+              registerProps.onChange({
+                target: { name: name || registerProps.name, value: markdown },
+              });
+            }
+          },
+          [registerProps, name],
+        ),
+        editorProps: {
+          attributes: {
+            class: cn(
+              "p-3 max-w-none focus:outline-none max-w-none simple-rich-editor",
+              "prose prose-sm",
+              "prose-headings:font-cal prose-headings:text-foreground",
+              "prose-p:text-foreground prose-li:text-foreground",
+              "prose-strong:text-foreground prose-strong:font-semibold",
+              "prose-ul:text-foreground prose-ol:text-foreground",
+              "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+              // Placeholder styles
+              "[&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]",
+              "[&_p.is-editor-empty:first-child::before]:float-left",
+              "[&_p.is-editor-empty:first-child::before]:text-muted-foreground",
+              "[&_p.is-editor-empty:first-child::before]:pointer-events-none",
+              "[&_p.is-editor-empty:first-child::before]:h-0",
+              disabled && "opacity-50 cursor-not-allowed",
+            ),
+            style: `min-height: ${minHeight}px`,
+            ...(placeholder && { "data-placeholder": placeholder }),
+          },
         },
-        appendText: (text: string) => {
-          if (editor) {
-            const currentContent = editor.storage.markdown.getMarkdown();
-            const newContent = currentContent
-              ? `${currentContent}\n${text}`
-              : text;
-            editor.commands.setContent(newContent);
-          }
-        },
-        getMarkdown: () => {
-          return editor?.storage.markdown.getMarkdown() || "";
-        },
-      }),
-      [editor],
+        editable: !disabled,
+      },
+      [userLabels],
     );
 
     // Update editor content when value prop changes
