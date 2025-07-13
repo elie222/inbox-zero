@@ -4,10 +4,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useEffect, useImperativeHandle, forwardRef } from "react";
+import { useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
-import { useLabels } from "@/hooks/useLabels";
 import { createLabelMentionExtension } from "./extensions/LabelMention";
+import type { UserLabel } from "@/hooks/useLabels";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
@@ -16,6 +16,7 @@ interface SimpleRichTextEditorProps {
   disabled?: boolean;
   defaultValue?: string;
   minHeight?: number;
+  userLabels?: UserLabel[];
 }
 
 export interface SimpleRichTextEditorRef {
@@ -28,11 +29,16 @@ export const SimpleRichTextEditor = forwardRef<
   SimpleRichTextEditorProps
 >(
   (
-    { placeholder, className, disabled, defaultValue = "", minHeight = 300 },
+    {
+      placeholder,
+      className,
+      disabled,
+      defaultValue = "",
+      minHeight = 300,
+      userLabels,
+    },
     ref,
   ) => {
-    const { userLabels } = useLabels();
-
     const editor = useEditor(
       {
         extensions: [

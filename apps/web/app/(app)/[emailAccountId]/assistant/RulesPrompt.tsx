@@ -39,6 +39,7 @@ import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useLabels } from "@/hooks/useLabels";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -107,6 +108,12 @@ function RulesPromptForm({
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
 }) {
+  const {
+    userLabels,
+    isLoading: isLoadingLabels,
+    error: errorLabels,
+  } = useLabels();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -236,18 +243,25 @@ function RulesPromptForm({
           </Label>
 
           <div className="mt-1.5 space-y-4">
-            <SimpleRichTextEditor
-              ref={editorRef}
-              defaultValue={rulesPrompt || undefined}
-              minHeight={600}
-              placeholder={`Here's an example of what your prompt might look like:
+            <LoadingContent
+              loading={isLoadingLabels}
+              error={errorLabels}
+              loadingComponent={<Skeleton className="min-h-[600px] w-full" />}
+            >
+              <SimpleRichTextEditor
+                ref={editorRef}
+                defaultValue={rulesPrompt || undefined}
+                minHeight={600}
+                userLabels={userLabels}
+                placeholder={`Here's an example of what your prompt might look like:
 
 * ${personas.other.promptArray[0]}
 * ${personas.other.promptArray[1]}
 * If someone asks about pricing, reply with:
 > Hi NAME!
 > I'm currently offering a 10% discount. Let me know if you're interested!`}
-            />
+              />
+            </LoadingContent>
 
             <div className="flex flex-wrap gap-2">
               <Button
