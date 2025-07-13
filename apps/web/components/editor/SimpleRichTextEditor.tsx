@@ -84,6 +84,7 @@ export const SimpleRichTextEditor = forwardRef<
             transformCopiedText: true,
             breaks: false,
             linkify: false,
+            bulletListMarker: "*",
           }),
           ...(userLabels ? [createLabelMentionExtension(userLabels)] : []),
         ],
