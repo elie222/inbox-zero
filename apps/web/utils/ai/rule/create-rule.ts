@@ -28,7 +28,7 @@ export async function aiCreateRule(
     label: "Categorize rule",
   });
 
-  const result = aiResponse.toolCalls[0].args as CreateRuleSchema;
+  const result = aiResponse.toolCalls[0]?.args as CreateRuleSchema;
 
   return result;
 }

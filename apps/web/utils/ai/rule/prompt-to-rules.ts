@@ -84,9 +84,16 @@ ${promptFile}
     label: "Prompt to rules",
   });
 
-  const { rules } = aiResponse.toolCalls[0].args as {
+  const result = aiResponse.toolCalls?.[0]?.args as {
     rules: CreateOrUpdateRuleSchemaWithCategories[];
-  };
+  } | null;
+
+  if (!result) {
+    logger.error("No rules found in AI response", { aiResponse });
+    throw new Error("No rules found in AI response");
+  }
+
+  const { rules } = result;
 
   logger.trace("Output", { rules });
 
