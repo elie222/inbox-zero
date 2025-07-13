@@ -58,7 +58,7 @@ Please return the existing rules that match the prompt rules.`;
     label: "Find existing rules",
   });
 
-  const parsedRules = aiResponse.toolCalls[0].args as z.infer<
+  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
     typeof parameters
   >;
 

@@ -9,18 +9,12 @@ import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSec
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TabsToolbar } from "@/components/TabsToolbar";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
-import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
-import { LoadingContent } from "@/components/LoadingContent";
-import { DigestMailFrequencySection } from "@/app/(app)/[emailAccountId]/settings/DigestMailFrequencySection";
-import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { SectionDescription } from "@/components/Typography";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
-export default function SettingsPage(_props: {
-  params: Promise<{ emailAccountId: string }>;
-}) {
-  const { data, isLoading, error, mutate } = useEmailAccountFull();
-  const digestEnabled = useDigestEnabled();
+export default function SettingsPage() {
+  const { emailAccount } = useAccount();
 
   return (
     <Tabs defaultValue="user">
@@ -45,31 +39,24 @@ export default function SettingsPage(_props: {
       </TabsContent>
 
       <TabsContent value="email" className="content-container mb-10">
-        <LoadingContent loading={isLoading} error={error}>
-          {data && (
-            <FormWrapper>
-              <FormSection className="py-4">
-                <SectionDescription>
-                  Settings for {data.email}
-                </SectionDescription>
-              </FormSection>
+        {emailAccount && (
+          <FormWrapper>
+            <FormSection className="py-4">
+              <SectionDescription>
+                Settings for {emailAccount?.email}
+              </SectionDescription>
+            </FormSection>
 
-              {/* this is only used in Gmail when sending a new message. disabling for now. */}
-              {/* <SignatureSectionForm signature={user.signature} /> */}
-              {/* <EmailUpdatesSection
+            <ResetAnalyticsSection />
+
+            {/* this is only used in Gmail when sending a new message. disabling for now. */}
+            {/* <SignatureSectionForm signature={user.signature} /> */}
+            {/* <EmailUpdatesSection
                 summaryEmailFrequency={data?.summaryEmailFrequency}
                 mutate={mutate}
               /> */}
-              {digestEnabled && (
-                <DigestMailFrequencySection
-                  digestSchedule={data?.digestSchedule ?? undefined}
-                  mutate={mutate}
-                />
-              )}
-              <ResetAnalyticsSection />
-            </FormWrapper>
-          )}
-        </LoadingContent>
+          </FormWrapper>
+        )}
       </TabsContent>
     </Tabs>
   );
