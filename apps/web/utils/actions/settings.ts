@@ -84,7 +84,7 @@ export const updateDigestItemsAction = actionClient
   .action(
     async ({
       ctx: { emailAccountId },
-      parsedInput: { ruleDigestPreferences },
+      parsedInput: { ruleDigestPreferences, coldEmailDigest },
     }) => {
       const logger = createScopedLogger("updateDigestItems").with({
         emailAccountId,
@@ -129,6 +129,18 @@ export const updateDigestItemsAction = actionClient
           }
         },
       );
+
+      // Handle cold email digest setting separately
+      if (coldEmailDigest !== undefined) {
+        promises.push(
+          prisma.emailAccount
+            .update({
+              where: { id: emailAccountId },
+              data: { coldEmailDigest },
+            })
+            .then(() => {}),
+        );
+      }
 
       await Promise.all(promises);
       return { success: true };

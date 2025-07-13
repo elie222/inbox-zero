@@ -150,6 +150,22 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               url: null,
             }
           : null,
+        emailAccountData?.coldEmailDigest
+          ? {
+              id: "cold-email-blocker-digest",
+              type: ActionType.DIGEST,
+              label: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              url: null,
+            }
+          : null,
       ].filter(isDefined),
       categoryFilters: [],
       group: null,
