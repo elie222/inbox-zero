@@ -18,6 +18,12 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     
+    # Run only for core team members (those with write access) and skip WIP PRs
+    if: |
+      contains(fromJson('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      !contains(github.event.pull_request.title, 'WIP') &&
+      !contains(github.event.pull_request.title, 'wip')
+    
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -47,7 +53,6 @@ jobs:
             - Potential bugs or issues
             - Performance considerations
             - Security concerns
-            - Test coverage
             
             Be constructive and helpful in your feedback.
 
