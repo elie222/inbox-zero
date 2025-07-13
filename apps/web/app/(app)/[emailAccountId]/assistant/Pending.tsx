@@ -34,10 +34,7 @@ import { useChat } from "@/components/assistant-chat/ChatContext";
 
 export function Pending() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
-  const [ruleId, setRuleId] = useQueryState(
-    "rule-id",
-    parseAsString.withDefault("all"),
-  );
+  const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
 
   const { data, isLoading, error, mutate } = useSWR<PendingExecutedRules>(
     `/api/user/planned?page=${page}&ruleId=${ruleId}`,
@@ -45,9 +42,7 @@ export function Pending() {
 
   return (
     <>
-      <div className="flex">
-        <RulesSelect ruleId={ruleId} setRuleId={setRuleId} />
-      </div>
+      <RulesSelect />
       <Card className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
           {data?.executedRules.length ? (

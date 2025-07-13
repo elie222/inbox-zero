@@ -26,10 +26,7 @@ import { useChat } from "@/components/assistant-chat/ChatContext";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));
-  const [ruleId, setRuleId] = useQueryState(
-    "ruleId",
-    parseAsString.withDefault("all"),
-  );
+  const [ruleId] = useQueryState("ruleId", parseAsString.withDefault("all"));
 
   const { data, isLoading, error } = useSWR<PlanHistoryResponse>(
     `/api/user/planned/history?page=${page}&ruleId=${ruleId}`,
@@ -37,9 +34,7 @@ export function History() {
 
   return (
     <>
-      <div className="flex">
-        <RulesSelect ruleId={ruleId} setRuleId={setRuleId} />
-      </div>
+      <RulesSelect />
       <Card className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
           {data?.executedRules.length ? (
