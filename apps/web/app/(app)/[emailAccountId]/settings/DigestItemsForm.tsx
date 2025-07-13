@@ -64,7 +64,7 @@ export function DigestItemsForm() {
       });
       reset({
         ruleDigestPreferences: preferences,
-        coldEmailDigest: digestSettings.coldEmail,
+        coldEmailDigest: digestSettings.coldEmail || false,
       });
     }
   }, [rules, digestSettings, reset]);
