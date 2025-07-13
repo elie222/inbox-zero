@@ -158,6 +158,24 @@ export const createLabelMentionExtension = (labels: UserLabel[]) => {
                   return true;
                 },
               );
+
+              // Add renderer for mention tokens to create proper HTML structure
+              markdownIt.renderer.rules.mention_open = (
+                tokens: any,
+                idx: any,
+              ) => {
+                const token = tokens[idx];
+                const id =
+                  token.attrs.find((attr: any) => attr[0] === "id")?.[1] || "";
+                const label =
+                  token.attrs.find((attr: any) => attr[0] === "label")?.[1] ||
+                  "";
+                return `<span class="mention-label" data-type="mention" data-id="${id}" data-label="${label}" data-mention-suggestion-char="@" contenteditable="false">`;
+              };
+
+              markdownIt.renderer.rules.mention_close = () => {
+                return "</span>";
+              };
             },
           },
         },

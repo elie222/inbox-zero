@@ -142,10 +142,7 @@ function RulesPromptForm({
 
   useEffect(() => {
     if (!personaPrompt) return;
-
-    const currentPrompt = editorRef.current?.getMarkdown() || "";
-    const updatedPrompt = `${currentPrompt}\n\n${personaPrompt}`.trim();
-    editorRef.current?.appendText(updatedPrompt);
+    editorRef.current?.appendText(personaPrompt);
   }, [personaPrompt]);
 
   const router = useRouter();
@@ -213,7 +210,6 @@ function RulesPromptForm({
   }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
 
   const addExamplePrompt = useCallback((example: string) => {
-    console.log("🚀 ~ addExamplePrompt ~ example:", example);
     editorRef.current?.appendText(`\n* ${example.trim()}`);
   }, []);
 
