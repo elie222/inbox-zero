@@ -1,29 +1,25 @@
 "use client";
 
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, useImperativeHandle, forwardRef } from "react";
+import { useImperativeHandle, forwardRef, useMemo, useState } from "react";
 import { cn } from "@/utils";
-import type { UseFormRegisterReturn } from "react-hook-form";
-import type { FieldError } from "react-hook-form";
+import { createLabelMentionExtension } from "./extensions/LabelMention";
+import type { UserLabel } from "@/hooks/useLabels";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
-  registerProps?: UseFormRegisterReturn;
-  name?: string;
-  error?: FieldError;
   placeholder?: string;
   className?: string;
-  disabled?: boolean;
   defaultValue?: string;
-  value?: string;
   minHeight?: number;
+  userLabels?: UserLabel[];
+  onClearContents?: () => void;
 }
 
 export interface SimpleRichTextEditorRef {
-  insertText: (text: string) => void;
   appendText: (text: string) => void;
   getMarkdown: () => string;
 }
@@ -34,15 +30,12 @@ export const SimpleRichTextEditor = forwardRef<
 >(
   (
     {
-      registerProps,
-      name,
-      error,
       placeholder,
       className,
-      disabled,
       defaultValue = "",
-      value,
       minHeight = 300,
+      userLabels,
+      onClearContents,
     },
     ref,
   ) => {
@@ -85,20 +78,11 @@ export const SimpleRichTextEditor = forwardRef<
           transformCopiedText: true,
           breaks: false,
           linkify: false,
+          bulletListMarker: "*",
         }),
+        ...(userLabels ? [createLabelMentionExtension(userLabels)] : []),
       ],
-      content: defaultValue || "",
-      onUpdate: useCallback(
-        ({ editor }: { editor: Editor }) => {
-          const markdown = editor.storage.markdown.getMarkdown();
-          if (registerProps?.onChange) {
-            registerProps.onChange({
-              target: { name: name || registerProps.name, value: markdown },
-            });
-          }
-        },
-        [registerProps, name],
-      ),
+      content: defaultValue,
       editorProps: {
         attributes: {
           class: cn(
@@ -115,24 +99,27 @@ export const SimpleRichTextEditor = forwardRef<
             "[&_p.is-editor-empty:first-child::before]:text-muted-foreground",
             "[&_p.is-editor-empty:first-child::before]:pointer-events-none",
             "[&_p.is-editor-empty:first-child::before]:h-0",
-            disabled && "opacity-50 cursor-not-allowed",
           ),
           style: `min-height: ${minHeight}px`,
           ...(placeholder && { "data-placeholder": placeholder }),
         },
       },
-      editable: !disabled,
+      onUpdate: ({ editor }) => {
+        if (
+          onClearContents &&
+          editor.isEmpty &&
+          defaultValue &&
+          defaultValue.trim() !== ""
+        ) {
+          onClearContents();
+        }
+      },
     });
 
     // Expose editor methods via ref
     useImperativeHandle(
       ref,
       () => ({
-        insertText: (text: string) => {
-          if (editor) {
-            editor.chain().focus().insertContent(text).run();
-          }
-        },
         appendText: (text: string) => {
           if (editor) {
             const currentContent = editor.storage.markdown.getMarkdown();
@@ -149,32 +136,17 @@ export const SimpleRichTextEditor = forwardRef<
       [editor],
     );
 
-    // Update editor content when value prop changes
-    useEffect(() => {
-      if (
-        editor &&
-        value !== undefined &&
-        value !== editor.storage.markdown.getMarkdown()
-      ) {
-        editor.commands.setContent(value);
-      }
-    }, [value, editor]);
-
     return (
       <div className={cn("relative w-full", className)}>
         <div
           className={cn(
             "rounded-md border border-input bg-background",
             "focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
-            error &&
-              "border-red-500 focus-within:border-red-500 focus-within:ring-red-500",
-            disabled && "cursor-not-allowed opacity-50",
           )}
           style={{ minHeight }}
         >
           <EditorContent editor={editor} />
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
       </div>
     );
   },

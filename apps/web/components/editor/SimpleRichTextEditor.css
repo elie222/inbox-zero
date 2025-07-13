@@ -28,3 +28,27 @@
 .dark .simple-rich-editor.prose :where(code):not(:where([class~="not-prose"] *)) {
   @apply bg-blue-950 text-blue-100 border-blue-800;
 }
+
+/* Mention styles */
+.mention-label {
+  @apply inline-block rounded-md bg-indigo-100 px-1 py-0.5 text-sm font-medium text-indigo-900;
+  @apply border border-indigo-200;
+  text-decoration: none;
+}
+
+.mention-label:hover {
+  @apply bg-indigo-200 border-indigo-300;
+}
+
+.dark .mention-label {
+  @apply bg-indigo-900 text-indigo-100 border-indigo-800;
+}
+
+.dark .mention-label:hover {
+  @apply bg-indigo-800 border-indigo-700;
+}
+
+.mention-suggestions {
+  max-width: 300px;
+  min-width: 200px;
+}
