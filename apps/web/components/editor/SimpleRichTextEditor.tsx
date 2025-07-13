@@ -4,7 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useImperativeHandle, forwardRef } from "react";
+import { useImperativeHandle, forwardRef, useMemo } from "react";
 import { cn } from "@/utils";
 import { createLabelMentionExtension } from "./extensions/LabelMention";
 import type { UserLabel } from "@/hooks/useLabels";
@@ -17,6 +17,7 @@ interface SimpleRichTextEditorProps {
   defaultValue?: string;
   minHeight?: number;
   userLabels?: UserLabel[];
+  onClearContents?: () => void;
 }
 
 export interface SimpleRichTextEditorRef {
@@ -36,6 +37,7 @@ export const SimpleRichTextEditor = forwardRef<
       defaultValue = "",
       minHeight = 300,
       userLabels,
+      onClearContents,
     },
     ref,
   ) => {
@@ -107,8 +109,18 @@ export const SimpleRichTextEditor = forwardRef<
           },
         },
         editable: !disabled,
+        onUpdate: ({ editor }) => {
+          if (
+            onClearContents &&
+            editor.isEmpty &&
+            defaultValue &&
+            defaultValue.trim() !== ""
+          ) {
+            onClearContents();
+          }
+        },
       },
-      [userLabels],
+      [userLabels, onClearContents, defaultValue],
     );
 
     // Expose editor methods via ref

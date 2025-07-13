@@ -122,28 +122,10 @@ function RulesPromptForm({
     editedRules: number;
     removedRules: number;
   }>();
-  const [showClearWarning, setShowClearWarning] = useState(false);
-
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
-
-  // const currentPrompt = watch("rulesPrompt");
-  // console.log("🚀 ~ currentPrompt:", currentPrompt)
-
-  // useEffect(() => {
-  //   reset({ rulesPrompt: rulesPrompt || undefined });
-  // }, [rulesPrompt, reset]);
-
-  // useEffect(() => {
-  //   setShowClearWarning(!!rulesPrompt && currentPrompt === "");
-  // }, [currentPrompt, rulesPrompt]);
-
-  useEffect(() => {
-    if (!personaPrompt) return;
-    editorRef.current?.appendText(personaPrompt);
-  }, [personaPrompt]);
 
   const router = useRouter();
 
@@ -151,11 +133,9 @@ function RulesPromptForm({
 
   const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
-    if (!markdown) return;
+    if (typeof markdown !== "string") return;
 
     const data = { rulesPrompt: markdown };
-
-    console.log("🚀 ~ onSubmit ~ markdown:", markdown);
 
     setIsSubmitting(true);
 
@@ -209,6 +189,11 @@ function RulesPromptForm({
     });
   }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
 
+  useEffect(() => {
+    if (!personaPrompt) return;
+    editorRef.current?.appendText(personaPrompt);
+  }, [personaPrompt]);
+
   const addExamplePrompt = useCallback((example: string) => {
     editorRef.current?.appendText(`\n* ${example.trim()}`);
   }, []);
@@ -249,6 +234,11 @@ function RulesPromptForm({
                 defaultValue={rulesPrompt || undefined}
                 minHeight={600}
                 userLabels={userLabels}
+                onClearContents={() => {
+                  toast.info(
+                    "Note: Deleting text will delete rules. Add new rules at the end to keep your existing rules.",
+                  );
+                }}
                 placeholder={`Here's an example of what your prompt might look like:
 
 * ${personas.other.promptArray[0]}
@@ -322,12 +312,12 @@ function RulesPromptForm({
               </Tooltip>
             </div>
 
-            {showClearWarning && (
+            {/* {showClearWarning && (
               <Notice>
                 <strong>Note:</strong> Deleting text will delete rules. Add new
                 rules at the end to keep your existing rules.
               </Notice>
-            )}
+            )} */}
           </div>
         </form>
 
