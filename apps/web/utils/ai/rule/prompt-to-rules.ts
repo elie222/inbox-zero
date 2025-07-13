@@ -9,6 +9,7 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
+import { convertMentionsToLabels } from "@/utils/mention";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -56,10 +57,12 @@ export async function aiPromptToRules({
     hasSmartCategories: !!availableCategories?.length,
   });
 
+  const cleanedPromptFile = convertMentionsToLabels(promptFile);
+
   const prompt = `Convert the following prompt file into rules:
   
 <prompt>
-${promptFile}
+${cleanedPromptFile}
 </prompt>`;
 
   if (env.NODE_ENV === "development") {
