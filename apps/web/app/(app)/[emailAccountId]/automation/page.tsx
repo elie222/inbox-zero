@@ -19,10 +19,16 @@ import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/SettingsTab";
 import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
+import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
 
 export const maxDuration = 300; // Applies to the actions
 
 const tabOptions = (emailAccountId: string) => [
+  {
+    id: "rules",
+    label: "Rules",
+    href: `/${emailAccountId}/automation?tab=rules`,
+  },
   {
     id: "settings",
     label: "Settings",
@@ -106,7 +112,10 @@ export default async function AutomationPage({
                 </Suspense>
               </div>
 
-              <Tabs defaultValue="settings">
+              <Tabs defaultValue="rules">
+                <TabsContent value="rules" className="mb-10">
+                  <RulesTab />
+                </TabsContent>
                 <TabsContent value="settings" className="mb-10">
                   <SettingsTab />
                 </TabsContent>
