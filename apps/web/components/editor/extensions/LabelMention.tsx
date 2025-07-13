@@ -26,54 +26,95 @@ export const createLabelMentionExtension = (labels: UserLabel[]) => {
         let component: ReactRenderer<MentionListRef>;
         let popup: HTMLElement;
 
+        // Cleanup function to ensure proper cleanup
+        const cleanup = () => {
+          try {
+            if (popup?.parentNode) {
+              popup.parentNode.removeChild(popup);
+            }
+            if (component) {
+              component.destroy();
+            }
+          } catch (error) {
+            // Silently handle cleanup errors to prevent crashes
+            console.warn("Error during mention cleanup:", error);
+          }
+        };
+
         return {
           onStart: (props) => {
-            component = new ReactRenderer(MentionList, {
-              props,
-              editor: props.editor,
-            });
+            try {
+              component = new ReactRenderer(MentionList, {
+                props,
+                editor: props.editor,
+              });
 
-            popup = document.createElement("div");
-            popup.className = "mention-suggestions";
-            popup.style.position = "absolute";
-            popup.style.zIndex = "1000";
-            popup.appendChild(component.element);
+              popup = document.createElement("div");
+              popup.className = "mention-suggestions";
+              popup.style.position = "absolute";
+              popup.style.zIndex = "1000";
+              popup.appendChild(component.element);
 
-            document.body.appendChild(popup);
+              document.body.appendChild(popup);
+
+              // Add error boundary for cleanup
+              window.addEventListener("beforeunload", cleanup);
+            } catch (error) {
+              console.error("Error during mention start:", error);
+              cleanup();
+            }
           },
 
           onUpdate(props) {
-            component.updateProps(props);
+            if (!component || !popup) return;
 
-            if (!props.clientRect) {
-              return;
-            }
+            try {
+              component.updateProps(props);
 
-            const rect = props.clientRect();
-            if (rect) {
-              popup.style.top = `${rect.bottom + 8}px`;
-              popup.style.left = `${rect.left}px`;
+              if (!props.clientRect) {
+                return;
+              }
+
+              const rect = props.clientRect();
+              if (rect) {
+                popup.style.top = `${rect.bottom + 8}px`;
+                popup.style.left = `${rect.left}px`;
+              }
+            } catch (error) {
+              console.error("Error during mention update:", error);
+              cleanup();
             }
           },
 
           onKeyDown(props) {
             if (props.event.key === "Escape") {
-              popup.remove();
+              cleanup();
               return true;
             }
 
-            return component.ref?.onKeyDown(props) ?? false;
+            try {
+              return component.ref?.onKeyDown(props) ?? false;
+            } catch (error) {
+              console.error("Error during mention keydown:", error);
+              cleanup();
+              return false;
+            }
           },
 
           onExit() {
-            popup?.remove();
-            component?.destroy();
+            // Remove beforeunload listener
+            window.removeEventListener("beforeunload", cleanup);
+            cleanup();
           },
         };
       },
       command: ({ editor, range, props }) => {
         const nodeAfter = editor.view.state.selection.$to.nodeAfter;
-        const overrideSpace = nodeAfter?.text?.startsWith(" ");
+        // Fix type error by adding proper type guards
+        const overrideSpace =
+          nodeAfter &&
+          typeof nodeAfter.text === "string" &&
+          nodeAfter.text.startsWith(" ");
 
         if (overrideSpace) {
           range.to += 1;
