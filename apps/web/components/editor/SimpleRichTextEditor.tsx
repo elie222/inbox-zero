@@ -15,7 +15,6 @@ interface SimpleRichTextEditorProps {
   className?: string;
   disabled?: boolean;
   defaultValue?: string;
-  value?: string;
   minHeight?: number;
 }
 
@@ -29,14 +28,7 @@ export const SimpleRichTextEditor = forwardRef<
   SimpleRichTextEditorProps
 >(
   (
-    {
-      placeholder,
-      className,
-      disabled,
-      defaultValue = "",
-      value,
-      minHeight = 300,
-    },
+    { placeholder, className, disabled, defaultValue = "", minHeight = 300 },
     ref,
   ) => {
     const { userLabels } = useLabels();
