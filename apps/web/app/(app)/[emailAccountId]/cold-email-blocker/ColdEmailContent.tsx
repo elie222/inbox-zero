@@ -19,7 +19,7 @@ export function ColdEmailContent({
   const tabContentClassName = isInset ? "content-container" : "";
 
   return (
-    <Tabs defaultValue="cold-emails" searchParam={searchParam}>
+    <Tabs defaultValue="settings" searchParam={searchParam}>
       <ToolbarWrapper>
         <TabsList>
           <TabsTrigger value="settings">Settings</TabsTrigger>
