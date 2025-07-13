@@ -100,7 +100,7 @@ export default async function AutomationPage({
                   fallback={
                     <TabSelect
                       options={tabOptions(emailAccountId)}
-                      selected={tab ?? "settings"}
+                      selected={tab ?? "rules"}
                     />
                   }
                 >
@@ -160,7 +160,7 @@ async function TabNavigation({
             ]
           : []),
       ]}
-      selected={tab ?? "settings"}
+      selected={tab ?? "rules"}
     />
   );
 }
