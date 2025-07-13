@@ -1,21 +1,16 @@
 "use client";
 
-import { useEditor, EditorContent, type Editor } from "@tiptap/react";
+import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useCallback, useEffect, forwardRef } from "react";
+import { useEffect, useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
-import type { UseFormRegisterReturn } from "react-hook-form";
-import type { FieldError } from "react-hook-form";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelMentionExtension } from "./extensions/LabelMention";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
-  registerProps?: UseFormRegisterReturn;
-  name?: string;
-  error?: FieldError;
   placeholder?: string;
   className?: string;
   disabled?: boolean;
@@ -24,15 +19,17 @@ interface SimpleRichTextEditorProps {
   minHeight?: number;
 }
 
+export interface SimpleRichTextEditorRef {
+  appendText: (text: string) => void;
+  getMarkdown: () => string;
+}
+
 export const SimpleRichTextEditor = forwardRef<
-  unknown,
+  SimpleRichTextEditorRef,
   SimpleRichTextEditorProps
 >(
   (
     {
-      registerProps,
-      name,
-      error,
       placeholder,
       className,
       disabled,
@@ -89,17 +86,6 @@ export const SimpleRichTextEditor = forwardRef<
           ...(userLabels ? [createLabelMentionExtension(userLabels)] : []),
         ],
         content: defaultValue || "",
-        onUpdate: useCallback(
-          ({ editor }: { editor: Editor }) => {
-            const markdown = editor.storage.markdown.getMarkdown();
-            if (registerProps?.onChange) {
-              registerProps.onChange({
-                target: { name: name || registerProps.name, value: markdown },
-              });
-            }
-          },
-          [registerProps, name],
-        ),
         editorProps: {
           attributes: {
             class: cn(
@@ -127,16 +113,25 @@ export const SimpleRichTextEditor = forwardRef<
       [userLabels],
     );
 
-    // Update editor content when value prop changes
-    useEffect(() => {
-      if (
-        editor &&
-        value !== undefined &&
-        value !== editor.storage.markdown.getMarkdown()
-      ) {
-        editor.commands.setContent(value);
-      }
-    }, [value, editor]);
+    // Expose editor methods via ref
+    useImperativeHandle(
+      ref,
+      () => ({
+        appendText: (text: string) => {
+          if (editor) {
+            const currentContent = editor.storage.markdown.getMarkdown();
+            const newContent = currentContent
+              ? `${currentContent}\n${text}`
+              : text;
+            editor.commands.setContent(newContent);
+          }
+        },
+        getMarkdown: () => {
+          return editor?.storage.markdown.getMarkdown() || "";
+        },
+      }),
+      [editor],
+    );
 
     return (
       <div className={cn("relative w-full", className)}>
@@ -144,15 +139,12 @@ export const SimpleRichTextEditor = forwardRef<
           className={cn(
             "rounded-md border border-input bg-background",
             "focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
-            error &&
-              "border-red-500 focus-within:border-red-500 focus-within:ring-red-500",
             disabled && "cursor-not-allowed opacity-50",
           )}
           style={{ minHeight }}
         >
           <EditorContent editor={editor} />
         </div>
-        {error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
       </div>
     );
   },
