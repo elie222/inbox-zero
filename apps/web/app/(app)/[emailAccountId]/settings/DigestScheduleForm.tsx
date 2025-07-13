@@ -24,6 +24,7 @@ import type { GetDigestScheduleResponse } from "@/app/api/user/digest-schedule/r
 import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorMessage } from "@/components/Input";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const digestScheduleFormSchema = z.object({
   schedule: z.string().min(1, "Please select a frequency"),
@@ -73,7 +74,11 @@ export function DigestScheduleForm() {
   );
 
   return (
-    <LoadingContent loading={isLoading} error={error}>
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="min-h-[200px] w-full" />}
+    >
       <DigestScheduleFormInner data={data} mutate={mutate} />
     </LoadingContent>
   );
