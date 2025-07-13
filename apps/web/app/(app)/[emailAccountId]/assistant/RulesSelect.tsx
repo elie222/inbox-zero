@@ -21,16 +21,6 @@ export function RulesSelect() {
               {rule.name}
             </TabsTrigger>
           ))}
-          {data?.map((rule) => (
-            <TabsTrigger key={rule.id} value={rule.id}>
-              {rule.name}
-            </TabsTrigger>
-          ))}
-          {data?.map((rule) => (
-            <TabsTrigger key={rule.id} value={rule.id}>
-              {rule.name}
-            </TabsTrigger>
-          ))}
         </TabsList>
       </Tabs>
     </LoadingContent>
