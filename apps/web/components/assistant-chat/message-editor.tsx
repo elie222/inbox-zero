@@ -31,6 +31,7 @@ export function MessageEditor({
   const [draftContent, setDraftContent] = useState<string>(message.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
     if (textareaRef.current) {
       adjustHeight();

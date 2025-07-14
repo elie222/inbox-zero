@@ -1,22 +1,72 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.8.2/schema.json",
-  "organizeImports": {
-    "enabled": false
-  },
+  "$schema": "https://biomejs.dev/schemas/2.1.1/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
       "recommended": true,
       "style": {
         "noNonNullAssertion": "off",
-        "noUselessElse": "off"
+        "noUselessElse": "off",
+        "noProcessEnv": "off",
+        "useBlockStatements": "off",
+        "useFilenamingConvention": "off",
+        "noNestedTernary": "off",
+        "noNegationElse": "off",
+        "noEnum": "off",
+        "noExportedImports": "off",
+        "useAtIndex": "off",
+        "useCollapsedIf": "off",
+        "useConsistentArrayType": "off",
+        "useDefaultSwitchClause": "off",
+        "useCollapsedElseIf": "off"
       },
       "suspicious": {
         "noExplicitAny": "off",
-        "noArrayIndexKey": "off"
+        "noArrayIndexKey": "off",
+        "noEmptyBlockStatements": "off",
+        "noConsole": "off",
+        "useAwait": "off",
+        "noEvolvingTypes": "off",
+        "noDocumentCookie": "off"
       },
       "complexity": {
-        "noForEach": "off"
+        "noForEach": "off",
+        "useSimplifiedLogicExpression": "off",
+        "noUselessFragments": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        "noUselessStringConcat": "off",
+        "noUselessUndefinedInitialization": "off"
+      },
+      "nursery": {
+        "useNumericSeparators": "off",
+        "useSortedClasses": "off",
+        "noShadow": "off",
+        "noConstantBinaryExpression": "off",
+        "useParseIntRadix": "off",
+        "noNestedComponentDefinitions": "off",
+        "noAwaitInLoop": "off",
+        "noNoninteractiveElementInteractions": "off",
+        "noUselessUndefined": "off",
+        "noBitwiseOperators": "off",
+        "noTsIgnore": "off",
+        "useIterableCallbackReturn": "off",
+        "noUnknownAtRule": "off",
+        "useConsistentObjectDefinition": "off"
+      },
+      "performance": {
+        "useTopLevelRegex": "off",
+        "noNamespaceImport": "off"
+      },
+      "correctness": {
+        "noUnusedVariables": "off",
+        "noUnusedImports": "off",
+        "noUnusedFunctionParameters": "off",
+        "useExhaustiveDependencies": "warn"
+      },
+      "a11y": {
+        "useSemanticElements": "off",
+        "noStaticElementInteractions": "off",
+        "noSvgWithoutTitle": "off"
       }
     }
   },
@@ -24,24 +74,43 @@
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
-    "ignore": [
-      "node_modules/*",
-      "*.config.*",
-      "*.json",
-      "tsconfig.json",
-      ".turbo",
-      ".next"
+    "includes": [
+      "apps/**",
+      "packages/**",
+      "!node_modules/**",
+      "!*.config.*",
+      "!*.json",
+      "!**/tsconfig*.json",
+      "!.turbo/**",
+      "!.next/**"
     ]
   },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double",
+      "trailingCommas": "all"
+    }
+  },
   "files": {
-    "ignore": [
-      "node_modules/*",
-      "*.config.*",
-      "*.json",
-      "tsconfig.json",
-      ".turbo",
-      ".next",
-      "sw.js"
+    "includes": [
+      "apps/**",
+      "packages/**",
+      "!node_modules/**",
+      "!*.config.*",
+      "!*.json",
+      "!**/tsconfig*.json",
+      "!.turbo/**",
+      "!.next/**",
+      "!sw.js"
     ]
-  }
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off",
+        "useSortedAttributes": "off"
+      }
+    }
+  },
+  "extends": ["ultracite"]
 }
