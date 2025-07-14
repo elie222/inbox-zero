@@ -4,7 +4,7 @@ import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
-// import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
@@ -76,29 +76,19 @@ function selectModel(
     }
     case Provider.OPENROUTER: {
       const model = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
-      // TODO: will complete this PR once openrouter support for ai sdk v5 is released: https://github.com/OpenRouterTeam/ai-sdk-provider/pull/77/files
-      // This may help: too: https://ai-sdk.dev/providers/openai-compatible-providers
-      // ai sdk v5 doesn't support openrouter yet
-      // const openrouter = createOpenRouter({
-      //   apiKey: aiApiKey || env.OPENROUTER_API_KEY,
-      //   headers: {
-      //     "HTTP-Referer": "https://www.getinboxzero.com",
-      //     "X-Title": "Inbox Zero",
-      //   },
-      // });
-      // const chatModel = openrouter.chat(model);
+      const openrouter = createOpenRouter({
+        apiKey: aiApiKey || env.OPENROUTER_API_KEY,
+        headers: {
+          "HTTP-Referer": "https://www.getinboxzero.com",
+          "X-Title": "Inbox Zero",
+        },
+      });
+      const chatModel = openrouter.chat(model);
 
       return {
         provider: Provider.OPENROUTER,
         model,
-        llmModel: createOpenAI({
-          baseURL: "https://openrouter.ai/api/v1",
-          apiKey: aiApiKey || env.OPENROUTER_API_KEY,
-          headers: {
-            "HTTP-Referer": "https://www.getinboxzero.com",
-            "X-Title": "Inbox Zero",
-          },
-        })(model),
+        llmModel: chatModel,
         providerOptions,
       };
     }
