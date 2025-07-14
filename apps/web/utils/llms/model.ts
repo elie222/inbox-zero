@@ -174,19 +174,19 @@ function selectEconomyModel(userAi: UserAIFields) {
 }
 
 function selectDefaultModel(userAi: UserAIFields) {
-  const defaultProvider = env.DEFAULT_LLM_PROVIDER;
-  const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
   let aiModel: string | null = null;
+  const aiApiKey = userAi.aiApiKey;
+
   const providerOptions: Record<string, any> = {};
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
   if (aiApiKey) {
-    aiProvider = userAi.aiProvider || defaultProvider;
+    aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
     aiModel = userAi.aiModel || null;
   } else {
-    aiProvider = defaultProvider;
+    aiProvider = env.DEFAULT_LLM_PROVIDER;
     aiModel = env.DEFAULT_LLM_MODEL || null;
 
     // Allow custom logic in production with fallbacks that doesn't impact self-hosters

@@ -230,10 +230,7 @@ const createRuleTool = ({
           error: message,
         });
 
-        return {
-          error: "Failed to create rule",
-          message,
-        };
+        return { error: "Failed to create rule", message };
       }
     },
   });
