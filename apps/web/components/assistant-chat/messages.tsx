@@ -13,7 +13,7 @@ interface MessagesProps {
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isArtifactVisible: boolean;
-  setInput: UseChatHelpers<ChatMessage>["setInput"];
+  setInput: (input: string) => void;
 }
 
 function PureMessages({
