@@ -204,7 +204,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                     {category.emoji} {category.name}
                   </Text>
                   <div
-                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
                   >
                     <Text
                       className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
@@ -238,7 +238,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                     {categories[i].emoji} {categories[i].name}
                   </Text>
                   <div
-                    className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                    className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
                   >
                     <Text
                       className={`text-[12px] font-bold ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
@@ -261,7 +261,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                       {categories[i + 1].emoji} {categories[i + 1].name}
                     </Text>
                     <div
-                      className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                      className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
                     >
                       <Text
                         className={`text-[12px] font-bold ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}
@@ -296,7 +296,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                   {categories[i].emoji} {categories[i].name}
                 </Text>
                 <div
-                  className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                  className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
                 >
                   <Text
                     className={`text-[12px] font-bold ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
@@ -318,7 +318,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                   {categories[i + 1].emoji} {categories[i + 1].name}
                 </Text>
                 <div
-                  className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                  className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
                 >
                   <Text
                     className={`text-[12px] font-bold ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}

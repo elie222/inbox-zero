@@ -1,58 +1,20 @@
-# CLAUDE.md - Development Guidelines
-
-## Build & Test Commands
-
-- Development: `pnpm dev`
-- Build: `pnpm build`
-- Lint: `pnpm lint`
-- Run all tests: `pnpm test`
-- Run AI tests: `pnpm test-ai`
-- Run single test: `pnpm test __tests__/test-file.test.ts`
-- Run specific AI test: `pnpm test-ai ai-categorize-senders`
-
-## Code Style
-
-- Use TypeScript with strict null checks
-- Path aliases: Use `@/` for imports from project root
-- NextJS app router structure with (app) directory
-- Follow tailwindcss patterns with prettier-plugin-tailwindcss
-- Prefer functional components with hooks
-- Use proper error handling with try/catch blocks
-- Format code with Prettier
-- Consult .cursor/rules for environment variable management
-
-## Component Guidelines
-
-- Use shadcn/ui components when available
-- Ensure responsive design with mobile-first approach
-- Follow consistent naming conventions (PascalCase for components)
-- Centralize types in dedicated type files when shared
-- Use LoadingContent component for async data:
-  ```tsx
-  <LoadingContent loading={isLoading} error={error}>
-    {data && <YourComponent data={data} />}
-  </LoadingContent>
-  ```
-
-## Environment Variables
-
-- Add to `.env.example`, `env.ts`, and `turbo.json`
-- Client-side vars: Prefix with `NEXT_PUBLIC_`
-
-## Fullstack Workflow
+---
+description: Complete fullstack workflow combining GET API routes, server actions, SWR data fetching, and form handling. Use when building features that need both data fetching and mutations from API to UI.
+alwaysApply: false
+---
+# Fullstack Workflow
 
 Complete guide for building features from API to UI, combining GET API routes, data fetching, form handling, and server actions.
 
-### Overview
+## Overview
 
 When building a new feature, follow this pattern:
-
 1. **GET API Route** - For fetching data
 2. **Server Action** - For mutations (create/update/delete)
 3. **Data Fetching** - Using SWR on the client
 4. **Form Handling** - Using React Hook Form with Zod validation
 
-### 1. GET API Route
+## 1. GET API Route
 
 For fetching data. Always wrap with `withAuth` or `withEmailAccount`:
 
@@ -67,7 +29,7 @@ export type GetExampleResponse = Awaited<ReturnType<typeof getData>>;
 
 export const GET = withEmailAccount(async (request) => {
   const { emailAccountId } = request.auth;
-
+  
   const result = await getData({ emailAccountId });
   return NextResponse.json(result);
 });
@@ -82,12 +44,11 @@ async function getData({ emailAccountId }: { emailAccountId: string }) {
 }
 ```
 
-### 2. Server Action
+## 2. Server Action
 
 For mutations. Use `next-safe-action` with proper validation:
 
 **Validation Schema** (`apps/web/utils/actions/example.validation.ts`):
-
 ```typescript
 import { z } from "zod";
 
@@ -108,60 +69,52 @@ export type UpdateExampleBody = z.infer<typeof updateExampleBody>;
 ```
 
 **Server Action** (`apps/web/utils/actions/example.ts`):
-
 ```typescript
 "use server";
 
 import { actionClient } from "@/utils/actions/safe-action";
-import {
-  createExampleBody,
-  updateExampleBody,
-} from "@/utils/actions/example.validation";
+import { createExampleBody, updateExampleBody } from "@/utils/actions/example.validation";
 import prisma from "@/utils/prisma";
 import { revalidatePath } from "next/cache";
 
 export const createExampleAction = actionClient
   .metadata({ name: "createExample" })
   .schema(createExampleBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { name, email, description },
-    }) => {
-      const example = await prisma.example.create({
-        data: {
-          name,
-          email,
-          description,
-          emailAccountId,
-        },
-      });
-
-      revalidatePath("/examples");
-      return example;
-    },
-  );
+  .action(async ({ 
+    ctx: { emailAccountId }, 
+    parsedInput: { name, email, description } 
+  }) => {
+    const example = await prisma.example.create({
+      data: {
+        name,
+        email,
+        description,
+        emailAccountId,
+      },
+    });
+    
+    revalidatePath("/examples");
+    return example;
+  });
 
 export const updateExampleAction = actionClient
   .metadata({ name: "updateExample" })
   .schema(updateExampleBody)
-  .action(
-    async ({
-      ctx: { emailAccountId },
-      parsedInput: { id, name, email, description },
-    }) => {
-      const example = await prisma.example.update({
-        where: { id, emailAccountId },
-        data: { name, email, description },
-      });
-
-      revalidatePath("/examples");
-      return example;
-    },
-  );
+  .action(async ({ 
+    ctx: { emailAccountId }, 
+    parsedInput: { id, name, email, description } 
+  }) => {
+    const example = await prisma.example.update({
+      where: { id, emailAccountId },
+      data: { name, email, description },
+    });
+    
+    revalidatePath("/examples");
+    return example;
+  });
 ```
 
-### 3. Data Fetching
+## 3. Data Fetching
 
 Use SWR for client-side data fetching:
 
@@ -174,7 +127,7 @@ export function useExamples() {
 }
 ```
 
-### 4. Form Handling
+## 4. Form Handling
 
 Use React Hook Form with Zod validation:
 
@@ -200,11 +153,11 @@ export function ExampleForm({ onSuccess }: { onSuccess?: () => void }) {
   const onSubmit: SubmitHandler<CreateExampleBody> = useCallback(
     async (data) => {
       const result = await createExampleAction(data);
-
+      
       if (result?.serverError) {
-        toastError({
-          title: "Error creating example",
-          description: result.serverError
+        toastError({ 
+          title: "Error creating example", 
+          description: result.serverError 
         });
       } else {
         toastSuccess({ description: "Example created!" });
@@ -246,7 +199,7 @@ export function ExampleForm({ onSuccess }: { onSuccess?: () => void }) {
 }
 ```
 
-### 5. Complete Data Fetching Component
+## 5. Complete Data Fetching Component
 
 ```typescript
 'use client';
@@ -276,45 +229,38 @@ export function Examples() {
 }
 ```
 
-### Key Guidelines
+## Key Guidelines
 
-#### Authentication & Authorization
-
+### Authentication & Authorization
 - Use `withAuth` for user-level operations
 - Use `withEmailAccount` for email-account-level operations
 - Server actions automatically get the right context
 
-#### Mutations
-
+### Mutations
 - Use server actions for all mutations (create/update/delete operations)
 - Do NOT use POST API routes for mutations - use server actions instead
 
-#### Error Handling
-
+### Error Handling
 - Use `result?.serverError` with `toastError` and `toastSuccess`
 - `next-safe-action` provides centralized error handling
 - No need for try/catch in GET routes when using middleware
 
-#### Type Safety
-
+### Type Safety
 - Export response types from GET routes
 - Use Zod schemas for validation on both client and server
 - Leverage TypeScript inference for better DX
 
-#### Loading and Error States
-
+### Loading and Error States
 - Use `LoadingContent` component to handle loading and error states consistently
 - Pass `loading`, `error`, and children props to `LoadingContent`
 - This provides a standardized way to show loading spinners and error messages
 
-#### Performance
-
+### Performance
 - Use SWR for efficient data fetching and caching
 - Call `mutate()` after successful mutations to refresh data
 - Use `revalidatePath` in server actions for cache invalidation
 
-#### File Organization
-
+### File Organization
 ```
 apps/web/
 ├── app/api/user/example/route.ts          # GET API route
@@ -323,3 +269,10 @@ apps/web/
 ├── hooks/useExamples.ts                   # SWR hook
 └── components/ExampleForm.tsx             # Form component
 ```
+
+## Related Rules
+- [GET API Route Guidelines](mdc:.cursor/rules/get-api-route.mdc)
+- [Data Fetching with SWR](mdc:.cursor/rules/data-fetching.mdc)
+- [Form Handling](mdc:.cursor/rules/form-handling.mdc)
+- [Server Actions](mdc:.cursor/rules/server-actions.mdc)
+

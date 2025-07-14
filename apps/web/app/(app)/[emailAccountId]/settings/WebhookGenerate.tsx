@@ -31,7 +31,12 @@ export function RegenerateSecretButton({
   });
 
   return (
-    <Button variant="outline" loading={isExecuting} onClick={() => execute()}>
+    <Button
+      variant="outline"
+      size="sm"
+      loading={isExecuting}
+      onClick={() => execute()}
+    >
       {hasSecret ? "Regenerate Secret" : "Generate Secret"}
     </Button>
   );

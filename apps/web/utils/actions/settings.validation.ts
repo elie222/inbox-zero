@@ -2,14 +2,12 @@ import { z } from "zod";
 import { Frequency } from "@prisma/client";
 import { DEFAULT_PROVIDER, Provider } from "@/utils/llms/config";
 
-const scheduleSchema = z.object({
+export const saveDigestScheduleBody = z.object({
   intervalDays: z.number().nullable(),
   daysOfWeek: z.number().nullable(),
   timeOfDay: z.coerce.date().nullable(),
   occurrences: z.number().nullable(),
 });
-
-export const saveDigestScheduleBody = z.object({ schedule: scheduleSchema });
 export type SaveDigestScheduleBody = z.infer<typeof saveDigestScheduleBody>;
 
 export const saveEmailUpdateSettingsBody = z.object({
@@ -20,7 +18,6 @@ export const saveEmailUpdateSettingsBody = z.object({
     Frequency.WEEKLY,
     Frequency.NEVER,
   ]),
-  schedule: scheduleSchema.nullable(),
 });
 export type SaveEmailUpdateSettingsBody = z.infer<
   typeof saveEmailUpdateSettingsBody
@@ -51,15 +48,8 @@ export const saveAiSettingsBody = z
   });
 export type SaveAiSettingsBody = z.infer<typeof saveAiSettingsBody>;
 
-export const updateDigestCategoriesBody = z.object({
-  toReply: z.boolean().optional(),
-  newsletter: z.boolean().optional(),
-  marketing: z.boolean().optional(),
-  calendar: z.boolean().optional(),
-  receipt: z.boolean().optional(),
-  notification: z.boolean().optional(),
-  coldEmail: z.boolean().optional(),
+export const updateDigestItemsBody = z.object({
+  ruleDigestPreferences: z.record(z.string(), z.boolean()),
+  coldEmailDigest: z.boolean().optional(),
 });
-export type UpdateDigestCategoriesBody = z.infer<
-  typeof updateDigestCategoriesBody
->;
+export type UpdateDigestItemsBody = z.infer<typeof updateDigestItemsBody>;

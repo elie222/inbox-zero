@@ -16,9 +16,9 @@ export function Privacy() {
             Zero on your own infrastructure.
           </p>
           <p className="mt-2 text-lg leading-8 text-gray-600">
-            We're CASA Tier 2 approved and your data is never used to train
-            general AI models. We're also in the process of getting SOC2
-            compliance to further strengthen our security and privacy standards.
+            We're SOC2 compliant and CASA Tier 2 approved. Your data is never
+            used to train general AI models, and we maintain the highest
+            security and privacy standards.
           </p>
         </div>
       </div>

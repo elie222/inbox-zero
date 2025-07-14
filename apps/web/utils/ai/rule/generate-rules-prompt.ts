@@ -122,7 +122,7 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
     label: "Generate rules prompt",
   });
 
-  const args = aiResponse.toolCalls[0].args;
+  const args = aiResponse.toolCalls[0]?.args;
 
   logger.trace("Args", { args });
 

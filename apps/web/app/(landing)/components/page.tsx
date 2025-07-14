@@ -29,6 +29,7 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
 import { PremiumTier } from "@prisma/client";
+import { SettingCard } from "@/components/SettingCard";
 
 export const maxDuration = 3;
 
@@ -233,6 +234,35 @@ export default function Components() {
               ]}
               selectedValues={selectedValues}
               setSelectedValues={setSelectedValues}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">SettingCard</div>
+          <div className="mt-4 space-y-4">
+            <SettingCard
+              title="Email Notifications"
+              description="Receive notifications about new emails and important updates"
+              right={
+                <ShadButton variant="outline" size="sm">
+                  Configure
+                </ShadButton>
+              }
+            />
+            <SettingCard
+              title="Auto-Reply"
+              description="Automatically respond to incoming emails when you're away"
+              right={
+                <ShadButton variant="ghost" size="sm">
+                  Edit
+                </ShadButton>
+              }
+            />
+            <SettingCard
+              title="Sync Frequency"
+              description="How often to check for new emails"
+              right={<Badge color="green">Every 5 minutes</Badge>}
             />
           </div>
         </div>
