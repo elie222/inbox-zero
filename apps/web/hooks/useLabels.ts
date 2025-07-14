@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import useSWR from "swr";
 import type { LabelsResponse } from "@/app/api/labels/route";
-import { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export type UserLabel = {
   id: string;
