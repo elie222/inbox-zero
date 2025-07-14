@@ -269,7 +269,6 @@ export function RuleForm({
     ) as CoreConditionType | undefined;
   }, [conditions]);
 
-  // Reset form when rule data changes
   useEffect(() => {
     if (rule) {
       reset({
@@ -880,7 +879,7 @@ export function RuleForm({
               variant="secondary"
               size="sm"
               onClick={() => {
-                append({ type: ActionType.LABEL, delayInMinutes: null });
+                append({ type: ActionType.LABEL });
                 setIsActionsEditMode(true);
               }}
             >
