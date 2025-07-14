@@ -447,7 +447,7 @@ model ScheduledAction {
   bcc     String?
   url     String?
 
-  queueId String?
+  scheduledId String?
 
   executedAt       DateTime?
   executedActionId String?   @unique
