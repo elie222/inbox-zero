@@ -30,7 +30,9 @@ export function ApiKeysCreateButtonModal({ mutate }: { mutate: () => void }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button>Create new secret key</Button>
+        <Button size="sm" variant="outline">
+          Create new secret key
+        </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

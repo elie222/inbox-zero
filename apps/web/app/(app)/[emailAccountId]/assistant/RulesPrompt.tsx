@@ -5,15 +5,16 @@ import { useLocalStorage } from "usehooks-ts";
 import { SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { useForm } from "react-hook-form";
 import useSWR from "swr";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import {
   saveRulesPromptAction,
   generateRulesPromptAction,
 } from "@/utils/actions/ai-rule";
-import { Input } from "@/components/Input";
+import {
+  SimpleRichTextEditor,
+  type SimpleRichTextEditorRef,
+} from "@/components/editor/SimpleRichTextEditor";
 import {
   saveRulesPromptBody,
   type SaveRulesPromptBody,
@@ -37,6 +38,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
 import { Notice } from "@/components/Notice";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useLabels } from "@/hooks/useLabels";
 
 export function RulesPrompt() {
   const { emailAccountId } = useAccount();
@@ -58,7 +61,11 @@ export function RulesPrompt() {
 
   return (
     <>
-      <LoadingContent loading={isLoading} error={error}>
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="h-[60vh] w-full" />}
+      >
         {data && (
           <div className="mt-4">
             <RulesPromptForm
@@ -101,6 +108,12 @@ function RulesPromptForm({
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
 }) {
+  const {
+    userLabels,
+    isLoading: isLoadingLabels,
+    error: errorLabels,
+  } = useLabels();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -109,113 +122,81 @@ function RulesPromptForm({
     editedRules: number;
     removedRules: number;
   }>();
-  const [showClearWarning, setShowClearWarning] = useState(false);
-
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    getValues,
-    setValue,
-    watch,
-    reset,
-  } = useForm<SaveRulesPromptBody>({
-    resolver: zodResolver(saveRulesPromptBody),
-    defaultValues: { rulesPrompt: rulesPrompt || undefined },
-  });
+  const router = useRouter();
 
-  const currentPrompt = watch("rulesPrompt");
+  const editorRef = useRef<SimpleRichTextEditorRef>(null);
 
-  useEffect(() => {
-    reset({ rulesPrompt: rulesPrompt || undefined });
-  }, [rulesPrompt, reset]);
+  const onSubmit = useCallback(async () => {
+    const markdown = editorRef.current?.getMarkdown();
+    if (typeof markdown !== "string") return;
 
-  useEffect(() => {
-    setShowClearWarning(!!rulesPrompt && currentPrompt === "");
-  }, [currentPrompt, rulesPrompt]);
+    const data = { rulesPrompt: markdown };
+
+    setIsSubmitting(true);
+
+    const saveRulesPromise = async (data: SaveRulesPromptBody) => {
+      setIsSubmitting(true);
+      const result = await saveRulesPromptAction(emailAccountId, data);
+
+      if (result?.serverError) {
+        setIsSubmitting(false);
+        throw new Error(result.serverError);
+      }
+
+      if (viewedProcessingPromptFileDialog) {
+        router.push(prefixPath(emailAccountId, "/automation?tab=test"));
+      }
+
+      mutate();
+      setIsSubmitting(false);
+
+      return result;
+    };
+
+    if (!viewedProcessingPromptFileDialog) {
+      setIsDialogOpen(true);
+    }
+    setResult(undefined);
+
+    toast.promise(() => saveRulesPromise(data), {
+      loading: "Saving rules... This may take a while to process...",
+      success: (result) => {
+        const {
+          createdRules = 0,
+          editedRules = 0,
+          removedRules = 0,
+        } = result?.data || {};
+        setResult({ createdRules, editedRules, removedRules });
+
+        const message = [
+          createdRules ? `${createdRules} rules created.` : "",
+          editedRules ? `${editedRules} rules edited.` : "",
+          removedRules ? `${removedRules} rules removed.` : "",
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        return `Rules saved successfully! ${message}`;
+      },
+      error: (err) => {
+        return `Error saving rules: ${err.message}`;
+      },
+    });
+  }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
 
   useEffect(() => {
     if (!personaPrompt) return;
+    editorRef.current?.appendText(personaPrompt);
+  }, [personaPrompt]);
 
-    const currentPrompt = getValues("rulesPrompt") || "";
-    const updatedPrompt = `${currentPrompt}\n\n${personaPrompt}`.trim();
-    setValue("rulesPrompt", updatedPrompt);
-  }, [personaPrompt, getValues, setValue]);
-
-  const router = useRouter();
-
-  const onSubmit = useCallback(
-    async (data: SaveRulesPromptBody) => {
-      setIsSubmitting(true);
-
-      const saveRulesPromise = async (data: SaveRulesPromptBody) => {
-        setIsSubmitting(true);
-        const result = await saveRulesPromptAction(emailAccountId, data);
-
-        if (result?.serverError) {
-          setIsSubmitting(false);
-          throw new Error(result.serverError);
-        }
-
-        if (viewedProcessingPromptFileDialog) {
-          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
-        }
-
-        mutate();
-        setIsSubmitting(false);
-
-        return result;
-      };
-
-      if (!viewedProcessingPromptFileDialog) {
-        setIsDialogOpen(true);
-      }
-      setResult(undefined);
-
-      toast.promise(() => saveRulesPromise(data), {
-        loading: "Saving rules... This may take a while to process...",
-        success: (result) => {
-          const {
-            createdRules = 0,
-            editedRules = 0,
-            removedRules = 0,
-          } = result?.data || {};
-          setResult({ createdRules, editedRules, removedRules });
-
-          const message = [
-            createdRules ? `${createdRules} rules created.` : "",
-            editedRules ? `${editedRules} rules edited.` : "",
-            removedRules ? `${removedRules} rules removed.` : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          return `Rules saved successfully! ${message}`;
-        },
-        error: (err) => {
-          return `Error saving rules: ${err.message}`;
-        },
-      });
-    },
-    [mutate, router, viewedProcessingPromptFileDialog, emailAccountId],
-  );
-
-  const addExamplePrompt = useCallback(
-    (example: string) => {
-      setValue(
-        "rulesPrompt",
-        `${getValues("rulesPrompt")}\n* ${example.trim()}`.trim(),
-      );
-    },
-    [setValue, getValues],
-  );
-
-  // const [showExamples, setShowExamples] = useState(false);
+  const addExamplePrompt = useCallback((example: string) => {
+    editorRef.current?.appendText(`\n* ${example.trim()}`);
+  }, []);
 
   return (
     <div>
@@ -232,7 +213,10 @@ function RulesPromptForm({
         className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
       >
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit();
+          }}
           className={showExamples ? "sm:col-span-2" : ""}
         >
           <Label className="font-cal text-xl leading-7">
@@ -240,33 +224,34 @@ function RulesPromptForm({
           </Label>
 
           <div className="mt-1.5 space-y-4">
-            <Input
-              className="min-h-[300px] border-input"
-              registerProps={register("rulesPrompt", { required: true })}
-              name="rulesPrompt"
-              type="text"
-              autosizeTextarea
-              rows={30}
-              maxRows={50}
-              error={errors.rulesPrompt}
-              placeholder={`Here's an example of what your prompt might look like:
+            <LoadingContent
+              loading={isLoadingLabels}
+              error={errorLabels}
+              loadingComponent={<Skeleton className="min-h-[600px] w-full" />}
+            >
+              <SimpleRichTextEditor
+                ref={editorRef}
+                defaultValue={rulesPrompt || undefined}
+                minHeight={600}
+                userLabels={userLabels}
+                onClearContents={() => {
+                  toast.info(
+                    "Note: Deleting text will delete rules. Add new rules at the end to keep your existing rules.",
+                  );
+                }}
+                placeholder={`Here's an example of what your prompt might look like:
 
-${personas.other.promptArray.slice(0, 1).join("\n")}
-
-If someone asks about pricing, reply with:
----
-Hi NAME!
-
-I'm currently offering a 10% discount for the first 10 customers.
-
-Let me know if you're interested!
----`}
-            />
+* ${personas.other.promptArray[0]}
+* ${personas.other.promptArray[1]}
+* If someone asks about pricing, reply with:
+> Hi NAME!
+> I'm currently offering a 10% discount. Let me know if you're interested!`}
+              />
+            </LoadingContent>
 
             <div className="flex flex-wrap gap-2">
               <Button
                 type="submit"
-                variant="primaryBlue"
                 disabled={isSubmitting || isGenerating}
                 loading={isSubmitting}
               >
@@ -298,11 +283,13 @@ Let me know if you're interested!
                           throw new Error(result.serverError);
                         }
 
-                        const currentPrompt = getValues("rulesPrompt");
-                        const updatedPrompt = currentPrompt
-                          ? `${currentPrompt}\n\n${result?.data?.rulesPrompt}`
-                          : result?.data?.rulesPrompt;
-                        setValue("rulesPrompt", updatedPrompt?.trim() || "");
+                        if (result?.data?.rulesPrompt) {
+                          editorRef.current?.appendText(
+                            result?.data?.rulesPrompt,
+                          );
+                        } else {
+                          toast.error("Error generating prompt");
+                        }
 
                         setIsGenerating(false);
 
@@ -325,12 +312,12 @@ Let me know if you're interested!
               </Tooltip>
             </div>
 
-            {showClearWarning && (
+            {/* {showClearWarning && (
               <Notice>
                 <strong>Note:</strong> Deleting text will delete rules. Add new
                 rules at the end to keep your existing rules.
               </Notice>
-            )}
+            )} */}
           </div>
         </form>
 
@@ -340,49 +327,12 @@ Let me know if you're interested!
   );
 }
 
-export function PromptFile() {
-  const { emailAccountId } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<
-    RulesPromptResponse,
-    { error: string }
-  >("/api/user/rules/prompt");
-
-  const { isModalOpen, setIsModalOpen } = useModal();
-
-  const [persona, setPersona] = useState<string | null>(null);
-
-  const personaPrompt = persona
-    ? personas[persona as keyof typeof personas]?.prompt
-    : undefined;
-
-  return (
-    <LoadingContent loading={isLoading} error={error}>
-      {data && (
-        <>
-          <RulesPromptForm
-            emailAccountId={emailAccountId}
-            rulesPrompt={data.rulesPrompt}
-            personaPrompt={personaPrompt}
-            onOpenPersonaDialog={() => setIsModalOpen(true)}
-            mutate={mutate}
-          />
-          <PersonaDialog
-            isOpen={isModalOpen}
-            setIsOpen={setIsModalOpen}
-            onSelect={setPersona}
-          />
-        </>
-      )}
-    </LoadingContent>
-  );
-}
-
 function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
   return (
     <div>
       <SectionHeader className="text-xl">Examples</SectionHeader>
 
-      <ScrollArea className="mt-1.5 sm:h-[75vh] sm:max-h-[75vh]">
+      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
         <div className="grid grid-cols-1 gap-2">
           {examplePrompts.map((example) => {
             const { color } = getActionType(example);

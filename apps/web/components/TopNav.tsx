@@ -14,7 +14,9 @@ import {
   ChevronDownIcon,
   InboxIcon,
   LogOutIcon,
+  MessageCircleReplyIcon,
   RibbonIcon,
+  ShieldCheckIcon,
   TagIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
@@ -27,7 +29,7 @@ import { ProfileImage } from "@/components/ProfileImage";
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
-    <div className="content-container flex h-16 shrink-0 items-center gap-x-4 border-b border-border bg-background shadow-sm sm:gap-x-6">
+    <div className="content-container flex shrink-0 items-center gap-x-4 bg-background pt-3 sm:gap-x-6">
       {trigger}
 
       <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
@@ -53,6 +55,16 @@ function ProfileDropdown() {
       name: "Mail (Beta)",
       href: prefixPath(emailAccountId, "/mail"),
       icon: InboxIcon,
+    },
+    {
+      name: "Reply Zero",
+      href: prefixPath(emailAccountId, "/reply-zero"),
+      icon: MessageCircleReplyIcon,
+    },
+    {
+      name: "Cold Email Blocker",
+      href: prefixPath(emailAccountId, "/cold-email-blocker"),
+      icon: ShieldCheckIcon,
     },
     {
       name: "Sender Categories",

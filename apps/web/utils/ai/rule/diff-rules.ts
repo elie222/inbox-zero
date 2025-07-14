@@ -69,7 +69,7 @@ If a rule is edited, it is an edit and not a removal! Be extra careful to not ma
     label: "Diff rules",
   });
 
-  const parsedRules = aiResponse.toolCalls[0].args as z.infer<
+  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
     typeof parameters
   >;
   return parsedRules;

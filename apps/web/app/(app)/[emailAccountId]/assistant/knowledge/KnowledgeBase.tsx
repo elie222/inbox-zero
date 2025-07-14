@@ -30,7 +30,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import type { Knowledge } from "@prisma/client";
 
-export function KnowledgeBase() {
+export function KnowledgeBase({
+  showExplanation,
+}: {
+  showExplanation: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
@@ -52,7 +56,7 @@ export function KnowledgeBase() {
       <div className="flex items-center justify-between">
         <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button size="sm">
               <Plus className="mr-2 h-4 w-4" />
               Add
             </Button>
@@ -72,9 +76,11 @@ export function KnowledgeBase() {
           </DialogContent>
         </Dialog>
 
-        <p className="ml-4 text-sm text-muted-foreground">
-          The knowledge base is used to help draft responses to emails
-        </p>
+        {showExplanation && (
+          <p className="ml-4 text-sm text-muted-foreground">
+            The knowledge base is used to help the assistant draft replies.
+          </p>
+        )}
       </div>
 
       <Card className="mt-2">
@@ -92,29 +98,18 @@ export function KnowledgeBase() {
                 <TableRow>
                   <TableCell colSpan={3}>
                     <div className="mx-auto my-8 max-w-prose text-center">
-                      <p>
-                        Knowledge base entries are used to help draft responses
-                        to emails.
-                        <br />
-                        Click "Add" to create one.
-                      </p>
-                      <div className="mt-4">
-                        <strong className="text-left">Notes:</strong>
-                        <ul className="mt-2 list-disc space-y-1 text-left">
-                          <li>
-                            Placing all knowledge in one entry is perfectly
-                            fine.
-                          </li>
-                          <li>
-                            When our AI drafts replies it also has access to
-                            previous conversations with the person you're
-                            talking to.
-                          </li>
-                          <li>
-                            This information is only used to draft replies.
-                          </li>
-                        </ul>
-                      </div>
+                      <strong className="text-left">Notes:</strong>
+                      <ul className="mt-2 list-disc space-y-1 text-left">
+                        <li>
+                          Placing all knowledge in one entry is perfectly fine.
+                        </li>
+                        <li>
+                          When our AI drafts replies it also has access to
+                          previous conversations with the person you're talking
+                          to.
+                        </li>
+                        <li>This information is only used to draft replies.</li>
+                      </ul>
                     </div>
                   </TableCell>
                 </TableRow>

@@ -3,6 +3,9 @@ import {
   createCanonicalTimeOfDay,
   calculateNextScheduleDate,
   DAYS,
+  dayOfWeekToBitmask,
+  bitmaskToDayOfWeek,
+  bitmaskToDaysOfWeek,
 } from "./schedule";
 
 describe("createCanonicalTimeOfDay", () => {
@@ -50,6 +53,118 @@ describe("DAYS constant", () => {
 
     const weekends = DAYS.SATURDAY | DAYS.SUNDAY;
     expect(weekends).toBe(0b1000001); // 65
+  });
+});
+
+describe("dayOfWeekToBitmask", () => {
+  it("should convert JavaScript day of week to correct bitmask", () => {
+    expect(dayOfWeekToBitmask(0)).toBe(DAYS.SUNDAY); // 64
+    expect(dayOfWeekToBitmask(1)).toBe(DAYS.MONDAY); // 32
+    expect(dayOfWeekToBitmask(2)).toBe(DAYS.TUESDAY); // 16
+    expect(dayOfWeekToBitmask(3)).toBe(DAYS.WEDNESDAY); // 8
+    expect(dayOfWeekToBitmask(4)).toBe(DAYS.THURSDAY); // 4
+    expect(dayOfWeekToBitmask(5)).toBe(DAYS.FRIDAY); // 2
+    expect(dayOfWeekToBitmask(6)).toBe(DAYS.SATURDAY); // 1
+  });
+
+  it("should throw error for invalid day values", () => {
+    expect(() => dayOfWeekToBitmask(-1)).toThrow(
+      "Invalid day of week: -1. Must be integer between 0 and 6.",
+    );
+    expect(() => dayOfWeekToBitmask(7)).toThrow(
+      "Invalid day of week: 7. Must be integer between 0 and 6.",
+    );
+    expect(() => dayOfWeekToBitmask(1.5)).toThrow(
+      "Invalid day of week: 1.5. Must be integer between 0 and 6.",
+    );
+  });
+});
+
+describe("bitmaskToDayOfWeek", () => {
+  it("should convert individual day bitmasks to JavaScript day of week", () => {
+    expect(bitmaskToDayOfWeek(DAYS.SUNDAY)).toBe(0);
+    expect(bitmaskToDayOfWeek(DAYS.MONDAY)).toBe(1);
+    expect(bitmaskToDayOfWeek(DAYS.TUESDAY)).toBe(2);
+    expect(bitmaskToDayOfWeek(DAYS.WEDNESDAY)).toBe(3);
+    expect(bitmaskToDayOfWeek(DAYS.THURSDAY)).toBe(4);
+    expect(bitmaskToDayOfWeek(DAYS.FRIDAY)).toBe(5);
+    expect(bitmaskToDayOfWeek(DAYS.SATURDAY)).toBe(6);
+  });
+
+  it("should return null for empty bitmask", () => {
+    expect(bitmaskToDayOfWeek(0)).toBeNull();
+  });
+
+  it("should return first day when multiple days are set", () => {
+    // Sunday and Wednesday
+    expect(bitmaskToDayOfWeek(DAYS.SUNDAY | DAYS.WEDNESDAY)).toBe(0);
+
+    // Monday and Friday
+    expect(bitmaskToDayOfWeek(DAYS.MONDAY | DAYS.FRIDAY)).toBe(1);
+
+    // Tuesday, Thursday, Saturday
+    expect(
+      bitmaskToDayOfWeek(DAYS.TUESDAY | DAYS.THURSDAY | DAYS.SATURDAY),
+    ).toBe(2);
+  });
+
+  it("should handle all days set", () => {
+    const allDays =
+      DAYS.SUNDAY |
+      DAYS.MONDAY |
+      DAYS.TUESDAY |
+      DAYS.WEDNESDAY |
+      DAYS.THURSDAY |
+      DAYS.FRIDAY |
+      DAYS.SATURDAY;
+    expect(bitmaskToDayOfWeek(allDays)).toBe(0); // Should return Sunday (first day)
+  });
+});
+
+describe("bitmaskToDaysOfWeek", () => {
+  it("should convert individual day bitmasks to array with single day", () => {
+    expect(bitmaskToDaysOfWeek(DAYS.SUNDAY)).toEqual([0]);
+    expect(bitmaskToDaysOfWeek(DAYS.MONDAY)).toEqual([1]);
+    expect(bitmaskToDaysOfWeek(DAYS.TUESDAY)).toEqual([2]);
+    expect(bitmaskToDaysOfWeek(DAYS.WEDNESDAY)).toEqual([3]);
+    expect(bitmaskToDaysOfWeek(DAYS.THURSDAY)).toEqual([4]);
+    expect(bitmaskToDaysOfWeek(DAYS.FRIDAY)).toEqual([5]);
+    expect(bitmaskToDaysOfWeek(DAYS.SATURDAY)).toEqual([6]);
+  });
+
+  it("should return empty array for empty bitmask", () => {
+    expect(bitmaskToDaysOfWeek(0)).toEqual([]);
+  });
+
+  it("should return all days when multiple days are set", () => {
+    // Sunday and Wednesday
+    expect(bitmaskToDaysOfWeek(DAYS.SUNDAY | DAYS.WEDNESDAY)).toEqual([0, 3]);
+
+    // Monday, Wednesday, Friday
+    expect(
+      bitmaskToDaysOfWeek(DAYS.MONDAY | DAYS.WEDNESDAY | DAYS.FRIDAY),
+    ).toEqual([1, 3, 5]);
+
+    // Weekend days
+    expect(bitmaskToDaysOfWeek(DAYS.SATURDAY | DAYS.SUNDAY)).toEqual([0, 6]);
+  });
+
+  it("should handle all days set", () => {
+    const allDays =
+      DAYS.SUNDAY |
+      DAYS.MONDAY |
+      DAYS.TUESDAY |
+      DAYS.WEDNESDAY |
+      DAYS.THURSDAY |
+      DAYS.FRIDAY |
+      DAYS.SATURDAY;
+    expect(bitmaskToDaysOfWeek(allDays)).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it("should return days in order from Sunday to Saturday", () => {
+    // Mixed order input should return ordered output
+    const mixedDays = DAYS.FRIDAY | DAYS.TUESDAY | DAYS.SUNDAY | DAYS.THURSDAY;
+    expect(bitmaskToDaysOfWeek(mixedDays)).toEqual([0, 2, 4, 5]); // Sunday, Tuesday, Thursday, Friday
   });
 });
 

@@ -15,17 +15,14 @@ import {
   CogIcon,
   CrownIcon,
   FileIcon,
-  GiftIcon,
   InboxIcon,
   type LucideIcon,
   MailsIcon,
-  MessageCircleReplyIcon,
   MessagesSquareIcon,
   PenIcon,
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
-  ShieldCheckIcon,
   SparklesIcon,
   TagIcon,
   Users2Icon,
@@ -77,16 +74,6 @@ export const useNavigation = () => {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
-      },
-      {
-        name: "Reply Zero",
-        href: prefixPath(emailAccountId, "/reply-zero"),
-        icon: MessageCircleReplyIcon,
-      },
-      {
-        name: "Cold Emails",
-        href: prefixPath(emailAccountId, "/cold-email-blocker"),
-        icon: ShieldCheckIcon,
       },
     ],
     [emailAccountId],
@@ -283,7 +270,7 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 />
               </SidebarGroup>
               <SidebarGroup>
-                <SidebarGroupLabel>Clean</SidebarGroupLabel>
+                <SidebarGroupLabel>Tools</SidebarGroupLabel>
                 <ClientOnly>
                   <SideNavMenu
                     items={navigation.cleanItems}
