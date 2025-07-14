@@ -9,7 +9,7 @@ import type { ChatMessage } from "@/components/assistant-chat/types";
 
 interface MessagesProps {
   status: UseChatHelpers<ChatMessage>["status"];
-  messages: Array<UIMessage>;
+  messages: Array<ChatMessage>;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isArtifactVisible: boolean;
