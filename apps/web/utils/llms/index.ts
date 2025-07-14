@@ -8,9 +8,10 @@ import {
   generateText,
   RetryError,
   streamText,
-  type StepResult,
   smoothStream,
   stepCountIs,
+  type StreamTextOnFinishCallback,
+  type StreamTextOnStepFinishCallback,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -176,12 +177,8 @@ export async function chatCompletionStream({
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
-  onFinish?: (
-    result: Omit<StepResult<Record<string, Tool>>, "stepType" | "isContinued">,
-  ) => Promise<void>;
-  onStepFinish?: (
-    stepResult: StepResult<Record<string, Tool>>,
-  ) => Promise<void>;
+  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
+  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
@@ -200,7 +197,7 @@ export async function chatCompletionStream({
     experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
     onFinish: async (result) => {
-      await saveAiUsage({
+      const usagePromise = saveAiUsage({
         email: userEmail,
         provider,
         model,
@@ -208,7 +205,9 @@ export async function chatCompletionStream({
         label,
       });
 
-      if (onFinish) await onFinish(result);
+      const finishPromise = onFinish?.(result);
+
+      await Promise.all([usagePromise, finishPromise]);
     },
     onError: (error) => {
       logger.error("Error in chat completion stream", {
@@ -299,56 +298,58 @@ async function chatCompletionToolsInternal({
 }
 
 // not in use atm
-async function streamCompletionTools({
-  userAi,
-  useEconomyModel,
-  prompt,
-  system,
-  tools,
-  maxSteps,
-  userEmail,
-  label,
-  onFinish,
-}: {
-  userAi: UserAIFields;
-  useEconomyModel?: boolean;
-  prompt: string;
-  system?: string;
-  tools: Record<string, Tool>;
-  maxSteps?: number;
-  userEmail: string;
-  label: string;
-  onFinish?: (text: string) => Promise<void>;
-}) {
-  const { provider, model, llmModel, providerOptions } = getModel(
-    userAi,
-    useEconomyModel,
-  );
+// async function streamCompletionTools({
+//   userAi,
+//   useEconomyModel,
+//   prompt,
+//   system,
+//   tools,
+//   maxSteps,
+//   userEmail,
+//   label,
+//   onFinish,
+// }: {
+//   userAi: UserAIFields;
+//   useEconomyModel?: boolean;
+//   prompt: string;
+//   system?: string;
+//   tools: Record<string, Tool>;
+//   maxSteps?: number;
+//   userEmail: string;
+//   label: string;
+//   onFinish?: (text: string) => Promise<void>;
+// }) {
+//   const { provider, model, llmModel, providerOptions } = getModel(
+//     userAi,
+//     useEconomyModel,
+//   );
 
-  const result = streamText({
-    model: llmModel,
-    tools,
-    toolChoice: "required",
-    prompt,
-    system,
-    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-    providerOptions,
-    ...commonOptions,
-    onFinish: async ({ usage, text }) => {
-      await saveAiUsage({
-        email: userEmail,
-        provider,
-        model,
-        usage,
-        label,
-      });
+//   const result = streamText({
+//     model: llmModel,
+//     tools,
+//     toolChoice: "required",
+//     prompt,
+//     system,
+//     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+//     providerOptions,
+//     ...commonOptions,
+//     onFinish: async ({ usage, text }) => {
+//       const usagePromise = saveAiUsage({
+//         email: userEmail,
+//         provider,
+//         model,
+//         usage,
+//         label,
+//       });
 
-      if (onFinish) await onFinish(text);
-    },
-  });
+//       const finishPromise = onFinish?.(text);
 
-  return result;
-}
+//       await Promise.all([usagePromise, finishPromise]);
+//     },
+//   });
+
+//   return result;
+// }
 
 // NOTE: Think we can just switch this out for p-retry that we already use in the project
 export async function withRetry<T>(
