@@ -28,6 +28,7 @@ export async function saveUsage(options: {
   cost: number;
 }) {
   const { email, usage, cost } = options;
+  console.log("🚀 ~ options:", JSON.stringify(options, null, 2));
 
   const key = getUsageKey(email);
 

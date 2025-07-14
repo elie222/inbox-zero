@@ -8,6 +8,7 @@ import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
+import { captureException } from "@/utils/error";
 
 export const maxDuration = 120;
 
@@ -59,7 +60,6 @@ export const POST = withEmailAccount(async (request) => {
 
   const { message } = data;
   const uiMessages = [...convertToUIMessages(chat), message];
-  console.log("🚀 ~ POST ~ uiMessages:", uiMessages);
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
@@ -122,12 +122,18 @@ async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
 }
 
 async function saveChatMessages(messages: UIMessage[], chatId: string) {
-  return prisma.chatMessage.createMany({
-    data: messages.map((message) => ({
-      id: message.id,
-      chatId,
-      role: message.role,
-      parts: message.parts as Prisma.InputJsonValue,
-    })),
-  });
+  try {
+    return prisma.chatMessage.createMany({
+      data: messages.map((message) => ({
+        id: message.id,
+        chatId,
+        role: message.role,
+        parts: message.parts as Prisma.InputJsonValue,
+      })),
+    });
+  } catch (error) {
+    logger.error("Failed to save chat messages", { error, chatId });
+    captureException(error, { extra: { chatId } });
+    throw error;
+  }
 }
