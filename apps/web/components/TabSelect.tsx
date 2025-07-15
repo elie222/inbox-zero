@@ -76,7 +76,6 @@ export function TabSelect<T extends string>({
                   target === "_blank" && "group flex items-center gap-1.5",
                 )}
                 data-selected={isSelected}
-                aria-selected={isSelected}
               >
                 {label}
                 {target === "_blank" && <ArrowUpRight className="size-2.5" />}

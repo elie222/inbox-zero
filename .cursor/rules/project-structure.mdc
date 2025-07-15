@@ -1,8 +1,9 @@
 ---
 description: Project structure and file organization guidelines
-globs: 
+globs:
 alwaysApply: false
 ---
+
 # Project Structure
 
 ## Main Structure
@@ -68,7 +69,6 @@ alwaysApply: false
 │   └── unsubscriber/    # Automates unsubscribes using browser automation. Not currently in use
 ├── packages
     ├── tinybird/
-    ├── eslint-config/
     ├── loops/
     ├── resend/
     ├── tinybird-ai-analytics/

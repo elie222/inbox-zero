@@ -78,7 +78,7 @@ describe.runIf(isAiTest)("aiExtractFromEmailHistory", () => {
 
     const result = await aiExtractFromEmailHistory({
       currentThreadMessages: currentMessages,
-      historicalMessages: historicalMessages,
+      historicalMessages,
       emailAccount: getEmailAccount(),
     });
 

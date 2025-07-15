@@ -6,27 +6,24 @@
     "dev": "turbo dev --filter=./apps/web",
     "test": "turbo run test --filter=./apps/web",
     "lint": "turbo lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "prettier": "npx prettier --write \"**/*.{ts,tsx}\"",
     "prepare": "husky install",
     "ncu": "ncu -u -ws",
     "format-and-lint": "biome check .",
     "format-and-lint:fix": "biome check . --write"
   },
   "devDependencies": {
-    "@biomejs/biome": "1.9.4",
-    "@inboxzero/eslint-config": "workspace:*",
+    "@biomejs/biome": "2.1.1",
     "@turbo/gen": "2.5.4",
-    "eslint": "9.28.0",
     "husky": "9.1.7",
     "lint-staged": "15.5.1",
-    "prettier": "3.5.3",
-    "prettier-plugin-tailwindcss": "0.6.12",
-    "turbo": "2.5.4"
+    "turbo": "2.5.4",
+    "ultracite": "5.0.35"
   },
   "packageManager": "pnpm@10.12.1",
   "lint-staged": {
-    "*.{ts,tsx,md}": "prettier --write"
+    "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
+      "npx ultracite format"
+    ]
   },
   "engines": {
     "node": ">=22.0.0"

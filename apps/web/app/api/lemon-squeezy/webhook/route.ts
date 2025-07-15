@@ -220,7 +220,7 @@ async function handleSubscriptionCreated(payload: Payload, userId: string) {
     throw new Error("No subscription item");
 
   logger.info("Subscription created", {
-    lemonSqueezyRenewsAt: lemonSqueezyRenewsAt,
+    lemonSqueezyRenewsAt,
     lemonSqueezySubscriptionId:
       payload.data.attributes.first_subscription_item.subscription_id,
     lemonSqueezySubscriptionItemId:

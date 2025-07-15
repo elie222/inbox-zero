@@ -110,7 +110,7 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
     logger.info("Starting sync of all Stripe customers to DB");
 
     let hasMore = true;
-    let startingAfter: string | undefined = undefined;
+    let startingAfter: string | undefined;
     const allCustomers: Stripe.Customer[] = [];
 
     while (hasMore) {
