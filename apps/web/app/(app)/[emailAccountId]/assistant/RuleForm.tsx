@@ -92,7 +92,6 @@ import {
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
-import { mutate } from "swr";
 
 export function Rule({
   ruleId,
@@ -149,7 +148,6 @@ export function RuleForm({
     watch,
     setValue,
     control,
-    reset,
     formState: { errors, isSubmitting, isSubmitted },
     trigger,
   } = form;
@@ -268,24 +266,6 @@ export function RuleForm({
       (type) => !usedConditions.has(type),
     ) as CoreConditionType | undefined;
   }, [conditions]);
-
-  useEffect(() => {
-    if (rule) {
-      reset({
-        ...rule,
-        actions: [
-          ...rule.actions.map((action) => ({
-            ...action,
-            delayInMinutes: action.delayInMinutes,
-            content: {
-              ...action.content,
-              setManually: !!action.content?.value,
-            },
-          })),
-        ],
-      });
-    }
-  }, [rule, reset]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   useEffect(() => {
@@ -1002,7 +982,7 @@ function ActionCard({
   errors: any;
   userLabels: NonNullable<LabelsResponse["labels"]>;
   isLoading: boolean;
-  mutate: (data?: any) => void;
+  mutate: () => void;
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
@@ -1025,7 +1005,7 @@ function ActionCard({
   );
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
-  const delayEnabled = delayValue !== null && delayValue !== undefined;
+  const delayEnabled = !!delayValue;
 
   // Helper function to determine if a field can use variables based on context
   const canFieldUseVariables = (
@@ -1126,28 +1106,27 @@ function ActionCard({
               >
                 <div className="flex items-center justify-between">
                   <Label name={field.name} label={field.label} />
-                  {field.name === "label" &&
-                    action.type === ActionType.LABEL && (
-                      <div className="flex items-center space-x-2">
-                        <TooltipExplanation
-                          side="left"
-                          text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
-                        />
-                        <Toggle
-                          name={`actions.${index}.label.ai`}
-                          label="AI generated"
-                          enabled={!!action.label?.ai}
-                          onChange={(enabled: boolean) => {
-                            setValue(
-                              `actions.${index}.label`,
-                              enabled
-                                ? { value: "", ai: true }
-                                : { value: "", ai: false },
-                            );
-                          }}
-                        />
-                      </div>
-                    )}
+                  {field.name === "label" && (
+                    <div className="flex items-center space-x-2">
+                      <TooltipExplanation
+                        side="left"
+                        text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
+                      />
+                      <Toggle
+                        name={`actions.${index}.${field.name}.ai`}
+                        label="AI generated"
+                        enabled={isAiGenerated || false}
+                        onChange={(enabled: boolean) => {
+                          setValue(
+                            `actions.${index}.${field.name}`,
+                            enabled
+                              ? { value: "", ai: true }
+                              : { value: "", ai: false },
+                          );
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {field.name === "label" && !isAiGenerated ? (
@@ -1169,10 +1148,12 @@ function ActionCard({
                 ) : field.name === "label" && isAiGenerated ? (
                   <div className="mt-2">
                     the field
-                    <input
-                      className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                    <Input
                       type="text"
-                      {...register(`actions.${index}.${field.name}.value`)}
+                      name={`actions.${index}.${field.name}.value`}
+                      registerProps={register(
+                        `actions.${index}.${field.name}.value`,
+                      )}
                     />
                   </div>
                 ) : field.name === "content" &&
@@ -1222,10 +1203,12 @@ function ActionCard({
                   </div>
                 ) : (
                   <div className="mt-2">
-                    <input
-                      className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                    <Input
                       type="text"
-                      {...register(`actions.${index}.${field.name}.value`)}
+                      name={`actions.${index}.${field.name}.value`}
+                      registerProps={register(
+                        `actions.${index}.${field.name}.value`,
+                      )}
                     />
                   </div>
                 )}
@@ -1301,9 +1284,7 @@ function ActionCard({
               {errors?.actions?.[index]?.delayInMinutes && (
                 <div className="mt-2">
                   <ErrorMessage
-                    message={errors.actions?.[
-                      index
-                    ]?.delayInMinutes?.message?.toString()}
+                    message={errors.actions?.[index]?.delayInMinutes?.message}
                   />
                 </div>
               )}
@@ -1488,31 +1469,28 @@ function DelayInputControls({
   delayInMinutes: number | null | undefined;
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
 }) {
-  const delayConfig = useMemo(() => {
-    const { value: displayValue, unit } =
-      getDisplayValueAndUnit(delayInMinutes);
+  const { value: displayValue, unit } = getDisplayValueAndUnit(delayInMinutes);
 
-    const handleValueChange = (newValue: string, currentUnit: string) => {
-      const minutes = convertToMinutes(newValue, currentUnit);
-      setValue(`actions.${index}.delayInMinutes`, minutes, {
-        shouldValidate: true,
-      });
-    };
+  const handleValueChange = (newValue: string, currentUnit: string) => {
+    const minutes = convertToMinutes(newValue, currentUnit);
+    setValue(`actions.${index}.delayInMinutes`, minutes, {
+      shouldValidate: true,
+    });
+  };
 
-    const handleUnitChange = (newUnit: string) => {
-      if (displayValue) {
-        const minutes = convertToMinutes(displayValue, newUnit);
-        setValue(`actions.${index}.delayInMinutes`, minutes);
-      }
-    };
+  const handleUnitChange = (newUnit: string) => {
+    if (displayValue) {
+      const minutes = convertToMinutes(displayValue, newUnit);
+      setValue(`actions.${index}.delayInMinutes`, minutes);
+    }
+  };
 
-    return {
-      displayValue,
-      unit,
-      handleValueChange,
-      handleUnitChange,
-    };
-  }, [delayInMinutes, setValue, index]);
+  const delayConfig = {
+    displayValue,
+    unit,
+    handleValueChange,
+    handleUnitChange,
+  };
 
   return (
     <div className="space-y-2">
