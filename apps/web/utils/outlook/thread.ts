@@ -11,7 +11,7 @@ export async function getThread(
 ): Promise<Message[]> {
   const messages = await client
     .getClient()
-    .api(`/me/messages`)
+    .api("/me/messages")
     .filter(`conversationId eq '${threadId}'`)
     .orderby("receivedDateTime desc")
     .get();

@@ -8,7 +8,7 @@ import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 /**
  * Marks an email thread as needing a reply.

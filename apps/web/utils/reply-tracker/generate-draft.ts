@@ -11,7 +11,7 @@ import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("generate-reply");
 

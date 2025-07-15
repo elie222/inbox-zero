@@ -2,7 +2,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
-import { EmailLabel } from "@/providers/EmailProvider";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export function LabelsSubMenu({
   labels,

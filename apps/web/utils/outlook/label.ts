@@ -217,7 +217,7 @@ export async function labelThread({
   const escapedThreadId = threadId.replace(/'/g, "''");
   const messages = await client
     .getClient()
-    .api(`/me/messages`)
+    .api("/me/messages")
     .filter(`conversationId eq '${escapedThreadId}'`)
     .get();
 
@@ -248,7 +248,7 @@ export async function archiveThread({
     const escapedThreadId = threadId.replace(/'/g, "''");
     const messages = await client
       .getClient()
-      .api(`/me/messages`)
+      .api("/me/messages")
       .filter(`conversationId eq '${escapedThreadId}'`)
       .get();
 
@@ -314,7 +314,7 @@ export async function archiveThread({
       // Try to get messages by conversationId using a different endpoint
       const messages = await client
         .getClient()
-        .api(`/me/messages`)
+        .api("/me/messages")
         .select("id")
         .get();
 
@@ -398,7 +398,7 @@ export async function markReadThread({
     const escapedThreadId = threadId.replace(/'/g, "''");
     const messages = await client
       .getClient()
-      .api(`/me/messages`)
+      .api("/me/messages")
       .filter(`conversationId eq '${escapedThreadId}'`)
       .get();
 
@@ -421,7 +421,7 @@ export async function markReadThread({
       // Try to get messages by conversationId using a different endpoint
       const messages = await client
         .getClient()
-        .api(`/me/messages`)
+        .api("/me/messages")
         .select("id")
         .get();
 

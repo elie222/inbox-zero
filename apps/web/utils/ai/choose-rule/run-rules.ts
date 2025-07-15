@@ -18,7 +18,7 @@ import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
 import type { OutlookClient } from "@/utils/outlook/client";
-import { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("ai-run-rules");
 

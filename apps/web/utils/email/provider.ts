@@ -351,10 +351,7 @@ export class GmailProvider implements EmailProvider {
     return parseMessage(message);
   }
 
-  async getMessages(
-    query?: string,
-    maxResults: number = 50,
-  ): Promise<ParsedMessage[]> {
+  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
     const response = await getGmailMessages(this.client, {
       query,
       maxResults,
@@ -365,7 +362,7 @@ export class GmailProvider implements EmailProvider {
       .map((message) => parseMessage(message as any));
   }
 
-  async getSentMessages(maxResults: number = 20): Promise<ParsedMessage[]> {
+  async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     return getGmailSentMessages(this.client, maxResults);
   }
 
@@ -916,10 +913,7 @@ export class OutlookProvider implements EmailProvider {
     return getOutlookMessage(messageId, this.client);
   }
 
-  async getMessages(
-    query?: string,
-    maxResults: number = 50,
-  ): Promise<ParsedMessage[]> {
+  async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
     const allMessages: ParsedMessage[] = [];
     let pageToken: string | undefined = undefined;
     const pageSize = 20; // Outlook API limit
@@ -945,7 +939,7 @@ export class OutlookProvider implements EmailProvider {
     return allMessages;
   }
 
-  async getSentMessages(maxResults: number = 20): Promise<ParsedMessage[]> {
+  async getSentMessages(maxResults = 20): Promise<ParsedMessage[]> {
     const folderIds = await getFolderIds(this.client);
     const sentItemsFolderId = folderIds.sentitems;
 

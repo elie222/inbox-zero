@@ -11,7 +11,7 @@ import {
 import { decodeSnippet } from "@/utils/gmail/decode";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { SafeError } from "@/utils/error";
-import { ThreadsQuery } from "@/app/api/threads/validation";
+import type { ThreadsQuery } from "@/app/api/threads/validation";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 

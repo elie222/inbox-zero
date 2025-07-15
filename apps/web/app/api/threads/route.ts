@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
+import { type ThreadsQuery, threadsQuery } from "@/app/api/threads/validation";
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { getCategory } from "@/utils/redis/category";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
-import { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("api/threads");
 

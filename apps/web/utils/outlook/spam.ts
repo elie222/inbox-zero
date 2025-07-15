@@ -11,7 +11,7 @@ export async function markSpam(client: OutlookClient, threadId: string) {
     const escapedThreadId = threadId.replace(/'/g, "''");
     const messages = await client
       .getClient()
-      .api(`/me/messages`)
+      .api("/me/messages")
       .filter(`conversationId eq '${escapedThreadId}'`)
       .get();
 
@@ -47,7 +47,7 @@ export async function markSpam(client: OutlookClient, threadId: string) {
       // Try to get messages by conversationId using a different endpoint
       const messages = await client
         .getClient()
-        .api(`/me/messages`)
+        .api("/me/messages")
         .select("id")
         .get();
 

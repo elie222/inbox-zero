@@ -235,7 +235,7 @@ export async function queryBatchMessages(
     }
 
     request = request
-      .skip(pageToken ? parseInt(pageToken, 10) : 0)
+      .skip(pageToken ? Number.parseInt(pageToken, 10) : 0)
       .orderby("receivedDateTime DESC");
 
     const response = await request.get();
@@ -245,14 +245,14 @@ export async function queryBatchMessages(
     const hasMore = messages.length === maxResults;
     nextPageToken = hasMore
       ? (pageToken
-          ? parseInt(pageToken, 10) + maxResults
+          ? Number.parseInt(pageToken, 10) + maxResults
           : maxResults
         ).toString()
       : undefined;
 
     logger.info("Non-search results", {
       messageCount: messages.length,
-      skip: pageToken ? parseInt(pageToken, 10) : 0,
+      skip: pageToken ? Number.parseInt(pageToken, 10) : 0,
       hasMore,
       nextPageToken,
     });

@@ -12,7 +12,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
-import { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("choose-args");
 
