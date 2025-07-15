@@ -117,6 +117,9 @@ vi.mock("@/utils/assistant/process-assistant-email", () => ({
 vi.mock("@/utils/digest/index", () => ({
   enqueueDigestItem: vi.fn().mockResolvedValue(undefined),
 }));
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: vi.fn().mockResolvedValue({}),
+}));
 
 describe("processHistoryItem", () => {
   beforeEach(() => {
@@ -183,7 +186,7 @@ describe("processHistoryItem", () => {
       }),
       userEmail: "user@test.com",
       emailAccountId: "email-account-id",
-      gmail: expect.any(Object),
+      provider: expect.any(Object),
     });
   });
 
