@@ -16,17 +16,17 @@ export function KnowledgeDialog() {
     <Dialog>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
-          Manage Knowledge
+          Manage Draft Knowledge
         </Button>
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Knowledge Base</DialogTitle>
+          <DialogTitle>Draft Knowledge</DialogTitle>
           <DialogDescription>
-            The knowledge base is used to help the assistant draft replies.
+            This is used to help the assistant draft replies.
           </DialogDescription>
         </DialogHeader>
-        <KnowledgeBase showExplanation={false} />
+        <KnowledgeBase />
       </DialogContent>
     </Dialog>
   );

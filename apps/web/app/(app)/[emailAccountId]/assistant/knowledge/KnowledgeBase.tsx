@@ -30,11 +30,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
 import type { Knowledge } from "@prisma/client";
 
-export function KnowledgeBase({
-  showExplanation,
-}: {
-  showExplanation: boolean;
-}) {
+export function KnowledgeBase() {
   const { emailAccountId } = useAccount();
   const [isOpen, setIsOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Knowledge | null>(null);
@@ -53,35 +49,27 @@ export function KnowledgeBase({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
-          <DialogTrigger asChild>
-            <Button size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {editingItem ? "Edit Knowledge" : "Add Knowledge"}
-              </DialogTitle>
-            </DialogHeader>
-            <KnowledgeForm
-              closeDialog={handleClose}
-              refetch={mutate}
-              editingItem={editingItem}
-              knowledgeItemsCount={data?.items.length || 0}
-            />
-          </DialogContent>
-        </Dialog>
-
-        {showExplanation && (
-          <p className="ml-4 text-sm text-muted-foreground">
-            The knowledge base is used to help the assistant draft replies.
-          </p>
-        )}
-      </div>
+      <Dialog open={isOpen || !!editingItem} onOpenChange={onOpenChange}>
+        <DialogTrigger asChild>
+          <Button size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingItem ? "Edit Knowledge" : "Add Knowledge"}
+            </DialogTitle>
+          </DialogHeader>
+          <KnowledgeForm
+            closeDialog={handleClose}
+            refetch={mutate}
+            editingItem={editingItem}
+            knowledgeItemsCount={data?.items.length || 0}
+          />
+        </DialogContent>
+      </Dialog>
 
       <Card className="mt-2">
         <LoadingContent loading={isLoading} error={error}>
