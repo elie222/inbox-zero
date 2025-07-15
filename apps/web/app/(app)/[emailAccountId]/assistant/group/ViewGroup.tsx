@@ -174,7 +174,7 @@ const AddGroupItemForm = ({
       if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        void handleSubmit(onSubmit)(e);
+        handleSubmit(onSubmit)(e);
       }
     },
     [handleSubmit, onSubmit],

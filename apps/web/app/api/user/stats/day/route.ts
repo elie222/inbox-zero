@@ -39,7 +39,7 @@ async function getPastSevenDayStats(
       const dateString = `${date.getDate()}/${date.getMonth() + 1}`;
 
       // let count = cachedStats?.[dateString]
-      let count: number | undefined = undefined;
+      let count: number | undefined;
 
       if (typeof count !== "number") {
         const query = getQuery(options.type, date);

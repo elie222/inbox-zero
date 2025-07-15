@@ -10,11 +10,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("utils/assess");
 
-export async function assessUser({
-  gmail,
-}: {
-  gmail: gmail_v1.Gmail;
-}) {
+export async function assessUser({ gmail }: { gmail: gmail_v1.Gmail }) {
   // how many unread emails?
   const unreadCount = await getUnreadEmailCount(gmail);
   // how many unarchived emails?

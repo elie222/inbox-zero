@@ -106,7 +106,7 @@ const PurePreviewMessage = ({
                 const { toolName, toolCallId, state } = toolInvocation;
 
                 if (state === "call") {
-                  return <Skeleton className="h-16 w-full" />;
+                  return <Skeleton key={toolCallId} className="h-16 w-full" />;
                 }
 
                 if (state === "result") {
