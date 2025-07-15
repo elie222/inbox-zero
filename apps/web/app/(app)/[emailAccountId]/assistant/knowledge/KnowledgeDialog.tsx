@@ -21,7 +21,7 @@ export function KnowledgeDialog() {
       </DialogTrigger>
       <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Draft Knowledge</DialogTitle>
+          <DialogTitle>Draft Knowledge Base</DialogTitle>
           <DialogDescription>
             This is used to help the assistant draft replies.
           </DialogDescription>
