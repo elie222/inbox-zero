@@ -1,12 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { useAction } from "next-safe-action/hooks";
 import { ViewGroup } from "@/app/(app)/[emailAccountId]/assistant/group/ViewGroup";
 import {
   Dialog,
@@ -20,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { createGroupAction } from "@/utils/actions/group";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { toastError } from "@/components/Toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function LearnedPatternsDialog({
   ruleId,
@@ -34,6 +30,26 @@ export function LearnedPatternsDialog({
     string | null
   >(groupId);
 
+  const { execute, isExecuting } = useAction(
+    createGroupAction.bind(null, emailAccountId),
+    {
+      onSuccess: (data) => {
+        if (data.data?.groupId) {
+          setLearnedPatternGroupId(data.data.groupId);
+        } else {
+          toastError({
+            description: "There was an error setting up learned patterns.",
+          });
+        }
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error.serverError || "Unknown error",
+        });
+      },
+    },
+  );
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -45,17 +61,7 @@ export function LearnedPatternsDialog({
 
             if (groupId) return;
 
-            const result = await createGroupAction(emailAccountId, { ruleId });
-
-            if (result?.serverError) {
-              toastError({ description: result.serverError });
-            } else if (!result?.data?.groupId) {
-              toastError({
-                description: "There was an error setting up learned patterns.",
-              });
-            } else {
-              setLearnedPatternGroupId(result.data.groupId);
-            }
+            execute({ ruleId });
           }}
         >
           View learned patterns
@@ -72,40 +78,12 @@ export function LearnedPatternsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {learnedPatternGroupId && <ViewGroup groupId={learnedPatternGroupId} />}
+        {isExecuting ? (
+          <Skeleton className="h-40 w-full" />
+        ) : (
+          learnedPatternGroupId && <ViewGroup groupId={learnedPatternGroupId} />
+        )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function LearnedPatterns({ groupId }: { groupId: string }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className="overflow-hidden rounded-lg border"
-    >
-      <CollapsibleTrigger className="flex w-full items-center justify-between bg-background p-4 hover:bg-muted">
-        <div className="flex items-center gap-2">
-          <BrainIcon size={16} className="text-muted-foreground" />
-          <span className="font-medium">Learned Patterns</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <ChevronDownIcon
-            size={16}
-            className={`transform transition-transform ${
-              isOpen ? "rotate-180" : ""
-            }`}
-          />
-        </div>
-      </CollapsibleTrigger>
-
-      <CollapsibleContent>
-        <ViewGroup groupId={groupId} />
-      </CollapsibleContent>
-    </Collapsible>
   );
 }
