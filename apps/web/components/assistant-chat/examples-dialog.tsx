@@ -18,6 +18,7 @@ import {
   CheckCircle2Icon,
 } from "lucide-react";
 import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import { convertLabelsToDisplay } from "@/utils/mention";
 import { Tooltip } from "@/components/Tooltip";
 import { ButtonList } from "@/components/ButtonList";
 import { parseAsStringEnum, useQueryState } from "nuqs";
@@ -144,7 +145,7 @@ export function ExamplesDialog({
                           </div>
                         )}
                         <span className="flex-1 whitespace-pre-wrap">
-                          {example}
+                          {convertLabelsToDisplay(example)}
                         </span>
                       </div>
                     </Button>

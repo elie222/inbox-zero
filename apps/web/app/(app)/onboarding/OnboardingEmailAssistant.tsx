@@ -30,6 +30,7 @@ import {
   type RulesExamplesBody,
 } from "@/utils/actions/rule.validation";
 import { examplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import { convertLabelsToDisplay } from "@/utils/mention";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 type RulesExamplesResponse = InferSafeActionFnResult<
@@ -127,7 +128,7 @@ ${defaultPrompt}`}
                 className="h-auto w-full justify-start text-wrap py-2 text-left"
                 onClick={() => addExamplePrompt(example)}
               >
-                {example}
+                {convertLabelsToDisplay(example)}
               </Button>
             ))}
           </div>

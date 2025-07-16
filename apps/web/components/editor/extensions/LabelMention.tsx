@@ -180,17 +180,18 @@ export const createLabelMentionExtension = (labels: UserLabel[]) => {
 
                   // Find the label in our labels array
                   const label = labels.find((l) => l.name === labelName);
-                  if (!label) return false;
 
+                  // Create mention node even if label doesn't exist yet
+                  // This allows examples to work even when labels haven't been created in Gmail
                   if (!silent) {
                     const token = state.push("mention_open", "mention", 1);
                     token.attrs = [
-                      ["id", label.id],
-                      ["label", label.name],
+                      ["id", label?.id || `placeholder-${labelName}`],
+                      ["label", labelName],
                     ];
 
                     const textToken = state.push("text", "", 0);
-                    textToken.content = `@${label.name}`;
+                    textToken.content = `@${labelName}`;
 
                     state.push("mention_close", "mention", -1);
                   }
