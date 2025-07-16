@@ -64,9 +64,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { LearnedPatterns } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
-import { Tooltip } from "@/components/Tooltip";
-import { createGroupAction } from "@/utils/actions/group";
+import { LearnedPatternsDialog } from "@/app/(app)/[emailAccountId]/assistant/group/LearnedPatterns";
 import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -300,11 +298,6 @@ export function RuleForm({
     ];
   }, [digestEnabled]);
 
-  const [learnedPatternGroupId, setLearnedPatternGroupId] = useState(
-    rule.groupId,
-  );
-  const [showLearnedPatterns, setShowLearnedPatterns] = useState(false);
-
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
     useState(alwaysEditMode);
@@ -399,40 +392,6 @@ export function RuleForm({
                   </DropdownMenuRadioGroup>
                 </DropdownMenuContent>
               </DropdownMenu>
-            )}
-
-            {!!rule.id && (
-              <Tooltip content="Show learned patterns">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9"
-                  onClick={async () => {
-                    if (!rule.id) return;
-
-                    setShowLearnedPatterns((b) => !b);
-                    if (learnedPatternGroupId) return;
-
-                    const result = await createGroupAction(emailAccountId, {
-                      ruleId: rule.id,
-                    });
-
-                    if (result?.serverError) {
-                      toastError({ description: result.serverError });
-                    } else if (!result?.data?.groupId) {
-                      toastError({
-                        description:
-                          "There was an error setting up learned patterns.",
-                      });
-                    } else {
-                      setLearnedPatternGroupId(result.data.groupId);
-                      setShowLearnedPatterns(true);
-                    }
-                  }}
-                >
-                  <BrainIcon className="size-4" />
-                </Button>
-              </Tooltip>
             )}
 
             {!alwaysEditMode && (
@@ -787,12 +746,6 @@ export function RuleForm({
           </div>
         )}
 
-        {showLearnedPatterns && learnedPatternGroupId && (
-          <div className="mt-4">
-            <LearnedPatterns groupId={learnedPatternGroupId} />
-          </div>
-        )}
-
         <div className="mt-4 flex items-center justify-between">
           <TypographyH3 className="text-xl">Actions</TypographyH3>
           {!alwaysEditMode && (
@@ -895,6 +848,15 @@ export function RuleForm({
             }}
           />
         </div>
+
+        {!!rule.id && (
+          <div className="mt-4 flex justify-end">
+            <LearnedPatternsDialog
+              ruleId={rule.id}
+              groupId={rule.groupId || null}
+            />
+          </div>
+        )}
 
         <div className="flex justify-end space-x-2 py-6">
           {rule.id && (
