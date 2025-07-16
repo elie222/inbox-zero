@@ -1,42 +1,89 @@
 "use client";
 
 import { useState } from "react";
-import { BrainIcon, ChevronDownIcon } from "lucide-react";
-import {
-  Collapsible,
-  CollapsibleTrigger,
-  CollapsibleContent,
-} from "@/components/ui/collapsible";
+import { useAction } from "next-safe-action/hooks";
 import { ViewGroup } from "@/app/(app)/[emailAccountId]/assistant/group/ViewGroup";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogHeader,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { createGroupAction } from "@/utils/actions/group";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { toastError } from "@/components/Toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export function LearnedPatterns({ groupId }: { groupId: string }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function LearnedPatternsDialog({
+  ruleId,
+  groupId,
+}: {
+  ruleId: string;
+  groupId: string | null;
+}) {
+  const { emailAccountId } = useAccount();
+
+  const [learnedPatternGroupId, setLearnedPatternGroupId] = useState<
+    string | null
+  >(groupId);
+
+  const { execute, isExecuting } = useAction(
+    createGroupAction.bind(null, emailAccountId),
+    {
+      onSuccess: (data) => {
+        if (data.data?.groupId) {
+          setLearnedPatternGroupId(data.data.groupId);
+        } else {
+          toastError({
+            description: "There was an error setting up learned patterns.",
+          });
+        }
+      },
+      onError: (error) => {
+        toastError({
+          description: error.error.serverError || "Unknown error",
+        });
+      },
+    },
+  );
 
   return (
-    <Collapsible
-      open={isOpen}
-      onOpenChange={setIsOpen}
-      className="overflow-hidden rounded-lg border"
-    >
-      <CollapsibleTrigger className="flex w-full items-center justify-between bg-background p-4 hover:bg-muted">
-        <div className="flex items-center gap-2">
-          <BrainIcon size={16} className="text-muted-foreground" />
-          <span className="font-medium">Learned Patterns</span>
-        </div>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={async () => {
+            if (!ruleId) return;
 
-        <div className="flex items-center gap-4">
-          <ChevronDownIcon
-            size={16}
-            className={`transform transition-transform ${
-              isOpen ? "rotate-180" : ""
-            }`}
-          />
-        </div>
-      </CollapsibleTrigger>
+            if (groupId) return;
 
-      <CollapsibleContent>
-        <ViewGroup groupId={groupId} />
-      </CollapsibleContent>
-    </Collapsible>
+            execute({ ruleId });
+          }}
+        >
+          View learned patterns
+        </Button>
+      </DialogTrigger>
+
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Learned Patterns</DialogTitle>
+          <DialogDescription>
+            Learned patterns are patterns that the AI has learned from your
+            email history. When a learned pattern is matched other rules
+            conditions are skipped and this rule is automatically selected.
+          </DialogDescription>
+        </DialogHeader>
+
+        {isExecuting ? (
+          <Skeleton className="h-40 w-full" />
+        ) : (
+          learnedPatternGroupId && <ViewGroup groupId={learnedPatternGroupId} />
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
