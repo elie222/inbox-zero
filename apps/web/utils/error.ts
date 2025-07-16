@@ -63,7 +63,7 @@ export function captureException(
   userEmail?: string,
 ) {
   if (isKnownApiError(error)) {
-    console.warn(`Known API error. email: ${userEmail}`, error, additionalInfo);
+    console.warn("Known API error", error, additionalInfo);
     return;
   }
 

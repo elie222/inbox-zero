@@ -58,8 +58,8 @@ export function LearnedPatternsDialog({
           size="sm"
           onClick={async () => {
             if (!ruleId) return;
-
             if (groupId) return;
+            if (isExecuting) return;
 
             execute({ ruleId });
           }}
