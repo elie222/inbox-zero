@@ -826,11 +826,19 @@ Examples:
           }
 
           if (patternsToSave.length > 0) {
-            await saveLearnedPatterns({
+            const result = await saveLearnedPatterns({
               emailAccountId,
               ruleName: rule.name,
               patterns: patternsToSave,
             });
+
+            if ("error" in result) {
+              return {
+                success: false,
+                ruleId: rule.id,
+                error: result.error,
+              };
+            }
           }
 
           return { success: true, ruleId: rule.id };
