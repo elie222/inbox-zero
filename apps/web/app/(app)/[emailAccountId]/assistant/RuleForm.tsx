@@ -1183,7 +1183,6 @@ function ActionCard({
                   </div>
                 ) : field.name === "label" && isAiGenerated ? (
                   <div className="mt-2">
-                    the field
                     <Input
                       type="text"
                       name={`actions.${index}.${field.name}.value`}
