@@ -92,6 +92,7 @@ function useDraftReplies() {
                       cc: null,
                       bcc: null,
                       url: null,
+                      delayInMinutes: null,
                       createdAt: new Date(),
                       updatedAt: new Date(),
                     },

@@ -100,14 +100,7 @@ async function executeMatchedRule(
     gmail,
   });
 
-  // Cancel any existing scheduled actions for this message
   if (!isTest) {
-    await cancelScheduledActions({
-      emailAccountId: emailAccount.id,
-      messageId: message.id,
-      threadId: message.threadId,
-      reason: "Superseded by new rule execution",
-    });
   }
 
   const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
@@ -132,8 +125,14 @@ async function executeMatchedRule(
         },
       );
 
-  // Schedule delayed actions if any exist
   if (executedRule && delayedActions.length > 0 && !isTest) {
+    // Attempts to cancel any existing scheduled actions to avoid duplicates
+    await cancelScheduledActions({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      threadId: message.threadId,
+      reason: "Superseded by new rule execution",
+    });
     await scheduleDelayedActions({
       executedRuleId: executedRule.id,
       actionItems: delayedActions,

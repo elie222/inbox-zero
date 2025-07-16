@@ -309,7 +309,7 @@ async function scheduleMessage({
       await prisma.scheduledAction.update({
         where: { id: payload.scheduledActionId },
         data: {
-          schedulingStatus: "UNAVAILABLE" as const,
+          schedulingStatus: "FAILED" as const,
         },
       });
 

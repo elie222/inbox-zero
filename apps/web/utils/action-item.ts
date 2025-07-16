@@ -185,7 +185,7 @@ export function sanitizeActionFields(
     cc: null,
     bcc: null,
     url: null,
-    delayInMinutes: action.delayInMinutes ?? null,
+    delayInMinutes: action.delayInMinutes || null,
   };
 
   switch (action.type) {

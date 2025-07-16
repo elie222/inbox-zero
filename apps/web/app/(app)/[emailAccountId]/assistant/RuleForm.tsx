@@ -100,11 +100,17 @@ export function Rule({
   ruleId: string;
   alwaysEditMode?: boolean;
 }) {
-  const { data, isLoading, error } = useRule(ruleId);
+  const { data, isLoading, error, mutate } = useRule(ruleId);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && <RuleForm rule={data.rule} alwaysEditMode={alwaysEditMode} />}
+      {data && (
+        <RuleForm
+          rule={data.rule}
+          alwaysEditMode={alwaysEditMode}
+          mutate={mutate}
+        />
+      )}
     </LoadingContent>
   );
 }
@@ -114,11 +120,13 @@ export function RuleForm({
   alwaysEditMode = false,
   onSuccess,
   isDialog = false,
+  mutate,
 }: {
   rule: CreateRuleBody & { id?: string };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
+  mutate?: (data?: any, options?: any) => void;
 }) {
   const { emailAccountId } = useAccount();
   const digestEnabled = useDigestEnabled();
@@ -198,6 +206,21 @@ export function RuleForm({
       }
 
       if (data.id) {
+        if (mutate) {
+          // mutate delayInMinutes optimistically to keep the UI consistent
+          // in case the modal is reopened immediately after saving
+          const optimisticData = {
+            rule: {
+              ...rule,
+              actions: rule.actions.map((action, index) => ({
+                ...action,
+                delayInMinutes: data.actions[index]?.delayInMinutes,
+              })),
+            },
+          };
+          mutate(optimisticData, false);
+        }
+
         const res = await updateRuleAction(emailAccountId, {
           ...data,
           id: data.id,
@@ -206,12 +229,16 @@ export function RuleForm({
         if (res?.serverError) {
           console.error(res);
           toastError({ description: res.serverError });
+          if (mutate) mutate();
         } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error updating the rule.",
           });
+          if (mutate) mutate();
         } else {
           toastSuccess({ description: "Saved!" });
+          // Revalidate to get the real data from server
+          if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: data.actions.map((action) => action.type),
@@ -256,7 +283,16 @@ export function RuleForm({
         }
       }
     },
-    [userLabels, router, posthog, emailAccountId, isDialog, onSuccess],
+    [
+      userLabels,
+      router,
+      posthog,
+      emailAccountId,
+      isDialog,
+      onSuccess,
+      mutate,
+      rule,
+    ],
   );
 
   const conditions = watch("conditions");

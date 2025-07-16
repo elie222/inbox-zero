@@ -901,5 +901,4 @@ enum SchedulingStatus {
   PENDING
   SCHEDULED
   FAILED
-  UNAVAILABLE
 }
