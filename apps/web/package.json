@@ -91,7 +91,7 @@
     "date-fns": "4.1.0",
     "diff": "7.0.0",
     "dompurify": "3.2.6",
-    "dub": "0.63.4",
+    "dub": "0.64.1",
     "email-reply-parser": "1.9.4",
     "encoding": "0.1.13",
     "fast-deep-equal": "3.1.3",
