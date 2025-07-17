@@ -569,7 +569,7 @@ function renderActionFields(fields: {
   const fieldEntries = [];
 
   // Only add fields that have actual values
-  if (fields.label) fieldEntries.push(["Label", fields.label]);
+  if (fields.label) fieldEntries.push([fields.label]);
   if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
   if (fields.to) fieldEntries.push(["To", fields.to]);
   if (fields.cc) fieldEntries.push(["CC", fields.cc]);
