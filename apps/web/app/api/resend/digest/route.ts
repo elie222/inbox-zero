@@ -168,7 +168,6 @@ async function sendEmail({
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
         );
 
-        // Use ruleName directly as category
         const category = ruleName;
         if (!acc[category]) {
           acc[category] = [];
@@ -186,8 +185,7 @@ async function sendEmail({
           return; // Skip this item and continue with the next one
         }
 
-        const contentResult =
-          DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
           acc[category].push({

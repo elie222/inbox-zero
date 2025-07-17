@@ -150,7 +150,8 @@ export default function DigestEmail(props: DigestEmailProps) {
 
   const getCategoriesWithItemsCount = () => {
     return Object.keys(digestData).filter(
-      (key) => Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0
+      (key) =>
+        Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
     ).length;
   };
 
@@ -168,7 +169,10 @@ export default function DigestEmail(props: DigestEmailProps) {
   const renderCategoryGrid = () => {
     // Get all present categories in digestData
     const categories = Object.keys(digestData)
-      .filter((key) => Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0)
+      .filter(
+        (key) =>
+          Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
+      )
       .map((key) => {
         const info = getCategoryInfo(key);
         return {
@@ -184,23 +188,23 @@ export default function DigestEmail(props: DigestEmailProps) {
     // For all cases: ensure max 2 items per row
     const rows = [];
     const totalRows = Math.ceil(categoryCount / 2);
-    
+
     for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
       const startIndex = rowIndex * 2;
       const endIndex = Math.min(startIndex + 2, categoryCount);
       const isLastRow = rowIndex === totalRows - 1;
       const itemsInThisRow = endIndex - startIndex;
-      
+
       rows.push(
         <Row key={rowIndex} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
           {categories.slice(startIndex, endIndex).map((category, index) => (
             <Column
               key={category.key}
               className={`w-[50%] ${
-                itemsInThisRow === 1 
-                  ? "" 
-                  : index === 0 
-                    ? "pr-[4px]" 
+                itemsInThisRow === 1
+                  ? ""
+                  : index === 0
+                    ? "pr-[4px]"
                     : "pl-[4px]"
               }`}
             >
@@ -226,23 +230,23 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Link>
             </Column>
           ))}
-        </Row>
+        </Row>,
       );
     }
-    
+
     return rows;
   };
 
   // Return early if no digest items are found
   const hasItems = Object.keys(digestData).some(
-    (key) => Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0
+    (key) =>
+      Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
   );
 
   if (!hasItems) {
     return null;
   }
 
-  // CategorySection now accepts a generic categoryInfo
   const CategorySection = ({
     categoryKey,
     items,
@@ -252,7 +256,9 @@ export default function DigestEmail(props: DigestEmailProps) {
   }) => {
     if (items.length === 0) return null;
     const category = getCategoryInfo(categoryKey);
-    const colors = colorClasses[category.color as keyof typeof colorClasses] || colorClasses.gray;
+    const colors =
+      colorClasses[category.color as keyof typeof colorClasses] ||
+      colorClasses.gray;
     return (
       <Section className="mb-[20px]" id={category.href.slice(1)}>
         <div className={`${colors.bg} rounded-[6px] p-[12px]`}>
@@ -336,20 +342,19 @@ export default function DigestEmail(props: DigestEmailProps) {
             </Section>
 
             {getCategoriesWithItemsCount() > 0 && (
-              <Section className="mb-[24px]">
-                {renderCategoryGrid()}
-              </Section>
+              <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
             )}
 
-            {Object.keys(digestData).map((categoryKey) => (
-              Array.isArray(digestData[categoryKey]) && digestData[categoryKey]?.length > 0 ? (
+            {Object.keys(digestData).map((categoryKey) =>
+              Array.isArray(digestData[categoryKey]) &&
+              digestData[categoryKey]?.length > 0 ? (
                 <CategorySection
                   key={categoryKey}
                   categoryKey={categoryKey}
                   items={digestData[categoryKey] as DigestItem[]}
                 />
-              ) : null
-            ))}
+              ) : null,
+            )}
 
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
@@ -599,33 +604,34 @@ DigestEmail.PreviewProps = {
       from: "Expedia",
       subject: "Your flight to Paris is booked!",
       content: {
-        summary: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123."
-      }
+        summary: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
+      },
     },
     {
       from: "Airbnb",
       subject: "Upcoming stay in Montmartre",
       content: {
-        summary: "Check-in: July 11th, Check-out: July 18th. Host: Marie."
-      }
-    }
+        summary: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
+      },
+    },
   ],
   funnyStuff: [
     {
       from: "The Onion",
       subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
       content: {
-        summary: "Local man questions reality after seeing three people in cheese hats."
-      }
+        summary:
+          "Local man questions reality after seeing three people in cheese hats.",
+      },
     },
     {
       from: "Reddit",
       subject: "Top meme of the day",
       content: {
-        summary: "A cat wearing sunglasses and riding a Roomba."
-      }
-    }
-  ]
+        summary: "A cat wearing sunglasses and riding a Roomba.",
+      },
+    },
+  ],
 };
 
 function Footer({
