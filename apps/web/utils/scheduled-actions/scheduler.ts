@@ -19,9 +19,6 @@ function getQstashClient() {
   return new Client({ token: env.QSTASH_TOKEN });
 }
 
-/**
- * Create a scheduled action and queue it with QStash
- */
 export async function createScheduledAction({
   executedRuleId,
   actionItem,
@@ -43,7 +40,6 @@ export async function createScheduledAction({
     );
   }
 
-  // Validate delayInMinutes before creating database record
   if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
     throw new Error(
       `Invalid delayInMinutes: ${actionItem.delayInMinutes}. Must be a positive number.`,
@@ -115,9 +111,6 @@ export async function createScheduledAction({
   }
 }
 
-/**
- * Schedule delayed actions using QStash for a set of action items
- */
 export async function scheduleDelayedActions({
   executedRuleId,
   actionItems,
@@ -169,9 +162,6 @@ export async function scheduleDelayedActions({
   return scheduledActions;
 }
 
-/**
- * Cancel existing scheduled actions and their QStash schedules
- */
 export async function cancelScheduledActions({
   emailAccountId,
   messageId,
@@ -222,7 +212,6 @@ export async function cancelScheduledActions({
       }
     }
 
-    // Cancel in database
     const cancelledActions = await prisma.scheduledAction.updateMany({
       where: {
         emailAccountId,
@@ -255,9 +244,6 @@ export async function cancelScheduledActions({
   }
 }
 
-/**
- * Schedule a message with QStash
- */
 async function scheduleMessage({
   payload,
   delayInMinutes,
@@ -298,7 +284,6 @@ async function scheduleMessage({
 
       return messageId;
     } else {
-      // QStash client not available - update the database record to reflect this
       logger.error(
         "QStash client not available, scheduled action cannot be executed",
         {
@@ -335,9 +320,6 @@ async function scheduleMessage({
   }
 }
 
-/**
- * Cancel a QStash message using the message ID
- */
 async function cancelMessage(
   client: InstanceType<typeof Client>,
   messageId: string,
@@ -354,10 +336,6 @@ async function cancelMessage(
   }
 }
 
-/**
- * Mark scheduled action as executing to prevent duplicate execution
- * Returns null if action cannot be executed (already executing, cancelled, etc.)
- */
 export async function markQStashActionAsExecuting(scheduledActionId: string) {
   try {
     const updatedAction = await prisma.scheduledAction.update({
