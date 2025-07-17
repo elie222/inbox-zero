@@ -24,6 +24,9 @@ importers:
       lint-staged:
         specifier: 15.5.1
         version: 15.5.1
+      prettier:
+        specifier: 3.6.2
+        version: 3.6.2
       turbo:
         specifier: 2.5.4
         version: 2.5.4
@@ -639,9 +642,6 @@ importers:
       '@types/react-dom':
         specifier: 19.0.4
         version: 19.0.4(@types/react@19.0.10)
-      prettier:
-        specifier: 3.6.2
-        version: 3.6.2
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -14889,7 +14889,7 @@ snapshots:
       get-it: 8.6.9(debug@4.4.1)
       groq-js: 1.16.1
       pkg-dir: 5.0.0
-      prettier: 3.5.3
+      prettier: 3.6.2
       semver: 7.7.1
       validate-npm-package-name: 3.0.0
     transitivePeerDependencies:
