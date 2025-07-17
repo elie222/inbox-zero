@@ -28,7 +28,7 @@ import {
   isServiceUnavailableError,
 } from "@/utils/error";
 import { sleep } from "@/utils/sleep";
-import { getModel } from "@/utils/llms/model";
+import { getModel, type ModelType } from "@/utils/llms/model";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms");
@@ -41,14 +41,14 @@ const commonOptions: {
 
 export async function chatCompletion({
   userAi,
-  useEconomyModel,
+  modelType = "default",
   prompt,
   system,
   userEmail,
   usageLabel,
 }: {
   userAi: UserAIFields;
-  useEconomyModel?: boolean;
+  modelType?: ModelType;
   prompt: string;
   system?: string;
   userEmail: string;
@@ -57,7 +57,7 @@ export async function chatCompletion({
   try {
     const { provider, model, llmModel, providerOptions } = getModel(
       userAi,
-      useEconomyModel,
+      modelType,
     );
 
     const result = await generateText({
@@ -87,7 +87,7 @@ export async function chatCompletion({
 
 type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
-  useEconomyModel?: boolean;
+  modelType?: ModelType;
   schema: z.Schema<T>;
   userEmail: string;
   usageLabel: string;
@@ -112,7 +112,7 @@ export async function chatCompletionObject<T>(
 
 async function chatCompletionObjectInternal<T>({
   userAi,
-  useEconomyModel,
+  modelType,
   system,
   prompt,
   messages,
@@ -123,7 +123,7 @@ async function chatCompletionObjectInternal<T>({
   try {
     const { provider, model, llmModel, providerOptions } = getModel(
       userAi,
-      useEconomyModel,
+      modelType,
     );
 
     const result = await generateObject({
@@ -155,7 +155,7 @@ async function chatCompletionObjectInternal<T>({
 
 export async function chatCompletionStream({
   userAi,
-  useEconomyModel,
+  modelType,
   system,
   prompt,
   messages,
@@ -167,7 +167,7 @@ export async function chatCompletionStream({
   onStepFinish,
 }: {
   userAi: UserAIFields;
-  useEconomyModel?: boolean;
+  modelType?: ModelType;
   system?: string;
   prompt?: string;
   messages?: Message[];
@@ -184,7 +184,7 @@ export async function chatCompletionStream({
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
-    useEconomyModel,
+    modelType,
   );
 
   const result = streamText({
@@ -229,7 +229,7 @@ export async function chatCompletionStream({
 
 type ChatCompletionToolsArgs = {
   userAi: UserAIFields;
-  useEconomyModel?: boolean;
+  modelType?: ModelType;
   tools: Record<string, Tool>;
   maxSteps?: number;
   label: string;
@@ -253,7 +253,7 @@ export async function chatCompletionTools(options: ChatCompletionToolsArgs) {
 
 async function chatCompletionToolsInternal({
   userAi,
-  useEconomyModel,
+  modelType,
   system,
   prompt,
   messages,
@@ -265,7 +265,7 @@ async function chatCompletionToolsInternal({
   try {
     const { provider, model, llmModel, providerOptions } = getModel(
       userAi,
-      useEconomyModel,
+      modelType,
     );
 
     const result = await generateText({
@@ -300,7 +300,7 @@ async function chatCompletionToolsInternal({
 // not in use atm
 async function streamCompletionTools({
   userAi,
-  useEconomyModel,
+  modelType,
   prompt,
   system,
   tools,
@@ -310,7 +310,7 @@ async function streamCompletionTools({
   onFinish,
 }: {
   userAi: UserAIFields;
-  useEconomyModel?: boolean;
+  modelType?: ModelType;
   prompt: string;
   system?: string;
   tools: Record<string, Tool>;
@@ -321,7 +321,7 @@ async function streamCompletionTools({
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
-    useEconomyModel,
+    modelType,
   );
 
   const result = await streamText({

@@ -13,19 +13,33 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms/model");
 
-export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
-  const data = useEconomyModel
-    ? selectEconomyModel(userAi)
-    : selectDefaultModel(userAi);
+export type ModelType = "default" | "economy" | "chat";
+
+export function getModel(
+  userAi: UserAIFields,
+  modelType: ModelType = "default",
+) {
+  const data = selectModelByType(userAi, modelType);
 
   logger.info("Using model", {
-    useEconomyModel,
+    modelType,
     provider: data.provider,
     model: data.model,
     providerOptions: data.providerOptions,
   });
 
   return data;
+}
+
+function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
+  switch (modelType) {
+    case "economy":
+      return selectEconomyModel(userAi);
+    case "chat":
+      return selectChatModel(userAi);
+    default:
+      return selectDefaultModel(userAi);
+  }
 }
 
 function selectModel(
@@ -170,6 +184,29 @@ function selectEconomyModel(userAi: UserAIFields) {
   return selectDefaultModel(userAi);
 }
 
+/**
+ * Selects the appropriate chat model for fast conversational tasks
+ */
+function selectChatModel(userAi: UserAIFields) {
+  if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Chat LLM provider configured but API key not found", {
+        provider: env.CHAT_LLM_PROVIDER,
+      });
+      return selectDefaultModel(userAi);
+    }
+
+    return selectModel({
+      aiProvider: env.CHAT_LLM_PROVIDER,
+      aiModel: env.CHAT_LLM_MODEL,
+      aiApiKey: apiKey,
+    });
+  }
+
+  return selectDefaultModel(userAi);
+}
+
 function selectDefaultModel(userAi: UserAIFields) {
   const defaultProvider = env.DEFAULT_LLM_PROVIDER;
   const aiApiKey = userAi.aiApiKey;
@@ -257,17 +294,8 @@ function selectDefaultModel(userAi: UserAIFields) {
   );
 }
 
-function getProviderApiKey(
-  provider:
-    | "openai"
-    | "anthropic"
-    | "google"
-    | "groq"
-    | "openrouter"
-    | "bedrock"
-    | "ollama",
-) {
-  const providerApiKeys = {
+function getProviderApiKey(provider: string) {
+  const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
     [Provider.OPEN_AI]: env.OPENAI_API_KEY,
     [Provider.GOOGLE]: env.GOOGLE_API_KEY,

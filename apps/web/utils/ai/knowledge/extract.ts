@@ -105,7 +105,7 @@ export async function aiExtractRelevantKnowledge({
       usageLabel: "Knowledge extraction",
       userAi: emailAccount.user,
       userEmail: emailAccount.email,
-      useEconomyModel: true,
+      modelType: "economy",
     });
 
     logger.trace("Output", result.object);

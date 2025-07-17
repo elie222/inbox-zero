@@ -38,6 +38,10 @@ vi.mock("ollama-ai-provider", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
+    ECONOMY_LLM_PROVIDER: "openrouter",
+    ECONOMY_LLM_MODEL: "google/gemini-2.5-flash-preview-05-20",
+    CHAT_LLM_PROVIDER: "openrouter",
+    CHAT_LLM_MODEL: "moonshotai/kimi-k2",
     OPENAI_API_KEY: "test-openai-key",
     GOOGLE_API_KEY: "test-google-key",
     ANTHROPIC_API_KEY: "test-anthropic-key",
@@ -210,6 +214,51 @@ describe("Models", () => {
       };
 
       expect(() => getModel(userAi)).toThrow("LLM provider not supported");
+    });
+
+    it("should use chat model when modelType is 'chat'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "chat");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("moonshotai/kimi-k2");
+    });
+
+    it("should use economy model when modelType is 'economy'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).ECONOMY_LLM_MODEL =
+        "google/gemini-2.5-flash-preview-05-20";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "economy");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("google/gemini-2.5-flash-preview-05-20");
+    });
+
+    it("should use default model when modelType is 'default'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.model).toBe("gpt-4o");
     });
   });
 });
