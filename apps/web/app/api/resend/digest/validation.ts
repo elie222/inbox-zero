@@ -32,7 +32,10 @@ export const digestSummarySchema = z.string().transform((str) => {
 
 export const digestCategorySchema = z.string();
 
-export const digestSchema = z.record(z.string(), z.array(digestItemSchema).optional());
+export const digestSchema = z.record(
+  z.string(),
+  z.array(digestItemSchema).optional(),
+);
 
 export const sendDigestEmailBody = z.object({ emailAccountId: z.string() });
 
