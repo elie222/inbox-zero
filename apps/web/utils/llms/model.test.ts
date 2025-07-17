@@ -38,6 +38,7 @@ vi.mock("ollama-ai-provider", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     ECONOMY_LLM_PROVIDER: "openrouter",
     ECONOMY_LLM_MODEL: "google/gemini-2.5-flash-preview-05-20",
     ECONOMY_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
@@ -304,6 +305,52 @@ describe("Models", () => {
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPEN_AI);
       expect(result.model).toBe("gpt-4o");
+    });
+
+    it("should use OpenRouter with provider options for default model", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "anthropic/claude-3.5-sonnet";
+      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("anthropic/claude-3.5-sonnet");
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Anthropic",
+      ]);
+    });
+
+    it("should preserve custom logic and not override with default provider options", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "custom";
+      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Should Not Override";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      // Should have custom logic provider options, not the default ones
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Google AI Studio",
+        "Anthropic",
+      ]);
+      // Should NOT contain the DEFAULT_OPENROUTER_PROVIDERS value
+      expect(result.providerOptions?.openrouter?.provider?.order).not.toContain(
+        "Should Not Override",
+      );
     });
   });
 });

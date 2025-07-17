@@ -327,6 +327,18 @@ function selectDefaultModel(userAi: UserAIFields) {
     }
   }
 
+  // Configure OpenRouter provider options if using OpenRouter for default model
+  // (but not overriding custom logic which already sets its own provider options)
+  if (
+    aiProvider === Provider.OPENROUTER &&
+    env.DEFAULT_OPENROUTER_PROVIDERS &&
+    !providerOptions.openrouter
+  ) {
+    providerOptions.openrouter = createOpenRouterProviderOptions(
+      env.DEFAULT_OPENROUTER_PROVIDERS,
+    );
+  }
+
   return selectModel(
     {
       aiProvider,

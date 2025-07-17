@@ -27,16 +27,15 @@ export const env = createEnv({
       .enum([...llmProviderEnum.options, "custom"])
       .default("anthropic"),
     DEFAULT_LLM_MODEL: z.string().optional(),
+    DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
     // Set this to a cheaper model like Gemini Flash
     ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
     ECONOMY_LLM_MODEL: z.string().optional(),
-    // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
-    ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(),
-    // Set this to a fast but strong model like Kimi K2. Leaving blank will fallback to default which is also fine.
+    ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
+    // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
     CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
     CHAT_LLM_MODEL: z.string().optional(),
-    // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
-    CHAT_OPENROUTER_PROVIDERS: z.string().optional(),
+    CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
 
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
