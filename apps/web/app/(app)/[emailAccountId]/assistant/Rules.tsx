@@ -166,6 +166,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               cc: null,
               bcc: null,
               url: null,
+              delayInMinutes: null,
             }
           : null,
       ].filter(isDefined),

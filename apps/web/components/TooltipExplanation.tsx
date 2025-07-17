@@ -1,3 +1,5 @@
+"use client";
+
 import { HelpCircleIcon } from "lucide-react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/utils";
@@ -7,7 +9,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 
 const tooltipIconVariants = cva("cursor-pointer", {
   variants: {
@@ -36,12 +38,17 @@ export function TooltipExplanation({
 }: TooltipExplanationProps) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const handleClick = useCallback(() => {
+    setIsOpen((prev) => !prev);
+  }, []);
+
   return (
     <TooltipProvider delayDuration={200}>
       <Tooltip open={isOpen} onOpenChange={setIsOpen}>
-        <TooltipTrigger asChild onClick={() => setIsOpen(!isOpen)}>
+        <TooltipTrigger asChild>
           <HelpCircleIcon
             className={cn(tooltipIconVariants({ size }), className)}
+            onClick={handleClick}
           />
         </TooltipTrigger>
         <TooltipContent side={side}>

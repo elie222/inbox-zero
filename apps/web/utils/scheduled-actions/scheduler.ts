@@ -43,8 +43,14 @@ export async function createScheduledAction({
     );
   }
 
+  // Validate delayInMinutes before creating database record
+  if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
+    throw new Error(
+      `Invalid delayInMinutes: ${actionItem.delayInMinutes}. Must be a positive number.`,
+    );
+  }
+
   try {
-    // Create the scheduled action record first
     const scheduledAction = await prisma.scheduledAction.create({
       data: {
         executedRuleId,
@@ -70,12 +76,6 @@ export async function createScheduledAction({
     };
 
     const deduplicationId = `scheduled-action-${scheduledAction.id}`;
-
-    if (actionItem.delayInMinutes == null || actionItem.delayInMinutes <= 0) {
-      throw new Error(
-        `Invalid delayInMinutes: ${actionItem.delayInMinutes}. Must be a positive number.`,
-      );
-    }
 
     const scheduledId = await scheduleMessage({
       payload,
