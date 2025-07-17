@@ -155,6 +155,21 @@ function selectModel(
 }
 
 /**
+ * Creates OpenRouter provider options from a comma-separated string
+ */
+function createOpenRouterProviderOptions(
+  providers: string,
+): Record<string, any> {
+  return {
+    openrouter: {
+      provider: {
+        order: providers.split(",").map((p: string) => p.trim()),
+      },
+    },
+  };
+}
+
+/**
  * Selects the appropriate economy model for high-volume or context-heavy tasks
  * By default, uses a cheaper model like Gemini Flash for tasks that don't require the most powerful LLM
  *
@@ -174,11 +189,25 @@ function selectEconomyModel(userAi: UserAIFields) {
       return selectDefaultModel(userAi);
     }
 
-    return selectModel({
-      aiProvider: env.ECONOMY_LLM_PROVIDER,
-      aiModel: env.ECONOMY_LLM_MODEL,
-      aiApiKey: apiKey,
-    });
+    // Configure OpenRouter provider options if using OpenRouter for economy
+    let providerOptions: Record<string, any> | undefined;
+    if (
+      env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
+      env.ECONOMY_OPENROUTER_PROVIDERS
+    ) {
+      providerOptions = createOpenRouterProviderOptions(
+        env.ECONOMY_OPENROUTER_PROVIDERS,
+      );
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.ECONOMY_LLM_PROVIDER,
+        aiModel: env.ECONOMY_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+    );
   }
 
   return selectDefaultModel(userAi);
@@ -197,11 +226,25 @@ function selectChatModel(userAi: UserAIFields) {
       return selectDefaultModel(userAi);
     }
 
-    return selectModel({
-      aiProvider: env.CHAT_LLM_PROVIDER,
-      aiModel: env.CHAT_LLM_MODEL,
-      aiApiKey: apiKey,
-    });
+    // Configure OpenRouter provider options if using OpenRouter for chat
+    let providerOptions: Record<string, any> | undefined;
+    if (
+      env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
+      env.CHAT_OPENROUTER_PROVIDERS
+    ) {
+      providerOptions = createOpenRouterProviderOptions(
+        env.CHAT_OPENROUTER_PROVIDERS,
+      );
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.CHAT_LLM_PROVIDER,
+        aiModel: env.CHAT_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+    );
   }
 
   return selectDefaultModel(userAi);
