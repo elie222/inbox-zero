@@ -36,7 +36,10 @@ export async function POST(request: Request) {
     const summary = await aiSummarizeEmailForDigest({
       ruleName,
       emailAccount,
-      messageToSummarize: message,
+      messageToSummarize: {
+        ...message,
+        to: message.to || "",
+      },
     });
 
     await upsertDigest({
