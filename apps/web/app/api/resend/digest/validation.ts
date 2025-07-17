@@ -30,25 +30,12 @@ export const digestSummarySchema = z.string().transform((str) => {
   }
 });
 
-export const digestCategorySchema = z.enum([
-  "newsletter",
-  "receipt",
-  "marketing",
-  "calendar",
-  "coldEmail",
-  "notification",
-  "toReply",
-]);
+export const digestCategorySchema = z.string();
 
-export const digestSchema = z.object({
-  newsletter: z.array(digestItemSchema).optional(),
-  receipt: z.array(digestItemSchema).optional(),
-  marketing: z.array(digestItemSchema).optional(),
-  calendar: z.array(digestItemSchema).optional(),
-  coldEmail: z.array(digestItemSchema).optional(),
-  notification: z.array(digestItemSchema).optional(),
-  toReply: z.array(digestItemSchema).optional(),
-});
+export const digestSchema = z.record(
+  z.string(),
+  z.array(digestItemSchema).optional(),
+);
 
 export const sendDigestEmailBody = z.object({ emailAccountId: z.string() });
 

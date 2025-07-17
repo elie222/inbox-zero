@@ -32,7 +32,7 @@ export async function enqueueDigestItem({
           id: email.id,
           threadId: email.threadId,
           from: email.headers.from,
-          to: email.headers.to,
+          to: email.headers.to || "",
           subject: email.headers.subject,
           content: email.textPlain || "",
         },

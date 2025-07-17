@@ -168,39 +168,34 @@ async function sendEmail({
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
         );
 
-        // Only include if it's one of our known categories
-        const categoryResult = digestCategorySchema.safeParse(ruleName);
-        if (categoryResult.success) {
-          const category = categoryResult.data;
-          if (!acc[category]) {
-            acc[category] = [];
-          }
+        const category = ruleName;
+        if (!acc[category]) {
+          acc[category] = [];
+        }
 
-          let parsedContent: unknown;
-          try {
-            parsedContent = JSON.parse(item.content);
-          } catch (error) {
-            logger.warn("Failed to parse digest item content, skipping item", {
-              messageId: item.messageId,
-              digestId: digest.id,
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
-            return; // Skip this item and continue with the next one
-          }
+        let parsedContent: unknown;
+        try {
+          parsedContent = JSON.parse(item.content);
+        } catch (error) {
+          logger.warn("Failed to parse digest item content, skipping item", {
+            messageId: item.messageId,
+            digestId: digest.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          return; // Skip this item and continue with the next one
+        }
 
-          const contentResult =
-            DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
 
-          if (contentResult.success) {
-            acc[category].push({
-              content: {
-                entries: contentResult.data?.entries || [],
-                summary: contentResult.data?.summary,
-              },
-              from: extractNameFromEmail(message?.headers?.from || ""),
-              subject: message?.headers?.subject || "",
-            });
-          }
+        if (contentResult.success) {
+          acc[category].push({
+            content: {
+              entries: contentResult.data?.entries || [],
+              summary: contentResult.data?.summary,
+            },
+            from: extractNameFromEmail(message?.headers?.from || ""),
+            subject: message?.headers?.subject || "",
+          });
         }
       });
       return acc;
@@ -213,11 +208,11 @@ async function sendEmail({
       from: env.RESEND_FROM_EMAIL,
       to: emailAccount.email,
       emailProps: {
-        ...executedRulesByRule,
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         unsubscribeToken: token,
         date: new Date(),
-      },
+        ...executedRulesByRule,
+      } as any, // Type assertion needed due to generic DigestEmailProps
     });
 
     // Only update database if email sending succeeded

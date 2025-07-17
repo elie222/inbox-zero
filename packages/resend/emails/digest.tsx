@@ -75,30 +75,19 @@ const colorClasses = {
   },
 } as const;
 
-export interface DigestEmailProps {
+export type DigestEmailProps = {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  newsletter?: DigestItem[] | undefined;
-  receipt?: DigestItem[] | undefined;
-  marketing?: DigestItem[] | undefined;
-  calendar?: DigestItem[] | undefined;
-  coldEmail?: DigestItem[] | undefined;
-  notification?: DigestItem[] | undefined;
-  toReply?: DigestItem[] | undefined;
-}
+  [key: string]: DigestItem[] | undefined | string | Date | undefined;
+};
 
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
-    newsletter = [],
-    receipt = [],
-    marketing = [],
-    calendar = [],
-    coldEmail = [],
-    notification = [],
-    toReply = [],
     unsubscribeToken,
+    date,
+    ...digestData
   } = props;
 
   const availableCategories = {
@@ -146,15 +135,23 @@ export default function DigestEmail(props: DigestEmailProps) {
     },
   };
 
-  const getCategoryInfo = (key: keyof typeof availableCategories) => {
-    return availableCategories[key];
+  const getCategoryInfo = (key: string) => {
+    if (key in availableCategories) {
+      return availableCategories[key as keyof typeof availableCategories];
+    }
+    // Fallback for unknown categories
+    return {
+      name: key.charAt(0).toUpperCase() + key.slice(1),
+      emoji: "📂",
+      color: "gray",
+      href: `#${key}`,
+    };
   };
 
   const getCategoriesWithItemsCount = () => {
-    return Object.entries(availableCategories).filter(
-      ([key]) =>
-        Array.isArray(props[key as keyof DigestEmailProps]) &&
-        (props[key as keyof DigestEmailProps] as unknown as any[])?.length > 0,
+    return Object.keys(digestData).filter(
+      (key) =>
+        Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
     ).length;
   };
 
@@ -170,29 +167,46 @@ export default function DigestEmail(props: DigestEmailProps) {
    * @returns Renders a grid of categories with a count of the number of emails in each category.
    */
   const renderCategoryGrid = () => {
-    const categories = Object.entries(availableCategories)
-      .map(([key, value]) => ({
-        key,
-        ...value,
-        count: Array.isArray(props[key as keyof DigestEmailProps])
-          ? (props[key as keyof DigestEmailProps] as unknown as any[])
-              ?.length || 0
-          : 0,
-      }))
-      .filter((cat) => cat.count > 0);
+    // Get all present categories in digestData
+    const categories = Object.keys(digestData)
+      .filter(
+        (key) =>
+          Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
+      )
+      .map((key) => {
+        const info = getCategoryInfo(key);
+        return {
+          key,
+          ...info,
+          count: (digestData[key] as DigestItem[]).length,
+        };
+      });
 
     const categoryCount = categories.length;
+    if (categoryCount === 0) return null;
 
-    if (categoryCount <= 1) return null;
+    // For all cases: ensure max 2 items per row
+    const rows = [];
+    const totalRows = Math.ceil(categoryCount / 2);
 
-    // For 2 categories: single row
-    if (categoryCount === 2) {
-      return (
-        <Row className="mb-[0px]">
-          {categories.map((category, index) => (
+    for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
+      const startIndex = rowIndex * 2;
+      const endIndex = Math.min(startIndex + 2, categoryCount);
+      const isLastRow = rowIndex === totalRows - 1;
+      const itemsInThisRow = endIndex - startIndex;
+
+      rows.push(
+        <Row key={rowIndex} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
+          {categories.slice(startIndex, endIndex).map((category, index) => (
             <Column
               key={category.key}
-              className={`w-[50%] ${index === 0 ? "pr-[4px]" : "pl-[4px]"}`}
+              className={`w-[50%] ${
+                itemsInThisRow === 1
+                  ? ""
+                  : index === 0
+                    ? "pr-[4px]"
+                    : "pl-[4px]"
+              }`}
             >
               <Link href={category.href} className="no-underline">
                 <div
@@ -216,176 +230,6 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Link>
             </Column>
           ))}
-        </Row>
-      );
-    }
-
-    // For 3-4 categories: 2x2 grid
-    if (categoryCount <= 4) {
-      const rows = [];
-      for (let i = 0; i < categoryCount; i += 2) {
-        const isLastRow = i + 2 >= categoryCount;
-        rows.push(
-          <Row key={i} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
-            <Column className="w-[50%] pr-[4px]">
-              <Link href={categories[i].href} className="no-underline">
-                <div
-                  className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
-                >
-                  <Text
-                    className={`text-[13px] font-medium ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {categories[i].emoji} {categories[i].name}
-                  </Text>
-                  <div
-                    className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                  >
-                    <Text
-                      className={`text-[12px] font-bold ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
-                    >
-                      {categories[i].count}
-                    </Text>
-                  </div>
-                </div>
-              </Link>
-            </Column>
-            {i + 1 < categoryCount && (
-              <Column className="w-[50%] pl-[4px]">
-                <Link href={categories[i + 1].href} className="no-underline">
-                  <div
-                    className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
-                  >
-                    <Text
-                      className={`text-[13px] font-medium ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}
-                    >
-                      {categories[i + 1].emoji} {categories[i + 1].name}
-                    </Text>
-                    <div
-                      className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                    >
-                      <Text
-                        className={`text-[12px] font-bold ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}
-                      >
-                        {categories[i + 1].count}
-                      </Text>
-                    </div>
-                  </div>
-                </Link>
-              </Column>
-            )}
-          </Row>,
-        );
-      }
-      return rows;
-    }
-
-    // For 5-7 categories: 2x2 grid + bottom row
-    const rows = [];
-    // First two rows (4 categories)
-    for (let i = 0; i < 4; i += 2) {
-      rows.push(
-        <Row key={i} className="mb-[6px]">
-          <Column className="w-[50%] pr-[4px]">
-            <Link href={categories[i].href} className="no-underline">
-              <div
-                className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
-              >
-                <Text
-                  className={`text-[13px] font-medium ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
-                >
-                  {categories[i].emoji} {categories[i].name}
-                </Text>
-                <div
-                  className={`${colorClasses[categories[i].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                >
-                  <Text
-                    className={`text-[12px] font-bold ${colorClasses[categories[i].color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {categories[i].count}
-                  </Text>
-                </div>
-              </div>
-            </Link>
-          </Column>
-          <Column className="w-[50%] pl-[4px]">
-            <Link href={categories[i + 1].href} className="no-underline">
-              <div
-                className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
-              >
-                <Text
-                  className={`text-[13px] font-medium ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}
-                >
-                  {categories[i + 1].emoji} {categories[i + 1].name}
-                </Text>
-                <div
-                  className={`${colorClasses[categories[i + 1].color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                >
-                  <Text
-                    className={`text-[12px] font-bold ${colorClasses[categories[i + 1].color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {categories[i + 1].count}
-                  </Text>
-                </div>
-              </div>
-            </Link>
-          </Column>
-        </Row>,
-      );
-    }
-
-    // Bottom row for remaining categories
-    const remainingCategories = categories.slice(4);
-    const remainingCount = remainingCategories.length;
-
-    if (remainingCount > 0) {
-      const widthClass =
-        remainingCount === 1
-          ? "w-[100%]"
-          : remainingCount === 2
-            ? "w-[50%]"
-            : "w-[33.33%]";
-
-      rows.push(
-        <Row key="bottom" className="mb-[0px]">
-          {remainingCategories.map((category, index) => (
-            <Column
-              key={category.key}
-              className={`${widthClass} ${
-                remainingCount === 1
-                  ? ""
-                  : remainingCount === 2
-                    ? index === 0
-                      ? "pr-[4px]"
-                      : "pl-[4px]"
-                    : index === 0
-                      ? "pr-[4px]"
-                      : index === remainingCount - 1
-                        ? "pl-[4px]"
-                        : "px-[2px]"
-              }`}
-            >
-              <Link href={category.href} className="no-underline">
-                <div
-                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
-                >
-                  <Text
-                    className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {category.emoji} {category.name}
-                  </Text>
-                  <div
-                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[0px] ml-[4px] rounded-[12px]`}
-                  >
-                    <Text
-                      className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                    >
-                      {category.count}
-                    </Text>
-                  </div>
-                </div>
-              </Link>
-            </Column>
-          ))}
         </Row>,
       );
     }
@@ -393,18 +237,28 @@ export default function DigestEmail(props: DigestEmailProps) {
     return rows;
   };
 
+  // Return early if no digest items are found
+  const hasItems = Object.keys(digestData).some(
+    (key) =>
+      Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
+  );
+
+  if (!hasItems) {
+    return null;
+  }
+
   const CategorySection = ({
     categoryKey,
     items,
   }: {
-    categoryKey: keyof typeof availableCategories;
+    categoryKey: string;
     items: DigestItem[];
   }) => {
     if (items.length === 0) return null;
-
     const category = getCategoryInfo(categoryKey);
-    const colors = colorClasses[category.color as keyof typeof colorClasses];
-
+    const colors =
+      colorClasses[category.color as keyof typeof colorClasses] ||
+      colorClasses.gray;
     return (
       <Section className="mb-[20px]" id={category.href.slice(1)}>
         <div className={`${colors.bg} rounded-[6px] p-[12px]`}>
@@ -456,20 +310,6 @@ export default function DigestEmail(props: DigestEmailProps) {
     );
   };
 
-  // Return early if no digest items are found
-  const hasItems =
-    newsletter.length > 0 ||
-    receipt.length > 0 ||
-    marketing.length > 0 ||
-    calendar.length > 0 ||
-    coldEmail.length > 0 ||
-    notification.length > 0 ||
-    toReply.length > 0;
-
-  if (!hasItems) {
-    return null;
-  }
-
   return (
     <Html>
       <Head />
@@ -501,17 +341,20 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {getCategoriesWithItemsCount() > 1 && (
+            {getCategoriesWithItemsCount() > 0 && (
               <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
             )}
 
-            <CategorySection categoryKey="newsletter" items={newsletter} />
-            <CategorySection categoryKey="receipt" items={receipt} />
-            <CategorySection categoryKey="marketing" items={marketing} />
-            <CategorySection categoryKey="calendar" items={calendar} />
-            <CategorySection categoryKey="coldEmail" items={coldEmail} />
-            <CategorySection categoryKey="notification" items={notification} />
-            <CategorySection categoryKey="toReply" items={toReply} />
+            {Object.keys(digestData).map((categoryKey) =>
+              Array.isArray(digestData[categoryKey]) &&
+              digestData[categoryKey]?.length > 0 ? (
+                <CategorySection
+                  key={categoryKey}
+                  categoryKey={categoryKey}
+                  items={digestData[categoryKey] as DigestItem[]}
+                />
+              ) : null,
+            )}
 
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
@@ -752,6 +595,40 @@ DigestEmail.PreviewProps = {
       subject: "Annual review scheduling",
       content: {
         summary: "Received: Tuesday, 9:00 AM • Due: Friday",
+      },
+    },
+  ],
+  // --- Custom categories for testing ---
+  travel: [
+    {
+      from: "Expedia",
+      subject: "Your flight to Paris is booked!",
+      content: {
+        summary: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
+      },
+    },
+    {
+      from: "Airbnb",
+      subject: "Upcoming stay in Montmartre",
+      content: {
+        summary: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
+      },
+    },
+  ],
+  funnyStuff: [
+    {
+      from: "The Onion",
+      subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
+      content: {
+        summary:
+          "Local man questions reality after seeing three people in cheese hats.",
+      },
+    },
+    {
+      from: "Reddit",
+      subject: "Top meme of the day",
+      content: {
+        summary: "A cat wearing sunglasses and riding a Roomba.",
       },
     },
   ],
