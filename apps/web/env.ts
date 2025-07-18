@@ -2,6 +2,16 @@
 import { createEnv } from "@t3-oss/env-nextjs";
 import { z } from "zod";
 
+const llmProviderEnum = z.enum([
+  "anthropic",
+  "google",
+  "openai",
+  "bedrock",
+  "openrouter",
+  "groq",
+  "ollama",
+]);
+
 export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
@@ -12,36 +22,21 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     GOOGLE_ENCRYPT_SECRET: z.string(),
     GOOGLE_ENCRYPT_SALT: z.string(),
+
     DEFAULT_LLM_PROVIDER: z
-      .enum([
-        "anthropic",
-        // "bedrock",
-        "google",
-        "openai",
-        "openrouter",
-        "groq",
-        "ollama",
-        "custom",
-      ])
+      .enum([...llmProviderEnum.options, "custom"])
       .default("anthropic"),
     DEFAULT_LLM_MODEL: z.string().optional(),
-    // Economy LLM configuration (for large context windows where cost efficiency matters)
-    ECONOMY_LLM_PROVIDER: z
-      .enum([
-        "anthropic",
-        "google",
-        "openai",
-        "bedrock",
-        "openrouter",
-        "groq",
-        "ollama",
-      ])
-      .optional()
-      .default("openrouter"),
-    ECONOMY_LLM_MODEL: z
-      .string()
-      .optional()
-      .default("google/gemini-2.5-flash-preview-05-20"),
+    DEFAULT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for default model (e.g., "Google Vertex,Anthropic")
+    // Set this to a cheaper model like Gemini Flash
+    ECONOMY_LLM_PROVIDER: llmProviderEnum.optional(),
+    ECONOMY_LLM_MODEL: z.string().optional(),
+    ECONOMY_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for economy model (e.g., "Google Vertex,Anthropic")
+    // Set this to a fast but strong model like Groq Kimi K2. Leaving blank will fallback to default which is also fine.
+    CHAT_LLM_PROVIDER: llmProviderEnum.optional(),
+    CHAT_LLM_MODEL: z.string().optional(),
+    CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
+
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),

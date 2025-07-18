@@ -13,19 +13,33 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms/model");
 
-export function getModel(userAi: UserAIFields, useEconomyModel?: boolean) {
-  const data = useEconomyModel
-    ? selectEconomyModel(userAi)
-    : selectDefaultModel(userAi);
+export type ModelType = "default" | "economy" | "chat";
+
+export function getModel(
+  userAi: UserAIFields,
+  modelType: ModelType = "default",
+) {
+  const data = selectModelByType(userAi, modelType);
 
   logger.info("Using model", {
-    useEconomyModel,
+    modelType,
     provider: data.provider,
     model: data.model,
     providerOptions: data.providerOptions,
   });
 
   return data;
+}
+
+function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
+  switch (modelType) {
+    case "economy":
+      return selectEconomyModel(userAi);
+    case "chat":
+      return selectChatModel(userAi);
+    default:
+      return selectDefaultModel(userAi);
+  }
 }
 
 function selectModel(
@@ -141,6 +155,21 @@ function selectModel(
 }
 
 /**
+ * Creates OpenRouter provider options from a comma-separated string
+ */
+function createOpenRouterProviderOptions(
+  providers: string,
+): Record<string, any> {
+  return {
+    openrouter: {
+      provider: {
+        order: providers.split(",").map((p: string) => p.trim()),
+      },
+    },
+  };
+}
+
+/**
  * Selects the appropriate economy model for high-volume or context-heavy tasks
  * By default, uses a cheaper model like Gemini Flash for tasks that don't require the most powerful LLM
  *
@@ -160,11 +189,62 @@ function selectEconomyModel(userAi: UserAIFields) {
       return selectDefaultModel(userAi);
     }
 
-    return selectModel({
-      aiProvider: env.ECONOMY_LLM_PROVIDER,
-      aiModel: env.ECONOMY_LLM_MODEL,
-      aiApiKey: apiKey,
-    });
+    // Configure OpenRouter provider options if using OpenRouter for economy
+    let providerOptions: Record<string, any> | undefined;
+    if (
+      env.ECONOMY_LLM_PROVIDER === Provider.OPENROUTER &&
+      env.ECONOMY_OPENROUTER_PROVIDERS
+    ) {
+      providerOptions = createOpenRouterProviderOptions(
+        env.ECONOMY_OPENROUTER_PROVIDERS,
+      );
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.ECONOMY_LLM_PROVIDER,
+        aiModel: env.ECONOMY_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+    );
+  }
+
+  return selectDefaultModel(userAi);
+}
+
+/**
+ * Selects the appropriate chat model for fast conversational tasks
+ */
+function selectChatModel(userAi: UserAIFields) {
+  if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
+    const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
+    if (!apiKey) {
+      logger.warn("Chat LLM provider configured but API key not found", {
+        provider: env.CHAT_LLM_PROVIDER,
+      });
+      return selectDefaultModel(userAi);
+    }
+
+    // Configure OpenRouter provider options if using OpenRouter for chat
+    let providerOptions: Record<string, any> | undefined;
+    if (
+      env.CHAT_LLM_PROVIDER === Provider.OPENROUTER &&
+      env.CHAT_OPENROUTER_PROVIDERS
+    ) {
+      providerOptions = createOpenRouterProviderOptions(
+        env.CHAT_OPENROUTER_PROVIDERS,
+      );
+    }
+
+    return selectModel(
+      {
+        aiProvider: env.CHAT_LLM_PROVIDER,
+        aiModel: env.CHAT_LLM_MODEL,
+        aiApiKey: apiKey,
+      },
+      providerOptions,
+    );
   }
 
   return selectDefaultModel(userAi);
@@ -247,6 +327,19 @@ function selectDefaultModel(userAi: UserAIFields) {
     }
   }
 
+  // Configure OpenRouter provider options if using OpenRouter for default model
+  // (but not overriding custom logic which already sets its own provider options)
+  if (
+    aiProvider === Provider.OPENROUTER &&
+    env.DEFAULT_OPENROUTER_PROVIDERS &&
+    !providerOptions.openrouter
+  ) {
+    const openRouterOptions = createOpenRouterProviderOptions(
+      env.DEFAULT_OPENROUTER_PROVIDERS,
+    );
+    Object.assign(providerOptions, openRouterOptions);
+  }
+
   return selectModel(
     {
       aiProvider,
@@ -257,17 +350,8 @@ function selectDefaultModel(userAi: UserAIFields) {
   );
 }
 
-function getProviderApiKey(
-  provider:
-    | "openai"
-    | "anthropic"
-    | "google"
-    | "groq"
-    | "openrouter"
-    | "bedrock"
-    | "ollama",
-) {
-  const providerApiKeys = {
+function getProviderApiKey(provider: string) {
+  const providerApiKeys: Record<string, string | undefined> = {
     [Provider.ANTHROPIC]: env.ANTHROPIC_API_KEY,
     [Provider.OPEN_AI]: env.OPENAI_API_KEY,
     [Provider.GOOGLE]: env.GOOGLE_API_KEY,

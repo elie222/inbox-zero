@@ -38,6 +38,13 @@ vi.mock("ollama-ai-provider", () => ({
 vi.mock("@/env", () => ({
   env: {
     DEFAULT_LLM_PROVIDER: "openai",
+    DEFAULT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
+    ECONOMY_LLM_PROVIDER: "openrouter",
+    ECONOMY_LLM_MODEL: "google/gemini-2.5-flash-preview-05-20",
+    ECONOMY_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
+    CHAT_LLM_PROVIDER: "openrouter",
+    CHAT_LLM_MODEL: "moonshotai/kimi-k2",
+    CHAT_OPENROUTER_PROVIDERS: "Google Vertex,Anthropic",
     OPENAI_API_KEY: "test-openai-key",
     GOOGLE_API_KEY: "test-google-key",
     ANTHROPIC_API_KEY: "test-anthropic-key",
@@ -210,6 +217,140 @@ describe("Models", () => {
       };
 
       expect(() => getModel(userAi)).toThrow("LLM provider not supported");
+    });
+
+    it("should use chat model when modelType is 'chat'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "chat");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("moonshotai/kimi-k2");
+    });
+
+    it("should use OpenRouter with provider options for chat", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
+      vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "chat");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("moonshotai/kimi-k2");
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Anthropic",
+      ]);
+    });
+
+    it("should use economy model when modelType is 'economy'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).ECONOMY_LLM_MODEL =
+        "google/gemini-2.5-flash-preview-05-20";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "economy");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("google/gemini-2.5-flash-preview-05-20");
+    });
+
+    it("should use OpenRouter with provider options for economy", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).ECONOMY_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).ECONOMY_LLM_MODEL =
+        "google/gemini-2.5-flash-preview-05-20";
+      vi.mocked(env).ECONOMY_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "economy");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("google/gemini-2.5-flash-preview-05-20");
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Anthropic",
+      ]);
+    });
+
+    it("should use default model when modelType is 'default'", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPEN_AI);
+      expect(result.model).toBe("gpt-4o");
+    });
+
+    it("should use OpenRouter with provider options for default model", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "openrouter";
+      vi.mocked(env).DEFAULT_LLM_MODEL = "anthropic/claude-3.5-sonnet";
+      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      expect(result.model).toBe("anthropic/claude-3.5-sonnet");
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Anthropic",
+      ]);
+    });
+
+    it("should preserve custom logic and not override with default provider options", () => {
+      const userAi: UserAIFields = {
+        aiApiKey: null,
+        aiProvider: null,
+        aiModel: null,
+      };
+
+      vi.mocked(env).DEFAULT_LLM_PROVIDER = "custom";
+      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Should Not Override";
+      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+
+      const result = getModel(userAi, "default");
+      expect(result.provider).toBe(Provider.OPENROUTER);
+      // Should have custom logic provider options, not the default ones
+      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+        "Google Vertex",
+        "Google AI Studio",
+        "Anthropic",
+      ]);
+      // Should NOT contain the DEFAULT_OPENROUTER_PROVIDERS value
+      expect(result.providerOptions?.openrouter?.provider?.order).not.toContain(
+        "Should Not Override",
+      );
     });
   });
 });
