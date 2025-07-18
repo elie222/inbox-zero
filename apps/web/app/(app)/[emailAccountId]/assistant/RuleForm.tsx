@@ -92,6 +92,7 @@ import {
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 
 export function Rule({
   ruleId,
@@ -1025,6 +1026,7 @@ function ActionCard({
 }) {
   const fields = actionInputs[action.type].fields;
   const [expandedFields, setExpandedFields] = useState(false);
+  const delayedActionsEnabled = useDelayedActionsEnabled();
 
   // Get expandable fields that should be visible regardless of expanded state
   const hasExpandableFields = fields.some((field) => field.expandable);
@@ -1036,8 +1038,8 @@ function ActionCard({
       : false;
 
   const actionCanBeDelayed = useMemo(
-    () => canActionBeDelayed(action.type),
-    [action.type],
+    () => delayedActionsEnabled && canActionBeDelayed(action.type),
+    [action.type, delayedActionsEnabled],
   );
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);

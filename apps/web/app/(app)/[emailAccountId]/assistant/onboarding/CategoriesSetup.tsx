@@ -34,6 +34,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/assistant/onboarding/ExampleDialog";
 import { categoryConfig } from "@/utils/category-config";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -162,6 +163,8 @@ function CategoryCard({
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
 }) {
+  const delayedActionsEnabled = useDelayedActionsEnabled();
+
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
@@ -207,9 +210,11 @@ function CategoryCard({
                     <SelectItem value="label_archive">
                       Label + skip inbox
                     </SelectItem>
-                    <SelectItem value="label_archive_delayed">
-                      Label + archive after a week
-                    </SelectItem>
+                    {delayedActionsEnabled && (
+                      <SelectItem value="label_archive_delayed">
+                        Label + archive after a week
+                      </SelectItem>
+                    )}
                     <SelectItem value="none">None</SelectItem>
                   </SelectContent>
                 </Select>
