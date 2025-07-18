@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
@@ -22,6 +22,7 @@ import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 
 export const maxDuration = 60;
 
@@ -284,36 +285,32 @@ export const GET = withEmailAccount(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    logger.error("Unauthorized cron request");
-    captureException(new Error("Unauthorized cron request: resend"));
-    return new Response("Unauthorized", { status: 401 });
-  }
+export const POST = withError(
+  verifySignatureAppRouter(async (request: NextRequest) => {
+    const json = await request.json();
+    const { success, data, error } = sendDigestEmailBody.safeParse(json);
 
-  const json = await request.json();
-  const { success, data, error } = sendDigestEmailBody.safeParse(json);
+    if (!success) {
+      logger.error("Invalid request body", { error });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+    const { emailAccountId } = data;
 
-  if (!success) {
-    logger.error("Invalid request body", { error });
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-  const { emailAccountId } = data;
+    logger.info("Sending digest email to user POST", { emailAccountId });
 
-  logger.info("Sending digest email to user POST", { emailAccountId });
-
-  try {
-    const result = await sendEmail({ emailAccountId });
-    return NextResponse.json(result);
-  } catch (error) {
-    logger.error("Error sending digest email", { error });
-    captureException(error);
-    return NextResponse.json(
-      { success: false, error: "Error sending digest email" },
-      { status: 500 },
-    );
-  }
-});
+    try {
+      const result = await sendEmail({ emailAccountId });
+      return NextResponse.json(result);
+    } catch (error) {
+      logger.error("Error sending digest email", { error });
+      captureException(error);
+      return NextResponse.json(
+        { success: false, error: "Error sending digest email" },
+        { status: 500 },
+      );
+    }
+  }),
+);
