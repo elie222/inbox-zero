@@ -334,9 +334,10 @@ function selectDefaultModel(userAi: UserAIFields) {
     env.DEFAULT_OPENROUTER_PROVIDERS &&
     !providerOptions.openrouter
   ) {
-    providerOptions.openrouter = createOpenRouterProviderOptions(
+    const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS,
     );
+    Object.assign(providerOptions, openRouterOptions);
   }
 
   return selectModel(
