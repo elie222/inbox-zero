@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
@@ -22,6 +22,7 @@ import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 
 export const maxDuration = 60;
 
@@ -168,39 +169,34 @@ async function sendEmail({
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
         );
 
-        // Only include if it's one of our known categories
-        const categoryResult = digestCategorySchema.safeParse(ruleName);
-        if (categoryResult.success) {
-          const category = categoryResult.data;
-          if (!acc[category]) {
-            acc[category] = [];
-          }
+        const category = ruleName;
+        if (!acc[category]) {
+          acc[category] = [];
+        }
 
-          let parsedContent: unknown;
-          try {
-            parsedContent = JSON.parse(item.content);
-          } catch (error) {
-            logger.warn("Failed to parse digest item content, skipping item", {
-              messageId: item.messageId,
-              digestId: digest.id,
-              error: error instanceof Error ? error.message : "Unknown error",
-            });
-            return; // Skip this item and continue with the next one
-          }
+        let parsedContent: unknown;
+        try {
+          parsedContent = JSON.parse(item.content);
+        } catch (error) {
+          logger.warn("Failed to parse digest item content, skipping item", {
+            messageId: item.messageId,
+            digestId: digest.id,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          return; // Skip this item and continue with the next one
+        }
 
-          const contentResult =
-            DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
 
-          if (contentResult.success) {
-            acc[category].push({
-              content: {
-                entries: contentResult.data?.entries || [],
-                summary: contentResult.data?.summary,
-              },
-              from: extractNameFromEmail(message?.headers?.from || ""),
-              subject: message?.headers?.subject || "",
-            });
-          }
+        if (contentResult.success) {
+          acc[category].push({
+            content: {
+              entries: contentResult.data?.entries || [],
+              summary: contentResult.data?.summary,
+            },
+            from: extractNameFromEmail(message?.headers?.from || ""),
+            subject: message?.headers?.subject || "",
+          });
         }
       });
       return acc;
@@ -213,11 +209,11 @@ async function sendEmail({
       from: env.RESEND_FROM_EMAIL,
       to: emailAccount.email,
       emailProps: {
-        ...executedRulesByRule,
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         unsubscribeToken: token,
         date: new Date(),
-      },
+        ...executedRulesByRule,
+      } as any, // Type assertion needed due to generic DigestEmailProps
     });
 
     // Only update database if email sending succeeded
@@ -289,36 +285,32 @@ export const GET = withEmailAccount(async (request) => {
   return NextResponse.json(result);
 });
 
-export const POST = withError(async (request) => {
-  if (!hasCronSecret(request)) {
-    logger.error("Unauthorized cron request");
-    captureException(new Error("Unauthorized cron request: resend"));
-    return new Response("Unauthorized", { status: 401 });
-  }
+export const POST = withError(
+  verifySignatureAppRouter(async (request: NextRequest) => {
+    const json = await request.json();
+    const { success, data, error } = sendDigestEmailBody.safeParse(json);
 
-  const json = await request.json();
-  const { success, data, error } = sendDigestEmailBody.safeParse(json);
+    if (!success) {
+      logger.error("Invalid request body", { error });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+    const { emailAccountId } = data;
 
-  if (!success) {
-    logger.error("Invalid request body", { error });
-    return NextResponse.json(
-      { error: "Invalid request body" },
-      { status: 400 },
-    );
-  }
-  const { emailAccountId } = data;
+    logger.info("Sending digest email to user POST", { emailAccountId });
 
-  logger.info("Sending digest email to user POST", { emailAccountId });
-
-  try {
-    const result = await sendEmail({ emailAccountId });
-    return NextResponse.json(result);
-  } catch (error) {
-    logger.error("Error sending digest email", { error });
-    captureException(error);
-    return NextResponse.json(
-      { success: false, error: "Error sending digest email" },
-      { status: 500 },
-    );
-  }
-});
+    try {
+      const result = await sendEmail({ emailAccountId });
+      return NextResponse.json(result);
+    } catch (error) {
+      logger.error("Error sending digest email", { error });
+      captureException(error);
+      return NextResponse.json(
+        { success: false, error: "Error sending digest email" },
+        { status: 500 },
+      );
+    }
+  }),
+);

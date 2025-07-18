@@ -16,6 +16,7 @@
     "@turbo/gen": "2.5.4",
     "husky": "9.1.7",
     "lint-staged": "15.5.1",
+    "prettier": "3.6.2",
     "turbo": "2.5.4",
     "ultracite": "5.0.35"
   },
