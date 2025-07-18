@@ -1,11 +1,11 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
-  createCanonicalTimeOfDay,
-  calculateNextScheduleDate,
-  DAYS,
-  dayOfWeekToBitmask,
   bitmaskToDayOfWeek,
   bitmaskToDaysOfWeek,
+  calculateNextScheduleDate,
+  createCanonicalTimeOfDay,
+  DAYS,
+  dayOfWeekToBitmask,
 } from "./schedule";
 
 describe("createCanonicalTimeOfDay", () => {
@@ -325,9 +325,9 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since time has passed, should be next Monday at 10:00 local time
+      // Since 10 AM local time (1 PM UTC) is after 12 PM UTC, should be same Monday at 10:00 local time
       expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(22); // Next Monday
+      expect(result!.getDate()).toBe(15); // Same Monday
       expect(result!.getHours()).toBe(10);
       expect(result!.getMinutes()).toBe(0);
     });
@@ -558,6 +558,200 @@ describe("calculateNextScheduleDate", () => {
       // Should be 7 days later at midnight local time
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(22);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle monthly schedule on the 15th", () => {
+      const fromDate = new Date("2024-01-10T10:00:00Z"); // January 10th 10 AM
+      const timeOfDay = createCanonicalTimeOfDay(9, 0); // 9 AM
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Since 9 AM local time (1 PM UTC) is after 10 AM UTC, should be same day at 9:00 AM
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(10);
+      expect(result!.getHours()).toBe(9);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle monthly schedule when current day is past the 15th", () => {
+      const fromDate = new Date("2024-01-20T10:00:00Z"); // January 20th
+      const timeOfDay = createCanonicalTimeOfDay(15, 30);
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Since 3:30 PM local time (6:30 PM UTC) is after 10 AM UTC, should be same day at 3:30 PM
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(20);
+      expect(result!.getHours()).toBe(15);
+      expect(result!.getMinutes()).toBe(30);
+    });
+
+    it("should handle monthly schedule with time that has passed today", () => {
+      const fromDate = new Date("2024-01-15T16:00:00Z"); // January 15th 4 PM
+      const timeOfDay = createCanonicalTimeOfDay(10, 0); // 10 AM
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Should be February 14th at 10:00 AM (30 days later, since 10 AM has passed today)
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(1); // February
+      expect(result!.getDate()).toBe(14);
+      expect(result!.getHours()).toBe(10);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle monthly schedule across year boundary", () => {
+      const fromDate = new Date("2024-12-15T10:00:00Z"); // December 15th
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Should be January 14th at midnight (30 days later, crosses year boundary)
+      expect(result).not.toBeNull();
+      expect(result!.getFullYear()).toBe(2025);
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(14);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle monthly schedule with leap year", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th, 2024 is leap year
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Should be February 14th at midnight (30 days later, accounting for leap year)
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(1); // February
+      expect(result!.getDate()).toBe(14);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle monthly schedule with multiple occurrences", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 30, // Approximately monthly
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 2, // Two occurrences within 30 days
+        },
+        fromDate,
+      );
+
+      // Should be January 30th at midnight (15 days later, first occurrence)
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(30);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle very long intervals efficiently", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 365, // Yearly
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 1,
+        },
+        fromDate,
+      );
+
+      // Should be next year at midnight (365 days later, accounting for leap year)
+      expect(result).not.toBeNull();
+      expect(result!.getFullYear()).toBe(2025);
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(14); // 365 days from Jan 15 = Jan 14 (leap year)
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle very long intervals with many occurrences", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 365, // Yearly
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 365, // Daily occurrences within a year
+        },
+        fromDate,
+      );
+
+      // Should be next day at midnight (first occurrence within the year)
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(16); // Next day
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+    });
+
+    it("should handle extreme intervals efficiently", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
+
+      const result = calculateNextScheduleDate(
+        {
+          intervalDays: 1000, // Very long interval
+          daysOfWeek: null,
+          timeOfDay: null,
+          occurrences: 1000, // Many occurrences
+        },
+        fromDate,
+      );
+
+      // Should be next day at midnight (first occurrence within the interval)
+      expect(result).not.toBeNull();
+      expect(result!.getMonth()).toBe(0); // January
+      expect(result!.getDate()).toBe(16); // Next day
       expect(result!.getHours()).toBe(0);
       expect(result!.getMinutes()).toBe(0);
     });

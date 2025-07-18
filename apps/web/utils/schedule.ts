@@ -162,7 +162,8 @@ export function calculateNextScheduleDate(
       const dayOffset = i * slotLength;
       const slotDate = addDays(intervalStart, dayOffset);
       setTime(slotDate);
-      if (slotDate >= fromDate) {
+
+      if (slotDate > fromDate) {
         return slotDate;
       }
     }
@@ -178,7 +179,8 @@ export function calculateNextScheduleDate(
 
     // Find the next day that matches the pattern, starting from today
     let daysToAdd = 0;
-    while (daysToAdd <= 7) {
+    while (daysToAdd < 14) {
+      // Allow up to 2 weeks to find the next occurrence
       const nextDayOfWeek = (currentDayOfWeek + daysToAdd) % 7;
       const nextDayMask = maskFor(nextDayOfWeek);
 
