@@ -49,6 +49,20 @@ echo -e "\n6. Cron endpoints (verify they use proper secret validation):"
 grep -r "hasCronSecret\|hasPostCronSecret" apps/web/app/api/ | \
   cut -d: -f1 | sort | uniq
 
+echo -e "\n7. 🚨 QStash endpoints (verify they use verifySignatureAppRouter):"
+echo "   (These endpoints are called from QStash and should verify signatures)"
+grep -r "publishToQstash\|publishToQstashQueue" apps/web/ | \
+  grep -E "(url.*api/|body.*api/)" | \
+  grep -o "/api/[^\"]*" | \
+  sort | uniq | \
+  while read endpoint; do
+    if ! grep -r "verifySignatureAppRouter" "apps/web/app$endpoint" > /dev/null 2>&1; then
+      echo "   ❌ $endpoint - Missing verifySignatureAppRouter"
+    else
+      echo "   ✅ $endpoint - Uses verifySignatureAppRouter"
+    fi
+  done
+
 echo -e "\n✅ Audit complete! Review flagged items manually."
 ```
 
@@ -97,6 +111,20 @@ grep -r "withError.*async.*request" apps/web/app/api/ | grep -v "hasCronSecret\|
 # Find cron endpoints (verify they have proper authentication)
 grep -r "hasCronSecret\|hasPostCronSecret" apps/web/app/api/
 
+# 🚨 CRITICAL: Find QStash endpoints without signature verification
+echo "QStash endpoints that should use verifySignatureAppRouter:"
+grep -r "publishToQstash\|publishToQstashQueue" apps/web/ | \
+  grep -E "(url.*api/|body.*api/)" | \
+  grep -o "/api/[^\"]*" | \
+  sort | uniq | \
+  while read endpoint; do
+    if ! grep -r "verifySignatureAppRouter" "apps/web/app$endpoint" > /dev/null 2>&1; then
+      echo "❌ $endpoint - Missing verifySignatureAppRouter"
+    else
+      echo "✅ $endpoint - Uses verifySignatureAppRouter"
+    fi
+  done
+
 # Check for weak cron secrets (should not exist)
 grep -r "secret.*=.*[\"'].*[\"']" apps/web/app/api/ | grep -v "CRON_SECRET"
 ```
@@ -142,6 +170,29 @@ if (!id || typeof id !== 'string') {
 }
 ```
 
+### 4. QStash Endpoint Security
+```typescript
+// ❌ BAD: QStash endpoint without signature verification
+export const POST = withError(async (request: NextRequest) => {
+  const json = await request.json();
+  // No signature verification - vulnerable to spoofing
+});
+
+// ✅ GOOD: QStash endpoint with signature verification
+export const POST = withError(
+  verifySignatureAppRouter(async (request: NextRequest) => {
+    const json = await request.json();
+    // Signature verified - secure from spoofing
+  }),
+);
+```
+
+**QStash endpoints that MUST use `verifySignatureAppRouter`:**
+- `/api/ai/digest` - Called from digest queue
+- `/api/resend/digest` - Called from digest email queue  
+- `/api/clean/gmail` - Called from cleanup queue
+- `/api/user/categorize/senders/batch` - Called from categorization queue
+
 ## Security Review Process
 
 ### Before Code Review
@@ -154,12 +205,20 @@ if (!id || typeof id !== 'string') {
 2. Verify database queries include user scoping
 3. Look for potential IDOR vulnerabilities
 4. Check error handling for information disclosure
+5. **🚨 CRITICAL: Verify QStash endpoints use `verifySignatureAppRouter`**
+   - Any endpoint called via `publishToQstash` or `publishToQstashQueue`
+   - Must wrap the handler with `verifySignatureAppRouter`
+   - Prevents request spoofing and ensures authenticity
 
 ### Regular Security Audits
 1. Run audit script weekly
 2. Review any new withError usage
 3. Check for new parameter handling patterns
 4. Monitor for security-related dependencies
+5. **🚨 CRITICAL: Audit QStash endpoint security**
+   - Verify all QStash-called endpoints use `verifySignatureAppRouter`
+   - Check for new endpoints added to QStash queues
+   - Ensure signature verification is properly implemented
 
 ## Integration with CI/CD
 
