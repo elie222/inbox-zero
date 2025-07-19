@@ -17,6 +17,11 @@ import type { MatchReason } from "@/utils/ai/choose-rule/types";
 import { sanitizeActionFields } from "@/utils/action-item";
 import { extractEmailAddress } from "@/utils/email";
 import { analyzeSenderPattern } from "@/app/api/ai/analyze-sender-pattern/call-analyze-pattern-api";
+import {
+  scheduleDelayedActions,
+  cancelScheduledActions,
+} from "@/utils/scheduled-actions/scheduler";
+import groupBy from "lodash/groupBy";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -95,6 +100,15 @@ async function executeMatchedRule(
     gmail,
   });
 
+  if (!isTest) {
+  }
+
+  const { immediateActions, delayedActions } = groupBy(actionItems, (item) =>
+    item.delayInMinutes != null && item.delayInMinutes > 0
+      ? "delayedActions"
+      : "immediateActions",
+  );
+
   // handle action
   const executedRule = isTest
     ? undefined
@@ -106,12 +120,30 @@ async function executeMatchedRule(
         },
         {
           rule,
-          actionItems,
+          actionItems: immediateActions, // Only save immediate actions as ExecutedActions
           reason,
         },
       );
 
-  const shouldExecute = executedRule && rule.automate;
+  if (executedRule && delayedActions.length > 0 && !isTest) {
+    // Attempts to cancel any existing scheduled actions to avoid duplicates
+    await cancelScheduledActions({
+      emailAccountId: emailAccount.id,
+      messageId: message.id,
+      threadId: message.threadId,
+      reason: "Superseded by new rule execution",
+    });
+    await scheduleDelayedActions({
+      executedRuleId: executedRule.id,
+      actionItems: delayedActions,
+      messageId: message.id,
+      threadId: message.threadId,
+      emailAccountId: emailAccount.id,
+    });
+  }
+
+  const shouldExecute =
+    executedRule && rule.automate && immediateActions.length > 0;
 
   if (shouldExecute) {
     await executeAct({
@@ -184,7 +216,12 @@ async function saveExecutedRule(
   const data: Prisma.ExecutedRuleCreateInput = {
     actionItems: {
       createMany: {
-        data: actionItems?.map(sanitizeActionFields) || [],
+        data:
+          actionItems?.map((item) => {
+            const { delayInMinutes, ...executedActionFields } =
+              sanitizeActionFields(item);
+            return executedActionFields;
+          }) || [],
       },
     },
     messageId,

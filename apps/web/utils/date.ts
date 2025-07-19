@@ -7,6 +7,11 @@ export const ONE_DAY_MS = ONE_HOUR_MS * 24;
 export const ONE_MONTH_MS = ONE_DAY_MS * 30;
 export const ONE_YEAR_MS = ONE_DAY_MS * 365;
 
+export const ONE_HOUR_MINUTES = 60;
+export const ONE_DAY_MINUTES = ONE_HOUR_MINUTES * 24;
+export const ONE_WEEK_MINUTES = ONE_DAY_MINUTES * 7;
+export const NINETY_DAYS_MINUTES = ONE_DAY_MINUTES * 90;
+
 /**
  * Formats a date into a short string.
  * - If the date is today, returns the time (e.g., "3:44 PM").
