@@ -11,8 +11,15 @@ import { removeExcessiveWhitespace, truncate } from "@/utils/string";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
-export function parseMessage(message: MessageWithPayload): ParsedMessage {
-  return parse(message);
+export function parseMessage(
+  message: MessageWithPayload,
+): ParsedMessage & { subject: string; date: string } {
+  const parsed = parse(message) as ParsedMessage;
+  return {
+    ...parsed,
+    subject: parsed.headers?.subject || "",
+    date: parsed.headers?.date || "",
+  };
 }
 
 export function parseReply(plainText: string) {
@@ -38,7 +45,11 @@ export function parseMessages(
 
   if (withoutIgnoredSenders || withoutDrafts) {
     const filteredMessages = messages.filter((message) => {
-      if (withoutIgnoredSenders && isIgnoredSender(message.headers.from))
+      if (
+        withoutIgnoredSenders &&
+        message.headers &&
+        isIgnoredSender(message.headers.from)
+      )
         return false;
       if (withoutDrafts && message.labelIds?.includes(GmailLabel.DRAFT))
         return false;

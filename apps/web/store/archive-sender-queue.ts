@@ -1,7 +1,7 @@
 import { atom, useAtomValue } from "jotai";
 import { jotaiStore } from "@/store";
 import { archiveEmails } from "./archive-queue";
-import type { GetThreadsResponse } from "@/app/api/google/threads/basic/route";
+import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { useMemo } from "react";
 import { fetchWithAccount } from "@/utils/fetch";
@@ -40,8 +40,14 @@ export async function addToArchiveSenderQueue({
   });
 
   try {
-    const threads = await fetchSenderThreads({ sender, emailAccountId });
-    const threadIds = threads.map((t) => t.id).filter(isDefined);
+    const data = await fetchSenderThreads({
+      sender,
+      emailAccountId,
+    });
+    const threads = data.threads;
+    const threadIds = threads
+      .map((t: { id: string }) => t.id)
+      .filter(isDefined);
 
     // Update with thread IDs
     jotaiStore.set(archiveSenderQueueAtom, (prev) => {
@@ -121,7 +127,7 @@ async function fetchSenderThreads({
   sender: string;
   emailAccountId: string;
 }) {
-  const url = `/api/google/threads/basic?from=${encodeURIComponent(sender)}&labelId=INBOX`;
+  const url = `/api/threads/basic?fromEmail=${encodeURIComponent(sender)}&labelId=INBOX`;
   const res = await fetchWithAccount({
     url,
     emailAccountId,

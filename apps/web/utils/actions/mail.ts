@@ -1,25 +1,15 @@
 "use server";
 
 import { z } from "zod";
-import { createLabel } from "@/app/api/google/labels/create/controller";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
-import { trashThread } from "@/utils/gmail/trash";
-import {
-  archiveThread,
-  markImportantMessage,
-  markReadThread,
-} from "@/utils/gmail/label";
+import { markImportantMessage, markReadThread } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
-import {
-  createAutoArchiveFilter,
-  createFilter,
-  deleteFilter,
-} from "@/utils/gmail/filter";
 import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 // do not return functions to the client or we'll get an error
 const isStatusOk = (status: number) => status >= 200 && status < 300;
@@ -29,21 +19,19 @@ export const archiveThreadAction = actionClient
   .schema(z.object({ threadId: z.string(), labelId: z.string().optional() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId, emailAccount, provider },
       parsedInput: { threadId, labelId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const res = await archiveThread({
-        gmail,
-        threadId,
-        ownerEmail: emailAccount.email,
-        actionSource: "user",
-        labelId,
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
       });
 
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to archive thread");
+      await emailProvider.archiveThreadWithLabel(
+        threadId,
+        emailAccount.email,
+        labelId,
+      );
     },
   );
 
@@ -52,20 +40,15 @@ export const trashThreadAction = actionClient
   .schema(z.object({ threadId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, emailAccount },
+      ctx: { emailAccountId, emailAccount, provider },
       parsedInput: { threadId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const res = await trashThread({
-        gmail,
-        threadId,
-        ownerEmail: emailAccount.email,
-        actionSource: "user",
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
       });
 
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to delete thread");
+      await emailProvider.trashThread(threadId, emailAccount.email, "user");
     },
   );
 
@@ -84,13 +67,16 @@ export const markReadThreadAction = actionClient
   .metadata({ name: "markReadThread" })
   .schema(z.object({ threadId: z.string(), read: z.boolean() }))
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { threadId, read } }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+    async ({
+      ctx: { emailAccountId, provider },
+      parsedInput: { threadId, read },
+    }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await markReadThread({ gmail, threadId, read });
-
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to mark thread as read");
+      await emailProvider.markReadThread(threadId, read);
     },
   );
 
@@ -125,18 +111,28 @@ export const markSpamThreadAction = actionClient
 
 export const createAutoArchiveFilterAction = actionClient
   .metadata({ name: "createAutoArchiveFilter" })
-  .schema(z.object({ from: z.string(), gmailLabelId: z.string().optional() }))
+  .schema(
+    z.object({
+      from: z.string(),
+      gmailLabelId: z.string().optional(),
+      labelName: z.string().optional(),
+    }),
+  )
   .action(
     async ({
-      ctx: { emailAccountId },
-      parsedInput: { from, gmailLabelId },
+      ctx: { emailAccountId, provider },
+      parsedInput: { from, gmailLabelId, labelName },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await createAutoArchiveFilter({ gmail, from, gmailLabelId });
-
-      if (!isStatusOk(res.status))
-        throw new SafeError("Failed to create auto archive filter");
+      await emailProvider.createAutoArchiveFilter({
+        from,
+        gmailLabelId,
+        labelName,
+      });
     },
   );
 
@@ -145,13 +141,15 @@ export const createFilterAction = actionClient
   .schema(z.object({ from: z.string(), gmailLabelId: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: { from, gmailLabelId },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-      const res = await createFilter({
-        gmail,
+      const res = await emailProvider.createFilter({
         from,
         addLabelIds: [gmailLabelId],
       });
@@ -166,27 +164,33 @@ export const createFilterAction = actionClient
 export const deleteFilterAction = actionClient
   .metadata({ name: "deleteFilter" })
   .schema(z.object({ id: z.string() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const gmail = await getGmailClientForEmail({ emailAccountId });
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
-    const res = await deleteFilter({ gmail, id });
+      const res = await emailProvider.deleteFilter(id);
 
-    if (!isStatusOk(res.status)) throw new SafeError("Failed to delete filter");
-  });
+      if (!isStatusOk(res.status))
+        throw new SafeError("Failed to delete filter");
+    },
+  );
 
 export const createLabelAction = actionClient
   .metadata({ name: "createLabel" })
   .schema(z.object({ name: z.string(), description: z.string().optional() }))
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { name, description } }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
-      const label = await createLabel({
-        gmail,
+    async ({
+      ctx: { emailAccountId, provider },
+      parsedInput: { name, description },
+    }) => {
+      const emailProvider = await createEmailProvider({
         emailAccountId,
-        name,
-        description,
+        provider,
       });
+      const label = await emailProvider.createLabel(name, description);
       return label;
     },
   );

@@ -184,7 +184,7 @@ export async function markImportantMessage(options: {
   });
 }
 
-async function createLabel({
+export async function createLabel({
   gmail,
   name,
   messageListVisibility,

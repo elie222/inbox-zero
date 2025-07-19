@@ -1,12 +1,12 @@
 import useSWR from "swr";
-import type { ThreadsBatchResponse } from "@/app/api/google/threads/batch/route";
+import type { ThreadsBatchResponse } from "@/app/api/threads/batch/route";
 
 export function useThreadsByIds(
   { threadIds }: { threadIds: string[] },
   options?: { keepPreviousData?: boolean },
 ) {
   const searchParams = new URLSearchParams({ threadIds: threadIds.join(",") });
-  const url = `/api/google/threads/batch?${searchParams.toString()}`;
+  const url = `/api/threads/batch?${searchParams.toString()}`;
   const { data, isLoading, error, mutate } = useSWR<ThreadsBatchResponse>(
     threadIds.length ? url : null,
     options,

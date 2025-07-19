@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type MessageQuery,
   messageQuerySchema,
-} from "@/app/api/google/messages/validation";
+} from "@/app/api/messages/validation";
 
 export function SearchForm({
   defaultQuery,

@@ -5,7 +5,11 @@ import { deleteInboxZeroLabels, deleteUserLabels } from "@/utils/redis/label";
 import { deleteTinybirdAiCalls } from "@inboxzero/tinybird-ai-analytics";
 import { deletePosthogUser, trackUserDeleted } from "@/utils/posthog";
 import { captureException } from "@/utils/error";
-import { unwatchEmails } from "@/app/api/google/watch/controller";
+import { unwatchEmails } from "@/app/api/watch/controller";
+import {
+  createEmailProvider,
+  type EmailProvider,
+} from "@/utils/email/provider";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 
@@ -15,22 +19,37 @@ export async function deleteUser({ userId }: { userId: string }) {
   const accounts = await prisma.account.findMany({
     where: { userId },
     select: {
+      provider: true,
       access_token: true,
       refresh_token: true,
       expires_at: true,
-      emailAccount: { select: { id: true, email: true } },
+      emailAccount: {
+        select: {
+          id: true,
+          email: true,
+          watchEmailsSubscriptionId: true,
+        },
+      },
     },
   });
 
-  const resourcesPromise = accounts.map((account) => {
+  const resourcesPromise = accounts.map(async (account) => {
     if (!account.emailAccount) return Promise.resolve();
+
+    // Create email provider for unwatching
+    const emailProvider = account.access_token
+      ? await createEmailProvider({
+          emailAccountId: account.emailAccount.id,
+          provider: account.provider,
+        })
+      : null;
+
     return deleteResources({
       emailAccountId: account.emailAccount.id,
       email: account.emailAccount.email,
       userId,
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiresAt: account.expires_at,
+      emailProvider,
+      subscriptionId: account.emailAccount.watchEmailsSubscriptionId,
     });
   });
 
@@ -77,16 +96,14 @@ async function deleteResources({
   emailAccountId,
   email,
   userId,
-  accessToken,
-  refreshToken,
-  expiresAt,
+  emailProvider,
+  subscriptionId,
 }: {
   emailAccountId: string;
   email: string;
   userId: string;
-  accessToken: string | null;
-  refreshToken: string | null;
-  expiresAt: number | null;
+  emailProvider: EmailProvider | null;
+  subscriptionId: string | null;
 }) {
   const resourcesPromise = Promise.allSettled([
     deleteUserLabels({ emailAccountId }),
@@ -94,12 +111,11 @@ async function deleteResources({
     deleteLoopsContact(emailAccountId),
     deletePosthogUser({ email }),
     deleteResendContact({ email }),
-    accessToken
+    emailProvider
       ? unwatchEmails({
           emailAccountId,
-          accessToken,
-          refreshToken,
-          expiresAt,
+          provider: emailProvider,
+          subscriptionId,
         })
       : Promise.resolve(),
   ]);

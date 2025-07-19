@@ -5,20 +5,80 @@ import type { NextAuthConfig, DefaultSession } from "next-auth";
 import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
+import MicrosoftProvider from "next-auth/providers/microsoft-entra-id";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import { SCOPES } from "@/utils/gmail/scopes";
-import { getContactsClient } from "@/utils/gmail/client";
+import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
+import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
 import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { createReferral } from "@/utils/referral/referral-code";
 import { trackDubSignUp } from "@/utils/dub";
 
 const logger = createScopedLogger("auth");
+
+// Helper function to determine provider-specific logic
+const PROVIDER_CONFIG = {
+  google: {
+    name: "google",
+    tokenUrl: "https://oauth2.googleapis.com/token",
+    getProfileData: async (accessToken: string) => {
+      const contactsClient = getGoogleContactsClient({ accessToken });
+      const profileResponse = await contactsClient.people.get({
+        resourceName: "people/me",
+        personFields: "emailAddresses,names,photos",
+      });
+
+      return {
+        email: profileResponse.data.emailAddresses
+          ?.find((e) => e.metadata?.primary)
+          ?.value?.toLowerCase(),
+        name: profileResponse.data.names?.find((n) => n.metadata?.primary)
+          ?.displayName,
+        image: profileResponse.data.photos?.find((p) => p.metadata?.primary)
+          ?.url,
+      };
+    },
+  },
+  "microsoft-entra-id": {
+    name: "microsoft",
+    tokenUrl: "https://login.microsoftonline.com/common/oauth2/v2.0/token",
+    getProfileData: async (accessToken: string) => {
+      const client = getOutlookContactsClient({ accessToken });
+      try {
+        const profileResponse = await client.getUserProfile();
+
+        // Get photo separately as it requires a different endpoint
+        let photoUrl = null;
+        try {
+          const photo = await client.getUserPhoto();
+          if (photo) {
+            photoUrl = photo;
+          }
+        } catch (error) {
+          logger.info("User has no profile photo", { error });
+        }
+
+        return {
+          email:
+            profileResponse.mail?.toLowerCase() ||
+            profileResponse.userPrincipalName?.toLowerCase(),
+          name: profileResponse.displayName,
+          image: photoUrl,
+        };
+      } catch (error) {
+        logger.error("Error fetching Microsoft profile data", { error });
+        throw error;
+      }
+    },
+  },
+} as const;
 
 export const getAuthOptions: (options?: {
   consent: boolean;
@@ -31,7 +91,7 @@ export const getAuthOptions: (options?: {
       authorization: {
         url: "https://accounts.google.com/o/oauth2/v2/auth",
         params: {
-          scope: SCOPES.join(" "),
+          scope: GMAIL_SCOPES.join(" "),
           access_type: "offline",
           response_type: "code",
           prompt: "consent",
@@ -40,6 +100,15 @@ export const getAuthOptions: (options?: {
           // refresh token is only provided on first sign up unless we pass prompt=consent
           // https://github.com/nextauthjs/next-auth/issues/269#issuecomment-644274504
           // ...(options?.consent ? { prompt: "consent" } : {}),
+        },
+      },
+    }),
+    MicrosoftProvider({
+      clientId: env.MICROSOFT_CLIENT_ID,
+      clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      authorization: {
+        params: {
+          scope: OUTLOOK_SCOPES.join(" "),
         },
       },
     }),
@@ -72,33 +141,13 @@ export const getAuthOptions: (options?: {
       try {
         // --- Step 1: Fetch Profile Info using Access Token ---
         if (data.access_token) {
-          const contactsClient = getContactsClient({
-            accessToken: data.access_token,
-          });
-          try {
-            const profileResponse = await contactsClient.people.get({
-              resourceName: "people/me",
-              personFields: "emailAddresses,names,photos",
-            });
+          const provider =
+            PROVIDER_CONFIG[data.provider as keyof typeof PROVIDER_CONFIG];
+          const profileData = await provider.getProfileData(data.access_token);
 
-            primaryEmail = profileResponse.data.emailAddresses
-              ?.find((e) => e.metadata?.primary)
-              ?.value?.toLowerCase();
-            primaryName = profileResponse.data.names?.find(
-              (n) => n.metadata?.primary,
-            )?.displayName;
-            primaryPhotoUrl = profileResponse.data.photos?.find(
-              (p) => p.metadata?.primary,
-            )?.url;
-          } catch (profileError) {
-            logger.error("[linkAccount] Error fetching profile info:", {
-              profileError,
-            });
-            // Decide if this is fatal. Probably should be.
-            throw new Error(
-              "Failed to fetch profile info for linking account.",
-            );
-          }
+          primaryEmail = profileData.email;
+          primaryName = profileData.name;
+          primaryPhotoUrl = profileData.image;
         } else {
           logger.error(
             "[linkAccount] No access_token found in data, cannot fetch profile.",
@@ -181,6 +230,7 @@ export const getAuthOptions: (options?: {
             },
             accountRefreshToken: account.refresh_token,
             providerAccountId: account.providerAccountId,
+            provider: account.provider,
           });
           token.refresh_token = account.refresh_token;
         } else {
@@ -188,7 +238,7 @@ export const getAuthOptions: (options?: {
             where: {
               provider_providerAccountId: {
                 providerAccountId: account.providerAccountId,
-                provider: "google",
+                provider: account.provider,
               },
             },
             select: { refresh_token: true },
@@ -199,6 +249,7 @@ export const getAuthOptions: (options?: {
         token.access_token = account.access_token;
         token.expires_at = account.expires_at;
         token.user = user;
+        token.provider = account.provider;
 
         return token;
       }
@@ -328,11 +379,12 @@ export const authOptions = getAuthOptions();
  */
 const refreshAccessToken = async (token: JWT): Promise<JWT> => {
   const account = await prisma.account.findFirst({
-    where: { userId: token.sub as string, provider: "google" },
+    where: { userId: token.sub as string, provider: token.provider },
     select: {
       userId: true,
       refresh_token: true,
       providerAccountId: true,
+      provider: true,
     },
   });
 
@@ -353,14 +405,41 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
     };
   }
 
-  logger.info("Refreshing access token", { email: token.email });
+  const provider =
+    PROVIDER_CONFIG[account.provider as keyof typeof PROVIDER_CONFIG];
+
+  const getProviderCredentials = (
+    provider: string,
+  ): { clientId: string; clientSecret: string } => {
+    if (provider === "google") {
+      return {
+        clientId: env.GOOGLE_CLIENT_ID,
+        clientSecret: env.GOOGLE_CLIENT_SECRET,
+      };
+    }
+
+    if (provider === "microsoft-entra-id") {
+      if (!env.MICROSOFT_CLIENT_ID || !env.MICROSOFT_CLIENT_SECRET) {
+        logger.error("Microsoft login not enabled - missing credentials");
+        throw new Error("Microsoft login not enabled - missing credentials");
+      }
+      return {
+        clientId: env.MICROSOFT_CLIENT_ID,
+        clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      };
+    }
+
+    logger.error(`Unsupported provider: ${provider}`);
+    throw new Error(`Unsupported provider: ${provider}`);
+  };
 
   try {
-    const response = await fetch("https://oauth2.googleapis.com/token", {
+    const { clientId, clientSecret } = getProviderCredentials(account.provider);
+    const response = await fetch(provider.tokenUrl, {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        client_id: env.GOOGLE_CLIENT_ID,
-        client_secret: env.GOOGLE_CLIENT_SECRET,
+        client_id: clientId,
+        client_secret: clientSecret,
         grant_type: "refresh_token",
         refresh_token: account.refresh_token,
       }),
@@ -387,6 +466,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       tokens: { ...tokens, expires_at },
       accountRefreshToken: account.refresh_token,
       providerAccountId: account.providerAccountId,
+      provider: account.provider,
     });
 
     return {
@@ -397,6 +477,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       // many providers may only allow using a refresh token once.
       refresh_token: tokens.refresh_token ?? token.refresh_token,
       error: undefined,
+      provider: account.provider,
     };
   } catch (error) {
     logger.error("Error refreshing access token", {
@@ -422,6 +503,7 @@ export async function saveTokens({
   accountRefreshToken,
   providerAccountId,
   emailAccountId,
+  provider,
 }: {
   tokens: {
     access_token?: string;
@@ -429,6 +511,7 @@ export async function saveTokens({
     expires_at?: number;
   };
   accountRefreshToken: string | null;
+  provider: string;
 } & ( // provide one of these:
   | {
       providerAccountId: string;
@@ -482,7 +565,7 @@ export async function saveTokens({
     return await prisma.account.update({
       where: {
         provider_providerAccountId: {
-          provider: "google",
+          provider,
           providerAccountId,
         },
       },
@@ -581,6 +664,7 @@ declare module "@auth/core/jwt" {
     access_token?: string;
     expires_at?: number;
     refresh_token?: string;
+    provider?: string;
     error?:
       | "RefreshAccessTokenError"
       | "MissingAccountError"

@@ -16,8 +16,8 @@ vi.mock("@/utils/logger", () => ({
 vi.mock("@/env", () => ({
   env: {
     NODE_ENV: "test",
-    GOOGLE_ENCRYPT_SECRET: "test-secret-key-for-encryption-testing",
-    GOOGLE_ENCRYPT_SALT: "test-salt-for-encryption",
+    EMAIL_ENCRYPT_SECRET: "test-secret-key-for-encryption-testing",
+    EMAIL_ENCRYPT_SALT: "test-salt-for-encryption",
   },
 }));
 

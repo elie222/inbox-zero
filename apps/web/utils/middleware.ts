@@ -10,6 +10,11 @@ import {
   EMAIL_ACCOUNT_HEADER,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
+import prisma from "@/utils/prisma";
+import {
+  createEmailProvider,
+  type EmailProvider,
+} from "@/utils/email/provider";
 
 const logger = createScopedLogger("middleware");
 
@@ -31,6 +36,9 @@ export interface RequestWithEmailAccount extends NextRequest {
     emailAccountId: string;
     email: string;
   };
+}
+export interface RequestWithEmailProvider extends RequestWithEmailAccount {
+  emailProvider: EmailProvider;
 }
 
 // Higher-order middleware factory that handles common error logic
@@ -178,6 +186,60 @@ async function emailAccountMiddleware(
   return emailAccountReq;
 }
 
+async function emailProviderMiddleware(
+  req: NextRequest,
+): Promise<RequestWithEmailProvider | Response> {
+  // First run email account middleware
+  const emailAccountReq = await emailAccountMiddleware(req);
+  if (emailAccountReq instanceof Response) return emailAccountReq;
+
+  const { userId, emailAccountId } = emailAccountReq.auth;
+
+  try {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: {
+        id: emailAccountId,
+        userId, // ensure it belongs to the user
+      },
+      include: {
+        account: {
+          select: {
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!emailAccount) {
+      return NextResponse.json(
+        { error: "Email account not found", isKnownError: true },
+        { status: 404 },
+      );
+    }
+
+    const provider = await createEmailProvider({
+      emailAccountId: emailAccount.id,
+      provider: emailAccount.account.provider,
+    });
+
+    const providerReq = emailAccountReq.clone() as RequestWithEmailProvider;
+    providerReq.auth = emailAccountReq.auth;
+    providerReq.emailProvider = provider;
+
+    return providerReq;
+  } catch (error) {
+    logger.error("Failed to create email provider", {
+      error,
+      emailAccountId,
+      userId,
+    });
+    return NextResponse.json(
+      { error: "Failed to initialize email provider", isKnownError: true },
+      { status: 500 },
+    );
+  }
+}
+
 // Public middlewares that build on the common infrastructure
 export function withError(handler: NextHandler): NextHandler {
   return withMiddleware(handler);
@@ -191,6 +253,12 @@ export function withEmailAccount(
   handler: NextHandler<RequestWithEmailAccount>,
 ): NextHandler {
   return withMiddleware(handler, emailAccountMiddleware);
+}
+
+export function withEmailProvider(
+  handler: NextHandler<RequestWithEmailProvider>,
+): NextHandler {
+  return withMiddleware(handler, emailProviderMiddleware);
 }
 
 function isErrorWithConfigAndHeaders(

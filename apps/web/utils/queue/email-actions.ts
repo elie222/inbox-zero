@@ -2,13 +2,13 @@
 
 import { runRulesAction } from "@/utils/actions/ai-rule";
 import { pushToAiQueueAtom, removeFromAiQueueAtom } from "@/store/ai-queue";
-import type { Thread } from "@/components/email-list/types";
 import { isDefined } from "@/utils/types";
 import { aiQueue } from "@/utils/queue/ai-queue";
+import type { ThreadsResponse } from "@/app/api/threads/route";
 
 export const runAiRules = async (
   emailAccountId: string,
-  threadsArray: Thread[],
+  threadsArray: ThreadsResponse["threads"],
   rerun: boolean,
 ) => {
   const threads = threadsArray.filter(isDefined);
