@@ -24,6 +24,7 @@ import { ButtonList } from "@/components/ButtonList";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
+import { createEmailDisplayValue } from "@/utils/email-display";
 
 export function FixWithChat({
   setInput,
@@ -84,6 +85,7 @@ export function FixWithChat({
 
                 if (setInput) {
                   // this is only set if we're in the correct context
+                  // The input will automatically show as "@(Subject)" in the chat
                   setInput(input);
                 } else {
                   // redirect to the assistant page
