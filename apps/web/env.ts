@@ -16,15 +16,17 @@ export const env = createEnv({
   server: {
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
+
     NEXTAUTH_SECRET: z.string().min(1),
     NEXTAUTH_URL: z.string().optional(),
     AUTH_TRUST_HOST: z.coerce.boolean().optional(),
+
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
-    EMAIL_ENCRYPT_SECRET: z.string(),
-    EMAIL_ENCRYPT_SALT: z.string(),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    EMAIL_ENCRYPT_SECRET: z.string(),
+    EMAIL_ENCRYPT_SALT: z.string(),
 
     DEFAULT_LLM_PROVIDER: z
       .enum([...llmProviderEnum.options, "custom"])
@@ -48,33 +50,44 @@ export const env = createEnv({
     GOOGLE_API_KEY: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
+    OLLAMA_BASE_URL: z.string().optional(),
+
     UPSTASH_REDIS_URL: z.string().optional(),
     UPSTASH_REDIS_TOKEN: z.string().optional(),
     REDIS_URL: z.string().optional(), // used for subscriptions
-    OLLAMA_BASE_URL: z.string().optional(),
+
     QSTASH_TOKEN: z.string().optional(),
     QSTASH_CURRENT_SIGNING_KEY: z.string().optional(),
     QSTASH_NEXT_SIGNING_KEY: z.string().optional(),
+
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
+
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
+
     LOG_ZOD_ERRORS: z.coerce.boolean().optional(),
     ENABLE_DEBUG_LOGS: z.coerce.boolean().default(false),
+
     // Lemon Squeezy
     LEMON_SQUEEZY_SIGNING_SECRET: z.string().optional(),
     LEMON_SQUEEZY_API_KEY: z.string().optional(),
+
     // Stripe
     STRIPE_SECRET_KEY: z.string().optional(),
     STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
     TINYBIRD_TOKEN: z.string().optional(),
     TINYBIRD_BASE_URL: z.string().default("https://api.us-east.tinybird.co/"),
     TINYBIRD_ENCRYPT_SECRET: z.string().optional(),
     TINYBIRD_ENCRYPT_SALT: z.string().optional(),
+
     API_KEY_SALT: z.string().optional(),
+
     POSTHOG_API_SECRET: z.string().optional(),
     POSTHOG_PROJECT_ID: z.string().optional(),
+
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
     RESEND_FROM_EMAIL: z
