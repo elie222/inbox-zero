@@ -126,6 +126,11 @@ const costs: Record<
     input: 0.2 / 1_000_000,
     output: 0.85 / 1_000_000,
   },
+  // Kimi K2 Groq via OpenRouter - https://openrouter.ai/moonshotai/kimi-k2
+  "moonshotai/kimi-k2": {
+    input: 1 / 1_000_000,
+    output: 3 / 1_000_000,
+  },
   // https://groq.com/pricing
   "llama-3.3-70b-versatile": {
     input: 0.59 / 1_000_000,

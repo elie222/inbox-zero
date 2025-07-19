@@ -432,6 +432,7 @@ Examples:
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
+    modelType: "chat",
     usageLabel: "assistant-chat",
     system,
     messages,
