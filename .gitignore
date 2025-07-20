@@ -58,6 +58,9 @@ dist
 **/public/precache**
 
 # Sanity
+# Ignore context directory
+CONTEXT/
+
 .sanity
 
 TODO.md

@@ -10,7 +10,7 @@ import {
 } from "@/app/(app)/admin/AdminSyncStripe";
 
 // NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
-export const maxDuration = 800;
+export const maxDuration = 300;
 
 export default async function AdminPage() {
   const session = await auth();
