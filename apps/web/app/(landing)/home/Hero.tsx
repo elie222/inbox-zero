@@ -7,6 +7,7 @@ import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { env } from "@/env";
 import { HeroAB } from "@/app/(landing)/home/HeroAB";
 import HeroVideoDialog from "@/components/HeroVideoDialog";
+import { LayoutPanelTopIcon } from "lucide-react";
 
 export function HeroText(props: {
   children: React.ReactNode;
@@ -47,8 +48,19 @@ export function Hero(props: {
       <div className="pt-24 sm:pb-12 sm:pt-32">
         <div className="mx-auto max-w-7xl px-6 lg:px-8">
           {!props.hideProductHuntBadge && (
-            <div className="mb-10">
+            <div className="mb-10 flex flex-col items-center justify-center gap-4">
               <ProductHuntBadge />
+              <a
+                href="https://www.producthunt.com/products/inbox-zero-tabs"
+                target="_blank"
+                rel="noreferrer"
+                className="mx-auto flex max-w-fit animate-fade-up items-center justify-center space-x-2 overflow-hidden rounded-full bg-green-50 px-7 py-2 transition-colors hover:bg-green-100"
+              >
+                <LayoutPanelTopIcon className="h-5 w-5 text-green-600" />
+                <p className="text-sm font-semibold text-green-600">
+                  Inbox Zero Tabs is live on Product Hunt!
+                </p>
+              </a>
             </div>
           )}
 
@@ -89,7 +101,8 @@ function ProductHuntBadge() {
   return (
     <div className="flex flex-col items-center justify-center gap-2 sm:flex-row">
       <Link
-        href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
+        // href="https://www.producthunt.com/posts/inbox-zero-2?utm_source=badge-top-post-badge&utm_medium=badge&utm_souce=badge-inbox&#0045;zero&#0045;2"
+        href="https://www.producthunt.com/products/inbox-zero-tabs"
         target="_blank"
         rel="noreferrer"
       >
