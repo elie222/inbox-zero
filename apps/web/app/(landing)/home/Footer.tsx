@@ -2,6 +2,11 @@ import Link from "next/link";
 
 const navigation = {
   main: [
+    {
+      name: "Inbox Zero Tabs (Chrome Extension)",
+      href: "https://go.getinboxzero.com/extension",
+      target: "_blank",
+    },
     { name: "AI Email Assistant", href: "/ai-automation" },
     { name: "Reply Zero", href: "/reply-zero-ai" },
     { name: "Bulk Email Unsubscriber", href: "/bulk-email-unsubscriber" },
