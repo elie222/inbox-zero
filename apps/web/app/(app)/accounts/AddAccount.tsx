@@ -116,7 +116,7 @@ function AddEmailAccount({
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button disabled={isConnecting} className="mt-auto">
+        <Button disabled={isConnecting} className="mt-auto w-full">
           <Image src={image} alt="" width={24} height={24} unoptimized />
           <span className="ml-2">
             {isConnecting ? "Connecting..." : `Add ${name} Account`}
