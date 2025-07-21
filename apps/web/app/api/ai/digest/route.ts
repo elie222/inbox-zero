@@ -161,11 +161,6 @@ async function upsertDigest({
 
 export const POST = withError(
   verifySignatureAppRouter(async (request: Request) => {
-    if (!hasCronSecret(request)) {
-      captureException(new Error("Unauthorized cron request: api/ai/digest"));
-      return new Response("Unauthorized", { status: 401 });
-    }
-
     const logger = createScopedLogger("digest");
 
     try {
