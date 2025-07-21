@@ -25,8 +25,8 @@ importers:
         specifier: 15.5.1
         version: 15.5.1
       prettier:
-        specifier: 3.6.2
-        version: 3.6.2
+        specifier: 3.5.3
+        version: 3.5.3
       turbo:
         specifier: 2.5.4
         version: 2.5.4
@@ -648,6 +648,9 @@ importers:
       '@types/react-dom':
         specifier: 19.0.4
         version: 19.0.4(@types/react@19.0.10)
+      prettier:
+        specifier: 3.5.3
+        version: 3.5.3
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -9051,11 +9054,6 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
-  prettier@3.6.2:
-    resolution: {integrity: sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==}
-    engines: {node: '>=14'}
-    hasBin: true
-
   pretty-bytes@6.1.1:
     resolution: {integrity: sha512-mQUvGU6aUFQ+rNvTIAcZuWGRT9a6f6Yrg9bHs4ImKF+HZCEK+plBvnAZYSIQztknZF2qnzNtr6F8s0+IuptdlQ==}
     engines: {node: ^14.13.1 || >=16.0.0}
@@ -14705,7 +14703,7 @@ snapshots:
   '@react-email/render@1.1.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       html-to-text: 9.0.5
-      prettier: 3.6.2
+      prettier: 3.5.3
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-promise-suspense: 0.3.4
@@ -14923,7 +14921,7 @@ snapshots:
       get-it: 8.6.9(debug@4.4.1)
       groq-js: 1.16.1
       pkg-dir: 5.0.0
-      prettier: 3.6.2
+      prettier: 3.5.3
       semver: 7.7.1
       validate-npm-package-name: 3.0.0
     transitivePeerDependencies:
@@ -21456,8 +21454,6 @@ snapshots:
     optional: true
 
   prettier@3.5.3: {}
-
-  prettier@3.6.2: {}
 
   pretty-bytes@6.1.1: {}
 
