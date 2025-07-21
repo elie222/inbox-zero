@@ -181,7 +181,8 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
    3. Set the Redirect URI:
       - Platform: Web
       - URL: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
-   4. Click "Register"
+   4. Also set Redirect URI: `http://localhost:3000/api/outlook/linking/callback`
+   5. Click "Register"
 
 4. Get your credentials:
 
