@@ -204,7 +204,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day at midnight local time
+      // Should be next day at midnight
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(16);
       expect(result!.getHours()).toBe(0);
@@ -281,7 +281,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day at 9:00 local time
+      // Should be next day at 9:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(16);
       expect(result!.getHours()).toBe(9);
@@ -304,14 +304,14 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be same day at 10:00 local time
+      // Should be same day at 10:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(15);
       expect(result!.getHours()).toBe(10);
       expect(result!.getMinutes()).toBe(0);
     });
 
-    it("should find next occurrence on same day if time has passed", () => {
+    it("should find next occurrence on same day even if time has passed", () => {
       const fromDate = new Date("2024-01-15T12:00:00Z"); // Monday 12 PM
       const timeOfDay = createCanonicalTimeOfDay(10, 0);
 
@@ -325,7 +325,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since 10 AM local time (1 PM UTC) is after 12 PM UTC, should be same Monday at 10:00 local time
+      // Current time is 12 PM UTC, but 10 AM scheduled time has already passed today, so schedule for same Monday at 10:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(15); // Same Monday
       expect(result!.getHours()).toBe(10);
@@ -346,7 +346,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Wednesday at 9:00 local time
+      // Should be Wednesday at 9:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(17);
       expect(result!.getHours()).toBe(9);
@@ -366,14 +366,14 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Tuesday midnight local time
+      // Should be Tuesday at midnight
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(16);
       expect(result!.getHours()).toBe(0);
       expect(result!.getMinutes()).toBe(0);
     });
 
-    it("should skip to next day if current day midnight has passed", () => {
+    it("should skip to next week when current day midnight has passed", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // Monday 10 AM
 
       const result = calculateNextScheduleDate(
@@ -386,7 +386,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next Monday midnight local time
+      // Should be next Monday at midnight (since it's 10 AM, midnight has already passed today)
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(22);
       expect(result!.getHours()).toBe(0);
@@ -407,7 +407,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Saturday at 11:00 local time
+      // Should be Saturday at 11:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(20);
       expect(result!.getHours()).toBe(11);
@@ -429,7 +429,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day (Feb 29) at midnight local time
+      // Should be next day (Feb 29) at midnight
       expect(result).not.toBeNull();
       expect(result!.getMonth()).toBe(1); // February
       expect(result!.getDate()).toBe(29);
@@ -450,7 +450,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be next day (Jan 1) at midnight local time
+      // Should be next day (Jan 1) at midnight
       expect(result).not.toBeNull();
       expect(result!.getFullYear()).toBe(2025);
       expect(result!.getMonth()).toBe(0); // January
@@ -491,7 +491,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be 3 days later at midnight local time
+      // Should be 3 days later at midnight
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(18);
       expect(result!.getHours()).toBe(0);
@@ -514,7 +514,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be same day at 9:00 local time
+      // Should be same day at 9:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(15);
       expect(result!.getHours()).toBe(9);
@@ -535,7 +535,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be Monday at 8:00 local time
+      // Should be Monday at 8:00 AM
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(15);
       expect(result!.getHours()).toBe(8);
@@ -555,7 +555,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Should be 7 days later at midnight local time
+      // Should be 7 days later at midnight
       expect(result).not.toBeNull();
       expect(result!.getDate()).toBe(22);
       expect(result!.getHours()).toBe(0);
@@ -576,7 +576,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since 9 AM local time (1 PM UTC) is after 10 AM UTC, should be same day at 9:00 AM
+      // Current time is 10 AM UTC, but 9 AM scheduled time hasn't passed yet, so schedule for same day at 9:00 AM
       expect(result).not.toBeNull();
       expect(result!.getMonth()).toBe(0); // January
       expect(result!.getDate()).toBe(10);
@@ -598,7 +598,7 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Since 3:30 PM local time (6:30 PM UTC) is after 10 AM UTC, should be same day at 3:30 PM
+      // Current time is 10 AM UTC, but 3:30 PM scheduled time hasn't passed yet, so schedule for same day at 3:30 PM
       expect(result).not.toBeNull();
       expect(result!.getMonth()).toBe(0); // January
       expect(result!.getDate()).toBe(20);
