@@ -13,8 +13,6 @@ import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validatio
 import { withError } from "@/utils/middleware";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 
-const LOGGER_NAME = "digest";
-
 async function resolveRuleName(actionId?: string): Promise<string> {
   if (!actionId) return RuleName.ColdEmail;
 
@@ -119,7 +117,7 @@ async function upsertDigest({
   coldEmailId?: string;
   content: DigestEmailSummarySchema;
 }) {
-  const logger = createScopedLogger(LOGGER_NAME).with({
+  const logger = createScopedLogger("digest").with({
     messageId,
     threadId,
     emailAccountId,
@@ -168,7 +166,7 @@ export const POST = withError(
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const logger = createScopedLogger(LOGGER_NAME);
+    const logger = createScopedLogger("digest");
 
     try {
       const body = digestBody.parse(await request.json());
