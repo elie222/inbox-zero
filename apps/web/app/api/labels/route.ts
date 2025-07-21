@@ -23,17 +23,20 @@ export const maxDuration = 30;
 export const GET = withEmailProvider(async (request) => {
   const { emailProvider } = request;
 
-  const labels = await emailProvider.getLabels();
-
-  // Map to unified format
-  const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
-    id: label.id,
-    name: label.name,
-    type: label.type,
-    color: label.color,
-    labelListVisibility: label.labelListVisibility,
-    messageListVisibility: label.messageListVisibility,
-  }));
-
-  return NextResponse.json({ labels: unifiedLabels });
+  try {
+    const labels = await emailProvider.getLabels();
+    // Map to unified format
+    const unifiedLabels: UnifiedLabel[] = (labels || []).map((label) => ({
+      id: label.id,
+      name: label.name,
+      type: label.type,
+      color: label.color,
+      labelListVisibility: label.labelListVisibility,
+      messageListVisibility: label.messageListVisibility,
+    }));
+    return NextResponse.json({ labels: unifiedLabels });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ labels: [] }, { status: 500 });
+  }
 });
