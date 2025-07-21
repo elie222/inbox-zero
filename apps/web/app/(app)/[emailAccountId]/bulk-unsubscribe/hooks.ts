@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { toast } from "sonner";
 import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
@@ -55,7 +55,7 @@ export function useUnsubscribe<T extends Row>({
   posthog: PostHog;
   refetchPremium: () => Promise<any>;
 }) {
-  const [unsubscribeLoading, setUnsubscribeLoading] = React.useState(false);
+  const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
 
   const onUnsubscribe = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -118,8 +118,7 @@ export function useBulkUnsubscribe<T extends Row>({
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
 }) {
-  const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] =
-    React.useState(false);
+  const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] = useState(false);
 
   const onBulkUnsubscribe = useCallback(
     async (items: T[]) => {
@@ -209,7 +208,7 @@ export function useAutoArchive<T extends Row>({
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
 }) {
-  const [autoArchiveLoading, setAutoArchiveLoading] = React.useState(false);
+  const [autoArchiveLoading, setAutoArchiveLoading] = useState(false);
 
   const onAutoArchiveClick = useCallback(async () => {
     if (!hasUnsubscribeAccess) return;
@@ -294,8 +293,7 @@ export function useBulkAutoArchive<T extends Row>({
   refetchPremium: () => Promise<any>;
   emailAccountId: string;
 }) {
-  const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] =
-    React.useState(false);
+  const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] = useState(false);
 
   const onBulkAutoArchive = useCallback(
     async (items: T[]) => {
@@ -336,7 +334,7 @@ export function useApproveButton<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const [approveLoading, setApproveLoading] = React.useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
   const { onDisableAutoArchive } = useAutoArchive({
     item,
     hasUnsubscribeAccess: true,
@@ -376,7 +374,7 @@ export function useBulkApprove<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const [bulkApproveLoading, setBulkApproveLoading] = React.useState(false);
+  const [bulkApproveLoading, setBulkApproveLoading] = useState(false);
 
   const onBulkApprove = async (items: T[]) => {
     setBulkApproveLoading(true);
@@ -445,7 +443,7 @@ export function useArchiveAll<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const [archiveAllLoading, setArchiveAllLoading] = React.useState(false);
+  const [archiveAllLoading, setArchiveAllLoading] = useState(false);
 
   const onArchiveAll = async () => {
     setArchiveAllLoading(true);
@@ -546,7 +544,7 @@ export function useDeleteAllFromSender<T extends Row>({
   posthog: PostHog;
   emailAccountId: string;
 }) {
-  const [deleteAllLoading, setDeleteAllLoading] = React.useState(false);
+  const [deleteAllLoading, setDeleteAllLoading] = useState(false);
 
   const onDeleteAll = async () => {
     setDeleteAllLoading(true);
@@ -614,7 +612,7 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   // perform actions using keyboard shortcuts
   // TODO make this available to command-K dialog too
   // TODO limit the copy-paste. same logic appears twice in this file
-  React.useEffect(() => {
+  useEffect(() => {
     const down = async (e: KeyboardEvent) => {
       const item = selectedRow;
       if (!item) return;
