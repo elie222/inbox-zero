@@ -50,7 +50,7 @@ export function Hero(props: {
           {!props.hideProductHuntBadge && (
             <div className="mb-10 flex flex-col items-center justify-center gap-4">
               <ProductHuntBadge />
-              <a
+              {/* <a
                 href="https://www.producthunt.com/products/inbox-zero-tabs"
                 target="_blank"
                 rel="noreferrer"
@@ -60,7 +60,7 @@ export function Hero(props: {
                 <p className="text-sm font-semibold text-green-600">
                   Inbox Zero Tabs is live on Product Hunt!
                 </p>
-              </a>
+              </a> */}
             </div>
           )}
 

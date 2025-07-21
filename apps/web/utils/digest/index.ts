@@ -37,7 +37,6 @@ export async function enqueueDigestItem({
           content: email.textPlain || "",
         },
       },
-      headers: getCronSecretHeader(),
     });
   } catch (error) {
     logger.error("Failed to publish to Qstash", {
