@@ -1,4 +1,4 @@
-import React from "react";
+import { Fragment } from "react";
 import { ColdEmailList } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailList";
 import { ColdEmailSettings } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailSettings";
 import { Card } from "@/components/ui/card";
@@ -15,7 +15,7 @@ export function ColdEmailContent({
   isInset: boolean;
   searchParam?: string;
 }) {
-  const ToolbarWrapper = isInset ? TabsToolbar : React.Fragment;
+  const ToolbarWrapper = isInset ? TabsToolbar : Fragment;
   const tabContentClassName = isInset ? "content-container" : "";
 
   return (

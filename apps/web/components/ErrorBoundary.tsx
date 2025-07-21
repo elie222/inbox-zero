@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import { Component } from "react";
 import * as Sentry from "@sentry/nextjs";
 
-export class ErrorBoundary extends React.Component<
+export class ErrorBoundary extends Component<
   { children: React.ReactNode; extra?: any; fallback?: React.ReactNode },
   { hasError: boolean }
 > {

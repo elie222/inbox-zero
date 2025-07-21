@@ -1,5 +1,5 @@
 import Link from "next/link";
-import React from "react";
+import { forwardRef } from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ButtonLoader } from "@/components/Loading";
 
@@ -57,7 +57,7 @@ const buttonVariants = cva(
   },
 );
 
-export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   (props: ButtonProps, ref) => {
     const { color, size, roundedSize, full, loading, className, ...rest } =
       props;
