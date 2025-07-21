@@ -311,9 +311,10 @@ describe("calculateNextScheduleDate", () => {
       expect(result!.getMinutes()).toBe(0);
     });
 
-    it("should find next occurrence on same day even if time has passed", () => {
-      const fromDate = new Date("2024-01-15T12:00:00Z"); // Monday 12 PM
-      const timeOfDay = createCanonicalTimeOfDay(10, 0);
+    it("should find next occurrence on next week when time has passed today", () => {
+      // Use a date that's clearly in the past for the scheduled time to avoid timezone issues
+      const fromDate = new Date("2024-01-15T14:00:00Z"); // Monday 2 PM UTC
+      const timeOfDay = createCanonicalTimeOfDay(10, 0); // 10 AM
 
       const result = calculateNextScheduleDate(
         {
@@ -325,9 +326,9 @@ describe("calculateNextScheduleDate", () => {
         fromDate,
       );
 
-      // Current time is 12 PM UTC, but 10 AM scheduled time has already passed today, so schedule for same Monday at 10:00 AM
+      // Current time is 2 PM UTC, but 10 AM scheduled time has already passed today, so schedule for next Monday at 10:00 AM
       expect(result).not.toBeNull();
-      expect(result!.getDate()).toBe(15); // Same Monday
+      expect(result!.getDate()).toBe(22); // Next Monday
       expect(result!.getHours()).toBe(10);
       expect(result!.getMinutes()).toBe(0);
     });
@@ -562,7 +563,7 @@ describe("calculateNextScheduleDate", () => {
       expect(result!.getMinutes()).toBe(0);
     });
 
-    it("should handle monthly schedule on the 15th", () => {
+    it("should handle monthly schedule on the 10th", () => {
       const fromDate = new Date("2024-01-10T10:00:00Z"); // January 10th 10 AM
       const timeOfDay = createCanonicalTimeOfDay(9, 0); // 9 AM
 
