@@ -10,116 +10,16 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { hasCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
+import { withError } from "@/utils/middleware";
+import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 
 const LOGGER_NAME = "digest";
-
-export async function POST(request: Request) {
-  if (!hasCronSecret(request)) {
-    captureException(new Error("Unauthorized cron request: api/ai/digest"));
-    return new Response("Unauthorized", { status: 401 });
-  }
-
-  const logger = createScopedLogger(LOGGER_NAME);
-
-  try {
-    const body = digestBody.parse(await request.json());
-    const { emailAccountId, coldEmailId, actionId, message } = body;
-
-    logger.with({ emailAccountId, messageId: message.id });
-
-    const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-    if (!emailAccount) {
-      throw new Error("Email account not found");
-    }
-
-    const ruleName = await resolveRuleName(actionId);
-    const summary = await aiSummarizeEmailForDigest({
-      ruleName,
-      emailAccount,
-      messageToSummarize: {
-        ...message,
-        to: message.to || "",
-      },
-    });
-
-    await upsertDigest({
-      messageId: message.id || "",
-      threadId: message.threadId || "",
-      emailAccountId,
-      actionId,
-      coldEmailId,
-      content: summary,
-    });
-
-    return new NextResponse("OK", { status: 200 });
-  } catch (error) {
-    logger.error("Failed to process digest", { error });
-    return new NextResponse("Internal Server Error", { status: 500 });
-  }
-}
 
 async function resolveRuleName(actionId?: string): Promise<string> {
   if (!actionId) return RuleName.ColdEmail;
 
   const ruleName = await getRuleNameByExecutedAction(actionId);
   return ruleName || RuleName.ColdEmail;
-}
-
-async function upsertDigest({
-  messageId,
-  threadId,
-  emailAccountId,
-  actionId,
-  coldEmailId,
-  content,
-}: {
-  messageId: string;
-  threadId: string;
-  emailAccountId: string;
-  actionId?: string;
-  coldEmailId?: string;
-  content: DigestEmailSummarySchema;
-}) {
-  const logger = createScopedLogger(LOGGER_NAME).with({
-    messageId,
-    threadId,
-    emailAccountId,
-    actionId,
-    coldEmailId,
-  });
-
-  try {
-    const digest = await findOrCreateDigest(
-      emailAccountId,
-      messageId,
-      threadId,
-    );
-    const existingItem = digest.items[0];
-    const contentString = JSON.stringify(content);
-
-    if (existingItem) {
-      logger.info("Updating existing digest item");
-      await updateDigestItem(
-        existingItem.id,
-        contentString,
-        actionId,
-        coldEmailId,
-      );
-    } else {
-      logger.info("Creating new digest item");
-      await createDigestItem({
-        digestId: digest.id,
-        messageId,
-        threadId,
-        contentString,
-        actionId,
-        coldEmailId,
-      });
-    }
-  } catch (error) {
-    logger.error("Failed to upsert digest", { error });
-    throw error;
-  }
 }
 
 async function findOrCreateDigest(
@@ -203,3 +103,107 @@ async function createDigestItem({
     },
   });
 }
+
+async function upsertDigest({
+  messageId,
+  threadId,
+  emailAccountId,
+  actionId,
+  coldEmailId,
+  content,
+}: {
+  messageId: string;
+  threadId: string;
+  emailAccountId: string;
+  actionId?: string;
+  coldEmailId?: string;
+  content: DigestEmailSummarySchema;
+}) {
+  const logger = createScopedLogger(LOGGER_NAME).with({
+    messageId,
+    threadId,
+    emailAccountId,
+    actionId,
+    coldEmailId,
+  });
+
+  try {
+    const digest = await findOrCreateDigest(
+      emailAccountId,
+      messageId,
+      threadId,
+    );
+    const existingItem = digest.items[0];
+    const contentString = JSON.stringify(content);
+
+    if (existingItem) {
+      logger.info("Updating existing digest item");
+      await updateDigestItem(
+        existingItem.id,
+        contentString,
+        actionId,
+        coldEmailId,
+      );
+    } else {
+      logger.info("Creating new digest item");
+      await createDigestItem({
+        digestId: digest.id,
+        messageId,
+        threadId,
+        contentString,
+        actionId,
+        coldEmailId,
+      });
+    }
+  } catch (error) {
+    logger.error("Failed to upsert digest", { error });
+    throw error;
+  }
+}
+
+export const POST = withError(
+  verifySignatureAppRouter(async (request: Request) => {
+    if (!hasCronSecret(request)) {
+      captureException(new Error("Unauthorized cron request: api/ai/digest"));
+      return new Response("Unauthorized", { status: 401 });
+    }
+
+    const logger = createScopedLogger(LOGGER_NAME);
+
+    try {
+      const body = digestBody.parse(await request.json());
+      const { emailAccountId, coldEmailId, actionId, message } = body;
+
+      logger.with({ emailAccountId, messageId: message.id });
+
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      if (!emailAccount) {
+        throw new Error("Email account not found");
+      }
+
+      const ruleName = await resolveRuleName(actionId);
+      const summary = await aiSummarizeEmailForDigest({
+        ruleName,
+        emailAccount,
+        messageToSummarize: {
+          ...message,
+          to: message.to || "",
+        },
+      });
+
+      await upsertDigest({
+        messageId: message.id || "",
+        threadId: message.threadId || "",
+        emailAccountId,
+        actionId,
+        coldEmailId,
+        content: summary,
+      });
+
+      return new NextResponse("OK", { status: 200 });
+    } catch (error) {
+      logger.error("Failed to process digest", { error });
+      return new NextResponse("Internal Server Error", { status: 500 });
+    }
+  }),
+);
