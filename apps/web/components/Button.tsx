@@ -98,7 +98,7 @@ const BasicLink = (props: {
 }) => {
   const {
     link: { href, target, rel },
-    type, // must not be passed to the a tag or the styling doesn't work well on iOS
+    type: _type, // must not be passed to the a tag or the styling doesn't work well on iOS
     children,
     ...rest
   } = props;

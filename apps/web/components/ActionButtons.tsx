@@ -81,7 +81,15 @@ export function ActionButtons({
         ),
       },
     ],
-    [onTrash, isTrashing, onArchive, onPlanAiAction, isPlanning, openInGmail],
+    [
+      onTrash,
+      isTrashing,
+      onArchive,
+      onPlanAiAction,
+      isPlanning,
+      openInGmail,
+      provider,
+    ],
   );
 
   return <ButtonGroup buttons={buttons} shadow={shadow} />;

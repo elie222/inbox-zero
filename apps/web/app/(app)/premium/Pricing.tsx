@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
-import { CheckIcon, CreditCardIcon, SparklesIcon } from "lucide-react";
+import { CheckIcon, SparklesIcon } from "lucide-react";
 import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { env } from "@/env";
@@ -41,7 +41,7 @@ export type PricingProps = {
 };
 
 export default function Pricing(props: PricingProps) {
-  const { isPremium, premium, isLoading, error, data } = usePremium();
+  const { premium, isLoading, error, data } = usePremium();
 
   const isLoggedIn = !!data?.id;
 

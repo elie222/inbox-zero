@@ -17,23 +17,23 @@ const PROVIDER_CONFIG: Record<
   }
 > = {
   "microsoft-entra-id": {
-    buildUrl: (messageOrThreadId: string, emailAddress?: string | null) => {
+    buildUrl: (messageOrThreadId: string, _emailAddress?: string | null) => {
       // Outlook URL format: https://outlook.live.com/mail/0/inbox/id/ENCODED_MESSAGE_ID
       // The message ID needs to be URL-encoded for Outlook
       const encodedMessageId = encodeURIComponent(messageOrThreadId);
       return `${getOutlookBaseUrl()}/inbox/id/${encodedMessageId}`;
     },
-    selectId: (messageId: string, threadId: string) => threadId,
+    selectId: (_messageId: string, threadId: string) => threadId,
   },
   google: {
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
-    selectId: (messageId: string, threadId: string) => messageId,
+    selectId: (messageId: string, _threadId: string) => messageId,
   },
   default: {
     buildUrl: (messageOrThreadId: string, emailAddress?: string | null) =>
       `${getGmailBaseUrl(emailAddress)}/#all/${messageOrThreadId}`,
-    selectId: (messageId: string, threadId: string) => threadId,
+    selectId: (_messageId: string, threadId: string) => threadId,
   },
 } as const;
 
