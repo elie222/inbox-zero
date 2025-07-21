@@ -10,7 +10,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function AssessUser() {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { executeAsync: executeAssessAsync } = useAction(
     assessAction.bind(null, emailAccountId),
   );
@@ -26,6 +26,8 @@ export function AssessUser() {
     if (!emailAccountId) return;
 
     async function assess() {
+      if (provider === "outlook") return;
+
       const result = await executeAssessAsync();
       // no need to run this over and over after the first time
       if (!result?.data?.skipped) {
