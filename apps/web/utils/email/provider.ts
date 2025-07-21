@@ -944,8 +944,7 @@ export class OutlookProvider implements EmailProvider {
     const sentItemsFolderId = folderIds.sentitems;
 
     if (!sentItemsFolderId) {
-      // throw new Error("Could not find sent items folder");
-      logger.error("Could not find sent items folder");
+      logger.warn("Could not find sent items folder");
       return [];
     }
 
