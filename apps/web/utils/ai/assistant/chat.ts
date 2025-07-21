@@ -15,6 +15,7 @@ import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
+import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -91,6 +92,7 @@ const updateRuleActionsSchema = z.object({
         bcc: z.string().nullish(),
         subject: z.string().nullish(),
       }),
+      delayInMinutes: delayInMinutesSchema,
     }),
   ),
 });
@@ -114,6 +116,7 @@ export type UpdateRuleActionsResult = {
   updatedActions?: Array<{
     type: string;
     fields: Record<string, string | null>;
+    delayInMinutes?: number | null;
   }>;
   error?: string;
 };
@@ -754,6 +757,7 @@ Examples:
                 content: action.fields?.content ?? null,
                 webhookUrl: action.fields?.webhookUrl ?? null,
               },
+              delayInMinutes: action.delayInMinutes ?? null,
             })),
           });
 

@@ -42,6 +42,10 @@ export function useDigestEnabled() {
   // return true;
 }
 
+export function useDelayedActionsEnabled() {
+  return useFeatureFlagEnabled("delayed-actions");
+}
+
 export type TestimonialsVariant = "control" | "senja-widget";
 
 export function useTestimonialsVariant() {

@@ -89,6 +89,8 @@ import {
 } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
+import { canActionBeDelayed } from "@/utils/delayed-actions";
+import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 
 export function Rule({
   ruleId,
@@ -97,11 +99,17 @@ export function Rule({
   ruleId: string;
   alwaysEditMode?: boolean;
 }) {
-  const { data, isLoading, error } = useRule(ruleId);
+  const { data, isLoading, error, mutate } = useRule(ruleId);
 
   return (
     <LoadingContent loading={isLoading} error={error}>
-      {data && <RuleForm rule={data.rule} alwaysEditMode={alwaysEditMode} />}
+      {data && (
+        <RuleForm
+          rule={data.rule}
+          alwaysEditMode={alwaysEditMode}
+          mutate={mutate}
+        />
+      )}
     </LoadingContent>
   );
 }
@@ -111,11 +119,13 @@ export function RuleForm({
   alwaysEditMode = false,
   onSuccess,
   isDialog = false,
+  mutate,
 }: {
   rule: CreateRuleBody & { id?: string };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
+  mutate?: (data?: any, options?: any) => void;
 }) {
   const { emailAccountId } = useAccount();
   const digestEnabled = useDigestEnabled();
@@ -128,6 +138,7 @@ export function RuleForm({
           actions: [
             ...rule.actions.map((action) => ({
               ...action,
+              delayInMinutes: action.delayInMinutes,
               content: {
                 ...action.content,
                 setManually: !!action.content?.value,
@@ -158,7 +169,7 @@ export function RuleForm({
   });
   const { append, remove } = useFieldArray({ control, name: "actions" });
 
-  const { userLabels, isLoading, mutate } = useLabels();
+  const { userLabels, isLoading, mutate: mutateLabels } = useLabels();
   const {
     categories,
     isLoading: categoriesLoading,
@@ -194,6 +205,21 @@ export function RuleForm({
       }
 
       if (data.id) {
+        if (mutate) {
+          // mutate delayInMinutes optimistically to keep the UI consistent
+          // in case the modal is reopened immediately after saving
+          const optimisticData = {
+            rule: {
+              ...rule,
+              actions: rule.actions.map((action, index) => ({
+                ...action,
+                delayInMinutes: data.actions[index]?.delayInMinutes,
+              })),
+            },
+          };
+          mutate(optimisticData, false);
+        }
+
         const res = await updateRuleAction(emailAccountId, {
           ...data,
           id: data.id,
@@ -202,12 +228,16 @@ export function RuleForm({
         if (res?.serverError) {
           console.error(res);
           toastError({ description: res.serverError });
+          if (mutate) mutate();
         } else if (!res?.data?.rule) {
           toastError({
             description: "There was an error updating the rule.",
           });
+          if (mutate) mutate();
         } else {
           toastSuccess({ description: "Saved!" });
+          // Revalidate to get the real data from server
+          if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
             actions: data.actions.map((action) => action.type),
@@ -252,7 +282,16 @@ export function RuleForm({
         }
       }
     },
-    [userLabels, router, posthog, emailAccountId, isDialog, onSuccess],
+    [
+      userLabels,
+      router,
+      posthog,
+      emailAccountId,
+      isDialog,
+      onSuccess,
+      mutate,
+      rule,
+    ],
   );
 
   const conditions = watch("conditions");
@@ -292,9 +331,9 @@ export function RuleForm({
       { label: "Forward", value: ActionType.FORWARD },
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
+      ...(digestEnabled ? [{ label: "Digest", value: ActionType.DIGEST }] : []),
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
       { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
-      ...(digestEnabled ? [{ label: "Digest", value: ActionType.DIGEST }] : []),
     ];
   }, [digestEnabled]);
 
@@ -789,7 +828,7 @@ export function RuleForm({
                 errors={errors}
                 userLabels={userLabels}
                 isLoading={isLoading}
-                mutate={mutate}
+                mutate={mutateLabels}
                 emailAccountId={emailAccountId}
                 remove={remove}
                 typeOptions={typeOptions}
@@ -820,9 +859,10 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="mt-8 flex items-center justify-end space-x-2">
+        <div className="flex items-center justify-end space-x-2">
           <TooltipExplanation
             size="md"
+            side="left"
             text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
           />
 
@@ -948,6 +988,7 @@ function ActionCard({
 }) {
   const fields = actionInputs[action.type].fields;
   const [expandedFields, setExpandedFields] = useState(false);
+  const delayedActionsEnabled = useDelayedActionsEnabled();
 
   // Get expandable fields that should be visible regardless of expanded state
   const hasExpandableFields = fields.some((field) => field.expandable);
@@ -957,6 +998,14 @@ function ActionCard({
     action.type === ActionType.DRAFT_EMAIL
       ? !!watch(`actions.${index}.content.setManually`)
       : false;
+
+  const actionCanBeDelayed = useMemo(
+    () => delayedActionsEnabled && canActionBeDelayed(action.type),
+    [action.type, delayedActionsEnabled],
+  );
+
+  const delayValue = watch(`actions.${index}.delayInMinutes`);
+  const delayEnabled = !!delayValue;
 
   // Helper function to determine if a field can use variables based on context
   const canFieldUseVariables = (
@@ -1057,10 +1106,12 @@ function ActionCard({
               >
                 <div className="flex items-center justify-between">
                   <Label name={field.name} label={field.label} />
-
                   {field.name === "label" && (
                     <div className="flex items-center space-x-2">
-                      <TooltipExplanation text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value." />
+                      <TooltipExplanation
+                        side="left"
+                        text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
+                      />
                       <Toggle
                         name={`actions.${index}.${field.name}.ai`}
                         label="AI generated"
@@ -1092,6 +1143,16 @@ function ActionCard({
                         );
                       }}
                       emailAccountId={emailAccountId}
+                    />
+                  </div>
+                ) : field.name === "label" && isAiGenerated ? (
+                  <div className="mt-2">
+                    <Input
+                      type="text"
+                      name={`actions.${index}.${field.name}.value`}
+                      registerProps={register(
+                        `actions.${index}.${field.name}.value`,
+                      )}
                     />
                   </div>
                 ) : field.name === "content" &&
@@ -1141,10 +1202,12 @@ function ActionCard({
                   </div>
                 ) : (
                   <div className="mt-2">
-                    <input
-                      className="block w-full flex-1 rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                    <Input
                       type="text"
-                      {...register(`actions.${index}.${field.name}.value`)}
+                      name={`actions.${index}.${field.name}.value`}
+                      registerProps={register(
+                        `actions.${index}.${field.name}.value`,
+                      )}
                     />
                   </div>
                 )}
@@ -1184,9 +1247,48 @@ function ActionCard({
           })}
 
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
-
-          {/* Show the variable pro tip when action has visible fields that can use variables */}
           {shouldShowProTip && <VariableProTip />}
+          {actionCanBeDelayed && (
+            <div className="mt-4">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  {delayEnabled && (
+                    <DelayInputControls
+                      index={index}
+                      delayInMinutes={delayValue}
+                      setValue={setValue}
+                    />
+                  )}
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <TooltipExplanation
+                    text="Schedule this action to execute after a delay from when the email was received. For example, archive an email a week after receiving it."
+                    side="right"
+                  />
+                  <Toggle
+                    name={`actions.${index}.delayEnabled`}
+                    label="Delay"
+                    enabled={delayEnabled}
+                    onChange={(enabled: boolean) => {
+                      const newValue = enabled ? 60 : null;
+                      setValue(`actions.${index}.delayInMinutes`, newValue, {
+                        shouldValidate: true,
+                      });
+                    }}
+                  />
+                </div>
+              </div>
+
+              {errors?.actions?.[index]?.delayInMinutes && (
+                <div className="mt-2">
+                  <ErrorMessage
+                    message={errors.actions?.[index]?.delayInMinutes?.message}
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {hasExpandableFields && (
             <div className="mt-2 flex justify-end">
@@ -1295,6 +1397,7 @@ export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
   return (
     <TooltipExplanation
       size={size}
+      side="left"
       text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
     />
   );
@@ -1354,4 +1457,103 @@ function VariableProTip() {
       </div>
     </div>
   );
+}
+
+function DelayInputControls({
+  index,
+  delayInMinutes,
+  setValue,
+}: {
+  index: number;
+  delayInMinutes: number | null | undefined;
+  setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
+}) {
+  const { value: displayValue, unit } = getDisplayValueAndUnit(delayInMinutes);
+
+  const handleValueChange = (newValue: string, currentUnit: string) => {
+    const minutes = convertToMinutes(newValue, currentUnit);
+    setValue(`actions.${index}.delayInMinutes`, minutes, {
+      shouldValidate: true,
+    });
+  };
+
+  const handleUnitChange = (newUnit: string) => {
+    if (displayValue) {
+      const minutes = convertToMinutes(displayValue, newUnit);
+      setValue(`actions.${index}.delayInMinutes`, minutes);
+    }
+  };
+
+  const delayConfig = {
+    displayValue,
+    unit,
+    handleValueChange,
+    handleUnitChange,
+  };
+
+  return (
+    <div className="space-y-2">
+      <Label label="Delay" name={`delay-${index}`} />
+      <div className="flex items-center space-x-2">
+        <Input
+          name={`delay-${index}`}
+          type="text"
+          placeholder="0"
+          className="w-20"
+          registerProps={{
+            value: delayConfig.displayValue,
+            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+              const value = e.target.value.replace(/[^0-9]/g, "");
+              delayConfig.handleValueChange(value, delayConfig.unit);
+            },
+          }}
+        />
+        <Select
+          value={delayConfig.unit}
+          onValueChange={delayConfig.handleUnitChange}
+        >
+          <SelectTrigger className="w-24">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="minutes">Minutes</SelectItem>
+            <SelectItem value="hours">Hours</SelectItem>
+            <SelectItem value="days">Days</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+// minutes to user-friendly UI format
+function getDisplayValueAndUnit(minutes: number | null | undefined) {
+  if (minutes === null || minutes === undefined)
+    return { value: "", unit: "hours" };
+  if (minutes === -1 || minutes <= 0) return { value: "", unit: "hours" };
+
+  if (minutes >= 1440 && minutes % 1440 === 0) {
+    return { value: (minutes / 1440).toString(), unit: "days" };
+  } else if (minutes >= 60 && minutes % 60 === 0) {
+    return { value: (minutes / 60).toString(), unit: "hours" };
+  } else {
+    return { value: minutes.toString(), unit: "minutes" };
+  }
+}
+
+// user-friendly UI format to minutes
+function convertToMinutes(value: string, unit: string) {
+  const numValue = Number.parseInt(value, 10);
+  if (Number.isNaN(numValue) || numValue <= 0) return -1;
+
+  switch (unit) {
+    case "minutes":
+      return numValue;
+    case "hours":
+      return numValue * 60;
+    case "days":
+      return numValue * 1440;
+    default:
+      return numValue;
+  }
 }
