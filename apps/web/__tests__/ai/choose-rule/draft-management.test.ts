@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
-import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import { ActionType } from "@prisma/client";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/provider";
 
 vi.mock("@/utils/prisma", () => ({
   default: {
@@ -16,13 +15,13 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/gmail/draft", () => ({
-  getDraft: vi.fn(),
-  deleteDraft: vi.fn(),
-}));
-
 describe("handlePreviousDraftDeletion", () => {
-  const mockGmail = {} as gmail_v1.Gmail;
+  const mockGetDraft = vi.fn();
+  const mockDeleteDraft = vi.fn();
+  const mockClient = {
+    getDraft: mockGetDraft,
+    deleteDraft: mockDeleteDraft,
+  } as unknown as EmailProvider;
   const logger = createScopedLogger("test");
   const mockExecutedRule = {
     id: "rule-123",
@@ -32,8 +31,6 @@ describe("handlePreviousDraftDeletion", () => {
 
   const mockFindFirst = prisma.executedAction.findFirst as Mock;
   const mockUpdate = prisma.executedAction.update as Mock;
-  const mockGetDraft = getDraft as Mock;
-  const mockDeleteDraft = deleteDraft as Mock;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,6 +49,8 @@ describe("handlePreviousDraftDeletion", () => {
       textPlain:
         "Hello, this is a test draft\n\nOn Monday wrote:\n> Previous message",
       textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
       snippet: "Hello, this is a test draft",
       historyId: "12345",
       internalDate: "1234567890",
@@ -69,7 +68,7 @@ describe("handlePreviousDraftDeletion", () => {
     mockGetDraft.mockResolvedValue(mockCurrentDraft);
 
     await handlePreviousDraftDeletion({
-      gmail: mockGmail,
+      client: mockClient,
       executedRule: mockExecutedRule,
       logger,
     });
@@ -95,8 +94,8 @@ describe("handlePreviousDraftDeletion", () => {
       },
     });
 
-    expect(mockGetDraft).toHaveBeenCalledWith("draft-222", mockGmail);
-    expect(mockDeleteDraft).toHaveBeenCalledWith(mockGmail, "draft-222");
+    expect(mockGetDraft).toHaveBeenCalledWith("draft-222");
+    expect(mockDeleteDraft).toHaveBeenCalledWith("draft-222");
     expect(mockUpdate).toHaveBeenCalledWith({
       where: { id: "action-111" },
       data: { wasDraftSent: false },
@@ -116,6 +115,8 @@ describe("handlePreviousDraftDeletion", () => {
       textPlain:
         "Hello, this is a MODIFIED draft\n\nOn Monday wrote:\n> Previous message",
       textHtml: undefined,
+      subject: "subject",
+      date: new Date().toISOString(),
       snippet: "Hello, this is a MODIFIED draft",
       historyId: "12345",
       internalDate: "1234567890",
@@ -133,7 +134,7 @@ describe("handlePreviousDraftDeletion", () => {
     mockGetDraft.mockResolvedValue(mockCurrentDraft);
 
     await handlePreviousDraftDeletion({
-      gmail: mockGmail,
+      client: mockClient,
       executedRule: mockExecutedRule,
       logger,
     });
@@ -146,7 +147,7 @@ describe("handlePreviousDraftDeletion", () => {
     mockFindFirst.mockResolvedValue(null);
 
     await handlePreviousDraftDeletion({
-      gmail: mockGmail,
+      client: mockClient,
       executedRule: mockExecutedRule,
       logger,
     });
@@ -166,7 +167,7 @@ describe("handlePreviousDraftDeletion", () => {
     mockGetDraft.mockResolvedValue(null);
 
     await handlePreviousDraftDeletion({
-      gmail: mockGmail,
+      client: mockClient,
       executedRule: mockExecutedRule,
       logger,
     });
@@ -181,7 +182,7 @@ describe("handlePreviousDraftDeletion", () => {
     // Should not throw - errors are caught and logged
     await expect(
       handlePreviousDraftDeletion({
-        gmail: mockGmail,
+        client: mockClient,
         executedRule: mockExecutedRule,
         logger,
       }),
@@ -217,7 +218,7 @@ describe("handlePreviousDraftDeletion", () => {
     mockGetDraft.mockResolvedValue(mockCurrentDraft);
 
     await handlePreviousDraftDeletion({
-      gmail: mockGmail,
+      client: mockClient,
       executedRule: mockExecutedRule,
       logger,
     });

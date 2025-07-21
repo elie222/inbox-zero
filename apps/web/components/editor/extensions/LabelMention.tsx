@@ -2,9 +2,9 @@ import { ReactRenderer } from "@tiptap/react";
 import { Mention } from "@tiptap/extension-mention";
 import { PluginKey } from "@tiptap/pm/state";
 import { MentionList, type MentionListRef } from "./MentionList";
-import type { UserLabel } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
-export const createLabelMentionExtension = (labels: UserLabel[]) => {
+export const createLabelMentionExtension = (labels: EmailLabel[]) => {
   return Mention.configure({
     HTMLAttributes: {
       class: "mention-label",
@@ -120,7 +120,7 @@ export const createLabelMentionExtension = (labels: UserLabel[]) => {
           range.to += 1;
         }
 
-        const label = props as UserLabel;
+        const label = props as EmailLabel;
         editor
           .chain()
           .focus()

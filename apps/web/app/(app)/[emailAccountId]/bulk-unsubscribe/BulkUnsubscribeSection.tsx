@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import { useState } from "react";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
@@ -85,16 +85,14 @@ export function BulkUnsubscribeSection({
   const { hasUnsubscribeAccess, mutate: refetchPremium } = usePremium();
 
   const { expanded, extra } = useExpanded();
-  const [openedNewsletter, setOpenedNewsletter] = React.useState<Newsletter>();
+  const [openedNewsletter, setOpenedNewsletter] = useState<Newsletter>();
 
   const onOpenNewsletter = (newsletter: Newsletter) => {
     setOpenedNewsletter(newsletter);
     posthog?.capture("Clicked Expand Sender");
   };
 
-  const [selectedRow, setSelectedRow] = React.useState<
-    Newsletter | undefined
-  >();
+  const [selectedRow, setSelectedRow] = useState<Newsletter | undefined>();
 
   useBulkUnsubscribeShortcuts({
     newsletters: data?.newsletters,

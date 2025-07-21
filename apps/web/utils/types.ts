@@ -55,6 +55,8 @@ export interface ParsedMessage extends gmail_v1.Schema$Message {
   headers: ParsedMessageHeaders;
   textPlain?: string;
   textHtml?: string;
+  subject: string;
+  date: string;
 }
 
 export interface Attachment {
