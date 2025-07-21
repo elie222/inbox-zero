@@ -8,7 +8,7 @@ export const digestBody = z.object({
     id: z.string(),
     threadId: z.string(),
     from: z.string(),
-    to: z.string(),
+    to: z.string().optional(),
     subject: z.string(),
     content: z.string(),
   }),

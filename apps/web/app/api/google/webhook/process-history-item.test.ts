@@ -81,7 +81,7 @@ vi.mock("@/utils/gmail/thread", () => ({
   getThreadMessages: vi.fn().mockImplementation(async (gmail, threadId) => [
     {
       id: threadId === "thread-456" ? "456" : "123",
-      threadId: threadId,
+      threadId,
       labelIds: ["INBOX"],
       internalDate: "1704067200000", // 2024-01-01T00:00:00Z
       headers: {

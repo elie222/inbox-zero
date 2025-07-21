@@ -23,7 +23,7 @@ export async function trackDubSignUp(user: User) {
   await dub.track.lead({
     clickId,
     eventName: "Sign Up",
-    externalId: user.id ?? "missing-id",
+    customerExternalId: user.id ?? "missing-id",
     customerName: user.name,
     customerEmail: user.email,
     customerAvatar: user.image,

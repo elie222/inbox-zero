@@ -200,6 +200,7 @@ ${senderCategory || "No category"}
 
   const result = await chatCompletionTools({
     userAi: emailAccount.user,
+    modelType: "chat",
     messages: allMessages,
     tools: {
       update_conditional_operator: tool({

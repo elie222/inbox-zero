@@ -45,8 +45,17 @@ import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Toggle } from "@/components/Toggle";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 export function ViewGroup({ groupId }: { groupId: string }) {
+  return (
+    <ErrorBoundary extra={{ component: "ViewGroup", groupId }}>
+      <ViewGroupInner groupId={groupId} />
+    </ErrorBoundary>
+  );
+}
+
+function ViewGroupInner({ groupId }: { groupId: string }) {
   const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<GroupItemsResponse>(
     `/api/user/group/${groupId}/items`,
@@ -87,7 +96,7 @@ export function ViewGroup({ groupId }: { groupId: string }) {
                 Add pattern
               </Button>
 
-              {!!group?.items.length && (
+              {!!group?.items?.length && (
                 <Button variant="outline" size="sm" asChild>
                   <Link
                     href={prefixPath(
@@ -112,7 +121,7 @@ export function ViewGroup({ groupId }: { groupId: string }) {
           loadingComponent={<Skeleton className="m-4 h-24 rounded" />}
         >
           {data &&
-            (group?.items.length ? (
+            (group?.items?.length ? (
               <GroupItems items={group.items} mutate={mutate} />
             ) : (
               <MessageText className="my-4 px-4">
@@ -174,7 +183,7 @@ const AddGroupItemForm = ({
       if (e.key === "Enter") {
         e.preventDefault();
         e.stopPropagation();
-        void handleSubmit(onSubmit)(e);
+        handleSubmit(onSubmit)(e);
       }
     },
     [handleSubmit, onSubmit],
@@ -251,17 +260,17 @@ function GroupItems({
             match:
           </div>
         }
-        items={groupedByStatus.include}
+        items={groupedByStatus.include || []}
         mutate={mutate}
       />
-      {groupedByStatus.exclude?.length > 0 && (
+      {(groupedByStatus.exclude?.length || 0) > 0 && (
         <GroupItemList
           title={
             <div className="flex items-center gap-x-1.5">
               When these patterns are encountered, the rule will never match:
             </div>
           }
-          items={groupedByStatus.exclude}
+          items={groupedByStatus.exclude || []}
           mutate={mutate}
         />
       )}

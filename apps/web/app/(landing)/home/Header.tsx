@@ -31,6 +31,11 @@ const navigation = [
   { name: "Enterprise", href: "/enterprise" },
   { name: "Open Source", href: "/github", target: "_blank" as const },
   { name: "Affiliates", href: "/affiliates", target: "_blank" as const },
+  {
+    name: "Extension",
+    href: "https://go.getinboxzero.com/extension",
+    target: "_blank" as const,
+  },
   { name: "Pricing", href: "/#pricing" },
 ];
 

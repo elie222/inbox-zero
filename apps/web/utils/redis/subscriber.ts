@@ -8,7 +8,7 @@ const logger = createScopedLogger("ioredis");
 class RedisSubscriber {
   private static instance: Redis | null = null;
 
-  public static getInstance(): Redis {
+  static getInstance(): Redis {
     if (!RedisSubscriber.instance) {
       if (!env.REDIS_URL) {
         throw new Error("REDIS_URL is not set");
@@ -30,7 +30,7 @@ class RedisSubscriber {
     return RedisSubscriber.instance;
   }
 
-  public static disconnect(): void {
+  static disconnect(): void {
     if (RedisSubscriber.instance) {
       RedisSubscriber.instance.disconnect();
       RedisSubscriber.instance = null;

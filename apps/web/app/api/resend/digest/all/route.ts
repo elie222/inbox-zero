@@ -63,7 +63,6 @@ async function sendDigestAllUpdate() {
         parallelism: 3, // Allow up to 3 concurrent jobs from this queue
         url,
         body: { emailAccountId: emailAccount.id },
-        headers: getCronSecretHeader(),
       });
     } catch (error) {
       logger.error("Failed to publish to Qstash", {

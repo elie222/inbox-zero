@@ -1,6 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
-import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getEmailAccount } from "@/__tests__/helpers";
 

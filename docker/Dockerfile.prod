@@ -11,7 +11,6 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc* ./
 COPY apps/web/package.json apps/web/
 COPY apps/unsubscriber/package.json apps/unsubscriber/
 COPY apps/mcp-server/package.json apps/mcp-server/
-COPY packages/eslint-config/package.json packages/eslint-config/
 COPY packages/loops/package.json packages/loops/
 COPY packages/resend/package.json packages/resend/
 COPY packages/tinybird/package.json packages/tinybird/

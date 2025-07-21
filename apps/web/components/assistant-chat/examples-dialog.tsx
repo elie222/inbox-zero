@@ -18,6 +18,10 @@ import {
   CheckCircle2Icon,
 } from "lucide-react";
 import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import {
+  convertLabelsToDisplay,
+  convertMentionsToLabels,
+} from "@/utils/mention";
 import { Tooltip } from "@/components/Tooltip";
 import { ButtonList } from "@/components/ButtonList";
 import { parseAsStringEnum, useQueryState } from "nuqs";
@@ -60,11 +64,11 @@ export function ExamplesDialog({
     if (selectedExamples.length === 1) {
       // Single selection - use the example directly
       const selectedExample = persona.promptArray[selectedExamples[0]];
-      setInput(selectedExample);
+      setInput(convertMentionsToLabels(selectedExample));
     } else {
       // Multiple selections - format as "add the following rules:"
-      const selectedRules = selectedExamples.map(
-        (index) => persona.promptArray[index],
+      const selectedRules = selectedExamples.map((index) =>
+        convertMentionsToLabels(persona.promptArray[index]),
       );
       const formattedPrompt = `Add the following rules:\n${selectedRules.map((rule) => `- ${rule}`).join("\n")}`;
       setInput(formattedPrompt);
@@ -144,7 +148,7 @@ export function ExamplesDialog({
                           </div>
                         )}
                         <span className="flex-1 whitespace-pre-wrap">
-                          {example}
+                          {convertLabelsToDisplay(example)}
                         </span>
                       </div>
                     </Button>

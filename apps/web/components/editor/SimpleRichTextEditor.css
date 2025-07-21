@@ -13,8 +13,10 @@
   font-weight: 500;
 }
 
-.simple-rich-editor.prose :where(code):not(:where([class~="not-prose"] *))::before,
-.simple-rich-editor.prose :where(code):not(:where([class~="not-prose"] *))::after {
+.simple-rich-editor.prose
+  :where(code):not(:where([class~="not-prose"] *))::before,
+.simple-rich-editor.prose
+  :where(code):not(:where([class~="not-prose"] *))::after {
   content: ""; /* Remove backticks */
 }
 
@@ -25,7 +27,9 @@
   @apply bg-blue-950 border-blue-800 text-blue-100;
 }
 
-.dark .simple-rich-editor.prose :where(code):not(:where([class~="not-prose"] *)) {
+.dark
+  .simple-rich-editor.prose
+  :where(code):not(:where([class~="not-prose"] *)) {
   @apply bg-blue-950 text-blue-100 border-blue-800;
 }
 

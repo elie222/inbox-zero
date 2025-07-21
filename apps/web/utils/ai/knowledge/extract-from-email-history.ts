@@ -103,7 +103,7 @@ export async function aiExtractFromEmailHistory({
       usageLabel: "Email history extraction",
       userAi: emailAccount.user,
       userEmail: emailAccount.email,
-      useEconomyModel: true,
+      modelType: "economy",
     });
 
     logger.trace("Output", result.object);

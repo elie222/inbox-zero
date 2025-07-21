@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, memo, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { SparklesIcon, UserPenIcon } from "lucide-react";
+import { HelpCircleIcon, SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -15,10 +15,7 @@ import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
 } from "@/components/editor/SimpleRichTextEditor";
-import {
-  saveRulesPromptBody,
-  type SaveRulesPromptBody,
-} from "@/utils/actions/rule.validation";
+import type { SaveRulesPromptBody } from "@/utils/actions/rule.validation";
 import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
@@ -27,6 +24,7 @@ import {
   examplePrompts,
   personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import { convertLabelsToDisplay } from "@/utils/mention";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
@@ -36,7 +34,6 @@ import { Label } from "@/components/ui/label";
 import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
-import { Notice } from "@/components/Notice";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
@@ -219,9 +216,41 @@ function RulesPromptForm({
           }}
           className={showExamples ? "sm:col-span-2" : ""}
         >
-          <Label className="font-cal text-xl leading-7">
-            How your assistant should handle incoming emails
-          </Label>
+          <div className="flex items-center justify-between">
+            <Label className="font-cal text-xl leading-7">
+              How your assistant should handle incoming emails
+            </Label>
+
+            <Tooltip
+              contentComponent={
+                <div className="space-y-1">
+                  <div className="font-medium">Formatting options:</div>
+                  <div className="text-sm space-y-1">
+                    <div>
+                      <span className="font-mono font-bold text-blue-400">
+                        *
+                      </span>{" "}
+                      for bullet points
+                    </div>
+                    <div>
+                      <span className="font-mono font-bold text-blue-400">
+                        @label
+                      </span>{" "}
+                      for labels
+                    </div>
+                    <div>
+                      <span className="font-mono font-bold text-blue-400">
+                        &gt; text
+                      </span>{" "}
+                      for quotes
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <HelpCircleIcon className="h-5 w-5 cursor-pointer text-muted-foreground hover:text-foreground" />
+            </Tooltip>
+          </div>
 
           <div className="mt-1.5 space-y-4">
             <LoadingContent
@@ -348,7 +377,9 @@ function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
                   <div
                     className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
                   />
-                  <span className="flex-1">{example}</span>
+                  <span className="flex-1">
+                    {convertLabelsToDisplay(example)}
+                  </span>
                 </div>
               </Button>
             );
