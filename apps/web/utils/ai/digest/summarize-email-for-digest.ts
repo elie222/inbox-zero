@@ -71,8 +71,7 @@ Return a valid JSON object with either "entries" array, "summary" string, or nul
 
     logger.trace("Result", { response: aiResponse.object });
 
-    const validatedResult = schema.parse(aiResponse.object);
-    return validatedResult;
+    return aiResponse.object;
   } catch (error) {
     logger.error("Failed to summarize email", { error });
 
