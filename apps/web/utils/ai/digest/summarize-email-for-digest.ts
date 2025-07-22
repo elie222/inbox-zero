@@ -24,7 +24,7 @@ export async function aiSummarizeEmailForDigest({
 
   const userMessageForPrompt = messageToSummarize;
 
-  const system = `You are an AI assistant that summarizes emails for a digest email. 
+  const system = `You are an AI assistant that summarizes emails for a daily digest email. 
 You must return a valid JSON object with exactly one of these structures:
 
 1. For structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs):
@@ -39,8 +39,13 @@ You must return a valid JSON object with exactly one of these structures:
 IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text.`;
 
   const prompt = `
+<email_content>
+${stringifyEmailSimple(userMessageForPrompt)}
+</email_content>
+
+This email has already been categorized as: ${ruleName}.
+
 Summarize the following email for inclusion in a daily digest email.
-This email has been categorized as: ${ruleName}.
 
 RULES:
 - If the email contains structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs), return an "entries" array with 2-6 label/value pairs.
@@ -49,9 +54,6 @@ RULES:
 - If the email contains general updates, team notes, meeting summaries, or announcements without distinct extractable values, return a "summary" field with a plain-text paragraph.
 - If the email is spam, promotional content, or not worth summarizing, return null.
 - Return ONLY valid JSON - no HTML, no tables, no explanatory text.
-
-EMAIL CONTENT:
-${stringifyEmailSimple(userMessageForPrompt)}
 
 Return a valid JSON object with either "entries" array, "summary" string, or null.`;
 
