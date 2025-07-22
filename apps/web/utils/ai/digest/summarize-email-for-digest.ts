@@ -24,30 +24,38 @@ export async function aiSummarizeEmailForDigest({
 
   const userMessageForPrompt = messageToSummarize;
 
-  const system = "You are an AI assistant that summarizes emails for a digest.";
+  const system = `You are an AI assistant that summarizes emails for a daily digest email. 
+You must return a valid JSON object with exactly one of these structures:
+
+1. For structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs):
+   {"entries": [{"label": "Field Name", "value": "Field Value"}]}
+
+2. For unstructured content (general updates, team notes, meeting summaries, announcements):
+   {"summary": "Plain text summary paragraph"}
+
+3. If the email is not worth summarizing or is spam:
+   null
+
+IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text.`;
 
   const prompt = `
-Summarize the following email for inclusion in a daily digest email.
-	* This email has already been categorized as: ${ruleName}.
-
-Formatting rules:
-	* If the email contains clearly extractable structured data — such as prices, totals, item names, event titles, dates, times, payment methods, or IDs — return a single object with an "entries" field: a list of 2 ~ 6 relevant "label" and "value" pairs.
-	* Order the entries by importance: start with identifying details and end with totals or amounts (e.g. "Total", "Amount Paid").
-	* Use short, clear labels and concise values. Example: { label: "Total", value: "$29.99" }.
-	* Do not extract notes, summaries, bullet points, or general narrative information into structured fields.
-
-Unstructured fallback:
-	* If the email contains general updates, team notes, meeting summaries, announcements, or freeform text — and does not contain distinct extractable values — return a single 'summary' field with a plain-text paragraph instead.
-	* Only return 'summary' if no clear structure fits. Do not force structure.
-
-Style rules:
-	* Output must be plain text only — no HTML, no tables.
-	* Output only one field: either 'entries' or 'summary', never both.
-	* Keep the content minimal, scannable, and clean.
-<message>
+<email_content>
 ${stringifyEmailSimple(userMessageForPrompt)}
-</message>
-`.trim();
+</email_content>
+
+This email has already been categorized as: ${ruleName}.
+
+Summarize the following email for inclusion in a daily digest email.
+
+RULES:
+- If the email contains structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs), return an "entries" array with 2-6 label/value pairs.
+- Order entries by importance: start with identifying details, end with totals/amounts.
+- Use short, clear labels and concise values.
+- If the email contains general updates, team notes, meeting summaries, or announcements without distinct extractable values, return a "summary" field with a plain-text paragraph.
+- If the email is spam, promotional content, or not worth summarizing, return null.
+- Return ONLY valid JSON - no HTML, no tables, no explanatory text.
+
+Return a valid JSON object with either "entries" array, "summary" string, or null.`;
 
   logger.trace("Input", { system, prompt });
 
@@ -63,9 +71,12 @@ ${stringifyEmailSimple(userMessageForPrompt)}
 
     logger.trace("Result", { response: aiResponse.object });
 
-    return aiResponse.object as AISummarizeResult;
+    return aiResponse.object;
   } catch (error) {
     logger.error("Failed to summarize email", { error });
-    return { summary: undefined };
+
+    return {
+      summary: undefined,
+    };
   }
 }
