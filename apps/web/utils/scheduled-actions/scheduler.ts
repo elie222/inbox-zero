@@ -131,7 +131,7 @@ export async function scheduleDelayedActions({
       canActionBeDelayed(item.type),
   );
 
-  if (delayedActions.length === 0) {
+  if (!delayedActions?.length) {
     return [];
   }
 
