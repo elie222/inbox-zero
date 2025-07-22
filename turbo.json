@@ -18,6 +18,9 @@
         "DEFAULT_LLM_MODEL",
         "ECONOMY_LLM_PROVIDER",
         "ECONOMY_LLM_MODEL",
+        "CHAT_LLM_PROVIDER",
+        "CHAT_LLM_MODEL",
+        "CHAT_OPENROUTER_PROVIDERS",
 
         "OPENAI_API_KEY",
         "ANTHROPIC_API_KEY",
