@@ -71,15 +71,13 @@ Return a valid JSON object with either "entries" array, "summary" string, or nul
 
     logger.trace("Result", { response: aiResponse.object });
 
-    // Validate the response matches our schema
     const validatedResult = schema.parse(aiResponse.object);
     return validatedResult;
   } catch (error) {
     logger.error("Failed to summarize email", { error });
 
-    // Return a fallback summary instead of undefined
     return {
-      summary: `Email from ${messageToSummarize.from || "unknown sender"} - ${messageToSummarize.subject || "no subject"}`,
+      summary: undefined,
     };
   }
 }
