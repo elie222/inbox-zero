@@ -12,7 +12,7 @@
     "format-and-lint:fix": "biome check . --write"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.1.1",
+    "@biomejs/biome": "2.1.2",
     "@turbo/gen": "2.5.4",
     "husky": "9.1.7",
     "lint-staged": "15.5.1",
