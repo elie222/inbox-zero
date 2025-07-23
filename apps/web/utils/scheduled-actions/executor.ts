@@ -119,23 +119,18 @@ async function validateEmailState(
       return null;
     }
 
-    // Parse the message to get the correct format
-    const parsedMessage = parseMessage(message as any);
-
-    // Convert to EmailForAction format
     const emailForAction: EmailForAction = {
-      threadId: parsedMessage.threadId,
-      id: parsedMessage.id,
-      headers: parsedMessage.headers,
-      textPlain: parsedMessage.textPlain || "",
-      textHtml: parsedMessage.textHtml || "",
-      attachments: parsedMessage.attachments || [],
-      internalDate: parsedMessage.internalDate,
+      threadId: message.threadId,
+      id: message.id,
+      headers: message.headers,
+      textPlain: message.textPlain || "",
+      textHtml: message.textHtml || "",
+      attachments: message.attachments || [],
+      internalDate: message.internalDate,
     };
 
     return emailForAction;
   } catch (error: unknown) {
-    // Check for Gmail's standard "not found" error message
     if (
       error instanceof Error &&
       error.message === "Requested entity was not found."
