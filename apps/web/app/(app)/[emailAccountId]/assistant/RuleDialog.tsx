@@ -28,7 +28,7 @@ export function RuleDialog({
   initialRule,
   editMode = true,
 }: RuleDialogProps) {
-  const { data, isLoading, error } = useRule(ruleId || "");
+  const { data, isLoading, error, mutate } = useRule(ruleId || "");
 
   const handleSuccess = () => {
     onSuccess?.();
@@ -52,6 +52,7 @@ export function RuleDialog({
                   alwaysEditMode={editMode}
                   onSuccess={handleSuccess}
                   isDialog={true}
+                  mutate={mutate}
                 />
               )}
             </LoadingContent>

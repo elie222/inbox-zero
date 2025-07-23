@@ -1,0 +1,218 @@
+# Delayed Actions Feature
+
+## Overview
+
+The delayed actions feature allows users to schedule email actions (like labeling, archiving, or replying) to be executed after a specified delay period. This is useful for scenarios like:
+
+- **Follow-up reminders**: Label emails that haven't been replied to after X days
+- **Snooze functionality**: Archive emails and bring them back later
+- **Time-sensitive processing**: Apply actions only after a waiting period
+
+## Implementation Architecture
+
+### Core Components
+
+1. **Action Delay Configuration**
+   - `Action.delayInMinutes` field: Optional delay from 1 minute to 90 days
+   - UI controls in `RuleForm.tsx` for setting delays
+   - Validation ensures delays are within acceptable bounds
+
+2. **Scheduled Action Storage**
+   - `ScheduledAction` model: Stores pending delayed actions
+   - Contains action details, timing, and execution status
+   - Links to `ExecutedRule` for context and audit trail
+
+3. **QStash Integration**
+   - Uses Upstash QStash for reliable message queuing
+   - Replaces cron-based polling with event-driven execution
+   - Provides built-in retries and error handling
+
+### Database Schema
+
+```prisma
+model ScheduledAction {
+  id             String                @id @default(cuid())
+  executedRuleId String
+  actionType     ActionType
+  messageId      String
+  threadId       String
+  scheduledFor   DateTime
+  emailAccountId String
+  status         ScheduledActionStatus @default(PENDING)
+  
+  // Action-specific fields
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
+  
+  // QStash integration
+  scheduledId String?
+  
+  // Execution tracking
+  executedAt       DateTime?
+  executedActionId String?   @unique
+  
+  // Relationships and indexes...
+}
+```
+
+## QStash Integration
+
+### Scheduling Process
+
+1. **Rule Execution**: When a rule matches an email, actions are split into:
+   - **Immediate actions**: Executed right away
+   - **Delayed actions**: Scheduled via QStash
+
+2. **QStash Scheduling**: 
+   ```typescript
+   const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
+   
+   const response = await qstash.publishJSON({
+     url: `${process.env.NEXTAUTH_URL}/api/scheduled-actions/execute`,
+     body: {
+       scheduledActionId: scheduledAction.id,
+     },
+     notBefore, // Unix timestamp for when to execute
+     deduplicationId: `scheduled-action-${scheduledAction.id}`,
+   });
+   ```
+
+3. **Deduplication**: Uses unique IDs to prevent duplicate execution
+4. **Message ID Storage**: QStash scheduledId stored for efficient cancellation (field: scheduledId)
+
+### Execution Process
+
+1. **QStash Delivery**: QStash delivers message to `/api/scheduled-actions/execute`
+2. **Signature Verification**: Validates QStash signature for security
+3. **Action Execution**: 
+   - Retrieves scheduled action from database
+   - Validates email still exists
+   - Executes the specific action using `runActionFunction`
+   - Updates execution status
+
+### Benefits Over Cron-Based Approach
+
+- **Reliability**: No polling, exact scheduling, built-in retries
+- **Scalability**: No background processes, QStash handles infrastructure  
+- **Deduplication**: Prevents duplicate execution with unique IDs
+- **Monitoring**: Better observability through QStash dashboard
+- **Cancellation**: Direct message cancellation using stored message IDs
+
+## Key Functions
+
+### Core Scheduling Functions
+
+```typescript
+// Create and schedule a single delayed action
+export async function createScheduledAction({
+  executedRuleId,
+  actionItem,
+  messageId,
+  threadId,
+  emailAccountId,
+  scheduledFor,
+})
+
+// Schedule multiple delayed actions for a rule execution
+export async function scheduleDelayedActions({
+  executedRuleId,
+  actionItems,
+  messageId,
+  threadId,
+  emailAccountId,
+})
+
+// Cancel existing scheduled actions (e.g., when new rule overrides)
+export async function cancelScheduledActions({
+  emailAccountId,
+  messageId,
+  threadId,
+  reason,
+})
+```
+
+### Usage in Rule Execution
+
+```typescript
+// In run-rules.ts
+// Cancel any existing scheduled actions for this message
+await cancelScheduledActions({
+  emailAccountId: emailAccount.id,
+  messageId: message.id,
+  threadId: message.threadId,
+  reason: "Superseded by new rule execution",
+});
+
+// Schedule delayed actions if any exist
+if (executedRule && delayedActions.length > 0 && !isTest) {
+  await scheduleDelayedActions({
+    executedRuleId: executedRule.id,
+    actionItems: delayedActions,
+    messageId: message.id,
+    threadId: message.threadId,
+    emailAccountId: emailAccount.id,
+  });
+}
+```
+
+## Migration Safety
+
+The database migration includes `IF NOT EXISTS` clauses to prevent conflicts:
+
+```sql
+-- CreateEnum
+CREATE TYPE IF NOT EXISTS "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+
+-- AlterTable
+ALTER TABLE "Action" ADD COLUMN IF NOT EXISTS "delayInMinutes" INTEGER;
+
+-- CreateTable
+CREATE TABLE IF NOT EXISTS "ScheduledAction" (
+  -- table definition
+);
+
+-- CreateIndex
+CREATE UNIQUE INDEX IF NOT EXISTS "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
+```
+
+## Usage Examples
+
+### Basic Delay Configuration
+```typescript
+// In rule action configuration
+{
+  type: "LABEL",
+  label: "Follow-up Needed",
+  delayInMinutes: 2880 // 2 days
+}
+```
+
+### Follow-up Workflow
+1. Email arrives and matches rule
+2. Immediate action: Archive email
+3. Delayed action: Label as "Follow-up" after 3 days
+4. If user replies before 3 days, action can be cancelled
+
+## API Endpoints
+
+- `POST /api/scheduled-actions/execute`: QStash webhook for execution
+- `DELETE /api/admin/scheduled-actions/[id]/cancel`: Cancel scheduled action
+- `POST /api/admin/scheduled-actions/[id]/retry`: Retry failed action
+
+## Error Handling
+
+- **Email Not Found**: Action marked as completed with reason
+- **Execution Failure**: Action marked as failed, logged for debugging
+- **Cancellation**: QStash message cancelled, database updated
+- **Retries**: QStash automatically retries failed deliveries
+
+## Monitoring
+
+- Database status tracking: PENDING → EXECUTING → COMPLETED/FAILED
+- QStash dashboard for message delivery monitoring
+- Structured logging for debugging and observability
