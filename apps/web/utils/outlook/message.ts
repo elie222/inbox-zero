@@ -9,6 +9,20 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
+function isOutlookReplyInThread(
+  conversationIndex?: string | undefined,
+): boolean {
+  try {
+    return atob(conversationIndex || "").length > 22;
+  } catch (error) {
+    logger.warn("Invalid conversationIndex base64", {
+      conversationIndex,
+      error,
+    });
+    return false;
+  }
+}
+
 // Well-known folder names in Outlook that are consistent across all languages
 const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
@@ -273,7 +287,9 @@ async function convertMessages(
       return {
         id: message.id || "",
         threadId: message.conversationId || "",
-        isReplyInThread: atob(message.conversationIndex || "").length > 22,
+        isReplyInThread: isOutlookReplyInThread(
+          message.conversationIndex || "",
+        ),
         snippet: message.bodyPreview || "",
         textPlain: message.body?.content || "",
         textHtml: message.body?.content || "",
@@ -311,7 +327,7 @@ export async function getMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
-    isReplyInThread: atob(message.conversationIndex || "").length > 22,
+    isReplyInThread: isOutlookReplyInThread(message.conversationIndex || ""),
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
     textHtml: message.body?.content || "",
