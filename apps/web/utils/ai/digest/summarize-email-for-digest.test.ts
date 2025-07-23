@@ -122,9 +122,8 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
 
     console.debug("Generated content:\n", result);
 
-    expect(result).toMatchObject({
-      summary: expect.any(String),
-    });
+    // Empty emails should return null as they're not worth summarizing
+    expect(result).toBeNull();
   }, 15_000);
 
   test("handles null message", async () => {

@@ -149,7 +149,7 @@ await cancelScheduledActions({
 });
 
 // Schedule delayed actions if any exist
-if (executedRule && delayedActions.length > 0 && !isTest) {
+if (executedRule && delayedActions?.length > 0 && !isTest) {
   await scheduleDelayedActions({
     executedRuleId: executedRule.id,
     actionItems: delayedActions,

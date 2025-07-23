@@ -1,16 +1,17 @@
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
+CREATE TYPE "ScheduledActionStatus" AS ENUM ('PENDING', 'EXECUTING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- CreateEnum
-CREATE TYPE IF NOT EXISTS "SchedulingStatus" AS ENUM ('PENDING', 'SCHEDULED', 'FAILED');
-
+CREATE TYPE "SchedulingStatus" AS ENUM ('PENDING', 'SCHEDULED', 'FAILED');
 
 -- AlterTable
-ALTER TABLE "Action" ADD COLUMN IF NOT EXISTS "delayInMinutes" INTEGER;
+ALTER TABLE "Action" ADD COLUMN     "delayInMinutes" INTEGER;
 
 -- CreateTable
-CREATE TABLE IF NOT EXISTS "ScheduledAction" (
+CREATE TABLE "ScheduledAction" (
     "id" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "executedRuleId" TEXT NOT NULL,
     "actionType" "ActionType" NOT NULL,
     "messageId" TEXT NOT NULL,
@@ -29,20 +30,18 @@ CREATE TABLE IF NOT EXISTS "ScheduledAction" (
     "scheduledId" TEXT,
     "executedAt" TIMESTAMP(3),
     "executedActionId" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "ScheduledAction_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX IF NOT EXISTS "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
+CREATE UNIQUE INDEX "ScheduledAction_executedActionId_key" ON "ScheduledAction"("executedActionId");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("status", "scheduledFor");
+CREATE INDEX "ScheduledAction_status_scheduledFor_idx" ON "ScheduledAction"("status", "scheduledFor");
 
 -- CreateIndex
-CREATE INDEX IF NOT EXISTS "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
+CREATE INDEX "ScheduledAction_emailAccountId_messageId_idx" ON "ScheduledAction"("emailAccountId", "messageId");
 
 -- AddForeignKey
 ALTER TABLE "ScheduledAction" ADD CONSTRAINT "ScheduledAction_executedRuleId_fkey" FOREIGN KEY ("executedRuleId") REFERENCES "ExecutedRule"("id") ON DELETE CASCADE ON UPDATE CASCADE;

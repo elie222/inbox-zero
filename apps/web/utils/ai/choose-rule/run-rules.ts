@@ -126,7 +126,7 @@ async function executeMatchedRule(
         },
       );
 
-  if (executedRule && delayedActions.length > 0 && !isTest) {
+  if (executedRule && delayedActions?.length > 0 && !isTest) {
     // Attempts to cancel any existing scheduled actions to avoid duplicates
     await cancelScheduledActions({
       emailAccountId: emailAccount.id,
