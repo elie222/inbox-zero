@@ -27,6 +27,7 @@ import { extractEmailAddress } from "@/utils/email";
 import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
 import type { EmailProvider } from "@/utils/email/provider";
+import { isReplyInThread } from "@/utils/thread";
 
 const logger = createScopedLogger("match-rules");
 
@@ -231,7 +232,12 @@ async function findMatchingRuleWithReasons(
   matchReasons?: MatchReason[];
   reason?: string;
 }> {
-  const isThread = message.isReplyInThread;
+  const isThread = isReplyInThread(
+    message.id,
+    message.threadId,
+    message.conversationIndex,
+  );
+
   const { match, matchReasons, potentialMatches } =
     await findPotentialMatchingRules({
       rules,

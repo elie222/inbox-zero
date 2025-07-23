@@ -19,7 +19,6 @@ export function parseMessage(
     ...parsed,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
-    isReplyInThread: !!(parsed.id && parsed.id !== parsed.threadId),
   };
 }
 
