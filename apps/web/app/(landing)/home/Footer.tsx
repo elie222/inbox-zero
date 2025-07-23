@@ -51,7 +51,11 @@ const navigation = {
   legal: [
     { name: "Terms", href: "/terms" },
     { name: "Privacy", href: "/privacy" },
-    { name: "SOC2 Compliant", href: "/security" },
+    {
+      name: "SOC2 Compliant",
+      href: "https://security.getinboxzero.com",
+      target: "_blank",
+    },
     { name: "Sitemap", href: "/sitemap.xml" },
   ],
   social: [
