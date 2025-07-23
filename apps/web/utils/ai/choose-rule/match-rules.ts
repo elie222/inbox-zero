@@ -1,4 +1,3 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { getConditionTypes, isAIRule } from "@/utils/condition";
 import {
   findMatchingGroup,
@@ -18,7 +17,6 @@ import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { isReplyInThread } from "@/utils/thread";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type {
@@ -28,7 +26,6 @@ import type {
 import { extractEmailAddress } from "@/utils/email";
 import { hasIcsAttachment } from "@/utils/parse/calender-event";
 import { checkSenderReplyHistory } from "@/utils/reply-tracker/check-sender-reply-history";
-import type { OutlookClient } from "@/utils/outlook/client";
 import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("match-rules");
@@ -234,7 +231,7 @@ async function findMatchingRuleWithReasons(
   matchReasons?: MatchReason[];
   reason?: string;
 }> {
-  const isThread = isReplyInThread(message.id, message.threadId);
+  const isThread = message.isReplyInThread;
   const { match, matchReasons, potentialMatches } =
     await findPotentialMatchingRules({
       rules,
