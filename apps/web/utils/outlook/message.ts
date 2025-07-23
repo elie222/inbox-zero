@@ -9,7 +9,7 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
-function isOutlookReplyInThread(
+export function isOutlookReplyInThread(
   conversationIndex?: string | undefined,
 ): boolean {
   try {
@@ -287,9 +287,7 @@ async function convertMessages(
       return {
         id: message.id || "",
         threadId: message.conversationId || "",
-        isReplyInThread: isOutlookReplyInThread(
-          message.conversationIndex || "",
-        ),
+        conversationIndex: message.conversationIndex || undefined,
         snippet: message.bodyPreview || "",
         textPlain: message.body?.content || "",
         textHtml: message.body?.content || "",
@@ -327,7 +325,7 @@ export async function getMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
-    isReplyInThread: isOutlookReplyInThread(message.conversationIndex || ""),
+    conversationIndex: message.conversationIndex || "",
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
     textHtml: message.body?.content || "",
@@ -386,7 +384,7 @@ function parseOutlookMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
-    isReplyInThread: atob(message.conversationIndex || "").length > 22,
+    conversationIndex: message.conversationIndex || "",
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
     headers: {

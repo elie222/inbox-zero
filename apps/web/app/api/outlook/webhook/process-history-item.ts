@@ -101,6 +101,7 @@ export async function processHistoryItem(
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
+          conversationIndex: message.conversationIndex || undefined,
           headers: {
             from,
             to: to.join(","),
@@ -216,6 +217,7 @@ export async function processHistoryItem(
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
+          conversationIndex: message.conversationIndex || undefined,
           headers: {
             from,
             to: to.join(","),
@@ -280,6 +282,7 @@ async function handleOutbound(
   const parsedMessage = {
     id: messageId,
     threadId: conversationId || messageId,
+    conversationIndex: message.conversationIndex || undefined,
     headers: messageHeaders,
     snippet: message.bodyPreview || "",
     historyId: message.id || messageId,
