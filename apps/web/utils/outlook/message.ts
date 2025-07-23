@@ -1,4 +1,3 @@
-import type { Client } from "@microsoft/microsoft-graph-client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -9,6 +8,20 @@ const logger = createScopedLogger("outlook/message");
 
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
+
+function isOutlookReplyInThread(
+  conversationIndex?: string | undefined,
+): boolean {
+  try {
+    return atob(conversationIndex || "").length > 22;
+  } catch (error) {
+    logger.warn("Invalid conversationIndex base64", {
+      conversationIndex,
+      error,
+    });
+    return false;
+  }
+}
 
 // Well-known folder names in Outlook that are consistent across all languages
 const WELL_KNOWN_FOLDERS = {
@@ -135,7 +148,7 @@ export async function queryBatchMessages(
     .getClient()
     .api("/me/messages")
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .top(maxResults);
 
@@ -274,6 +287,9 @@ async function convertMessages(
       return {
         id: message.id || "",
         threadId: message.conversationId || "",
+        isReplyInThread: isOutlookReplyInThread(
+          message.conversationIndex || "",
+        ),
         snippet: message.bodyPreview || "",
         textPlain: message.body?.content || "",
         textHtml: message.body?.content || "",
@@ -301,7 +317,7 @@ export async function getMessage(
     .getClient()
     .api(`/me/messages/${messageId}`)
     .select(
-      "id,conversationId,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
+      "id,conversationId,conversationIndex,subject,bodyPreview,from,sender,toRecipients,receivedDateTime,isDraft,isRead,body,categories,parentFolderId",
     )
     .get();
 
@@ -311,6 +327,7 @@ export async function getMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
+    isReplyInThread: isOutlookReplyInThread(message.conversationIndex || ""),
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
     textHtml: message.body?.content || "",
@@ -343,7 +360,7 @@ export async function getMessages(
     .api("/me/messages")
     .top(top)
     .select(
-      "id,conversationId,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
+      "id,conversationId,conversationIndex,subject,bodyPreview,body,from,toRecipients,receivedDateTime,isRead,categories,parentFolderId,isDraft",
     );
 
   if (options.query) {
@@ -369,6 +386,7 @@ function parseOutlookMessage(
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
+    isReplyInThread: atob(message.conversationIndex || "").length > 22,
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
     headers: {
