@@ -1,16 +1,16 @@
 import "server-only";
-import { z } from "zod";
 import type { LanguageModelUsage } from "ai";
 import { redis } from "@/utils/redis";
 
-const usageSchema = z.object({
-  openaiCalls: z.number().int().default(0),
-  openaiTokensUsed: z.number().int().default(0),
-  openaiCompletionTokensUsed: z.number().int().default(0),
-  openaiPromptTokensUsed: z.number().int().default(0),
-  cost: z.number().default(0),
-});
-type Usage = z.infer<typeof usageSchema>;
+type Usage = {
+  openaiCalls?: number;
+  openaiTokensUsed?: number;
+  openaiCompletionTokensUsed?: number;
+  openaiPromptTokensUsed?: number;
+  cachedInputTokensUsed?: number;
+  reasoningTokensUsed?: number;
+  cost?: number;
+};
 
 function getUsageKey(email: string) {
   return `usage:${email}`;
