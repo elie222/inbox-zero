@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { type MessageWithPayload, isDefined } from "@/utils/types";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { withEmailAccount } from "@/utils/middleware";
 import { getThread } from "@/utils/gmail/thread";
 import { getMessages } from "@/utils/gmail/message";

@@ -1,9 +1,11 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/mail";
+import parse from "gmail-api-parse-message";
 import {
   type BatchError,
   type MessageWithPayload,
   type ParsedMessage,
+  type GmailParsedMessage,
+  type ThreadWithPayloadMessages,
   isBatchError,
   isDefined,
 } from "@/utils/types";
@@ -12,8 +14,68 @@ import { extractDomainFromEmail } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
 import { sleep } from "@/utils/sleep";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import { GmailLabel } from "@/utils/gmail/label";
+import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 const logger = createScopedLogger("gmail/message");
+
+export function isGmailMessage(
+  message: ParsedMessage,
+): message is GmailParsedMessage {
+  return message.metadata.provider === "gmail";
+}
+
+// Gmail: The first message id in a thread is the threadId
+export function isGmailReplyInThread(message: ParsedMessage): boolean {
+  return !!(message.id && message.id !== message.threadId);
+}
+
+export function parseMessage(
+  message: MessageWithPayload,
+): ParsedMessage & { subject: string; date: string } {
+  const parsed = parse(message) as ParsedMessage;
+  return {
+    ...parsed,
+    subject: parsed.headers?.subject || "",
+    date: parsed.headers?.date || "",
+    metadata: {
+      provider: "gmail" as const,
+    },
+  };
+}
+
+export function parseMessages(
+  thread: ThreadWithPayloadMessages,
+  {
+    withoutIgnoredSenders,
+    withoutDrafts,
+  }: {
+    withoutIgnoredSenders?: boolean;
+    withoutDrafts?: boolean;
+  } = {},
+) {
+  const messages =
+    thread.messages?.map((message: MessageWithPayload) => {
+      return parseMessage(message);
+    }) || [];
+
+  if (withoutIgnoredSenders || withoutDrafts) {
+    const filteredMessages = messages.filter((message) => {
+      if (
+        withoutIgnoredSenders &&
+        message.headers &&
+        isIgnoredSender(message.headers.from)
+      )
+        return false;
+      if (withoutDrafts && message.labelIds?.includes(GmailLabel.DRAFT))
+        return false;
+      return true;
+    });
+    return filteredMessages;
+  }
+
+  return messages;
+}
 
 export async function getMessage(
   messageId: string,

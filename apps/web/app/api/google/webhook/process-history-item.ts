@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { emailToContent, parseMessage } from "@/utils/mail";
+import { emailToContent } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getMessage } from "@/utils/gmail/message";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";

@@ -3,7 +3,7 @@ import { z } from "zod";
 import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailFieldStats } from "@/app/api/user/stats/helpers";

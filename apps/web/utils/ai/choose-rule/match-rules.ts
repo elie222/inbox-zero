@@ -232,11 +232,7 @@ async function findMatchingRuleWithReasons(
   matchReasons?: MatchReason[];
   reason?: string;
 }> {
-  const isThread = isReplyInThread(
-    message.id,
-    message.threadId,
-    message.conversationIndex,
-  );
+  const isThread = isReplyInThread(message);
 
   const { match, matchReasons, potentialMatches } =
     await findPotentialMatchingRules({

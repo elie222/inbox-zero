@@ -5,7 +5,7 @@ import {
   type ThreadWithPayloadMessages,
   type MessageWithPayload,
 } from "@/utils/types";
-import { parseMessage, parseMessages } from "@/utils/mail";
+import { parseMessage, parseMessages } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 
 export async function getThread(

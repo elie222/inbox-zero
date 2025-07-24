@@ -1,5 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { Prisma } from "@prisma/client";
+import { metadata } from "../app/layout";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;
@@ -44,13 +45,25 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
   messages: MessageWithPayload[];
 };
 
-export interface ParsedMessage extends gmail_v1.Schema$Message {
+// Gmail-specific properties
+interface GmailMetadata {
+  provider: "gmail";
+}
+
+// Outlook-specific properties
+interface OutlookMetadata {
+  provider: "outlook";
+  conversationIndex: string;
+}
+
+// Base message properties
+interface BaseParsedMessage {
   id: string;
   threadId: string;
-  conversationIndex?: string;
-  labelIds?: string[];
   snippet: string;
   historyId: string;
+  labelIds: string[];
+  internalDate: string;
   attachments?: Attachment[];
   inline: Inline[];
   headers: ParsedMessageHeaders;
@@ -59,6 +72,17 @@ export interface ParsedMessage extends gmail_v1.Schema$Message {
   subject: string;
   date: string;
 }
+
+// Discriminated union types
+export type GmailParsedMessage = BaseParsedMessage & {
+  metadata: GmailMetadata;
+};
+
+export type OutlookParsedMessage = BaseParsedMessage & {
+  metadata: OutlookMetadata;
+};
+
+export type ParsedMessage = GmailParsedMessage | OutlookParsedMessage;
 
 export interface Attachment {
   filename: string;

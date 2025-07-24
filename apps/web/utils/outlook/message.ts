@@ -1,5 +1,5 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
-import type { ParsedMessage } from "@/utils/types";
+import type { ParsedMessage, OutlookParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
@@ -9,14 +9,22 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
-export function isOutlookReplyInThread(
-  conversationIndex?: string | undefined,
-): boolean {
+export function isOutlookMessage(
+  message: ParsedMessage,
+): message is OutlookParsedMessage {
+  return message.metadata.provider === "outlook";
+}
+
+export function isOutlookReplyInThread(message: ParsedMessage): boolean {
+  if (!isOutlookMessage(message)) {
+    return false;
+  }
+
   try {
-    return atob(conversationIndex || "").length > 22;
+    return atob(message.metadata.conversationIndex || "").length > 22;
   } catch (error) {
     logger.warn("Invalid conversationIndex base64", {
-      conversationIndex,
+      conversationIndex: message.metadata.conversationIndex,
       error,
     });
     return false;
@@ -281,30 +289,7 @@ async function convertMessages(
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => {
-      const labelIds = getOutlookLabels(message, folderIds);
-
-      return {
-        id: message.id || "",
-        threadId: message.conversationId || "",
-        conversationIndex: message.conversationIndex || undefined,
-        snippet: message.bodyPreview || "",
-        textPlain: message.body?.content || "",
-        textHtml: message.body?.content || "",
-        headers: {
-          from: message.from?.emailAddress?.address || "",
-          to: message.toRecipients?.[0]?.emailAddress?.address || "",
-          subject: message.subject || "",
-          date: message.receivedDateTime || new Date().toISOString(),
-        },
-        subject: message.subject || "",
-        date: message.receivedDateTime || new Date().toISOString(),
-        labelIds,
-        internalDate: message.receivedDateTime || new Date().toISOString(),
-        historyId: "",
-        inline: [],
-      };
-    });
+    .map((message: Message) => parseMessage(message, folderIds));
 }
 
 export async function getMessage(
@@ -322,26 +307,7 @@ export async function getMessage(
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
 
-  return {
-    id: message.id || "",
-    threadId: message.conversationId || "",
-    conversationIndex: message.conversationIndex || "",
-    snippet: message.bodyPreview || "",
-    textPlain: message.body?.content || "",
-    textHtml: message.body?.content || "",
-    headers: {
-      from: message.from?.emailAddress?.address || "",
-      to: message.toRecipients?.[0]?.emailAddress?.address || "",
-      subject: message.subject || "",
-      date: message.receivedDateTime || new Date().toISOString(),
-    },
-    subject: message.subject || "",
-    date: message.receivedDateTime || new Date().toISOString(),
-    labelIds: getOutlookLabels(message, folderIds),
-    internalDate: message.receivedDateTime || new Date().toISOString(),
-    historyId: "",
-    inline: [],
-  };
+  return parseMessage(message, folderIds);
 }
 
 export async function getMessages(
@@ -377,16 +343,16 @@ export async function getMessages(
   };
 }
 
-function parseOutlookMessage(
+export function parseMessage(
   message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
-    conversationIndex: message.conversationIndex || "",
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
+    textHtml: message.body?.content || "",
     headers: {
       from: message.from?.emailAddress?.address || "",
       to: message.toRecipients?.[0]?.emailAddress?.address || "",
@@ -396,8 +362,12 @@ function parseOutlookMessage(
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
     labelIds: getOutlookLabels(message, folderIds),
+    internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
-    internalDate: message.receivedDateTime || new Date().toISOString(),
+    metadata: {
+      provider: "outlook" as const,
+      conversationIndex: message.conversationIndex || "",
+    },
   };
 }

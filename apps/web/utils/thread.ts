@@ -1,14 +1,14 @@
 import { isOutlookReplyInThread } from "@/utils/outlook/message";
+import { isGmailReplyInThread } from "@/utils/gmail/message";
+import type { ParsedMessage } from "@/utils/types";
 
-// The first message id in a thread is the threadId
-export function isReplyInThread(
-  messageId: string,
-  threadId: string,
-  conversationIndex: string | undefined,
-): boolean {
-  if (conversationIndex) {
-    return isOutlookReplyInThread(conversationIndex);
-  } else {
-    return !!(messageId && messageId !== threadId);
+export function isReplyInThread(message: ParsedMessage): boolean {
+  switch (message.metadata.provider) {
+    case "gmail":
+      return isGmailReplyInThread(message);
+    case "outlook":
+      return isOutlookReplyInThread(message);
+    default:
+      return false;
   }
 }

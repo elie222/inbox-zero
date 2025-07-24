@@ -4,7 +4,8 @@ import MailComposer from "nodemailer/lib/mail-composer";
 import type Mail from "nodemailer/lib/mailer";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { zodAttachment } from "@/utils/types/mail";
-import { convertEmailHtmlToText, parseMessage } from "@/utils/mail";
+import { convertEmailHtmlToText } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { getMessage } from "@/utils/gmail/message";
 import {
   forwardEmailHtml,

@@ -1,6 +1,4 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import {
-  ActionType,
   ExecutedRuleStatus,
   ScheduledActionStatus,
   type ScheduledAction,
@@ -8,13 +6,9 @@ import {
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { runActionFunction } from "@/utils/ai/actions";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { ParsedMessage } from "@/utils/types";
-import { getMessage } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
-import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("scheduled-actions-executor");
