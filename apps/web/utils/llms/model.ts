@@ -1,11 +1,11 @@
-import type { LanguageModelV1 } from "ai";
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
-import { createOllama } from "ollama-ai-provider";
+// import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -56,7 +56,7 @@ function selectModel(
 ): {
   provider: string;
   model: string;
-  llmModel: LanguageModelV1;
+  llmModel: LanguageModelV2;
   providerOptions?: Record<string, any>;
 } {
   switch (aiProvider) {
@@ -107,13 +107,16 @@ function selectModel(
       };
     }
     case Provider.OLLAMA: {
-      const model = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
-      if (!model) throw new Error("Ollama model is not set");
-      return {
-        provider: Provider.OLLAMA!,
-        model,
-        llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
-      };
+      throw new Error(
+        "Ollama is not supported. Revert to version v1.7.28 or older to use it.",
+      );
+      // const model = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
+      // if (!model) throw new Error("Ollama model is not set");
+      // return {
+      //   provider: Provider.OLLAMA!,
+      //   model,
+      //   llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
+      // };
     }
 
     // this is messy. better to have two providers. one for bedrock and one for anthropic
@@ -251,19 +254,19 @@ function selectChatModel(userAi: UserAIFields) {
 }
 
 function selectDefaultModel(userAi: UserAIFields) {
-  const defaultProvider = env.DEFAULT_LLM_PROVIDER;
-  const aiApiKey = userAi.aiApiKey;
   let aiProvider: string;
   let aiModel: string | null = null;
+  const aiApiKey = userAi.aiApiKey;
+
   const providerOptions: Record<string, any> = {};
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
   if (aiApiKey) {
-    aiProvider = userAi.aiProvider || defaultProvider;
+    aiProvider = userAi.aiProvider || env.DEFAULT_LLM_PROVIDER;
     aiModel = userAi.aiModel || null;
   } else {
-    aiProvider = defaultProvider;
+    aiProvider = env.DEFAULT_LLM_PROVIDER;
     aiModel = env.DEFAULT_LLM_MODEL || null;
 
     // Allow custom logic in production with fallbacks that doesn't impact self-hosters

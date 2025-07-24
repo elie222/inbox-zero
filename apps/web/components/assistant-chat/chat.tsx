@@ -1,9 +1,8 @@
 "use client";
 
-import type React from "react";
 import { useEffect, useMemo, useState } from "react";
-import { type ScopedMutator, SWRConfig, useSWRConfig } from "swr";
-import type { UIMessage } from "ai";
+import { useSWRConfig } from "swr";
+import { DefaultChatTransport } from "ai";
 import { useChat } from "@ai-sdk/react";
 import {
   ArrowLeftToLineIcon,
@@ -20,7 +19,6 @@ import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/assistant/AssistantTabs";
 import { ChatProvider } from "./ChatContext";
-import { SWRProvider } from "@/providers/SWRProvider";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -31,18 +29,12 @@ import {
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useChatMessages } from "@/hooks/useChatMessages";
-import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { toastError } from "@/components/Toast";
-
-// Some mega hacky code used here to workaround AI SDK's use of SWR
-// AI SDK uses SWR too and this messes with the global SWR config
-// Wrapping in SWRConfig to disable global fetcher for this component
-// https://github.com/vercel/ai/issues/3214#issuecomment-2675872030
-// We then re-enable the regular SWRProvider in the AssistantTabs component
-// AI SDK v5 won't use SWR anymore so we can remove this workaround
+import type { ChatMessage } from "@/components/assistant-chat/types";
+import { convertToUIMessages } from "./helpers";
 
 const MAX_MESSAGES = 20;
 
@@ -65,9 +57,6 @@ export function Chat(props: ChatProps) {
 }
 
 function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
-  // Use parent SWR config for mutate
-  const { mutate } = useSWRConfig();
-
   const { data } = useChatMessages(props.chatId);
 
   const [{ input, tab }] = useQueryStates({
@@ -81,20 +70,13 @@ function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
   }, [input]);
 
   return (
-    <SWRConfig
-      value={{
-        fetcher: undefined, // Disable global fetcher for this component
-      }}
-    >
-      <ChatInner
-        {...props}
-        mutate={mutate}
-        initialMessages={data ? convertToUIMessages(data) : []}
-        initialInput={initialInput}
-        chatId={props.chatId}
-        tab={tab || undefined}
-      />
-    </SWRConfig>
+    <ChatInner
+      {...props}
+      initialMessages={data ? convertToUIMessages(data) : []}
+      initialInput={initialInput}
+      chatId={props.chatId}
+      tab={tab || undefined}
+    />
   );
 }
 
@@ -102,31 +84,38 @@ function ChatInner({
   chatId,
   initialMessages,
   emailAccountId,
-  mutate,
   initialInput,
   tab,
 }: ChatProps & {
   chatId: string;
-  initialMessages: Array<UIMessage>;
-  mutate: ScopedMutator;
+  initialMessages: ChatMessage[];
   initialInput?: string;
   tab?: string;
 }) {
-  const chat = useChat({
+  const { mutate } = useSWRConfig();
+
+  const [input, setInput] = useState<string>("");
+
+  const chat = useChat<ChatMessage>({
     id: chatId,
-    api: "/api/chat",
-    experimental_prepareRequestBody: (body) => ({
-      id: chatId,
-      message: body.messages.at(-1),
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      headers: {
+        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+      },
+      prepareSendMessagesRequest({ messages, id, body }) {
+        return {
+          body: {
+            id,
+            message: messages.at(-1),
+            ...body,
+          },
+        };
+      },
     }),
-    initialMessages,
-    initialInput,
+    messages: initialMessages,
     experimental_throttle: 100,
-    sendExtraMessageFields: true,
     generateId: generateUUID,
-    headers: {
-      [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-    },
     onFinish: () => {
       mutate("/api/user/rules");
     },
@@ -139,22 +128,40 @@ function ChatInner({
     },
   });
 
+  const handleSubmit = () => {
+    chat.sendMessage({
+      role: "user",
+      parts: [
+        {
+          type: "text",
+          text: input,
+        },
+      ],
+    });
+
+    setInput("");
+  };
+
   const isMobile = useIsMobile();
 
-  const chatPanel = <ChatUI chat={chat} />;
+  const chatPanel = (
+    <ChatUI
+      chat={chat}
+      input={input}
+      setInput={setInput}
+      handleSubmit={handleSubmit}
+    />
+  );
 
   return (
-    <ChatProvider setInput={chat.setInput}>
+    <ChatProvider setInput={setInput}>
       {tab ? (
         <ResizablePanelGroup
           direction={isMobile ? "vertical" : "horizontal"}
           className="flex-grow"
         >
           <ResizablePanel defaultSize={65}>
-            {/* re-enable the regular SWRProvider */}
-            <SWRProvider>
-              <AssistantTabs />
-            </SWRProvider>
+            <AssistantTabs />
           </ResizablePanel>
           <ResizableHandle withHandle />
           <ResizablePanel className="overflow-y-auto" defaultSize={35}>
@@ -168,47 +175,44 @@ function ChatInner({
   );
 }
 
-function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
-  const {
-    messages,
-    setMessages,
-    handleSubmit,
-    input,
-    setInput,
-    status,
-    stop,
-    reload,
-  } = chat;
-
+function ChatUI({
+  chat: { messages, setMessages, status, stop, regenerate },
+  input,
+  setInput,
+  handleSubmit,
+}: {
+  chat: ReturnType<typeof useChat<ChatMessage>>;
+  input: string;
+  setInput: (input: string) => void;
+  handleSubmit: () => void;
+}) {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
-      <SWRProvider>
-        <div className="flex items-center justify-between px-2 pt-2">
-          {messages.length > MAX_MESSAGES ? (
-            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-              The chat is too long. Please start a new conversation.
-            </div>
-          ) : (
-            <div />
-          )}
-
-          <div className="flex items-center gap-1">
-            <NewChatButton />
-            <ExamplesDialog setInput={setInput} />
-            <ChatHistoryDropdown />
-            <OpenArtifactButton />
+      <div className="flex items-center justify-between px-2 pt-2">
+        {messages.length > MAX_MESSAGES ? (
+          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+            The chat is too long. Please start a new conversation.
           </div>
-        </div>
+        ) : (
+          <div />
+        )}
 
-        <Messages
-          status={status}
-          messages={messages}
-          setMessages={setMessages}
-          setInput={setInput}
-          reload={reload}
-          isArtifactVisible={false}
-        />
-      </SWRProvider>
+        <div className="flex items-center gap-1">
+          <NewChatButton />
+          <ExamplesDialog setInput={setInput} />
+          <ChatHistoryDropdown />
+          <OpenArtifactButton />
+        </div>
+      </div>
+
+      <Messages
+        status={status}
+        messages={messages}
+        setMessages={setMessages}
+        setInput={setInput}
+        regenerate={regenerate}
+        isArtifactVisible={false}
+      />
 
       <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
         <MultimodalInput
@@ -327,18 +331,4 @@ function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
-}
-
-function convertToUIMessages(chat: GetChatResponse): Array<UIMessage> {
-  return (
-    chat?.messages.map((message) => ({
-      id: message.id,
-      parts: message.parts as UIMessage["parts"],
-      role: message.role as UIMessage["role"],
-      // Note: content will soon be deprecated in @ai-sdk/react
-      content: "",
-      createdAt: message.createdAt,
-      // experimental_attachments: (message.attachments as Array<Attachment>) ?? [],
-    })) || []
-  );
 }
