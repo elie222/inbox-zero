@@ -1,0 +1,3 @@
+[submodule "apps/web/app/(sandbox)"]
+	path = apps/web/app/(sandbox)
+	url = git@github.com:inbox-zero/sandbox.git
