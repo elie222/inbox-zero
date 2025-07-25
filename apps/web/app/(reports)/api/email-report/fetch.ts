@@ -15,7 +15,7 @@ const logger = createScopedLogger("email-report-fetch");
  * This approach fetches one message at a time with retry and backofflogic, which is slower but more
  * reliable than trying to fetch 100 messages at once.
  *
- * getMessagesLargeBatch because it expects the messageIds
+ * Not usinggetMessagesLargeBatch because it expects the messageIds
  * queryBatchMessages is limited to 20 messages at a time
  */
 async function fetchEmailsByQuery(
@@ -116,22 +116,15 @@ async function fetchEmailsByQuery(
               return parsedMessage;
             } catch (error) {
               logger.warn("fetchEmailsByQuery: getMessage attempt failed", {
+                error,
                 messageId: message.id,
                 attempt: i + 1,
-                error: error instanceof Error ? error.message : String(error),
-                errorType:
-                  error instanceof Error
-                    ? error.constructor.name
-                    : typeof error,
               });
 
               if (i === 2) {
                 logger.warn(
                   `Failed to fetch message ${message.id} after 3 attempts:`,
-                  {
-                    error:
-                      error instanceof Error ? error.message : String(error),
-                  },
+                  { error },
                 );
                 return null;
               }
@@ -174,19 +167,16 @@ async function fetchEmailsByQuery(
     } catch (error) {
       retryCount++;
       logger.error("fetchEmailsByQuery: main loop error", {
+        error,
         retryCount,
         maxRetries,
-        error: error instanceof Error ? error.message : String(error),
-        errorType:
-          error instanceof Error ? error.constructor.name : typeof error,
-        errorStack: error instanceof Error ? error.stack : undefined,
         currentEmailsCount: emails.length,
         targetCount: count,
       });
 
       if (retryCount >= maxRetries) {
         logger.error(`Failed to fetch emails after ${maxRetries} attempts:`, {
-          error: error instanceof Error ? error.message : String(error),
+          error,
         });
         break;
       }
@@ -253,15 +243,8 @@ export async function fetchEmailsForReport({
 
     logger.info("fetchEmailsForReport: Gmail client initialized successfully");
   } catch (error) {
-    logger.error("Failed to initialize Gmail client", {
-      error: error instanceof Error ? error.message : String(error),
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorStack: error instanceof Error ? error.stack : undefined,
-      emailAccountId: emailAccount.id,
-    });
-    throw new Error(
-      `Failed to initialize Gmail client: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    logger.error("Failed to initialize Gmail client", { error });
+    throw new Error("Failed to initialize Gmail client");
   }
 
   let receivedEmails: ParsedMessage[];
@@ -278,12 +261,7 @@ export async function fetchEmailsForReport({
       count: receivedEmails.length,
     });
   } catch (error) {
-    logger.error("Failed to fetch received emails", {
-      error: error instanceof Error ? error.message : String(error),
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorStack: error instanceof Error ? error.stack : undefined,
-      emailAccountId: emailAccount.id,
-    });
+    logger.error("Failed to fetch received emails", { error });
     throw new Error(
       `Failed to fetch received emails: ${error instanceof Error ? error.message : String(error)}`,
     );
@@ -302,15 +280,8 @@ export async function fetchEmailsForReport({
       count: sentEmails.length,
     });
   } catch (error) {
-    logger.error("Failed to fetch sent emails", {
-      error: error instanceof Error ? error.message : String(error),
-      errorType: error instanceof Error ? error.constructor.name : typeof error,
-      errorStack: error instanceof Error ? error.stack : undefined,
-      emailAccountId: emailAccount.id,
-    });
-    throw new Error(
-      `Failed to fetch sent emails: ${error instanceof Error ? error.message : String(error)}`,
-    );
+    logger.error("Failed to fetch sent emails", { error });
+    throw new Error("Failed to fetch sent emails");
   }
 
   logger.info("fetchEmailsForReport: preparing return result", {
@@ -357,7 +328,7 @@ async function fetchReceivedEmails(
       emails.push(...sourceEmails);
     } catch (error) {
       logger.error(`Error fetching emails from ${source.name}`, {
-        error: error instanceof Error ? error.message : String(error),
+        error,
         query: source.query,
         maxResults: targetCount - emails.length,
       });
@@ -377,7 +348,7 @@ async function fetchSentEmails(
     return emails;
   } catch (error) {
     logger.error("Error fetching sent emails", {
-      error: error instanceof Error ? error.message : String(error),
+      error,
     });
     return [];
   }
