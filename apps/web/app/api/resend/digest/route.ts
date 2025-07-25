@@ -2,7 +2,6 @@ import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
@@ -12,10 +11,9 @@ import { calculateNextScheduleDate } from "@/utils/schedule";
 import { getMessagesLargeBatch } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
 import {
-  digestCategorySchema,
   sendDigestEmailBody,
   type Digest,
-  DigestEmailSummarySchema,
+  digestEmailSummarySchema,
 } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
@@ -185,7 +183,7 @@ async function sendEmail({
           return; // Skip this item and continue with the next one
         }
 
-        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
           acc[category].push({
