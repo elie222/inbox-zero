@@ -1,16 +1,17 @@
 import type { z } from "zod";
 import {
   APICallError,
-  type CoreMessage,
+  type ModelMessage,
   type Tool,
   type JSONValue,
   generateObject,
   generateText,
   RetryError,
   streamText,
-  type StepResult,
   smoothStream,
-  type Message,
+  stepCountIs,
+  type StreamTextOnFinishCallback,
+  type StreamTextOnStepFinishCallback,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -100,7 +101,7 @@ type ChatCompletionObjectArgs<T> = {
   | {
       system?: never;
       prompt?: never;
-      messages: CoreMessage[];
+      messages: ModelMessage[];
     }
 );
 
@@ -132,6 +133,7 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
+      output: "object",
       providerOptions,
       ...commonOptions,
     });
@@ -170,17 +172,13 @@ export async function chatCompletionStream({
   modelType?: ModelType;
   system?: string;
   prompt?: string;
-  messages?: Message[];
+  messages?: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
   usageLabel: string;
-  onFinish?: (
-    result: Omit<StepResult<Record<string, Tool>>, "stepType" | "isContinued">,
-  ) => Promise<void>;
-  onStepFinish?: (
-    stepResult: StepResult<Record<string, Tool>>,
-  ) => Promise<void>;
+  onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
+  onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
   const { provider, model, llmModel, providerOptions } = getModel(
     userAi,
@@ -193,13 +191,13 @@ export async function chatCompletionStream({
     prompt,
     messages,
     tools,
-    maxSteps,
+    stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
     providerOptions,
     ...commonOptions,
     experimental_transform: smoothStream({ chunking: "word" }),
     onStepFinish,
     onFinish: async (result) => {
-      await saveAiUsage({
+      const usagePromise = saveAiUsage({
         email: userEmail,
         provider,
         model,
@@ -207,7 +205,9 @@ export async function chatCompletionStream({
         label,
       });
 
-      if (onFinish) await onFinish(result);
+      const finishPromise = onFinish?.(result);
+
+      await Promise.all([usagePromise, finishPromise]);
     },
     onError: (error) => {
       logger.error("Error in chat completion stream", {
@@ -243,7 +243,7 @@ type ChatCompletionToolsArgs = {
   | {
       system?: never;
       prompt?: never;
-      messages: CoreMessage[];
+      messages: ModelMessage[];
     }
 );
 
@@ -275,7 +275,7 @@ async function chatCompletionToolsInternal({
       system,
       prompt,
       messages,
-      maxSteps,
+      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
       providerOptions,
       ...commonOptions,
     });
@@ -298,56 +298,58 @@ async function chatCompletionToolsInternal({
 }
 
 // not in use atm
-async function streamCompletionTools({
-  userAi,
-  modelType,
-  prompt,
-  system,
-  tools,
-  maxSteps,
-  userEmail,
-  label,
-  onFinish,
-}: {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  prompt: string;
-  system?: string;
-  tools: Record<string, Tool>;
-  maxSteps?: number;
-  userEmail: string;
-  label: string;
-  onFinish?: (text: string) => Promise<void>;
-}) {
-  const { provider, model, llmModel, providerOptions } = getModel(
-    userAi,
-    modelType,
-  );
+// async function streamCompletionTools({
+//   userAi,
+//   useEconomyModel,
+//   prompt,
+//   system,
+//   tools,
+//   maxSteps,
+//   userEmail,
+//   label,
+//   onFinish,
+// }: {
+//   userAi: UserAIFields;
+//   useEconomyModel?: boolean;
+//   prompt: string;
+//   system?: string;
+//   tools: Record<string, Tool>;
+//   maxSteps?: number;
+//   userEmail: string;
+//   label: string;
+//   onFinish?: (text: string) => Promise<void>;
+// }) {
+//   const { provider, model, llmModel, providerOptions } = getModel(
+//     userAi,
+//     useEconomyModel,
+//   );
 
-  const result = await streamText({
-    model: llmModel,
-    tools,
-    toolChoice: "required",
-    prompt,
-    system,
-    maxSteps,
-    providerOptions,
-    ...commonOptions,
-    onFinish: async ({ usage, text }) => {
-      await saveAiUsage({
-        email: userEmail,
-        provider,
-        model,
-        usage,
-        label,
-      });
+//   const result = streamText({
+//     model: llmModel,
+//     tools,
+//     toolChoice: "required",
+//     prompt,
+//     system,
+//     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
+//     providerOptions,
+//     ...commonOptions,
+//     onFinish: async ({ usage, text }) => {
+//       const usagePromise = saveAiUsage({
+//         email: userEmail,
+//         provider,
+//         model,
+//         usage,
+//         label,
+//       });
 
-      if (onFinish) await onFinish(text);
-    },
-  });
+//       const finishPromise = onFinish?.(text);
 
-  return result;
-}
+//       await Promise.all([usagePromise, finishPromise]);
+//     },
+//   });
+
+//   return result;
+// }
 
 // NOTE: Think we can just switch this out for p-retry that we already use in the project
 export async function withRetry<T>(

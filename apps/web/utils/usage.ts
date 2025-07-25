@@ -1,3 +1,4 @@
+import type { LanguageModelUsage } from "ai";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";
 import { createScopedLogger } from "@/utils/logger";
@@ -14,11 +15,7 @@ export async function saveAiUsage({
   email: string;
   provider: string;
   model: string;
-  usage: {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  };
+  usage: LanguageModelUsage;
   label: string;
 }) {
   const cost = calcuateCost(model, usage);
@@ -29,9 +26,9 @@ export async function saveAiUsage({
         userId: email,
         provider,
         model,
-        totalTokens: usage.totalTokens,
-        completionTokens: usage.completionTokens,
-        promptTokens: usage.promptTokens,
+        totalTokens: usage.totalTokens ?? 0,
+        completionTokens: usage.outputTokens ?? 0,
+        promptTokens: usage.inputTokens ?? 0,
         cost,
         timestamp: Date.now(),
         label,
@@ -139,16 +136,10 @@ const costs: Record<
 };
 
 // returns cost in cents
-function calcuateCost(
-  model: string,
-  usage: {
-    promptTokens: number;
-    completionTokens: number;
-  },
-): number {
+function calcuateCost(model: string, usage: LanguageModelUsage): number {
   if (!costs[model]) return 0;
 
   const { input, output } = costs[model];
 
-  return usage.promptTokens * input + usage.completionTokens * output;
+  return (usage.inputTokens ?? 0) * input + (usage.outputTokens ?? 0) * output;
 }
