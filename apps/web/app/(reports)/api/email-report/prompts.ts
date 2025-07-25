@@ -2,6 +2,9 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailSummary } from "./schemas";
+import type { EmailAccount, User, Account } from "@prisma/client";
+import type { gmail_v1 } from "@googleapis/gmail";
+import type { ParsedMessage } from "@/utils/types";
 import {
   executiveSummarySchema,
   userPersonaSchema,
@@ -16,9 +19,12 @@ const logger = createScopedLogger("email-report-prompts");
 export async function generateExecutiveSummary(
   emailSummaries: EmailSummary[],
   sentEmailSummaries: EmailSummary[],
-  gmailLabels: any[],
+  gmailLabels: gmail_v1.Schema$Label[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
 ): Promise<z.infer<typeof executiveSummarySchema>> {
   const system = `You are a professional persona identification expert. Your primary task is to accurately identify the user's professional role based on their email patterns.
 
@@ -117,7 +123,10 @@ Generate:
 export async function buildUserPersona(
   emailSummaries: EmailSummary[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
   sentEmailSummaries?: EmailSummary[],
   gmailSignature?: string,
   gmailTemplates?: string[],
@@ -177,7 +186,10 @@ Analyze the data and identify:
 export async function analyzeEmailBehavior(
   emailSummaries: EmailSummary[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
   sentEmailSummaries?: EmailSummary[],
 ): Promise<z.infer<typeof emailBehaviorSchema>> {
   const system = `You are an expert AI system that analyzes a user's email behavior to infer timing patterns, content preferences, and automation opportunities.
@@ -221,7 +233,10 @@ Analyze the email patterns and identify:
 export async function analyzeResponsePatterns(
   emailSummaries: EmailSummary[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
   sentEmailSummaries?: EmailSummary[],
 ): Promise<z.infer<typeof responsePatternsSchema>> {
   const system = `You are an expert email behavior analyst. Your task is to identify common response patterns and suggest email categorization and templates based on the user's email activity.
@@ -279,8 +294,11 @@ Only suggest categories that are meaningful and provide clear organizational val
 export async function analyzeLabelOptimization(
   emailSummaries: EmailSummary[],
   userEmail: string,
-  emailAccount: any,
-  gmailLabels: any[],
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
+  gmailLabels: gmail_v1.Schema$Label[],
 ): Promise<z.infer<typeof labelAnalysisSchema>> {
   const system = `You are a Gmail organization expert. Analyze the user's current labels and email patterns to suggest specific optimizations that will improve their email organization and workflow efficiency.
 
@@ -323,7 +341,10 @@ Each suggestion should include the reason and expected impact.`;
 export async function generateActionableRecommendations(
   emailSummaries: EmailSummary[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
   userPersona: z.infer<typeof userPersonaSchema>,
   emailBehavior: z.infer<typeof emailBehaviorSchema>,
 ): Promise<z.infer<typeof actionableRecommendationsSchema>> {
@@ -362,9 +383,12 @@ Focus on practical, implementable solutions that improve email organization and 
  * Summarize emails for analysis
  */
 export async function summarizeEmails(
-  emails: any[],
+  emails: ParsedMessage[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
 ): Promise<EmailSummary[]> {
   logger.info("summarizeEmails started", {
     emailsCount: emails.length,
@@ -423,9 +447,12 @@ export async function summarizeEmails(
 }
 
 async function processEmailBatch(
-  emails: any[],
+  emails: ParsedMessage[],
   userEmail: string,
-  emailAccount: any,
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  },
   batchNumber: number,
   totalBatches: number,
 ): Promise<EmailSummary[]> {

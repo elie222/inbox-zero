@@ -4,6 +4,7 @@ import { getMessages, getMessage } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
+import type { EmailAccount, User, Account } from "@prisma/client";
 
 const logger = createScopedLogger("email-report-fetch");
 
@@ -213,7 +214,10 @@ export interface EmailFetchResult {
 export async function fetchEmailsForReport({
   emailAccount,
 }: {
-  emailAccount: any;
+  emailAccount: EmailAccount & {
+    account: Account;
+    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+  };
 }): Promise<EmailFetchResult> {
   logger.info("fetchEmailsForReport started", {
     emailAccountId: emailAccount?.id,

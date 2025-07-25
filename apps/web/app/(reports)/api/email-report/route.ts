@@ -17,6 +17,7 @@ import {
 } from "./prompts";
 import type { EmailSummary } from "./schemas";
 import type { gmail_v1 } from "@googleapis/gmail";
+import type { EmailAccount, User, Account } from "@prisma/client";
 
 const logger = createScopedLogger("email-report-api");
 
@@ -50,49 +51,59 @@ export const GET = withEmailAccount(async (request) => {
   }
 });
 
-async function fetchGmailLabels(gmail: any): Promise<any[]> {
+async function fetchGmailLabels(
+  gmail: gmail_v1.Gmail,
+): Promise<gmail_v1.Schema$Label[]> {
   try {
     const response = await gmail.users.labels.list({ userId: "me" });
 
     const userLabels =
       response.data.labels?.filter(
-        (label: any) =>
+        (label: gmail_v1.Schema$Label) =>
           label.type === "user" &&
+          label.name &&
           !label.name.startsWith("CATEGORY_") &&
           !label.name.startsWith("CHAT"),
       ) || [];
 
     const labelsWithCounts = await Promise.all(
-      userLabels.map(async (label: any) => {
-        try {
-          const labelDetail = await gmail.users.labels.get({
-            userId: "me",
-            id: label.id,
-          });
-          return {
-            ...label,
-            messagesTotal: labelDetail.data.messagesTotal || 0,
-            messagesUnread: labelDetail.data.messagesUnread || 0,
-            threadsTotal: labelDetail.data.threadsTotal || 0,
-            threadsUnread: labelDetail.data.threadsUnread || 0,
-          };
-        } catch (error) {
-          logger.warn(`Failed to get details for label ${label.name}:`, {
-            error: error instanceof Error ? error.message : String(error),
-          });
-          return {
-            ...label,
-            messagesTotal: 0,
-            messagesUnread: 0,
-            threadsTotal: 0,
-            threadsUnread: 0,
-          };
-        }
-      }),
+      userLabels
+        .filter(
+          (
+            label,
+          ): label is gmail_v1.Schema$Label & { id: string; name: string } =>
+            Boolean(label.id && label.name),
+        )
+        .map(async (label) => {
+          try {
+            const labelDetail = await gmail.users.labels.get({
+              userId: "me",
+              id: label.id,
+            });
+            return {
+              ...label,
+              messagesTotal: labelDetail.data.messagesTotal || 0,
+              messagesUnread: labelDetail.data.messagesUnread || 0,
+              threadsTotal: labelDetail.data.threadsTotal || 0,
+              threadsUnread: labelDetail.data.threadsUnread || 0,
+            };
+          } catch (error) {
+            logger.warn(`Failed to get details for label ${label.name}:`, {
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return {
+              ...label,
+              messagesTotal: 0,
+              messagesUnread: 0,
+              threadsTotal: 0,
+              threadsUnread: 0,
+            };
+          }
+        }),
     );
 
     const sortedLabels = labelsWithCounts.sort(
-      (a: any, b: any) => (b.messagesTotal || 0) - (a.messagesTotal || 0),
+      (a, b) => (b.messagesTotal || 0) - (a.messagesTotal || 0),
     );
 
     return sortedLabels;
@@ -159,7 +170,12 @@ async function getEmailReportData({
     totalSent: number;
   } | null = null;
 
-  let emailAccount: any;
+  let emailAccount:
+    | (EmailAccount & {
+        account: Account;
+        user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
+      })
+    | null;
   try {
     emailAccount = await prisma.emailAccount.findFirst({
       where: { user: { email: userEmail } },
@@ -167,6 +183,7 @@ async function getEmailReportData({
         account: true,
         user: {
           select: {
+            email: true,
             aiProvider: true,
             aiModel: true,
             aiApiKey: true,
