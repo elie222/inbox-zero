@@ -355,7 +355,7 @@ export function parseMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
-    conversationIndex: message.conversationIndex || "",
+    conversationIndex: message.conversationIndex,
     metadata: {
       provider: "microsoft-entra-id" as const,
     },

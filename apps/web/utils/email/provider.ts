@@ -1474,7 +1474,7 @@ export class OutlookProvider implements EmailProvider {
             internalDate: date,
             historyId: "",
             inline: [],
-            conversationIndex: message.conversationIndex || "",
+            conversationIndex: message.conversationIndex,
             metadata: {
               provider: "microsoft-entra-id" as const,
             },

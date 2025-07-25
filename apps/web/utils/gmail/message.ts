@@ -1,5 +1,4 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import parse from "gmail-api-parse-message";
 import {
   type BatchError,
   type MessageWithPayload,
@@ -26,7 +25,7 @@ export function isGmailReplyInThread(message: ParsedMessage): boolean {
 export function parseMessage(
   message: MessageWithPayload,
 ): ParsedMessage & { subject: string; date: string } {
-  const parsed = parse(message) as ParsedMessage;
+  const parsed = parseMessage(message);
   return {
     ...parsed,
     subject: parsed.headers?.subject || "",

@@ -130,8 +130,6 @@ export const testAiCustomContentAction = actionClient
         include: { actions: true, categoryFilters: true },
       });
 
-      if (!provider) throw new Error("Provider not found");
-
       const result = await runRules({
         isTest: true,
         client: emailProvider,

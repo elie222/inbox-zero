@@ -120,7 +120,7 @@ export async function processHistoryItem(
           internalDate: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex || "",
+          conversationIndex: message.conversationIndex,
           metadata: {
             provider: "microsoft-entra-id" as const,
           },
@@ -243,7 +243,7 @@ export async function processHistoryItem(
           internalDate: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex || "",
+          conversationIndex: message.conversationIndex,
           metadata: {
             provider: "microsoft-entra-id" as const,
           },
@@ -308,7 +308,7 @@ async function handleOutbound(
     internalDate: message.receivedDateTime
       ? new Date(message.receivedDateTime).toISOString()
       : new Date().toISOString(),
-    conversationIndex: message.conversationIndex || "",
+    conversationIndex: message.conversationIndex,
     metadata: {
       provider: "microsoft-entra-id" as const,
     },
