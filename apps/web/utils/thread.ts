@@ -4,9 +4,9 @@ import type { ParsedMessage } from "@/utils/types";
 
 export function isReplyInThread(message: ParsedMessage): boolean {
   switch (message.metadata.provider) {
-    case "gmail":
+    case "google":
       return isGmailReplyInThread(message);
-    case "outlook":
+    case "microsoft-entra-id":
       return isOutlookReplyInThread(message);
     default:
       return false;

@@ -1,5 +1,5 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
-import type { ParsedMessage, OutlookParsedMessage } from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
@@ -9,22 +9,12 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
-export function isOutlookMessage(
-  message: ParsedMessage,
-): message is OutlookParsedMessage {
-  return message.metadata.provider === "outlook";
-}
-
 export function isOutlookReplyInThread(message: ParsedMessage): boolean {
-  if (!isOutlookMessage(message)) {
-    return false;
-  }
-
   try {
-    return atob(message.metadata.conversationIndex || "").length > 22;
+    return atob(message.conversationIndex || "").length > 22;
   } catch (error) {
     logger.warn("Invalid conversationIndex base64", {
-      conversationIndex: message.metadata.conversationIndex,
+      conversationIndex: message.conversationIndex,
       error,
     });
     return false;
@@ -365,9 +355,9 @@ export function parseMessage(
     internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
+    conversationIndex: message.conversationIndex || "",
     metadata: {
-      provider: "outlook" as const,
-      conversationIndex: message.conversationIndex || "",
+      provider: "microsoft-entra-id" as const,
     },
   };
 }

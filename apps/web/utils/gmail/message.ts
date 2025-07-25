@@ -4,7 +4,6 @@ import {
   type BatchError,
   type MessageWithPayload,
   type ParsedMessage,
-  type GmailParsedMessage,
   type ThreadWithPayloadMessages,
   isBatchError,
   isDefined,
@@ -18,12 +17,6 @@ import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 
 const logger = createScopedLogger("gmail/message");
-
-export function isGmailMessage(
-  message: ParsedMessage,
-): message is GmailParsedMessage {
-  return message.metadata.provider === "gmail";
-}
 
 // Gmail: The first message id in a thread is the threadId
 export function isGmailReplyInThread(message: ParsedMessage): boolean {
@@ -39,7 +32,7 @@ export function parseMessage(
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
     metadata: {
-      provider: "gmail" as const,
+      provider: "google" as const,
     },
   };
 }

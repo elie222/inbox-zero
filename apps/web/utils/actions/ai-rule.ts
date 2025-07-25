@@ -130,6 +130,8 @@ export const testAiCustomContentAction = actionClient
         include: { actions: true, categoryFilters: true },
       });
 
+      if (!provider) throw new Error("Provider not found");
+
       const result = await runRules({
         isTest: true,
         client: emailProvider,
@@ -151,7 +153,7 @@ export const testAiCustomContentAction = actionClient
           date: new Date().toISOString(),
           labelIds: [],
           metadata: {
-            provider: "gmail" as const,
+            provider: provider as "google" | "microsoft-entra-id",
           },
         },
         rules,

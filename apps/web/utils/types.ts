@@ -45,18 +45,7 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
   messages: MessageWithPayload[];
 };
 
-// Gmail-specific properties
-interface GmailMetadata {
-  provider: "gmail";
-}
-
-// Outlook-specific properties
-interface OutlookMetadata {
-  provider: "outlook";
-  conversationIndex: string;
-}
-
-interface BaseParsedMessage {
+export interface ParsedMessage {
   id: string;
   threadId: string;
   snippet: string;
@@ -70,17 +59,11 @@ interface BaseParsedMessage {
   textHtml?: string;
   subject: string;
   date: string;
+  conversationIndex?: string | null;
+  metadata: {
+    provider: "google" | "microsoft-entra-id";
+  };
 }
-
-export type GmailParsedMessage = BaseParsedMessage & {
-  metadata: GmailMetadata;
-};
-
-export type OutlookParsedMessage = BaseParsedMessage & {
-  metadata: OutlookMetadata;
-};
-
-export type ParsedMessage = GmailParsedMessage | OutlookParsedMessage;
 
 export interface Attachment {
   filename: string;

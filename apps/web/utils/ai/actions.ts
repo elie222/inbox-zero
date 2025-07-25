@@ -113,7 +113,7 @@ const draft: ActionFunction<{
       date: email.headers.date,
       labelIds: [],
       metadata: {
-        provider: "gmail" as const,
+        provider: client.name,
       },
     },
     draftArgs,
@@ -141,7 +141,7 @@ const reply: ActionFunction<{
       date: email.headers.date,
       labelIds: [],
       metadata: {
-        provider: "gmail" as const,
+        provider: client.name,
       },
     },
     args.content,
@@ -205,7 +205,7 @@ const forward: ActionFunction<{
       date: email.headers.date,
       labelIds: [],
       metadata: {
-        provider: "gmail" as const,
+        provider: client.name,
       },
     },
     forwardArgs,

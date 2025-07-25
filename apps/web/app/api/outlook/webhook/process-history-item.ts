@@ -120,9 +120,9 @@ export async function processHistoryItem(
           internalDate: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
+          conversationIndex: message.conversationIndex || "",
           metadata: {
-            provider: "outlook" as const,
-            conversationIndex: message.conversationIndex || "",
+            provider: "microsoft-entra-id" as const,
           },
         },
         emailAccountId,
@@ -243,9 +243,9 @@ export async function processHistoryItem(
           internalDate: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
+          conversationIndex: message.conversationIndex || "",
           metadata: {
-            provider: "outlook" as const,
-            conversationIndex: message.conversationIndex || "",
+            provider: "microsoft-entra-id" as const,
           },
         },
         rules,
@@ -308,9 +308,9 @@ async function handleOutbound(
     internalDate: message.receivedDateTime
       ? new Date(message.receivedDateTime).toISOString()
       : new Date().toISOString(),
+    conversationIndex: message.conversationIndex || "",
     metadata: {
-      provider: "outlook" as const,
-      conversationIndex: message.conversationIndex || "",
+      provider: "microsoft-entra-id" as const,
     },
   };
 
