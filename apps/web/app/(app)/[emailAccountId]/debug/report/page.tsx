@@ -1,30 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/Input";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2,
-  Clock,
   Mail,
   TrendingUp,
   Target,
   Zap,
   CheckCircle,
+  Clock,
 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { fetchWithAccount } from "@/utils/fetch";
 
-// Mock data types based on email-analysis-report.mdc
+// Types based on the email report API response
 interface ExecutiveSummary {
   userProfile: {
     persona: string;
     confidence: number;
-  };
-  keyMetrics: {
-    totalEmails: number;
-    dateRange: string;
-    analysisFreshness: string;
   };
   topInsights: Array<{
     insight: string;
@@ -93,9 +89,13 @@ interface LabelAnalysis {
     name: string;
     emailCount: number;
     unreadCount: number;
+    threadCount: number;
+    unreadThreads: number;
+    color: string | null;
+    type: string;
   }>;
   optimizationSuggestions: Array<{
-    type: "consolidate" | "rename" | "create" | "delete";
+    type: "create" | "consolidate" | "rename" | "delete";
     suggestion: string;
     reason: string;
     impact: "high" | "medium" | "low";
@@ -121,7 +121,7 @@ interface ActionableRecommendations {
   }>;
 }
 
-interface ComprehensiveAnalysisReport {
+interface EmailReportData {
   executiveSummary: ExecutiveSummary;
   emailActivityOverview: EmailActivityOverview;
   userPersona: UserPersona;
@@ -131,39 +131,48 @@ interface ComprehensiveAnalysisReport {
   actionableRecommendations: ActionableRecommendations;
 }
 
-export default function EmailAnalysisPage() {
-  const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [report, setReport] = useState<ComprehensiveAnalysisReport | null>(
-    null,
-  );
+export default function EmailReportPage() {
+  const params = useParams();
+  const emailAccountId = params.emailAccountId as string;
 
-  const handleAnalyze = async () => {
-    if (!email.trim()) return;
+  const [isLoading, setIsLoading] = useState(true);
+  const [report, setReport] = useState<EmailReportData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-    setIsLoading(true);
-    try {
-      const response = await fetch("/api/email-analysis", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userEmail: email.trim() }),
-      });
+  useEffect(() => {
+    const generateReport = async () => {
+      if (!emailAccountId) return;
 
-      if (!response.ok) {
-        throw new Error("Failed to generate report");
+      try {
+        const response = await fetchWithAccount({
+          url: "/api/email-report",
+          emailAccountId,
+          init: {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+            },
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to generate report: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        setReport(data);
+      } catch (error) {
+        console.error("Error generating report:", error);
+        setError(
+          error instanceof Error ? error.message : "Failed to generate report",
+        );
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const data = await response.json();
-      setReport(data);
-    } catch (error) {
-      console.error("Error generating report:", error);
-      // You might want to show a toast notification here
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    generateReport();
+  }, [emailAccountId]);
 
   const getPriorityColor = (priority: "high" | "medium" | "low") => {
     switch (priority) {
@@ -187,46 +196,39 @@ export default function EmailAnalysisPage() {
     }
   };
 
+  const getImpactColor = (impact: "high" | "medium" | "low") => {
+    switch (impact) {
+      case "high":
+        return "bg-blue-100 text-blue-800";
+      case "medium":
+        return "bg-purple-100 text-purple-800";
+      case "low":
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8">
-      {/* Input Section */}
+      {/* Header Section */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Mail className="h-5 w-5" />
-            Generate Email Analysis Report
+            Email Report
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-0">
-          <div className="flex gap-2 w-full p-6">
-            <div className="flex-1 min-w-0">
-              <Input
-                name="email"
-                type="email"
-                placeholder="Enter your email address to generate a comprehensive analysis report"
-                registerProps={{
-                  value: email,
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-                    setEmail(e.target.value),
-                }}
-                className="w-full"
-              />
+        <CardContent className="space-y-4">
+          <p className="text-gray-600">
+            Comprehensive analysis of your email patterns and personalized
+            recommendations.
+          </p>
+          {isLoading && (
+            <div className="flex items-center gap-2 text-blue-600">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Generating report...
             </div>
-            <Button
-              onClick={handleAnalyze}
-              disabled={isLoading || !email.trim()}
-              className="min-w-[140px] flex-shrink-0"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                "Generate Report"
-              )}
-            </Button>
-          </div>
+          )}
+          {error && <div className="text-red-600 text-sm">Error: {error}</div>}
         </CardContent>
       </Card>
 
@@ -256,17 +258,6 @@ export default function EmailAnalysisPage() {
                   </p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border">
-                  <h4 className="font-semibold text-gray-900">
-                    Total Emails Analyzed
-                  </h4>
-                  <p className="text-2xl font-bold text-green-600">
-                    {report.executiveSummary.keyMetrics.totalEmails.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {report.executiveSummary.keyMetrics.dateRange}
-                  </p>
-                </div>
-                <div className="bg-white p-4 rounded-lg border">
                   <h4 className="font-semibold text-gray-900">Email Sources</h4>
                   <div className="space-y-1">
                     <div className="flex justify-between">
@@ -289,6 +280,25 @@ export default function EmailAnalysisPage() {
                     </div>
                   </div>
                 </div>
+                <div className="bg-white p-4 rounded-lg border">
+                  <h4 className="font-semibold text-gray-900">Quick Actions</h4>
+                  <div className="space-y-2">
+                    {report.executiveSummary.quickActions
+                      .slice(0, 3)
+                      .map((action, index) => (
+                        <div key={index} className="flex items-center gap-2">
+                          <Badge
+                            className={getDifficultyColor(action.difficulty)}
+                          >
+                            {action.difficulty}
+                          </Badge>
+                          <span className="text-sm text-gray-700">
+                            {action.action}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -301,10 +311,17 @@ export default function EmailAnalysisPage() {
                       key={index}
                       className="flex items-start gap-3 p-3 bg-gray-50 rounded-lg"
                     >
-                      <Badge className={getPriorityColor(insight.priority)}>
-                        {insight.priority}
-                      </Badge>
-                      <p className="text-sm text-gray-700">{insight.insight}</p>
+                      <span className="text-lg">{insight.icon}</span>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge className={getPriorityColor(insight.priority)}>
+                            {insight.priority}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-700">
+                          {insight.insight}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -312,12 +329,12 @@ export default function EmailAnalysisPage() {
             </CardContent>
           </Card>
 
-          {/* User Persona & Communication Style */}
+          {/* User Persona */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="h-5 w-5" />
-                User Persona & Communication Style
+                Professional Identity
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -357,49 +374,62 @@ export default function EmailAnalysisPage() {
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Email Behavior Patterns
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-gray-900 mb-2">
-                      Timing Patterns
-                    </h5>
-                    <p className="text-sm text-gray-600">
-                      Peak hours:{" "}
-                      {report.emailBehavior.timingPatterns.peakHours.join(", ")}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      Response preference:{" "}
-                      {report.emailBehavior.timingPatterns.responsePreference}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-gray-900 mb-2">
-                      Content Preferences
-                    </h5>
-                    <p className="text-sm text-gray-600">
-                      Preferred:{" "}
-                      {report.emailBehavior.contentPreferences.preferred.join(
-                        ", ",
-                      )}
-                    </p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h5 className="font-medium text-gray-900 mb-2">
-                      Engagement Triggers
-                    </h5>
-                    <div className="space-y-1">
-                      {report.emailBehavior.engagementTriggers.map(
-                        (trigger, index) => (
-                          <p key={index} className="text-sm text-gray-600">
-                            • {trigger}
-                          </p>
-                        ),
-                      )}
-                    </div>
+          {/* Email Behavior */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5" />
+                Email Behavior Patterns
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h5 className="font-medium text-gray-900 mb-2">
+                    Timing Patterns
+                  </h5>
+                  <p className="text-sm text-gray-600">
+                    Peak hours:{" "}
+                    {report.emailBehavior.timingPatterns.peakHours.join(", ")}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Response preference:{" "}
+                    {report.emailBehavior.timingPatterns.responsePreference}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Frequency: {report.emailBehavior.timingPatterns.frequency}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h5 className="font-medium text-gray-900 mb-2">
+                    Content Preferences
+                  </h5>
+                  <p className="text-sm text-gray-600">
+                    Preferred:{" "}
+                    {report.emailBehavior.contentPreferences.preferred.join(
+                      ", ",
+                    )}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    Avoided:{" "}
+                    {report.emailBehavior.contentPreferences.avoided.join(", ")}
+                  </p>
+                </div>
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h5 className="font-medium text-gray-900 mb-2">
+                    Engagement Triggers
+                  </h5>
+                  <div className="space-y-1">
+                    {report.emailBehavior.engagementTriggers.map(
+                      (trigger, index) => (
+                        <p key={index} className="text-sm text-gray-600">
+                          • {trigger}
+                        </p>
+                      ),
+                    )}
                   </div>
                 </div>
               </div>
@@ -427,9 +457,7 @@ export default function EmailAnalysisPage() {
                           <h5 className="font-medium text-gray-900">
                             {response.pattern}
                           </h5>
-                          <Badge variant="outline">
-                            Frequency: {response.frequency}
-                          </Badge>
+                          <Badge variant="outline">{response.frequency}%</Badge>
                         </div>
                         <p className="text-sm text-gray-600 mb-2">
                           "{response.example}"
@@ -491,37 +519,81 @@ export default function EmailAnalysisPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Mail className="h-5 w-5" />
-                Current Labels
+                Label Analysis
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {report.labelAnalysis.currentLabels.map((label, index) => (
-                  <div
-                    key={index}
-                    className="bg-white p-3 rounded-lg border text-center"
-                  >
-                    <p className="font-medium text-gray-900 text-sm mb-1">
-                      {label.name}
-                    </p>
-                    <p className="text-lg font-bold text-blue-600">
-                      {label.emailCount}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {label.unreadCount} unread
-                    </p>
-                  </div>
-                ))}
+            <CardContent className="space-y-6">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Current Labels
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  {report.labelAnalysis.currentLabels.map((label, index) => (
+                    <div
+                      key={index}
+                      className="bg-white p-3 rounded-lg border text-center"
+                    >
+                      <p className="font-medium text-gray-900 text-sm mb-1">
+                        {label.name}
+                      </p>
+                      <p className="text-lg font-bold text-blue-600">
+                        {label.emailCount}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {label.unreadCount} unread
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {label.threadCount} threads
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3">
+                  Optimization Suggestions
+                </h4>
+                <div className="space-y-3">
+                  {report.labelAnalysis.optimizationSuggestions.map(
+                    (suggestion, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Badge
+                              variant="outline"
+                              className="text-xs capitalize"
+                            >
+                              {suggestion.type}
+                            </Badge>
+                            <p className="font-medium text-gray-900">
+                              {suggestion.suggestion}
+                            </p>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-1">
+                            {suggestion.reason}
+                          </p>
+                        </div>
+                        <Badge className={getImpactColor(suggestion.impact)}>
+                          {suggestion.impact} impact
+                        </Badge>
+                      </div>
+                    ),
+                  )}
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Suggestions */}
+          {/* Actionable Recommendations */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <CheckCircle className="h-5 w-5" />
-                Suggestions
+                Actionable Recommendations
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -550,7 +622,7 @@ export default function EmailAnalysisPage() {
                           >
                             {action.difficulty}
                           </Badge>
-                          <Badge className={getPriorityColor(action.impact)}>
+                          <Badge className={getImpactColor(action.impact)}>
                             {action.impact} impact
                           </Badge>
                         </div>
