@@ -56,13 +56,12 @@ interface OutlookMetadata {
   conversationIndex: string;
 }
 
-// Base message properties
 interface BaseParsedMessage {
   id: string;
   threadId: string;
   snippet: string;
   historyId: string;
-  labelIds: string[];
+  labelIds?: string[];
   internalDate: string;
   attachments?: Attachment[];
   inline: Inline[];
@@ -73,7 +72,6 @@ interface BaseParsedMessage {
   date: string;
 }
 
-// Discriminated union types
 export type GmailParsedMessage = BaseParsedMessage & {
   metadata: GmailMetadata;
 };

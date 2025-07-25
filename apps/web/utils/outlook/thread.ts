@@ -172,5 +172,9 @@ export async function getThreadMessages(
     internalDate: msg.receivedDateTime || new Date().toISOString(),
     subject: msg.subject || "",
     date: msg.receivedDateTime || new Date().toISOString(),
+    metadata: {
+      provider: "outlook",
+      conversationIndex: msg.conversationIndex || "",
+    },
   }));
 }
