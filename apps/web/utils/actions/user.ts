@@ -7,7 +7,7 @@ import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";

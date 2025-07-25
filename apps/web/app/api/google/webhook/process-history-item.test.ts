@@ -25,58 +25,64 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
 }));
-vi.mock("@/utils/gmail/message", () => ({
-  getMessage: vi.fn().mockImplementation(async (messageId, gmail, format) => ({
-    id: messageId,
-    threadId: messageId === "456" ? "thread-456" : "thread-123",
-    labelIds: ["INBOX"],
-    snippet: "Test email snippet",
-    historyId: "12345",
-    internalDate: "1704067200000",
-    sizeEstimate: 1024,
-    payload: {
-      partId: "",
-      mimeType: "multipart/alternative",
-      filename: "",
-      headers: [
-        { name: "From", value: "sender@example.com" },
-        { name: "To", value: "user@test.com" },
-        { name: "Subject", value: "Test Email" },
-        { name: "Date", value: "2024-01-01T00:00:00Z" },
-        { name: "Message-ID", value: `<${messageId}@example.com>` },
-      ],
-      body: {
-        size: 0,
-      },
-      parts: [
-        {
-          partId: "0",
-          mimeType: "text/plain",
+vi.mock("@/utils/gmail/message", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    parseMessage: (actual as any).parseMessage,
+    getMessage: vi
+      .fn()
+      .mockImplementation(async (messageId, gmail, format) => ({
+        id: messageId,
+        threadId: messageId === "456" ? "thread-456" : "thread-123",
+        labelIds: ["INBOX"],
+        snippet: "Test email snippet",
+        historyId: "12345",
+        internalDate: "1704067200000",
+        sizeEstimate: 1024,
+        payload: {
+          partId: "",
+          mimeType: "multipart/alternative",
           filename: "",
           headers: [
-            { name: "Content-Type", value: "text/plain; charset=UTF-8" },
+            { name: "From", value: "sender@example.com" },
+            { name: "To", value: "user@test.com" },
+            { name: "Subject", value: "Test Email" },
+            { name: "Date", value: "2024-01-01T00:00:00Z" },
+            { name: "Message-ID", value: `<${messageId}@example.com>` },
           ],
           body: {
-            size: 11,
-            data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+            size: 0,
           },
-        },
-        {
-          partId: "1",
-          mimeType: "text/html",
-          filename: "",
-          headers: [
-            { name: "Content-Type", value: "text/html; charset=UTF-8" },
+          parts: [
+            {
+              partId: "0",
+              mimeType: "text/plain",
+              filename: "",
+              headers: [
+                { name: "Content-Type", value: "text/plain; charset=UTF-8" },
+              ],
+              body: {
+                size: 11,
+                data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
+              },
+            },
+            {
+              partId: "1",
+              mimeType: "text/html",
+              filename: "",
+              headers: [
+                { name: "Content-Type", value: "text/html; charset=UTF-8" },
+              ],
+              body: {
+                size: 25,
+                data: "PGI+SGVsbG8gV29ybGQ8L2I+", // Base64 encoded "<b>Hello World</b>"
+              },
+            },
           ],
-          body: {
-            size: 25,
-            data: "PGI+SGVsbG8gV29ybGQ8L2I+", // Base64 encoded "<b>Hello World</b>"
-          },
         },
-      ],
-    },
-  })),
-}));
+      })),
+  };
+});
 vi.mock("@/utils/gmail/thread", () => ({
   getThreadMessages: vi.fn().mockImplementation(async (gmail, threadId) => [
     {

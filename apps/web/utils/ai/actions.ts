@@ -111,6 +111,10 @@ const draft: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
+      labelIds: [],
+      metadata: {
+        provider: client.name,
+      },
     },
     draftArgs,
   );
@@ -135,6 +139,10 @@ const reply: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
+      labelIds: [],
+      metadata: {
+        provider: client.name,
+      },
     },
     args.content,
   );
@@ -195,6 +203,10 @@ const forward: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
+      labelIds: [],
+      metadata: {
+        provider: client.name,
+      },
     },
     forwardArgs,
   );

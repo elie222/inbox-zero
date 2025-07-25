@@ -1,6 +1,4 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import {
-  ActionType,
   ExecutedRuleStatus,
   ScheduledActionStatus,
   type ScheduledAction,
@@ -8,13 +6,8 @@ import {
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { runActionFunction } from "@/utils/ai/actions";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
-import type { ParsedMessage } from "@/utils/types";
-import { getMessage } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
-import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("scheduled-actions-executor");
@@ -34,7 +27,6 @@ export async function executeScheduledAction(
   });
 
   try {
-    // Get email account with tokens
     const emailAccount = await getEmailAccountWithAiAndTokens({
       emailAccountId: scheduledAction.emailAccountId,
     });
@@ -42,7 +34,6 @@ export async function executeScheduledAction(
       throw new Error("Email account not found");
     }
 
-    // Validate email still exists and get current state
     const emailMessage = await validateEmailState(client, scheduledAction);
     if (!emailMessage) {
       await markActionCompleted(
@@ -53,7 +44,6 @@ export async function executeScheduledAction(
       return { success: true, reason: "Email no longer exists" };
     }
 
-    // Create ActionItem from scheduled action data
     const actionItem: ActionItem = {
       id: scheduledAction.id, // Use scheduled action ID temporarily
       type: scheduledAction.actionType,
@@ -66,7 +56,6 @@ export async function executeScheduledAction(
       url: scheduledAction.url,
     };
 
-    // Execute the action
     const executedAction = await executeDelayedAction({
       client,
       actionItem,
@@ -80,8 +69,6 @@ export async function executeScheduledAction(
     });
 
     await markActionCompleted(scheduledAction.id, executedAction?.id);
-
-    // Check if all scheduled actions for this ExecutedRule are complete
     await checkAndCompleteExecutedRule(scheduledAction.executedRuleId);
 
     logger.info("Successfully executed scheduled action", {
@@ -162,7 +149,6 @@ async function executeDelayedAction({
   emailAccount: { email: string; userId: string; id: string };
   scheduledAction: ScheduledAction;
 }) {
-  // Create ExecutedAction record first to maintain audit trail
   const executedAction = await prisma.executedAction.create({
     data: {
       type: actionItem.type,
@@ -179,7 +165,6 @@ async function executeDelayedAction({
     },
   });
 
-  // Get the complete ExecutedRule for context
   const executedRule = await prisma.executedRule.findUnique({
     where: { id: scheduledAction.executedRuleId },
     include: { actionItems: true },
@@ -189,8 +174,7 @@ async function executeDelayedAction({
     throw new Error(`ExecutedRule ${scheduledAction.executedRuleId} not found`);
   }
 
-  // Create a ParsedMessage from EmailForAction
-  const parsedMessage: ParsedMessage = {
+  const email: EmailForAction = {
     id: emailMessage.id,
     threadId: emailMessage.threadId,
     headers: emailMessage.headers,
@@ -198,24 +182,17 @@ async function executeDelayedAction({
     textHtml: emailMessage.textHtml,
     attachments: emailMessage.attachments,
     internalDate: emailMessage.internalDate,
-    // Required ParsedMessage fields that aren't used in action execution
-    snippet: "",
-    historyId: "",
-    inline: [],
-    subject: emailMessage.headers.subject || "",
-    date: emailMessage.headers.date || new Date().toISOString(),
   };
 
   logger.info("Executing delayed action", {
     actionType: executedAction.type,
     executedActionId: executedAction.id,
-    messageId: parsedMessage.id,
+    messageId: email.id,
   });
 
-  // Execute the specific action directly using runActionFunction
   await runActionFunction({
     client,
-    email: parsedMessage,
+    email,
     action: executedAction,
     userEmail: emailAccount.email,
     userId: emailAccount.userId,
@@ -287,7 +264,6 @@ async function checkAndCompleteExecutedRule(executedRuleId: string) {
   });
 
   if (pendingActions === 0) {
-    // All scheduled actions are complete, update ExecutedRule status
     await prisma.executedRule.update({
       where: { id: executedRuleId },
       data: { status: ExecutedRuleStatus.APPLIED },

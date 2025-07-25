@@ -1,64 +1,13 @@
 import "server-only";
-import parse from "gmail-api-parse-message";
 import EmailReplyParser from "email-reply-parser";
 import { convert } from "html-to-text";
-import type {
-  ThreadWithPayloadMessages,
-  MessageWithPayload,
-  ParsedMessage,
-} from "@/utils/types";
+import type { ParsedMessage } from "@/utils/types";
 import { removeExcessiveWhitespace, truncate } from "@/utils/string";
-import { GmailLabel } from "@/utils/gmail/label";
-import { isIgnoredSender } from "@/utils/filter-ignored-senders";
-
-export function parseMessage(
-  message: MessageWithPayload,
-): ParsedMessage & { subject: string; date: string } {
-  const parsed = parse(message) as ParsedMessage;
-  return {
-    ...parsed,
-    subject: parsed.headers?.subject || "",
-    date: parsed.headers?.date || "",
-  };
-}
 
 export function parseReply(plainText: string) {
   const parser = new EmailReplyParser().read(plainText);
   const result = parser.getVisibleText();
   return result;
-}
-
-export function parseMessages(
-  thread: ThreadWithPayloadMessages,
-  {
-    withoutIgnoredSenders,
-    withoutDrafts,
-  }: {
-    withoutIgnoredSenders?: boolean;
-    withoutDrafts?: boolean;
-  } = {},
-) {
-  const messages =
-    thread.messages?.map((message: MessageWithPayload) => {
-      return parseMessage(message);
-    }) || [];
-
-  if (withoutIgnoredSenders || withoutDrafts) {
-    const filteredMessages = messages.filter((message) => {
-      if (
-        withoutIgnoredSenders &&
-        message.headers &&
-        isIgnoredSender(message.headers.from)
-      )
-        return false;
-      if (withoutDrafts && message.labelIds?.includes(GmailLabel.DRAFT))
-        return false;
-      return true;
-    });
-    return filteredMessages;
-  }
-
-  return messages;
 }
 
 // important to do before processing html emails

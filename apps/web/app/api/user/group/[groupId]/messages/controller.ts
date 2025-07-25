@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import groupBy from "lodash/groupBy";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { extractEmailAddress } from "@/utils/email";
 import { type GroupItem, GroupItemType } from "@prisma/client";
 import type { MessageWithGroupItem } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/types";

@@ -1,4 +1,4 @@
-import { parseMessages } from "@/utils/mail";
+import { parseMessages } from "@/utils/gmail/message";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isDefined } from "@/utils/types";

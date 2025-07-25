@@ -1,4 +1,4 @@
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { isDefined } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import prisma from "@/utils/prisma";

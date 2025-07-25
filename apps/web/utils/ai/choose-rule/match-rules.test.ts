@@ -1310,6 +1310,9 @@ function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {
   const message = {
     id: "m1",
     threadId: "m1",
+    metadata: {
+      provider: "gmail",
+    },
     headers: getHeaders(),
     ...overrides,
   };

@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
