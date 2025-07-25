@@ -165,9 +165,8 @@ async function sendEmail({
           return;
         }
 
-        const ruleName = camelCase(
-          item.action?.executedRule?.rule?.name || RuleName.ColdEmail,
-        );
+        const ruleName =
+          item.action?.executedRule?.rule?.name || RuleName.ColdEmail;
 
         const category = ruleName;
         if (!acc[category]) {
@@ -213,7 +212,7 @@ async function sendEmail({
         unsubscribeToken: token,
         date: new Date(),
         ...executedRulesByRule,
-      } as any, // Type assertion needed due to generic DigestEmailProps
+      },
     });
 
     // Only update database if email sending succeeded
