@@ -18,7 +18,7 @@ export async function aiSummarizeEmailForDigest({
   ruleName: string;
   emailAccount: EmailAccountWithAI;
   messageToSummarize: EmailForLLM;
-}): Promise<AISummarizeResult> {
+}): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
   if (!messageToSummarize) return null;
 

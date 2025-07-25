@@ -187,10 +187,7 @@ async function sendEmail({
 
         if (contentResult.success) {
           acc[category].push({
-            content: {
-              entries: contentResult.data?.entries || [],
-              summary: contentResult.data?.summary,
-            },
+            content: contentResult.data,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
           });

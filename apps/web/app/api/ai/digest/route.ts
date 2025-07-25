@@ -184,6 +184,11 @@ export const POST = withError(
         },
       });
 
+      if (!summary) {
+        logger.info("Skipping digest item because it is not worth summarizing");
+        return new NextResponse("OK", { status: 200 });
+      }
+
       await upsertDigest({
         messageId: message.id || "",
         threadId: message.threadId || "",
