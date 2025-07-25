@@ -1,5 +1,4 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import type { Message } from "@microsoft/microsoft-graph-types";
 import type { Attachment } from "nodemailer/lib/mailer";
 import { convertEmailHtmlToText } from "@/utils/mail";
 import type { SendEmailBody } from "@/utils/gmail/mail";
@@ -7,11 +6,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { createReplyContent } from "@/utils/gmail/reply";
-import {
-  forwardEmailHtml,
-  forwardEmailSubject,
-  forwardEmailText,
-} from "@/utils/gmail/forward";
+import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 
 const logger = createScopedLogger("outlook/mail");
 
@@ -148,7 +143,7 @@ export async function forwardEmail(
     date: originalMessage.receivedDateTime || new Date().toISOString(),
     conversationIndex: originalMessage.conversationId || "",
     metadata: {
-      provider: "microsoft-entra-id" as const,
+      provider: "microsoft-entra-id",
     },
   };
 

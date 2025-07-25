@@ -1,6 +1,6 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
-import { parseMessage } from "@/utils/gmail/message";
+import { parseMessage } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("outlook/draft");
 
