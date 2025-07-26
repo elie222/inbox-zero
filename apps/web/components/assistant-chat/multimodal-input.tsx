@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useRef, useEffect, useCallback, memo } from "react";
+import { useRef, useEffect, useCallback, memo, useState } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import type { UseChatHelpers } from "@ai-sdk/react";
@@ -23,6 +23,7 @@ function PureMultimodalInput({
   // append,
   handleSubmit,
   className,
+  displayValue,
 }: {
   // chatId?: string;
   input: UseChatHelpers["input"];
@@ -36,9 +37,11 @@ function PureMultimodalInput({
   // append: UseChatHelpers["append"];
   handleSubmit: UseChatHelpers["handleSubmit"];
   className?: string;
+  displayValue?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -92,6 +95,16 @@ function PureMultimodalInput({
     // adjustHeight(); // handled in useEffect
   };
 
+  const handleFocus = () => {
+    if (displayValue !== undefined && displayValue !== input) {
+      setIsEditing(true);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+  };
+
   // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
   const submitForm = useCallback(() => {
     // window.history.replaceState({}, "", `/chat/${chatId}`);
@@ -106,6 +119,10 @@ function PureMultimodalInput({
     }
   }, [handleSubmit, setLocalStorageInput, width]);
 
+  // Use displayValue if provided and not editing, otherwise use input
+  const visibleValue =
+    displayValue !== undefined && !isEditing ? displayValue : input;
+
   return (
     <div className="relative flex w-full flex-col gap-4">
       {/* {messages.length === 0 && (
@@ -116,8 +133,10 @@ function PureMultimodalInput({
         data-testid="multimodal-input"
         ref={textareaRef}
         placeholder="Send a message..."
-        value={input}
+        value={visibleValue}
         onChange={handleInput}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
         className={cn(
           "max-h-[calc(75dvh)] min-h-[24px] resize-none overflow-hidden rounded-2xl bg-muted pb-10 !text-base dark:border-zinc-700",
           className,
@@ -157,6 +176,7 @@ export const MultimodalInput = memo(
   (prevProps, nextProps) => {
     if (prevProps.input !== nextProps.input) return false;
     if (prevProps.status !== nextProps.status) return false;
+    if (prevProps.displayValue !== nextProps.displayValue) return false;
     // if (!equal(prevProps.attachments, nextProps.attachments)) return false;
 
     return true;
