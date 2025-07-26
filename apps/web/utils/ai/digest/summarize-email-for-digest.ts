@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { DigestEmailSummarySchema as schema } from "@/app/api/resend/digest/validation";
+import { digestEmailSummarySchema as schema } from "@/app/api/resend/digest/validation";
 
 const logger = createScopedLogger("summarize-digest-email");
 
@@ -18,7 +18,7 @@ export async function aiSummarizeEmailForDigest({
   ruleName: string;
   emailAccount: EmailAccountWithAI;
   messageToSummarize: EmailForLLM;
-}): Promise<AISummarizeResult> {
+}): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
   if (!messageToSummarize) return null;
 
@@ -36,15 +36,6 @@ You must return a valid JSON object with exactly one of these structures:
 3. If the email is not worth summarizing or is spam:
    null
 
-IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text.`;
-
-  const prompt = `
-<email_content>
-${stringifyEmailSimple(userMessageForPrompt)}
-</email_content>
-
-This email has already been categorized as: ${ruleName}.
-
 Summarize the following email for inclusion in a daily digest email.
 
 RULES:
@@ -55,7 +46,15 @@ RULES:
 - If the email is spam, promotional content, or not worth summarizing, return null.
 - Return ONLY valid JSON - no HTML, no tables, no explanatory text.
 
-Return a valid JSON object with either "entries" array, "summary" string, or null.`;
+Return a valid JSON object with either "entries" array, "summary" string, or null.
+`;
+
+  const prompt = `
+<email_content>
+${stringifyEmailSimple(userMessageForPrompt)}
+</email_content>
+
+This email has already been categorized as: ${ruleName}.`;
 
   logger.trace("Input", { system, prompt });
 

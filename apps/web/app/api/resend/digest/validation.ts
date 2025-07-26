@@ -1,30 +1,33 @@
 import { z } from "zod";
 
-export const DigestEmailSummarySchema = z
-  .object({
+export const digestEmailSummarySchema = z.union([
+  z.object({
     entries: z
       .array(
         z.object({
-          label: z.string(),
-          value: z.string(),
+          label: z.string().describe("The label of the summarized item"),
+          value: z.string().describe("The value of the summarized item"),
         }),
       )
-      .nullish(),
-    summary: z.string().nullish(),
-  })
-  .nullish();
+      .nullish()
+      .describe("An array of items summarizing the email content"),
+  }),
+  z.object({
+    summary: z.string().nullish().describe("A summary of the email content"),
+  }),
+]);
 
-export type DigestEmailSummarySchema = z.infer<typeof DigestEmailSummarySchema>;
+export type DigestEmailSummarySchema = z.infer<typeof digestEmailSummarySchema>;
 
 export const digestItemSchema = z.object({
   from: z.string(),
   subject: z.string(),
-  content: DigestEmailSummarySchema,
+  content: digestEmailSummarySchema,
 });
 
 export const digestSummarySchema = z.string().transform((str) => {
   try {
-    return DigestEmailSummarySchema.parse(JSON.parse(str));
+    return digestEmailSummarySchema.parse(JSON.parse(str));
   } catch (e) {
     throw new Error("Invalid summary JSON");
   }
