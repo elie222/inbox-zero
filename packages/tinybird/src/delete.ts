@@ -32,7 +32,7 @@ async function deleteFromDatasource(
 }
 
 // Tinybird only allows 1 delete at a time
-async function deleteFromDatasourceWithRetry(
+async function _deleteFromDatasourceWithRetry(
   datasource: string,
   deleteCondition: string,
 ): Promise<unknown> {

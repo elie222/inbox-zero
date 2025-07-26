@@ -13,97 +13,145 @@ import { DialogContent } from "@/components/ui/dialog";
 import { DialogTrigger } from "@/components/ui/dialog";
 import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
+import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
 
 export function AddAccount() {
+  const handleConnectGoogle = async () => {
+    await signIn("google", { callbackUrl: "/accounts", redirect: true });
+  };
+
+  const handleMergeGoogle = async () => {
+    const response = await fetch("/api/google/linking/auth-url", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data: GetAuthLinkUrlResponse = await response.json();
+
+    window.location.href = data.url;
+  };
+
+  const handleConnectMicrosoft = async () => {
+    await signIn("microsoft-entra-id", {
+      callbackUrl: "/accounts",
+      redirect: true,
+    });
+  };
+
+  const handleMergeMicrosoft = async () => {
+    const response = await fetch("/api/outlook/linking/auth-url", {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+
+    const data: GetOutlookAuthLinkUrlResponse = await response.json();
+
+    window.location.href = data.url;
+  };
+
+  return (
+    <Card className="flex items-center justify-center">
+      <CardContent className="flex flex-col items-center gap-4 p-6">
+        <AddEmailAccount
+          name="Google"
+          image="/images/google.svg"
+          handleConnect={handleConnectGoogle}
+          handleMerge={handleMergeGoogle}
+        />
+        <AddEmailAccount
+          name="Microsoft"
+          image="/images/microsoft.svg"
+          handleConnect={handleConnectMicrosoft}
+          handleMerge={handleMergeMicrosoft}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function AddEmailAccount({
+  name,
+  image,
+  handleConnect,
+  handleMerge,
+}: {
+  name: "Google" | "Microsoft";
+  image: string;
+  handleConnect: () => Promise<void>;
+  handleMerge: () => Promise<void>;
+}) {
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
 
-  const handleConnectGoogle = async () => {
+  const onConnect = async () => {
     setIsConnecting(true);
     try {
-      await signIn("google", { callbackUrl: "/accounts", redirect: true });
+      await handleConnect();
     } catch (error) {
-      console.error("Error initiating Google link:", error);
+      console.error(`Error initiating ${name} link:`, error);
       toastError({
-        title: "Error initiating Google link",
+        title: `Error initiating ${name} link`,
         description: "Please try again or contact support",
       });
     }
     setIsConnecting(false);
   };
 
-  const handleMergeGoogle = async () => {
+  const onMerge = async () => {
     setIsMerging(true);
+
     try {
-      const response = await fetch("/api/google/linking/auth-url", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      const data: GetAuthLinkUrlResponse = await response.json();
-
-      window.location.href = data.url;
+      await handleMerge();
     } catch (error) {
-      console.error("Error initiating Google link:", error);
+      console.error(`Error initiating ${name} link:`, error);
       toastError({
-        title: "Error initiating Google link",
+        title: `Error initiating ${name} link`,
         description: "Please try again or contact support",
       });
     }
+
     setIsMerging(false);
   };
 
   return (
-    <Card className="flex items-center justify-center">
-      <CardContent className="flex flex-col items-center p-6">
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button disabled={isConnecting} className="mt-auto">
-              <Image
-                src="/images/google.svg"
-                alt=""
-                width={24}
-                height={24}
-                unoptimized
-              />
-              <span className="ml-2">
-                {isConnecting ? "Connecting..." : "Add Google Account"}
-              </span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add Google Account</DialogTitle>
-              <DialogDescription>
-                Does the account you want to add already have an Inbox Zero
-                account? If yes, we'll link it to your current account.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                size="sm"
-                loading={isMerging}
-                disabled={isMerging || isConnecting}
-                onClick={handleMergeGoogle}
-              >
-                Yes
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                loading={isConnecting}
-                disabled={isMerging || isConnecting}
-                onClick={handleConnectGoogle}
-              >
-                No
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </CardContent>
-    </Card>
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button disabled={isConnecting} className="mt-auto w-full">
+          <Image src={image} alt="" width={24} height={24} unoptimized />
+          <span className="ml-2">
+            {isConnecting ? "Connecting..." : `Add ${name} Account`}
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add {name} Account</DialogTitle>
+          <DialogDescription>
+            Does the account you want to add already have an Inbox Zero account?
+            If yes, we'll link it to your current account.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isMerging}
+            disabled={isMerging || isConnecting}
+            onClick={onMerge}
+          >
+            Yes
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            loading={isConnecting}
+            disabled={isMerging || isConnecting}
+            onClick={onConnect}
+          >
+            No
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

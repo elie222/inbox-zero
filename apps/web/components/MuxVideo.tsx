@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import MuxPlayer from "@mux/mux-player-react";
 import { ClientOnly } from "@/components/ClientOnly";
 import { cn } from "@/utils";

@@ -12,7 +12,12 @@ const logger = createScopedLogger("actions/permissions");
 
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
-  .action(async ({ ctx: { emailAccountId } }) => {
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    if (provider !== "google") {
+      // TODO: add Outlook handling
+      return { hasAllPermissions: true, hasRefreshToken: true };
+    }
+
     try {
       const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
         emailAccountId,

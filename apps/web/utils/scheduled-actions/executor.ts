@@ -14,13 +14,18 @@ import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import type { ParsedMessage } from "@/utils/types";
 import { getMessage } from "@/utils/gmail/message";
 import { parseMessage } from "@/utils/mail";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("scheduled-actions-executor");
 
 /**
  * Execute a scheduled action
  */
-export async function executeScheduledAction(scheduledAction: ScheduledAction) {
+export async function executeScheduledAction(
+  scheduledAction: ScheduledAction,
+  client: EmailProvider,
+) {
   logger.info("Executing scheduled action", {
     scheduledActionId: scheduledAction.id,
     actionType: scheduledAction.actionType,
@@ -37,16 +42,8 @@ export async function executeScheduledAction(scheduledAction: ScheduledAction) {
       throw new Error("Email account not found");
     }
 
-    // Get Gmail client
-    const gmail = await getGmailClientWithRefresh({
-      accessToken: emailAccount.tokens.access_token,
-      refreshToken: emailAccount.tokens.refresh_token,
-      expiresAt: emailAccount.tokens.expires_at,
-      emailAccountId: emailAccount.id,
-    });
-
     // Validate email still exists and get current state
-    const emailMessage = await validateEmailState(gmail, scheduledAction);
+    const emailMessage = await validateEmailState(client, scheduledAction);
     if (!emailMessage) {
       await markActionCompleted(
         scheduledAction.id,
@@ -71,7 +68,7 @@ export async function executeScheduledAction(scheduledAction: ScheduledAction) {
 
     // Execute the action
     const executedAction = await executeDelayedAction({
-      gmail,
+      client,
       actionItem,
       emailMessage,
       emailAccount: {
@@ -108,11 +105,11 @@ export async function executeScheduledAction(scheduledAction: ScheduledAction) {
  * Validate that the email still exists and return current state
  */
 async function validateEmailState(
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
   scheduledAction: ScheduledAction,
 ): Promise<EmailForAction | null> {
   try {
-    const message = await getMessage(scheduledAction.messageId, gmail, "full");
+    const message = await client.getMessage(scheduledAction.messageId);
 
     if (!message) {
       logger.info("Email no longer exists", {
@@ -122,23 +119,18 @@ async function validateEmailState(
       return null;
     }
 
-    // Parse the message to get the correct format
-    const parsedMessage = parseMessage(message);
-
-    // Convert to EmailForAction format
     const emailForAction: EmailForAction = {
-      threadId: parsedMessage.threadId,
-      id: parsedMessage.id,
-      headers: parsedMessage.headers,
-      textPlain: parsedMessage.textPlain || "",
-      textHtml: parsedMessage.textHtml || "",
-      attachments: parsedMessage.attachments || [],
-      internalDate: parsedMessage.internalDate,
+      threadId: message.threadId,
+      id: message.id,
+      headers: message.headers,
+      textPlain: message.textPlain || "",
+      textHtml: message.textHtml || "",
+      attachments: message.attachments || [],
+      internalDate: message.internalDate,
     };
 
     return emailForAction;
   } catch (error: unknown) {
-    // Check for Gmail's standard "not found" error message
     if (
       error instanceof Error &&
       error.message === "Requested entity was not found."
@@ -158,13 +150,13 @@ async function validateEmailState(
  * Execute the delayed action using existing action execution logic
  */
 async function executeDelayedAction({
-  gmail,
+  client,
   actionItem,
   emailMessage,
   emailAccount,
   scheduledAction,
 }: {
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
   actionItem: ActionItem;
   emailMessage: EmailForAction;
   emailAccount: { email: string; userId: string; id: string };
@@ -210,6 +202,8 @@ async function executeDelayedAction({
     snippet: "",
     historyId: "",
     inline: [],
+    subject: emailMessage.headers.subject || "",
+    date: emailMessage.headers.date || new Date().toISOString(),
   };
 
   logger.info("Executing delayed action", {
@@ -220,7 +214,7 @@ async function executeDelayedAction({
 
   // Execute the specific action directly using runActionFunction
   await runActionFunction({
-    gmail,
+    client,
     email: parsedMessage,
     action: executedAction,
     userEmail: emailAccount.email,

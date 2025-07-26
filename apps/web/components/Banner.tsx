@@ -1,4 +1,3 @@
-import React from "react";
 import { XIcon } from "lucide-react";
 
 export function Banner(props: {

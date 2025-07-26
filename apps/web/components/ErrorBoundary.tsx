@@ -1,9 +1,9 @@
 "use client";
 
-import React from "react";
+import { Component } from "react";
 import * as Sentry from "@sentry/nextjs";
 
-export class ErrorBoundary extends React.Component<
+export class ErrorBoundary extends Component<
   { children: React.ReactNode; extra?: any; fallback?: React.ReactNode },
   { hasError: boolean }
 > {
@@ -11,7 +11,7 @@ export class ErrorBoundary extends React.Component<
     super(props);
     this.state = { hasError: false };
   }
-  static getDerivedStateFromError(error: any) {
+  static getDerivedStateFromError(_error: any) {
     // Update state so the next render will show the fallback UI
     return { hasError: true };
   }

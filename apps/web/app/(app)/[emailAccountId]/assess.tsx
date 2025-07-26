@@ -10,7 +10,7 @@ import {
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function AssessUser() {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { executeAsync: executeAssessAsync } = useAction(
     assessAction.bind(null, emailAccountId),
   );
@@ -28,7 +28,7 @@ export function AssessUser() {
     async function assess() {
       const result = await executeAssessAsync();
       // no need to run this over and over after the first time
-      if (!result?.data?.skipped) {
+      if (!result?.data?.skipped && provider !== "microsoft-entra-id") {
         executeWhitelistInboxZero();
       }
     }

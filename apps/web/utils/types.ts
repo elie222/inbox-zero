@@ -47,6 +47,7 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
 export interface ParsedMessage extends gmail_v1.Schema$Message {
   id: string;
   threadId: string;
+  conversationIndex?: string;
   labelIds?: string[];
   snippet: string;
   historyId: string;
@@ -55,6 +56,8 @@ export interface ParsedMessage extends gmail_v1.Schema$Message {
   headers: ParsedMessageHeaders;
   textPlain?: string;
   textHtml?: string;
+  subject: string;
+  date: string;
 }
 
 export interface Attachment {

@@ -1,8 +1,8 @@
-import React from "react";
 import Link from "next/link";
+import { forwardRef } from "react";
 import { cn } from "@/utils";
 
-const PageHeading = React.forwardRef<
+const PageHeading = forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -17,7 +17,7 @@ const PageHeading = React.forwardRef<
 ));
 PageHeading.displayName = "PageHeading";
 
-const SectionHeader = React.forwardRef<
+const SectionHeader = forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -29,7 +29,7 @@ const SectionHeader = React.forwardRef<
 ));
 SectionHeader.displayName = "SectionHeader";
 
-const SectionDescription = React.forwardRef<
+const SectionDescription = forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
@@ -44,7 +44,7 @@ const SectionDescription = React.forwardRef<
 ));
 SectionDescription.displayName = "SectionDescription";
 
-const MessageText = React.forwardRef<
+const MessageText = forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
@@ -56,7 +56,7 @@ const MessageText = React.forwardRef<
 ));
 MessageText.displayName = "MessageText";
 
-const TypographyH3 = React.forwardRef<
+const TypographyH3 = forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -68,7 +68,7 @@ const TypographyH3 = React.forwardRef<
 ));
 TypographyH3.displayName = "TypographyH3";
 
-const TypographyH4 = React.forwardRef<
+const TypographyH4 = forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
@@ -76,7 +76,7 @@ const TypographyH4 = React.forwardRef<
 ));
 TypographyH4.displayName = "TypographyH4";
 
-const TypographyP = React.forwardRef<
+const TypographyP = forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
@@ -89,7 +89,7 @@ const TypographyP = React.forwardRef<
 TypographyP.displayName = "TypographyP";
 
 type LinkProps = React.ComponentProps<typeof Link>;
-const TextLink = React.forwardRef<HTMLAnchorElement, LinkProps>(
+const TextLink = forwardRef<HTMLAnchorElement, LinkProps>(
   ({ className, ...props }, ref) => {
     return (
       <Link

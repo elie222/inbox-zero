@@ -8,7 +8,7 @@ import {
   ComboboxOptions,
 } from "@headlessui/react";
 import { CheckCircleIcon, TrashIcon, XIcon } from "lucide-react";
-import React, { useCallback, useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import useSWR from "swr";
 import { z } from "zod";
@@ -53,7 +53,7 @@ export const ComposeEmailForm = ({
   onDiscard?: () => void;
 }) => {
   const { emailAccountId } = useAccount();
-  const [showFullContent, setShowFullContent] = React.useState(false);
+  const [showFullContent, setShowFullContent] = useState(false);
   const { symbol } = useModifierKey();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -117,7 +117,7 @@ export const ComposeEmailForm = ({
     },
   );
 
-  const [searchQuery, setSearchQuery] = React.useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const { data } = useSWR<ContactsResponse, { error: string }>(
     env.NEXT_PUBLIC_CONTACTS_ENABLED
       ? `/api/google/contacts?query=${searchQuery}`
@@ -148,7 +148,7 @@ export const ComposeEmailForm = ({
     }
   };
 
-  const [editReply, setEditReply] = React.useState(false);
+  const [editReply, setEditReply] = useState(false);
 
   const handleEditorChange = useCallback(
     (html: string) => {

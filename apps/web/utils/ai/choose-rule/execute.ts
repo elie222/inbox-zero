@@ -1,4 +1,3 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
@@ -6,6 +5,7 @@ import { ExecutedRuleStatus, ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";
+import type { EmailProvider } from "@/utils/email/provider";
 
 type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
   include: { actionItems: true };
@@ -20,14 +20,14 @@ type ExecutedRuleWithActionItems = Prisma.ExecutedRuleGetPayload<{
  * 4. Updates the rule status to APPLIED when complete
  */
 export async function executeAct({
-  gmail,
+  client,
   executedRule,
   userEmail,
   userId,
   emailAccountId,
   message,
 }: {
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
   executedRule: ExecutedRuleWithActionItems;
   message: ParsedMessage;
   userEmail: string;
@@ -55,7 +55,7 @@ export async function executeAct({
   for (const action of executedRule.actionItems) {
     try {
       const actionResult = await runActionFunction({
-        gmail,
+        client,
         email: message,
         action,
         userEmail,

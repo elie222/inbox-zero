@@ -12,6 +12,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { SafeError } from "@/utils/error";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("categorize/senders");
 
@@ -30,6 +31,49 @@ export async function categorizeSender(
   const previousEmails = await getThreadsFromSenderWithSubject(
     gmail,
     accessToken,
+    senderAddress,
+    3,
+  );
+
+  const aiResult = await aiCategorizeSender({
+    emailAccount,
+    sender: senderAddress,
+    previousEmails,
+    categories,
+  });
+
+  if (aiResult) {
+    const { newsletter } = await updateSenderCategory({
+      sender: senderAddress,
+      categories,
+      categoryName: aiResult.category,
+      emailAccountId: emailAccount.id,
+    });
+
+    return { categoryId: newsletter.categoryId };
+  }
+
+  logger.error("No AI result for sender", {
+    userEmail: emailAccount.email,
+    senderAddress,
+  });
+
+  return { categoryId: undefined };
+}
+
+// New function that works with EmailProvider
+export async function categorizeSenderWithProvider(
+  senderAddress: string,
+  emailAccount: EmailAccountWithAI,
+  provider: EmailProvider,
+  userCategories?: Pick<Category, "id" | "name" | "description">[],
+) {
+  const categories =
+    userCategories ||
+    (await getUserCategories({ emailAccountId: emailAccount.id }));
+  if (categories.length === 0) return { categoryId: undefined };
+
+  const previousEmails = await provider.getThreadsFromSenderWithSubject(
     senderAddress,
     3,
   );

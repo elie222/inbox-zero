@@ -2,29 +2,26 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { draftEmail } from "@/utils/gmail/mail";
 import { aiDraftWithKnowledge } from "@/utils/ai/reply/draft-with-knowledge";
 import { getReply, saveReply } from "@/utils/redis/reply";
 import { getEmailAccountWithAi, getWritingStyle } from "@/utils/user/get";
-import { getThreadMessages } from "@/utils/gmail/thread";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import { getMessagesBatch } from "@/utils/gmail/message";
-import { getAccessTokenFromClient } from "@/utils/gmail/client";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("generate-reply");
 
 export async function generateDraft({
   emailAccountId,
-  gmail,
+  client,
   message,
 }: {
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
   message: ParsedMessage;
 }) {
   const logger = createScopedLogger("generate-reply").with({
@@ -42,7 +39,7 @@ export async function generateDraft({
   const result = await fetchMessagesAndGenerateDraft(
     emailAccount,
     message.threadId,
-    gmail,
+    client,
   );
 
   logger.info("Draft generated", { result });
@@ -51,8 +48,8 @@ export async function generateDraft({
     throw new Error("Draft result is not a string");
   }
 
-  // 2. Create Gmail draft
-  await draftEmail(gmail, message, { content: result });
+  // 2. Create draft
+  await client.draftEmail(message, { content: result });
 
   logger.info("Draft created");
 }
@@ -63,10 +60,10 @@ export async function generateDraft({
 export async function fetchMessagesAndGenerateDraft(
   emailAccount: EmailAccountWithAI,
   threadId: string,
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
 ): Promise<string> {
   const { threadMessages, previousConversationMessages } =
-    await fetchThreadAndConversationMessages(threadId, gmail);
+    await fetchThreadAndConversationMessages(threadId, client);
 
   const result = await generateDraftContent(
     emailAccount,
@@ -86,19 +83,16 @@ export async function fetchMessagesAndGenerateDraft(
  */
 async function fetchThreadAndConversationMessages(
   threadId: string,
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
 ): Promise<{
   threadMessages: ParsedMessage[];
   previousConversationMessages: ParsedMessage[] | null;
 }> {
-  // current thread messages
-  const threadMessages = await getThreadMessages(threadId, gmail);
-
-  // previous conversation messages
-  const previousConversationMessages = await getMessagesBatch({
-    messageIds: threadMessages.map((msg) => msg.id),
-    accessToken: getAccessTokenFromClient(gmail),
-  });
+  const threadMessages = await client.getThreadMessages(threadId);
+  const previousConversationMessages =
+    await client.getPreviousConversationMessages(
+      threadMessages.map((msg) => msg.id),
+    );
 
   return {
     threadMessages,

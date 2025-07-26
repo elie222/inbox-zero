@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import type Stripe from "stripe";
-import { processHistoryForUser } from "@/app/api/google/webhook/process-history";
 import { createScopedLogger } from "@/utils/logger";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
@@ -10,6 +9,7 @@ import { adminActionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("Admin Action");
 
@@ -24,17 +24,47 @@ export const adminProcessHistoryAction = adminActionClient
   )
   .action(
     async ({ parsedInput: { emailAddress, historyId, startHistoryId } }) => {
-      await processHistoryForUser(
-        {
-          emailAddress,
-          historyId: historyId ? historyId : 0,
+      // Get the email account to determine the provider
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { email: emailAddress.toLowerCase() },
+        select: {
+          id: true,
+          account: {
+            select: {
+              provider: true,
+            },
+          },
+          watchEmailsSubscriptionId: true,
         },
-        {
-          startHistoryId: startHistoryId
-            ? startHistoryId.toString()
-            : undefined,
+      });
+
+      if (!emailAccount) {
+        throw new SafeError("Email account not found");
+      }
+
+      const provider = emailAccount.account?.provider;
+
+      if (!provider) {
+        throw new SafeError("No provider found for email account");
+      }
+
+      // Create the email provider
+      const emailProvider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider,
+      });
+
+      // Use the unified processHistory method
+      await emailProvider.processHistory({
+        emailAddress,
+        historyId,
+        startHistoryId,
+        subscriptionId: emailAccount.watchEmailsSubscriptionId || undefined,
+        resourceData: {
+          id: historyId?.toString() || "0",
+          conversationId: startHistoryId?.toString(),
         },
-      );
+      });
     },
   );
 
