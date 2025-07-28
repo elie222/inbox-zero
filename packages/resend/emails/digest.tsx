@@ -141,7 +141,7 @@ export default function DigestEmail(props: DigestEmailProps) {
     }
     // Fallback for unknown categories
     return {
-      name: key.charAt(0).toUpperCase() + key.slice(1),
+      name: key,
       emoji: "📂",
       color: "gray",
       href: `#${key}`,
