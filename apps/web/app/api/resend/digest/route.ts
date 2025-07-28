@@ -6,21 +6,17 @@ import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import { camelCase } from "lodash";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { getMessagesLargeBatch } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  sendDigestEmailBody,
-  type Digest,
-  digestEmailSummarySchema,
-} from "./validation";
+import { sendDigestEmailBody, type Digest } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 
 export const maxDuration = 60;
 

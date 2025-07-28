@@ -1,10 +1,26 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { digestEmailSummarySchema as schema } from "@/app/api/resend/digest/validation";
+
+export const schema = z.union([
+  z.object({
+    entries: z
+      .array(
+        z.object({
+          label: z.string().describe("The label of the summarized item"),
+          value: z.string().describe("The value of the summarized item"),
+        }),
+      )
+      .nullish()
+      .describe("An array of items summarizing the email content"),
+  }),
+  z.object({
+    summary: z.string().nullish().describe("A summary of the email content"),
+  }),
+]);
 
 const logger = createScopedLogger("summarize-digest-email");
 

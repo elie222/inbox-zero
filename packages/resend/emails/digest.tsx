@@ -210,22 +210,33 @@ export default function DigestEmail(props: DigestEmailProps) {
             >
               <Link href={category.href} className="no-underline">
                 <div
-                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
+                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px]`}
                 >
-                  <Text
-                    className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {category.emoji} {category.name}
-                  </Text>
-                  <div
-                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                  >
-                    <Text
-                      className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                  <Row>
+                    <Column
+                      style={{ textAlign: "left", verticalAlign: "middle" }}
                     >
-                      {category.count}
-                    </Text>
-                  </div>
+                      <Text
+                        className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                      >
+                        {category.emoji} {category.name}
+                      </Text>
+                    </Column>
+                    <Column
+                      style={{ textAlign: "right", verticalAlign: "middle" }}
+                    >
+                      <div
+                        className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                        style={{ display: "inline-block" }}
+                      >
+                        <Text
+                          className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                        >
+                          {category.count}
+                        </Text>
+                      </div>
+                    </Column>
+                  </Row>
                 </div>
               </Link>
             </Column>
@@ -341,10 +352,9 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {getCategoriesWithItemsCount() > 0 && (
+            {getCategoriesWithItemsCount() > 1 && (
               <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
             )}
-
             {Object.keys(digestData).map((categoryKey) =>
               Array.isArray(digestData[categoryKey]) &&
               digestData[categoryKey]?.length > 0 ? (
@@ -355,7 +365,6 @@ export default function DigestEmail(props: DigestEmailProps) {
                 />
               ) : null,
             )}
-
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
