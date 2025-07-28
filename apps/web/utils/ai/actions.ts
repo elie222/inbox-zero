@@ -136,7 +136,6 @@ const reply: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
-      labelIds: [],
     },
     args.content,
   );
@@ -197,7 +196,6 @@ const forward: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
-      labelIds: [],
     },
     forwardArgs,
   );

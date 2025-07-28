@@ -1,9 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent } from "@/utils/mail";
-import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
-import { getMessage } from "@/utils/gmail/message";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
@@ -63,9 +61,14 @@ export async function processHistoryItem(
 
   logger.info("Getting message", loggerOptions);
 
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: "google",
+  });
+
   try {
-    const [gmailMessage, hasExistingRule] = await Promise.all([
-      getMessage(messageId, gmail, "full"),
+    const [parsedMessage, hasExistingRule] = await Promise.all([
+      emailProvider.getMessage(messageId),
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
@@ -83,8 +86,6 @@ export async function processHistoryItem(
       logger.info("Skipping. Rule already exists.", loggerOptions);
       return;
     }
-
-    const parsedMessage = parseMessage(gmailMessage);
 
     if (isIgnoredSender(parsedMessage.headers.from)) {
       logger.info("Skipping. Ignored sender.", loggerOptions);

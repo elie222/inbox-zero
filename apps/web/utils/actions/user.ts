@@ -45,6 +45,8 @@ export const loadSignatureFromGmailAction = actionClient
   .action(async ({ ctx: { emailAccountId } }) => {
     // 1. find last 5 sent emails
     const gmail = await getGmailClientForEmail({ emailAccountId });
+    // TODO: Use email provider to get the messages which will parse them internally
+    // getSentMessages() from email provider uses label:sent vs from:me, so further testing is needed
     const messages = await getMessages(gmail, {
       query: "from:me",
       maxResults: 5,

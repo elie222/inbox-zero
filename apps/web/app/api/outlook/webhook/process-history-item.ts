@@ -116,10 +116,6 @@ export async function processHistoryItem(
           date: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
-          labelIds: [],
-          internalDate: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
-            : new Date().toISOString(),
           conversationIndex: message.conversationIndex,
         },
         emailAccountId,

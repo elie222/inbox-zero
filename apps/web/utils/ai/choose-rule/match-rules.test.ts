@@ -511,7 +511,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      client: client,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -530,7 +530,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      client: client,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);

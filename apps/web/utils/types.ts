@@ -36,7 +36,15 @@ export function isBatchError(
   return (message as BatchError).error !== undefined;
 }
 
-export type MessageWithPayload = gmail_v1.Schema$Message & {
+export type MessageWithPayload = {
+  historyId?: string | null;
+  id?: string | null;
+  internalDate?: string | null;
+  labelIds?: string[] | null;
+  raw?: string | null;
+  sizeEstimate?: number | null;
+  snippet?: string | null;
+  threadId?: string | null;
   payload: gmail_v1.Schema$MessagePart;
 };
 

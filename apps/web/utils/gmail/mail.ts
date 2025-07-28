@@ -183,6 +183,7 @@ export async function forwardEmail(
 ) {
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
+  // TODO: Use email provider to get the message which will parse it internally
   const m = await getMessage(options.messageId, gmail);
 
   const messageId = m.id;
