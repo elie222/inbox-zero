@@ -68,9 +68,9 @@ vi.mock("@/utils/digest/index", () => ({
 }));
 vi.mock("@/utils/email/provider", () => ({
   createEmailProvider: vi.fn().mockResolvedValue({
-    getMessage: vi.fn().mockResolvedValue({
-      id: "123",
-      threadId: "thread-123",
+    getMessage: vi.fn().mockImplementation(async (messageId) => ({
+      id: messageId,
+      threadId: messageId === "456" ? "thread-456" : "thread-123",
       labelIds: ["INBOX"],
       snippet: "Test email snippet",
       historyId: "12345",
@@ -84,7 +84,7 @@ vi.mock("@/utils/email/provider", () => ({
       },
       textPlain: "Hello World",
       textHtml: "<b>Hello World</b>",
-    }),
+    })),
   }),
 }));
 
@@ -156,7 +156,6 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    // Mock the email provider to return a sent message
     const { createEmailProvider } = await import("@/utils/email/provider");
     vi.mocked(createEmailProvider).mockResolvedValueOnce({
       getMessage: vi.fn().mockResolvedValue({

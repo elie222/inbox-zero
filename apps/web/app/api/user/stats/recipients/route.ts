@@ -31,6 +31,7 @@ async function getRecipients({
   // be careful of rate limiting here
   const messages = await Promise.all(
     res.messages?.map(async (m) => {
+      // TODO: Use email provider to get the message which will parse it internally
       const message = await getMessage(m.id!, gmail);
       return parseMessage(message);
     }) || [],

@@ -55,6 +55,7 @@ export const loadSignatureFromGmailAction = actionClient
     // 2. loop through emails till we find a signature
     for (const message of messages.messages || []) {
       if (!message.id) continue;
+      // TODO: Use email provider to get the message which will parse it internally
       const messageWithPayload = await getMessage(message.id, gmail);
       const parsedEmail = parseMessage(messageWithPayload);
       if (!parsedEmail.labelIds?.includes(GmailLabel.SENT)) continue;
