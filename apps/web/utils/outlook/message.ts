@@ -9,20 +9,6 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
-export function isOutlookReplyInThread(
-  conversationIndex?: string | undefined,
-): boolean {
-  try {
-    return atob(conversationIndex || "").length > 22;
-  } catch (error) {
-    logger.warn("Invalid conversationIndex base64", {
-      conversationIndex,
-      error,
-    });
-    return false;
-  }
-}
-
 // Well-known folder names in Outlook that are consistent across all languages
 const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
@@ -281,30 +267,7 @@ async function convertMessages(
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => {
-      const labelIds = getOutlookLabels(message, folderIds);
-
-      return {
-        id: message.id || "",
-        threadId: message.conversationId || "",
-        conversationIndex: message.conversationIndex || undefined,
-        snippet: message.bodyPreview || "",
-        textPlain: message.body?.content || "",
-        textHtml: message.body?.content || "",
-        headers: {
-          from: message.from?.emailAddress?.address || "",
-          to: message.toRecipients?.[0]?.emailAddress?.address || "",
-          subject: message.subject || "",
-          date: message.receivedDateTime || new Date().toISOString(),
-        },
-        subject: message.subject || "",
-        date: message.receivedDateTime || new Date().toISOString(),
-        labelIds,
-        internalDate: message.receivedDateTime || new Date().toISOString(),
-        historyId: "",
-        inline: [],
-      };
-    });
+    .map((message: Message) => convertMessage(message, folderIds));
 }
 
 export async function getMessage(
@@ -322,26 +285,7 @@ export async function getMessage(
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
 
-  return {
-    id: message.id || "",
-    threadId: message.conversationId || "",
-    conversationIndex: message.conversationIndex || "",
-    snippet: message.bodyPreview || "",
-    textPlain: message.body?.content || "",
-    textHtml: message.body?.content || "",
-    headers: {
-      from: message.from?.emailAddress?.address || "",
-      to: message.toRecipients?.[0]?.emailAddress?.address || "",
-      subject: message.subject || "",
-      date: message.receivedDateTime || new Date().toISOString(),
-    },
-    subject: message.subject || "",
-    date: message.receivedDateTime || new Date().toISOString(),
-    labelIds: getOutlookLabels(message, folderIds),
-    internalDate: message.receivedDateTime || new Date().toISOString(),
-    historyId: "",
-    inline: [],
-  };
+  return convertMessage(message, folderIds);
 }
 
 export async function getMessages(
@@ -377,16 +321,16 @@ export async function getMessages(
   };
 }
 
-function parseOutlookMessage(
+export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
   return {
     id: message.id || "",
     threadId: message.conversationId || "",
-    conversationIndex: message.conversationIndex || "",
     snippet: message.bodyPreview || "",
     textPlain: message.body?.content || "",
+    textHtml: message.body?.content || "",
     headers: {
       from: message.from?.emailAddress?.address || "",
       to: message.toRecipients?.[0]?.emailAddress?.address || "",
@@ -396,8 +340,9 @@ function parseOutlookMessage(
     subject: message.subject || "",
     date: message.receivedDateTime || new Date().toISOString(),
     labelIds: getOutlookLabels(message, folderIds),
+    internalDate: message.receivedDateTime || new Date().toISOString(),
     historyId: "",
     inline: [],
-    internalDate: message.receivedDateTime || new Date().toISOString(),
+    conversationIndex: message.conversationIndex,
   };
 }

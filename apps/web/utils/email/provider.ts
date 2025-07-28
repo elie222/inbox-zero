@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage as getGmailMessage,
   getMessages as getGmailMessages,
@@ -272,6 +272,7 @@ export interface EmailProvider {
     subscriptionId?: string;
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
+  isReplyInThread(message: ParsedMessage): boolean;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -857,6 +858,11 @@ export class GmailProvider implements EmailProvider {
   async unwatchEmails(subscriptionId?: string): Promise<void> {
     await unwatchGmail(this.client);
   }
+
+  // Gmail: The first message id in a thread is the threadId
+  isReplyInThread(message: ParsedMessage): boolean {
+    return !!(message.id && message.id !== message.threadId);
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -1370,7 +1376,7 @@ export class OutlookProvider implements EmailProvider {
     let request = client
       .api(endpoint)
       .select(
-        "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+        "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
       )
       .top(options.maxResults || 50);
 
@@ -1407,6 +1413,7 @@ export class OutlookProvider implements EmailProvider {
       string,
       {
         conversationId: string;
+        conversationIndex?: string;
         id: string;
         bodyPreview: string;
         body: { content: string };
@@ -1473,6 +1480,7 @@ export class OutlookProvider implements EmailProvider {
             internalDate: date,
             historyId: "",
             inline: [],
+            conversationIndex: message.conversationIndex,
           };
         });
 
@@ -1603,6 +1611,18 @@ export class OutlookProvider implements EmailProvider {
       return;
     }
     await unwatchOutlook(this.client.getClient(), subscriptionId);
+  }
+
+  isReplyInThread(message: ParsedMessage): boolean {
+    try {
+      return atob(message.conversationIndex || "").length > 22;
+    } catch (error) {
+      logger.warn("Invalid conversationIndex base64", {
+        conversationIndex: message.conversationIndex,
+        error,
+      });
+      return false;
+    }
   }
 }
 

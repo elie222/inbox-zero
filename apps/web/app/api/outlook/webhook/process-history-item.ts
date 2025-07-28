@@ -101,7 +101,6 @@ export async function processHistoryItem(
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
-          conversationIndex: message.conversationIndex || undefined,
           headers: {
             from,
             to: to.join(","),
@@ -117,6 +116,7 @@ export async function processHistoryItem(
           date: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
+          conversationIndex: message.conversationIndex,
         },
         emailAccountId,
         userEmail,
@@ -217,7 +217,6 @@ export async function processHistoryItem(
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
-          conversationIndex: message.conversationIndex || undefined,
           headers: {
             from,
             to: to.join(","),
@@ -233,6 +232,7 @@ export async function processHistoryItem(
           date: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
+          conversationIndex: message.conversationIndex,
         },
         rules,
         emailAccount,
@@ -282,7 +282,6 @@ async function handleOutbound(
   const parsedMessage = {
     id: messageId,
     threadId: conversationId || messageId,
-    conversationIndex: message.conversationIndex || undefined,
     headers: messageHeaders,
     snippet: message.bodyPreview || "",
     historyId: message.id || messageId,
@@ -291,6 +290,7 @@ async function handleOutbound(
     date: message.receivedDateTime
       ? new Date(message.receivedDateTime).toISOString()
       : new Date().toISOString(),
+    conversationIndex: message.conversationIndex,
   };
 
   // Run tracking and outbound reply handling concurrently

@@ -6,7 +6,7 @@ import {
   simpleEmailCategoriesArray,
 } from "@/app/(app)/[emailAccountId]/simple/categories";
 import { PageHeading } from "@/components/Typography";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { SimpleModeOnboarding } from "@/app/(app)/[emailAccountId]/simple/SimpleModeOnboarding";
 import { ClientOnly } from "@/components/ClientOnly";
 import { getMessage, getMessages } from "@/utils/gmail/message";

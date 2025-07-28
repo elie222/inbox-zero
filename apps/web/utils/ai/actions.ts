@@ -111,6 +111,7 @@ const draft: ActionFunction<{
       inline: [],
       subject: email.headers.subject,
       date: email.headers.date,
+      labelIds: [],
     },
     draftArgs,
   );
