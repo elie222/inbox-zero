@@ -113,4 +113,9 @@ export type EmailForLLM = {
   subject: string;
   content: string;
   date?: Date;
+  attachments?: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+  }>;
 };
