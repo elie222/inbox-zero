@@ -15,5 +15,10 @@ export function getEmailForLLM(
     subject: message.headers.subject,
     content: emailToContent(message, contentOptions),
     date: internalDateToDate(message.internalDate),
+    attachments: message.attachments?.map((attachment) => ({
+      filename: attachment.filename,
+      mimeType: attachment.mimeType,
+      size: attachment.size,
+    })),
   };
 }
