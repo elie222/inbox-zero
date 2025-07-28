@@ -1,21 +1,5 @@
 import { z } from "zod";
-
-export const digestEmailSummarySchema = z.union([
-  z.object({
-    entries: z
-      .array(
-        z.object({
-          label: z.string().describe("The label of the summarized item"),
-          value: z.string().describe("The value of the summarized item"),
-        }),
-      )
-      .nullish()
-      .describe("An array of items summarizing the email content"),
-  }),
-  z.object({
-    summary: z.string().nullish().describe("A summary of the email content"),
-  }),
-]);
+import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 
 export type DigestEmailSummarySchema = z.infer<typeof digestEmailSummarySchema>;
 
