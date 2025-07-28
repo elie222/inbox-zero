@@ -391,8 +391,8 @@ describe("processHistoryItem", () => {
     // with reference to the existing cold email entry
     expect(enqueueDigestItem).toHaveBeenCalledWith({
       email: expect.objectContaining({
-        id: "123",
-        threadId: "thread-123",
+        id: "456",
+        threadId: "thread-456",
         headers: expect.objectContaining({
           from: "sender@example.com",
           subject: "Test Email",
