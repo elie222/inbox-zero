@@ -88,7 +88,7 @@ This email has already been categorized as: ${ruleName}.`;
 
     logger.trace("Result", { response: aiResponse.object });
 
-    // Check if the response has a summary property before logging
+    // Temporary logging to check the summarization output
     if ("summary" in aiResponse.object && aiResponse.object.summary) {
       logger.info("Summarized email as summary", {
         length: aiResponse.object.summary.length,
