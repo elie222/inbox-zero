@@ -372,15 +372,15 @@ describe("processHistoryItem", () => {
       hasAiAccess: true,
     };
 
-    await processHistoryItem(createHistoryItem(), options);
+    await processHistoryItem(createHistoryItem("456", "thread-456"), options);
 
     expect(runColdEmailBlocker).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
         subject: "Test Email",
         content: expect.any(String),
-        id: "123",
-        threadId: "thread-123",
+        id: "456",
+        threadId: "thread-456",
         date: expect.any(Date),
       }),
       gmail: options.gmail,
