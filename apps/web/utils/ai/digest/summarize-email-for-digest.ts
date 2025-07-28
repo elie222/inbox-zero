@@ -74,6 +74,8 @@ This email has already been categorized as: ${ruleName}.`;
 
   logger.trace("Input", { system, prompt });
 
+  logger.info("Summarizing email for digest");
+
   try {
     const aiResponse = await chatCompletionObject({
       userAi: emailAccount.user,
@@ -85,6 +87,19 @@ This email has already been categorized as: ${ruleName}.`;
     });
 
     logger.trace("Result", { response: aiResponse.object });
+
+    // Check if the response has a summary property before logging
+    if ("summary" in aiResponse.object && aiResponse.object.summary) {
+      logger.info("Summarized email as summary", {
+        length: aiResponse.object.summary.length,
+      });
+    } else if ("entries" in aiResponse.object && aiResponse.object.entries) {
+      logger.info("Summarized email as entries", {
+        length: aiResponse.object.entries.length,
+      });
+    } else {
+      logger.info("No summary or entries");
+    }
 
     return aiResponse.object;
   } catch (error) {

@@ -76,6 +76,8 @@ async function sendEmail({
     emailAccountId,
   });
 
+  logger.info("Acquired Gmail client for account", loggerOptions);
+
   const pendingDigests = await prisma.digest.findMany({
     where: {
       emailAccountId,
@@ -136,6 +138,8 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
+    logger.info("Fetching batch of messages", loggerOptions);
+
     // Skip Gmail API call if there are no messages to process
     let messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
@@ -144,6 +148,8 @@ async function sendEmail({
         messageIds,
       });
     }
+
+    logger.info("Fetched batch of messages", loggerOptions);
 
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
@@ -194,6 +200,8 @@ async function sendEmail({
 
     const token = await createUnsubscribeToken({ emailAccountId });
 
+    logger.info("Sending digest email", loggerOptions);
+
     // First, send the digest email and wait for it to complete
     await sendDigestEmail({
       from: env.RESEND_FROM_EMAIL,
@@ -205,6 +213,8 @@ async function sendEmail({
         ...executedRulesByRule,
       },
     });
+
+    logger.info("Digest email sent", loggerOptions);
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied
