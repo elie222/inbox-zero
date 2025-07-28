@@ -20,6 +20,7 @@ import type {
   ParsedMessage,
   ParsedMessageHeaders,
 } from "@/utils/types";
+import type { EmailProvider } from "@/utils/email/provider";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -27,7 +28,9 @@ import { getEmailAccount } from "@/__tests__/helpers";
 // Run with:
 // pnpm test match-rules.test.ts
 
-const gmail = {} as gmail_v1.Gmail;
+const client = {
+  isReplyInThread: vi.fn().mockReturnValue(false),
+} as unknown as EmailProvider;
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
@@ -508,7 +511,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client: client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -527,7 +530,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client: client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -546,7 +549,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBeUndefined();
@@ -576,7 +579,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -602,7 +605,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -626,7 +629,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBeUndefined();
@@ -667,7 +670,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -704,7 +707,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -740,7 +743,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule).toBeUndefined();
@@ -767,7 +770,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -793,7 +796,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -840,7 +843,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule).toBeUndefined();
@@ -885,7 +888,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     expect(result.rule?.id).toBe(rule.id);
@@ -931,7 +934,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     // Should match the first rule only
@@ -971,7 +974,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     // The rule should be excluded (not matched)
@@ -1017,7 +1020,7 @@ describe("findMatchingRule", () => {
       rules,
       message,
       emailAccount,
-      gmail,
+      client,
     });
 
     // Should match despite the display name format, due to the group rule
@@ -1050,7 +1053,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "noreply@company.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should return all rules when sender is a no-reply address
     expect(result).toHaveLength(2);
@@ -1078,7 +1081,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "user@example.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should return all rules when no TO_REPLY rule exists
     expect(result).toHaveLength(2);
@@ -1118,14 +1121,14 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "sender@example.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should filter out TO_REPLY rule
     expect(result).toHaveLength(1);
     expect(result).not.toContain(toReplyRule);
     expect(result).toContain(otherRule);
     expect(checkSenderReplyHistory).toHaveBeenCalledWith(
-      gmail,
+      client,
       "sender@example.com",
       10,
     );
@@ -1162,7 +1165,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "friend@example.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should keep TO_REPLY rule because sender has replied before
     expect(result).toHaveLength(2);
@@ -1195,7 +1198,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "newcontact@example.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should keep TO_REPLY rule because received count is low
     expect(result).toHaveLength(1);
@@ -1224,7 +1227,7 @@ describe("filterToReplyPreset", () => {
         headers: getHeaders({ from: email }),
       });
 
-      const result = await filterToReplyPreset([toReplyRule], message, gmail);
+      const result = await filterToReplyPreset([toReplyRule], message, client);
 
       // All no-reply variations should return the rule (not filtered)
       expect(result).toHaveLength(1);
@@ -1254,7 +1257,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "user@example.com" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should return all rules when error occurs
     expect(result).toHaveLength(1);
@@ -1275,7 +1278,7 @@ describe("filterToReplyPreset", () => {
       headers: getHeaders({ from: "" }),
     });
 
-    const result = await filterToReplyPreset(potentialMatches, message, gmail);
+    const result = await filterToReplyPreset(potentialMatches, message, client);
 
     // Should return all rules when no sender email
     expect(result).toHaveLength(1);
@@ -1310,9 +1313,6 @@ function getMessage(overrides: Partial<ParsedMessage> = {}): ParsedMessage {
   const message = {
     id: "m1",
     threadId: "m1",
-    metadata: {
-      provider: "gmail",
-    },
     headers: getHeaders(),
     ...overrides,
   };

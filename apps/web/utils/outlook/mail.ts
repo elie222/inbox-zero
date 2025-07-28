@@ -142,9 +142,6 @@ export async function forwardEmail(
     subject: originalMessage.subject || "",
     date: originalMessage.receivedDateTime || new Date().toISOString(),
     conversationIndex: originalMessage.conversationId || "",
-    metadata: {
-      provider: "microsoft-entra-id",
-    },
   };
 
   const forwardMessage: OutlookMessageRequest = {

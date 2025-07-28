@@ -14,25 +14,18 @@ import { sleep } from "@/utils/sleep";
 import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
+import parse from "gmail-api-parse-message";
 
 const logger = createScopedLogger("gmail/message");
-
-// Gmail: The first message id in a thread is the threadId
-export function isGmailReplyInThread(message: ParsedMessage): boolean {
-  return !!(message.id && message.id !== message.threadId);
-}
 
 export function parseMessage(
   message: MessageWithPayload,
 ): ParsedMessage & { subject: string; date: string } {
-  const parsed = parseMessage(message);
+  const parsed = parse(message) as ParsedMessage;
   return {
     ...parsed,
     subject: parsed.headers?.subject || "",
     date: parsed.headers?.date || "",
-    metadata: {
-      provider: "google" as const,
-    },
   };
 }
 

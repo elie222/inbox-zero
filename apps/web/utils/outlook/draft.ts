@@ -1,6 +1,6 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
-import { parseMessage } from "@/utils/outlook/message";
+import { convertMessage } from "@/utils/outlook/message";
 
 const logger = createScopedLogger("outlook/draft");
 
@@ -10,7 +10,7 @@ export async function getDraft(draftId: string, client: OutlookClient) {
       .getClient()
       .api(`/me/messages/${draftId}`)
       .get();
-    const message = parseMessage(response);
+    const message = convertMessage(response);
     return message;
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === 404)

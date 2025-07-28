@@ -150,9 +150,6 @@ export const testAiCustomContentAction = actionClient
           subject: "",
           date: new Date().toISOString(),
           labelIds: [],
-          metadata: {
-            provider: provider as "google" | "microsoft-entra-id",
-          },
         },
         rules,
         emailAccount,

@@ -173,8 +173,5 @@ export async function getThreadMessages(
     subject: msg.subject || "",
     date: msg.receivedDateTime || new Date().toISOString(),
     conversationIndex: msg.conversationIndex,
-    metadata: {
-      provider: "microsoft-entra-id",
-    },
   }));
 }

@@ -121,9 +121,6 @@ export async function processHistoryItem(
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
           conversationIndex: message.conversationIndex,
-          metadata: {
-            provider: "microsoft-entra-id" as const,
-          },
         },
         emailAccountId,
         userEmail,
@@ -239,14 +236,7 @@ export async function processHistoryItem(
           date: message.receivedDateTime
             ? new Date(message.receivedDateTime).toISOString()
             : new Date().toISOString(),
-          labelIds: [],
-          internalDate: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
-            : new Date().toISOString(),
           conversationIndex: message.conversationIndex,
-          metadata: {
-            provider: "microsoft-entra-id" as const,
-          },
         },
         rules,
         emailAccount,
@@ -304,14 +294,7 @@ async function handleOutbound(
     date: message.receivedDateTime
       ? new Date(message.receivedDateTime).toISOString()
       : new Date().toISOString(),
-    labelIds: [],
-    internalDate: message.receivedDateTime
-      ? new Date(message.receivedDateTime).toISOString()
-      : new Date().toISOString(),
     conversationIndex: message.conversationIndex,
-    metadata: {
-      provider: "microsoft-entra-id" as const,
-    },
   };
 
   // Run tracking and outbound reply handling concurrently

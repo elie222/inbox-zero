@@ -9,18 +9,6 @@ const logger = createScopedLogger("outlook/message");
 // Cache for folder IDs
 let folderIdCache: Record<string, string> | null = null;
 
-export function isOutlookReplyInThread(message: ParsedMessage): boolean {
-  try {
-    return atob(message.conversationIndex || "").length > 22;
-  } catch (error) {
-    logger.warn("Invalid conversationIndex base64", {
-      conversationIndex: message.conversationIndex,
-      error,
-    });
-    return false;
-  }
-}
-
 // Well-known folder names in Outlook that are consistent across all languages
 const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
@@ -279,7 +267,7 @@ async function convertMessages(
 ): Promise<ParsedMessage[]> {
   return messages
     .filter((message: Message) => !message.isDraft) // Filter out drafts
-    .map((message: Message) => parseMessage(message, folderIds));
+    .map((message: Message) => convertMessage(message, folderIds));
 }
 
 export async function getMessage(
@@ -297,7 +285,7 @@ export async function getMessage(
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
 
-  return parseMessage(message, folderIds);
+  return convertMessage(message, folderIds);
 }
 
 export async function getMessages(
@@ -333,7 +321,7 @@ export async function getMessages(
   };
 }
 
-export function parseMessage(
+export function convertMessage(
   message: Message,
   folderIds: Record<string, string> = {},
 ): ParsedMessage {
@@ -356,8 +344,5 @@ export function parseMessage(
     historyId: "",
     inline: [],
     conversationIndex: message.conversationIndex,
-    metadata: {
-      provider: "microsoft-entra-id" as const,
-    },
   };
 }

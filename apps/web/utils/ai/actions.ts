@@ -112,9 +112,6 @@ const draft: ActionFunction<{
       subject: email.headers.subject,
       date: email.headers.date,
       labelIds: [],
-      metadata: {
-        provider: client.name,
-      },
     },
     draftArgs,
   );
@@ -140,9 +137,6 @@ const reply: ActionFunction<{
       subject: email.headers.subject,
       date: email.headers.date,
       labelIds: [],
-      metadata: {
-        provider: client.name,
-      },
     },
     args.content,
   );
@@ -204,9 +198,6 @@ const forward: ActionFunction<{
       subject: email.headers.subject,
       date: email.headers.date,
       labelIds: [],
-      metadata: {
-        provider: client.name,
-      },
     },
     forwardArgs,
   );

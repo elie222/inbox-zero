@@ -272,6 +272,7 @@ export interface EmailProvider {
     subscriptionId?: string;
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
+  isReplyInThread(message: ParsedMessage): boolean;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -856,6 +857,11 @@ export class GmailProvider implements EmailProvider {
 
   async unwatchEmails(subscriptionId?: string): Promise<void> {
     await unwatchGmail(this.client);
+  }
+
+  // Gmail: The first message id in a thread is the threadId
+  isReplyInThread(message: ParsedMessage): boolean {
+    return !!(message.id && message.id !== message.threadId);
   }
 }
 
@@ -1475,9 +1481,6 @@ export class OutlookProvider implements EmailProvider {
             historyId: "",
             inline: [],
             conversationIndex: message.conversationIndex,
-            metadata: {
-              provider: "microsoft-entra-id" as const,
-            },
           };
         });
 
@@ -1608,6 +1611,18 @@ export class OutlookProvider implements EmailProvider {
       return;
     }
     await unwatchOutlook(this.client.getClient(), subscriptionId);
+  }
+
+  isReplyInThread(message: ParsedMessage): boolean {
+    try {
+      return atob(message.conversationIndex || "").length > 22;
+    } catch (error) {
+      logger.warn("Invalid conversationIndex base64", {
+        conversationIndex: message.conversationIndex,
+        error,
+      });
+      return false;
+    }
   }
 }
 
