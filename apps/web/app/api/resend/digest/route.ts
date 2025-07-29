@@ -172,13 +172,13 @@ async function sendEmail({
         const ruleName =
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail;
 
-        const category = camelCase(ruleName);
-        if (!ruleNameMap.has(category)) {
-          ruleNameMap.set(category, ruleName);
+        const ruleNameKey = camelCase(ruleName);
+        if (!ruleNameMap.has(ruleNameKey)) {
+          ruleNameMap.set(ruleNameKey, ruleName);
         }
 
-        if (!acc[category]) {
-          acc[category] = [];
+        if (!acc[ruleNameKey]) {
+          acc[ruleNameKey] = [];
         }
 
         let parsedContent: unknown;
@@ -196,7 +196,7 @@ async function sendEmail({
         const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
-          acc[category].push({
+          acc[ruleNameKey].push({
             content: contentResult.data,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
