@@ -173,7 +173,7 @@ export interface EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
-  labelMessage(messageId: string, labelNames: string): Promise<void>;
+  labelMessage(messageId: string, labelName: string): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getAwaitingReplyLabel(): Promise<string>;
   draftEmail(

@@ -1,9 +1,6 @@
 import { z } from "zod";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { getOrCreateInboxZeroLabel, GmailLabel } from "@/utils/gmail/label";
-import { labelMessage } from "@/utils/gmail/label";
 import type { ColdEmail } from "@prisma/client";
 import {
   ColdEmailSetting,
@@ -14,7 +11,6 @@ import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
-import { hasPreviousCommunicationsWithSenderOrDomain } from "@/utils/gmail/message";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/provider";
 
