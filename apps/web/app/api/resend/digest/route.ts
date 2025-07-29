@@ -2,27 +2,21 @@ import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import { camelCase } from "lodash";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { getMessagesLargeBatch } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  digestCategorySchema,
-  sendDigestEmailBody,
-  type Digest,
-  DigestEmailSummarySchema,
-} from "./validation";
+import { sendDigestEmailBody, type Digest } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 
 export const maxDuration = 60;
 
@@ -81,6 +75,8 @@ async function sendEmail({
     expiresAt: emailAccount.tokens.expires_at,
     emailAccountId,
   });
+
+  logger.info("Acquired Gmail client for account", loggerOptions);
 
   const pendingDigests = await prisma.digest.findMany({
     where: {
@@ -142,6 +138,8 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
+    logger.info("Fetching batch of messages", loggerOptions);
+
     // Skip Gmail API call if there are no messages to process
     let messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
@@ -150,6 +148,8 @@ async function sendEmail({
         messageIds,
       });
     }
+
+    logger.info("Fetched batch of messages", loggerOptions);
 
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
@@ -185,14 +185,11 @@ async function sendEmail({
           return; // Skip this item and continue with the next one
         }
 
-        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
           acc[category].push({
-            content: {
-              entries: contentResult.data?.entries || [],
-              summary: contentResult.data?.summary,
-            },
+            content: contentResult.data,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
           });
@@ -202,6 +199,8 @@ async function sendEmail({
     }, {} as Digest);
 
     const token = await createUnsubscribeToken({ emailAccountId });
+
+    logger.info("Sending digest email", loggerOptions);
 
     // First, send the digest email and wait for it to complete
     await sendDigestEmail({
@@ -214,6 +213,8 @@ async function sendEmail({
         ...executedRulesByRule,
       },
     });
+
+    logger.info("Digest email sent", loggerOptions);
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied
