@@ -7,8 +7,9 @@ import { ConfirmationStep } from "@/app/(app)/[emailAccountId]/clean/Confirmatio
 import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/[emailAccountId]/clean/types";
 import { CleanAction } from "@prisma/client";
-import { getGmailClientForEmailId } from "@/utils/account";
+import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
+import prisma from "@/utils/prisma";
 
 export default async function CleanPage(props: {
   params: Promise<{ emailAccountId: string }>;
@@ -27,8 +28,18 @@ export default async function CleanPage(props: {
   const { emailAccountId } = await props.params;
   await checkUserOwnsEmailAccount({ emailAccountId });
 
-  const gmail = await getGmailClientForEmailId({ emailAccountId });
-  const { unhandledCount } = await getUnhandledCount(gmail);
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: { select: { provider: true } },
+    },
+  });
+
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount?.account.provider ?? null,
+  });
+  const { unhandledCount } = await getUnhandledCount(emailProvider);
 
   const searchParams = await props.searchParams;
   const step = searchParams.step

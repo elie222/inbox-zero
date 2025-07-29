@@ -1,6 +1,12 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 type Context = {
   handled: Record<string, boolean>;
@@ -26,7 +32,7 @@ const SimpleProgressContext = createContext<Context>(initialState);
 export const useSimpleProgress = () => useContext(SimpleProgressContext);
 
 export function SimpleEmailStateProvider(props: { children: React.ReactNode }) {
-  const [state, setState] = React.useState<{
+  const [state, setState] = useState<{
     handled: Record<string, boolean>;
     toHandleLater: Record<string, boolean>;
     startTime: Date;

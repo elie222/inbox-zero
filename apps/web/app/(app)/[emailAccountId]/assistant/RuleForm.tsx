@@ -50,7 +50,6 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Combobox } from "@/components/Combobox";
 import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
-import type { LabelsResponse } from "@/app/api/google/labels/route";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
 import { hasVariables } from "@/utils/template";
@@ -91,6 +90,7 @@ import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
+import type { EmailLabel } from "@/providers/EmailProvider";
 
 export function Rule({
   ruleId,
@@ -979,7 +979,7 @@ function ActionCard({
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   control: ReturnType<typeof useForm<CreateRuleBody>>["control"];
   errors: any;
-  userLabels: NonNullable<LabelsResponse["labels"]>;
+  userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
   emailAccountId: string;
@@ -1328,7 +1328,7 @@ function LabelCombobox({
 }: {
   value: string;
   onChangeValue: (value: string) => void;
-  userLabels: NonNullable<LabelsResponse["labels"]>;
+  userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
   emailAccountId: string;

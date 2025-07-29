@@ -26,6 +26,7 @@ import { getUnhandledCount } from "@/utils/assess";
 import { getGmailClientForEmail } from "@/utils/account";
 import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -94,7 +95,11 @@ export const cleanInboxAction = actionClient
       // };
 
       const process = async () => {
-        const { type } = await getUnhandledCount(gmail);
+        const provider = await createEmailProvider({
+          emailAccountId,
+          provider: "google",
+        });
+        const { type } = await getUnhandledCount(provider);
 
         // const labels = await getLabels(data.instructions);
 

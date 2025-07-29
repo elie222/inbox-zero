@@ -4,10 +4,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Markdown } from "tiptap-markdown";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import { useImperativeHandle, forwardRef, useMemo, useState } from "react";
+import { useImperativeHandle, forwardRef } from "react";
 import { cn } from "@/utils";
 import { createLabelMentionExtension } from "./extensions/LabelMention";
-import type { UserLabel } from "@/hooks/useLabels";
+import type { EmailLabel } from "@/providers/EmailProvider";
 import "./SimpleRichTextEditor.css";
 
 interface SimpleRichTextEditorProps {
@@ -15,7 +15,7 @@ interface SimpleRichTextEditorProps {
   className?: string;
   defaultValue?: string;
   minHeight?: number;
-  userLabels?: UserLabel[];
+  userLabels?: EmailLabel[];
   onClearContents?: () => void;
 }
 

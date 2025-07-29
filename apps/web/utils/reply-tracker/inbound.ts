@@ -1,33 +1,33 @@
 import prisma from "@/utils/prisma";
 import { ActionType, ThreadTrackerType } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getAwaitingReplyLabel } from "@/utils/reply-tracker/label";
-import { removeThreadLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import type { OutlookClient } from "@/utils/outlook/client";
+import type { EmailProvider } from "@/utils/email/provider";
 
 /**
  * Marks an email thread as needing a reply.
  * This function coordinates the process of:
  * 1. Updating thread trackers in the database
- * 2. Managing Gmail labels
+ * 2. Managing Gmail/Outlook labels
  */
 export async function coordinateReplyProcess({
   emailAccountId,
   threadId,
   messageId,
   sentAt,
-  gmail,
+  client,
 }: {
   emailAccountId: string;
   threadId: string;
   messageId: string;
   sentAt: Date;
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
 }) {
   const logger = createScopedLogger("reply-tracker/inbound").with({
     emailAccountId,
@@ -37,8 +37,6 @@ export async function coordinateReplyProcess({
 
   logger.info("Marking thread as needs reply");
 
-  const awaitingReplyLabelId = await getAwaitingReplyLabel(gmail);
-
   // Process in parallel for better performance
   const dbPromise = updateThreadTrackers({
     emailAccountId,
@@ -46,10 +44,10 @@ export async function coordinateReplyProcess({
     messageId,
     sentAt,
   });
-  const labelsPromise = removeThreadLabel(
-    gmail,
+
+  const labelsPromise = client.removeThreadLabel(
     threadId,
-    awaitingReplyLabelId,
+    await client.getAwaitingReplyLabel(),
   );
 
   const [dbResult, labelsResult] = await Promise.allSettled([
@@ -62,7 +60,7 @@ export async function coordinateReplyProcess({
   }
 
   if (labelsResult.status === "rejected") {
-    logger.error("Failed to update Gmail labels", {
+    logger.error("Failed to update labels", {
       error: labelsResult.reason,
     });
   }
@@ -119,11 +117,11 @@ async function updateThreadTrackers({
 export async function handleInboundReply({
   emailAccount,
   message,
-  gmail,
+  client,
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
 }) {
   // 1. Run rules check
   // 2. If the reply tracking rule is selected then mark as needs reply
@@ -159,7 +157,7 @@ export async function handleInboundReply({
       threadId: message.threadId,
       messageId: message.id,
       sentAt: internalDateToDate(message.internalDate),
-      gmail,
+      client,
     });
   }
 }

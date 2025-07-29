@@ -5,8 +5,8 @@ import Link from "next/link";
 import { HistoryIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
-import type { ThreadsResponse } from "@/app/api/google/threads/controller";
-import type { ThreadsQuery } from "@/app/api/google/threads/validation";
+import type { ThreadsResponse } from "@/app/api/threads/route";
+import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { runAiRules } from "@/utils/queue/email-actions";
 import { sleep } from "@/utils/sleep";
@@ -176,7 +176,7 @@ async function onRun(
         q,
       };
       const res = await fetchWithAccount({
-        url: `/api/google/threads?${new URLSearchParams(query as any).toString()}`,
+        url: `/api/threads?${new URLSearchParams(query as any).toString()}`,
         emailAccountId,
       });
       const data: ThreadsResponse = await res.json();

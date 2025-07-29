@@ -7,6 +7,7 @@ import { markQStashActionAsExecuting } from "@/utils/scheduled-actions/scheduler
 import { executeScheduledAction } from "@/utils/scheduled-actions/executor";
 import prisma from "@/utils/prisma";
 import { ScheduledActionStatus } from "@prisma/client";
+import { createEmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("scheduled-actions-executor");
 
@@ -46,7 +47,11 @@ export const POST = verifySignatureAppRouter(
       const scheduledAction = await prisma.scheduledAction.findUnique({
         where: { id: payload.scheduledActionId },
         include: {
-          emailAccount: true,
+          emailAccount: {
+            include: {
+              account: true,
+            },
+          },
           executedRule: true,
         },
       });
@@ -85,8 +90,14 @@ export const POST = verifySignatureAppRouter(
         return new Response("Action already being processed", { status: 200 });
       }
 
-      // Execute the action
-      const executionResult = await executeScheduledAction(scheduledAction);
+      const provider = await createEmailProvider({
+        emailAccountId: scheduledAction.emailAccountId,
+        provider: scheduledAction.emailAccount.account.provider,
+      });
+      const executionResult = await executeScheduledAction(
+        scheduledAction,
+        provider,
+      );
 
       if (executionResult.success) {
         logger.info("Successfully executed QStash scheduled action", {
