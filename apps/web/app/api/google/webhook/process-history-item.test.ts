@@ -6,10 +6,7 @@ import {
 import { ColdEmailSetting } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import {
-  runColdEmailBlocker,
-  runColdEmailBlockerWithProvider,
-} from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
@@ -335,7 +332,7 @@ describe("processHistoryItem", () => {
   });
 
   it("should process normally when cold email is not detected with coldEmailDigest enabled", async () => {
-    vi.mocked(runColdEmailBlocker).mockResolvedValueOnce({
+    vi.mocked(runColdEmailBlockerWithProvider).mockResolvedValueOnce({
       isColdEmail: false,
       reason: "hasPreviousEmail",
     });

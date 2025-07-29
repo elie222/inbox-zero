@@ -219,32 +219,6 @@ ${stringifyEmail(email, 500)}
   return response.object;
 }
 
-export async function runColdEmailBlocker(options: {
-  email: EmailForLLM & { threadId: string };
-  provider: EmailProvider;
-  emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
-    EmailAccountWithAI;
-}): Promise<{
-  isColdEmail: boolean;
-  reason: ColdEmailBlockerReason;
-  aiReason?: string | null;
-  coldEmailId?: string | null;
-}> {
-  const response = await isColdEmailWithProvider({
-    email: options.email,
-    emailAccount: options.emailAccount,
-    provider: options.provider,
-  });
-
-  if (!response.isColdEmail) return { ...response, coldEmailId: null };
-
-  const coldEmail = await blockColdEmail({
-    ...options,
-    aiReason: response.aiReason ?? null,
-  });
-  return { ...response, coldEmailId: coldEmail.id };
-}
-
 export async function runColdEmailBlockerWithProvider(options: {
   email: EmailForLLM & { threadId: string };
   provider: EmailProvider;
