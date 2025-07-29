@@ -15,6 +15,7 @@ import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
+import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -165,42 +166,39 @@ export async function getMessagesBatch({
 }
 
 async function findPreviousEmailsWithSender(
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
   options: {
     sender: string;
     dateInSeconds: number;
   },
 ) {
-  // Check for both incoming emails from sender and outgoing emails to sender
+  const beforeDate = new Date(options.dateInSeconds * 1000);
   const [incomingEmails, outgoingEmails] = await Promise.all([
-    // Incoming
-    gmail.users.messages.list({
-      userId: "me",
-      q: `from:${options.sender} before:${options.dateInSeconds}`,
+    client.getMessagesWithPagination({
+      query: `from:${options.sender}`,
       maxResults: 2,
+      before: beforeDate,
     }),
-    // Outgoing
-    gmail.users.messages.list({
-      userId: "me",
-      q: `to:${options.sender} before:${options.dateInSeconds}`,
-      maxResults: 1,
+    client.getMessagesWithPagination({
+      query: `to:${options.sender}`,
+      maxResults: 2,
+      before: beforeDate,
     }),
   ]);
 
-  // Combine both incoming and outgoing messages
   const allMessages = [
-    ...(incomingEmails.data.messages || []),
-    ...(outgoingEmails.data.messages || []),
+    ...(incomingEmails.messages || []),
+    ...(outgoingEmails.messages || []),
   ];
 
   return allMessages;
 }
 
 export async function hasPreviousCommunicationWithSender(
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
   options: { from: string; date: Date; messageId: string },
 ) {
-  const previousEmails = await findPreviousEmailsWithSender(gmail, {
+  const previousEmails = await findPreviousEmailsWithSender(client, {
     sender: options.from,
     dateInSeconds: +new Date(options.date) / 1000,
   });
@@ -229,11 +227,11 @@ const PUBLIC_DOMAINS = new Set([
 ]);
 
 export async function hasPreviousCommunicationsWithSenderOrDomain(
-  gmail: gmail_v1.Gmail,
+  client: EmailProvider,
   options: { from: string; date: Date; messageId: string },
 ) {
   const domain = extractDomainFromEmail(options.from);
-  if (!domain) return hasPreviousCommunicationWithSender(gmail, options);
+  if (!domain) return hasPreviousCommunicationWithSender(client, options);
 
   // For public email providers (gmail, yahoo, etc), search by full email address
   // For company domains, search by domain to catch emails from different people at same company
@@ -241,7 +239,7 @@ export async function hasPreviousCommunicationsWithSenderOrDomain(
     ? options.from
     : domain;
 
-  return hasPreviousCommunicationWithSender(gmail, {
+  return hasPreviousCommunicationWithSender(client, {
     ...options,
     from: searchTerm,
   });

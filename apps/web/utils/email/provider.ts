@@ -799,7 +799,7 @@ export class GmailProvider implements EmailProvider {
     date: Date;
     messageId: string;
   }): Promise<boolean> {
-    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
+    return hasPreviousCommunicationsWithSenderOrDomain(this, options);
   }
 
   async getThreadsFromSenderWithSubject(
