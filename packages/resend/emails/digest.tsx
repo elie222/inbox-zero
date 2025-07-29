@@ -20,8 +20,8 @@ type DigestEntry = {
 };
 
 type DigestContent = {
-  entries?: DigestEntry[] | undefined | null;
-  summary?: string | undefined | null;
+  type: "structured" | "unstructured";
+  content: DigestEntry[] | string;
 };
 
 type DigestItem = {
@@ -79,7 +79,14 @@ export type DigestEmailProps = {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  [key: string]: DigestItem[] | undefined | string | Date | undefined;
+  ruleNames?: Record<string, string>;
+  [key: string]:
+    | DigestItem[]
+    | undefined
+    | string
+    | Date
+    | Record<string, string>
+    | undefined;
 };
 
 export default function DigestEmail(props: DigestEmailProps) {
@@ -87,6 +94,7 @@ export default function DigestEmail(props: DigestEmailProps) {
     baseUrl = "https://www.getinboxzero.com",
     unsubscribeToken,
     date,
+    ruleNames,
     ...digestData
   } = props;
 
@@ -136,12 +144,19 @@ export default function DigestEmail(props: DigestEmailProps) {
   };
 
   const getCategoryInfo = (key: string) => {
+    const displayName = ruleNames?.[key] || key;
     if (key in availableCategories) {
-      return availableCategories[key as keyof typeof availableCategories];
+      const categoryInfo =
+        availableCategories[key as keyof typeof availableCategories];
+      return {
+        ...categoryInfo,
+        name: displayName,
+      };
     }
+
     // Fallback for unknown categories
     return {
-      name: key,
+      name: displayName,
       emoji: "📂",
       color: "gray",
       href: `#${key}`,
@@ -174,11 +189,12 @@ export default function DigestEmail(props: DigestEmailProps) {
           Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
       )
       .map((key) => {
+        const items = digestData[key] as DigestItem[];
         const info = getCategoryInfo(key);
         return {
           key,
           ...info,
-          count: (digestData[key] as DigestItem[]).length,
+          count: items.length,
         };
       });
 
@@ -290,28 +306,31 @@ export default function DigestEmail(props: DigestEmailProps) {
               <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                 {item.from}
               </Text>
-              {item.content &&
-              Array.isArray(item.content.entries) &&
-              item.content.entries.length > 0 ? (
+              {item.content?.type === "structured" &&
+              Array.isArray(item.content.content) ? (
                 <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
-                  {item.content.entries.map((entry, idx) => (
-                    <Row key={idx} className="mb-0 p-0">
-                      <Column>
-                        <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
-                          {entry.label}
-                        </Text>
-                      </Column>
-                      <Column align="right">
-                        <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
-                          {entry.value}
-                        </Text>
-                      </Column>
-                    </Row>
-                  ))}
+                  {item.content.content.map(
+                    (entry: DigestEntry, idx: number) => (
+                      <Row key={idx} className="mb-0 p-0">
+                        <Column>
+                          <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                            {entry.label}
+                          </Text>
+                        </Column>
+                        <Column align="right">
+                          <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                            {entry.value}
+                          </Text>
+                        </Column>
+                      </Row>
+                    ),
+                  )}
                 </Section>
               ) : (
                 <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
-                  {item.content?.summary}
+                  {item.content?.type === "unstructured"
+                    ? (item.content.content as string)
+                    : ""}
                 </Text>
               )}
             </div>
@@ -377,6 +396,17 @@ export default function DigestEmail(props: DigestEmailProps) {
 DigestEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   unsubscribeToken: "123",
+  ruleNames: {
+    newsletter: "Newsletter",
+    receipt: "Receipt",
+    marketing: "Marketing",
+    calendar: "Calendar",
+    coldEmail: "Cold Email",
+    notification: "Notification",
+    toReply: "To Reply",
+    travel: "Travel",
+    funnyStuff: "Funny Stuff",
+  },
   newsletter: [
     {
       from: "Morning Brew",
