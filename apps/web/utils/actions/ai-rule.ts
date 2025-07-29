@@ -179,6 +179,7 @@ export const createAutomationAction = actionClient
     const createdRule = await safeCreateRule({
       result,
       emailAccountId,
+      shouldCreateIfDuplicate: true,
     });
     return createdRule;
   });
@@ -471,6 +472,7 @@ export const saveRulesPromptAction = actionClient
         result: rule,
         emailAccountId,
         categoryNames: rule.condition.categories?.categoryFilters || [],
+        shouldCreateIfDuplicate: false,
       });
     }
 

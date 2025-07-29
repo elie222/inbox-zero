@@ -33,6 +33,7 @@ import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import {
+  createToReplyRule,
   enableDraftReplies,
   enableReplyTracker,
 } from "@/utils/reply-tracker/enable";
@@ -46,6 +47,8 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
+import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
+import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -348,16 +351,25 @@ export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
   .schema(enableDraftRepliesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
-    const rule = await prisma.rule.findUnique({
+    let rule = await prisma.rule.findUnique({
       where: {
         emailAccountId_systemType: {
           emailAccountId,
           systemType: SystemType.TO_REPLY,
         },
       },
-      select: { id: true, actions: true },
+      include: { actions: true },
     });
-    if (!rule) throw new SafeError("Rule not found");
+
+    if (!rule) {
+      const newRule = await createToReplyRule(emailAccountId, false);
+
+      if (!newRule) {
+        throw new SafeError("Failed to create To Reply rule");
+      }
+
+      rule = newRule;
+    }
 
     if (enable) {
       await enableDraftReplies(rule);
@@ -370,7 +382,6 @@ export const enableDraftRepliesAction = actionClient
       });
     }
 
-    revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`));
     revalidatePath(prefixPath(emailAccountId, "/assistant"));
     revalidatePath(prefixPath(emailAccountId, "/automation"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));

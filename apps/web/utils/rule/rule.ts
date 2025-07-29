@@ -36,12 +36,14 @@ export async function safeCreateRule({
   categoryNames,
   systemType,
   triggerType = "ai_creation",
+  shouldCreateIfDuplicate,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryNames?: string[] | null;
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
+  shouldCreateIfDuplicate: boolean; // maybe this should just always be false?
 }) {
   const categoryIds = await getUserCategoriesForNames({
     emailAccountId,
@@ -59,14 +61,26 @@ export async function safeCreateRule({
     return rule;
   } catch (error) {
     if (isDuplicateError(error, "name")) {
-      // if rule name already exists, create a new rule with a unique name
-      const rule = await createRule({
-        result: { ...result, name: `${result.name} - ${Date.now()}` },
-        emailAccountId,
-        categoryIds,
-        triggerType,
-      });
-      return rule;
+      if (shouldCreateIfDuplicate) {
+        // if rule name already exists, create a new rule with a unique name
+        const rule = await createRule({
+          result: { ...result, name: `${result.name} - ${Date.now()}` },
+          emailAccountId,
+          categoryIds,
+          triggerType,
+        });
+        return rule;
+      } else {
+        return prisma.rule.findUnique({
+          where: {
+            name_emailAccountId: {
+              emailAccountId,
+              name: result.name,
+            },
+          },
+          include: { actions: true, categoryFilters: true, group: true },
+        });
+      }
     }
 
     logger.error("Error creating rule", {
