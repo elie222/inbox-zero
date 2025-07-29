@@ -25,11 +25,11 @@ type ColdEmailBlockerReason = "hasPreviousEmail" | "ai" | "ai-already-labeled";
 export async function isColdEmail({
   email,
   emailAccount,
-  gmail,
+  provider,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -59,7 +59,7 @@ export async function isColdEmail({
 
   const hasPreviousEmail =
     email.date && email.id
-      ? await hasPreviousCommunicationsWithSenderOrDomain(gmail, {
+      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
           from: email.from,
           date: email.date,
           messageId: email.id,
@@ -221,7 +221,7 @@ ${stringifyEmail(email, 500)}
 
 export async function runColdEmailBlocker(options: {
   email: EmailForLLM & { threadId: string };
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
   emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
     EmailAccountWithAI;
 }): Promise<{
@@ -230,7 +230,11 @@ export async function runColdEmailBlocker(options: {
   aiReason?: string | null;
   coldEmailId?: string | null;
 }> {
-  const response = await isColdEmail(options);
+  const response = await isColdEmailWithProvider({
+    email: options.email,
+    emailAccount: options.emailAccount,
+    provider: options.provider,
+  });
 
   if (!response.isColdEmail) return { ...response, coldEmailId: null };
 
@@ -241,7 +245,6 @@ export async function runColdEmailBlocker(options: {
   return { ...response, coldEmailId: coldEmail.id };
 }
 
-// New function that works with EmailProvider
 export async function runColdEmailBlockerWithProvider(options: {
   email: EmailForLLM & { threadId: string };
   provider: EmailProvider;
@@ -269,12 +272,12 @@ export async function runColdEmailBlockerWithProvider(options: {
 }
 
 export async function blockColdEmail(options: {
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
   email: { from: string; id: string; threadId: string };
   emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
   aiReason: string | null;
 }): Promise<ColdEmail> {
-  const { gmail, email, emailAccount, aiReason } = options;
+  const { provider, email, emailAccount, aiReason } = options;
 
   const coldEmail = await prisma.coldEmail.upsert({
     where: {
@@ -301,12 +304,10 @@ export async function blockColdEmail(options: {
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
   ) {
     if (!emailAccount.email) throw new Error("User email is required");
-    const coldEmailLabel = await getOrCreateInboxZeroLabel({
-      gmail,
-      key: "cold_email",
-    });
+    const coldEmailLabel =
+      await provider.getOrCreateInboxZeroLabel("cold_email");
     if (!coldEmailLabel?.id)
-      logger.error("No gmail label id", { emailAccountId: emailAccount.id });
+      logger.error("No label id", { emailAccountId: emailAccount.id });
 
     const shouldArchive =
       emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
@@ -317,19 +318,18 @@ export async function blockColdEmail(options: {
       emailAccount.coldEmailBlocker ===
       ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
 
-    const addLabelIds: string[] = [];
-    if (coldEmailLabel?.id) addLabelIds.push(coldEmailLabel.id);
+    const labels: string[] = [];
+    if (coldEmailLabel?.name) labels.push(coldEmailLabel.name);
 
-    const removeLabelIds: string[] = [];
-    if (shouldArchive) removeLabelIds.push(GmailLabel.INBOX);
-    if (shouldMarkRead) removeLabelIds.push(GmailLabel.UNREAD);
+    if (shouldArchive) {
+      await provider.archiveThread(email.threadId, emailAccount.email);
+    }
 
-    await labelMessage({
-      gmail,
-      messageId: email.id,
-      addLabelIds: addLabelIds.length ? addLabelIds : undefined,
-      removeLabelIds: removeLabelIds.length ? removeLabelIds : undefined,
-    });
+    if (shouldMarkRead) {
+      await provider.markReadThread(email.threadId, true);
+    }
+
+    await provider.labelMessage(email.id, labels);
   }
 
   return coldEmail;

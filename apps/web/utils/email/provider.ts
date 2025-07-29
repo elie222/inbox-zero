@@ -173,7 +173,10 @@ export interface EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void>;
-  labelMessage(messageId: string, labelName: string): Promise<void>;
+  labelMessage(
+    messageId: string,
+    labelNames: string | string[] | undefined,
+  ): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getAwaitingReplyLabel(): Promise<string>;
   draftEmail(
@@ -403,17 +406,31 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await gmailGetOrCreateLabel({
-      gmail: this.client,
-      name: labelName,
-    });
-    if (!label.id)
-      throw new Error("Label not found and unable to create label");
+  async labelMessage(
+    messageId: string,
+    labelNames: string | string[] | undefined,
+  ): Promise<void> {
+    if (!labelNames) return;
+
+    const normalizeLabels = (labels: string | string[] | undefined) =>
+      Array.isArray(labels) ? labels : labels ? [labels] : [];
+
+    const createLabel = async (name: string) => {
+      const label = await gmailGetOrCreateLabel({ gmail: this.client, name });
+      if (!label.id)
+        throw new Error(`Label not found and unable to create label: ${name}`);
+      return label.id;
+    };
+
+    const addLabels = await Promise.all(
+      normalizeLabels(labelNames).map(createLabel),
+    );
+
     await gmailLabelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [label.id],
+      addLabelIds: addLabels,
+      removeLabelIds: [],
     });
   }
 
@@ -799,7 +816,7 @@ export class GmailProvider implements EmailProvider {
     date: Date;
     messageId: string;
   }): Promise<boolean> {
-    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
+    return hasPreviousCommunicationsWithSenderOrDomain(this, options);
   }
 
   async getThreadsFromSenderWithSubject(
@@ -998,15 +1015,30 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await outlookGetOrCreateLabel({
-      client: this.client,
-      name: labelName,
-    });
+  async labelMessage(
+    messageId: string,
+    labelNames: string | string[] | undefined,
+  ): Promise<void> {
+    if (!labelNames) return;
+
+    const labelNamesArray = Array.isArray(labelNames)
+      ? labelNames
+      : [labelNames].filter((name) => name);
+
+    const labels = await Promise.all(
+      labelNamesArray.map(async (labelName) => {
+        const label = await outlookGetOrCreateLabel({
+          client: this.client,
+          name: labelName,
+        });
+        return label.displayName || "";
+      }),
+    );
+
     await outlookLabelMessage({
       client: this.client,
       messageId,
-      categories: [label.displayName || ""],
+      categories: labels,
     });
   }
 
