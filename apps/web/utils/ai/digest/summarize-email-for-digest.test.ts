@@ -1,8 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import { createScopedLogger } from "@/utils/logger";
-import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
+import { schema as DigestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 
@@ -10,7 +8,6 @@ import type { EmailForLLM } from "@/utils/types";
 
 vi.mock("server-only", () => ({}));
 
-// Skip tests unless explicitly running AI tests
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
@@ -49,7 +46,8 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
     console.debug("Generated content:\n", result);
 
     expect(result).toMatchObject({
-      entries: expect.arrayContaining([
+      type: "structured",
+      content: expect.arrayContaining([
         expect.objectContaining({
           label: expect.any(String),
           value: expect.any(String),
@@ -89,7 +87,8 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
     console.debug("Generated content:\n", result);
 
     expect(result).toMatchObject({
-      summary: expect.any(String),
+      type: "unstructured",
+      content: expect.any(String),
     });
   }, 15_000);
 
@@ -122,8 +121,11 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
 
     console.debug("Generated content:\n", result);
 
-    // Empty emails should return null as they're not worth summarizing
-    expect(result).toBeNull();
+    // Empty emails should return unstructured content
+    expect(result).toMatchObject({
+      type: "unstructured",
+      content: expect.any(String),
+    });
   }, 15_000);
 
   test("handles null message", async () => {
