@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import prisma from "@/utils/prisma";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
-import { blockColdEmail } from "./is-cold-email";
+import { blockColdEmailWithProvider } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/provider";
 
@@ -40,7 +40,13 @@ describe("blockColdEmail", () => {
   });
 
   it("should upsert cold email record in database", async () => {
-    await blockColdEmail({
+    vi.mocked(mockProvider.getOrCreateInboxZeroLabel).mockResolvedValue({
+      id: "label123",
+      name: "Cold Email",
+      type: "user",
+    });
+
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
@@ -73,7 +79,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmail({
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
@@ -83,9 +89,10 @@ describe("blockColdEmail", () => {
     expect(mockProvider.getOrCreateInboxZeroLabel).toHaveBeenCalledWith(
       "cold_email",
     );
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(mockEmail.id, [
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
+      mockEmail.id,
       "Cold Email",
-    ]);
+    );
   });
 
   it("should archive email when coldEmailBlocker is ARCHIVE_AND_LABEL", async () => {
@@ -99,16 +106,17 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmail({
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithArchive,
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(mockEmail.id, [
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
+      mockEmail.id,
       "Cold Email",
-    ]);
+    );
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
       userWithArchive.email,
@@ -126,16 +134,17 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmail({
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithArchiveAndRead,
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(mockEmail.id, [
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
+      mockEmail.id,
       "Cold Email",
-    ]);
+    );
     expect(mockProvider.archiveThread).toHaveBeenCalledWith(
       mockEmail.threadId,
       userWithArchiveAndRead.email,
@@ -150,7 +159,7 @@ describe("blockColdEmail", () => {
     const userWithoutEmail = { ...mockEmailAccount, email: null as any };
 
     await expect(
-      blockColdEmail({
+      blockColdEmailWithProvider({
         provider: mockProvider,
         email: mockEmail,
         emailAccount: userWithoutEmail,
@@ -166,16 +175,17 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmail({
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
       aiReason: mockAiReason,
     });
 
-    expect(mockProvider.labelMessage).toHaveBeenCalledWith(mockEmail.id, [
+    expect(mockProvider.labelMessage).toHaveBeenCalledWith(
+      mockEmail.id,
       "Cold Email",
-    ]);
+    );
   });
 
   it("should not modify labels when coldEmailBlocker is DISABLED", async () => {
@@ -184,7 +194,7 @@ describe("blockColdEmail", () => {
       coldEmailBlocker: ColdEmailSetting.DISABLED,
     };
 
-    await blockColdEmail({
+    await blockColdEmailWithProvider({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithBlockerOff,

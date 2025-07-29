@@ -245,70 +245,6 @@ export async function runColdEmailBlockerWithProvider(options: {
   return { ...response, coldEmailId: coldEmail.id };
 }
 
-export async function blockColdEmail(options: {
-  provider: EmailProvider;
-  email: { from: string; id: string; threadId: string };
-  emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;
-  aiReason: string | null;
-}): Promise<ColdEmail> {
-  const { provider, email, emailAccount, aiReason } = options;
-
-  const coldEmail = await prisma.coldEmail.upsert({
-    where: {
-      emailAccountId_fromEmail: {
-        emailAccountId: emailAccount.id,
-        fromEmail: email.from,
-      },
-    },
-    update: { status: ColdEmailStatus.AI_LABELED_COLD },
-    create: {
-      status: ColdEmailStatus.AI_LABELED_COLD,
-      fromEmail: email.from,
-      emailAccountId: emailAccount.id,
-      reason: aiReason,
-      messageId: email.id,
-      threadId: email.threadId,
-    },
-  });
-
-  if (
-    emailAccount.coldEmailBlocker === ColdEmailSetting.LABEL ||
-    emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-    emailAccount.coldEmailBlocker ===
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL
-  ) {
-    if (!emailAccount.email) throw new Error("User email is required");
-    const coldEmailLabel =
-      await provider.getOrCreateInboxZeroLabel("cold_email");
-    if (!coldEmailLabel?.id)
-      logger.error("No label id", { emailAccountId: emailAccount.id });
-
-    const shouldArchive =
-      emailAccount.coldEmailBlocker === ColdEmailSetting.ARCHIVE_AND_LABEL ||
-      emailAccount.coldEmailBlocker ===
-        ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
-
-    const shouldMarkRead =
-      emailAccount.coldEmailBlocker ===
-      ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL;
-
-    const labels: string[] = [];
-    if (coldEmailLabel?.name) labels.push(coldEmailLabel.name);
-
-    if (shouldArchive) {
-      await provider.archiveThread(email.threadId, emailAccount.email);
-    }
-
-    if (shouldMarkRead) {
-      await provider.markReadThread(email.threadId, true);
-    }
-
-    await provider.labelMessage(email.id, labels);
-  }
-
-  return coldEmail;
-}
-
 // New function that works with EmailProvider
 export async function blockColdEmailWithProvider(options: {
   provider: EmailProvider;
@@ -359,7 +295,9 @@ export async function blockColdEmailWithProvider(options: {
 
     // For Outlook, we'll use the provider's labelMessage method
     // The provider will handle the differences between Gmail labels and Outlook categories
-    await provider.labelMessage(email.id, coldEmailLabel.name);
+    if (coldEmailLabel?.name) {
+      await provider.labelMessage(email.id, coldEmailLabel.name);
+    }
 
     // For archiving and marking as read, we'll need to implement these in the provider
     if (shouldArchive) {
