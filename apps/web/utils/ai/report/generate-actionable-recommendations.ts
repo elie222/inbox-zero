@@ -3,6 +3,9 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { UserPersona } from "@/utils/ai/report/build-user-persona";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-actionable-recommendations");
 
 const actionableRecommendationsSchema = z.object({
   immediateActions: z.array(
@@ -55,6 +58,8 @@ Create actionable recommendations in three categories:
 
 Focus on practical, implementable solutions that improve email organization and workflow efficiency.`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -63,6 +68,8 @@ Focus on practical, implementable solutions that improve email organization and 
     userEmail: emailAccount.email,
     usageLabel: "email-report-actionable-recommendations",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

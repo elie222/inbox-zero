@@ -2,6 +2,9 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-email-behavior");
 
 const emailBehaviorSchema = z.object({
   timingPatterns: z.object({
@@ -53,6 +56,8 @@ Analyze the email patterns and identify:
 3. Engagement triggers (what prompts them to take action)
 4. Specific automation opportunities with estimated time savings`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -61,6 +66,8 @@ Analyze the email patterns and identify:
     userEmail: emailAccount.email,
     usageLabel: "email-report-email-behavior",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

@@ -2,6 +2,9 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-user-persona");
 
 const userPersonaSchema = z.object({
   professionalIdentity: z.object({
@@ -63,6 +66,8 @@ Analyze the data and identify:
 1. **Professional Identity**: What is their role and what evidence supports this?
 2. **Current Priorities**: What are they focused on professionally based on email content?`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -71,6 +76,8 @@ Analyze the data and identify:
     userEmail: emailAccount.email,
     usageLabel: "email-report-user-persona",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

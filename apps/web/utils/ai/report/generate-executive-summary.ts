@@ -3,6 +3,9 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-executive-summary");
 
 const executiveSummarySchema = z.object({
   userProfile: z.object({
@@ -133,6 +136,8 @@ Generate:
 3. **Top insights** about their email behavior
 4. **Quick actions** for immediate improvement`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -141,6 +146,8 @@ Generate:
     userEmail: emailAccount.email,
     usageLabel: "email-report-executive-summary",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

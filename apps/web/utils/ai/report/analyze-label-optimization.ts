@@ -3,6 +3,9 @@ import { chatCompletionObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-label-analysis");
 
 const labelAnalysisSchema = z.object({
   optimizationSuggestions: z.array(
@@ -48,6 +51,8 @@ Based on the current labels and email content, suggest specific optimizations:
 
 Each suggestion should include the reason and expected impact.`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -56,6 +61,8 @@ Each suggestion should include the reason and expected impact.`;
     userEmail: emailAccount.email,
     usageLabel: "email-report-label-analysis",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

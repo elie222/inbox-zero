@@ -2,6 +2,9 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("email-report-response-patterns");
 
 const responsePatternsSchema = z.object({
   commonResponses: z.array(
@@ -43,7 +46,7 @@ export async function aiAnalyzeResponsePatterns(
   emailSummaries: EmailSummary[],
   emailAccount: EmailAccountWithAI,
   sentEmailSummaries?: EmailSummary[],
-): Promise<z.infer<typeof responsePatternsSchema>> {
+) {
   const system = `You are an expert email behavior analyst. Your task is to identify common response patterns and suggest email categorization and templates based on the user's email activity.
 
 Focus on practical, actionable insights for email management including reusable templates and smart categorization.
@@ -84,6 +87,8 @@ For email categorization, create simple, practical categories based on actual em
 
 Only suggest categories that are meaningful and provide clear organizational value. If emails don't fit into meaningful categories, don't create categories for them.`;
 
+  logger.trace("Input", { system, prompt });
+
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
     system,
@@ -92,6 +97,8 @@ Only suggest categories that are meaningful and provide clear organizational val
     userEmail: emailAccount.email,
     usageLabel: "email-report-response-patterns",
   });
+
+  logger.trace("Output", result.object);
 
   return result.object;
 }

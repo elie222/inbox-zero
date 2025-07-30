@@ -6,7 +6,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
 import { stringifyEmail } from "@/utils/stringify-email";
 
-const logger = createScopedLogger("email-report-prompts");
+const logger = createScopedLogger("email-report-summarize-emails");
 
 const emailSummarySchema = z.object({
   summary: z.string().describe("Brief summary of the email content"),
