@@ -9,5 +9,5 @@ export const ClientOnly = ({ children }: { children: ReactNode }) => {
     setClientReady(true);
   }, []);
 
-  return clientReady ? <>{children}</> : null;
+  return clientReady ? children : null;
 };

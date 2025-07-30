@@ -30,8 +30,6 @@ export async function aiFindExampleMatches(
   gmail: gmail_v1.Gmail,
   rulesPrompt: string,
 ) {
-  console.log(`findExampleMatches. rulesPrompt: ${rulesPrompt}`);
-
   const system =
     "You are an AI assistant specializing in email management and organization. Your task is to find example emails that match the given rules with high confidence.";
 

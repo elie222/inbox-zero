@@ -47,8 +47,6 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
-import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
 
 const logger = createScopedLogger("actions/rule");
 

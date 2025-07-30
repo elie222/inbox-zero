@@ -82,7 +82,7 @@ export async function completeReferralAndGrantReward(userId: string) {
         );
 
       // Update referral with reward information
-      const updatedReferral = await prisma.referral.update({
+      await prisma.referral.update({
         where: { id: referral.id },
         data: {
           status: ReferralStatus.COMPLETED,

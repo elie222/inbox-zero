@@ -97,7 +97,9 @@ export const adminSyncStripeForAllUsersAction = adminActionClient
     });
     for (const premium of users) {
       if (!premium.stripeCustomerId) continue;
-      console.log(`Syncing Stripe for ${premium.stripeCustomerId}`);
+      logger.info("Syncing Stripe", {
+        stripeCustomerId: premium.stripeCustomerId,
+      });
       await syncStripeDataToDb({ customerId: premium.stripeCustomerId });
     }
   });

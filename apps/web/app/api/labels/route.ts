@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("labels");
 
 export type UnifiedLabel = {
   id: string;
@@ -36,7 +39,7 @@ export const GET = withEmailProvider(async (request) => {
     }));
     return NextResponse.json({ labels: unifiedLabels });
   } catch (error) {
-    console.error(error);
+    logger.error("Error fetching labels", { error });
     return NextResponse.json({ labels: [] }, { status: 500 });
   }
 });

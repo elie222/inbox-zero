@@ -81,7 +81,6 @@ export function useUnsubscribe<T extends Row>({
       }
     } catch (error) {
       captureException(error);
-      console.error(error);
     }
 
     setUnsubscribeLoading(false);
@@ -139,12 +138,10 @@ export function useBulkUnsubscribe<T extends Row>({
             });
           } catch (error) {
             captureException(error);
-            console.error(error);
           }
         }
       } catch (error) {
         captureException(error);
-        console.error(error);
       }
 
       setBulkUnsubscribeLoading(false);

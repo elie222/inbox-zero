@@ -27,7 +27,7 @@ vi.mock("@/utils/redis/message-processing", () => ({
 }));
 
 vi.mock("@/utils/gmail/thread", () => ({
-  getThreadMessages: vi.fn().mockImplementation(async (gmail, threadId) => [
+  getThreadMessages: vi.fn().mockImplementation(async (_gmail, threadId) => [
     {
       id: threadId === "thread-456" ? "456" : "123",
       threadId,

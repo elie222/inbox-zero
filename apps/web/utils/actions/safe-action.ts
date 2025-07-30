@@ -27,7 +27,10 @@ const baseClient = createSafeActionClient({
       error: error.message,
     });
     // Need a better way to handle this within logger itself
-    if (env.NODE_ENV !== "production") console.log("Error:", error);
+    if (env.NODE_ENV !== "production") {
+      // biome-ignore lint/suspicious/noConsole: helpful for debugging
+      console.error("Error in server action", error);
+    }
     if (error instanceof SafeError) return error.message;
     return "An unknown error occurred.";
   },

@@ -26,8 +26,6 @@ export default async function CleanRunPage(props: {
 
   if (!emailAccount) return <CardTitle>Email account not found</CardTitle>;
 
-  const email = emailAccount.email;
-
   const threads = await getThreadsByJobId({ emailAccountId, jobId });
 
   const job = jobId
