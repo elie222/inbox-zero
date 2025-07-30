@@ -136,18 +136,11 @@ async function fetchEmailsByQuery(
   return emails;
 }
 
-export interface EmailFetchResult {
-  receivedEmails: ParsedMessage[];
-  sentEmails: ParsedMessage[];
-  totalReceived: number;
-  totalSent: number;
-}
-
 export async function fetchEmailsForReport({
   emailAccount,
 }: {
   emailAccount: EmailAccountWithAI;
-}): Promise<EmailFetchResult> {
+}) {
   logger.info("fetchEmailsForReport started", {
     emailAccountId: emailAccount.id,
   });
@@ -198,7 +191,6 @@ async function fetchReceivedEmails(
       logger.error(`Error fetching emails from ${source.name}`, {
         error,
         query: source.query,
-        maxResults: targetCount - emails.length,
       });
     }
   }
@@ -215,9 +207,7 @@ async function fetchSentEmails(
 
     return emails;
   } catch (error) {
-    logger.error("Error fetching sent emails", {
-      error,
-    });
+    logger.error("Error fetching sent emails", { error });
     return [];
   }
 }

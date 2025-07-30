@@ -1,5 +1,7 @@
 "use server";
 
+import type { gmail_v1 } from "@googleapis/gmail";
+import { z } from "zod";
 import {
   fetchEmailsForReport,
   fetchGmailTemplates,
@@ -13,12 +15,11 @@ import {
   generateActionableRecommendations,
   summarizeEmails,
 } from "@/utils/ai/report/prompts";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import { actionClient } from "@/utils/actions/safe-action";
-import { z } from "zod";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { getGmailClientForEmail } from "@/utils/account";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 const logger = createScopedLogger("actions/report");
 
@@ -146,12 +147,17 @@ async function getEmailReportData({
     throw new Error("Email account not found");
   }
 
-  const emailData = await fetchEmailsForReport({ emailAccount });
+  const { receivedEmails, sentEmails, totalReceived, totalSent } =
+    await fetchEmailsForReport({ emailAccount });
 
-  const { receivedEmails, sentEmails, totalReceived, totalSent } = emailData;
-
-  const receivedSummaries = await summarizeEmails(receivedEmails, emailAccount);
-  const sentSummaries = await summarizeEmails(sentEmails, emailAccount);
+  const receivedSummaries = await summarizeEmails(
+    receivedEmails.map((message) => getEmailForLLM(message)),
+    emailAccount,
+  );
+  const sentSummaries = await summarizeEmails(
+    sentEmails.map((message) => getEmailForLLM(message)),
+    emailAccount,
+  );
 
   const gmail = await getGmailClientForEmail({
     emailAccountId: emailAccount.id,

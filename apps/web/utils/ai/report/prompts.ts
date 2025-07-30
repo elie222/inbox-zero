@@ -2,9 +2,10 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { ParsedMessage } from "@/utils/types";
+import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
+import { stringifyEmail } from "@/utils/stringify-email";
 
 const logger = createScopedLogger("email-report-prompts");
 
@@ -508,7 +509,7 @@ Focus on practical, implementable solutions that improve email organization and 
  * Summarize emails for analysis
  */
 export async function summarizeEmails(
-  emails: ParsedMessage[],
+  emails: EmailForLLM[],
   emailAccount: EmailAccountWithAI,
 ): Promise<EmailSummary[]> {
   if (emails.length === 0) {
@@ -541,19 +542,11 @@ export async function summarizeEmails(
 }
 
 async function processEmailBatch(
-  emails: ParsedMessage[],
+  emails: EmailForLLM[],
   emailAccount: EmailAccountWithAI,
   batchNumber: number,
   totalBatches: number,
 ): Promise<EmailSummary[]> {
-  const emailTexts = emails.map((email) => {
-    const sender = email.headers?.from || "Unknown";
-    const subject = email.headers?.subject || "No subject";
-    const content = email.textPlain || email.textHtml || "";
-
-    return `From: ${sender}\nSubject: ${subject}\nContent: ${content.substring(0, 1000)}`;
-  });
-
   const system = `You are an assistant that processes user emails to extract their core meaning for later analysis.
 
 For each email, write a **factual summary of 3–5 sentences** that clearly describes:
@@ -572,9 +565,9 @@ For each email, write a **factual summary of 3–5 sentences** that clearly desc
   const prompt = `
 **Input Emails (Batch ${batchNumber} of ${totalBatches}):**
 
-${emailTexts.join("\n\n---\n\n")}
+${emails.map((email) => `<email>${stringifyEmail(email, 2000)}</email>`).join("\n")}
 
-Return the analysis as a JSON array with objects containing: summary, sender, subject, category.`;
+Return the analysis as a JSON array of objects.`;
 
   logger.trace("Input", { system, prompt });
 
