@@ -440,10 +440,10 @@ export class GmailProvider implements EmailProvider {
           logger,
         }),
       ]);
-      return { draftId: result.data.message?.id || "" };
+      return { draftId: result.data.id || "" };
     } else {
       const result = await gmailDraftEmail(this.client, email, args);
-      return { draftId: result.data.message?.id || "" };
+      return { draftId: result.data.id || "" };
     }
   }
 
