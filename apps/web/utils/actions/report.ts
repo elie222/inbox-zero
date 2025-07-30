@@ -47,14 +47,24 @@ async function getEmailReportData({
   const { receivedEmails, sentEmails, totalReceived, totalSent } =
     await fetchEmailsForReport({ emailAccount });
 
-  const receivedSummaries = await aiSummarizeEmails(
-    receivedEmails.map((message) => getEmailForLLM(message)),
-    emailAccount,
-  );
-  const sentSummaries = await aiSummarizeEmails(
-    sentEmails.map((message) => getEmailForLLM(message)),
-    emailAccount,
-  );
+  const [receivedSummaries, sentSummaries] = await Promise.all([
+    aiSummarizeEmails(
+      receivedEmails.map((message) =>
+        getEmailForLLM(message, { maxLength: 1000 }),
+      ),
+      emailAccount,
+    ).catch((error) => {
+      logger.error("Error summarizing received emails", { error });
+      return [];
+    }),
+    aiSummarizeEmails(
+      sentEmails.map((message) => getEmailForLLM(message, { maxLength: 1000 })),
+      emailAccount,
+    ).catch((error) => {
+      logger.error("Error summarizing sent emails", { error });
+      return [];
+    }),
+  ]);
 
   const gmail = await getGmailClientForEmail({
     emailAccountId: emailAccount.id,

@@ -85,12 +85,17 @@ Return the analysis as a JSON array of objects.`;
     userAi: emailAccount.user,
     system,
     prompt,
-    schema: z.array(emailSummarySchema),
+    schema: z.object({
+      summaries: z
+        .array(emailSummarySchema)
+        .describe("Summaries of the emails"),
+    }),
     userEmail: emailAccount.email,
     usageLabel: "email-report-summary-generation",
+    modelType: "economy",
   });
 
-  logger.trace("Output", { result: result.object });
+  logger.trace("Output", { result: result.object.summaries });
 
-  return result.object;
+  return result.object.summaries;
 }
