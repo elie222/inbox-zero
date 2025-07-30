@@ -24,7 +24,7 @@ export function EmailFirehose({
 }) {
   const { userEmail, emailAccountId } = useAccount();
 
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, _setIsPaused] = useState(false);
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const [tab] = useQueryState("tab", parseAsString.withDefault("archived"));
   // Track undo state for all threads
@@ -32,12 +32,7 @@ export function EmailFirehose({
     Record<string, "undoing" | "undone">
   >({});
 
-  const { emails, togglePause } = useEmailStream(
-    emailAccountId,
-    isPaused,
-    threads,
-    tab,
-  );
+  const { emails } = useEmailStream(emailAccountId, isPaused, threads, tab);
 
   // For virtualization
   const parentRef = useRef<HTMLDivElement>(null);

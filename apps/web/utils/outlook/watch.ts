@@ -7,7 +7,7 @@ export async function watchOutlook(client: Client) {
     changeType: "created,updated",
     notificationUrl: `${env.NEXT_PUBLIC_BASE_URL}/api/outlook/webhook`,
     resource: "/me/mailFolders/inbox/messages",
-    expirationDateTime: new Date(Date.now() + 4320 * 60000).toISOString(), // 3 days (max allowed)
+    expirationDateTime: new Date(Date.now() + 4320 * 60_000).toISOString(), // 3 days (max allowed)
   });
 
   return {

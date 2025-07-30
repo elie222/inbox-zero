@@ -78,6 +78,7 @@ function processAiCategorizeSenderQueue({
 
     await pRetry(
       async (attemptCount) => {
+        // biome-ignore lint/suspicious/noConsole: frontend
         console.log(
           `Queue: aiCategorizeSender. Processing ${sender}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
         );
@@ -87,7 +88,7 @@ function processAiCategorizeSenderQueue({
         });
 
         if (result?.serverError) {
-          await sleep(exponentialBackoff(attemptCount, 1_000));
+          await sleep(exponentialBackoff(attemptCount, 1000));
           throw new Error(result.serverError);
         }
 

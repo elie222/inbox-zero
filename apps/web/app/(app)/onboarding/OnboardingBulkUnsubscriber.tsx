@@ -41,7 +41,7 @@ const useNewsletterStats = () => {
   return useSWR<NewsletterStatsResponse, { error: string }>(
     `/api/user/stats/newsletters?${urlParams}`,
     {
-      refreshInterval: 3_000,
+      refreshInterval: 3000,
       keepPreviousData: true,
     },
   );

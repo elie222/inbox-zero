@@ -2,6 +2,9 @@ import { Dub } from "dub";
 import type { User } from "next-auth";
 import { env } from "@/env";
 import { cookies } from "next/headers";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("dub");
 
 function getDub() {
   if (!env.DUB_API_KEY) return null;
@@ -16,7 +19,7 @@ export async function trackDubSignUp(user: User) {
   const clickId = cookieStore.get("dub_id")?.value;
 
   if (!clickId) {
-    console.log("No dub_id cookie found, skipping lead tracking...");
+    logger.info("No dub_id cookie found");
     return;
   }
 

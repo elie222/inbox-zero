@@ -18,7 +18,7 @@ const unsubscribeSchema = z.object({
   url: z.string().url(),
 });
 
-server.get("/", async (request, reply) => {
+server.get("/", async () => {
   return { status: "OK", message: "Unsubscribe service is running" };
 });
 

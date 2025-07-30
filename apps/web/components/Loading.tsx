@@ -1,4 +1,3 @@
-import type React from "react";
 import { Loader2Icon } from "lucide-react";
 
 export function Loading() {

@@ -41,7 +41,7 @@ export default function Mail(props: {
   const { data, size, setSize, isLoading, error, mutate } =
     useSWRInfinite<ThreadsResponse>(getKey, {
       keepPreviousData: true,
-      dedupingInterval: 1_000,
+      dedupingInterval: 1000,
       revalidateOnFocus: false,
     });
 

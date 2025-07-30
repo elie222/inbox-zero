@@ -5,7 +5,7 @@ export function snippetRemoveReply(snippet?: string | null): string {
     const regex = /On (Mon|Tue|Wed|Thu|Fri|Sat|Sun),/;
     const match = snippet.split(regex)[0];
     return match.trim();
-  } catch (error) {
+  } catch {
     return snippet;
   }
 }

@@ -75,21 +75,21 @@ describe("createCanonicalTimeOfDay", () => {
 
 describe("DAYS constant", () => {
   it("should have correct bitmask values", () => {
-    expect(DAYS.SUNDAY).toBe(0b1000000); // 64
-    expect(DAYS.MONDAY).toBe(0b0100000); // 32
-    expect(DAYS.TUESDAY).toBe(0b0010000); // 16
-    expect(DAYS.WEDNESDAY).toBe(0b0001000); // 8
-    expect(DAYS.THURSDAY).toBe(0b0000100); // 4
-    expect(DAYS.FRIDAY).toBe(0b0000010); // 2
-    expect(DAYS.SATURDAY).toBe(0b0000001); // 1
+    expect(DAYS.SUNDAY).toBe(0b100_0000); // 64
+    expect(DAYS.MONDAY).toBe(0b010_0000); // 32
+    expect(DAYS.TUESDAY).toBe(0b001_0000); // 16
+    expect(DAYS.WEDNESDAY).toBe(0b000_1000); // 8
+    expect(DAYS.THURSDAY).toBe(0b000_0100); // 4
+    expect(DAYS.FRIDAY).toBe(0b000_0010); // 2
+    expect(DAYS.SATURDAY).toBe(0b000_0001); // 1
   });
 
   it("should allow combining days with bitwise OR", () => {
     const mondayWednesday = DAYS.MONDAY | DAYS.WEDNESDAY;
-    expect(mondayWednesday).toBe(0b0101000); // 40
+    expect(mondayWednesday).toBe(0b010_1000); // 40
 
     const weekends = DAYS.SATURDAY | DAYS.SUNDAY;
-    expect(weekends).toBe(0b1000001); // 65
+    expect(weekends).toBe(0b100_0001); // 65
   });
 });
 

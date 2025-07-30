@@ -28,7 +28,6 @@ export async function processHistoryItem(
   {
     client,
     emailAccount,
-    accessToken,
     hasAutomationRules,
     hasAiAccess,
     rules,

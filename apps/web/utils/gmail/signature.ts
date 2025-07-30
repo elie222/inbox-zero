@@ -28,6 +28,7 @@ export function extractGmailSignature(htmlContent: string): string | null {
         .trim();
     }
   } catch (error) {
+    // biome-ignore lint/suspicious/noConsole: helpful for debugging
     console.error("Error parsing signature HTML:", error);
   }
 

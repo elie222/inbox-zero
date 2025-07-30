@@ -1,4 +1,7 @@
 import { initDataset, type Dataset } from "braintrust";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("braintrust");
 
 // Used for evals. Not used in production.
 export class Braintrust {
@@ -16,7 +19,7 @@ export class Braintrust {
     try {
       this.dataset.insert(data);
     } catch (error) {
-      console.error(error);
+      logger.error("Error inserting to Braintrust dataset", { error });
     }
   }
 }

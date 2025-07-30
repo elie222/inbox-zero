@@ -18,7 +18,7 @@ export interface RecipientsResponse {
   mostActiveRecipientEmails: { name: string; value: number }[];
 }
 
-async function getRecipients({
+async function _getRecipients({
   gmail,
 }: {
   gmail: gmail_v1.Gmail;

@@ -12,7 +12,7 @@ export const digestItemSchema = z.object({
 export const digestSummarySchema = z.string().transform((str) => {
   try {
     return digestEmailSummarySchema.parse(JSON.parse(str));
-  } catch (e) {
+  } catch {
     throw new Error("Invalid summary JSON");
   }
 });

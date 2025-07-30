@@ -1,13 +1,11 @@
 import prisma from "@/utils/prisma";
 import { ActionType, ThreadTrackerType } from "@prisma/client";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import type { OutlookClient } from "@/utils/outlook/client";
 import type { EmailProvider } from "@/utils/email/provider";
 
 /**
