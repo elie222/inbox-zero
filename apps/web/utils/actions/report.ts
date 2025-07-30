@@ -161,44 +161,42 @@ async function getEmailReportData({
   const gmailSignature = await fetchGmailSignature(gmail);
   const gmailTemplates = await fetchGmailTemplates(gmail);
 
-  const executiveSummary = await generateExecutiveSummary(
-    receivedSummaries,
-    sentSummaries,
-    gmailLabels,
-    emailAccount,
-  );
-
-  const userPersona = await buildUserPersona(
-    receivedSummaries,
-    emailAccount,
-    sentSummaries,
-    gmailSignature,
-    gmailTemplates,
-  );
-
-  const emailBehavior = await analyzeEmailBehavior(
-    receivedSummaries,
-    emailAccount,
-    sentSummaries,
-  );
-
-  const responsePatterns = await analyzeResponsePatterns(
-    receivedSummaries,
-    emailAccount,
-    sentSummaries,
-  );
-
-  const labelAnalysis = await analyzeLabelOptimization(
-    receivedSummaries,
-    emailAccount,
-    gmailLabels,
-  );
+  const [
+    executiveSummary,
+    userPersona,
+    emailBehavior,
+    responsePatterns,
+    labelAnalysis,
+  ] = await Promise.all([
+    generateExecutiveSummary(
+      receivedSummaries,
+      sentSummaries,
+      gmailLabels,
+      emailAccount,
+    ),
+    buildUserPersona(
+      receivedSummaries,
+      emailAccount,
+      sentSummaries,
+      gmailSignature,
+      gmailTemplates,
+    ),
+    analyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries),
+    analyzeResponsePatterns(receivedSummaries, emailAccount, sentSummaries),
+    analyzeLabelOptimization(receivedSummaries, emailAccount, gmailLabels),
+  ]).catch((error) => {
+    logger.error("Error generating report", { error });
+    throw error;
+  });
 
   const actionableRecommendations = await generateActionableRecommendations(
     receivedSummaries,
     emailAccount,
     userPersona,
-  );
+  ).catch((error) => {
+    logger.error("Error generating actionable recommendations", { error });
+    throw error;
+  });
 
   return {
     executiveSummary,
