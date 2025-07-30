@@ -36,36 +36,16 @@ async function fetchEmailsByQuery(
 
   while (emails.length < count && retryCount < maxRetries) {
     try {
-      logger.info("fetchEmailsByQuery: calling getMessages", {
-        query,
-        maxResults: Math.min(100, count - emails.length),
-        hasPageToken: !!nextPageToken,
-        currentEmailsCount: emails.length,
-        retryCount,
-      });
-
       const response = await getMessages(gmail, {
         query: query || undefined,
         maxResults: Math.min(100, count - emails.length),
         pageToken: nextPageToken,
       });
 
-      logger.info("fetchEmailsByQuery: getMessages response received", {
-        hasMessages: !!response.messages,
-        messagesCount: response.messages?.length || 0,
-        hasNextPageToken: !!response.nextPageToken,
-        responseKeys: Object.keys(response),
-      });
-
       if (!response.messages || response.messages.length === 0) {
-        logger.info("fetchEmailsByQuery: no messages found, breaking");
+        logger.warn("No messages found, breaking");
         break;
       }
-
-      logger.info("fetchEmailsByQuery: starting to fetch individual messages", {
-        messageIdsCount: response.messages?.length || 0,
-        messageIds: response.messages?.map((m: any) => m.id).slice(0, 5) || [],
-      });
 
       const messagePromises = (response.messages || []).map(
         async (message: any, index: number) => {
@@ -77,41 +57,15 @@ async function fetchEmailsByQuery(
             return null;
           }
 
-          logger.info("fetchEmailsByQuery: fetching individual message", {
-            messageId: message.id,
-            index,
-            totalMessages: response.messages?.length || 0,
-          });
-
           for (let i = 0; i < 3; i++) {
             try {
-              logger.info("fetchEmailsByQuery: calling getMessage", {
-                messageId: message.id,
-                attempt: i + 1,
-                format: "full",
-              });
-
               const messageWithPayload = await getMessage(
                 message.id,
                 gmail,
                 "full",
               );
 
-              logger.info("fetchEmailsByQuery: getMessage successful", {
-                messageId: message.id,
-                hasPayload: !!messageWithPayload,
-                payloadKeys: messageWithPayload
-                  ? Object.keys(messageWithPayload)
-                  : [],
-              });
-
               const parsedMessage = parseMessage(messageWithPayload);
-              logger.info("fetchEmailsByQuery: message parsed successfully", {
-                messageId: message.id,
-                hasHeaders: !!parsedMessage.headers,
-                hasTextPlain: !!parsedMessage.textPlain,
-                hasTextHtml: !!parsedMessage.textHtml,
-              });
 
               return parsedMessage;
             } catch (error) {
@@ -128,18 +82,12 @@ async function fetchEmailsByQuery(
                 );
                 return null;
               }
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * (i + 1)),
-              );
+              await sleep(1000 * (i + 1));
             }
           }
           return null;
         },
       );
-
-      logger.info("fetchEmailsByQuery: waiting for all message promises", {
-        promisesCount: messagePromises.length,
-      });
 
       const messages = await Promise.all(messagePromises);
       const validMessages = messages.filter((msg) => msg !== null);
@@ -154,16 +102,10 @@ async function fetchEmailsByQuery(
 
       nextPageToken = response.nextPageToken || undefined;
       if (!nextPageToken) {
-        logger.info("fetchEmailsByQuery: no next page token, breaking");
         break;
       }
 
       retryCount = 0;
-      logger.info("fetchEmailsByQuery: successful iteration completed", {
-        currentEmailsCount: emails.length,
-        targetCount: count,
-        hasNextPageToken: !!nextPageToken,
-      });
     } catch (error) {
       retryCount++;
       logger.error("fetchEmailsByQuery: main loop error", {
