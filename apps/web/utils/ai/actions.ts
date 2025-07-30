@@ -114,6 +114,7 @@ const draft: ActionFunction<{
       labelIds: [],
     },
     draftArgs,
+    executedRule,
   );
   return { draftId: result.draftId };
 };
