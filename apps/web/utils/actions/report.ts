@@ -6,15 +6,13 @@ import {
   fetchEmailsForReport,
   fetchGmailTemplates,
 } from "@/utils/ai/report/fetch";
-import {
-  generateExecutiveSummary,
-  buildUserPersona,
-  analyzeEmailBehavior,
-  analyzeResponsePatterns,
-  analyzeLabelOptimization,
-  generateActionableRecommendations,
-  summarizeEmails,
-} from "@/utils/ai/report/prompts";
+import { aiSummarizeEmails } from "@/utils/ai/report/summarize-emails";
+import { aiGenerateExecutiveSummary } from "@/utils/ai/report/generate-executive-summary";
+import { aiBuildUserPersona } from "@/utils/ai/report/build-user-persona";
+import { aiAnalyzeEmailBehavior } from "@/utils/ai/report/analyze-email-behavior";
+import { aiAnalyzeResponsePatterns } from "@/utils/ai/report/response-patterns";
+import { aiAnalyzeLabelOptimization } from "@/utils/ai/report/analyze-label-optimization";
+import { aiGenerateActionableRecommendations } from "@/utils/ai/report/generate-actionable-recommendations";
 import { createScopedLogger } from "@/utils/logger";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -150,11 +148,11 @@ async function getEmailReportData({
   const { receivedEmails, sentEmails, totalReceived, totalSent } =
     await fetchEmailsForReport({ emailAccount });
 
-  const receivedSummaries = await summarizeEmails(
+  const receivedSummaries = await aiSummarizeEmails(
     receivedEmails.map((message) => getEmailForLLM(message)),
     emailAccount,
   );
-  const sentSummaries = await summarizeEmails(
+  const sentSummaries = await aiSummarizeEmails(
     sentEmails.map((message) => getEmailForLLM(message)),
     emailAccount,
   );
@@ -174,7 +172,7 @@ async function getEmailReportData({
     responsePatterns,
     labelAnalysis,
   ] = await Promise.all([
-    generateExecutiveSummary(
+    aiGenerateExecutiveSummary(
       receivedSummaries,
       sentSummaries,
       gmailLabels,
@@ -182,7 +180,7 @@ async function getEmailReportData({
     ).catch((error) => {
       logger.error("Error generating executive summary", { error });
     }),
-    buildUserPersona(
+    aiBuildUserPersona(
       receivedSummaries,
       emailAccount,
       sentSummaries,
@@ -191,19 +189,19 @@ async function getEmailReportData({
     ).catch((error) => {
       logger.error("Error generating user persona", { error });
     }),
-    analyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries).catch(
+    aiAnalyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries).catch(
       (error) => {
         logger.error("Error generating email behavior", { error });
       },
     ),
-    analyzeResponsePatterns(
+    aiAnalyzeResponsePatterns(
       receivedSummaries,
       emailAccount,
       sentSummaries,
     ).catch((error) => {
       logger.error("Error generating response patterns", { error });
     }),
-    analyzeLabelOptimization(
+    aiAnalyzeLabelOptimization(
       receivedSummaries,
       emailAccount,
       gmailLabels,
@@ -213,7 +211,7 @@ async function getEmailReportData({
   ]);
 
   const actionableRecommendations = userPersona
-    ? await generateActionableRecommendations(
+    ? await aiGenerateActionableRecommendations(
         receivedSummaries,
         emailAccount,
         userPersona,
