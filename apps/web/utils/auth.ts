@@ -1,7 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Prisma } from "@prisma/client";
-import type { NextAuthConfig, DefaultSession } from "next-auth";
+import type { NextAuthConfig, DefaultSession, Session, User } from "next-auth";
 import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
@@ -210,44 +210,141 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
+    signIn: async ({ user, account }) => {
+      // For Microsoft provider, check if user exists in database
+      if (account?.provider === "microsoft-entra-id") {
+        // Check if user.email exists before querying database
+        if (!user.email) {
+          logger.warn("Microsoft user sign-in attempted without email", {
+            provider: account.provider,
+          });
+          return false; // Prevent sign in for users without email
+        }
+
+        const existingUser = await prisma.user.findUnique({
+          where: { email: user.email },
+        });
+
+        if (!existingUser) {
+          logger.warn("Microsoft user not found in database", {
+            email: user.email,
+            provider: account.provider,
+          });
+          return false; // Prevent sign in
+        }
+
+        logger.info("Microsoft user authenticated from database", {
+          email: user.email,
+          userId: existingUser.id,
+        });
+      }
+
+      return true; // Allow sign in for Google and existing Microsoft users
+    },
     jwt: async ({ token, user, account }): Promise<JWT> => {
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
-        // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
-        // On future log ins, we retrieve the `refresh_token` from the database
-        if (account.refresh_token) {
-          logger.info("Saving refresh token", { email: token.email });
-          await saveTokens({
-            tokens: {
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: calculateExpiresAt(
-                account.expires_in as number | undefined,
-              ),
-            },
-            accountRefreshToken: account.refresh_token,
-            providerAccountId: account.providerAccountId,
-            provider: account.provider,
-          });
-          token.refresh_token = account.refresh_token;
-        } else {
-          const dbAccount = await prisma.account.findUnique({
-            where: {
-              provider_providerAccountId: {
-                providerAccountId: account.providerAccountId,
-                provider: account.provider,
+        // Handle refresh tokens based on provider
+        if (account.provider === "microsoft-entra-id") {
+          // For Microsoft users, always store refresh tokens in database, never in JWT
+          if (account.refresh_token) {
+            logger.info("Saving Microsoft refresh token to database", {
+              email: token.email,
+            });
+            await saveTokens({
+              tokens: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: calculateExpiresAt(
+                  account.expires_in as number | undefined,
+                ),
               },
-            },
-            select: { refresh_token: true },
-          });
-          token.refresh_token = dbAccount?.refresh_token ?? undefined;
+              accountRefreshToken: account.refresh_token,
+              providerAccountId: account.providerAccountId,
+              provider: account.provider,
+            });
+          }
+          // Don't store refresh token in JWT for Microsoft users
+          token.refresh_token = undefined;
+        } else {
+          // For Google users, use the existing logic
+          if (account.refresh_token) {
+            logger.info("Saving Google refresh token", { email: token.email });
+            await saveTokens({
+              tokens: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: calculateExpiresAt(
+                  account.expires_in as number | undefined,
+                ),
+              },
+              accountRefreshToken: account.refresh_token,
+              providerAccountId: account.providerAccountId,
+              provider: account.provider,
+            });
+            token.refresh_token = account.refresh_token;
+          } else {
+            const dbAccount = await prisma.account.findUnique({
+              where: {
+                provider_providerAccountId: {
+                  providerAccountId: account.providerAccountId,
+                  provider: account.provider,
+                },
+              },
+              select: { refresh_token: true },
+            });
+            token.refresh_token = dbAccount?.refresh_token ?? undefined;
+          }
         }
 
-        token.access_token = account.access_token;
-        token.expires_at = account.expires_at;
-        token.user = user;
         token.provider = account.provider;
+
+        if (account.provider === "microsoft-entra-id") {
+          // Removing JWT data to reduce cookie size
+          token.user = undefined;
+          token.access_token = undefined;
+          token.refresh_token = undefined;
+          token.name = undefined;
+          token.email = undefined;
+          token.picture = undefined;
+          // Must keep expires_at for expiration logic to avoid an infinite redirect loop
+          token.expires_at = account.expires_at;
+        } else {
+          token.user = user;
+          token.access_token = account.access_token;
+          token.expires_at = account.expires_at;
+        }
+
+        // Update additional Microsoft data in database
+        if (account?.provider === "microsoft-entra-id") {
+          await prisma.account.update({
+            where: {
+              provider_providerAccountId: {
+                provider: account.provider,
+                providerAccountId: account.providerAccountId,
+              },
+            },
+            data: {
+              scope: account.scope,
+              token_type: account.token_type,
+            },
+          });
+        }
+
+        // Debug: Log JWT size for Microsoft users
+        if (account?.provider === "microsoft-entra-id") {
+          const jwtSize = JSON.stringify(token).length;
+          logger.info("Microsoft JWT size", {
+            size: jwtSize,
+            hasAccessToken: !!token.access_token,
+            hasExpiresAt: !!token.expires_at,
+            hasRefreshToken: !!token.refresh_token,
+            userKeys: token.user ? Object.keys(token.user) : [],
+            allKeys: Object.keys(token),
+            tokenContent: JSON.stringify(token, null, 2),
+          });
+        }
 
         return token;
       }
@@ -289,28 +386,93 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       });
       return refreshedToken;
     },
-    session: async ({ session, token }) => {
-      session.user = {
-        ...session.user,
-        id: token.sub as string,
-      };
-
-      // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
-      session.accessToken = token?.access_token as string | undefined;
-      session.error = token?.error as string | undefined;
-
-      if (session.error) {
-        logger.error("session.error", {
-          email: token.email,
-          error: session.error,
+    session: async ({ session, token }: { session: Session; token: JWT }) => {
+      if (token.provider === "microsoft-entra-id") {
+        // For Microsoft users, we need to get user data from database since it's not in JWT
+        const user = await prisma.user.findUnique({
+          where: { id: token.sub || "" },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+          },
         });
+
+        if (user) {
+          session.user = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          };
+        } else {
+          // Fallback to token data if user not found
+          session.user = {
+            ...session.user,
+            id: token.sub || "",
+          };
+        }
+
+        // Get tokens from database for Microsoft users since they're not in JWT
+        const microsoftAccount = await prisma.account.findFirst({
+          where: {
+            userId: token.sub || "",
+            provider: "microsoft-entra-id",
+          },
+          select: {
+            access_token: true,
+            expires_at: true,
+            scope: true,
+            token_type: true,
+            refresh_token: true,
+          },
+        });
+
+        session.accessToken = microsoftAccount?.access_token || undefined;
+        session.error = token.error;
+
+        if (microsoftAccount) {
+          session.microsoftData = {
+            expiresAt: microsoftAccount.expires_at || undefined,
+            refreshToken: microsoftAccount.refresh_token || undefined,
+            scope: microsoftAccount.scope || undefined,
+            tokenType: microsoftAccount.token_type || undefined,
+          };
+        }
+
+        logger.info("JWT session for Microsoft user", {
+          hasAccessToken: !!microsoftAccount?.access_token,
+          hasRefreshToken: !!microsoftAccount?.refresh_token,
+        });
+      } else {
+        // For Google users, use token data
+        session.user = {
+          ...session.user,
+          id: token.sub || "",
+        };
+        session.accessToken = token.access_token;
+        session.error = token.error;
+
+        if (session.error) {
+          logger.error("session.error", {
+            email: token.email,
+            error: session.error,
+          });
+        }
       }
 
       return session;
     },
   },
   events: {
-    signIn: async ({ isNewUser, user }) => {
+    signIn: async ({
+      isNewUser,
+      user,
+    }: {
+      isNewUser?: boolean;
+      user: User;
+    }) => {
       if (isNewUser && user.email) {
         const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
           [
@@ -654,6 +816,12 @@ declare module "next-auth" {
     user: {} & DefaultSession["user"] & { id: string };
     accessToken?: string;
     error?: string | "RefreshAccessTokenError";
+    microsoftData?: {
+      expiresAt?: number;
+      refreshToken?: string;
+      scope?: string;
+      tokenType?: string;
+    };
   }
 }
 
@@ -663,9 +831,11 @@ declare module "@auth/core/jwt" {
     expires_at?: number;
     refresh_token?: string;
     provider?: string;
+    iat?: number;
     error?:
       | "RefreshAccessTokenError"
       | "MissingAccountError"
       | "RequiresReconsent";
+    // Note: For Microsoft users, tokens are stored in database, not JWT
   }
 }
