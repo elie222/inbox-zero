@@ -193,7 +193,7 @@ async function onRun(
 
       // avoid gmail api rate limits
       // ai takes longer anyway
-      await sleep(threadsWithoutPlan.length ? 5_000 : 2_000);
+      await sleep(threadsWithoutPlan.length ? 5000 : 2000);
     }
 
     onComplete();

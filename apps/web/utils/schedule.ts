@@ -1,5 +1,5 @@
 import type { Schedule } from "@prisma/client";
-import { addDays, addMilliseconds } from "date-fns";
+import { addDays } from "date-fns";
 
 /**
  * Creates a canonical timeOfDay Date object using Unix epoch (1970-01-01).
@@ -22,13 +22,13 @@ export function createCanonicalTimeOfDay(hours: number, minutes: number): Date {
  * SUNDAY | WEDNESDAY = 0b1000000 | 0b0001000 = 0b1001000
  */
 export const DAYS = {
-  SUNDAY: 0b1000000, // 64
-  MONDAY: 0b0100000, // 32
-  TUESDAY: 0b0010000, // 16
-  WEDNESDAY: 0b0001000, // 8
-  THURSDAY: 0b0000100, // 4
-  FRIDAY: 0b0000010, // 2
-  SATURDAY: 0b0000001, // 1
+  SUNDAY: 0b100_0000, // 64
+  MONDAY: 0b010_0000, // 32
+  TUESDAY: 0b001_0000, // 16
+  WEDNESDAY: 0b000_1000, // 8
+  THURSDAY: 0b000_0100, // 4
+  FRIDAY: 0b000_0010, // 2
+  SATURDAY: 0b000_0001, // 1
 };
 
 /**

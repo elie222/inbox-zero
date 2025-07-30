@@ -238,11 +238,6 @@ function verifyUserSentEmail({
   );
 }
 
-function replaceName(email: string, name: string) {
-  const emailAddress = extractEmailAddress(email);
-  return `${name} <${emailAddress}>`;
-}
-
 // Label the message with processing and assistant labels, and remove the processing label when done
 async function withProcessingLabels<T>(
   messageId: string,

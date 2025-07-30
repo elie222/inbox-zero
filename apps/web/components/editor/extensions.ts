@@ -7,7 +7,7 @@ export const EnterHandler = Extension.create({
     return [
       new Plugin({
         props: {
-          handleKeyDown: (view, event) => {
+          handleKeyDown: (_view, event) => {
             // Check for Cmd/Ctrl + Enter
             if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
               return true; // Prevent default behavior

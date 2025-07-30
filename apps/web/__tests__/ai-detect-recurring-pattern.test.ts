@@ -75,6 +75,7 @@ Only flag when someone:
       return Array.from({ length: 7 }).map((_, i) => ({
         id: `newsletter-${i}`,
         from: "news@substack.com",
+        to: "user@example.com",
         subject: `Weekly Newsletter #${i + 1}: Latest Updates`,
         content: `This is our weekly newsletter with the latest updates and insights. 
         
@@ -95,11 +96,12 @@ Only flag when someone:
       return Array.from({ length: 6 }).map((_, i) => ({
         id: `receipt-${i}`,
         from: "receipts@amazon.com",
-        subject: `Your Amazon.com order #A${100000 + i}`,
+        to: "user@example.com",
+        subject: `Your Amazon.com order #A${100_000 + i}`,
         content: `Thank you for your order!
         
         Order Details:
-        Order #A${100000 + i}
+        Order #A${100_000 + i}
         Date: ${new Date(Date.now() - i * 14 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
         Total: $${(Math.random() * 100).toFixed(2)}
         
@@ -114,6 +116,7 @@ Only flag when someone:
       return Array.from({ length: 6 }).map((_, i) => ({
         id: `calendar-${i}`,
         from: "calendar-noreply@google.com",
+        to: "user@example.com",
         subject: `Meeting: Weekly Team Sync ${i + 1}`,
         content: `You have a new calendar invitation:
         
@@ -131,6 +134,7 @@ Only flag when someone:
       return Array.from({ length: 6 }).map((_, i) => ({
         id: `reply-${i}`,
         from: `colleague${i + 1}@company.com`,
+        to: "user@example.com",
         subject: `Question about the project ${i + 1}`,
         content: `Hi there,
 
@@ -158,6 +162,7 @@ Only flag when someone:
         {
           id: "email-1",
           from: "support@company.com",
+          to: "user@example.com",
           subject: "Your support ticket #12345",
           content:
             "Your ticket has been updated. Please log in to view the status.",
@@ -166,6 +171,7 @@ Only flag when someone:
         {
           id: "email-2",
           from: "support@company.com",
+          to: "user@example.com",
           subject: "Invoice for March 2023",
           content: "Please find attached your invoice for March 2023.",
           date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
@@ -173,6 +179,7 @@ Only flag when someone:
         {
           id: "email-3",
           from: "support@company.com",
+          to: "user@example.com",
           subject: "Weekly Updates",
           content: "Check out our latest updates and news.",
           date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000),
@@ -180,6 +187,7 @@ Only flag when someone:
         {
           id: "email-4",
           from: "support@company.com",
+          to: "user@example.com",
           subject: "Upcoming Webinar",
           content: "Join our upcoming webinar on productivity tips.",
           date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000),
@@ -187,6 +195,7 @@ Only flag when someone:
         {
           id: "email-5",
           from: "support@company.com",
+          to: "user@example.com",
           subject: "Your account status",
           content: "Your account has been updated successfully.",
           date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
@@ -194,6 +203,7 @@ Only flag when someone:
         {
           id: "email-6",
           from: "marketing@company6.com",
+          to: "user@example.com",
           subject: "Special offer just for you",
           content: "Take advantage of our limited-time offer!",
           date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000),
@@ -205,6 +215,7 @@ Only flag when someone:
       return Array.from({ length: 6 }).map((_, i) => ({
         id: `mixed-${i}`,
         from: "notifications@example.com",
+        to: "user@example.com",
         subject: [
           "Your subscription is due",
           "Security alert: new login",

@@ -113,7 +113,7 @@ export function AccountSwitcherInternal({
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Accounts
             </DropdownMenuLabel>
-            {emailAccounts.map((emailAccount, index) => (
+            {emailAccounts.map((emailAccount) => (
               <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
                 <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
                   <ProfileImage

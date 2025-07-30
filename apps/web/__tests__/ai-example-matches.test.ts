@@ -91,5 +91,5 @@ describe.runIf(isAiTest)("aiFindExampleMatches", () => {
         maxResults: expect.any(Number),
       }),
     );
-  }, 15000); // Increased timeout for AI call
+  }, 15_000); // Increased timeout for AI call
 });

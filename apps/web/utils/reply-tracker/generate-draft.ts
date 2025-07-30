@@ -1,4 +1,3 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
@@ -136,7 +135,7 @@ async function generateDraftContent(
   // 2a. Extract relevant knowledge
   const lastMessageContent = stringifyEmail(
     messages[messages.length - 1],
-    10000,
+    10_000,
   );
   const knowledgeResult = await aiExtractRelevantKnowledge({
     knowledgeBase,

@@ -14,7 +14,7 @@ import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
 
-const saveAboutBody = z.object({ about: z.string().max(2_000) });
+const saveAboutBody = z.object({ about: z.string().max(2000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export const saveAboutAction = actionClient
@@ -27,7 +27,7 @@ export const saveAboutAction = actionClient
     });
   });
 
-const saveSignatureBody = z.object({ signature: z.string().max(2_000) });
+const saveSignatureBody = z.object({ signature: z.string().max(2000) });
 export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
 export const saveSignatureAction = actionClient
@@ -83,7 +83,7 @@ export const deleteAccountAction = actionClientUser
   .action(async ({ ctx: { userId } }) => {
     try {
       await signOut();
-    } catch (error) {}
+    } catch {}
 
     await deleteUser({ userId });
   });

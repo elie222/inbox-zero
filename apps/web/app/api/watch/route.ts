@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withAuth, withEmailProvider } from "@/utils/middleware";
+import { withAuth } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { watchEmails } from "./controller";

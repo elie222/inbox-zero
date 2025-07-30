@@ -34,7 +34,7 @@ export function TestRulesContent() {
     `/api/messages?q=${searchQuery}`,
     {
       keepPreviousData: true,
-      dedupingInterval: 1_000,
+      dedupingInterval: 1000,
     },
   );
 

@@ -7,7 +7,6 @@ import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { env } from "@/env";
 import { HeroAB } from "@/app/(landing)/home/HeroAB";
 import HeroVideoDialog from "@/components/HeroVideoDialog";
-import { LayoutPanelTopIcon } from "lucide-react";
 
 export function HeroText(props: {
   children: React.ReactNode;

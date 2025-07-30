@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/suspicious/noConsole: helpful for debugging till feature is fully live */
 "use client";
 
 import keyBy from "lodash/keyBy";

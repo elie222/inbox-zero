@@ -226,12 +226,12 @@ function addDarkModeClass(html: string, isDarkMode: boolean) {
           );
         }
         return `<body${attributes} class="${darkClass}">`;
-      } catch (e) {
+      } catch {
         // If regex matching fails, just add the class
         return `<body${attributes} class="${darkClass}">`;
       }
     });
-  } catch (e) {
+  } catch {
     // If all else fails, return a safe fallback
     return `<body class="${isDarkMode ? "dark" : ""}"></body>`;
   }

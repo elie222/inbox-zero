@@ -72,7 +72,7 @@ async function loadEmails(
   logger.info("Loading emails after", { after });
 
   // First pagination loop - load emails after the newest saved email
-  let nextPageToken: string | undefined = undefined;
+  let nextPageToken: string | undefined;
   while (pages < MAX_PAGES) {
     logger.info("After Page", { pages, nextPageToken });
     const res = await saveBatch({

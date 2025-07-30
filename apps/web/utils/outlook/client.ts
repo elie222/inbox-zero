@@ -55,7 +55,8 @@ export class OutlookClient {
         return `data:image/jpeg;base64,${base64}`;
       }
       return null;
-    } catch (error) {
+    } catch {
+      logger.warn("Error getting user photo");
       return null;
     }
   }

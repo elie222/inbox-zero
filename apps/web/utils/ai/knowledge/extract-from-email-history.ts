@@ -33,13 +33,13 @@ const getUserPrompt = ({
   emailAccount: EmailAccountWithAI;
 }) => {
   return `<current_email_thread>
-${currentThreadMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
+${currentThreadMessages.map((m) => stringifyEmail(m, 10_000)).join("\n---\n")}
 </current_email_thread>
 
 ${
   historicalMessages.length > 0
     ? `<historical_email_threads>
-${historicalMessages.map((m) => stringifyEmail(m, 10000)).join("\n---\n")}
+${historicalMessages.map((m) => stringifyEmail(m, 10_000)).join("\n---\n")}
 </historical_email_threads>`
     : "No historical email threads available."
 }

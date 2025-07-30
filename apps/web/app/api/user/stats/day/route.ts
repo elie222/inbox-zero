@@ -64,7 +64,7 @@ async function getPastSevenDayStats(
 
 function getQuery(type: StatsByDayQuery["type"], date: Date) {
   const startOfDayInSeconds = dateToSeconds(date);
-  const endOfDayInSeconds = startOfDayInSeconds + 86400;
+  const endOfDayInSeconds = startOfDayInSeconds + 86_400;
 
   const dateRange = `after:${startOfDayInSeconds} before:${endOfDayInSeconds}`;
 

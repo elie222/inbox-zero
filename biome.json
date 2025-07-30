@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.1.1/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
@@ -24,7 +24,6 @@
         "noExplicitAny": "off",
         "noArrayIndexKey": "off",
         "noEmptyBlockStatements": "off",
-        "noConsole": "off",
         "useAwait": "off",
         "noEvolvingTypes": "off",
         "noDocumentCookie": "off"
@@ -32,13 +31,9 @@
       "complexity": {
         "noForEach": "off",
         "useSimplifiedLogicExpression": "off",
-        "noUselessFragments": "off",
-        "noExcessiveCognitiveComplexity": "off",
-        "noUselessStringConcat": "off",
-        "noUselessUndefinedInitialization": "off"
+        "noExcessiveCognitiveComplexity": "off"
       },
       "nursery": {
-        "useNumericSeparators": "off",
         "useSortedClasses": "off",
         "noShadow": "off",
         "noConstantBinaryExpression": "off",
@@ -58,9 +53,9 @@
         "noNamespaceImport": "off"
       },
       "correctness": {
-        "noUnusedVariables": "off",
-        "noUnusedImports": "off",
-        "noUnusedFunctionParameters": "off",
+        "noUnusedImports": "warn",
+        "noUnusedVariables": "warn",
+        "noUnusedFunctionParameters": "warn",
         "useExhaustiveDependencies": "warn"
       },
       "a11y": {
@@ -112,5 +107,26 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": [
+        "**/__tests__/**",
+        "**/*.test.*",
+        "**/*.spec.*",
+        "apps/unsubscriber/**",
+        "apps/mcp-server/**",
+        "packages/**",
+        "**/*.tsx",
+        "**/scripts/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noConsole": "off"
+          }
+        }
+      }
+    }
+  ],
   "extends": ["ultracite"]
 }

@@ -116,6 +116,7 @@ function withMiddleware<T extends NextRequest>(
 
       // Quick fix: log full error in development. TODO: handle properly
       if (env.NODE_ENV === "development") {
+        // biome-ignore lint/suspicious/noConsole: helpful for debugging
         console.error(error);
       }
 

@@ -3,11 +3,7 @@ import subDays from "date-fns/subDays";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { env } from "@/env";
-import {
-  getCronSecretHeader,
-  hasCronSecret,
-  hasPostCronSecret,
-} from "@/utils/cron";
+import { hasCronSecret, hasPostCronSecret } from "@/utils/cron";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";

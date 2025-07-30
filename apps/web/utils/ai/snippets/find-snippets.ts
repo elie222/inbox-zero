@@ -59,7 +59,7 @@ Return the snippets in the following JSON format:
 
   const prompt = `Here are the emails to analyze:
 ${sentEmails
-  .map((email) => `<email>${stringifyEmail(email, 2_000)}</email>`)
+  .map((email) => `<email>${stringifyEmail(email, 2000)}</email>`)
   .join("\n")}`;
 
   const aiResponse = await chatCompletionObject({

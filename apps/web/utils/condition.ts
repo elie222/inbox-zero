@@ -9,6 +9,9 @@ import type {
   CreateRuleBody,
   ZodCondition,
 } from "@/utils/actions/rule.validation";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("condition");
 
 export type RuleConditions = Partial<
   Pick<
@@ -150,7 +153,7 @@ export const flattenConditions = (
         acc.categoryFilters = condition.categoryFilters;
         break;
       default:
-        console.log(`Unhandled condition type: ${condition.type}`);
+        logger.warn("Unknown condition type", { condition });
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
         const exhaustiveCheck: never = condition.type;
         return exhaustiveCheck;

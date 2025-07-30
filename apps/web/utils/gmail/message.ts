@@ -153,7 +153,7 @@ export async function getMessagesBatch({
       missingMessageIds: Array.from(missingMessageIds),
     });
     const nextRetryCount = retryCount + 1;
-    await sleep(1_000 * nextRetryCount);
+    await sleep(1000 * nextRetryCount);
     const missingMessages = await getMessagesBatch({
       messageIds: Array.from(missingMessageIds),
       accessToken,

@@ -87,7 +87,7 @@ export async function fetchPaginatedMessages({
         // Group items have changed, start from the beginning
         paginationState = defaultPaginationState;
       }
-    } catch (error) {
+    } catch {
       // Invalid pageToken, start from the beginning
       paginationState = defaultPaginationState;
     }

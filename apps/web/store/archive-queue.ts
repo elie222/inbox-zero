@@ -197,6 +197,7 @@ export function processQueue({
           try {
             await pRetry(
               async (attemptCount) => {
+                // biome-ignore lint/suspicious/noConsole: frontend
                 console.log(
                   `Queue: ${actionType}. Processing ${threadId}${attemptCount > 1 ? ` (attempt ${attemptCount})` : ""}`,
                 );
@@ -208,14 +209,14 @@ export function processQueue({
 
                 // when Gmail API returns a rate limit error, throw an error so it can be retried
                 if (result?.serverError) {
-                  await sleep(exponentialBackoff(attemptCount, 1_000));
+                  await sleep(exponentialBackoff(attemptCount, 1000));
                   throw new Error(result.error);
                 }
                 onSuccess?.(threadId);
               },
               { retries: 3 },
             );
-          } catch (error) {
+          } catch {
             // all retries failed
             onError?.(threadId);
           }

@@ -40,18 +40,18 @@ function PureMultimodalInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      adjustHeight();
-    }
-  }, []);
-
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
     }
   }, []);
+
+  useEffect(() => {
+    if (textareaRef.current) {
+      adjustHeight();
+    }
+  }, [adjustHeight]);
 
   // Adjust height whenever input changes (from any source)
   // biome-ignore lint/correctness/useExhaustiveDependencies: We want to adjust height when input changes

@@ -1,12 +1,16 @@
 "use server";
 
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("testAction");
+
 export async function testAction() {
-  console.log("testAction started");
+  logger.info("testAction started");
 
   // sleep for 5 seconds
-  await new Promise((resolve) => setTimeout(resolve, 5_000));
+  await new Promise((resolve) => setTimeout(resolve, 5000));
 
-  console.log("testAction completed");
+  logger.info("testAction completed");
 
   return "Action completed";
 }
