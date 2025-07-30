@@ -72,7 +72,7 @@ function getMessages(count = 1): TestMessage[] {
       from: i % 2 === 0 ? "sender@example.com" : "user@example.com",
       to: i % 2 === 0 ? "user@example.com" : "recipient@example.com",
       subject: `Test Subject ${i + 1}`,
-      date: new Date(Date.now() - (count - i) * 60000), // Messages spaced 1 minute apart
+      date: new Date(Date.now() - (count - i) * 60_000), // Messages spaced 1 minute apart
       content: `Test Content ${i + 1}`,
     });
   }

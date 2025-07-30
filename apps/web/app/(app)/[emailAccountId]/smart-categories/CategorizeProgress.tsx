@@ -27,7 +27,7 @@ export function CategorizeSendersProgress({
   const { data } = useSWR<CategorizeProgress>(
     "/api/user/categorize/senders/progress",
     {
-      refreshInterval: refresh || isBulkCategorizing ? 1_000 : undefined,
+      refreshInterval: refresh || isBulkCategorizing ? 1000 : undefined,
     },
   );
 
@@ -46,7 +46,7 @@ export function CategorizeSendersProgress({
         return prev < maxProgress ? prev + 1 : prev;
       });
     },
-    isBulkCategorizing ? 1_500 : null,
+    isBulkCategorizing ? 1500 : null,
   );
 
   const { setIsBulkCategorizing } = useCategorizeProgress();
@@ -56,7 +56,7 @@ export function CategorizeSendersProgress({
       timeoutId = setTimeout(() => {
         setIsBulkCategorizing(false);
         setFakeProgress(0);
-      }, 3_000);
+      }, 3000);
     }
     return () => {
       if (timeoutId) clearTimeout(timeoutId);

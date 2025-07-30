@@ -1,14 +1,11 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
-import { convertEmailHtmlToText } from "@/utils/mail";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
-
-const logger = createScopedLogger("outlook/mail");
 
 interface OutlookMessageRequest {
   subject: string;
@@ -28,16 +25,6 @@ export async function sendEmailWithHtml(
   client: OutlookClient,
   body: SendEmailBody,
 ) {
-  let messageText: string;
-
-  try {
-    messageText = convertEmailHtmlToText({ htmlText: body.messageHtml });
-  } catch (error) {
-    logger.error("Error converting email html to text", { error });
-    // Strip HTML tags as a fallback
-    messageText = body.messageHtml.replace(/<[^>]*>/g, "");
-  }
-
   const message: OutlookMessageRequest = {
     subject: body.subject,
     body: {

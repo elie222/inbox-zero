@@ -1,6 +1,5 @@
 import useSWR from "swr";
 import type { ThreadsResponse } from "@/app/api/threads/route";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import type { Thread as EmailThread } from "@/components/email-list/types";
 
 export type Thread = EmailThread;

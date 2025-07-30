@@ -1,10 +1,13 @@
 import json5 from "json5";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("json");
 
 export const parseJSON = (text: string) => {
   try {
     return json5.parse(text);
   } catch (error) {
-    console.error(`Error parsing JSON. Text: ${text}`);
+    logger.error("Error parsing JSON", { error, text });
     throw error;
   }
 };
@@ -23,7 +26,7 @@ export function parseJSONWithMultilines(text: string) {
 
     return JSON.parse(escapedNewlines);
   } catch (error) {
-    console.error(`Error parsing JSON with multiline. Text: ${text}`);
+    logger.error("Error parsing JSON with multiline", { error, text });
     throw error;
   }
 }

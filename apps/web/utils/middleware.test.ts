@@ -174,7 +174,7 @@ describe("Middleware", () => {
     it("should call the handler with auth info if session exists", async () => {
       mockAuth.mockResolvedValue({ user: { id: mockUserId } } as any);
       // Adjust handler mock signature
-      const handler = vi.fn(async (req: RequestWithAuth, ctx: any) =>
+      const handler = vi.fn(async (_req: RequestWithAuth, _ctx: any) =>
         NextResponse.json({ ok: true }),
       );
       const wrappedHandler = withAuth(handler);
@@ -229,7 +229,7 @@ describe("Middleware", () => {
       });
       mockGetEmailAccount.mockResolvedValue(mockEmail);
 
-      const handler = vi.fn(async (req: RequestWithAuthAndEmail, ctx: any) =>
+      const handler = vi.fn(async (_req: RequestWithAuthAndEmail, _ctx: any) =>
         NextResponse.json({ success: true }),
       );
       const wrappedHandler = withEmailAccount(handler);
@@ -257,8 +257,8 @@ describe("Middleware", () => {
       // Provide a typed mock implementation to satisfy the wrapper
       const handler = vi.fn(
         async (
-          req: RequestWithAuthAndEmail,
-          ctx: { params: Promise<Record<string, string>> },
+          _req: RequestWithAuthAndEmail,
+          _ctx: { params: Promise<Record<string, string>> },
         ): Promise<NextResponse> => {
           // Implementation won't run, just for types
           return NextResponse.json({});
@@ -288,8 +288,8 @@ describe("Middleware", () => {
       // Provide a typed mock implementation to satisfy the wrapper
       const handler = vi.fn(
         async (
-          req: RequestWithAuthAndEmail,
-          ctx: { params: Promise<Record<string, string>> },
+          _req: RequestWithAuthAndEmail,
+          _ctx: { params: Promise<Record<string, string>> },
         ): Promise<NextResponse> => {
           // Implementation won't run, just for types
           return NextResponse.json({});

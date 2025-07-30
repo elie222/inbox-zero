@@ -31,7 +31,7 @@ import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
 } from "@/utils/account";
-import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
@@ -342,7 +342,7 @@ export class GmailProvider implements EmailProvider {
         type: label.type!,
         threadsTotal: label.threadsTotal || undefined,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -501,7 +501,7 @@ export class GmailProvider implements EmailProvider {
     return getGmailAwaitingReplyLabel(this.client);
   }
 
-  async createLabel(name: string, description?: string): Promise<EmailLabel> {
+  async createLabel(name: string): Promise<EmailLabel> {
     const label = await createGmailLabel({
       gmail: this.client,
       name,
@@ -855,7 +855,7 @@ export class GmailProvider implements EmailProvider {
     return null;
   }
 
-  async unwatchEmails(subscriptionId?: string): Promise<void> {
+  async unwatchEmails(): Promise<void> {
     await unwatchGmail(this.client);
   }
 
@@ -921,7 +921,7 @@ export class OutlookProvider implements EmailProvider {
 
   async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
     const allMessages: ParsedMessage[] = [];
-    let pageToken: string | undefined = undefined;
+    let pageToken: string | undefined;
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
@@ -1083,12 +1083,12 @@ export class OutlookProvider implements EmailProvider {
     return this.getThreadMessages(messageIds[0]);
   }
 
-  async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
+  async removeThreadLabel(_threadId: string, _labelId: string): Promise<void> {
     // For Outlook, we don't need to do anything with labels at this point
     return Promise.resolve();
   }
 
-  async createLabel(name: string, description?: string): Promise<EmailLabel> {
+  async createLabel(name: string): Promise<EmailLabel> {
     const label = await createOutlookLabel({
       client: this.client,
       name,
@@ -1119,7 +1119,7 @@ export class OutlookProvider implements EmailProvider {
     if (!originalMessageId) return null;
     try {
       return await this.getMessage(originalMessageId);
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -1450,7 +1450,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
-      .filter(([threadId, messages]) => messages.length > 0) // Filter out empty threads
+      .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
       .map(([threadId, messages]) => {
         // Convert messages to ParsedMessage format
         const parsedMessages: ParsedMessage[] = messages.map((message) => {

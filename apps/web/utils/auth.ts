@@ -80,9 +80,7 @@ const PROVIDER_CONFIG = {
   },
 } as const;
 
-export const getAuthOptions: (options?: {
-  consent: boolean;
-}) => NextAuthConfig = (options) => ({
+export const getAuthOptions: () => NextAuthConfig = () => ({
   debug: false,
   providers: [
     GoogleProvider({

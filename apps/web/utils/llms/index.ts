@@ -298,7 +298,7 @@ async function chatCompletionToolsInternal({
 }
 
 // not in use atm
-async function streamCompletionTools({
+async function _streamCompletionTools({
   userAi,
   modelType,
   prompt,
@@ -373,7 +373,11 @@ export async function withRetry<T>(
       lastError = error;
 
       if (retryIf(error)) {
-        console.warn(`Attempt ${attempts}: Operation failed. Retrying...`);
+        logger.warn("Operation failed. Retrying...", {
+          attempts,
+          error,
+        });
+
         if (attempts < maxRetries) {
           await sleep(delayMs);
           continue;

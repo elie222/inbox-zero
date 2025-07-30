@@ -94,6 +94,7 @@ export function withActionInstrumentation<
             if (isAICallError(error)) {
               // Quick fix: log full error in development. TODO: handle properly
               if (env.NODE_ENV === "development") {
+                // biome-ignore lint/suspicious/noConsole: helpful for debugging
                 console.error(error);
               }
 
@@ -133,7 +134,6 @@ export function withActionInstrumentation<
 
       // Quick fix: log full error in development. TODO: handle properly
       if (env.NODE_ENV === "development") {
-        console.error(error);
       }
 
       // error is already captured by Sentry in `withServerActionInstrumentation`

@@ -1,5 +1,8 @@
 import prisma from "@/utils/prisma";
 import type { Prisma } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("category");
 
 export type CategoryWithRules = Prisma.CategoryGetPayload<{
   select: {
@@ -52,7 +55,7 @@ export const getUserCategoriesForNames = async ({
     select: { id: true },
   });
   if (categories.length !== names.length) {
-    console.warn("Not all categories were found", {
+    logger.warn("Not all categories were found", {
       requested: names.length,
       found: categories.length,
       names,
