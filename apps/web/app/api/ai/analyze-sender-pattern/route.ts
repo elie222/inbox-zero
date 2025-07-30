@@ -27,11 +27,13 @@ const schema = z.object({
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
 export const POST = withError(async (request) => {
+  const json = await request.json();
+
   if (!isValidInternalApiKey(await headers(), logger)) {
+    logger.error("Invalid API key for sender pattern analysis", json);
     return NextResponse.json({ error: "Invalid API key" });
   }
 
-  const json = await request.json();
   const data = schema.parse(json);
   const { emailAccountId } = data;
   const from = extractEmailAddress(data.from);
