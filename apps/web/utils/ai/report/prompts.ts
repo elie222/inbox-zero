@@ -8,12 +8,15 @@ import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("email-report-prompts");
 
-export type EmailSummary = {
-  summary: string;
-  sender: string;
-  subject: string;
-  category: string;
-};
+const emailSummarySchema = z.object({
+  summary: z.string().describe("Brief summary of the email content"),
+  sender: z.string().describe("Email sender"),
+  subject: z.string().describe("Email subject"),
+  category: z
+    .string()
+    .describe("Category of the email (work, personal, marketing, etc.)"),
+});
+export type EmailSummary = z.infer<typeof emailSummarySchema>;
 
 const executiveSummarySchema = z.object({
   userProfile: z.object({
@@ -579,16 +582,7 @@ Return the analysis as a JSON array with objects containing: summary, sender, su
     userAi: emailAccount.user,
     system,
     prompt,
-    schema: z.array(
-      z.object({
-        summary: z.string().describe("Brief summary of the email content"),
-        sender: z.string().describe("Email sender"),
-        subject: z.string().describe("Email subject"),
-        category: z
-          .string()
-          .describe("Category of the email (work, personal, marketing, etc.)"),
-      }),
-    ),
+    schema: z.array(emailSummarySchema),
     userEmail: emailAccount.email,
     usageLabel: "email-report-summary-generation",
   });
