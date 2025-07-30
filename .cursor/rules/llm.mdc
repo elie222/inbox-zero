@@ -83,7 +83,7 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
   });
 
   // 9. Log outputs
-  logger.trace("Output", { result });
+  logger.trace("Output", result.object);
 
   // 10. Return validated result
   return result.object;
