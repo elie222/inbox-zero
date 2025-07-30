@@ -60,7 +60,9 @@ export default function EmailReportPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button onClick={() => executeAsync({})}>Generate Report</Button>
+          <Button onClick={() => executeAsync({})} loading={isExecuting}>
+            Generate Report
+          </Button>
 
           <LoadingContent
             loading={isExecuting}
@@ -91,11 +93,11 @@ export default function EmailReportPage() {
                           Professional Persona
                         </h4>
                         <p className="text-2xl font-bold text-blue-600">
-                          {report.executiveSummary.userProfile.persona}
+                          {report.executiveSummary?.userProfile.persona}
                         </p>
                         <p className="text-sm text-gray-500">
                           Confidence:{" "}
-                          {report.executiveSummary.userProfile.confidence}%
+                          {report.executiveSummary?.userProfile.confidence}%
                         </p>
                       </div>
                       <div className="bg-white p-4 rounded-lg border">
@@ -131,7 +133,7 @@ export default function EmailReportPage() {
                           Quick Actions
                         </h4>
                         <div className="space-y-2">
-                          {report.executiveSummary.quickActions
+                          {report.executiveSummary?.quickActions
                             .slice(0, 3)
                             .map((action, index) => (
                               <div
@@ -159,7 +161,7 @@ export default function EmailReportPage() {
                         Top Insights
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {report.executiveSummary.topInsights.map(
+                        {report.executiveSummary?.topInsights.map(
                           (insight, index) => (
                             <div
                               key={index}
@@ -202,10 +204,10 @@ export default function EmailReportPage() {
                         Professional Identity
                       </h4>
                       <p className="text-lg font-medium text-blue-600 mb-2">
-                        {report.userPersona.professionalIdentity.persona}
+                        {report.userPersona?.professionalIdentity.persona}
                       </p>
                       <div className="space-y-2">
-                        {report.userPersona.professionalIdentity.supportingEvidence.map(
+                        {report.userPersona?.professionalIdentity.supportingEvidence.map(
                           (evidence, index) => (
                             <p
                               key={index}
@@ -224,7 +226,7 @@ export default function EmailReportPage() {
                         Current Priorities
                       </h4>
                       <div className="flex flex-wrap gap-2">
-                        {report.userPersona.currentPriorities.map(
+                        {report.userPersona?.currentPriorities.map(
                           (priority, index) => (
                             <Badge key={index} variant="secondary">
                               {priority}
@@ -252,20 +254,20 @@ export default function EmailReportPage() {
                         </h5>
                         <p className="text-sm text-gray-600">
                           Peak hours:{" "}
-                          {report.emailBehavior.timingPatterns.peakHours.join(
+                          {report.emailBehavior?.timingPatterns.peakHours.join(
                             ", ",
                           )}
                         </p>
                         <p className="text-sm text-gray-600">
                           Response preference:{" "}
                           {
-                            report.emailBehavior.timingPatterns
+                            report.emailBehavior?.timingPatterns
                               .responsePreference
                           }
                         </p>
                         <p className="text-sm text-gray-600">
                           Frequency:{" "}
-                          {report.emailBehavior.timingPatterns.frequency}
+                          {report.emailBehavior?.timingPatterns.frequency}
                         </p>
                       </div>
                       <div className="bg-gray-50 p-4 rounded-lg">
@@ -274,13 +276,13 @@ export default function EmailReportPage() {
                         </h5>
                         <p className="text-sm text-gray-600">
                           Preferred:{" "}
-                          {report.emailBehavior.contentPreferences.preferred.join(
+                          {report.emailBehavior?.contentPreferences.preferred.join(
                             ", ",
                           )}
                         </p>
                         <p className="text-sm text-gray-600">
                           Avoided:{" "}
-                          {report.emailBehavior.contentPreferences.avoided.join(
+                          {report.emailBehavior?.contentPreferences.avoided.join(
                             ", ",
                           )}
                         </p>
@@ -290,7 +292,7 @@ export default function EmailReportPage() {
                           Engagement Triggers
                         </h5>
                         <div className="space-y-1">
-                          {report.emailBehavior.engagementTriggers.map(
+                          {report.emailBehavior?.engagementTriggers.map(
                             (trigger, index) => (
                               <p key={index} className="text-sm text-gray-600">
                                 • {trigger}
@@ -317,7 +319,7 @@ export default function EmailReportPage() {
                         Common Response Patterns
                       </h4>
                       <div className="space-y-4">
-                        {report.responsePatterns.commonResponses.map(
+                        {report.responsePatterns?.commonResponses.map(
                           (response, index) => (
                             <div
                               key={index}
@@ -358,7 +360,7 @@ export default function EmailReportPage() {
                         Email Categories
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {report.responsePatterns.categoryOrganization.map(
+                        {report.responsePatterns?.categoryOrganization.map(
                           (category, index) => (
                             <div
                               key={index}
@@ -482,7 +484,7 @@ export default function EmailReportPage() {
                         Immediate Actions
                       </h4>
                       <div className="space-y-3">
-                        {report.actionableRecommendations.immediateActions.map(
+                        {report.actionableRecommendations?.immediateActions.map(
                           (action, index) => (
                             <div
                               key={index}
@@ -521,7 +523,7 @@ export default function EmailReportPage() {
                         Short-term Improvements
                       </h4>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {report.actionableRecommendations.shortTermImprovements.map(
+                        {report.actionableRecommendations?.shortTermImprovements.map(
                           (improvement, index) => (
                             <div
                               key={index}
@@ -547,7 +549,7 @@ export default function EmailReportPage() {
                         Long-term Strategy
                       </h4>
                       <div className="space-y-4">
-                        {report.actionableRecommendations.longTermStrategy.map(
+                        {report.actionableRecommendations?.longTermStrategy.map(
                           (strategy, index) => (
                             <div
                               key={index}

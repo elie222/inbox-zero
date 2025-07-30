@@ -508,20 +508,8 @@ export async function summarizeEmails(
   emails: ParsedMessage[],
   emailAccount: EmailAccountWithAI,
 ): Promise<EmailSummary[]> {
-  logger.info("summarizeEmails started", {
-    emailsCount: emails.length,
-    hasEmailAccount: !!emailAccount,
-  });
-
   if (emails.length === 0) {
-    logger.info(
-      "summarizeEmails: no emails to summarize, returning empty array",
-    );
-    return [];
-  }
-
-  if (!emailAccount) {
-    logger.warn("Email account not found for summarization");
+    logger.warn("No emails to summarize, returning empty array");
     return [];
   }
 
@@ -532,14 +520,6 @@ export async function summarizeEmails(
     const batch = emails.slice(i, i + batchSize);
     const batchNumber = Math.floor(i / batchSize) + 1;
     const totalBatches = Math.ceil(emails.length / batchSize);
-
-    logger.info("summarizeEmails: processing batch", {
-      batchNumber,
-      totalBatches,
-      batchSize: batch.length,
-      startIndex: i,
-      endIndex: Math.min(i + batchSize, emails.length),
-    });
 
     const batchResults = await processEmailBatch(
       batch,
@@ -554,11 +534,6 @@ export async function summarizeEmails(
     }
   }
 
-  logger.info("summarizeEmails: all batches completed", {
-    totalResults: results.length,
-    originalEmailCount: emails.length,
-  });
-
   return results;
 }
 
@@ -568,33 +543,12 @@ async function processEmailBatch(
   batchNumber: number,
   totalBatches: number,
 ): Promise<EmailSummary[]> {
-  logger.info("processEmailBatch: preparing email texts", {
-    batchNumber,
-    totalBatches,
-    emailsCount: emails.length,
-  });
-
-  const emailTexts = emails.map((email, index) => {
+  const emailTexts = emails.map((email) => {
     const sender = email.headers?.from || "Unknown";
     const subject = email.headers?.subject || "No subject";
     const content = email.textPlain || email.textHtml || "";
 
-    logger.info("processEmailBatch: processing email", {
-      batchNumber,
-      index,
-      emailId: email.id,
-      sender,
-      subjectLength: subject.length,
-      contentLength: content.length,
-    });
-
     return `From: ${sender}\nSubject: ${subject}\nContent: ${content.substring(0, 1000)}`;
-  });
-
-  logger.info("processEmailBatch: email texts prepared", {
-    batchNumber,
-    emailTextsCount: emailTexts.length,
-    totalTextLength: emailTexts.join("\n\n---\n\n").length,
   });
 
   const system = `You are an assistant that processes user emails to extract their core meaning for later analysis.
@@ -619,18 +573,7 @@ ${emailTexts.join("\n\n---\n\n")}
 
 Return the analysis as a JSON array with objects containing: summary, sender, subject, category.`;
 
-  logger.info("processEmailBatch: about to call chatCompletionObject", {
-    batchNumber,
-    promptLength: prompt.length,
-    systemLength: system.length,
-  });
-
-  logger.info("processEmailBatch: calling chatCompletionObject", {
-    batchNumber,
-    userAiProvider: emailAccount.user?.aiProvider,
-    userAiModel: emailAccount.user?.aiModel,
-    hasUserAiApiKey: !!emailAccount.user?.aiApiKey,
-  });
+  logger.trace("Input", { system, prompt });
 
   const result = await chatCompletionObject({
     userAi: emailAccount.user,
@@ -650,12 +593,7 @@ Return the analysis as a JSON array with objects containing: summary, sender, su
     usageLabel: "email-report-summary-generation",
   });
 
-  logger.info("processEmailBatch: chatCompletionObject completed", {
-    batchNumber,
-    resultType: typeof result,
-    hasObject: !!result.object,
-    objectLength: result.object?.length || 0,
-  });
+  logger.trace("processEmailBatch: result", { response: result.object });
 
   return result.object;
 }
