@@ -115,7 +115,7 @@ async function cleanThread({
   }
 
   function hasAttachments(message: ParsedMessage) {
-    return message.payload?.parts?.some((part) => part.filename);
+    return message.attachments && message.attachments.length > 0;
   }
 
   function hasUnsubscribeLink(message: ParsedMessage) {

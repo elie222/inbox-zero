@@ -1,14 +1,11 @@
 "use server";
 
-import type { gmail_v1 } from "@googleapis/gmail";
 import { actionClient } from "@/utils/actions/safe-action";
 import { z } from "zod";
-import { getGmailAndAccessTokenForEmail } from "@/utils/account";
-import { getMessages, getMessagesBatch } from "@/utils/gmail/message";
+import { createEmailProvider } from "@/utils/email/provider";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
@@ -24,17 +21,29 @@ export const loadEmailStatsAction = actionClient
   .metadata({ name: "loadEmailStats" })
   .schema(z.object({ loadBefore: z.boolean() }))
   .action(async ({ parsedInput: { loadBefore }, ctx: { emailAccountId } }) => {
-    const { gmail, accessToken } = await getGmailAndAccessTokenForEmail({
-      emailAccountId,
+    // Get email account with provider information
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        account: {
+          select: { provider: true },
+        },
+      },
     });
 
-    if (!accessToken) throw new SafeError("Missing access token");
+    if (!emailAccount?.account?.provider) {
+      throw new SafeError("Email account or provider not found");
+    }
+
+    const emailProvider = await createEmailProvider({
+      emailAccountId,
+      provider: emailAccount.account.provider,
+    });
 
     await loadEmails(
       {
         emailAccountId,
-        gmail,
-        accessToken,
+        emailProvider,
       },
       {
         loadBefore,
@@ -45,16 +54,13 @@ export const loadEmailStatsAction = actionClient
 async function loadEmails(
   {
     emailAccountId,
-    gmail,
-    accessToken,
+    emailProvider,
   }: {
     emailAccountId: string;
-    gmail: gmail_v1.Gmail;
-    accessToken: string;
+    emailProvider: any;
   },
   { loadBefore }: { loadBefore: boolean },
 ) {
-  let nextPageToken: string | undefined = undefined;
   let pages = 0;
 
   const newestEmailSaved = await prisma.emailMessage.findFirst({
@@ -65,12 +71,13 @@ async function loadEmails(
   const after = newestEmailSaved?.date;
   logger.info("Loading emails after", { after });
 
+  // First pagination loop - load emails after the newest saved email
+  let nextPageToken: string | undefined = undefined;
   while (pages < MAX_PAGES) {
-    logger.info("After Page", { pages });
+    logger.info("After Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,
-      gmail,
-      accessToken,
+      emailProvider,
       nextPageToken,
       after,
       before: undefined,
@@ -82,7 +89,7 @@ async function loadEmails(
     pages++;
   }
 
-  logger.info("Completed emails after", { after });
+  logger.info("Completed emails after", { after, pages });
 
   if (!loadBefore || !newestEmailSaved) return { pages };
 
@@ -97,12 +104,14 @@ async function loadEmails(
   // shouldn't happen, but prevents TS errors
   if (!before) return { pages };
 
+  // Second pagination loop - load emails before the oldest saved email
+  // Reset nextPageToken for this new pagination sequence
+  nextPageToken = undefined;
   while (pages < MAX_PAGES) {
-    logger.info("Before Page", { pages });
+    logger.info("Before Page", { pages, nextPageToken });
     const res = await saveBatch({
       emailAccountId,
-      gmail,
-      accessToken,
+      emailProvider,
       nextPageToken,
       before,
       after: undefined,
@@ -114,51 +123,41 @@ async function loadEmails(
     pages++;
   }
 
-  logger.info("Completed emails before", { before });
+  logger.info("Completed emails before", { before, pages });
 
   return { pages };
 }
 
 async function saveBatch({
   emailAccountId,
-  gmail,
-  accessToken,
+  emailProvider,
   nextPageToken,
   before,
   after,
 }: {
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
-  accessToken: string;
+  emailProvider: any;
   nextPageToken?: string;
 } & (
   | { before: Date; after: undefined }
   | { before: undefined; after: Date }
   | { before: undefined; after: undefined }
 )) {
-  // 1. find all emails since the last time we ran this function
-  let query: string | undefined;
-
-  if (before) {
-    query = `before:${+before / 1000 + 1}`;
-  } else if (after) {
-    query = `after:${+after / 1000 - 1}`;
-  }
-
-  const res = await getMessages(gmail, {
-    query,
+  // Get messages from the provider with date filtering
+  const res = await emailProvider.getMessagesWithPagination({
     maxResults: PAGE_SIZE,
     pageToken: nextPageToken,
+    before,
+    after,
   });
 
-  // 2. fetch each email and save it to postgres
-  const messages = await getMessagesBatch({
-    messageIds: res.messages?.map((m) => m.id).filter(isDefined) || [],
-    accessToken,
-  });
+  // Get full message details for the batch
+  const messages = await emailProvider.getMessagesBatch(
+    res.messages?.map((m: any) => m.id).filter(isDefined) || [],
+  );
 
   const emailsToSave = messages
-    .map((m) => {
+    .map((m: any) => {
       if (!m.id || !m.threadId) return;
 
       const unsubscribeLink =
@@ -182,10 +181,10 @@ async function saveBatch({
         to: m.headers.to ? extractEmailAddress(m.headers.to) : "Missing",
         date,
         unsubscribeLink,
-        read: !m.labelIds?.includes(GmailLabel.UNREAD),
-        sent: !!m.labelIds?.includes(GmailLabel.SENT),
-        draft: !!m.labelIds?.includes(GmailLabel.DRAFT),
-        inbox: !!m.labelIds?.includes(GmailLabel.INBOX),
+        read: !m.labelIds?.includes("UNREAD"),
+        sent: !!m.labelIds?.includes("SENT"),
+        draft: !!m.labelIds?.includes("DRAFT"),
+        inbox: !!m.labelIds?.includes("INBOX"),
         emailAccountId,
       };
     })

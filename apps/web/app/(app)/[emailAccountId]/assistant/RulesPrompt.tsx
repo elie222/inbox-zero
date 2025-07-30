@@ -255,7 +255,6 @@ function RulesPromptForm({
           <div className="mt-1.5 space-y-4">
             <LoadingContent
               loading={isLoadingLabels}
-              error={errorLabels}
               loadingComponent={<Skeleton className="min-h-[600px] w-full" />}
             >
               <SimpleRichTextEditor

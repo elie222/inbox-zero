@@ -3,10 +3,11 @@ import { CheckIcon, XIcon } from "lucide-react";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
-import type { Executing, Thread } from "@/components/email-list/types";
+import type { Executing } from "@/components/email-list/types";
 import { cn } from "@/utils";
 import { approvePlanAction, rejectPlanAction } from "@/utils/actions/ai-rule";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import type { Thread } from "@/hooks/useThreads";
 
 export function useExecutePlan(refetch: () => void) {
   const [executingPlan, setExecutingPlan] = useState<Executing>({});

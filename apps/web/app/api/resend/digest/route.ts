@@ -17,6 +17,7 @@ import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
 import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
+import { camelCase } from "lodash";
 
 export const maxDuration = 60;
 
@@ -75,6 +76,8 @@ async function sendEmail({
     expiresAt: emailAccount.tokens.expires_at,
     emailAccountId,
   });
+
+  logger.info("Acquired Gmail client for account", loggerOptions);
 
   const pendingDigests = await prisma.digest.findMany({
     where: {
@@ -136,6 +139,8 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
+    logger.info("Fetching batch of messages", loggerOptions);
+
     // Skip Gmail API call if there are no messages to process
     let messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
@@ -145,8 +150,13 @@ async function sendEmail({
       });
     }
 
+    logger.info("Fetched batch of messages", loggerOptions);
+
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
+
+    // Map of rules camelCase -> ruleName
+    const ruleNameMap = new Map<string, string>();
 
     // Transform and group in a single pass
     const executedRulesByRule = pendingDigests.reduce((acc, digest) => {
@@ -162,9 +172,13 @@ async function sendEmail({
         const ruleName =
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail;
 
-        const category = ruleName;
-        if (!acc[category]) {
-          acc[category] = [];
+        const ruleNameKey = camelCase(ruleName);
+        if (!ruleNameMap.has(ruleNameKey)) {
+          ruleNameMap.set(ruleNameKey, ruleName);
+        }
+
+        if (!acc[ruleNameKey]) {
+          acc[ruleNameKey] = [];
         }
 
         let parsedContent: unknown;
@@ -182,7 +196,7 @@ async function sendEmail({
         const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
-          acc[category].push({
+          acc[ruleNameKey].push({
             content: contentResult.data,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
@@ -194,6 +208,8 @@ async function sendEmail({
 
     const token = await createUnsubscribeToken({ emailAccountId });
 
+    logger.info("Sending digest email", loggerOptions);
+
     // First, send the digest email and wait for it to complete
     await sendDigestEmail({
       from: env.RESEND_FROM_EMAIL,
@@ -202,9 +218,12 @@ async function sendEmail({
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         unsubscribeToken: token,
         date: new Date(),
+        ruleNames: Object.fromEntries(ruleNameMap),
         ...executedRulesByRule,
       },
     });
+
+    logger.info("Digest email sent", loggerOptions);
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied

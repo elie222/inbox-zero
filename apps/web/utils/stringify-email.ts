@@ -13,6 +13,16 @@ export function stringifyEmail(email: EmailForLLM, maxLength: number) {
     `<body>${truncate(removeExcessiveWhitespace(email.content), maxLength)}</body>`,
   ];
 
+  if (email.attachments && email.attachments.length > 0) {
+    const attachmentsXml = email.attachments
+      .map(
+        (att) =>
+          `<attachment filename="${att.filename}" type="${att.mimeType}" size="${att.size}" />`,
+      )
+      .join("\n");
+    emailParts.push(`<attachments>\n${attachmentsXml}\n</attachments>`);
+  }
+
   return emailParts.filter(Boolean).join("\n");
 }
 

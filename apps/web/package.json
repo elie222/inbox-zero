@@ -35,6 +35,7 @@
     "@lemonsqueezy/lemonsqueezy.js": "4.0.0",
     "@mdx-js/loader": "3.1.0",
     "@mdx-js/react": "3.1.0",
+    "@microsoft/microsoft-graph-client": "3.0.7",
     "@mux/mux-player-react": "3.4.0",
     "@next/mdx": "15.3.3",
     "@next/third-parties": "15.3.3",
@@ -147,6 +148,7 @@
   },
   "devDependencies": {
     "@headlessui/tailwindcss": "0.2.2",
+    "@microsoft/microsoft-graph-types": "^2.40.0",
     "@testing-library/react": "16.3.0",
     "@types/diff": "7.0.2",
     "@types/email-reply-parser": "1.4.2",

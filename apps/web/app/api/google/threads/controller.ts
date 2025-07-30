@@ -1,4 +1,4 @@
-import { parseMessages } from "@/utils/mail";
+import { parseMessages } from "@/utils/gmail/message";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isDefined } from "@/utils/types";
@@ -9,9 +9,9 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import type { ThreadsQuery } from "@/app/api/google/threads/validation";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { SafeError } from "@/utils/error";
+import type { ThreadsQuery } from "@/app/api/threads/validation";
 
 export type ThreadsResponse = Awaited<ReturnType<typeof getThreads>>;
 

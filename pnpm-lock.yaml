@@ -25,8 +25,8 @@ importers:
         specifier: 15.5.1
         version: 15.5.1
       prettier:
-        specifier: 3.6.2
-        version: 3.6.2
+        specifier: 3.5.3
+        version: 3.5.3
       turbo:
         specifier: 2.5.4
         version: 2.5.4
@@ -167,6 +167,9 @@ importers:
       '@mdx-js/react':
         specifier: 3.1.0
         version: 3.1.0(@types/react@19.0.10)(react@19.1.0)
+      '@microsoft/microsoft-graph-client':
+        specifier: 3.0.7
+        version: 3.0.7
       '@mux/mux-player-react':
         specifier: 3.4.0
         version: 3.4.0(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -498,6 +501,9 @@ importers:
       '@headlessui/tailwindcss':
         specifier: 0.2.2
         version: 0.2.2(tailwindcss@3.4.17(ts-node@10.9.2(@swc/core@1.6.5(@swc/helpers@0.5.15))(@types/node@22.15.29)(typescript@5.8.3)))
+      '@microsoft/microsoft-graph-types':
+        specifier: ^2.40.0
+        version: 2.40.0
       '@testing-library/react':
         specifier: 16.3.0
         version: 16.3.0(@testing-library/dom@10.2.0)(@types/react-dom@19.0.4(@types/react@19.0.10))(@types/react@19.0.10)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
@@ -642,6 +648,9 @@ importers:
       '@types/react-dom':
         specifier: 19.0.4
         version: 19.0.4(@types/react@19.0.10)
+      prettier:
+        specifier: 3.5.3
+        version: 3.5.3
       tsconfig:
         specifier: workspace:*
         version: link:../tsconfig
@@ -2403,6 +2412,27 @@ packages:
     peerDependencies:
       '@types/react': 19.0.10
       react: '>=16'
+
+  '@microsoft/microsoft-graph-client@3.0.7':
+    resolution: {integrity: sha512-/AazAV/F+HK4LIywF9C+NYHcJo038zEnWkteilcxC1FM/uK/4NVGDKGrxx7nNq1ybspAroRKT4I1FHfxQzxkUw==}
+    engines: {node: '>=12.0.0'}
+    peerDependencies:
+      '@azure/identity': '*'
+      '@azure/msal-browser': '*'
+      buffer: '*'
+      stream-browserify: '*'
+    peerDependenciesMeta:
+      '@azure/identity':
+        optional: true
+      '@azure/msal-browser':
+        optional: true
+      buffer:
+        optional: true
+      stream-browserify:
+        optional: true
+
+  '@microsoft/microsoft-graph-types@2.40.0':
+    resolution: {integrity: sha512-1fcPVrB/NkbNcGNfCy+Cgnvwxt6/sbIEEFgZHFBJ670zYLegENYJF8qMo7x3LqBjWX2/Eneq5BVVRCLTmlJN+g==}
 
   '@modelcontextprotocol/sdk@1.12.1':
     resolution: {integrity: sha512-KG1CZhZfWg+u8pxeM/mByJDScJSrjjxLc8fwQqbsS8xCjBmQfMNEBTotYdNanKekepnfRI85GtgQlctLFpcYPw==}
@@ -9024,11 +9054,6 @@ packages:
     engines: {node: '>=14'}
     hasBin: true
 
-  prettier@3.6.2:
-    resolution: {integrity: sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==}
-    engines: {node: '>=14'}
-    hasBin: true
-
   pretty-bytes@6.1.1:
     resolution: {integrity: sha512-mQUvGU6aUFQ+rNvTIAcZuWGRT9a6f6Yrg9bHs4ImKF+HZCEK+plBvnAZYSIQztknZF2qnzNtr6F8s0+IuptdlQ==}
     engines: {node: ^14.13.1 || >=16.0.0}
@@ -13366,6 +13391,13 @@ snapshots:
       '@types/react': 19.0.10
       react: 19.1.0
 
+  '@microsoft/microsoft-graph-client@3.0.7':
+    dependencies:
+      '@babel/runtime': 7.24.1
+      tslib: 2.8.1
+
+  '@microsoft/microsoft-graph-types@2.40.0': {}
+
   '@modelcontextprotocol/sdk@1.12.1':
     dependencies:
       ajv: 6.12.6
@@ -14671,7 +14703,7 @@ snapshots:
   '@react-email/render@1.1.2(react-dom@19.1.0(react@19.1.0))(react@19.1.0)':
     dependencies:
       html-to-text: 9.0.5
-      prettier: 3.6.2
+      prettier: 3.5.3
       react: 19.1.0
       react-dom: 19.1.0(react@19.1.0)
       react-promise-suspense: 0.3.4
@@ -14889,7 +14921,7 @@ snapshots:
       get-it: 8.6.9(debug@4.4.1)
       groq-js: 1.16.1
       pkg-dir: 5.0.0
-      prettier: 3.6.2
+      prettier: 3.5.3
       semver: 7.7.1
       validate-npm-package-name: 3.0.0
     transitivePeerDependencies:
@@ -21422,8 +21454,6 @@ snapshots:
     optional: true
 
   prettier@3.5.3: {}
-
-  prettier@3.6.2: {}
 
   pretty-bytes@6.1.1: {}
 

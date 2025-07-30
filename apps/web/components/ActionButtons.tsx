@@ -26,7 +26,7 @@ export function ActionButtons({
   onArchive: () => void;
   refetch: (threadId?: string) => void;
 }) {
-  const { emailAccountId, userEmail } = useAccount();
+  const { emailAccountId, userEmail, provider } = useAccount();
 
   const openInGmail = useCallback(() => {
     // open in gmail
@@ -47,11 +47,15 @@ export function ActionButtons({
 
   const buttons = useMemo(
     () => [
-      {
-        tooltip: "Open in Gmail",
-        onClick: openInGmail,
-        icon: <ExternalLinkIcon className="size-4" aria-hidden="true" />,
-      },
+      ...(provider === "google"
+        ? [
+            {
+              tooltip: "Open in Gmail",
+              onClick: openInGmail,
+              icon: <ExternalLinkIcon className="size-4" aria-hidden="true" />,
+            },
+          ]
+        : []),
       {
         tooltip: "Process with assistant",
         onClick: onPlanAiAction,
@@ -77,7 +81,15 @@ export function ActionButtons({
         ),
       },
     ],
-    [onTrash, isTrashing, onArchive, onPlanAiAction, isPlanning, openInGmail],
+    [
+      onTrash,
+      isTrashing,
+      onArchive,
+      onPlanAiAction,
+      isPlanning,
+      openInGmail,
+      provider,
+    ],
   );
 
   return <ButtonGroup buttons={buttons} shadow={shadow} />;

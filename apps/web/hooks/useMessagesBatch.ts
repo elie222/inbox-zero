@@ -1,8 +1,6 @@
 import useSWR from "swr";
-import type {
-  MessagesBatchQuery,
-  MessagesBatchResponse,
-} from "@/app/api/google/messages/batch/route";
+import type { MessagesBatchQuery } from "@/app/api/messages/validation";
+import type { MessagesBatchResponse } from "@/app/api/messages/batch/route";
 
 export function useMessagesBatch({
   ids,
@@ -12,7 +10,7 @@ export function useMessagesBatch({
   if (ids) searchParams.set("ids", ids.join(","));
   if (parseReplies) searchParams.set("parseReplies", parseReplies.toString());
 
-  const url = `/api/google/messages/batch?${searchParams.toString()}`;
+  const url = `/api/messages/batch?${searchParams.toString()}`;
   const { data, isLoading, error, mutate } = useSWR<MessagesBatchResponse>(
     ids?.length ? url : null,
   );

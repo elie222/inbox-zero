@@ -9,14 +9,17 @@ export async function onAutoArchive({
   emailAccountId,
   from,
   gmailLabelId,
+  labelName,
 }: {
   emailAccountId: string;
   from: string;
   gmailLabelId?: string;
+  labelName?: string;
 }) {
   const result = await createAutoArchiveFilterAction(emailAccountId, {
     from,
     gmailLabelId,
+    labelName,
   });
 
   if (result?.serverError) {

@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import type {
   MessageWithGroupItem,
@@ -73,6 +73,7 @@ async function fetchStaticExampleMessages(
 
   const messages = await Promise.all(
     (response.messages || []).map(async (message) => {
+      // TODO: Use email provider to get the message which will parse it internally
       const m = await getMessage(message.id!, gmail);
       const parsedMessage = parseMessage(m);
       return parsedMessage;

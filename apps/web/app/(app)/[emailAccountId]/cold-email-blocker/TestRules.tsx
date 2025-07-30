@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { toastError } from "@/components/Toast";
 import { LoadingContent } from "@/components/LoadingContent";
-import type { MessagesResponse } from "@/app/api/google/messages/route";
+import type { MessagesResponse } from "@/app/api/messages/route";
 import { Separator } from "@/components/ui/separator";
 import { AlertBasic } from "@/components/Alert";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
@@ -31,7 +31,7 @@ type ColdEmailBlockerResponse = {
 export function TestRulesContent() {
   const [searchQuery, setSearchQuery] = useState("");
   const { data, isLoading, error } = useSWR<MessagesResponse>(
-    `/api/google/messages?q=${searchQuery}`,
+    `/api/messages?q=${searchQuery}`,
     {
       keepPreviousData: true,
       dedupingInterval: 1_000,

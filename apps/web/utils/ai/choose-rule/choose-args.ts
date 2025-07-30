@@ -10,6 +10,13 @@ import {
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
+import type { OutlookClient } from "@/utils/outlook/client";
+import { createScopedLogger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/provider";
+
+const logger = createScopedLogger("choose-args");
+
+type EmailClient = gmail_v1.Gmail | OutlookClient;
 
 type ActionArgResponse = {
   [key: `${string}-${string}`]: {
@@ -23,12 +30,12 @@ export async function getActionItemsWithAiArgs({
   message,
   emailAccount,
   selectedRule,
-  gmail,
+  client,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
 }): Promise<Action[]> {
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
@@ -39,11 +46,17 @@ export async function getActionItemsWithAiArgs({
   let draft: string | null = null;
 
   if (draftEmailActions.length) {
-    draft = await fetchMessagesAndGenerateDraft(
-      emailAccount,
-      message.threadId,
-      gmail,
-    );
+    try {
+      draft = await fetchMessagesAndGenerateDraft(
+        emailAccount,
+        message.threadId,
+        client,
+      );
+    } catch (error) {
+      logger.error("Failed to generate draft", { error });
+      // Continue without draft if generation fails
+      draft = null;
+    }
   }
 
   const parameters = extractActionsNeedingAiGeneration(selectedRule.actions);

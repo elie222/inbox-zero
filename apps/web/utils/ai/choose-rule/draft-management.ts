@@ -1,19 +1,18 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { ActionType } from "@prisma/client";
-import { deleteDraft, getDraft } from "@/utils/gmail/draft";
 import type { ExecutedRule } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
+import type { EmailProvider } from "@/utils/email/provider";
 
 /**
  * Handles finding and potentially deleting a previous AI-generated draft for a thread.
  */
 export async function handlePreviousDraftDeletion({
-  gmail,
+  client,
   executedRule,
   logger,
 }: {
-  gmail: gmail_v1.Gmail;
+  client: EmailProvider;
   executedRule: Pick<ExecutedRule, "id" | "threadId" | "emailAccountId">;
   logger: Logger;
 }) {
@@ -46,9 +45,8 @@ export async function handlePreviousDraftDeletion({
       });
 
       // Fetch the current state of the draft
-      const currentDraftDetails = await getDraft(
+      const currentDraftDetails = await client.getDraft(
         previousDraftAction.draftId,
-        gmail,
       );
 
       if (currentDraftDetails?.textPlain) {
@@ -83,7 +81,7 @@ export async function handlePreviousDraftDeletion({
 
           // Delete the draft and mark as not sent
           await Promise.all([
-            deleteDraft(gmail, previousDraftAction.draftId),
+            client.deleteDraft(previousDraftAction.draftId),
             prisma.executedAction.update({
               where: { id: previousDraftAction.id },
               data: { wasDraftSent: false },

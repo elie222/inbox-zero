@@ -65,7 +65,7 @@ type NavItem = {
 export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   // Assistant category items
   const assistantItems: NavItem[] = useMemo(
@@ -87,18 +87,22 @@ export const useNavigation = () => {
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      {
-        name: "Deep Clean",
-        href: prefixPath(emailAccountId, "/clean"),
-        icon: BrushIcon,
-      },
-      {
-        name: "Analytics",
-        href: prefixPath(emailAccountId, "/stats"),
-        icon: BarChartBigIcon,
-      },
+      ...(provider === "google"
+        ? [
+            {
+              name: "Deep Clean",
+              href: prefixPath(emailAccountId, "/clean"),
+              icon: BrushIcon,
+            },
+            {
+              name: "Analytics",
+              href: prefixPath(emailAccountId, "/stats"),
+              icon: BarChartBigIcon,
+            },
+          ]
+        : []),
     ],
-    [emailAccountId],
+    [emailAccountId, provider],
   );
 
   const cleanItemsFiltered = useMemo(
@@ -269,15 +273,17 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
                   activeHref={path}
                 />
               </SidebarGroup>
-              <SidebarGroup>
-                <SidebarGroupLabel>Tools</SidebarGroupLabel>
-                <ClientOnly>
-                  <SideNavMenu
-                    items={navigation.cleanItems}
-                    activeHref={path}
-                  />
-                </ClientOnly>
-              </SidebarGroup>
+              {navigation.cleanItems.length > 0 && (
+                <SidebarGroup>
+                  <SidebarGroupLabel>Tools</SidebarGroupLabel>
+                  <ClientOnly>
+                    <SideNavMenu
+                      items={navigation.cleanItems}
+                      activeHref={path}
+                    />
+                  </ClientOnly>
+                </SidebarGroup>
+              )}
             </>
           )}
         </SidebarGroupContent>
@@ -305,9 +311,9 @@ function MailNav({ path }: { path: string }) {
     const currentLabelId = searchParams.get("labelId");
 
     return visibleLabels.map((label) => ({
-      name: label.name,
+      name: label.name ?? "",
       icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
+      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));
@@ -319,9 +325,9 @@ function MailNav({ path }: { path: string }) {
     const currentLabelId = searchParams.get("labelId");
 
     return hiddenLabels.map((label) => ({
-      name: label.name,
+      name: label.name ?? "",
       icon: TagIcon,
-      href: `?type=label&labelId=${encodeURIComponent(label.id)}`,
+      href: `?type=label&labelId=${encodeURIComponent(label.id ?? "")}`,
       // Add active state for the current label
       active: currentLabelId === label.id,
     }));

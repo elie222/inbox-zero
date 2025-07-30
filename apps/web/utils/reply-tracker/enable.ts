@@ -90,34 +90,7 @@ export async function enableReplyTracker({
 
   // If not found, create a reply required rule
   if (!ruleId) {
-    const newRule = await safeCreateRule({
-      result: {
-        name: RuleName.ToReply,
-        condition: {
-          aiInstructions: defaultReplyTrackerInstructions,
-          conditionalOperator: null,
-          static: null,
-        },
-        actions: [
-          {
-            type: ActionType.LABEL,
-            fields: {
-              label: NEEDS_REPLY_LABEL_NAME,
-              to: null,
-              subject: null,
-              content: null,
-              cc: null,
-              bcc: null,
-              webhookUrl: null,
-            },
-          },
-          ...(addDigest ? [{ type: ActionType.DIGEST }] : []),
-        ],
-      },
-      emailAccountId: emailAccount.id,
-      systemType: SystemType.TO_REPLY,
-      triggerType: "system_creation",
-    });
+    const newRule = await createToReplyRule(emailAccountId, !!addDigest);
 
     if (newRule && "error" in newRule) {
       logger.error("Error enabling Reply Zero", { error: newRule.error });
@@ -158,6 +131,41 @@ export async function enableReplyTracker({
     enableDraftReplies(updatedRule),
     enableOutboundReplyTracking({ emailAccountId }),
   ]);
+}
+
+export async function createToReplyRule(
+  emailAccountId: string,
+  addDigest: boolean,
+) {
+  return await safeCreateRule({
+    result: {
+      name: RuleName.ToReply,
+      condition: {
+        aiInstructions: defaultReplyTrackerInstructions,
+        conditionalOperator: null,
+        static: null,
+      },
+      actions: [
+        {
+          type: ActionType.LABEL,
+          fields: {
+            label: NEEDS_REPLY_LABEL_NAME,
+            to: null,
+            subject: null,
+            content: null,
+            cc: null,
+            bcc: null,
+            webhookUrl: null,
+          },
+        },
+        ...(addDigest ? [{ type: ActionType.DIGEST }] : []),
+      ],
+    },
+    emailAccountId,
+    systemType: SystemType.TO_REPLY,
+    triggerType: "system_creation",
+    shouldCreateIfDuplicate: false,
+  });
 }
 
 async function enableReplyTracking(
