@@ -356,7 +356,7 @@ export async function getMessagesLargeBatch({
 
     // Wait 2 seconds between batches, except after the last batch
     if (i + batchSize < messageIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      await sleep(2000);
     }
   }
 

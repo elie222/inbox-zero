@@ -47,7 +47,7 @@ export const schema = z.object({
 // 3. Create main function with typed options
 export async function featureFunction(options: {
   inputData: InputType;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }) {
   const { inputData, user } = options;
 
@@ -67,14 +67,14 @@ export async function featureFunction(options: {
 ...
 </data>
 
-${user.about ? `<user_info>${user.about}</user_info>` : ""}`;
+${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
 
   // 7. Log inputs
   logger.trace("Input", { system, prompt });
 
   // 8. Call LLM with proper configuration
   const result = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema,

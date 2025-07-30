@@ -27,9 +27,7 @@ export default async function DebugPage(props: {
           </Link>
         </Button>
         <Button variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/debug/report")}>
-            E-mail Report
-          </Link>
+          <Link href={prefixPath(emailAccountId, "/debug/report")}>Report</Link>
         </Button>
       </div>
     </div>

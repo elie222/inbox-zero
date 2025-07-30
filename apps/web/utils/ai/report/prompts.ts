@@ -1,30 +1,173 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { EmailSummary } from "./schemas";
-import type { EmailAccount, User, Account } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  executiveSummarySchema,
-  userPersonaSchema,
-  emailBehaviorSchema,
-  responsePatternsSchema,
-  labelAnalysisSchema,
-  actionableRecommendationsSchema,
-} from "./schemas";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { sleep } from "@/utils/sleep";
 
 const logger = createScopedLogger("email-report-prompts");
+
+export type EmailSummary = {
+  summary: string;
+  sender: string;
+  subject: string;
+  category: string;
+};
+
+const executiveSummarySchema = z.object({
+  userProfile: z.object({
+    persona: z
+      .string()
+      .describe(
+        "1-5 word persona identification (e.g., 'Tech Startup Founder')",
+      ),
+    confidence: z
+      .number()
+      .min(0)
+      .max(100)
+      .describe("Confidence level in persona identification (0-100)"),
+  }),
+  topInsights: z
+    .array(
+      z.object({
+        insight: z.string().describe("Key insight about user's email behavior"),
+        priority: z
+          .enum(["high", "medium", "low"])
+          .describe("Priority level of this insight"),
+        icon: z.string().describe("Single emoji representing this insight"),
+      }),
+    )
+    .describe("3-5 most important findings from the analysis"),
+  quickActions: z
+    .array(
+      z.object({
+        action: z
+          .string()
+          .describe("Specific action the user can take immediately"),
+        difficulty: z
+          .enum(["easy", "medium", "hard"])
+          .describe("How difficult this action is to implement"),
+        impact: z
+          .enum(["high", "medium", "low"])
+          .describe("Expected impact of this action"),
+      }),
+    )
+    .describe("4-6 immediate actions the user can take"),
+});
+
+const userPersonaSchema = z.object({
+  professionalIdentity: z.object({
+    persona: z.string().describe("Professional persona identification"),
+    supportingEvidence: z
+      .array(z.string())
+      .describe("Evidence supporting this persona identification"),
+  }),
+  currentPriorities: z
+    .array(z.string())
+    .describe("Current professional priorities based on email content"),
+});
+
+const emailBehaviorSchema = z.object({
+  timingPatterns: z.object({
+    peakHours: z.array(z.string()).describe("Peak email activity hours"),
+    responsePreference: z.string().describe("Preferred response timing"),
+    frequency: z.string().describe("Overall email frequency"),
+  }),
+  contentPreferences: z.object({
+    preferred: z
+      .array(z.string())
+      .describe("Types of emails user engages with"),
+    avoided: z
+      .array(z.string())
+      .describe("Types of emails user typically ignores"),
+  }),
+  engagementTriggers: z
+    .array(z.string())
+    .describe("What prompts user to take action on emails"),
+});
+
+const responsePatternsSchema = z.object({
+  commonResponses: z.array(
+    z.object({
+      pattern: z.string().describe("Description of the response pattern"),
+      example: z.string().describe("Example of this type of response"),
+      frequency: z
+        .number()
+        .describe("Percentage of responses using this pattern"),
+      triggers: z
+        .array(z.string())
+        .describe("What types of emails trigger this response"),
+    }),
+  ),
+  suggestedTemplates: z.array(
+    z.object({
+      templateName: z.string().describe("Name of the email template"),
+      template: z.string().describe("The actual email template text"),
+      useCase: z.string().describe("When to use this template"),
+    }),
+  ),
+  categoryOrganization: z.array(
+    z.object({
+      category: z.string().describe("Email category name"),
+      description: z
+        .string()
+        .describe("What types of emails belong in this category"),
+      emailCount: z
+        .number()
+        .describe("Estimated number of emails in this category"),
+      priority: z
+        .enum(["high", "medium", "low"])
+        .describe("Priority level for this category"),
+    }),
+  ),
+});
+
+const labelAnalysisSchema = z.object({
+  optimizationSuggestions: z.array(
+    z.object({
+      type: z
+        .enum(["create", "consolidate", "rename", "delete"])
+        .describe("Type of optimization"),
+      suggestion: z.string().describe("Specific suggestion"),
+      reason: z.string().describe("Reason for this suggestion"),
+      impact: z.enum(["high", "medium", "low"]).describe("Expected impact"),
+    }),
+  ),
+});
+
+const actionableRecommendationsSchema = z.object({
+  immediateActions: z.array(
+    z.object({
+      action: z.string().describe("Specific action to take"),
+      difficulty: z
+        .enum(["easy", "medium", "hard"])
+        .describe("Implementation difficulty"),
+      impact: z.enum(["high", "medium", "low"]).describe("Expected impact"),
+      timeRequired: z.string().describe("Time required (e.g., '5 minutes')"),
+    }),
+  ),
+  shortTermImprovements: z.array(
+    z.object({
+      improvement: z.string().describe("Improvement to implement"),
+      timeline: z.string().describe("When to implement (e.g., 'This week')"),
+      expectedBenefit: z.string().describe("Expected benefit"),
+    }),
+  ),
+  longTermStrategy: z.array(
+    z.object({
+      strategy: z.string().describe("Strategic initiative"),
+      description: z.string().describe("Detailed description"),
+      successMetrics: z.array(z.string()).describe("How to measure success"),
+    }),
+  ),
+});
 
 export async function generateExecutiveSummary(
   emailSummaries: EmailSummary[],
   sentEmailSummaries: EmailSummary[],
   gmailLabels: gmail_v1.Schema$Label[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
 ): Promise<z.infer<typeof executiveSummarySchema>> {
   const system = `You are a professional persona identification expert. Your primary task is to accurately identify the user's professional role based on their email patterns.
 
@@ -113,7 +256,7 @@ Generate:
     system,
     prompt,
     schema: executiveSummarySchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-executive-summary",
   });
 
@@ -122,11 +265,7 @@ Generate:
 
 export async function buildUserPersona(
   emailSummaries: EmailSummary[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   sentEmailSummaries?: EmailSummary[],
   gmailSignature?: string,
   gmailTemplates?: string[],
@@ -176,7 +315,7 @@ Analyze the data and identify:
     system,
     prompt,
     schema: userPersonaSchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-user-persona",
   });
 
@@ -185,11 +324,7 @@ Analyze the data and identify:
 
 export async function analyzeEmailBehavior(
   emailSummaries: EmailSummary[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   sentEmailSummaries?: EmailSummary[],
 ): Promise<z.infer<typeof emailBehaviorSchema>> {
   const system = `You are an expert AI system that analyzes a user's email behavior to infer timing patterns, content preferences, and automation opportunities.
@@ -223,7 +358,7 @@ Analyze the email patterns and identify:
     system,
     prompt,
     schema: emailBehaviorSchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-email-behavior",
   });
 
@@ -232,11 +367,7 @@ Analyze the email patterns and identify:
 
 export async function analyzeResponsePatterns(
   emailSummaries: EmailSummary[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   sentEmailSummaries?: EmailSummary[],
 ): Promise<z.infer<typeof responsePatternsSchema>> {
   const system = `You are an expert email behavior analyst. Your task is to identify common response patterns and suggest email categorization and templates based on the user's email activity.
@@ -284,7 +415,7 @@ Only suggest categories that are meaningful and provide clear organizational val
     system,
     prompt,
     schema: responsePatternsSchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-response-patterns",
   });
 
@@ -293,11 +424,7 @@ Only suggest categories that are meaningful and provide clear organizational val
 
 export async function analyzeLabelOptimization(
   emailSummaries: EmailSummary[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   gmailLabels: gmail_v1.Schema$Label[],
 ): Promise<z.infer<typeof labelAnalysisSchema>> {
   const system = `You are a Gmail organization expert. Analyze the user's current labels and email patterns to suggest specific optimizations that will improve their email organization and workflow efficiency.
@@ -331,7 +458,7 @@ Each suggestion should include the reason and expected impact.`;
     system,
     prompt,
     schema: labelAnalysisSchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-label-analysis",
   });
 
@@ -340,13 +467,8 @@ Each suggestion should include the reason and expected impact.`;
 
 export async function generateActionableRecommendations(
   emailSummaries: EmailSummary[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   userPersona: z.infer<typeof userPersonaSchema>,
-  emailBehavior: z.infer<typeof emailBehaviorSchema>,
 ): Promise<z.infer<typeof actionableRecommendationsSchema>> {
   const system = `You are an email productivity consultant. Based on the comprehensive email analysis, create specific, actionable recommendations that the user can implement to improve their email workflow.
 
@@ -372,7 +494,7 @@ Focus on practical, implementable solutions that improve email organization and 
     system,
     prompt,
     schema: actionableRecommendationsSchema,
-    userEmail: userEmail,
+    userEmail: emailAccount.email,
     usageLabel: "email-report-actionable-recommendations",
   });
 
@@ -384,15 +506,10 @@ Focus on practical, implementable solutions that improve email organization and 
  */
 export async function summarizeEmails(
   emails: ParsedMessage[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
 ): Promise<EmailSummary[]> {
   logger.info("summarizeEmails started", {
     emailsCount: emails.length,
-    userEmail,
     hasEmailAccount: !!emailAccount,
   });
 
@@ -404,7 +521,7 @@ export async function summarizeEmails(
   }
 
   if (!emailAccount) {
-    logger.warn("Email account not found for summarization", { userEmail });
+    logger.warn("Email account not found for summarization");
     return [];
   }
 
@@ -426,7 +543,6 @@ export async function summarizeEmails(
 
     const batchResults = await processEmailBatch(
       batch,
-      userEmail,
       emailAccount,
       batchNumber,
       totalBatches,
@@ -434,7 +550,7 @@ export async function summarizeEmails(
     results.push(...batchResults);
 
     if (i + batchSize < emails.length) {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await sleep(1000);
     }
   }
 
@@ -448,11 +564,7 @@ export async function summarizeEmails(
 
 async function processEmailBatch(
   emails: ParsedMessage[],
-  userEmail: string,
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  },
+  emailAccount: EmailAccountWithAI,
   batchNumber: number,
   totalBatches: number,
 ): Promise<EmailSummary[]> {
@@ -511,51 +623,39 @@ Return the analysis as a JSON array with objects containing: summary, sender, su
     batchNumber,
     promptLength: prompt.length,
     systemLength: system.length,
-    userEmail,
   });
 
-  try {
-    logger.info("processEmailBatch: calling chatCompletionObject", {
-      batchNumber,
-      userAiProvider: emailAccount.user?.aiProvider,
-      userAiModel: emailAccount.user?.aiModel,
-      hasUserAiApiKey: !!emailAccount.user?.aiApiKey,
-    });
+  logger.info("processEmailBatch: calling chatCompletionObject", {
+    batchNumber,
+    userAiProvider: emailAccount.user?.aiProvider,
+    userAiModel: emailAccount.user?.aiModel,
+    hasUserAiApiKey: !!emailAccount.user?.aiApiKey,
+  });
 
-    const result = await chatCompletionObject({
-      userAi: emailAccount.user,
-      system,
-      prompt,
-      schema: z.array(
-        z.object({
-          summary: z.string().describe("Brief summary of the email content"),
-          sender: z.string().describe("Email sender"),
-          subject: z.string().describe("Email subject"),
-          category: z
-            .string()
-            .describe(
-              "Category of the email (work, personal, marketing, etc.)",
-            ),
-        }),
-      ),
-      userEmail: userEmail,
-      usageLabel: "email-report-summary-generation",
-    });
+  const result = await chatCompletionObject({
+    userAi: emailAccount.user,
+    system,
+    prompt,
+    schema: z.array(
+      z.object({
+        summary: z.string().describe("Brief summary of the email content"),
+        sender: z.string().describe("Email sender"),
+        subject: z.string().describe("Email subject"),
+        category: z
+          .string()
+          .describe("Category of the email (work, personal, marketing, etc.)"),
+      }),
+    ),
+    userEmail: emailAccount.email,
+    usageLabel: "email-report-summary-generation",
+  });
 
-    logger.info("processEmailBatch: chatCompletionObject completed", {
-      batchNumber,
-      resultType: typeof result,
-      hasObject: !!result.object,
-      objectLength: result.object?.length || 0,
-    });
+  logger.info("processEmailBatch: chatCompletionObject completed", {
+    batchNumber,
+    resultType: typeof result,
+    hasObject: !!result.object,
+    objectLength: result.object?.length || 0,
+  });
 
-    return result.object;
-  } catch (error) {
-    logger.error("processEmailBatch: failed to summarize batch", {
-      batchNumber,
-      error,
-      userEmail,
-    });
-    return [];
-  }
+  return result.object;
 }
