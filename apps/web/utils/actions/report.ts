@@ -30,6 +30,127 @@ export const generateReportAction = actionClient
     return getEmailReportData({ emailAccountId });
   });
 
+async function getEmailReportData({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
+  logger.info("getEmailReportData started", { emailAccountId });
+
+  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+
+  if (!emailAccount) {
+    logger.error("Email account not found", { emailAccountId });
+    throw new Error("Email account not found");
+  }
+
+  const { receivedEmails, sentEmails, totalReceived, totalSent } =
+    await fetchEmailsForReport({ emailAccount });
+
+  const receivedSummaries = await aiSummarizeEmails(
+    receivedEmails.map((message) => getEmailForLLM(message)),
+    emailAccount,
+  );
+  const sentSummaries = await aiSummarizeEmails(
+    sentEmails.map((message) => getEmailForLLM(message)),
+    emailAccount,
+  );
+
+  const gmail = await getGmailClientForEmail({
+    emailAccountId: emailAccount.id,
+  });
+
+  const gmailLabels = await fetchGmailLabels(gmail);
+  const gmailSignature = await fetchGmailSignature(gmail);
+  const gmailTemplates = await fetchGmailTemplates(gmail);
+
+  const [
+    executiveSummary,
+    userPersona,
+    emailBehavior,
+    responsePatterns,
+    labelAnalysis,
+  ] = await Promise.all([
+    aiGenerateExecutiveSummary(
+      receivedSummaries,
+      sentSummaries,
+      gmailLabels,
+      emailAccount,
+    ).catch((error) => {
+      logger.error("Error generating executive summary", { error });
+    }),
+    aiBuildUserPersona(
+      receivedSummaries,
+      emailAccount,
+      sentSummaries,
+      gmailSignature,
+      gmailTemplates,
+    ).catch((error) => {
+      logger.error("Error generating user persona", { error });
+    }),
+    aiAnalyzeEmailBehavior(
+      receivedSummaries,
+      emailAccount,
+      sentSummaries,
+    ).catch((error) => {
+      logger.error("Error generating email behavior", { error });
+    }),
+    aiAnalyzeResponsePatterns(
+      receivedSummaries,
+      emailAccount,
+      sentSummaries,
+    ).catch((error) => {
+      logger.error("Error generating response patterns", { error });
+    }),
+    aiAnalyzeLabelOptimization(
+      receivedSummaries,
+      emailAccount,
+      gmailLabels,
+    ).catch((error) => {
+      logger.error("Error generating label optimization", { error });
+    }),
+  ]);
+
+  const actionableRecommendations = userPersona
+    ? await aiGenerateActionableRecommendations(
+        receivedSummaries,
+        emailAccount,
+        userPersona,
+      ).catch((error) => {
+        logger.error("Error generating actionable recommendations", { error });
+      })
+    : null;
+
+  return {
+    executiveSummary,
+    emailActivityOverview: {
+      dataSources: {
+        inbox: totalReceived,
+        archived: 0,
+        trash: 0,
+        sent: totalSent,
+      },
+    },
+    userPersona,
+    emailBehavior,
+    responsePatterns,
+    labelAnalysis: {
+      currentLabels: gmailLabels.map((label) => ({
+        name: label.name,
+        emailCount: label.messagesTotal || 0,
+        unreadCount: label.messagesUnread || 0,
+        threadCount: label.threadsTotal || 0,
+        unreadThreads: label.threadsUnread || 0,
+        color: label.color || null,
+        type: label.type,
+      })),
+      optimizationSuggestions: labelAnalysis?.optimizationSuggestions || [],
+    },
+    actionableRecommendations,
+  };
+}
+
+// TODO: should be able to import this functionality from elsewhere
 async function fetchGmailLabels(
   gmail: gmail_v1.Gmail,
 ): Promise<gmail_v1.Schema$Label[]> {
@@ -94,6 +215,7 @@ async function fetchGmailLabels(
   }
 }
 
+// TODO: should be able to import this functionality from elsewhere
 async function fetchGmailSignature(gmail: gmail_v1.Gmail): Promise<string> {
   try {
     const sendAsList = await gmail.users.settings.sendAs.list({
@@ -129,122 +251,4 @@ async function fetchGmailSignature(gmail: gmail_v1.Gmail): Promise<string> {
     });
     return "";
   }
-}
-
-async function getEmailReportData({
-  emailAccountId,
-}: {
-  emailAccountId: string;
-}) {
-  logger.info("getEmailReportData started", { emailAccountId });
-
-  const emailAccount = await getEmailAccountWithAi({ emailAccountId });
-
-  if (!emailAccount) {
-    logger.error("Email account not found", { emailAccountId });
-    throw new Error("Email account not found");
-  }
-
-  const { receivedEmails, sentEmails, totalReceived, totalSent } =
-    await fetchEmailsForReport({ emailAccount });
-
-  const receivedSummaries = await aiSummarizeEmails(
-    receivedEmails.map((message) => getEmailForLLM(message)),
-    emailAccount,
-  );
-  const sentSummaries = await aiSummarizeEmails(
-    sentEmails.map((message) => getEmailForLLM(message)),
-    emailAccount,
-  );
-
-  const gmail = await getGmailClientForEmail({
-    emailAccountId: emailAccount.id,
-  });
-
-  const gmailLabels = await fetchGmailLabels(gmail);
-  const gmailSignature = await fetchGmailSignature(gmail);
-  const gmailTemplates = await fetchGmailTemplates(gmail);
-
-  const [
-    executiveSummary,
-    userPersona,
-    emailBehavior,
-    responsePatterns,
-    labelAnalysis,
-  ] = await Promise.all([
-    aiGenerateExecutiveSummary(
-      receivedSummaries,
-      sentSummaries,
-      gmailLabels,
-      emailAccount,
-    ).catch((error) => {
-      logger.error("Error generating executive summary", { error });
-    }),
-    aiBuildUserPersona(
-      receivedSummaries,
-      emailAccount,
-      sentSummaries,
-      gmailSignature,
-      gmailTemplates,
-    ).catch((error) => {
-      logger.error("Error generating user persona", { error });
-    }),
-    aiAnalyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries).catch(
-      (error) => {
-        logger.error("Error generating email behavior", { error });
-      },
-    ),
-    aiAnalyzeResponsePatterns(
-      receivedSummaries,
-      emailAccount,
-      sentSummaries,
-    ).catch((error) => {
-      logger.error("Error generating response patterns", { error });
-    }),
-    aiAnalyzeLabelOptimization(
-      receivedSummaries,
-      emailAccount,
-      gmailLabels,
-    ).catch((error) => {
-      logger.error("Error generating label optimization", { error });
-    }),
-  ]);
-
-  const actionableRecommendations = userPersona
-    ? await aiGenerateActionableRecommendations(
-        receivedSummaries,
-        emailAccount,
-        userPersona,
-      ).catch((error) => {
-        logger.error("Error generating actionable recommendations", { error });
-      })
-    : null;
-
-  return {
-    executiveSummary,
-    emailActivityOverview: {
-      dataSources: {
-        inbox: totalReceived,
-        archived: 0,
-        trash: 0,
-        sent: totalSent,
-      },
-    },
-    userPersona,
-    emailBehavior,
-    responsePatterns,
-    labelAnalysis: {
-      currentLabels: gmailLabels.map((label) => ({
-        name: label.name,
-        emailCount: label.messagesTotal || 0,
-        unreadCount: label.messagesUnread || 0,
-        threadCount: label.threadsTotal || 0,
-        unreadThreads: label.threadsUnread || 0,
-        color: label.color || null,
-        type: label.type,
-      })),
-      optimizationSuggestions: labelAnalysis?.optimizationSuggestions || [],
-    },
-    actionableRecommendations,
-  };
 }
