@@ -93,7 +93,6 @@ export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
     unsubscribeToken,
-    date,
     ruleNames,
     ...digestData
   } = props;

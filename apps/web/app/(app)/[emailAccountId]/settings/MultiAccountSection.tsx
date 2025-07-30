@@ -46,19 +46,18 @@ export function MultiAccountSection() {
 
   const { openModal, PremiumModal } = usePremiumModal();
 
-  const { execute: claimPremiumAdmin, isExecuting: isClaimingPremiumAdmin } =
-    useAction(claimPremiumAdminAction, {
-      onSuccess: () => {
-        toastSuccess({ description: "Admin claimed!" });
-        mutate();
-      },
-      onError: (error) => {
-        toastError({
-          description:
-            `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
-        });
-      },
-    });
+  const { execute: claimPremiumAdmin } = useAction(claimPremiumAdminAction, {
+    onSuccess: () => {
+      toastSuccess({ description: "Admin claimed!" });
+      mutate();
+    },
+    onError: (error) => {
+      toastError({
+        description:
+          `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
+      });
+    },
+  });
 
   if (
     isPremium &&

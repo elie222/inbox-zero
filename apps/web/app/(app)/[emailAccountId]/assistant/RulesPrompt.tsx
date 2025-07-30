@@ -105,11 +105,7 @@ function RulesPromptForm({
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
 }) {
-  const {
-    userLabels,
-    isLoading: isLoadingLabels,
-    error: errorLabels,
-  } = useLabels();
+  const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);

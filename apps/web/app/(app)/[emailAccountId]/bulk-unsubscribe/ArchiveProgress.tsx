@@ -17,7 +17,7 @@ export const ArchiveProgress = memo(() => {
     if (isCompleted) {
       setTimeout(() => {
         resetTotalThreads();
-      }, 5_000);
+      }, 5000);
     }
   }, [isCompleted]);
 

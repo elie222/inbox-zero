@@ -96,7 +96,7 @@ export async function aiGenerateArgs({
     {
       retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
       maxRetries: 3,
-      delayMs: 1_000,
+      delayMs: 1000,
     },
   );
 

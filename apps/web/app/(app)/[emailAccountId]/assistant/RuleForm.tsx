@@ -18,7 +18,6 @@ import {
   ExternalLinkIcon,
   PlusIcon,
   FilterIcon,
-  BrainIcon,
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
@@ -302,7 +301,7 @@ export function RuleForm({
     ) as CoreConditionType | undefined;
   }, [conditions]);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: needed
   useEffect(() => {
     trigger("conditions");
   }, [conditions]);
@@ -925,7 +924,7 @@ export function RuleForm({
                         prefixPath(emailAccountId, "/automation?tab=rules"),
                       );
                     }
-                  } catch (error) {
+                  } catch {
                     toastError({ description: "Failed to delete rule." });
                   }
                 }

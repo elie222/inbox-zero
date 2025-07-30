@@ -30,14 +30,10 @@ export default function RuleExamplesPage(props: {
         descriptionComponent={
           isLoading ? (
             <p>Loading...</p>
+          ) : hasExamples ? (
+            <p>Here are examples of emails that match.</p>
           ) : (
-            <>
-              {hasExamples ? (
-                <p>Here are examples of emails that match.</p>
-              ) : (
-                <p>We did not find any examples to show you that match.</p>
-              )}
-            </>
+            <p>We did not find any examples to show you that match.</p>
           )
         }
       />

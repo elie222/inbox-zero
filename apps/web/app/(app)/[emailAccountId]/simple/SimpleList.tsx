@@ -275,23 +275,19 @@ function SimpleListRow({
           <div className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
             {expanded && !!message.textHtml ? (
               <HtmlEmail html={message.textHtml} />
+            ) : marketingEmail ? (
+              <Summary
+                textPlain={message.textPlain}
+                textHtml={message.textHtml}
+                onViewMore={() => setExpanded(true)}
+              />
             ) : (
-              <>
-                {marketingEmail ? (
-                  <Summary
-                    textPlain={message.textPlain}
-                    textHtml={message.textHtml}
-                    onViewMore={() => setExpanded(true)}
-                  />
-                ) : (
-                  <EmailContent
-                    textPlain={message.textPlain}
-                    textHtml={message.textHtml}
-                    expanded={expanded}
-                    setExpanded={setExpanded}
-                  />
-                )}
-              </>
+              <EmailContent
+                textPlain={message.textPlain}
+                textHtml={message.textHtml}
+                expanded={expanded}
+                setExpanded={setExpanded}
+              />
             )}
           </div>
 
