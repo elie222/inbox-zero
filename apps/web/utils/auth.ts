@@ -478,7 +478,7 @@ const refreshAccessToken = async (token: JWT): Promise<JWT> => {
       provider: account.provider,
     };
   } catch (error) {
-    logger.error("Error refreshing access token", {
+    logger.warn("Error refreshing access token", {
       email: token.email,
       error,
     });
