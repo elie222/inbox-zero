@@ -173,30 +173,48 @@ async function getEmailReportData({
       sentSummaries,
       gmailLabels,
       emailAccount,
-    ),
+    ).catch((error) => {
+      logger.error("Error generating executive summary", { error });
+    }),
     buildUserPersona(
       receivedSummaries,
       emailAccount,
       sentSummaries,
       gmailSignature,
       gmailTemplates,
+    ).catch((error) => {
+      logger.error("Error generating user persona", { error });
+    }),
+    analyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries).catch(
+      (error) => {
+        logger.error("Error generating email behavior", { error });
+      },
     ),
-    analyzeEmailBehavior(receivedSummaries, emailAccount, sentSummaries),
-    analyzeResponsePatterns(receivedSummaries, emailAccount, sentSummaries),
-    analyzeLabelOptimization(receivedSummaries, emailAccount, gmailLabels),
-  ]).catch((error) => {
-    logger.error("Error generating report", { error });
-    throw error;
-  });
+    analyzeResponsePatterns(
+      receivedSummaries,
+      emailAccount,
+      sentSummaries,
+    ).catch((error) => {
+      logger.error("Error generating response patterns", { error });
+    }),
+    analyzeLabelOptimization(
+      receivedSummaries,
+      emailAccount,
+      gmailLabels,
+    ).catch((error) => {
+      logger.error("Error generating label optimization", { error });
+    }),
+  ]);
 
-  const actionableRecommendations = await generateActionableRecommendations(
-    receivedSummaries,
-    emailAccount,
-    userPersona,
-  ).catch((error) => {
-    logger.error("Error generating actionable recommendations", { error });
-    throw error;
-  });
+  const actionableRecommendations = userPersona
+    ? await generateActionableRecommendations(
+        receivedSummaries,
+        emailAccount,
+        userPersona,
+      ).catch((error) => {
+        logger.error("Error generating actionable recommendations", { error });
+      })
+    : null;
 
   return {
     executiveSummary,
@@ -221,7 +239,7 @@ async function getEmailReportData({
         color: label.color || null,
         type: label.type,
       })),
-      optimizationSuggestions: labelAnalysis.optimizationSuggestions,
+      optimizationSuggestions: labelAnalysis?.optimizationSuggestions || [],
     },
     actionableRecommendations,
   };
