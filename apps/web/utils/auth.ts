@@ -223,6 +223,8 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       return true;
     },
     jwt: async ({ token, user, account }): Promise<JWT> => {
+      // Signing in
+      // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
         if (account.provider === "microsoft-entra-id") {
           if (account.refresh_token) {
@@ -244,6 +246,8 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           }
           token.refresh_token = undefined;
         } else {
+          // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
+          // On future log ins, we retrieve the `refresh_token` from the database
           if (account.refresh_token) {
             logger.info("Saving Google refresh token", { email: token.email });
             await saveTokens({
@@ -343,6 +347,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           };
         }
 
+        // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
         session.accessToken = token.access_token;
         session.error = token.error;
 
