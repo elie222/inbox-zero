@@ -210,18 +210,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // based on: https://authjs.dev/guides/basics/refresh-token-rotation
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
-    signIn: async ({ user, account }) => {
-      if (account?.provider === "microsoft-entra-id") {
-        if (!user.email) {
-          logger.warn("Microsoft user sign-in attempted without email", {
-            provider: account.provider,
-          });
-          return false;
-        }
-      }
-
-      return true;
-    },
     jwt: async ({ token, user, account }): Promise<JWT> => {
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
