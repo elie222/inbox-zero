@@ -218,7 +218,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           logger.info("Saving refresh token", { email: token.email });
-          
+
           await saveTokens({
             tokens: {
               access_token: account.access_token,
@@ -291,27 +291,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         ...session.user,
         id: token.sub || "",
       };
-
-      if (token.provider === "microsoft-entra-id") {
-        const user = await prisma.user.findUnique({
-          where: { id: token.sub || "" },
-          select: {
-            id: true,
-            email: true,
-            name: true,
-            image: true,
-          },
-        });
-
-        if (user) {
-          session.user = {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            image: user.image,
-          };
-        }
-      }
 
       // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
       session.accessToken = token.access_token;
