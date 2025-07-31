@@ -310,6 +310,11 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       return refreshedToken;
     },
     session: async ({ session, token }: { session: Session; token: JWT }) => {
+      session.user = {
+        ...session.user,
+        id: token.sub || "",
+      };
+
       if (token.provider === "microsoft-entra-id") {
         const user = await prisma.user.findUnique({
           where: { id: token.sub || "" },
@@ -328,16 +333,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
             name: user.name,
             image: user.image,
           };
-        } else {
-          session.user = {
-            ...session.user,
-            id: token.sub || "",
-          };
         }
-
-        // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
-        session.accessToken = token.access_token;
-        session.error = token.error;
 
         session.microsoftData = {
           expiresAt: token.expires_at || undefined,
@@ -345,20 +341,16 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           scope: token.scope as string | undefined,
           tokenType: token.token_type as string | undefined,
         };
-      } else {
-        session.user = {
-          ...session.user,
-          id: token.sub || "",
-        };
-        session.accessToken = token.access_token;
-        session.error = token.error;
+      }
 
-        if (session.error) {
-          logger.error("session.error", {
-            email: token.email,
-            error: session.error,
-          });
-        }
+      session.accessToken = token.access_token;
+      session.error = token.error;
+
+      if (session.error) {
+        logger.error("session.error", {
+          email: token.email,
+          error: session.error,
+        });
       }
 
       return session;
