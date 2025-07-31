@@ -87,7 +87,7 @@ ${
     usageLabel: "Writing Style Analysis",
   });
 
-  logger.trace("Output", { result });
+  logger.trace("Output", result.object);
 
   return result.object;
 }

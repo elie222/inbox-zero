@@ -113,6 +113,7 @@ export interface ParsedMessageHeaders {
   "list-unsubscribe"?: string;
 }
 
+// Note: use `getEmailForLLM(message)` to convert a `ParsedMessage` to an `EmailForLLM`
 export type EmailForLLM = {
   id: string;
   from: string;

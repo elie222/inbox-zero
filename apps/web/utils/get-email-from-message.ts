@@ -2,6 +2,7 @@ import type { ParsedMessage, EmailForLLM } from "@/utils/types";
 import { emailToContent, type EmailToContentOptions } from "@/utils/mail";
 import { internalDateToDate } from "@/utils/date";
 
+// Convert a ParsedMessage to an EmailForLLM
 export function getEmailForLLM(
   message: ParsedMessage,
   contentOptions?: EmailToContentOptions,
