@@ -107,7 +107,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       authorization: {
         params: {
           scope: OUTLOOK_SCOPES.join(" "),
-          prompt: "select_account consent",
+          prompt: "consent",
         },
       },
     }),
