@@ -49,6 +49,10 @@ Your task is to:
 - Use "unstructured" if the email is a narrative, update, announcement, or message without discrete fields.
 - If the email is spam, promotional, or irrelevant, return "null".
 
+**Content rules for structured classification:**
+- Only include human-relevant and human-readable information.
+- Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
+
 **Formatting rules:**
 - Follow the schema provided separately (do not describe or return the schema).
 - Do not include HTML, markdown, or explanations.
