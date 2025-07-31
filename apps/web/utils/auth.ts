@@ -307,13 +307,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     },
   },
   events: {
-    signIn: async ({
-      isNewUser,
-      user,
-    }: {
-      isNewUser?: boolean;
-      user: User;
-    }) => {
+    signIn: async ({ isNewUser, user }: { isNewUser?: boolean; user: User }) => {
       if (isNewUser && user.email) {
         const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
           [
