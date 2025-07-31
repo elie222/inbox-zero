@@ -214,75 +214,54 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
-        if (account.provider === "microsoft-entra-id") {
-          if (account.refresh_token) {
-            logger.info("Saving Microsoft refresh token to database", {
-              email: token.email,
-            });
-            await saveTokens({
-              tokens: {
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-                expires_at: calculateExpiresAt(
-                  account.expires_in as number | undefined,
-                ),
-              },
-              accountRefreshToken: account.refresh_token,
-              providerAccountId: account.providerAccountId,
-              provider: account.provider,
-            });
-          }
-          token.refresh_token = undefined;
+        if (account.refresh_token) {
+          logger.info(`Saving ${account.provider} refresh token to database`, {
+            email: token.email,
+          });
+          
+          await saveTokens({
+            tokens: {
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: calculateExpiresAt(
+                account.expires_in as number | undefined,
+              ),
+            },
+            accountRefreshToken: account.refresh_token,
+            providerAccountId: account.providerAccountId,
+            provider: account.provider,
+          });
+          
+          token.refresh_token = account.refresh_token;
         } else {
-          // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
-          // On future log ins, we retrieve the `refresh_token` from the database
-          if (account.refresh_token) {
-            logger.info("Saving Google refresh token", { email: token.email });
-            await saveTokens({
-              tokens: {
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-                expires_at: calculateExpiresAt(
-                  account.expires_in as number | undefined,
-                ),
+          const dbAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                providerAccountId: account.providerAccountId,
+                provider: account.provider,
               },
-              accountRefreshToken: account.refresh_token,
-              providerAccountId: account.providerAccountId,
-              provider: account.provider,
-            });
-            token.refresh_token = account.refresh_token;
-          } else {
-            const dbAccount = await prisma.account.findUnique({
-              where: {
-                provider_providerAccountId: {
-                  providerAccountId: account.providerAccountId,
-                  provider: account.provider,
-                },
-              },
-              select: { refresh_token: true },
-            });
-            token.refresh_token = dbAccount?.refresh_token ?? undefined;
-          }
+            },
+            select: { refresh_token: true },
+          });
+          token.refresh_token = dbAccount?.refresh_token ?? undefined;
         }
 
         token.provider = account.provider;
+        token.access_token = account.access_token;
+        token.refresh_token = account.refresh_token;
+        token.expires_at = account.expires_at;
 
         if (account.provider === "microsoft-entra-id") {
-          token.access_token = account.access_token;
-          token.refresh_token = account.refresh_token;
           token.name = user.name;
           token.email = user.email;
           token.scope = account.scope;
           token.token_type = account.token_type;
-          token.expires_at = account.expires_at;
           // These fields shouldn't be in the JWT because the cookie will be too large
           // They are stored in the database instead
           token.picture = undefined;
           token.user = undefined;
         } else {
           token.user = user;
-          token.access_token = account.access_token;
-          token.expires_at = account.expires_at;
         }
         return token;
       }
@@ -334,13 +313,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
             image: user.image,
           };
         }
-
-        session.microsoftData = {
-          expiresAt: token.expires_at || undefined,
-          refreshToken: token.refresh_token || undefined,
-          scope: token.scope as string | undefined,
-          tokenType: token.token_type as string | undefined,
-        };
       }
 
       session.accessToken = token.access_token;
@@ -707,12 +679,6 @@ declare module "next-auth" {
     user: {} & DefaultSession["user"] & { id: string };
     accessToken?: string;
     error?: string | "RefreshAccessTokenError";
-    microsoftData?: {
-      expiresAt?: number;
-      refreshToken?: string;
-      scope?: string;
-      tokenType?: string;
-    };
   }
 }
 
