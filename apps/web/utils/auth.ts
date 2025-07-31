@@ -300,29 +300,17 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         token.provider = account.provider;
 
         if (account.provider === "microsoft-entra-id") {
-          // Removing JWT data to reduce cookie size
-          token.user = undefined;
-          token.access_token = undefined;
-          token.refresh_token = undefined;
-          token.name = undefined;
-          token.email = undefined;
-          token.picture = undefined;
-          // Must keep expires_at to avoid an infinite redirect loop
+          token.access_token = account.access_token;
+          token.refresh_token = account.refresh_token;
+          token.name = user.name;
+          token.email = user.email;
+          token.scope = account.scope;
+          token.token_type = account.token_type;
           token.expires_at = account.expires_at;
-
-          // Update additional Microsoft data in database
-          await prisma.account.update({
-            where: {
-              provider_providerAccountId: {
-                provider: account.provider,
-                providerAccountId: account.providerAccountId,
-              },
-            },
-            data: {
-              scope: account.scope,
-              token_type: account.token_type,
-            },
-          });
+          // These fields shouldn't be in the JWT because the cookie will be too large
+          // Store in the database instead
+          token.picture = undefined;
+          token.user = undefined;
         } else {
           token.user = user;
           token.access_token = account.access_token;
@@ -356,7 +344,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     },
     session: async ({ session, token }: { session: Session; token: JWT }) => {
       if (token.provider === "microsoft-entra-id") {
-        // For Microsoft users, we need to get user data from database since it's not in JWT
         const user = await prisma.user.findUnique({
           where: { id: token.sub || "" },
           select: {
@@ -375,46 +362,22 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
             image: user.image,
           };
         } else {
-          // Fallback to token data if user not found
           session.user = {
             ...session.user,
             id: token.sub || "",
           };
         }
 
-        // Get tokens from database for Microsoft users since they're not in JWT
-        const microsoftAccount = await prisma.account.findFirst({
-          where: {
-            userId: token.sub || "",
-            provider: "microsoft-entra-id",
-          },
-          select: {
-            access_token: true,
-            expires_at: true,
-            scope: true,
-            token_type: true,
-            refresh_token: true,
-          },
-        });
-
-        session.accessToken = microsoftAccount?.access_token || undefined;
+        session.accessToken = token.access_token;
         session.error = token.error;
 
-        if (microsoftAccount) {
-          session.microsoftData = {
-            expiresAt: microsoftAccount.expires_at || undefined,
-            refreshToken: microsoftAccount.refresh_token || undefined,
-            scope: microsoftAccount.scope || undefined,
-            tokenType: microsoftAccount.token_type || undefined,
-          };
-        }
-
-        logger.info("JWT session for Microsoft user", {
-          hasAccessToken: !!microsoftAccount?.access_token,
-          hasRefreshToken: !!microsoftAccount?.refresh_token,
-        });
+        session.microsoftData = {
+          expiresAt: token.expires_at || undefined,
+          refreshToken: token.refresh_token || undefined,
+          scope: token.scope as string | undefined,
+          tokenType: token.token_type as string | undefined,
+        };
       } else {
-        // For Google users, use token data
         session.user = {
           ...session.user,
           id: token.sub || "",
@@ -799,11 +762,12 @@ declare module "@auth/core/jwt" {
     expires_at?: number;
     refresh_token?: string;
     provider?: string;
+    scope?: string;
+    token_type?: string;
     iat?: number;
     error?:
       | "RefreshAccessTokenError"
       | "MissingAccountError"
       | "RequiresReconsent";
-    // Note: For Microsoft users, tokens are stored in database, not JWT
   }
 }
