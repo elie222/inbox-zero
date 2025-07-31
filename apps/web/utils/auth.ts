@@ -223,12 +223,8 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       return true;
     },
     jwt: async ({ token, user, account }): Promise<JWT> => {
-      // Signing in
-      // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
-        // Handle refresh tokens based on provider
         if (account.provider === "microsoft-entra-id") {
-          // For Microsoft users, always store refresh tokens in database, never in JWT
           if (account.refresh_token) {
             logger.info("Saving Microsoft refresh token to database", {
               email: token.email,
@@ -246,7 +242,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
               provider: account.provider,
             });
           }
-          // Don't store refresh token in JWT for Microsoft users
           token.refresh_token = undefined;
         } else {
           if (account.refresh_token) {
@@ -289,7 +284,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           token.token_type = account.token_type;
           token.expires_at = account.expires_at;
           // These fields shouldn't be in the JWT because the cookie will be too large
-          // Store in the database instead
+          // They are stored in the database instead
           token.picture = undefined;
           token.user = undefined;
         } else {
@@ -307,7 +302,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         return token;
       }
 
-      // If the access token has expired, try to refresh it
       logger.info("Token expired at", {
         email: token.email,
         expiresAt: token.expires_at
