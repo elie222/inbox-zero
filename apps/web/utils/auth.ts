@@ -214,10 +214,10 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
       if (account && user) {
+        // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
+        // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
-          logger.info(`Saving ${account.provider} refresh token to database`, {
-            email: token.email,
-          });
+          logger.info("Saving refresh token", { email: token.email });
           
           await saveTokens({
             tokens: {
@@ -231,7 +231,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
             providerAccountId: account.providerAccountId,
             provider: account.provider,
           });
-          
+
           token.refresh_token = account.refresh_token;
         } else {
           const dbAccount = await prisma.account.findUnique({
