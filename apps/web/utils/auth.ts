@@ -254,8 +254,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         if (account.provider === "microsoft-entra-id") {
           token.name = user.name;
           token.email = user.email;
-          token.scope = account.scope;
-          token.token_type = account.token_type;
           // These fields shouldn't be in the JWT because the cookie will be too large
           // They are stored in the database instead
           token.picture = undefined;
@@ -315,6 +313,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         }
       }
 
+      // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
       session.accessToken = token.access_token;
       session.error = token.error;
 
@@ -329,13 +328,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     },
   },
   events: {
-    signIn: async ({
-      isNewUser,
-      user,
-    }: {
-      isNewUser?: boolean;
-      user: User;
-    }) => {
+    signIn: async ({ isNewUser, user }: { isNewUser?: boolean; user: User }) => {
       if (isNewUser && user.email) {
         const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
           [
@@ -688,9 +681,6 @@ declare module "@auth/core/jwt" {
     expires_at?: number;
     refresh_token?: string;
     provider?: string;
-    scope?: string;
-    token_type?: string;
-    iat?: number;
     error?:
       | "RefreshAccessTokenError"
       | "MissingAccountError"
