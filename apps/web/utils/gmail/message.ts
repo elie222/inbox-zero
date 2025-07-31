@@ -331,34 +331,3 @@ export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
   });
   return messages.messages;
 }
-
-export async function getMessagesLargeBatch({
-  gmail,
-  messageIds,
-}: {
-  gmail: gmail_v1.Gmail;
-  messageIds: string[];
-}): Promise<ParsedMessage[]> {
-  const accessToken = getAccessTokenFromClient(gmail);
-  if (!accessToken) throw new Error("No access token");
-  if (messageIds.length > 2000) throw new Error("Too many messages. Max 2000");
-
-  const batchSize = 100;
-  const allMessages: ParsedMessage[] = [];
-
-  for (let i = 0; i < messageIds.length; i += batchSize) {
-    const batchIds = messageIds.slice(i, i + batchSize);
-    const messages = await getMessagesBatch({
-      messageIds: batchIds,
-      accessToken,
-    });
-    allMessages.push(...messages);
-
-    // Wait 2 seconds between batches, except after the last batch
-    if (i + batchSize < messageIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  }
-
-  return allMessages;
-}
