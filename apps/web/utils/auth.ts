@@ -268,7 +268,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           // Don't store refresh token in JWT for Microsoft users
           token.refresh_token = undefined;
         } else {
-          // For Google users, use the existing logic
           if (account.refresh_token) {
             logger.info("Saving Google refresh token", { email: token.email });
             await saveTokens({
@@ -308,16 +307,10 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           token.name = undefined;
           token.email = undefined;
           token.picture = undefined;
-          // Must keep expires_at for expiration logic to avoid an infinite redirect loop
+          // Must keep expires_at to avoid an infinite redirect loop
           token.expires_at = account.expires_at;
-        } else {
-          token.user = user;
-          token.access_token = account.access_token;
-          token.expires_at = account.expires_at;
-        }
 
-        // Update additional Microsoft data in database
-        if (account?.provider === "microsoft-entra-id") {
+          // Update additional Microsoft data in database
           await prisma.account.update({
             where: {
               provider_providerAccountId: {
@@ -330,43 +323,18 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
               token_type: account.token_type,
             },
           });
+        } else {
+          token.user = user;
+          token.access_token = account.access_token;
+          token.expires_at = account.expires_at;
         }
-
-        // Debug: Log JWT size for Microsoft users
-        if (account?.provider === "microsoft-entra-id") {
-          const jwtSize = JSON.stringify(token).length;
-          logger.info("Microsoft JWT size", {
-            size: jwtSize,
-            hasAccessToken: !!token.access_token,
-            hasExpiresAt: !!token.expires_at,
-            hasRefreshToken: !!token.refresh_token,
-            userKeys: token.user ? Object.keys(token.user) : [],
-            allKeys: Object.keys(token),
-            tokenContent: JSON.stringify(token, null, 2),
-          });
-        }
-
         return token;
       }
-
-      // logger.info("JWT callback - current token state", {
-      //   email: token.email,
-      //   currentExpiresAt: token.expires_at
-      //     ? new Date((token.expires_at as number) * 1000).toISOString()
-      //     : "not set",
-      // });
 
       if (
         token.expires_at &&
         Date.now() < (token.expires_at as number) * 1000
       ) {
-        // // If the access token has not expired yet, return it
-        // logger.info("Token still valid", {
-        //   email: token.email,
-        //   expiresIn:
-        //     ((token.expires_at as number) * 1000 - Date.now()) / 1000 / 60,
-        //   minutes: true,
-        // });
         return token;
       }
 
