@@ -211,35 +211,16 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     signIn: async ({ user, account }) => {
-      // For Microsoft provider, check if user exists in database
       if (account?.provider === "microsoft-entra-id") {
-        // Check if user.email exists before querying database
         if (!user.email) {
           logger.warn("Microsoft user sign-in attempted without email", {
             provider: account.provider,
           });
-          return false; // Prevent sign in for users without email
+          return false;
         }
-
-        const existingUser = await prisma.user.findUnique({
-          where: { email: user.email },
-        });
-
-        if (!existingUser) {
-          logger.warn("Microsoft user not found in database", {
-            email: user.email,
-            provider: account.provider,
-          });
-          return false; // Prevent sign in
-        }
-
-        logger.info("Microsoft user authenticated from database", {
-          email: user.email,
-          userId: existingUser.id,
-        });
       }
 
-      return true; // Allow sign in for Google and existing Microsoft users
+      return true;
     },
     jwt: async ({ token, user, account }): Promise<JWT> => {
       // Signing in
