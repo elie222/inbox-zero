@@ -659,7 +659,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-          "Label all newsletters as 'Newsletter'",
+          "Label all newsletters as @[Newsletter]",
           false,
           newsletter.action,
           "Newsletter",
@@ -676,7 +676,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
-          "Label all marketing emails as 'Marketing'",
+          "Label all marketing emails as @[Marketing]",
           false,
           marketing.action,
           "Marketing",
@@ -693,7 +693,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
-          "Label all calendar emails as 'Calendar'",
+          "Label all calendar emails as @[Calendar]",
           false,
           calendar.action,
           "Calendar",
@@ -710,7 +710,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
-          "Label all receipts as 'Receipts'",
+          "Label all receipts as @[Receipt]",
           false,
           receipt.action,
           "Receipt",
@@ -727,7 +727,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
-          "Label all notifications as 'Notifications'",
+          "Label all notifications as @[Notifications]",
           false,
           notification.action,
           "Notification",
