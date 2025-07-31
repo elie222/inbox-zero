@@ -1,7 +1,7 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { Prisma } from "@prisma/client";
-import type { NextAuthConfig, DefaultSession } from "next-auth";
+import type { NextAuthConfig, DefaultSession, Session, User } from "next-auth";
 import { cookies } from "next/headers";
 import type { JWT } from "@auth/core/jwt";
 import GoogleProvider from "next-auth/providers/google";
@@ -218,6 +218,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
           logger.info("Saving refresh token", { email: token.email });
+          
           await saveTokens({
             tokens: {
               access_token: account.access_token,
@@ -230,6 +231,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
             providerAccountId: account.providerAccountId,
             provider: account.provider,
           });
+
           token.refresh_token = account.refresh_token;
         } else {
           const dbAccount = await prisma.account.findUnique({
@@ -244,36 +246,31 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           token.refresh_token = dbAccount?.refresh_token ?? undefined;
         }
 
-        token.access_token = account.access_token;
-        token.expires_at = account.expires_at;
-        token.user = user;
         token.provider = account.provider;
+        token.access_token = account.access_token;
+        token.refresh_token = account.refresh_token;
+        token.expires_at = account.expires_at;
 
+        if (account.provider === "microsoft-entra-id") {
+          token.name = user.name;
+          token.email = user.email;
+          // These fields shouldn't be in the JWT because the cookie will be too large
+          // They are stored in the database instead
+          token.picture = undefined;
+          token.user = undefined;
+        } else {
+          token.user = user;
+        }
         return token;
       }
-
-      // logger.info("JWT callback - current token state", {
-      //   email: token.email,
-      //   currentExpiresAt: token.expires_at
-      //     ? new Date((token.expires_at as number) * 1000).toISOString()
-      //     : "not set",
-      // });
 
       if (
         token.expires_at &&
         Date.now() < (token.expires_at as number) * 1000
       ) {
-        // // If the access token has not expired yet, return it
-        // logger.info("Token still valid", {
-        //   email: token.email,
-        //   expiresIn:
-        //     ((token.expires_at as number) * 1000 - Date.now()) / 1000 / 60,
-        //   minutes: true,
-        // });
         return token;
       }
 
-      // If the access token has expired, try to refresh it
       logger.info("Token expired at", {
         email: token.email,
         expiresAt: token.expires_at
@@ -289,15 +286,36 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       });
       return refreshedToken;
     },
-    session: async ({ session, token }) => {
+    session: async ({ session, token }: { session: Session; token: JWT }) => {
       session.user = {
         ...session.user,
-        id: token.sub as string,
+        id: token.sub || "",
       };
 
+      if (token.provider === "microsoft-entra-id") {
+        const user = await prisma.user.findUnique({
+          where: { id: token.sub || "" },
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            image: true,
+          },
+        });
+
+        if (user) {
+          session.user = {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            image: user.image,
+          };
+        }
+      }
+
       // based on: https://github.com/nextauthjs/next-auth/issues/1162#issuecomment-766331341
-      session.accessToken = token?.access_token as string | undefined;
-      session.error = token?.error as string | undefined;
+      session.accessToken = token.access_token;
+      session.error = token.error;
 
       if (session.error) {
         logger.error("session.error", {
@@ -310,7 +328,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     },
   },
   events: {
-    signIn: async ({ isNewUser, user }) => {
+    signIn: async ({ isNewUser, user }: { isNewUser?: boolean; user: User }) => {
       if (isNewUser && user.email) {
         const [loopsResult, resendResult, dubResult] = await Promise.allSettled(
           [
