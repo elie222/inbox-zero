@@ -81,7 +81,7 @@ const PROVIDER_CONFIG = {
 } as const;
 
 export const getAuthOptions: () => NextAuthConfig = () => ({
-  debug: true,
+  debug: false,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
@@ -111,19 +111,9 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
           prompt: "consent",
         },
       },
+      checks: ["none"],
     }),
   ],
-  // logger: {
-  //   error: (error) => {
-  //     logger.error(error.message, { error });
-  //   },
-  //   warn: (message) => {
-  //     logger.warn(message);
-  //   },
-  //   debug: (message, metadata) => {
-  //     logger.info(message, { metadata });
-  //   },
-  // },
   adapter: {
     ...PrismaAdapter(prisma),
     linkAccount: async (data): Promise<void> => {
@@ -213,101 +203,80 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     jwt: async ({ token, user, account }): Promise<JWT> => {
-      logger.info("JWT", { token, user, account });
+      // Signing in
+      // on first sign in `account` and `user` are defined, thereafter only `token` is defined
+      if (account && user) {
+        // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
+        // On future log ins, we retrieve the `refresh_token` from the database
+        if (account.refresh_token) {
+          logger.info("Saving refresh token", { email: token.email });
 
-      if (token.provider === "microsoft-entra-id") {
-        if (token.exp && Date.now() < (token.exp as number) * 1000) {
+          await saveTokens({
+            tokens: {
+              access_token: account.access_token,
+              refresh_token: account.refresh_token,
+              expires_at: calculateExpiresAt(
+                account.expires_in as number | undefined,
+              ),
+            },
+            accountRefreshToken: account.refresh_token,
+            providerAccountId: account.providerAccountId,
+            provider: account.provider,
+          });
+
+          token.refresh_token = account.refresh_token;
+        } else {
+          const dbAccount = await prisma.account.findUnique({
+            where: {
+              provider_providerAccountId: {
+                providerAccountId: account.providerAccountId,
+                provider: account.provider,
+              },
+            },
+            select: { refresh_token: true },
+          });
+          token.refresh_token = dbAccount?.refresh_token ?? undefined;
+        }
+
+        token.provider = account.provider;
+        token.access_token = account.access_token;
+        token.refresh_token = account.refresh_token;
+        token.expires_at = account.expires_at;
+
+        if (account.provider === "microsoft-entra-id") {
+          token.name = user.name;
+          token.email = user.email;
           // These fields shouldn't be in the JWT because the cookie will be too large
           // They are stored in the database instead
           token.picture = undefined;
           token.user = undefined;
-          return token;
         } else {
-          logger.info("Token expired at", {
-            email: token.email,
-            expiresAt: token.expires_at
-              ? new Date((token.expires_at as number) * 1000).toISOString()
-              : "not set",
-          });
-          const refreshedToken = await refreshAccessToken(token);
-          logger.info("Refresh attempt completed", {
-            email: token.email,
-            newExpiration: refreshedToken.expires_at
-              ? new Date(refreshedToken.expires_at * 1000).toISOString()
-              : "undefined",
-          });
-          refreshedToken.picture = undefined;
-          refreshedToken.user = undefined;
-          return refreshedToken;
-        }
-      } else if (token.provider === "google") {
-        // Signing in
-        // on first sign in `account` and `user` are defined, thereafter only `token` is defined
-        if (account && user) {
-          // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
-          // On future log ins, we retrieve the `refresh_token` from the database
-          if (account.refresh_token) {
-            logger.info("Saving refresh token", { email: token.email });
-
-            await saveTokens({
-              tokens: {
-                access_token: account.access_token,
-                refresh_token: account.refresh_token,
-                expires_at: calculateExpiresAt(
-                  account.expires_in as number | undefined,
-                ),
-              },
-              accountRefreshToken: account.refresh_token,
-              providerAccountId: account.providerAccountId,
-              provider: account.provider,
-            });
-
-            token.refresh_token = account.refresh_token;
-          } else {
-            const dbAccount = await prisma.account.findUnique({
-              where: {
-                provider_providerAccountId: {
-                  providerAccountId: account.providerAccountId,
-                  provider: account.provider,
-                },
-              },
-              select: { refresh_token: true },
-            });
-            token.refresh_token = dbAccount?.refresh_token ?? undefined;
-          }
-
-          token.provider = account.provider;
-          token.access_token = account.access_token;
-          token.refresh_token = account.refresh_token;
-          token.expires_at = account.expires_at;
           token.user = user;
-          return token;
         }
-
-        if (
-          token.expires_at &&
-          Date.now() < (token.expires_at as number) * 1000
-        ) {
-          return token;
-        }
-
-        logger.info("Token expired at", {
-          email: token.email,
-          expiresAt: token.expires_at
-            ? new Date((token.expires_at as number) * 1000).toISOString()
-            : "not set",
-        });
-        const refreshedToken = await refreshAccessToken(token);
-        logger.info("Refresh attempt completed", {
-          email: token.email,
-          newExpiration: refreshedToken.expires_at
-            ? new Date(refreshedToken.expires_at * 1000).toISOString()
-            : "undefined",
-        });
-        return refreshedToken;
+        return token;
       }
 
-      return token;
+      if (
+        token.expires_at &&
+        Date.now() < (token.expires_at as number) * 1000
+      ) {
+        return token;
+      }
+
+      logger.info("Token expired at", {
+        email: token.email,
+        expiresAt: token.expires_at
+          ? new Date((token.expires_at as number) * 1000).toISOString()
+          : "not set",
+      });
+      const refreshedToken = await refreshAccessToken(token);
+      logger.info("Refresh attempt completed", {
+        email: token.email,
+        newExpiration: refreshedToken.expires_at
+          ? new Date(refreshedToken.expires_at * 1000).toISOString()
+          : "undefined",
+      });
+      return refreshedToken;
     },
     session: async ({ session, token }: { session: Session; token: JWT }) => {
       session.user = {
@@ -327,13 +296,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       }
 
       return session;
-    },
-    async redirect({ url, baseUrl }) {
-      const redirectUrl = url.startsWith("/")
-        ? new URL(url, baseUrl).toString()
-        : url;
-      logger.info("Redirecting", { redirectUrl, url, baseUrl });
-      return redirectUrl;
     },
   },
   events: {
@@ -395,9 +357,17 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       }
     },
   },
+  async redirect({ url, baseUrl }: { url: string; baseUrl: string }) {
+    const redirectUrl = url.startsWith("/")
+      ? new URL(url, baseUrl).toString()
+      : url;
+    logger.info("Redirecting", { redirectUrl, url, baseUrl });
+    return redirectUrl;
+  },
   pages: {
     signIn: "/login",
     error: "/login",
+    newUser: "/login",
   },
   logger: {
     error: (error: Error) => {
