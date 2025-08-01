@@ -215,81 +215,99 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     jwt: async ({ token, user, account }): Promise<JWT> => {
       logger.info("JWT", { token, user, account });
 
-      if (account) {
-        token.provider = account.provider;
-      }
-
-      // Temporary bypass for testing
-      if (account?.access_token && account.provider === "microsoft-entra-id") {
-        // These fields shouldn't be in the JWT because the cookie will be too large
-        // They are stored in the database instead
-        token.picture = undefined;
-        token.user = undefined;
-        return token;
-      }
-      // Signing in
-      // on first sign in `account` and `user` are defined, thereafter only `token` is defined
-      if (account && user && account.provider === "google") {
-        // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
-        // On future log ins, we retrieve the `refresh_token` from the database
-        if (account.refresh_token) {
-          logger.info("Saving refresh token", { email: token.email });
-
-          await saveTokens({
-            tokens: {
-              access_token: account.access_token,
-              refresh_token: account.refresh_token,
-              expires_at: calculateExpiresAt(
-                account.expires_in as number | undefined,
-              ),
-            },
-            accountRefreshToken: account.refresh_token,
-            providerAccountId: account.providerAccountId,
-            provider: account.provider,
-          });
-
-          token.refresh_token = account.refresh_token;
+      if (token.provider === "microsoft-entra-id") {
+        if (token.exp && Date.now() < (token.exp as number) * 1000) {
+          // These fields shouldn't be in the JWT because the cookie will be too large
+          // They are stored in the database instead
+          token.picture = undefined;
+          token.user = undefined;
+          return token;
         } else {
-          const dbAccount = await prisma.account.findUnique({
-            where: {
-              provider_providerAccountId: {
-                providerAccountId: account.providerAccountId,
-                provider: account.provider,
-              },
-            },
-            select: { refresh_token: true },
+          logger.info("Token expired at", {
+            email: token.email,
+            expiresAt: token.expires_at
+              ? new Date((token.expires_at as number) * 1000).toISOString()
+              : "not set",
           });
-          token.refresh_token = dbAccount?.refresh_token ?? undefined;
+          const refreshedToken = await refreshAccessToken(token);
+          logger.info("Refresh attempt completed", {
+            email: token.email,
+            newExpiration: refreshedToken.expires_at
+              ? new Date(refreshedToken.expires_at * 1000).toISOString()
+              : "undefined",
+          });
+          refreshedToken.picture = undefined;
+          refreshedToken.user = undefined;
+          return refreshedToken;
+        }
+      } else if (token.provider === "google") {
+        // Signing in
+        // on first sign in `account` and `user` are defined, thereafter only `token` is defined
+        if (account && user) {
+          // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
+          // On future log ins, we retrieve the `refresh_token` from the database
+          if (account.refresh_token) {
+            logger.info("Saving refresh token", { email: token.email });
+
+            await saveTokens({
+              tokens: {
+                access_token: account.access_token,
+                refresh_token: account.refresh_token,
+                expires_at: calculateExpiresAt(
+                  account.expires_in as number | undefined,
+                ),
+              },
+              accountRefreshToken: account.refresh_token,
+              providerAccountId: account.providerAccountId,
+              provider: account.provider,
+            });
+
+            token.refresh_token = account.refresh_token;
+          } else {
+            const dbAccount = await prisma.account.findUnique({
+              where: {
+                provider_providerAccountId: {
+                  providerAccountId: account.providerAccountId,
+                  provider: account.provider,
+                },
+              },
+              select: { refresh_token: true },
+            });
+            token.refresh_token = dbAccount?.refresh_token ?? undefined;
+          }
+
+          token.provider = account.provider;
+          token.access_token = account.access_token;
+          token.refresh_token = account.refresh_token;
+          token.expires_at = account.expires_at;
+          token.user = user;
+          return token;
         }
 
-        token.provider = account.provider;
-        token.access_token = account.access_token;
-        token.refresh_token = account.refresh_token;
-        token.expires_at = account.expires_at;
-        return token;
+        if (
+          token.expires_at &&
+          Date.now() < (token.expires_at as number) * 1000
+        ) {
+          return token;
+        }
+
+        logger.info("Token expired at", {
+          email: token.email,
+          expiresAt: token.expires_at
+            ? new Date((token.expires_at as number) * 1000).toISOString()
+            : "not set",
+        });
+        const refreshedToken = await refreshAccessToken(token);
+        logger.info("Refresh attempt completed", {
+          email: token.email,
+          newExpiration: refreshedToken.expires_at
+            ? new Date(refreshedToken.expires_at * 1000).toISOString()
+            : "undefined",
+        });
+        return refreshedToken;
       }
 
-      if (
-        token.expires_at &&
-        Date.now() < (token.expires_at as number) * 1000
-      ) {
-        return token;
-      }
-
-      logger.info("Token expired at", {
-        email: token.email,
-        expiresAt: token.expires_at
-          ? new Date((token.expires_at as number) * 1000).toISOString()
-          : "not set",
-      });
-      const refreshedToken = await refreshAccessToken(token);
-      logger.info("Refresh attempt completed", {
-        email: token.email,
-        newExpiration: refreshedToken.expires_at
-          ? new Date(refreshedToken.expires_at * 1000).toISOString()
-          : "undefined",
-      });
-      return refreshedToken;
+      return token;
     },
     session: async ({ session, token }: { session: Session; token: JWT }) => {
       session.user = {
