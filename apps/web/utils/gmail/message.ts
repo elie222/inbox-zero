@@ -271,19 +271,22 @@ export async function getMessages(
 
 export async function queryBatchMessages(
   gmail: gmail_v1.Gmail,
-  {
-    query,
-    maxResults = 20,
-    pageToken,
-  }: {
+  options: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
   },
 ) {
+  const { query, pageToken } = options;
+
+  const maxResults = Math.min(options.maxResults || 20, 20);
+
   if (maxResults > 20) {
-    throw new Error(
-      "Max results must be 20 or Google will rate limit us and return 429 errors.",
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults,
+      },
     );
   }
 

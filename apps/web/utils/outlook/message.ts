@@ -101,25 +101,27 @@ function getOutlookLabels(
 
 export async function queryBatchMessages(
   client: OutlookClient,
-  {
-    query,
-    maxResults = 20,
-    pageToken,
-    folderId,
-  }: {
+  options: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
   },
 ) {
+  const { query, pageToken, folderId } = options;
+
+  const maxResults = Math.min(options.maxResults || 20, 20);
+
+  // Is this true for Microsoft Graph API or was it copy pasted from Gmail?
   if (maxResults > 20) {
-    throw new Error(
-      "Max results must be 20 or Microsoft Graph API will rate limit us.",
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults,
+      },
     );
   }
 
-  // Get folder IDs first
   const folderIds = await getFolderIds(client);
 
   logger.info("Building Outlook request", {
