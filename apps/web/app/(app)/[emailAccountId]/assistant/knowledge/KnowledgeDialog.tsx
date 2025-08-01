@@ -11,11 +11,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { KnowledgeBase } from "./KnowledgeBase";
 
-export function KnowledgeDialog() {
+export function KnowledgeDialog({ enabled }: { enabled: boolean }) {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
+        <Button variant="outline" size="sm" disabled={!enabled}>
           Manage Draft Knowledge
         </Button>
       </DialogTrigger>
