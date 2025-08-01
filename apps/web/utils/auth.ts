@@ -104,6 +104,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
     MicrosoftProvider({
       clientId: env.MICROSOFT_CLIENT_ID,
       clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      allowDangerousEmailAccountLinking: true,
       authorization: {
         params: {
           scope: OUTLOOK_SCOPES.join(" "),
