@@ -20,7 +20,6 @@ import { encryptToken } from "@/utils/encryption";
 import { updateAccountSeats } from "@/utils/premium/server";
 import { createReferral } from "@/utils/referral/referral-code";
 import { trackDubSignUp } from "@/utils/dub";
-import { log } from "next-axiom";
 
 const logger = createScopedLogger("auth");
 
