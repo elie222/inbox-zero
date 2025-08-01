@@ -105,6 +105,7 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       clientId: env.MICROSOFT_CLIENT_ID,
       clientSecret: env.MICROSOFT_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
+      checks: ["pkce"],
       authorization: {
         url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         params: {
