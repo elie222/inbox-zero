@@ -16,7 +16,7 @@ import { prefixPath } from "@/utils/path";
 import { Button } from "@/components/ui/button";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
-import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/SettingsTab";
+import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
@@ -30,11 +30,6 @@ const tabOptions = (emailAccountId: string) => [
     href: `/${emailAccountId}/automation?tab=rules`,
   },
   {
-    id: "settings",
-    label: "Settings",
-    href: `/${emailAccountId}/automation?tab=settings`,
-  },
-  {
     id: "test",
     label: "Test",
     href: `/${emailAccountId}/automation?tab=test`,
@@ -43,6 +38,11 @@ const tabOptions = (emailAccountId: string) => [
     id: "history",
     label: "History",
     href: `/${emailAccountId}/automation?tab=history`,
+  },
+  {
+    id: "settings",
+    label: "Settings",
+    href: `/${emailAccountId}/automation?tab=settings`,
   },
 ];
 
