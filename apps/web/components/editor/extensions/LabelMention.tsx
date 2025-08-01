@@ -16,11 +16,30 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
       char: "@",
       pluginKey: new PluginKey("labelMention"),
       items: ({ query }) => {
-        return labels
+        const filteredLabels = labels
           .filter((label) =>
             label.name.toLowerCase().includes(query.toLowerCase()),
           )
           .slice(0, 10); // Limit to 10 suggestions
+        
+        // If there's a query and no exact match exists, add option to create new label
+        if (
+          query &&
+          !labels.some((label) => label.name.toLowerCase() === query.toLowerCase())
+        ) {
+          return [
+            ...filteredLabels,
+            {
+              id: `create-${query}`,
+              name: query,
+              gmailLabelId: undefined,
+              enabled: true,
+              isCreateNew: true,
+            },
+          ];
+        }
+        
+        return filteredLabels;
       },
       render: () => {
         let component: ReactRenderer<MentionListRef>;
@@ -120,7 +139,7 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
           range.to += 1;
         }
 
-        const label = props as EmailLabel;
+        const label = props as EmailLabel & { isCreateNew?: boolean };
         editor
           .chain()
           .focus()
