@@ -306,6 +306,13 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
 
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      const redirectUrl = url.startsWith("/")
+        ? new URL(url, baseUrl).toString()
+        : url;
+      logger.info("Redirecting", { redirectUrl, url, baseUrl });
+      return redirectUrl;
+    },
   },
   events: {
     signIn: async ({
@@ -368,7 +375,18 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   },
   pages: {
     signIn: "/login",
-    error: "/login/error",
+    error: "/login",
+  },
+  logger: {
+    error: (error: Error) => {
+      logger.error(error.message, { error });
+    },
+    warn: (message: string) => {
+      logger.warn(message);
+    },
+    debug: (message: string, metadata?: any) => {
+      logger.info(message, metadata);
+    },
   },
 });
 
