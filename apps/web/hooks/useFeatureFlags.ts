@@ -37,10 +37,6 @@ export function usePricingFrequencyDefault() {
     ) as PricingFrequencyDefault) || "control"
   );
 }
-export function useDigestEnabled() {
-  return useFeatureFlagEnabled("digest-emails");
-  // return true;
-}
 
 export function useDelayedActionsEnabled() {
   return useFeatureFlagEnabled("delayed-actions");

@@ -12,7 +12,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import {
   ExampleDialog,
@@ -21,10 +20,7 @@ import {
 import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
 
 export function DigestSetting() {
-  const enabled = useDigestEnabled();
   const [showExampleDialog, setShowExampleDialog] = useState(false);
-
-  if (!enabled) return null;
 
   return (
     <>
