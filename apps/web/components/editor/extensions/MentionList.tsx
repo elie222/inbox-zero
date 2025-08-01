@@ -3,8 +3,8 @@ import { cn } from "@/utils";
 import type { UserLabel } from "@/hooks/useLabels";
 
 interface MentionListProps {
-  items: UserLabel[];
-  command: (item: UserLabel) => void;
+  items: (UserLabel & { isCreateNew?: boolean })[];
+  command: (item: UserLabel & { isCreateNew?: boolean }) => void;
 }
 
 export interface MentionListRef {
@@ -60,7 +60,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     if (items.length === 0) {
       return (
         <div className="relative rounded-md border border-slate-200 bg-white px-2 py-2 text-sm shadow-md">
-          <div className="text-slate-500">No labels found</div>
+          <div className="text-slate-500">No labels found. Type to create a new label.</div>
         </div>
       );
     }
@@ -77,7 +77,16 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             )}
             onClick={() => selectItem(index)}
           >
-            <span className="flex-1 truncate">{item.name}</span>
+            {item.isCreateNew ? (
+              <>
+                <span className="flex-1 truncate">
+                  Create label: <span className="font-medium">{item.name}</span>
+                </span>
+                <span className="ml-2 text-xs text-slate-500">+</span>
+              </>
+            ) : (
+              <span className="flex-1 truncate">{item.name}</span>
+            )}
           </button>
         ))}
       </div>
