@@ -109,7 +109,10 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         params: {
           scope: OUTLOOK_SCOPES.join(" "),
+          access_type: "offline",
+          response_type: "code",
           prompt: "consent",
+          include_granted_scopes: true,
         },
       },
     }),
