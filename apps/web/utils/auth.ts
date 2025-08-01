@@ -213,6 +213,8 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     jwt: async ({ token, user, account }): Promise<JWT> => {
+      logger.info("JWT", { token, user, account });
+
       if (account) {
         token.provider = account.provider;
       }
