@@ -4,6 +4,49 @@ import { PluginKey } from "@tiptap/pm/state";
 import { MentionList, type MentionListRef } from "./MentionList";
 import type { EmailLabel } from "@/providers/EmailProvider";
 
+const MAX_SUGGESTIONS = 10;
+
+interface MarkdownSerializerState {
+  write: (text: string) => void;
+}
+
+interface MarkdownNode {
+  attrs: {
+    id?: string;
+    label?: string;
+    [key: string]: any;
+  };
+}
+
+interface MarkdownItState {
+  pos: number;
+  posMax: number;
+  src: string;
+  push: (type: string, tag: string, nesting: number) => MarkdownItToken;
+}
+
+interface MarkdownItToken {
+  attrs: Array<[string, string]>;
+  content?: string;
+  [key: string]: any;
+}
+
+interface MarkdownItInstance {
+  inline: {
+    ruler: {
+      push: (
+        name: string,
+        fn: (state: MarkdownItState, silent: boolean) => boolean,
+      ) => void;
+    };
+  };
+  renderer: {
+    rules: {
+      [key: string]: (tokens: MarkdownItToken[], idx: number) => string;
+    };
+  };
+}
+
 export const createLabelMentionExtension = (labels: EmailLabel[]) => {
   return Mention.configure({
     HTMLAttributes: {
@@ -20,17 +63,19 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
           .filter((label) =>
             label.name.toLowerCase().includes(query.toLowerCase()),
           )
-          .slice(0, 10); // Limit to 10 suggestions
-        
+          .slice(0, MAX_SUGGESTIONS);
+
         // If there's a query and no exact match exists, add option to create new label
-        if (
-          query &&
-          !labels.some((label) => label.name.toLowerCase() === query.toLowerCase())
-        ) {
+        // Case-insensitive comparison to prevent duplicate entries with different casing
+        const exactMatchExists = labels.some(
+          (label) => label.name.toLowerCase() === query.toLowerCase(),
+        );
+
+        if (query && !exactMatchExists) {
           return [
             ...filteredLabels,
             {
-              id: `create-${query}`,
+              id: `__create_new__${query.toLowerCase()}`,
               name: query,
               gmailLabelId: undefined,
               enabled: true,
@@ -38,7 +83,7 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
             },
           ];
         }
-        
+
         return filteredLabels;
       },
       render: () => {
@@ -85,9 +130,13 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
           },
 
           onUpdate(props) {
-            if (!component || !popup) return;
-
             try {
+              // More defensive checks to prevent race conditions
+              if (!component?.updateProps || !popup) {
+                console.warn("Mention component or popup not ready for update");
+                return;
+              }
+
               component.updateProps(props);
 
               if (!props.clientRect) {
@@ -165,15 +214,15 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
     addStorage() {
       return {
         markdown: {
-          serialize: (state: any, node: any) => {
+          serialize: (state: MarkdownSerializerState, node: MarkdownNode) => {
             state.write(`@[${node.attrs.label || node.attrs.id}]`);
           },
           parse: {
             // Register a custom markdown-it rule to parse @[labelName] back to mention nodes
-            setup: (markdownIt: any) => {
+            setup: (markdownIt: MarkdownItInstance) => {
               markdownIt.inline.ruler.push(
                 "mention",
-                (state: any, silent: boolean) => {
+                (state: MarkdownItState, silent: boolean) => {
                   const start = state.pos;
                   const max = state.posMax;
 
@@ -205,7 +254,11 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
                   if (!silent) {
                     const token = state.push("mention_open", "mention", 1);
                     token.attrs = [
-                      ["id", label?.id || `placeholder-${labelName}`],
+                      [
+                        "id",
+                        label?.id ||
+                          `__placeholder__${labelName.toLowerCase()}`,
+                      ],
                       ["label", labelName],
                     ];
 
@@ -222,15 +275,14 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
 
               // Add renderer for mention tokens to create proper HTML structure
               markdownIt.renderer.rules.mention_open = (
-                tokens: any,
-                idx: any,
+                tokens: MarkdownItToken[],
+                idx: number,
               ) => {
                 const token = tokens[idx];
                 const id =
-                  token.attrs.find((attr: any) => attr[0] === "id")?.[1] || "";
+                  token.attrs.find((attr) => attr[0] === "id")?.[1] || "";
                 const label =
-                  token.attrs.find((attr: any) => attr[0] === "label")?.[1] ||
-                  "";
+                  token.attrs.find((attr) => attr[0] === "label")?.[1] || "";
                 return `<span class="mention-label" data-type="mention" data-id="${id}" data-label="${label}" data-mention-suggestion-char="@" contenteditable="false">`;
               };
 
