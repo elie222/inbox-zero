@@ -81,7 +81,7 @@ const PROVIDER_CONFIG = {
 } as const;
 
 export const getAuthOptions: () => NextAuthConfig = () => ({
-  debug: false,
+  debug: true,
   providers: [
     GoogleProvider({
       clientId: env.GOOGLE_CLIENT_ID,
