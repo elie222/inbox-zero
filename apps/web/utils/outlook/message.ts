@@ -110,10 +110,12 @@ export async function queryBatchMessages(
 ) {
   const { query, pageToken, folderId } = options;
 
-  const maxResults = Math.min(options.maxResults || 20, 20);
+  const MAX_RESULTS = 20;
+
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
 
   // Is this true for Microsoft Graph API or was it copy pasted from Gmail?
-  if (maxResults > 20) {
+  if (options.maxResults && options.maxResults > MAX_RESULTS) {
     logger.warn(
       "Max results is greater than 20, which will cause rate limiting",
       {
