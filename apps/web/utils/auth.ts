@@ -106,12 +106,12 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
       clientSecret: env.MICROSOFT_CLIENT_SECRET,
       allowDangerousEmailAccountLinking: true,
       authorization: {
+        url: "https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
         params: {
           scope: OUTLOOK_SCOPES.join(" "),
           prompt: "consent",
         },
       },
-      checks: ["none"],
     }),
   ],
   adapter: {
