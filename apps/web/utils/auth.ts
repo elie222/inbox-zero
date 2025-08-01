@@ -212,13 +212,21 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
   // and: https://github.com/nextauthjs/next-auth-refresh-token-example/blob/main/pages/api/auth/%5B...nextauth%5D.js
   callbacks: {
     jwt: async ({ token, user, account }): Promise<JWT> => {
+      if (account) {
+        token.provider = account.provider;
+      }
+
       // Temporary bypass for testing
-      if (account?.access_token) {
+      if (account?.access_token && account.provider === "microsoft-entra-id") {
+        // These fields shouldn't be in the JWT because the cookie will be too large
+        // They are stored in the database instead
+        token.picture = undefined;
+        token.user = undefined;
         return token;
       }
       // Signing in
       // on first sign in `account` and `user` are defined, thereafter only `token` is defined
-      if (account && user) {
+      if (account && user && account.provider === "google") {
         // Google sends us `refresh_token` only on first sign in so we need to save it to the database then
         // On future log ins, we retrieve the `refresh_token` from the database
         if (account.refresh_token) {
@@ -255,17 +263,6 @@ export const getAuthOptions: () => NextAuthConfig = () => ({
         token.access_token = account.access_token;
         token.refresh_token = account.refresh_token;
         token.expires_at = account.expires_at;
-
-        if (account.provider === "microsoft-entra-id") {
-          token.name = user.name;
-          token.email = user.email;
-          // These fields shouldn't be in the JWT because the cookie will be too large
-          // They are stored in the database instead
-          token.picture = undefined;
-          token.user = undefined;
-        } else {
-          token.user = user;
-        }
         return token;
       }
 
