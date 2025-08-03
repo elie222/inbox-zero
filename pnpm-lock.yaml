@@ -183,8 +183,8 @@ importers:
         specifier: 15.3.3
         version: 15.3.3(next@15.3.3(@babel/core@7.26.0)(@opentelemetry/api@1.9.0)(@playwright/test@1.49.1)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react@19.1.0)
       '@openrouter/ai-sdk-provider':
-        specifier: 1.0.0-beta.5
-        version: 1.0.0-beta.5(ai@5.0.0(zod@3.25.46))(zod@3.25.46)
+        specifier: 1.0.0-beta.6
+        version: 1.0.0-beta.6(ai@5.0.0(zod@3.25.46))(zod@3.25.46)
       '@portabletext/react':
         specifier: 3.2.1
         version: 3.2.1(react@19.1.0)
@@ -2656,8 +2656,8 @@ packages:
   '@octokit/types@13.6.2':
     resolution: {integrity: sha512-WpbZfZUcZU77DrSW4wbsSgTPfKcp286q3ItaIgvSbBpZJlu6mnYXAkjZz6LVZPXkEvLIM8McanyZejKTYUHipA==}
 
-  '@openrouter/ai-sdk-provider@1.0.0-beta.5':
-    resolution: {integrity: sha512-KEsvc+6n80O7tPXanRelcoRvIv9RAVLFKQFKiQoXLDwVdxY9J/g8dNXVEfWsBOOSiyt/0N392RCku0TaYZIRlg==}
+  '@openrouter/ai-sdk-provider@1.0.0-beta.6':
+    resolution: {integrity: sha512-1cj8yUek4ib10MqZ+9fw1p1a3SR0Zhx3HH1J3+WQIXXuH/rUhiAkwovgPi1ADuC1QECPSPiwfhK2GecnDm8hGg==}
     engines: {node: '>=18'}
     peerDependencies:
       ai: ^5.0.0-beta.12
@@ -13733,7 +13733,7 @@ snapshots:
       '@octokit/openapi-types': 22.2.0
     optional: true
 
-  '@openrouter/ai-sdk-provider@1.0.0-beta.5(ai@5.0.0(zod@3.25.46))(zod@3.25.46)':
+  '@openrouter/ai-sdk-provider@1.0.0-beta.6(ai@5.0.0(zod@3.25.46))(zod@3.25.46)':
     dependencies:
       ai: 5.0.0(zod@3.25.46)
       zod: 3.25.46
