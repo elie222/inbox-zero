@@ -35,6 +35,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { toastError } from "@/components/Toast";
+import { createDisplayValueForInput } from "@/utils/email-display";
 
 // Some mega hacky code used here to workaround AI SDK's use of SWR
 // AI SDK uses SWR too and this messes with the global SWR config
@@ -179,6 +180,9 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
     reload,
   } = chat;
 
+  // Create display value for email data
+  const displayValue = createDisplayValueForInput(input);
+
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <SWRProvider>
@@ -222,6 +226,7 @@ function ChatUI({ chat }: { chat: ReturnType<typeof useChat> }) {
           // messages={messages}
           setMessages={setMessages}
           // append={append}
+          displayValue={displayValue}
         />
       </form>
     </div>
