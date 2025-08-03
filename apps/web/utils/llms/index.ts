@@ -207,10 +207,27 @@ export async function chatCompletionStream({
 
       const finishPromise = onFinish?.(result);
 
-      await Promise.all([usagePromise, finishPromise]);
+      try {
+        await Promise.all([usagePromise, finishPromise]);
+      } catch (error) {
+        logger.error("Error in onFinish callback", {
+          label,
+          userEmail,
+          error,
+        });
+        logger.trace("Result", { result });
+        captureException(
+          error,
+          {
+            extra: { label },
+          },
+          userEmail,
+        );
+      }
     },
     onError: (error) => {
       logger.error("Error in chat completion stream", {
+        label,
         userEmail,
         error,
       });

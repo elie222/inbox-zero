@@ -45,8 +45,7 @@ export function CreatedRuleToolCard({
       <ToolCardHeader
         title={
           <>
-            <strong>{ruleId ? "New rule created:" : "Creating rule:"}</strong>{" "}
-            {args.name}
+            {ruleId ? "New rule created:" : "Creating rule:"} {args.name}
           </>
         }
         actions={ruleId && <RuleActions ruleId={ruleId} />}
