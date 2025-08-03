@@ -132,7 +132,12 @@ const PurePreviewMessage = ({
                     );
                   }
 
-                  return <BasicToolInfo text="Read rules and settings" />;
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Read rules and settings"
+                    />
+                  );
                 }
               }
 
@@ -140,7 +145,12 @@ const PurePreviewMessage = ({
                 const { toolCallId, state } = part;
 
                 if (state === "input-available") {
-                  return <BasicToolInfo text="Reading learned patterns..." />;
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Reading learned patterns..."
+                    />
+                  );
                 }
 
                 if (state === "output-available") {
@@ -155,7 +165,12 @@ const PurePreviewMessage = ({
                     );
                   }
 
-                  return <BasicToolInfo text="Read learned patterns" />;
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Read learned patterns"
+                    />
+                  );
                 }
               }
 
@@ -165,6 +180,7 @@ const PurePreviewMessage = ({
                 if (state === "input-available") {
                   return (
                     <BasicToolInfo
+                      key={toolCallId}
                       text={`Creating rule "${part.input.name}"...`}
                     />
                   );
@@ -184,6 +200,7 @@ const PurePreviewMessage = ({
 
                   return (
                     <CreatedRuleToolCard
+                      key={toolCallId}
                       args={part.input}
                       ruleId={output.ruleId}
                     />
@@ -197,6 +214,7 @@ const PurePreviewMessage = ({
                 if (state === "input-available") {
                   return (
                     <BasicToolInfo
+                      key={toolCallId}
                       text={`Updating rule "${part.input.ruleName}" conditions...`}
                     />
                   );
@@ -216,6 +234,7 @@ const PurePreviewMessage = ({
 
                   return (
                     <UpdatedRuleConditions
+                      key={toolCallId}
                       args={part.input}
                       ruleId={output.ruleId}
                       originalConditions={output.originalConditions}
@@ -231,6 +250,7 @@ const PurePreviewMessage = ({
                 if (state === "input-available") {
                   return (
                     <BasicToolInfo
+                      key={toolCallId}
                       text={`Updating rule "${part.input.ruleName}" actions...`}
                     />
                   );
@@ -250,6 +270,7 @@ const PurePreviewMessage = ({
 
                   return (
                     <UpdatedRuleActions
+                      key={toolCallId}
                       args={part.input}
                       ruleId={output.ruleId}
                       originalActions={output.originalActions}
@@ -265,6 +286,7 @@ const PurePreviewMessage = ({
                 if (state === "input-available") {
                   return (
                     <BasicToolInfo
+                      key={toolCallId}
                       text={`Updating learned patterns for rule "${part.input.ruleName}"...`}
                     />
                   );
@@ -284,6 +306,7 @@ const PurePreviewMessage = ({
 
                   return (
                     <UpdatedLearnedPatterns
+                      key={toolCallId}
                       args={part.input}
                       ruleId={output.ruleId}
                     />
@@ -295,7 +318,9 @@ const PurePreviewMessage = ({
                 const { toolCallId, state } = part;
 
                 if (state === "input-available") {
-                  return <BasicToolInfo text="Updating about..." />;
+                  return (
+                    <BasicToolInfo key={toolCallId} text="Updating about..." />
+                  );
                 }
 
                 if (state === "output-available") {
@@ -310,7 +335,7 @@ const PurePreviewMessage = ({
                     );
                   }
 
-                  return <UpdateAbout args={part.input} />;
+                  return <UpdateAbout key={toolCallId} args={part.input} />;
                 }
               }
 
@@ -318,7 +343,12 @@ const PurePreviewMessage = ({
                 const { toolCallId, state } = part;
 
                 if (state === "input-available") {
-                  return <BasicToolInfo text="Adding to knowledge base..." />;
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Adding to knowledge base..."
+                    />
+                  );
                 }
 
                 if (state === "output-available") {
@@ -333,7 +363,9 @@ const PurePreviewMessage = ({
                     );
                   }
 
-                  return <AddToKnowledgeBase args={part.input} />;
+                  return (
+                    <AddToKnowledgeBase key={toolCallId} args={part.input} />
+                  );
                 }
               }
             })}

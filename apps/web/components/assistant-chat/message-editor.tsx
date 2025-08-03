@@ -1,6 +1,5 @@
 "use client";
 
-import type { UIMessage } from "ai";
 import {
   type Dispatch,
   type SetStateAction,
