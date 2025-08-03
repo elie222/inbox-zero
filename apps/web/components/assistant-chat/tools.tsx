@@ -402,7 +402,7 @@ function RuleActions({ ruleId }: { ruleId: string }) {
                     description: "The rule has been deleted.",
                   });
                 }
-              } catch (error) {
+              } catch {
                 toastError({ description: "Failed to delete rule." });
               }
             }

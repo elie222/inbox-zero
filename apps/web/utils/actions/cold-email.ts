@@ -18,6 +18,7 @@ import {
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
+import { createEmailProvider } from "@/utils/email/provider";
 
 export const updateColdEmailSettingsAction = actionClient
   .metadata({ name: "updateColdEmailSettings" })
@@ -119,12 +120,20 @@ export const testColdEmailAction = actionClient
         where: { id: emailAccountId },
         include: {
           user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+          account: {
+            select: {
+              provider: true,
+            },
+          },
         },
       });
 
       if (!emailAccount) throw new SafeError("Email account not found");
 
-      const gmail = await getGmailClientForEmail({ emailAccountId });
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider: emailAccount.account?.provider,
+      });
 
       const content = emailToContent({
         textHtml: textHtml || undefined,
@@ -143,7 +152,7 @@ export const testColdEmailAction = actionClient
           id: messageId || "",
         },
         emailAccount,
-        gmail,
+        provider: emailProvider,
       });
 
       return response;

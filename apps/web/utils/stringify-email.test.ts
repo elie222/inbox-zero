@@ -104,7 +104,7 @@ describe("stringifyEmailFromBody", () => {
 
     const result = stringifyEmailFromBody(email);
     expect(result).toBe(
-      "<from>test@example.com</from>\n" + "<body>Hello world</body>",
+      "<from>test@example.com</from>\n<body>Hello world</body>",
     );
   });
 });

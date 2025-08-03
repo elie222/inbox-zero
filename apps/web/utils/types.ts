@@ -36,7 +36,15 @@ export function isBatchError(
   return (message as BatchError).error !== undefined;
 }
 
-export type MessageWithPayload = gmail_v1.Schema$Message & {
+export type MessageWithPayload = {
+  historyId?: string | null;
+  id?: string | null;
+  internalDate?: string | null;
+  labelIds?: string[] | null;
+  raw?: string | null;
+  sizeEstimate?: number | null;
+  snippet?: string | null;
+  threadId?: string | null;
   payload: gmail_v1.Schema$MessagePart;
 };
 
@@ -44,10 +52,9 @@ export type ThreadWithPayloadMessages = gmail_v1.Schema$Thread & {
   messages: MessageWithPayload[];
 };
 
-export interface ParsedMessage extends gmail_v1.Schema$Message {
+export interface ParsedMessage {
   id: string;
   threadId: string;
-  conversationIndex?: string;
   labelIds?: string[];
   snippet: string;
   historyId: string;
@@ -58,6 +65,8 @@ export interface ParsedMessage extends gmail_v1.Schema$Message {
   textHtml?: string;
   subject: string;
   date: string;
+  conversationIndex?: string | null;
+  internalDate?: string | null;
 }
 
 export interface Attachment {
@@ -113,4 +122,9 @@ export type EmailForLLM = {
   subject: string;
   content: string;
   date?: Date;
+  attachments?: Array<{
+    filename: string;
+    mimeType: string;
+    size: number;
+  }>;
 };

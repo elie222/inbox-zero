@@ -9,12 +9,10 @@ import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
-import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 
 export default function DraftRepliesPage() {
   const router = useRouter();
   const { emailAccountId } = useAccount();
-  const digestEnabled = useDigestEnabled();
 
   const onSetDraftReplies = useCallback(
     async (value: string) => {

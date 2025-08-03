@@ -6,9 +6,9 @@ import {
 import { ColdEmailSetting } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
-import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
-import { getMessage } from "@/utils/gmail/message";
+
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { GmailLabel } from "@/utils/gmail/label";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -25,60 +25,9 @@ vi.mock("@/utils/prisma");
 vi.mock("@/utils/redis/message-processing", () => ({
   markMessageAsProcessing: vi.fn().mockResolvedValue(true),
 }));
-vi.mock("@/utils/gmail/message", () => ({
-  getMessage: vi.fn().mockImplementation(async (messageId, gmail, format) => ({
-    id: messageId,
-    threadId: messageId === "456" ? "thread-456" : "thread-123",
-    labelIds: ["INBOX"],
-    snippet: "Test email snippet",
-    historyId: "12345",
-    internalDate: "1704067200000",
-    sizeEstimate: 1024,
-    payload: {
-      partId: "",
-      mimeType: "multipart/alternative",
-      filename: "",
-      headers: [
-        { name: "From", value: "sender@example.com" },
-        { name: "To", value: "user@test.com" },
-        { name: "Subject", value: "Test Email" },
-        { name: "Date", value: "2024-01-01T00:00:00Z" },
-        { name: "Message-ID", value: `<${messageId}@example.com>` },
-      ],
-      body: {
-        size: 0,
-      },
-      parts: [
-        {
-          partId: "0",
-          mimeType: "text/plain",
-          filename: "",
-          headers: [
-            { name: "Content-Type", value: "text/plain; charset=UTF-8" },
-          ],
-          body: {
-            size: 11,
-            data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
-          },
-        },
-        {
-          partId: "1",
-          mimeType: "text/html",
-          filename: "",
-          headers: [
-            { name: "Content-Type", value: "text/html; charset=UTF-8" },
-          ],
-          body: {
-            size: 25,
-            data: "PGI+SGVsbG8gV29ybGQ8L2I+", // Base64 encoded "<b>Hello World</b>"
-          },
-        },
-      ],
-    },
-  })),
-}));
+
 vi.mock("@/utils/gmail/thread", () => ({
-  getThreadMessages: vi.fn().mockImplementation(async (gmail, threadId) => [
+  getThreadMessages: vi.fn().mockImplementation(async (_gmail, threadId) => [
     {
       id: threadId === "thread-456" ? "456" : "123",
       threadId,
@@ -101,6 +50,9 @@ vi.mock("@/utils/cold-email/is-cold-email", () => ({
   runColdEmailBlocker: vi
     .fn()
     .mockResolvedValue({ isColdEmail: false, reason: "hasPreviousEmail" }),
+  runColdEmailBlockerWithProvider: vi
+    .fn()
+    .mockResolvedValue({ isColdEmail: false, reason: "hasPreviousEmail" }),
 }));
 vi.mock("@/app/api/google/webhook/block-unsubscribed-emails", () => ({
   blockUnsubscribedEmails: vi.fn().mockResolvedValue(false),
@@ -118,7 +70,25 @@ vi.mock("@/utils/digest/index", () => ({
   enqueueDigestItem: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@/utils/email/provider", () => ({
-  createEmailProvider: vi.fn().mockResolvedValue({}),
+  createEmailProvider: vi.fn().mockResolvedValue({
+    getMessage: vi.fn().mockImplementation(async (messageId) => ({
+      id: messageId,
+      threadId: messageId === "456" ? "thread-456" : "thread-123",
+      labelIds: ["INBOX"],
+      snippet: "Test email snippet",
+      historyId: "12345",
+      internalDate: "1704067200000",
+      sizeEstimate: 1024,
+      headers: {
+        from: "sender@example.com",
+        to: "user@test.com",
+        subject: "Test Email",
+        date: "2024-01-01T00:00:00Z",
+      },
+      textPlain: "Hello World",
+      textHtml: "<b>Hello World</b>",
+    })),
+  }),
 }));
 
 describe("processHistoryItem", () => {
@@ -135,6 +105,7 @@ describe("processHistoryItem", () => {
 
   const defaultOptions = {
     gmail: {} as any,
+    provider: {} as any,
     email: "user@test.com",
     accessToken: "fake-token",
     hasAutomationRules: false,
@@ -162,8 +133,6 @@ describe("processHistoryItem", () => {
     };
 
     await processHistoryItem(createHistoryItem(), options);
-
-    expect(getMessage).not.toHaveBeenCalled();
   });
 
   it("should skip if message is an assistant email", async () => {
@@ -176,7 +145,7 @@ describe("processHistoryItem", () => {
     await processHistoryItem(createHistoryItem(), options);
 
     expect(blockUnsubscribedEmails).not.toHaveBeenCalled();
-    expect(runColdEmailBlocker).not.toHaveBeenCalled();
+    expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
     expect(processAssistantEmail).toHaveBeenCalledWith({
       message: expect.objectContaining({
         headers: expect.objectContaining({
@@ -191,44 +160,26 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    vi.mocked(getMessage).mockResolvedValueOnce({
-      id: "123",
-      threadId: "thread-123",
-      labelIds: [GmailLabel.SENT],
-      snippet: "Test email snippet",
-      historyId: "12345",
-      internalDate: "1704067200000",
-      sizeEstimate: 1024,
-      payload: {
-        partId: "",
-        mimeType: "multipart/alternative",
-        filename: "",
-        headers: [
-          { name: "From", value: "user@test.com" },
-          { name: "To", value: "recipient@example.com" },
-          { name: "Subject", value: "Test Email" },
-          { name: "Date", value: "2024-01-01T00:00:00Z" },
-          { name: "Message-ID", value: "<123@example.com>" },
-        ],
-        body: {
-          size: 0,
+    const { createEmailProvider } = await import("@/utils/email/provider");
+    vi.mocked(createEmailProvider).mockResolvedValueOnce({
+      getMessage: vi.fn().mockResolvedValue({
+        id: "123",
+        threadId: "thread-123",
+        labelIds: [GmailLabel.SENT],
+        snippet: "Test email snippet",
+        historyId: "12345",
+        internalDate: "1704067200000",
+        sizeEstimate: 1024,
+        headers: {
+          from: "user@test.com",
+          to: "recipient@example.com",
+          subject: "Test Email",
+          date: "2024-01-01T00:00:00Z",
         },
-        parts: [
-          {
-            partId: "0",
-            mimeType: "text/plain",
-            filename: "",
-            headers: [
-              { name: "Content-Type", value: "text/plain; charset=UTF-8" },
-            ],
-            body: {
-              size: 11,
-              data: "SGVsbG8gV29ybGQ=", // Base64 encoded "Hello World"
-            },
-          },
-        ],
-      },
-    });
+        textPlain: "Hello World",
+        textHtml: "<b>Hello World</b>",
+      }),
+    } as unknown as any);
 
     const options = {
       ...defaultOptions,
@@ -237,7 +188,7 @@ describe("processHistoryItem", () => {
     await processHistoryItem(createHistoryItem(), options);
 
     expect(blockUnsubscribedEmails).not.toHaveBeenCalled();
-    expect(runColdEmailBlocker).not.toHaveBeenCalled();
+    expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
   });
 
   it("should skip if email is unsubscribed", async () => {
@@ -249,7 +200,7 @@ describe("processHistoryItem", () => {
     };
     await processHistoryItem(createHistoryItem(), options);
 
-    expect(runColdEmailBlocker).not.toHaveBeenCalled();
+    expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
   });
 
   it("should run cold email blocker when enabled", async () => {
@@ -264,7 +215,7 @@ describe("processHistoryItem", () => {
 
     await processHistoryItem(createHistoryItem(), options);
 
-    expect(runColdEmailBlocker).toHaveBeenCalledWith({
+    expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
         subject: "Test Email",
@@ -273,13 +224,13 @@ describe("processHistoryItem", () => {
         threadId: "thread-123",
         date: expect.any(Date),
       }),
-      gmail: options.gmail,
+      provider: expect.any(Object),
       emailAccount: options.emailAccount,
     });
   });
 
   it("should skip further processing if cold email is detected", async () => {
-    vi.mocked(runColdEmailBlocker).mockResolvedValueOnce({
+    vi.mocked(runColdEmailBlockerWithProvider).mockResolvedValueOnce({
       isColdEmail: true,
       reason: "ai",
       aiReason: "This appears to be a cold email",
@@ -307,7 +258,7 @@ describe("processHistoryItem", () => {
   });
 
   it("should add cold email to digest when coldEmailDigest is true and cold email is detected", async () => {
-    vi.mocked(runColdEmailBlocker).mockResolvedValueOnce({
+    vi.mocked(runColdEmailBlockerWithProvider).mockResolvedValueOnce({
       isColdEmail: true,
       reason: "ai",
       aiReason: "This appears to be a cold email",
@@ -328,7 +279,7 @@ describe("processHistoryItem", () => {
 
     await processHistoryItem(createHistoryItem(), options);
 
-    expect(runColdEmailBlocker).toHaveBeenCalledWith({
+    expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
         subject: "Test Email",
@@ -337,7 +288,7 @@ describe("processHistoryItem", () => {
         threadId: "thread-123",
         date: expect.any(Date),
       }),
-      gmail: options.gmail,
+      provider: expect.any(Object),
       emailAccount: options.emailAccount,
     });
 
@@ -375,13 +326,13 @@ describe("processHistoryItem", () => {
 
     await processHistoryItem(createHistoryItem(), options);
 
-    expect(runColdEmailBlocker).not.toHaveBeenCalled();
+    expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
     expect(categorizeSender).toHaveBeenCalled();
     expect(runRules).toHaveBeenCalled();
   });
 
   it("should process normally when cold email is not detected with coldEmailDigest enabled", async () => {
-    vi.mocked(runColdEmailBlocker).mockResolvedValueOnce({
+    vi.mocked(runColdEmailBlockerWithProvider).mockResolvedValueOnce({
       isColdEmail: false,
       reason: "hasPreviousEmail",
     });
@@ -400,14 +351,14 @@ describe("processHistoryItem", () => {
 
     await processHistoryItem(createHistoryItem(), options);
 
-    expect(runColdEmailBlocker).toHaveBeenCalled();
+    expect(runColdEmailBlockerWithProvider).toHaveBeenCalled();
     expect(categorizeSender).toHaveBeenCalled();
     expect(runRules).toHaveBeenCalled();
   });
 
   it("should add second email from known cold emailer to digest when coldEmailDigest is enabled", async () => {
     // Mock the response for a known cold emailer (already in database)
-    vi.mocked(runColdEmailBlocker).mockResolvedValueOnce({
+    vi.mocked(runColdEmailBlockerWithProvider).mockResolvedValueOnce({
       isColdEmail: true,
       reason: "ai-already-labeled",
       coldEmailId: "existing-cold-email-456", // Existing cold email entry ID
@@ -427,7 +378,7 @@ describe("processHistoryItem", () => {
 
     await processHistoryItem(createHistoryItem("456", "thread-456"), options);
 
-    expect(runColdEmailBlocker).toHaveBeenCalledWith({
+    expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
         subject: "Test Email",
@@ -436,7 +387,7 @@ describe("processHistoryItem", () => {
         threadId: "thread-456",
         date: expect.any(Date),
       }),
-      gmail: options.gmail,
+      provider: expect.any(Object),
       emailAccount: options.emailAccount,
     });
 

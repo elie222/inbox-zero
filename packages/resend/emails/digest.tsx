@@ -20,8 +20,8 @@ type DigestEntry = {
 };
 
 type DigestContent = {
-  entries?: DigestEntry[] | undefined | null;
-  summary?: string | undefined | null;
+  type: "structured" | "unstructured";
+  content: DigestEntry[] | string;
 };
 
 type DigestItem = {
@@ -79,14 +79,21 @@ export type DigestEmailProps = {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
-  [key: string]: DigestItem[] | undefined | string | Date | undefined;
+  ruleNames?: Record<string, string>;
+  [key: string]:
+    | DigestItem[]
+    | undefined
+    | string
+    | Date
+    | Record<string, string>
+    | undefined;
 };
 
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
     unsubscribeToken,
-    date,
+    ruleNames,
     ...digestData
   } = props;
 
@@ -136,12 +143,19 @@ export default function DigestEmail(props: DigestEmailProps) {
   };
 
   const getCategoryInfo = (key: string) => {
+    const displayName = ruleNames?.[key] || key;
     if (key in availableCategories) {
-      return availableCategories[key as keyof typeof availableCategories];
+      const categoryInfo =
+        availableCategories[key as keyof typeof availableCategories];
+      return {
+        ...categoryInfo,
+        name: displayName,
+      };
     }
+
     // Fallback for unknown categories
     return {
-      name: key,
+      name: displayName,
       emoji: "📂",
       color: "gray",
       href: `#${key}`,
@@ -174,11 +188,12 @@ export default function DigestEmail(props: DigestEmailProps) {
           Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
       )
       .map((key) => {
+        const items = digestData[key] as DigestItem[];
         const info = getCategoryInfo(key);
         return {
           key,
           ...info,
-          count: (digestData[key] as DigestItem[]).length,
+          count: items.length,
         };
       });
 
@@ -210,22 +225,33 @@ export default function DigestEmail(props: DigestEmailProps) {
             >
               <Link href={category.href} className="no-underline">
                 <div
-                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px] flex justify-between items-center`}
+                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px]`}
                 >
-                  <Text
-                    className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                  >
-                    {category.emoji} {category.name}
-                  </Text>
-                  <div
-                    className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] ml-[8px] rounded-[12px]`}
-                  >
-                    <Text
-                      className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                  <Row>
+                    <Column
+                      style={{ textAlign: "left", verticalAlign: "middle" }}
                     >
-                      {category.count}
-                    </Text>
-                  </div>
+                      <Text
+                        className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                      >
+                        {category.emoji} {category.name}
+                      </Text>
+                    </Column>
+                    <Column
+                      style={{ textAlign: "right", verticalAlign: "middle" }}
+                    >
+                      <div
+                        className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
+                        style={{ display: "inline-block" }}
+                      >
+                        <Text
+                          className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
+                        >
+                          {category.count}
+                        </Text>
+                      </div>
+                    </Column>
+                  </Row>
                 </div>
               </Link>
             </Column>
@@ -279,28 +305,31 @@ export default function DigestEmail(props: DigestEmailProps) {
               <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
                 {item.from}
               </Text>
-              {item.content &&
-              Array.isArray(item.content.entries) &&
-              item.content.entries.length > 0 ? (
+              {item.content?.type === "structured" &&
+              Array.isArray(item.content.content) ? (
                 <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
-                  {item.content.entries.map((entry, idx) => (
-                    <Row key={idx} className="mb-0 p-0">
-                      <Column>
-                        <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
-                          {entry.label}
-                        </Text>
-                      </Column>
-                      <Column align="right">
-                        <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
-                          {entry.value}
-                        </Text>
-                      </Column>
-                    </Row>
-                  ))}
+                  {item.content.content.map(
+                    (entry: DigestEntry, idx: number) => (
+                      <Row key={idx} className="mb-0 p-0">
+                        <Column>
+                          <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
+                            {entry.label}
+                          </Text>
+                        </Column>
+                        <Column align="right">
+                          <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
+                            {entry.value}
+                          </Text>
+                        </Column>
+                      </Row>
+                    ),
+                  )}
                 </Section>
               ) : (
                 <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
-                  {item.content?.summary}
+                  {item.content?.type === "unstructured"
+                    ? (item.content.content as string)
+                    : ""}
                 </Text>
               )}
             </div>
@@ -341,10 +370,9 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {getCategoriesWithItemsCount() > 0 && (
+            {getCategoriesWithItemsCount() > 1 && (
               <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
             )}
-
             {Object.keys(digestData).map((categoryKey) =>
               Array.isArray(digestData[categoryKey]) &&
               digestData[categoryKey]?.length > 0 ? (
@@ -355,7 +383,6 @@ export default function DigestEmail(props: DigestEmailProps) {
                 />
               ) : null,
             )}
-
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
@@ -368,12 +395,25 @@ export default function DigestEmail(props: DigestEmailProps) {
 DigestEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   unsubscribeToken: "123",
+  ruleNames: {
+    newsletter: "Newsletter",
+    receipt: "Receipt",
+    marketing: "Marketing",
+    calendar: "Calendar",
+    coldEmail: "Cold Email",
+    notification: "Notification",
+    toReply: "To Reply",
+    travel: "Travel",
+    funnyStuff: "Funny Stuff",
+    orders: "Orders",
+  },
   newsletter: [
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
       content: {
-        summary:
+        type: "unstructured",
+        content:
           "The latest on tech layoffs, market trends, and startup funding rounds...",
       },
     },
@@ -381,7 +421,8 @@ DigestEmail.PreviewProps = {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
       content: {
-        summary:
+        type: "unstructured",
+        content:
           "Stay informed with the latest headlines and analysis from around the world...",
       },
     },
@@ -389,7 +430,8 @@ DigestEmail.PreviewProps = {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
       content: {
-        summary:
+        type: "unstructured",
+        content:
           "Discover the newest apps, websites, and tech products that launched today...",
       },
     },
@@ -399,36 +441,36 @@ DigestEmail.PreviewProps = {
       from: "Amazon",
       subject: "Order #112-3456789-0123456",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Merchant", value: "Amazon" },
           { label: "Amount", value: "$42.99" },
           { label: "Date", value: "9:15 AM" },
         ],
-        summary: "Order total: $42.99 • Time: 9:15 AM",
       },
     },
     {
       from: "Uber Eats",
       subject: "Order #EAT-123456789",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Merchant", value: "Uber Eats" },
           { label: "Amount", value: "$23.45" },
           { label: "Date", value: "1:20 PM" },
         ],
-        summary: "Order total: $23.45 • Time: 1:20 PM",
       },
     },
     {
       from: "Netflix",
       subject: "Monthly subscription",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Merchant", value: "Netflix" },
           { label: "Amount", value: "$15.99" },
           { label: "Date", value: "4:30 AM" },
         ],
-        summary: "Subscription: $15.99 • Time: 4:30 AM",
       },
     },
   ],
@@ -437,21 +479,24 @@ DigestEmail.PreviewProps = {
       from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
       content: {
-        summary: "Upgrade your music experience with this exclusive deal",
+        type: "unstructured",
+        content: "Upgrade your music experience with this exclusive deal",
       },
     },
     {
       from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
       content: {
-        summary: "Be the first to shop our latest styles before they sell out",
+        type: "unstructured",
+        content: "Be the first to shop our latest styles before they sell out",
       },
     },
     {
       from: "Airbnb",
       subject: "Weekend getaway ideas near you",
       content: {
-        summary:
+        type: "unstructured",
+        content:
           "Discover unique stays within a 2-hour drive from your location",
       },
     },
@@ -461,42 +506,42 @@ DigestEmail.PreviewProps = {
       from: "Sarah Johnson",
       subject: "Team Weekly Sync",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Team Weekly Sync" },
           {
             label: "Date",
             value: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
           },
         ],
-        summary: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
       },
     },
     {
       from: "Michael Chen",
       subject: "Quarterly Review",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Quarterly Review" },
           {
             label: "Date",
             value: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
           },
         ],
-        summary: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
       },
     },
     {
       from: "Personal Calendar",
       subject: "Dentist Appointment",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Dentist Appointment" },
           {
             label: "Date",
             value: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
           },
         ],
-        summary: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
       },
     },
   ],
@@ -505,21 +550,24 @@ DigestEmail.PreviewProps = {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
       content: {
-        summary: "Growth Solutions Inc.",
+        type: "unstructured",
+        content: "Growth Solutions Inc.",
       },
     },
     {
       from: "Jennifer Lee",
       subject: "Request for a quick call this week",
       content: {
-        summary: "Venture Capital Partners",
+        type: "unstructured",
+        content: "Venture Capital Partners",
       },
     },
     {
       from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
       content: {
-        summary: "Enterprise Tech Solutions",
+        type: "unstructured",
+        content: "Enterprise Tech Solutions",
       },
     },
   ],
@@ -528,50 +576,50 @@ DigestEmail.PreviewProps = {
       from: "LinkedIn",
       subject: "Profile Views",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Profile Views" },
           {
             label: "Date",
             value: "5 people viewed your profile this week • 11:00 AM",
           },
         ],
-        summary: "5 people viewed your profile this week • 11:00 AM",
       },
     },
     {
       from: "Slack",
       subject: "Unread Messages",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Unread Messages" },
           {
             label: "Date",
             value: "3 unread messages in #general channel • 2:45 PM",
           },
         ],
-        summary: "3 unread messages in #general channel • 2:45 PM",
       },
     },
     {
       from: "GitHub",
       subject: "Pull Request Update",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "Pull Request Update" },
           { label: "Date", value: "Pull request #123 was approved • 5:30 PM" },
         ],
-        summary: "Pull request #123 was approved • 5:30 PM",
       },
     },
     {
       from: "Twitter",
       subject: "New Followers",
       content: {
-        entries: [
+        type: "structured",
+        content: [
           { label: "Title", value: "New Followers" },
           { label: "Date", value: "You have 7 new followers • 6:15 PM" },
         ],
-        summary: "You have 7 new followers • 6:15 PM",
       },
     },
   ],
@@ -580,21 +628,24 @@ DigestEmail.PreviewProps = {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
       content: {
-        summary: "Received: Yesterday, 4:30 PM • Due: Today",
+        type: "unstructured",
+        content: "Received: Yesterday, 4:30 PM • Due: Today",
       },
     },
     {
       from: "Client XYZ",
       subject: "Questions about the latest deliverable",
       content: {
-        summary: "Received: Monday, 10:15 AM • Due: Tomorrow",
+        type: "unstructured",
+        content: "Received: Monday, 10:15 AM • Due: Tomorrow",
       },
     },
     {
       from: "HR Department",
       subject: "Annual review scheduling",
       content: {
-        summary: "Received: Tuesday, 9:00 AM • Due: Friday",
+        type: "unstructured",
+        content: "Received: Tuesday, 9:00 AM • Due: Friday",
       },
     },
   ],
@@ -604,14 +655,16 @@ DigestEmail.PreviewProps = {
       from: "Expedia",
       subject: "Your flight to Paris is booked!",
       content: {
-        summary: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
+        type: "unstructured",
+        content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
       },
     },
     {
       from: "Airbnb",
       subject: "Upcoming stay in Montmartre",
       content: {
-        summary: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
+        type: "unstructured",
+        content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
       },
     },
   ],
@@ -620,7 +673,8 @@ DigestEmail.PreviewProps = {
       from: "The Onion",
       subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
       content: {
-        summary:
+        type: "unstructured",
+        content:
           "Local man questions reality after seeing three people in cheese hats.",
       },
     },
@@ -628,7 +682,49 @@ DigestEmail.PreviewProps = {
       from: "Reddit",
       subject: "Top meme of the day",
       content: {
-        summary: "A cat wearing sunglasses and riding a Roomba.",
+        type: "unstructured",
+        content: "A cat wearing sunglasses and riding a Roomba.",
+      },
+    },
+  ],
+  orders: [
+    {
+      from: "Shopify",
+      subject: "Order #SHOP-2024-001",
+      content: {
+        type: "structured",
+        content: [
+          { label: "Order ID", value: "SHOP-2024-001" },
+          { label: "Total", value: "$89.99" },
+          { label: "Status", value: "Shipped" },
+          { label: "Tracking", value: "1Z999AA1234567890" },
+        ],
+      },
+    },
+    {
+      from: "Etsy",
+      subject: "Your handmade jewelry order",
+      content: {
+        type: "structured",
+        content: [
+          { label: "Seller", value: "HandmadeCrafts" },
+          { label: "Item", value: "Sterling Silver Necklace" },
+          { label: "Price", value: "$45.00" },
+          { label: "Estimated Delivery", value: "March 15-20" },
+        ],
+      },
+    },
+    {
+      from: "Amazon",
+      subject: "Order #114-1234567-8901234",
+      content: {
+        type: "structured",
+        content: [
+          { label: "Order Number", value: "114-1234567-8901234" },
+          { label: "Items", value: "3 items" },
+          { label: "Total", value: "$156.78" },
+          { label: "Delivery", value: "Tomorrow by 8 PM" },
+        ],
       },
     },
   ],

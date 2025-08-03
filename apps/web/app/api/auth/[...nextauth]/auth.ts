@@ -15,7 +15,7 @@ export const {
       const consent = url.searchParams.get("consent");
       if (consent) {
         logger.info("Consent requested");
-        return getAuthOptions({ consent: true });
+        return getAuthOptions();
       }
     }
 

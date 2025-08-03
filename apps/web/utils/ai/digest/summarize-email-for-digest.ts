@@ -1,10 +1,24 @@
-import type { z } from "zod";
+import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
-import { DigestEmailSummarySchema as schema } from "@/app/api/resend/digest/validation";
+
+export const schema = z.object({
+  type: z.enum(["structured", "unstructured"]).describe("Type of content"),
+  content: z
+    .union([
+      z.array(
+        z.object({
+          label: z.string(),
+          value: z.string(),
+        }),
+      ),
+      z.string(),
+    ])
+    .describe("The content - either structured entries or summary text"),
+});
 
 const logger = createScopedLogger("summarize-digest-email");
 
@@ -18,46 +32,45 @@ export async function aiSummarizeEmailForDigest({
   ruleName: string;
   emailAccount: EmailAccountWithAI;
   messageToSummarize: EmailForLLM;
-}): Promise<AISummarizeResult> {
+}): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
   if (!messageToSummarize) return null;
 
   const userMessageForPrompt = messageToSummarize;
 
-  const system = `You are an AI assistant that summarizes emails for a daily digest email. 
-You must return a valid JSON object with exactly one of these structures:
+  const system = `You are an AI assistant that processes emails for inclusion in a daily digest.
 
-1. For structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs):
-   {"entries": [{"label": "Field Name", "value": "Field Value"}]}
+Your task is to:
+1. **Classify** the email as either "structured" or "unstructured".
+2. **Summarize** the content accordingly using the provided schema.
 
-2. For unstructured content (general updates, team notes, meeting summaries, announcements):
-   {"summary": "Plain text summary paragraph"}
+**Classification rules:**
+- Use "structured" if the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar.
+- Use "unstructured" if the email is a narrative, update, announcement, or message without discrete fields.
+- If the email is spam, promotional, or irrelevant, return "null".
 
-3. If the email is not worth summarizing or is spam:
-   null
+**Content rules for structured classification:**
+- Only include human-relevant and human-readable information.
+- Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
 
-IMPORTANT: Return ONLY valid JSON. Do not include any explanatory text.`;
+**Formatting rules:**
+- Follow the schema provided separately (do not describe or return the schema).
+- Do not include HTML, markdown, or explanations.
+- Return only the final JSON result (or "null").
+
+Now, classify and summarize the following email:
+`;
 
   const prompt = `
 <email_content>
 ${stringifyEmailSimple(userMessageForPrompt)}
 </email_content>
 
-This email has already been categorized as: ${ruleName}.
-
-Summarize the following email for inclusion in a daily digest email.
-
-RULES:
-- If the email contains structured data (prices, totals, item names, event titles, dates, times, payment methods, IDs), return an "entries" array with 2-6 label/value pairs.
-- Order entries by importance: start with identifying details, end with totals/amounts.
-- Use short, clear labels and concise values.
-- If the email contains general updates, team notes, meeting summaries, or announcements without distinct extractable values, return a "summary" field with a plain-text paragraph.
-- If the email is spam, promotional content, or not worth summarizing, return null.
-- Return ONLY valid JSON - no HTML, no tables, no explanatory text.
-
-Return a valid JSON object with either "entries" array, "summary" string, or null.`;
+Use this category as context to help interpret the email: ${ruleName}.`;
 
   logger.trace("Input", { system, prompt });
+
+  logger.info("Summarizing email for digest");
 
   try {
     const aiResponse = await chatCompletionObject({
@@ -71,12 +84,23 @@ Return a valid JSON object with either "entries" array, "summary" string, or nul
 
     logger.trace("Result", { response: aiResponse.object });
 
+    // Temporary logging to check the summarization output
+    if (aiResponse.object.type === "unstructured") {
+      logger.info("Summarized email as summary", {
+        length: aiResponse.object.content.length,
+      });
+    } else if (aiResponse.object.type === "structured") {
+      logger.info("Summarized email as entries", {
+        length: aiResponse.object.content.length,
+      });
+    } else {
+      logger.info("Content not worth summarizing");
+    }
+
     return aiResponse.object;
   } catch (error) {
     logger.error("Failed to summarize email", { error });
 
-    return {
-      summary: undefined,
-    };
+    return null;
   }
 }

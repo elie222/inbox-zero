@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import type { MessageWithPayload } from "@/utils/types";
 import { isGmailError } from "@/utils/error";
 
@@ -28,7 +28,7 @@ export async function deleteDraft(gmail: gmail_v1.Gmail, draftId: string) {
       userId: "me",
       id: draftId,
     });
-    if (response.status !== 200) {
+    if (response.status !== 200 && response.status !== 204) {
       logger.error("Failed to delete draft", { draftId, response });
     }
     logger.info("Successfully deleted draft", { draftId });

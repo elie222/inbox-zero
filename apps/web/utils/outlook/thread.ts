@@ -1,9 +1,6 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("outlook/thread");
 
 export async function getThread(
   threadId: string,
@@ -172,5 +169,6 @@ export async function getThreadMessages(
     internalDate: msg.receivedDateTime || new Date().toISOString(),
     subject: msg.subject || "",
     date: msg.receivedDateTime || new Date().toISOString(),
+    conversationIndex: msg.conversationIndex,
   }));
 }

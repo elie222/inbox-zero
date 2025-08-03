@@ -21,7 +21,7 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 
-interface MultiSelectFilterProps<TData, TValue> {
+interface MultiSelectFilterProps<_TData, _TValue> {
   title?: string;
   options: {
     label: string;

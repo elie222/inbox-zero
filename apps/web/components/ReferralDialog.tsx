@@ -24,10 +24,8 @@ export function ReferralDialog() {
     <Dialog>
       <DialogTrigger asChild>
         <SidebarMenuButton className="h-9">
-          <>
-            <GiftIcon />
-            <span className="font-semibold">Refer friend</span>
-          </>
+          <GiftIcon />
+          <span className="font-semibold">Refer friend</span>
         </SidebarMenuButton>
       </DialogTrigger>
       <DialogContent className="max-w-4xl">
@@ -58,7 +56,7 @@ export function Referrals() {
     try {
       await navigator.clipboard.writeText(text);
       toastSuccess({ description: `Referral ${type} copied to clipboard!` });
-    } catch (error) {
+    } catch {
       toastError({
         title: `Failed to copy ${type}`,
         description: "Please try again",

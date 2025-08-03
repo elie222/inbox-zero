@@ -24,9 +24,14 @@ There are two parts to Inbox Zero:
 
 If you're looking to contribute to the project, the email client is the best place to do this.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
+<br />
+<a href="https://vercel.com/oss">
+  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
+</a
 
-Thanks to Vercel for sponsoring Inbox Zero in support of open-source software.
+<br />
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Felie222%2Finbox-zero&env=NEXTAUTH_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,MICROSOFT_CLIENT_ID,MICROSOFT_CLIENT_SECRET,EMAIL_ENCRYPT_SECRET,EMAIL_ENCRYPT_SALT,UPSTASH_REDIS_URL,UPSTASH_REDIS_TOKEN,GOOGLE_PUBSUB_TOPIC_NAME,DATABASE_URL)
 
 ## Features
 
@@ -181,8 +186,9 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
    3. Set the Redirect URI:
       - Platform: Web
       - URL: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
-   4. Also set Redirect URI: `http://localhost:3000/api/outlook/linking/callback`
-   5. Click "Register"
+   4. Click "Register"
+   5. In the "Manage" menu click "Authentication (Preview)"
+   6. Add the Redirect URI: `http://localhost:3000/api/outlook/linking/callback`
 
 4. Get your credentials:
 

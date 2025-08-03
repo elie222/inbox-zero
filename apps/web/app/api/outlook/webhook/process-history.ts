@@ -6,10 +6,7 @@ import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
-import type {
-  ProcessHistoryOptions,
-  OutlookResourceData,
-} from "@/app/api/outlook/webhook/types";
+import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
 import { logger } from "@/app/api/outlook/webhook/logger";
 

@@ -2,7 +2,6 @@
 
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
-import { KnowledgeDialog } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeDialog";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
@@ -33,27 +32,23 @@ export function DraftReplies() {
       title="Auto draft replies"
       description="Automatically draft replies written in your tone to emails needing a reply."
       right={
-        <div className="flex items-center gap-4">
-          {enabled && <KnowledgeDialog />}
-
-          <LoadingContent
-            loading={loading}
-            error={error}
-            loadingComponent={<Skeleton className="h-8 w-32" />}
-          >
-            <Toggle
-              name="draft-replies"
-              enabled={enabled}
-              onChange={handleToggle}
-            />
-          </LoadingContent>
-        </div>
+        <LoadingContent
+          loading={loading}
+          error={error}
+          loadingComponent={<Skeleton className="h-8 w-32" />}
+        >
+          <Toggle
+            name="draft-replies"
+            enabled={enabled}
+            onChange={handleToggle}
+          />
+        </LoadingContent>
       }
     />
   );
 }
 
-function useDraftReplies() {
+export function useDraftReplies() {
   const { data, mutate, isLoading, error } = useRules();
   const { emailAccountId } = useAccount();
 

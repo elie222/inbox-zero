@@ -7,7 +7,6 @@ import { LogoCloud } from "@/app/(landing)/home/LogoCloud";
 import { env } from "@/env";
 import { HeroAB } from "@/app/(landing)/home/HeroAB";
 import HeroVideoDialog from "@/components/HeroVideoDialog";
-import { LayoutPanelTopIcon } from "lucide-react";
 
 export function HeroText(props: {
   children: React.ReactNode;
@@ -71,7 +70,7 @@ export function Hero(props: {
             </HeroText>
             <HeroSubtitle>
               {props.subtitle ||
-                "Cut your email time in half. Inbox Zero intelligently automates responses, organizes your inbox, and helps you reach inbox zero in record time."}
+                "Cut your email time in half. Inbox Zero intelligently automates responses, organizes your inbox, and helps you reach inbox zero in record time. For Gmail and Outlook."}
             </HeroSubtitle>
             <CTAComponent />
           </div>

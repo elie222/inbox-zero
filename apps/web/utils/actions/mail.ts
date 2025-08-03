@@ -3,7 +3,7 @@
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { saveUserLabels } from "@/utils/redis/label";
-import { markImportantMessage, markReadThread } from "@/utils/gmail/label";
+import { markImportantMessage } from "@/utils/gmail/label";
 import { markSpam } from "@/utils/gmail/spam";
 import { sendEmailWithHtml, sendEmailBody } from "@/utils/gmail/mail";
 import { actionClient } from "@/utils/actions/safe-action";

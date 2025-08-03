@@ -65,7 +65,7 @@ describe("calculateSimilarity", () => {
       return "";
     });
 
-    const expectedScore = 0.5714285714285714;
+    const expectedScore = 0.571_428_571_428_571_4;
 
     const score = calculateSimilarity(text1, text2);
 
@@ -116,7 +116,7 @@ describe("calculateSimilarity", () => {
 
     expect(score).toBeGreaterThan(0);
     expect(score).toBeLessThan(1);
-    expect(score).toBeCloseTo(0.7111111111111111);
+    expect(score).toBeCloseTo(0.711_111_111_111_111_1);
   });
 
   it("should handle a realistic email example with a minor change", () => {
@@ -161,6 +161,6 @@ Bob`;
 
     expect(score).toBeGreaterThan(0.9);
     expect(score).toBeLessThan(1.0);
-    expect(score).toBe(0.9170305676855895);
+    expect(score).toBe(0.917_030_567_685_589_5);
   });
 });

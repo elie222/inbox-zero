@@ -255,7 +255,7 @@ const featuresReplyZero = [
   {
     name: "Pre-drafted replies",
     description:
-      "AI-drafted replies waiting in Gmail, ready to send or customize.",
+      "AI-drafted replies waiting in Gmail or Outlook, ready to send or customize.",
     icon: ReplyIcon,
   },
   {

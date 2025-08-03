@@ -298,9 +298,9 @@ async function chatCompletionToolsInternal({
 }
 
 // not in use atm
-// async function streamCompletionTools({
+// async function _streamCompletionTools({
 //   userAi,
-//   useEconomyModel,
+//   modelType,
 //   prompt,
 //   system,
 //   tools,
@@ -310,7 +310,7 @@ async function chatCompletionToolsInternal({
 //   onFinish,
 // }: {
 //   userAi: UserAIFields;
-//   useEconomyModel?: boolean;
+//   modelType?: ModelType;
 //   prompt: string;
 //   system?: string;
 //   tools: Record<string, Tool>;
@@ -321,7 +321,7 @@ async function chatCompletionToolsInternal({
 // }) {
 //   const { provider, model, llmModel, providerOptions } = getModel(
 //     userAi,
-//     useEconomyModel,
+//     modelType,
 //   );
 
 //   const result = streamText({
@@ -375,7 +375,11 @@ export async function withRetry<T>(
       lastError = error;
 
       if (retryIf(error)) {
-        console.warn(`Attempt ${attempts}: Operation failed. Retrying...`);
+        logger.warn("Operation failed. Retrying...", {
+          attempts,
+          error,
+        });
+
         if (attempts < maxRetries) {
           await sleep(delayMs);
           continue;

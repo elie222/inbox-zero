@@ -52,7 +52,7 @@ async function _deleteFromDatasourceWithRetry(
       retries: 5,
       factor: 2,
       minTimeout: 1000,
-      maxTimeout: 30000,
+      maxTimeout: 30_000,
       randomize: true,
       onFailedAttempt: (error) => {
         console.log(

@@ -7,23 +7,30 @@ import prisma from "@/utils/__mocks__/prisma";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma");
-vi.mock("@/utils/gmail/client", () => ({
-  getGmailClientWithRefresh: vi.fn(),
-}));
 vi.mock("@/utils/user/get", () => ({
   getEmailAccountWithAiAndTokens: vi.fn(),
-}));
-vi.mock("@/utils/ai/choose-rule/execute", () => ({
-  executeAct: vi.fn(),
 }));
 vi.mock("@/utils/ai/actions", () => ({
   runActionFunction: vi.fn(),
 }));
-vi.mock("@/utils/gmail/message", () => ({
-  getMessage: vi.fn(),
-}));
-vi.mock("@/utils/mail", () => ({
-  parseMessage: vi.fn(),
+vi.mock("@/utils/email/provider", () => ({
+  createEmailProvider: vi.fn().mockResolvedValue({
+    getMessage: vi.fn().mockResolvedValue({
+      id: "msg-123",
+      threadId: "thread-123",
+      headers: {},
+      textPlain: "test content",
+      textHtml: "<p>test content</p>",
+      attachments: [],
+      internalDate: "1234567890",
+      snippet: "",
+      historyId: "",
+      inline: [],
+      isReplyInThread: false,
+      subject: "Test Subject",
+      date: "2024-01-01T00:00:00Z",
+    }),
+  }),
 }));
 
 describe("executor", () => {
@@ -105,25 +112,8 @@ describe("executor", () => {
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
       );
-      const { getGmailClientWithRefresh } = await import(
-        "@/utils/gmail/client"
-      );
-      const { getMessage } = await import("@/utils/gmail/message");
-      const { parseMessage } = await import("@/utils/mail");
 
       (runActionFunction as any).mockResolvedValue(undefined);
-      (parseMessage as any).mockReturnValue({
-        id: "msg-123",
-        threadId: "thread-123",
-        headers: {},
-        textPlain: "test content",
-        textHtml: "<p>test content</p>",
-        attachments: [],
-        internalDate: "1234567890",
-        snippet: "",
-        historyId: "",
-        inline: [],
-      });
       (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
         id: "account-123",
         userId: "user-123",
@@ -131,24 +121,20 @@ describe("executor", () => {
         tokens: {
           access_token: "token",
           refresh_token: "refresh",
-          expires_at: Date.now() + 3600000,
-        },
-      });
-      (getMessage as any).mockResolvedValue({
-        id: "msg-123",
-        threadId: "thread-123",
-      });
-      (getGmailClientWithRefresh as any).mockResolvedValue({
-        users: {
-          messages: {
-            get: vi.fn().mockResolvedValue({
-              data: { id: "msg-123", threadId: "thread-123" },
-            }),
-          },
+          expires_at: Date.now() + 3_600_000,
         },
       });
 
-      const result = await executeScheduledAction(mockScheduledAction);
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+      );
 
       expect(result.success).toBe(true);
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
@@ -199,27 +185,10 @@ describe("executor", () => {
       const { getEmailAccountWithAiAndTokens } = await import(
         "@/utils/user/get"
       );
-      const { getGmailClientWithRefresh } = await import(
-        "@/utils/gmail/client"
-      );
-      const { getMessage } = await import("@/utils/gmail/message");
-      const { parseMessage } = await import("@/utils/mail");
 
       (runActionFunction as any).mockRejectedValue(
         new Error("Execution failed"),
       );
-      (parseMessage as any).mockReturnValue({
-        id: "msg-123",
-        threadId: "thread-123",
-        headers: {},
-        textPlain: "test content",
-        textHtml: "<p>test content</p>",
-        attachments: [],
-        internalDate: "1234567890",
-        snippet: "",
-        historyId: "",
-        inline: [],
-      });
       (getEmailAccountWithAiAndTokens as any).mockResolvedValue({
         id: "account-123",
         userId: "user-123",
@@ -227,24 +196,20 @@ describe("executor", () => {
         tokens: {
           access_token: "token",
           refresh_token: "refresh",
-          expires_at: Date.now() + 3600000,
-        },
-      });
-      (getMessage as any).mockResolvedValue({
-        id: "msg-123",
-        threadId: "thread-123",
-      });
-      (getGmailClientWithRefresh as any).mockResolvedValue({
-        users: {
-          messages: {
-            get: vi.fn().mockResolvedValue({
-              data: { id: "msg-123", threadId: "thread-123" },
-            }),
-          },
+          expires_at: Date.now() + 3_600_000,
         },
       });
 
-      const result = await executeScheduledAction(mockScheduledAction);
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      const result = await executeScheduledAction(
+        mockScheduledAction,
+        mockEmailProvider,
+      );
 
       expect(result.success).toBe(false);
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
@@ -266,7 +231,13 @@ describe("executor", () => {
       );
       (getEmailAccountWithAiAndTokens as any).mockResolvedValue(null);
 
-      await executeScheduledAction(mockScheduledAction);
+      const { createEmailProvider } = await import("@/utils/email/provider");
+      const mockEmailProvider = await createEmailProvider({
+        emailAccountId: "account-123",
+        provider: "google",
+      });
+
+      await executeScheduledAction(mockScheduledAction, mockEmailProvider);
 
       expect(prisma.scheduledAction.update).toHaveBeenCalledWith({
         where: { id: "scheduled-action-123" },

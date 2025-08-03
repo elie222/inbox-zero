@@ -33,6 +33,7 @@ import { deleteRule } from "@/utils/rule/rule";
 import { createScopedLogger } from "@/utils/logger";
 import { SafeError } from "@/utils/error";
 import {
+  createToReplyRule,
   enableDraftReplies,
   enableReplyTracker,
 } from "@/utils/reply-tracker/enable";
@@ -348,16 +349,25 @@ export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
   .schema(enableDraftRepliesBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
-    const rule = await prisma.rule.findUnique({
+    let rule = await prisma.rule.findUnique({
       where: {
         emailAccountId_systemType: {
           emailAccountId,
           systemType: SystemType.TO_REPLY,
         },
       },
-      select: { id: true, actions: true },
+      include: { actions: true },
     });
-    if (!rule) throw new SafeError("Rule not found");
+
+    if (!rule) {
+      const newRule = await createToReplyRule(emailAccountId, false);
+
+      if (!newRule) {
+        throw new SafeError("Failed to create To Reply rule");
+      }
+
+      rule = newRule;
+    }
 
     if (enable) {
       await enableDraftReplies(rule);
@@ -370,7 +380,6 @@ export const enableDraftRepliesAction = actionClient
       });
     }
 
-    revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${rule.id}`));
     revalidatePath(prefixPath(emailAccountId, "/assistant"));
     revalidatePath(prefixPath(emailAccountId, "/automation"));
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
@@ -650,7 +659,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-          "Label all newsletters as 'Newsletter'",
+          "Label all newsletters as @[Newsletter]",
           false,
           newsletter.action,
           "Newsletter",
@@ -667,7 +676,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
-          "Label all marketing emails as 'Marketing'",
+          "Label all marketing emails as @[Marketing]",
           false,
           marketing.action,
           "Marketing",
@@ -684,7 +693,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
-          "Label all calendar emails as 'Calendar'",
+          "Label all calendar emails as @[Calendar]",
           false,
           calendar.action,
           "Calendar",
@@ -701,7 +710,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
-          "Label all receipts as 'Receipts'",
+          "Label all receipts as @[Receipt]",
           false,
           receipt.action,
           "Receipt",
@@ -718,7 +727,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
-          "Label all notifications as 'Notifications'",
+          "Label all notifications as @[Notifications]",
           false,
           notification.action,
           "Notification",

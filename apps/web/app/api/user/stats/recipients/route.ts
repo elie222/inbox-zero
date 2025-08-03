@@ -3,7 +3,7 @@ import { z } from "zod";
 import countBy from "lodash/countBy";
 import sortBy from "lodash/sortBy";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { getMessage, getMessages } from "@/utils/gmail/message";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailFieldStats } from "@/app/api/user/stats/helpers";
@@ -18,7 +18,7 @@ export interface RecipientsResponse {
   mostActiveRecipientEmails: { name: string; value: number }[];
 }
 
-async function getRecipients({
+async function _getRecipients({
   gmail,
 }: {
   gmail: gmail_v1.Gmail;
@@ -31,6 +31,7 @@ async function getRecipients({
   // be careful of rate limiting here
   const messages = await Promise.all(
     res.messages?.map(async (m) => {
+      // TODO: Use email provider to get the message which will parse it internally
       const message = await getMessage(m.id!, gmail);
       return parseMessage(message);
     }) || [],

@@ -7,8 +7,6 @@ import { RuleName } from "@/utils/rule/consts";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { hasCronSecret } from "@/utils/cron";
-import { captureException } from "@/utils/error";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
@@ -183,6 +181,11 @@ export const POST = withError(
           to: message.to || "",
         },
       });
+
+      if (!summary) {
+        logger.info("Skipping digest item because it is not worth summarizing");
+        return new NextResponse("OK", { status: 200 });
+      }
 
       await upsertDigest({
         messageId: message.id || "",

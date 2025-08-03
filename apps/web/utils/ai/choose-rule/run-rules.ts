@@ -1,4 +1,3 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { after } from "next/server";
 import type {
   ParsedMessage,

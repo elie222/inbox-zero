@@ -7,14 +7,14 @@ import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
 import { getMessage, getMessages } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import { GmailLabel } from "@/utils/gmail/label";
 import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
 
-const saveAboutBody = z.object({ about: z.string().max(2_000) });
+const saveAboutBody = z.object({ about: z.string().max(2000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
 
 export const saveAboutAction = actionClient
@@ -27,7 +27,7 @@ export const saveAboutAction = actionClient
     });
   });
 
-const saveSignatureBody = z.object({ signature: z.string().max(2_000) });
+const saveSignatureBody = z.object({ signature: z.string().max(2000) });
 export type SaveSignatureBody = z.infer<typeof saveSignatureBody>;
 
 export const saveSignatureAction = actionClient
@@ -45,6 +45,8 @@ export const loadSignatureFromGmailAction = actionClient
   .action(async ({ ctx: { emailAccountId } }) => {
     // 1. find last 5 sent emails
     const gmail = await getGmailClientForEmail({ emailAccountId });
+    // TODO: Use email provider to get the messages which will parse them internally
+    // getSentMessages() from email provider uses label:sent vs from:me, so further testing is needed
     const messages = await getMessages(gmail, {
       query: "from:me",
       maxResults: 5,
@@ -53,6 +55,7 @@ export const loadSignatureFromGmailAction = actionClient
     // 2. loop through emails till we find a signature
     for (const message of messages.messages || []) {
       if (!message.id) continue;
+      // TODO: Use email provider to get the message which will parse it internally
       const messageWithPayload = await getMessage(message.id, gmail);
       const parsedEmail = parseMessage(messageWithPayload);
       if (!parsedEmail.labelIds?.includes(GmailLabel.SENT)) continue;
@@ -80,7 +83,7 @@ export const deleteAccountAction = actionClientUser
   .action(async ({ ctx: { userId } }) => {
     try {
       await signOut();
-    } catch (error) {}
+    } catch {}
 
     await deleteUser({ userId });
   });

@@ -2,27 +2,21 @@ import { type NextRequest, NextResponse } from "next/server";
 import { sendDigestEmail } from "@inboxzero/resend";
 import { withEmailAccount, withError } from "@/utils/middleware";
 import { env } from "@/env";
-import { hasCronSecret } from "@/utils/cron";
 import { captureException, SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
-import { camelCase } from "lodash";
 import { calculateNextScheduleDate } from "@/utils/schedule";
-import { getMessagesLargeBatch } from "@/utils/gmail/message";
 import type { ParsedMessage } from "@/utils/types";
-import {
-  digestCategorySchema,
-  sendDigestEmailBody,
-  type Digest,
-  DigestEmailSummarySchema,
-} from "./validation";
+import { sendDigestEmailBody, type Digest } from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
-import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
+import { camelCase } from "lodash";
+import { createEmailProvider } from "@/utils/email/provider";
+import { sleep } from "@/utils/sleep";
 
 export const maxDuration = 60;
 
@@ -63,24 +57,24 @@ async function sendEmail({
   const loggerOptions = { emailAccountId, force };
   logger.info("Sending digest email", loggerOptions);
 
-  const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      email: true,
+      account: { select: { provider: true } },
+    },
+  });
 
   if (!emailAccount) {
     throw new Error("Email account not found");
   }
 
-  if (!emailAccount.tokens.access_token) {
-    throw new Error("No access token available");
-  }
+  const emailProvider = await createEmailProvider({
+    emailAccountId,
+    provider: emailAccount?.account.provider ?? null,
+  });
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });
-
-  const gmail = await getGmailClientWithRefresh({
-    accessToken: emailAccount.tokens.access_token,
-    refreshToken: emailAccount.tokens.refresh_token,
-    expiresAt: emailAccount.tokens.expires_at,
-    emailAccountId,
-  });
 
   const pendingDigests = await prisma.digest.findMany({
     where: {
@@ -142,17 +136,33 @@ async function sendEmail({
       digest.items.map((item) => item.messageId),
     );
 
-    // Skip Gmail API call if there are no messages to process
-    let messages: ParsedMessage[] = [];
+    logger.info("Fetching batch of messages", loggerOptions);
+
+    const messages: ParsedMessage[] = [];
     if (messageIds.length > 0) {
-      messages = await getMessagesLargeBatch({
-        gmail,
-        messageIds,
-      });
+      const batchSize = 100;
+
+      // Can't fetch more then 100 messages at a time, so fetch in batches
+      // and wait 2 seconds to avoid rate limiting
+      // TODO: Refactor into the provider if used elsewhere
+      for (let i = 0; i < messageIds.length; i += batchSize) {
+        const batch = messageIds.slice(i, i + batchSize);
+        const batchResults = await emailProvider.getMessagesBatch(batch);
+        messages.push(...batchResults);
+
+        if (i + batchSize < messageIds.length) {
+          await sleep(2000);
+        }
+      }
     }
+
+    logger.info("Fetched batch of messages", loggerOptions);
 
     // Create a message lookup map for O(1) access
     const messageMap = new Map(messages.map((m) => [m.id, m]));
+
+    // Map of rules camelCase -> ruleName
+    const ruleNameMap = new Map<string, string>();
 
     // Transform and group in a single pass
     const executedRulesByRule = pendingDigests.reduce((acc, digest) => {
@@ -168,9 +178,13 @@ async function sendEmail({
         const ruleName =
           item.action?.executedRule?.rule?.name || RuleName.ColdEmail;
 
-        const category = ruleName;
-        if (!acc[category]) {
-          acc[category] = [];
+        const ruleNameKey = camelCase(ruleName);
+        if (!ruleNameMap.has(ruleNameKey)) {
+          ruleNameMap.set(ruleNameKey, ruleName);
+        }
+
+        if (!acc[ruleNameKey]) {
+          acc[ruleNameKey] = [];
         }
 
         let parsedContent: unknown;
@@ -185,14 +199,11 @@ async function sendEmail({
           return; // Skip this item and continue with the next one
         }
 
-        const contentResult = DigestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
 
         if (contentResult.success) {
-          acc[category].push({
-            content: {
-              entries: contentResult.data?.entries || [],
-              summary: contentResult.data?.summary,
-            },
+          acc[ruleNameKey].push({
+            content: contentResult.data,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
           });
@@ -203,6 +214,8 @@ async function sendEmail({
 
     const token = await createUnsubscribeToken({ emailAccountId });
 
+    logger.info("Sending digest email", loggerOptions);
+
     // First, send the digest email and wait for it to complete
     await sendDigestEmail({
       from: env.RESEND_FROM_EMAIL,
@@ -211,9 +224,12 @@ async function sendEmail({
         baseUrl: env.NEXT_PUBLIC_BASE_URL,
         unsubscribeToken: token,
         date: new Date(),
+        ruleNames: Object.fromEntries(ruleNameMap),
         ...executedRulesByRule,
       },
     });
+
+    logger.info("Digest email sent", loggerOptions);
 
     // Only update database if email sending succeeded
     // Use a transaction to ensure atomicity - all updates succeed or none are applied

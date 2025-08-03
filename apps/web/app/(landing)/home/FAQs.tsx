@@ -50,7 +50,7 @@ const faqs = [
   {
     question: "Which email providers does Inbox Zero support?",
     answer:
-      "We only support Gmail and Google Workspace email accounts today. Outlook support is coming soon.",
+      "We support Gmail, Google Workspace, and Microsoft Outlook email accounts.",
   },
   {
     question: "Do you offer refunds?",

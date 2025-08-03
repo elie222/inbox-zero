@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
-import { parseMessage } from "@/utils/mail";
+import { parseMessage } from "@/utils/gmail/message";
 import {
   getMessage as getGmailMessage,
   getMessages as getGmailMessages,
@@ -31,7 +31,7 @@ import {
   getGmailClientForEmail,
   getOutlookClientForEmail,
 } from "@/utils/account";
-import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import { getMessageByRfc822Id } from "@/utils/gmail/message";
 import {
@@ -272,6 +272,7 @@ export interface EmailProvider {
     subscriptionId?: string;
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
+  isReplyInThread(message: ParsedMessage): boolean;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -341,7 +342,7 @@ export class GmailProvider implements EmailProvider {
         type: label.type!,
         threadsTotal: label.threadsTotal || undefined,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -439,10 +440,10 @@ export class GmailProvider implements EmailProvider {
           logger,
         }),
       ]);
-      return { draftId: result.data.message?.id || "" };
+      return { draftId: result.data.id || "" };
     } else {
       const result = await gmailDraftEmail(this.client, email, args);
-      return { draftId: result.data.message?.id || "" };
+      return { draftId: result.data.id || "" };
     }
   }
 
@@ -500,7 +501,7 @@ export class GmailProvider implements EmailProvider {
     return getGmailAwaitingReplyLabel(this.client);
   }
 
-  async createLabel(name: string, description?: string): Promise<EmailLabel> {
+  async createLabel(name: string): Promise<EmailLabel> {
     const label = await createGmailLabel({
       gmail: this.client,
       name,
@@ -798,7 +799,7 @@ export class GmailProvider implements EmailProvider {
     date: Date;
     messageId: string;
   }): Promise<boolean> {
-    return hasPreviousCommunicationsWithSenderOrDomain(this.client, options);
+    return hasPreviousCommunicationsWithSenderOrDomain(this, options);
   }
 
   async getThreadsFromSenderWithSubject(
@@ -854,8 +855,13 @@ export class GmailProvider implements EmailProvider {
     return null;
   }
 
-  async unwatchEmails(subscriptionId?: string): Promise<void> {
+  async unwatchEmails(): Promise<void> {
     await unwatchGmail(this.client);
+  }
+
+  // Gmail: The first message id in a thread is the threadId
+  isReplyInThread(message: ParsedMessage): boolean {
+    return !!(message.id && message.id !== message.threadId);
   }
 }
 
@@ -915,7 +921,7 @@ export class OutlookProvider implements EmailProvider {
 
   async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
     const allMessages: ParsedMessage[] = [];
-    let pageToken: string | undefined = undefined;
+    let pageToken: string | undefined;
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
@@ -1077,12 +1083,12 @@ export class OutlookProvider implements EmailProvider {
     return this.getThreadMessages(messageIds[0]);
   }
 
-  async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
+  async removeThreadLabel(_threadId: string, _labelId: string): Promise<void> {
     // For Outlook, we don't need to do anything with labels at this point
     return Promise.resolve();
   }
 
-  async createLabel(name: string, description?: string): Promise<EmailLabel> {
+  async createLabel(name: string): Promise<EmailLabel> {
     const label = await createOutlookLabel({
       client: this.client,
       name,
@@ -1113,7 +1119,7 @@ export class OutlookProvider implements EmailProvider {
     if (!originalMessageId) return null;
     try {
       return await this.getMessage(originalMessageId);
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -1370,7 +1376,7 @@ export class OutlookProvider implements EmailProvider {
     let request = client
       .api(endpoint)
       .select(
-        "id,conversationId,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
+        "id,conversationId,conversationIndex,subject,bodyPreview,from,toRecipients,receivedDateTime,isDraft,body,categories,parentFolderId",
       )
       .top(options.maxResults || 50);
 
@@ -1407,6 +1413,7 @@ export class OutlookProvider implements EmailProvider {
       string,
       {
         conversationId: string;
+        conversationIndex?: string;
         id: string;
         bodyPreview: string;
         body: { content: string };
@@ -1443,7 +1450,7 @@ export class OutlookProvider implements EmailProvider {
 
     // Convert to EmailThread format
     const threads: EmailThread[] = Array.from(messagesByThread.entries())
-      .filter(([threadId, messages]) => messages.length > 0) // Filter out empty threads
+      .filter(([_threadId, messages]) => messages.length > 0) // Filter out empty threads
       .map(([threadId, messages]) => {
         // Convert messages to ParsedMessage format
         const parsedMessages: ParsedMessage[] = messages.map((message) => {
@@ -1473,6 +1480,7 @@ export class OutlookProvider implements EmailProvider {
             internalDate: date,
             historyId: "",
             inline: [],
+            conversationIndex: message.conversationIndex,
           };
         });
 
@@ -1603,6 +1611,18 @@ export class OutlookProvider implements EmailProvider {
       return;
     }
     await unwatchOutlook(this.client.getClient(), subscriptionId);
+  }
+
+  isReplyInThread(message: ParsedMessage): boolean {
+    try {
+      return atob(message.conversationIndex || "").length > 22;
+    } catch (error) {
+      logger.warn("Invalid conversationIndex base64", {
+        conversationIndex: message.conversationIndex,
+        error,
+      });
+      return false;
+    }
   }
 }
 
