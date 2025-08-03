@@ -29,7 +29,7 @@ export type ChatTools = {
   addToKnowledgeBase: AddToKnowledgeBaseTool;
 };
 
-// biome-ignore lint/complexity/noBannedTypes: <explanation>
+// biome-ignore lint/complexity/noBannedTypes: ignore
 export type CustomUIDataTypes = {
   // textDelta: string;
   // // suggestion: Suggestion;
@@ -42,7 +42,7 @@ export type CustomUIDataTypes = {
 };
 
 export type ChatMessage = UIMessage<
-  // biome-ignore lint/complexity/noBannedTypes: <explanation>
+  // biome-ignore lint/complexity/noBannedTypes: ignore
   {}, // MessageMetadata,
   CustomUIDataTypes,
   ChatTools

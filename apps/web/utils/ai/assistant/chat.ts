@@ -30,6 +30,7 @@ const getUserRulesAndSettingsTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "getUserRulesAndSettings",
     description:
       "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
     inputSchema: z.object({}),
@@ -129,6 +130,7 @@ const getLearnedPatternsTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "getLearnedPatterns",
     description: "Retrieve the learned patterns for a rule",
     inputSchema: z.object({
       ruleName: z
@@ -180,6 +182,7 @@ const createRuleTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "createRule",
     description: "Create a new rule",
     inputSchema: createRuleSchema,
     execute: async ({ name, condition, actions }) => {
@@ -266,6 +269,7 @@ const updateRuleConditionsTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "updateRuleConditions",
     description: "Update the conditions of an existing rule",
     inputSchema: updateRuleConditionSchema,
     execute: async ({ ruleName, condition }) => {
@@ -349,6 +353,7 @@ const updateRuleActionsTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "updateRuleActions",
     description:
       "Update the actions of an existing rule. This replaces the existing actions.",
     inputSchema: z.object({
@@ -463,6 +468,7 @@ const updateLearnedPatternsTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "updateLearnedPatterns",
     description: "Update the learned patterns of an existing rule",
     inputSchema: z.object({
       ruleName: z.string().describe("The name of the rule to update"),
@@ -566,6 +572,7 @@ const updateAboutTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "updateAbout",
     description:
       "Update the user's about information. Read the user's about information first as this replaces the existing information.",
     inputSchema: z.object({ about: z.string() }),
@@ -601,6 +608,7 @@ const addToKnowledgeBaseTool = ({
   emailAccountId: string;
 }) =>
   tool({
+    name: "addToKnowledgeBase",
     description: "Add content to the knowledge base",
     inputSchema: z.object({
       title: z.string(),
@@ -919,14 +927,14 @@ Examples:
     },
     maxSteps: 10,
     tools: {
-      get_user_rules_and_settings: getUserRulesAndSettingsTool(toolOptions),
-      get_learned_patterns: getLearnedPatternsTool(toolOptions),
-      create_rule: createRuleTool(toolOptions),
-      update_rule_conditions: updateRuleConditionsTool(toolOptions),
-      update_rule_actions: updateRuleActionsTool(toolOptions),
-      update_learned_patterns: updateLearnedPatternsTool(toolOptions),
-      update_about: updateAboutTool(toolOptions),
-      add_to_knowledge_base: addToKnowledgeBaseTool(toolOptions),
+      getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
+      getLearnedPatterns: getLearnedPatternsTool(toolOptions),
+      createRule: createRuleTool(toolOptions),
+      updateRuleConditions: updateRuleConditionsTool(toolOptions),
+      updateRuleActions: updateRuleActionsTool(toolOptions),
+      updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
+      updateAbout: updateAboutTool(toolOptions),
+      addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
     },
   });
 
