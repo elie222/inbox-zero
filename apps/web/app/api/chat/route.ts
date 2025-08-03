@@ -125,7 +125,6 @@ async function saveChatMessages(messages: UIMessage[], chatId: string) {
   try {
     return prisma.chatMessage.createMany({
       data: messages.map((message) => ({
-        id: message.id,
         chatId,
         role: message.role,
         parts: message.parts as Prisma.InputJsonValue,
