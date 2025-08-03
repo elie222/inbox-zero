@@ -185,6 +185,7 @@ export async function processHistoryItem(
         },
         provider: emailProvider,
         emailAccount,
+        modelType: "default",
       });
 
       if (response.isColdEmail) {
@@ -236,6 +237,7 @@ export async function processHistoryItem(
         rules,
         emailAccount,
         isTest: false,
+        modelType: "default",
       });
     }
   } catch (error) {
