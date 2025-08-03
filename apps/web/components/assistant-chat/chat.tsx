@@ -113,7 +113,8 @@ function ChatInner({
         };
       },
     }),
-    messages: initialMessages,
+    // TODO: couldn't get this to work
+    // messages: initialMessages,
     experimental_throttle: 100,
     generateId: generateUUID,
     onFinish: () => {
@@ -127,6 +128,11 @@ function ChatInner({
       });
     },
   });
+
+  // hacky workaround to get initial messages to show up
+  useEffect(() => {
+    chat.setMessages(initialMessages);
+  }, [chat.setMessages, initialMessages]);
 
   const handleSubmit = () => {
     chat.sendMessage({
