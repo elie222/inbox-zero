@@ -1,5 +1,6 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { betterAuth } from "better-auth";
+import type { Account, User } from "better-auth";
 
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -21,12 +22,104 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 
 const logger = createScopedLogger("auth");
 
+export const auth = betterAuth({
+  secret: process.env.NEXTAUTH_SECRET,
+  emailAndPassword: {
+    enabled: false,
+  },
+  database: prismaAdapter(prisma, {
+    provider: "postgresql",
+  }),
+  plugins: [nextCookies()],
+  user: {
+    modelName: "User",
+    fields: {
+      name: "name",
+      email: "email",
+      emailVerified: "emailVerified",
+      image: "image",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+    },
+  },
+  session: {
+    modelName: "Session",
+    fields: {
+      userId: "userId",
+      token: "sessionToken",
+      expiresAt: "expires",
+    },
+  },
+  account: {
+    modelName: "Account",
+    fields: {
+      userId: "userId",
+      accountId: "providerAccountId",
+      providerId: "provider",
+      refreshToken: "refresh_token",
+      accessToken: "access_token",
+      accessTokenExpiresAt: "expires_at",
+      scope: "scope",
+      idToken: "id_token",
+      createdAt: "createdAt",
+      updatedAt: "updatedAt",
+    },
+  },
+  verification: {
+    modelName: "VerificationToken",
+    fields: {
+      identifier: "identifier",
+      value: "token",
+      expiresAt: "expires",
+    },
+  },
+  socialProviders: {
+    google: {
+      clientId: env.GOOGLE_CLIENT_ID!,
+      clientSecret: env.GOOGLE_CLIENT_SECRET!,
+      scope: [...GMAIL_SCOPES],
+      accessType: "offline",
+      prompt: "select_account+consent",
+    },
+    microsoft: {
+      clientId: env.MICROSOFT_CLIENT_ID!,
+      clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+      scope: [...OUTLOOK_SCOPES],
+      tenantId: "common",
+      prompt: "consent",
+    },
+  },
+  events: {
+    signIn: handleSignIn,
+  },
+  databaseHooks: {
+    account: {
+      create: {
+        after: async (account: Account) => {
+          logger.info("Debug: Better Auth created account", {
+            accountId: account.accountId,
+            providerId: account.providerId,
+            userId: account.userId,
+          });
 
+          await handleLinkAccount(account);
+        },
+      },
+    },
+  },
+  onAPIError: {
+    throw: true,
+    onError: (error, ctx) => {
+      logger.error("Auth error:", { error, ctx });
+    },
+    errorURL: "/login",
+  },
+});
 async function handleSignIn({
   user,
   isNewUser,
 }: {
-  user: any;
+  user: User;
   isNewUser: boolean;
 }) {
   if (isNewUser && user.email) {
@@ -77,91 +170,6 @@ async function handleSignIn({
     ]);
   }
 }
-
-export const auth = betterAuth({
-  secret: process.env.NEXTAUTH_SECRET,
-  emailAndPassword: {
-    enabled: false,
-  },
-  database: prismaAdapter(prisma, {
-      provider: "postgresql"
-    }),
-  plugins: [nextCookies()],
-  user: {
-    modelName: "User",
-    fields: {
-      name: "name",
-      email: "email",
-      emailVerified: "emailVerified",
-      image: "image",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
-    },
-  },
-  session: {
-    modelName: "Session",
-    fields: {
-      userId: "userId",
-      token: "sessionToken",
-      expiresAt: "expires",
-    },
-  },
-  account: {
-    modelName: "Account",
-    fields: {
-      userId: "userId",
-      accountId: "providerAccountId",
-      providerId: "provider",
-      refreshToken: "refresh_token",
-      accessToken: "access_token",
-      accessTokenExpiresAt: "expires_at",
-      scope: "scope",
-      idToken: "id_token",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
-    },
-  },
-  verification: {
-    modelName: "VerificationToken",
-    fields: {
-      identifier: "identifier",
-      value: "token",
-      expiresAt: "expires",
-    },
-  },
-  socialProviders: {
-    google: {
-      clientId: env.GOOGLE_CLIENT_ID!,
-      clientSecret: env.GOOGLE_CLIENT_SECRET!,
-      scope: [...GMAIL_SCOPES],
-      accessType: "offline", 
-      prompt: "select_account+consent", 
-    },
-    microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID!,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET!,
-      scope: [...OUTLOOK_SCOPES],
-      tenantId: "common",
-      accessType: "offline",
-      prompt: "consent", 
-    },
-  },
-  events: {
-    signIn: handleSignIn,
-  },
-
-  databaseHooks: {
-    account: {
-      create: {
-        after: async (account: any) => {
-          await handleLinkAccount(account);
-          return account;
-        },
-      },
-    },
-  },
-});
-
 async function handlePendingPremiumInvite({ email }: { email: string }) {
   logger.info("Handling pending premium invite", { email });
 
@@ -241,61 +249,57 @@ export async function handleReferralOnSignUp({
 async function getProfileData(providerId: string, accessToken: string) {
   if (providerId === "google") {
     const contactsClient = getGoogleContactsClient({ accessToken });
-      const profileResponse = await contactsClient.people.get({
-        resourceName: "people/me",
-        personFields: "emailAddresses,names,photos",
-      });
+    const profileResponse = await contactsClient.people.get({
+      resourceName: "people/me",
+      personFields: "emailAddresses,names,photos",
+    });
 
-      return {
-        email: profileResponse.data.emailAddresses
-          ?.find((e) => e.metadata?.primary)
-          ?.value?.toLowerCase(),
-        name: profileResponse.data.names?.find((n) => n.metadata?.primary)
-          ?.displayName,
-        image: profileResponse.data.photos?.find((p) => p.metadata?.primary)
-          ?.url,
-      };
+    return {
+      email: profileResponse.data.emailAddresses
+        ?.find((e) => e.metadata?.primary)
+        ?.value?.toLowerCase(),
+      name: profileResponse.data.names?.find((n) => n.metadata?.primary)
+        ?.displayName,
+      image: profileResponse.data.photos?.find((p) => p.metadata?.primary)?.url,
+    };
   }
 
   if (providerId === "microsoft") {
     const client = getOutlookContactsClient({ accessToken });
+    try {
+      const profileResponse = await client.getUserProfile();
+
+      // Get photo separately as it requires a different endpoint
+      let photoUrl = null;
       try {
-        const profileResponse = await client.getUserProfile();
-
-        // Get photo separately as it requires a different endpoint
-        let photoUrl = null;
-        try {
-          const photo = await client.getUserPhoto();
-          if (photo) {
-            photoUrl = photo;
-          }
-        } catch (error) {
-          logger.info("User has no profile photo", { error });
+        const photo = await client.getUserPhoto();
+        if (photo) {
+          photoUrl = photo;
         }
-
-        return {
-          email:
-            profileResponse.mail?.toLowerCase() ||
-            profileResponse.userPrincipalName?.toLowerCase(),
-          name: profileResponse.displayName,
-          image: photoUrl,
-        };
       } catch (error) {
-        logger.error("Error fetching Microsoft profile data", { error });
-        throw error;
+        logger.info("User has no profile photo", { error });
       }
+
+      return {
+        email:
+          profileResponse.mail?.toLowerCase() ||
+          profileResponse.userPrincipalName?.toLowerCase(),
+        name: profileResponse.displayName,
+        image: photoUrl,
+      };
+    } catch (error) {
+      logger.error("Error fetching Microsoft profile data", { error });
+      throw error;
+    }
   }
 }
 
-
-async function handleLinkAccount(account: any) {
-
+async function handleLinkAccount(account: Account) {
   let primaryEmail: string | null | undefined;
   let primaryName: string | null | undefined;
   let primaryPhotoUrl: string | null | undefined;
 
   try {
-
     if (!account.accessToken) {
       logger.error(
         "[linkAccount] No access_token found in data, cannot fetch profile.",
@@ -303,10 +307,13 @@ async function handleLinkAccount(account: any) {
       throw new Error("Missing access token during account linking.");
     }
 
-    const profileData = await getProfileData(account.providerId, account.accessToken);
+    const profileData = await getProfileData(
+      account.providerId,
+      account.accessToken,
+    );
 
     if (!profileData?.email) {
-      logger.error("[handleLinkAccount] No email found in profile data")
+      logger.error("[handleLinkAccount] No email found in profile data");
     }
 
     primaryEmail = profileData?.email;
@@ -353,10 +360,13 @@ async function handleLinkAccount(account: any) {
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
-      logger.error("[handleLinkAccount] Error updating premium account seats:", {
-        userId: account.userId,
-        error,
-      });
+      logger.error(
+        "[handleLinkAccount] Error updating premium account seats:",
+        {
+          userId: account.userId,
+          error,
+        },
+      );
       captureException(error, { extra: { userId: account.userId } });
     });
 
@@ -407,7 +417,9 @@ export async function saveTokens({
       access_token: tokens.access_token
         ? encryptToken(tokens.access_token)
         : account.access_token,
-      expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000) : account.expires_at,
+      expires_at: tokens.expires_at
+        ? new Date(tokens.expires_at * 1000)
+        : account.expires_at,
       refresh_token: accountRefreshToken,
     },
   });

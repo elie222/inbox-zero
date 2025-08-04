@@ -17,9 +17,9 @@ import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/au
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
-    await authClient.signIn.social({ 
-      provider: "google", 
-      callbackURL: "/accounts" 
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/accounts",
     });
   };
 
@@ -35,9 +35,9 @@ export function AddAccount() {
   };
 
   const handleConnectMicrosoft = async () => {
-    await authClient.signIn.social({ 
-      provider: "microsoft", 
-      callbackURL: "/accounts" 
+    await authClient.signIn.social({
+      provider: "microsoft",
+      callbackURL: "/accounts",
     });
   };
 

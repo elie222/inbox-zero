@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "@/utils/auth-client";
+import { authClient } from "@/utils/auth-client";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -25,8 +25,9 @@ export function LoginForm() {
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
     try {
-      await signIn.social({
+      await authClient.signIn.social({
         provider: "google",
+        errorCallbackURL: "/login",
         callbackURL: next && next.length > 0 ? next : "/welcome",
         ...(error === "RequiresReconsent" ? { consent: true } : {}),
       });
@@ -40,8 +41,9 @@ export function LoginForm() {
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
     try {
-      await signIn.social({
+      await authClient.signIn.social({
         provider: "microsoft",
+        errorCallbackURL: "/login",
         callbackURL: next && next.length > 0 ? next : "/welcome",
         ...(error === "RequiresReconsent" ? { consent: true } : {}),
       });
@@ -85,19 +87,18 @@ export function LoginForm() {
             Policy, including the Limited Use requirements.
           </SectionDescription>
           <div>
-            <Button
-              loading={loadingGoogle}
-              onClick={handleGoogleSignIn}>
+            <Button loading={loadingGoogle} onClick={handleGoogleSignIn}>
               I agree
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-        <Button
-          size="2xl"
-          loading={loadingMicrosoft}
-          onClick={handleMicrosoftSignIn}>
+      <Button
+        size="2xl"
+        loading={loadingMicrosoft}
+        onClick={handleMicrosoftSignIn}
+      >
         <span className="flex items-center justify-center">
           <Image
             src="/images/microsoft.svg"
