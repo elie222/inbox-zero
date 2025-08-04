@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { authClient } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
@@ -17,7 +17,10 @@ import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/au
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
-    await signIn("google", { callbackUrl: "/accounts", redirect: true });
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: "/accounts",
+    });
   };
 
   const handleMergeGoogle = async () => {
@@ -32,9 +35,9 @@ export function AddAccount() {
   };
 
   const handleConnectMicrosoft = async () => {
-    await signIn("microsoft-entra-id", {
-      callbackUrl: "/accounts",
-      redirect: true,
+    await authClient.signIn.social({
+      provider: "microsoft",
+      callbackURL: "/accounts",
     });
   };
 

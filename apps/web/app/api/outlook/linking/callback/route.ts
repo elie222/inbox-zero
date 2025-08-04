@@ -103,7 +103,7 @@ export const GET = withError(async (request: NextRequest) => {
     const existingAccount = await prisma.account.findUnique({
       where: {
         provider_providerAccountId: {
-          provider: "microsoft-entra-id",
+          provider: "microsoft",
           providerAccountId,
         },
       },

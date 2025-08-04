@@ -10,7 +10,7 @@ export const whitelistInboxZeroAction = actionClient
   .metadata({ name: "whitelistInboxZero" })
   .action(async ({ ctx: { emailAccountId, provider } }) => {
     if (!env.WHITELIST_FROM) return;
-    if (provider === "microsoft-entra-id") return;
+    if (provider === "microsoft") return;
 
     const gmail = await getGmailClientForEmail({ emailAccountId });
 

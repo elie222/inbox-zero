@@ -1,7 +1,15 @@
 "use client";
 
-import { signOut } from "next-auth/react";
+import { authClient } from "@/utils/auth-client";
 
 export async function logOut(callbackUrl?: string) {
-  return signOut({ callbackUrl });
+  await authClient.signOut({
+    fetchOptions: {
+      onSuccess: () => {
+        if (callbackUrl) {
+          window.location.href = callbackUrl;
+        }
+      },
+    },
+  });
 }

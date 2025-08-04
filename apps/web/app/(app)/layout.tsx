@@ -5,8 +5,9 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
-import { TokenCheck } from "@/components/TokenCheck";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
@@ -35,7 +36,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user.email) redirect("/login");
 
@@ -51,7 +52,7 @@ export default async function AppLayout({
       <EmailViewer />
       <ErrorBoundary extra={{ component: "AppLayout" }}>
         <PostHogIdentify />
-        <TokenCheck />
+
         <CommandK />
         <QueueInitializer />
         <AssessUser />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { authClient } from "@/utils/auth-client";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -21,6 +21,28 @@ export function LoginForm() {
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setLoadingGoogle(true);
+    await authClient.signIn.social({
+      provider: "google",
+      errorCallbackURL: "/login",
+      callbackURL: next && next.length > 0 ? next : "/welcome",
+      ...(error === "RequiresReconsent" ? { consent: true } : {}),
+    });
+    setLoadingGoogle(false);
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    setLoadingMicrosoft(true);
+    await authClient.signIn.social({
+      provider: "microsoft",
+      errorCallbackURL: "/login",
+      callbackURL: next && next.length > 0 ? next : "/welcome",
+      ...(error === "RequiresReconsent" ? { consent: true } : {}),
+    });
+    setLoadingMicrosoft(false);
+  };
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -55,21 +77,7 @@ export function LoginForm() {
             Policy, including the Limited Use requirements.
           </SectionDescription>
           <div>
-            <Button
-              loading={loadingGoogle}
-              onClick={() => {
-                setLoadingGoogle(true);
-                signIn(
-                  "google",
-                  {
-                    ...(next && next.length > 0
-                      ? { callbackUrl: next }
-                      : { callbackUrl: "/welcome" }),
-                  },
-                  error === "RequiresReconsent" ? { consent: true } : undefined,
-                );
-              }}
-            >
+            <Button loading={loadingGoogle} onClick={handleGoogleSignIn}>
               I agree
             </Button>
           </div>
@@ -79,18 +87,7 @@ export function LoginForm() {
       <Button
         size="2xl"
         loading={loadingMicrosoft}
-        onClick={() => {
-          setLoadingMicrosoft(true);
-          signIn(
-            "microsoft-entra-id",
-            {
-              ...(next && next.length > 0
-                ? { callbackUrl: next }
-                : { callbackUrl: "/welcome" }),
-            },
-            error === "RequiresReconsent" ? { consent: true } : undefined,
-          );
-        }}
+        onClick={handleMicrosoftSignIn}
       >
         <span className="flex items-center justify-center">
           <Image

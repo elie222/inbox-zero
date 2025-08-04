@@ -60,7 +60,9 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
     if (items.length === 0) {
       return (
         <div className="relative rounded-md border border-slate-200 bg-white px-2 py-2 text-sm shadow-md">
-          <div className="text-slate-500">No labels found. Type to create a new label.</div>
+          <div className="text-slate-500">
+            No labels found. Type to create a new label.
+          </div>
         </div>
       );
     }

@@ -3,7 +3,8 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
@@ -19,7 +20,7 @@ export default async function AuthenticationPage(props: {
   searchParams?: Promise<Record<string, string>>;
 }) {
   const searchParams = await props.searchParams;
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (session?.user && !searchParams?.error) {
     if (searchParams?.next) {
       redirect(searchParams?.next);

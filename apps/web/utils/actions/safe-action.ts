@@ -1,7 +1,8 @@
 import { createSafeActionClient } from "next-safe-action";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
@@ -46,7 +47,7 @@ const baseClient = createSafeActionClient({
 export const actionClient = baseClient
   .bindArgsSchemas<[emailAccountId: z.ZodString]>([z.string()])
   .use(async ({ next, metadata, bindArgsClientInputs }) => {
-    const session = await auth();
+    const session = await auth.api.getSession({ headers: await headers() });
 
     if (!session?.user) throw new SafeError("Unauthorized");
     const userEmail = session.user.email;
@@ -87,7 +88,7 @@ export const actionClient = baseClient
 
 // doesn't bind to a specific email
 export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!session?.user) throw new SafeError("Unauthorized");
 
@@ -101,7 +102,7 @@ export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
 });
 
 export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) throw new SafeError("Unauthorized");
   if (!isAdmin({ email: session.user.email }))
     throw new SafeError("Unauthorized");

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useSession, signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { authClient } from "@/utils/auth-client";
 import {
   Menu,
   MenuButton,
@@ -20,12 +21,12 @@ import {
   TagIcon,
 } from "lucide-react";
 import { Button } from "@/components/Button";
-import { logOut } from "@/utils/user";
 import { cn } from "@/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
+import { logOut } from "@/utils/user";
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
@@ -42,8 +43,9 @@ export function TopNav({ trigger }: { trigger: React.ReactNode }) {
 }
 
 function ProfileDropdown() {
-  const { data: session, status } = useSession();
+  const { data: session, isPending } = authClient.useSession();
   const { emailAccountId, emailAccount, provider } = useAccount();
+  const router = useRouter();
 
   const userNavigation = [
     {
@@ -152,8 +154,8 @@ function ProfileDropdown() {
   return (
     <Button
       color="transparent"
-      onClick={() => signIn()}
-      loading={status === "loading"}
+      onClick={() => router.push("/login")}
+      loading={isPending}
     >
       Sign in
     </Button>

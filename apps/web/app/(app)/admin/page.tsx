@@ -1,7 +1,8 @@
 import { AdminUpgradeUserForm } from "@/app/(app)/admin/AdminUpgradeUserForm";
 import { AdminUserControls } from "@/app/(app)/admin/AdminUserControls";
 import { TopSection } from "@/components/TopSection";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 import { ErrorPage } from "@/components/ErrorPage";
 import { isAdmin } from "@/utils/admin";
 import {
@@ -13,7 +14,7 @@ import {
 export const maxDuration = 800;
 
 export default async function AdminPage() {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
 
   if (!isAdmin({ email: session?.user.email })) {
     return (
