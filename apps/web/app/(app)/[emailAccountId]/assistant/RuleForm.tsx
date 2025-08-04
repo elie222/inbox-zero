@@ -75,7 +75,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useDigestEnabled } from "@/hooks/useFeatureFlags";
 import { ActionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ActionSummaryCard";
 import { ConditionSummaryCard } from "@/app/(app)/[emailAccountId]/assistant/ConditionSummaryCard";
 import {
@@ -127,7 +126,6 @@ export function RuleForm({
   mutate?: (data?: any, options?: any) => void;
 }) {
   const { emailAccountId } = useAccount();
-  const digestEnabled = useDigestEnabled();
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
@@ -330,11 +328,11 @@ export function RuleForm({
       { label: "Forward", value: ActionType.FORWARD },
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
-      ...(digestEnabled ? [{ label: "Digest", value: ActionType.DIGEST }] : []),
+      { label: "Digest", value: ActionType.DIGEST },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
       { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
     ];
-  }, [digestEnabled]);
+  }, []);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
