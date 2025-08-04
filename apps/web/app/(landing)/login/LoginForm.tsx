@@ -24,34 +24,24 @@ export function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
-    try {
-      await authClient.signIn.social({
-        provider: "google",
-        errorCallbackURL: "/login",
-        callbackURL: next && next.length > 0 ? next : "/welcome",
-        ...(error === "RequiresReconsent" ? { consent: true } : {}),
-      });
-    } catch (error) {
-      console.error("Google sign-in error:", error);
-    } finally {
-      setLoadingGoogle(false);
-    }
+    await authClient.signIn.social({
+      provider: "google",
+      errorCallbackURL: "/login",
+      callbackURL: next && next.length > 0 ? next : "/welcome",
+      ...(error === "RequiresReconsent" ? { consent: true } : {}),
+    });
+    setLoadingGoogle(false);
   };
 
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
-    try {
-      await authClient.signIn.social({
-        provider: "microsoft",
-        errorCallbackURL: "/login",
-        callbackURL: next && next.length > 0 ? next : "/welcome",
-        ...(error === "RequiresReconsent" ? { consent: true } : {}),
-      });
-    } catch (error) {
-      console.error("Microsoft sign-in error:", error);
-    } finally {
-      setLoadingMicrosoft(false);
-    }
+    await authClient.signIn.social({
+      provider: "microsoft",
+      errorCallbackURL: "/login",
+      callbackURL: next && next.length > 0 ? next : "/welcome",
+      ...(error === "RequiresReconsent" ? { consent: true } : {}),
+    });
+    setLoadingMicrosoft(false);
   };
 
   return (
