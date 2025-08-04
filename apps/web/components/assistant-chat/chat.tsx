@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowLeftToLineIcon,
   HistoryIcon,
@@ -46,8 +46,14 @@ const MAX_MESSAGES = 20;
 
 export function Chat() {
   const [tab] = useQueryState("tab", parseAsString);
-  const { chat, input, setInput, handleSubmit } = useChat();
+  const { chatId, chat, input, setInput, handleSubmit, setNewChat } = useChat();
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    if (!chatId) {
+      setNewChat();
+    }
+  }, [chatId, setNewChat]);
 
   const chatPanel = (
     <ChatUI
@@ -135,13 +141,11 @@ function ChatUI({
 }
 
 function NewChatButton() {
-  const [_chatId, setChatId] = useQueryState("chatId");
-
-  const handleNewChat = () => setChatId(null);
+  const { setNewChat } = useChat();
 
   return (
     <Tooltip content="Start a new conversation">
-      <Button variant="ghost" size="icon" onClick={handleNewChat}>
+      <Button variant="ghost" size="icon" onClick={setNewChat}>
         <PlusIcon className="size-5" />
         <span className="sr-only">New Chat</span>
       </Button>
@@ -167,7 +171,7 @@ function OpenArtifactButton() {
 }
 
 function ChatHistoryDropdown() {
-  const [_chatId, setChatId] = useQueryState("chatId");
+  const { setChatId } = useChat();
   const [shouldLoadChats, setShouldLoadChats] = useState(false);
   const { data, error, isLoading, mutate } = useChats(shouldLoadChats);
 

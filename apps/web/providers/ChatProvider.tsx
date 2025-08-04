@@ -1,14 +1,5 @@
 "use client";
 
-import { toastError } from "@/components/Toast";
-import { convertToUIMessages } from "@/components/assistant-chat/helpers";
-import type {
-  ChatMessage,
-  SetInputFunction,
-} from "@/components/assistant-chat/types";
-import { useChatMessages } from "@/hooks/useChatMessages";
-import { useAccount } from "@/providers/EmailAccountProvider";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { useChat as useAiChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { parseAsString, useQueryState } from "nuqs";
@@ -20,13 +11,24 @@ import {
   useState,
 } from "react";
 import { useSWRConfig } from "swr";
+import { toastError } from "@/components/Toast";
+import { convertToUIMessages } from "@/components/assistant-chat/helpers";
+import type {
+  ChatMessage,
+  SetInputFunction,
+} from "@/components/assistant-chat/types";
+import { useChatMessages } from "@/hooks/useChatMessages";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 
 export type Chat = ReturnType<typeof useAiChat<ChatMessage>>;
 
 type ChatContextType = {
   chat: Chat;
   input: string;
+  chatId: string | null;
   setInput: SetInputFunction;
+  setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
   handleSubmit: () => void;
 };
@@ -99,7 +101,15 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ChatContext.Provider
-      value={{ chat, input, setInput, setNewChat, handleSubmit }}
+      value={{
+        chat,
+        chatId,
+        input,
+        setInput,
+        setChatId,
+        setNewChat,
+        handleSubmit,
+      }}
     >
       {children}
     </ChatContext.Provider>
