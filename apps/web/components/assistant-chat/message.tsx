@@ -76,6 +76,8 @@ const PurePreviewMessage = ({
 
               if (type === "text") {
                 if (mode === "view") {
+                  if (!part.text) return null;
+
                   return (
                     <div key={key} className="flex flex-row items-start gap-2">
                       <div
