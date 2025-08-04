@@ -1,19 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  ArrowLeftToLineIcon,
-  HistoryIcon,
-  Loader2,
-  PlusIcon,
-} from "lucide-react";
-import { parseAsString, useQueryState } from "nuqs";
+import { HistoryIcon, Loader2, PlusIcon } from "lucide-react";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
-import { ResizableHandle } from "@/components/ui/resizable";
-import { ResizablePanelGroup } from "@/components/ui/resizable";
-import { ResizablePanel } from "@/components/ui/resizable";
-import { AssistantTabs } from "@/app/(app)/[emailAccountId]/assistant/AssistantTabs";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -23,10 +13,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { type Chat as ChatType, useChat } from "@/providers/ChatProvider";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const MAX_MESSAGES = 20;
 
@@ -45,9 +35,7 @@ const MAX_MESSAGES = 20;
 // }
 
 export function Chat() {
-  const [tab] = useQueryState("tab", parseAsString);
   const { chatId, chat, input, setInput, handleSubmit, setNewChat } = useChat();
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     if (!chatId) {
@@ -55,7 +43,7 @@ export function Chat() {
     }
   }, [chatId, setNewChat]);
 
-  const chatPanel = (
+  return (
     <ChatUI
       chat={chat}
       input={input}
@@ -64,22 +52,22 @@ export function Chat() {
     />
   );
 
-  return tab ? (
-    <ResizablePanelGroup
-      direction={isMobile ? "vertical" : "horizontal"}
-      className="flex-grow"
-    >
-      <ResizablePanel defaultSize={65}>
-        <AssistantTabs />
-      </ResizablePanel>
-      <ResizableHandle withHandle />
-      <ResizablePanel className="overflow-y-auto" defaultSize={35}>
-        {chatPanel}
-      </ResizablePanel>
-    </ResizablePanelGroup>
-  ) : (
-    chatPanel
-  );
+  // return tab ? (
+  //   <ResizablePanelGroup
+  //     direction={isMobile ? "vertical" : "horizontal"}
+  //     className="flex-grow"
+  //   >
+  //     <ResizablePanel defaultSize={65}>
+  //       <AssistantTabs />
+  //     </ResizablePanel>
+  //     <ResizableHandle withHandle />
+  //     <ResizablePanel className="overflow-y-auto" defaultSize={35}>
+  //       {chatPanel}
+  //     </ResizablePanel>
+  //   </ResizablePanelGroup>
+  // ) : (
+  //   chatPanel
+  // );
 }
 
 function ChatUI({
@@ -96,19 +84,19 @@ function ChatUI({
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
-        {messages.length > MAX_MESSAGES ? (
-          <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
-            The chat is too long. Please start a new conversation.
-          </div>
-        ) : (
-          <div />
-        )}
-
+        <div>
+          <SidebarTrigger name="chat-sidebar" />
+          {messages.length > MAX_MESSAGES ? (
+            <div className="rounded-md border border-red-200 bg-red-100 p-2 text-sm text-red-800">
+              The chat is too long. Please start a new conversation.
+            </div>
+          ) : null}
+        </div>
         <div className="flex items-center gap-1">
           <NewChatButton />
           <ExamplesDialog setInput={setInput} />
           <ChatHistoryDropdown />
-          <OpenArtifactButton />
+          {/* <OpenArtifactButton /> */}
         </div>
       </div>
 
@@ -153,22 +141,22 @@ function NewChatButton() {
   );
 }
 
-function OpenArtifactButton() {
-  const [tab, setTab] = useQueryState("tab");
+// function OpenArtifactButton() {
+//   const [tab, setTab] = useQueryState("tab");
 
-  if (tab) return null;
+//   if (tab) return null;
 
-  const handleOpenArtifact = () => setTab("rules");
+//   const handleOpenArtifact = () => setTab("rules");
 
-  return (
-    <Tooltip content="Open side panel">
-      <Button variant="ghost" size="icon" onClick={handleOpenArtifact}>
-        <ArrowLeftToLineIcon className="size-5" />
-        <span className="sr-only">Open side panel</span>
-      </Button>
-    </Tooltip>
-  );
-}
+//   return (
+//     <Tooltip content="Open side panel">
+//       <Button variant="ghost" size="icon" onClick={handleOpenArtifact}>
+//         <ArrowLeftToLineIcon className="size-5" />
+//         <span className="sr-only">Open side panel</span>
+//       </Button>
+//     </Tooltip>
+//   );
+// }
 
 function ChatHistoryDropdown() {
   const { setChatId } = useChat();

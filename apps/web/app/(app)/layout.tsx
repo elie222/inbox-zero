@@ -40,7 +40,7 @@ export default async function AppLayout({
   if (!session?.user.email) redirect("/login");
 
   const cookieStore = await cookies();
-  const isClosed = cookieStore.get("sidebar_state")?.value === "false";
+  const isClosed = cookieStore.get("sidebar:state")?.value === "false";
 
   return (
     <AppProviders>
@@ -59,9 +59,9 @@ export default async function AppLayout({
         <Suspense>
           <LastLogin email={session.user.email} />
         </Suspense>
-        <Suspense>
+        {/* <Suspense>
           <CrispWithNoSSR email={session.user.email} />
-        </Suspense>
+        </Suspense> */}
       </ErrorBoundary>
     </AppProviders>
   );

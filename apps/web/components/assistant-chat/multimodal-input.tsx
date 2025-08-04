@@ -26,8 +26,8 @@ function PureMultimodalInput({
   className,
 }: {
   // chatId?: string;
-  input: UseChatHelpers<ChatMessage>["input"];
-  setInput: UseChatHelpers<ChatMessage>["setInput"];
+  input: string;
+  setInput: (input: string) => void;
   status: UseChatHelpers<ChatMessage>["status"];
   stop: () => void;
   // attachments: Array<Attachment>;
@@ -35,7 +35,7 @@ function PureMultimodalInput({
   // messages: Array<UIMessage>;
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   // append: UseChatHelpers["append"];
-  handleSubmit: UseChatHelpers<ChatMessage>["handleSubmit"];
+  handleSubmit: () => void;
   className?: string;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -72,7 +72,7 @@ function PureMultimodalInput({
     "",
   );
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: how vercel chat template had it
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
@@ -93,11 +93,11 @@ function PureMultimodalInput({
     // adjustHeight(); // handled in useEffect
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: how vercel chat template had it
   const submitForm = useCallback(() => {
     // window.history.replaceState({}, "", `/chat/${chatId}`);
 
-    handleSubmit(undefined);
+    handleSubmit();
 
     setLocalStorageInput("");
     resetHeight();

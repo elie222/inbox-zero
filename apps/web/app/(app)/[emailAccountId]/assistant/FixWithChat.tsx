@@ -20,6 +20,7 @@ import { ButtonList } from "@/components/ButtonList";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function FixWithChat({
   setInput,
@@ -36,6 +37,8 @@ export function FixWithChat({
   // const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   // const router = useRouter();
   // const [currentTab] = useQueryState("tab");
+
+  const { setOpen } = useSidebar();
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -79,6 +82,7 @@ export function FixWithChat({
                 }
 
                 setInput(input);
+                setOpen(["chat-sidebar"]);
                 // } else {
                 //   // redirect to the assistant page
                 //   const searchParams = new URLSearchParams();
