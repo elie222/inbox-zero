@@ -14,12 +14,11 @@ model Account {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   userId            String
-  type              String
   provider          String
   providerAccountId String
   refresh_token     String?  @db.Text
   access_token      String?  @db.Text
-  expires_at        Int?
+  expires_at        DateTime? @default(now())
   token_type        String?
   scope             String?
   id_token          String?  @db.Text
@@ -38,6 +37,11 @@ model Session {
   userId       String
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ipAddress    String?
+  userAgent    String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }
 
 model User {
@@ -46,7 +50,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   name          String?
   email         String    @unique
-  emailVerified DateTime?
+  emailVerified Boolean   @default(false)
   image         String?
   accounts      Account[]
   sessions      Session[]
@@ -258,9 +262,12 @@ model Premium {
 
 // not in use as it's only used for passwordless login
 model VerificationToken {
+  id         String   @id @default(cuid())
   identifier String
   token      String   @unique
   expires    DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@unique([identifier, token])
 }

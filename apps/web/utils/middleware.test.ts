@@ -16,20 +16,17 @@ import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 vi.mock("server-only", () => ({}));
 
 // Mock external dependencies
-vi.mock("next-auth", () => {
+vi.mock("better-auth", () => {
   // Define the mock function INSIDE the factory
   const mockAuthFn = vi.fn();
   return {
-    // Mock the default export (the NextAuth function)
-    default: vi.fn(() => ({
-      // This is the object returned when NextAuth() is called
-      handlers: { GET: vi.fn(), POST: vi.fn() }, // Mock handlers as needed
-      auth: mockAuthFn, // Ensure the object has the 'auth' property pointing to our mock
+    // Mock the default export (the betterAuth function)
+    betterAuth: vi.fn(() => ({
+      // This is the object returned when betterAuth() is called
+      api: { getSession: mockAuthFn }, // Mock API methods
       signIn: vi.fn(),
       signOut: vi.fn(),
     })),
-    // Also provide the named export for completeness, pointing to the same mock
-    auth: mockAuthFn,
   };
 });
 
@@ -48,7 +45,7 @@ vi.mock("@/utils/error", async (importActual) => {
 vi.mock("@/utils/error.server");
 
 // Import from the local path as before
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 

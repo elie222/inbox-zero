@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { after } from "next/server";
-import { signOut } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
@@ -82,7 +82,7 @@ export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
     try {
-      await signOut();
+      await auth.api.signOut();
     } catch {}
 
     await deleteUser({ userId });

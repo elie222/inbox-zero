@@ -150,7 +150,7 @@ export interface EmailFilter {
 }
 
 export interface EmailProvider {
-  readonly name: "google" | "microsoft-entra-id";
+  readonly name: "google" | "microsoft";
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
@@ -866,7 +866,7 @@ export class GmailProvider implements EmailProvider {
 }
 
 export class OutlookProvider implements EmailProvider {
-  readonly name = "microsoft-entra-id";
+  readonly name = "microsoft";
   private client: OutlookClient;
 
   constructor(client: OutlookClient) {
@@ -1636,7 +1636,7 @@ export async function createEmailProvider({
   if (provider === "google") {
     const client = await getGmailClientForEmail({ emailAccountId });
     return new GmailProvider(client);
-  } else if (provider === "microsoft-entra-id") {
+  } else if (provider === "microsoft") {
     const client = await getOutlookClientForEmail({ emailAccountId });
     return new OutlookProvider(client);
   }

@@ -77,7 +77,7 @@ export async function processHistoryForUser({
     });
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft-entra-id",
+      provider: emailAccount.account?.provider || "microsoft",
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
@@ -93,7 +93,7 @@ export async function processHistoryForUser({
     logger.trace("Does not have ai access", { email: emailAccount.email });
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft-entra-id",
+      provider: emailAccount.account?.provider || "microsoft",
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,

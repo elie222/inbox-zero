@@ -1,4 +1,5 @@
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 import {
   getGmailClientWithRefresh,
   getAccessTokenFromClient,
@@ -135,7 +136,8 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
 }
 
 export async function redirectToEmailAccountPath(path: `/${string}`) {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
+
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");
 

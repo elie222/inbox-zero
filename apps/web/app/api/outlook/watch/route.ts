@@ -17,7 +17,7 @@ export const GET = withAuth(async (request) => {
     where: {
       userId,
       account: {
-        provider: "microsoft-entra-id",
+        provider: "microsoft",
       },
     },
     select: { id: true },

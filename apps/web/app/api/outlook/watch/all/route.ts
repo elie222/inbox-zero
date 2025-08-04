@@ -17,7 +17,7 @@ async function watchAllEmails() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       account: {
-        provider: "microsoft-entra-id",
+        provider: "microsoft",
       },
       user: {
         premium: {

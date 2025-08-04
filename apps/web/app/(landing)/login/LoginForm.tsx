@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn } from "@/utils/auth-client";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -21,6 +21,36 @@ export function LoginForm() {
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setLoadingGoogle(true);
+    try {
+      await signIn.social({
+        provider: "google",
+        callbackURL: next && next.length > 0 ? next : "/welcome",
+        ...(error === "RequiresReconsent" ? { consent: true } : {}),
+      });
+    } catch (error) {
+      console.error("Google sign-in error:", error);
+    } finally {
+      setLoadingGoogle(false);
+    }
+  };
+
+  const handleMicrosoftSignIn = async () => {
+    setLoadingMicrosoft(true);
+    try {
+      await signIn.social({
+        provider: "microsoft",
+        callbackURL: next && next.length > 0 ? next : "/welcome",
+        ...(error === "RequiresReconsent" ? { consent: true } : {}),
+      });
+    } catch (error) {
+      console.error("Microsoft sign-in error:", error);
+    } finally {
+      setLoadingMicrosoft(false);
+    }
+  };
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -57,41 +87,17 @@ export function LoginForm() {
           <div>
             <Button
               loading={loadingGoogle}
-              onClick={() => {
-                setLoadingGoogle(true);
-                signIn(
-                  "google",
-                  {
-                    ...(next && next.length > 0
-                      ? { callbackUrl: next }
-                      : { callbackUrl: "/welcome" }),
-                  },
-                  error === "RequiresReconsent" ? { consent: true } : undefined,
-                );
-              }}
-            >
+              onClick={handleGoogleSignIn}>
               I agree
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      <Button
-        size="2xl"
-        loading={loadingMicrosoft}
-        onClick={() => {
-          setLoadingMicrosoft(true);
-          signIn(
-            "microsoft-entra-id",
-            {
-              ...(next && next.length > 0
-                ? { callbackUrl: next }
-                : { callbackUrl: "/welcome" }),
-            },
-            error === "RequiresReconsent" ? { consent: true } : undefined,
-          );
-        }}
-      >
+        <Button
+          size="2xl"
+          loading={loadingMicrosoft}
+          onClick={handleMicrosoftSignIn}>
         <span className="flex items-center justify-center">
           <Image
             src="/images/microsoft.svg"

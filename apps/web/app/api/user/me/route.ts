@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 
@@ -40,7 +41,7 @@ async function getUser({ userId }: { userId: string }) {
 
 // Intentionally not using withAuth because we want to return null if the user is not authenticated
 export const GET = withError(async () => {
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
   const userId = session?.user.id;
   if (!userId) return NextResponse.json(null);
 

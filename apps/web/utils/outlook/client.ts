@@ -129,7 +129,7 @@ export const getOutlookClientWithRefresh = async ({
       },
       accountRefreshToken: refreshToken,
       emailAccountId,
-      provider: "microsoft-entra-id",
+      provider: "microsoft",
     });
 
     return createOutlookClient(tokens.access_token);
