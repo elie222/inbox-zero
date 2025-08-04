@@ -1,24 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useSWRConfig } from "swr";
-import { DefaultChatTransport } from "ai";
-import { useChat } from "@ai-sdk/react";
+import { useState } from "react";
 import {
   ArrowLeftToLineIcon,
   HistoryIcon,
   Loader2,
   PlusIcon,
 } from "lucide-react";
-import { parseAsString, useQueryState, useQueryStates } from "nuqs";
+import { parseAsString, useQueryState } from "nuqs";
 import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
-import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
 import { ResizableHandle } from "@/components/ui/resizable";
 import { ResizablePanelGroup } from "@/components/ui/resizable";
 import { ResizablePanel } from "@/components/ui/resizable";
 import { AssistantTabs } from "@/app/(app)/[emailAccountId]/assistant/AssistantTabs";
-import { ChatProvider } from "./ChatContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,126 +23,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
-import { useChatMessages } from "@/hooks/useChatMessages";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
-import { toastError } from "@/components/Toast";
-import type { ChatMessage } from "@/components/assistant-chat/types";
-import { convertToUIMessages } from "./helpers";
+import { type Chat as ChatType, useChat } from "@/providers/ChatProvider";
 
 const MAX_MESSAGES = 20;
 
-type ChatProps = {
-  emailAccountId: string;
-};
+// function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
+//   const [{ tab }] = useQueryState({
+//     input: parseAsString,
+//     tab: parseAsString,
+//   });
 
-export function Chat(props: ChatProps) {
-  const [chatId, setChatId] = useQueryState("chatId");
+//   // const initialInput = useMemo(() => {
+//   //   if (!input) return undefined;
+//   //   return decodeURIComponent(input);
+//   // }, [input]);
 
-  useEffect(() => {
-    if (!chatId) {
-      setChatId(generateUUID());
-    }
-  }, [chatId, setChatId]);
+//   return <ChatInner {...props} tab={tab || undefined} />;
+// }
 
-  if (!chatId) return null;
-
-  return <ChatWithEmptySWR {...props} chatId={chatId} />;
-}
-
-function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
-  const { data } = useChatMessages(props.chatId);
-
-  const [{ input, tab }] = useQueryStates({
-    input: parseAsString,
-    tab: parseAsString,
-  });
-
-  const initialInput = useMemo(() => {
-    if (!input) return undefined;
-    return decodeURIComponent(input);
-  }, [input]);
-
-  return (
-    <ChatInner
-      {...props}
-      initialMessages={data ? convertToUIMessages(data) : []}
-      initialInput={initialInput}
-      chatId={props.chatId}
-      tab={tab || undefined}
-    />
-  );
-}
-
-function ChatInner({
-  chatId,
-  initialMessages,
-  emailAccountId,
-  initialInput,
-  tab,
-}: ChatProps & {
-  chatId: string;
-  initialMessages: ChatMessage[];
-  initialInput?: string;
-  tab?: string;
-}) {
-  const { mutate } = useSWRConfig();
-
-  const [input, setInput] = useState<string>("");
-
-  const chat = useChat<ChatMessage>({
-    id: chatId,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      headers: {
-        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-      },
-      prepareSendMessagesRequest({ messages, id, body }) {
-        return {
-          body: {
-            id,
-            message: messages.at(-1),
-            ...body,
-          },
-        };
-      },
-    }),
-    // TODO: couldn't get this to work
-    // messages: initialMessages,
-    experimental_throttle: 100,
-    generateId: generateUUID,
-    onFinish: () => {
-      mutate("/api/user/rules");
-    },
-    onError: (error) => {
-      console.error(error);
-      toastError({
-        title: "An error occured!",
-        description: error.message || "",
-      });
-    },
-  });
-
-  // hacky workaround to get initial messages to show up
-  useEffect(() => {
-    chat.setMessages(initialMessages);
-  }, [chat.setMessages, initialMessages]);
-
-  const handleSubmit = () => {
-    chat.sendMessage({
-      role: "user",
-      parts: [
-        {
-          type: "text",
-          text: input,
-        },
-      ],
-    });
-
-    setInput("");
-  };
-
+export function Chat() {
+  const [tab] = useQueryState("tab", parseAsString);
+  const { chat, input, setInput, handleSubmit } = useChat();
   const isMobile = useIsMobile();
 
   const chatPanel = (
@@ -159,25 +58,21 @@ function ChatInner({
     />
   );
 
-  return (
-    <ChatProvider setInput={setInput}>
-      {tab ? (
-        <ResizablePanelGroup
-          direction={isMobile ? "vertical" : "horizontal"}
-          className="flex-grow"
-        >
-          <ResizablePanel defaultSize={65}>
-            <AssistantTabs />
-          </ResizablePanel>
-          <ResizableHandle withHandle />
-          <ResizablePanel className="overflow-y-auto" defaultSize={35}>
-            {chatPanel}
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      ) : (
-        chatPanel
-      )}
-    </ChatProvider>
+  return tab ? (
+    <ResizablePanelGroup
+      direction={isMobile ? "vertical" : "horizontal"}
+      className="flex-grow"
+    >
+      <ResizablePanel defaultSize={65}>
+        <AssistantTabs />
+      </ResizablePanel>
+      <ResizableHandle withHandle />
+      <ResizablePanel className="overflow-y-auto" defaultSize={35}>
+        {chatPanel}
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  ) : (
+    chatPanel
   );
 }
 
@@ -187,7 +82,7 @@ function ChatUI({
   setInput,
   handleSubmit,
 }: {
-  chat: ReturnType<typeof useChat<ChatMessage>>;
+  chat: ChatType;
   input: string;
   setInput: (input: string) => void;
   handleSubmit: () => void;
@@ -328,13 +223,4 @@ function ChatHistoryDropdown() {
       </DropdownMenuContent>
     </DropdownMenu>
   );
-}
-
-// NOTE: not sure why we don't just use the default from AI SDK
-function generateUUID(): string {
-  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === "x" ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
 }
