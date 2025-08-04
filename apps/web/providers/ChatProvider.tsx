@@ -13,10 +13,7 @@ import {
 import { useSWRConfig } from "swr";
 import { toastError } from "@/components/Toast";
 import { convertToUIMessages } from "@/components/assistant-chat/helpers";
-import type {
-  ChatMessage,
-  SetInputFunction,
-} from "@/components/assistant-chat/types";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 import { useChatMessages } from "@/hooks/useChatMessages";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { EMAIL_ACCOUNT_HEADER } from "@/utils/config";
@@ -27,7 +24,7 @@ type ChatContextType = {
   chat: Chat;
   input: string;
   chatId: string | null;
-  setInput: SetInputFunction;
+  setInput: (input: string) => void;
   setChatId: (chatId: string | null) => void;
   setNewChat: () => void;
   handleSubmit: () => void;

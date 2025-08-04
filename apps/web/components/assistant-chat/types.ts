@@ -10,8 +10,6 @@ import type {
   UpdateRuleConditionsTool,
 } from "@/utils/ai/assistant/chat";
 
-export type SetInputFunction = React.Dispatch<React.SetStateAction<string>>;
-
 // export type DataPart = { type: "append-message"; message: string };
 
 // export const messageMetadataSchema = z.object({ createdAt: z.string() });
