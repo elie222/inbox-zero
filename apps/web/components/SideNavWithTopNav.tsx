@@ -14,10 +14,13 @@ export function SideNavWithTopNav({
   defaultOpen,
 }: {
   children: React.ReactNode;
-  defaultOpen?: boolean;
+  defaultOpen: boolean;
 }) {
   return (
-    <SidebarProvider defaultOpen={defaultOpen ? ["left-sidebar"] : undefined}>
+    <SidebarProvider
+      defaultOpen={defaultOpen ? ["left-sidebar"] : []}
+      sidebarNames={["left-sidebar", "chat-sidebar"]}
+    >
       <SideNav name="left-sidebar" />
       <SidebarInset className="overflow-hidden bg-background">
         <TopNav

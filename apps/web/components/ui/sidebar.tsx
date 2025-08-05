@@ -88,9 +88,9 @@ const SidebarProvider = React.forwardRef<
         }
 
         // This sets the cookie to keep the sidebar state.
-        document.cookie = `${openState.map((sidebarName) => `${sidebarName}:state=${openState.includes(sidebarName)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`).join("; ")}`;
+        document.cookie = `${sidebarNames.map((sidebarName) => `${sidebarName}:state=${openState.includes(sidebarName)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`).join("; ")}`;
       },
-      [setOpenProp, open],
+      [setOpenProp, open, sidebarNames],
     );
 
     // Helper to toggle the sidebar.
