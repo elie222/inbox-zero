@@ -20,20 +20,6 @@ import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const MAX_MESSAGES = 20;
 
-// function ChatWithEmptySWR(props: ChatProps & { chatId: string }) {
-//   const [{ tab }] = useQueryState({
-//     input: parseAsString,
-//     tab: parseAsString,
-//   });
-
-//   // const initialInput = useMemo(() => {
-//   //   if (!input) return undefined;
-//   //   return decodeURIComponent(input);
-//   // }, [input]);
-
-//   return <ChatInner {...props} tab={tab || undefined} />;
-// }
-
 export function Chat() {
   const { chatId, chat, input, setInput, handleSubmit, setNewChat } = useChat();
 

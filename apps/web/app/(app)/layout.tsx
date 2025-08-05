@@ -2,7 +2,6 @@ import "../../styles/globals.css";
 import type React from "react";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 import { TokenCheck } from "@/components/TokenCheck";
@@ -67,4 +66,4 @@ export default async function AppLayout({
   );
 }
 
-const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
+// const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
