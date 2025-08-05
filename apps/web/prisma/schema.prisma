@@ -1,17 +1,18 @@
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
 
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
-  id                String        @id @default(cuid())
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  id                String   @id @default(cuid())
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
   userId            String
   provider          String
   providerAccountId String
@@ -21,13 +22,13 @@ model Account {
   scope             String?
   id_token          String?
   session_state     String?
-  expires_at        DateTime?     @default(now())
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires_at        DateTime? @default(now())
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailAccount      EmailAccount?
-
   @@unique([provider, providerAccountId])
 }
 
+// not in use. we only use jwt for sessions
 model Session {
   id           String   @id @default(cuid())
   sessionToken String   @unique
@@ -41,85 +42,107 @@ model Session {
 }
 
 model User {
-  id                       String         @id @default(cuid())
-  createdAt                DateTime       @default(now())
-  updatedAt                DateTime       @updatedAt
-  name                     String?
-  email                    String         @unique
-  image                    String?
-  completedOnboardingAt    DateTime?
-  completedAppOnboardingAt DateTime?
+  id            String    @id @default(cuid())
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  name          String?
+  email         String    @unique
+  emailVerified Boolean @default(false)
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  // additional fields
+  completedOnboardingAt    DateTime? // questions about the user. e.g. their role
+  completedAppOnboardingAt DateTime? // how to use the app
   onboardingAnswers        Json?
   lastLogin                DateTime?
   utms                     Json?
-  errorMessages            Json?
-  surveyFeatures           String[]
-  surveyRole               String?
-  surveyGoal               String?
-  surveySource             String?
-  surveyImprovements       String?
-  aiProvider               String?
-  aiModel                  String?
-  aiApiKey                 String?
-  webhookSecret            String?
-  referralCode             String?        @unique
-  premiumId                String?
-  premiumAdminId           String?
-  emailVerified            Boolean        @default(false)
-  accounts                 Account[]
-  apiKeys                  ApiKey[]
-  emailAccounts            EmailAccount[]
-  referralReceived         Referral?      @relation("ReferredUser")
-  referralsMade            Referral[]     @relation("ReferrerUser")
-  sessions                 Session[]
-  premiumAdmin             Premium?       @relation(fields: [premiumAdminId], references: [id])
-  premium                  Premium?       @relation("userPremium", fields: [premiumId], references: [id])
+  errorMessages            Json? // eg. user set incorrect AI API key
+
+  // survey answers (extracted from onboardingAnswers for easier querying)
+  surveyFeatures     String[] // multiple choice: features user is interested in
+  surveyRole         String? // single choice: user's role
+  surveyGoal         String? // single choice: what user wants to achieve
+  surveySource       String? // single choice: how user heard about Inbox Zero
+  surveyImprovements String? // open text: what user wants to improve
+
+  // settings
+  aiProvider    String?
+  aiModel       String?
+  aiApiKey      String?
+  webhookSecret String?
+
+  // referral system
+  referralCode String? @unique // User's own referral code
+
+  // premium can be shared among multiple users
+  premiumId      String?
+  premium        Premium? @relation(name: "userPremium", fields: [premiumId], references: [id])
+  // only admin users can manage premium
+  premiumAdminId String?
+  premiumAdmin   Premium? @relation(fields: [premiumAdminId], references: [id])
+
+  apiKeys ApiKey[]
+
+  emailAccounts EmailAccount[]
+
+  // Referral relationships
+  referralsMade    Referral[] @relation("ReferrerUser")
+  referralReceived Referral?  @relation("ReferredUser")
 }
 
+// Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
 model EmailAccount {
-  id                        String            @id @default(cuid())
-  email                     String            @unique
-  createdAt                 DateTime          @default(now())
-  updatedAt                 DateTime          @updatedAt
-  name                      String?
-  image                     String?
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  name  String? // Name associated with the Google account
+  image String? // Profile image URL from the Google account
+
   about                     String?
   writingStyle              String?
   signature                 String?
   watchEmailsExpirationDate DateTime?
-  watchEmailsSubscriptionId String?
+  watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
-  statsEmailFrequency       Frequency         @default(WEEKLY)
-  summaryEmailFrequency     Frequency         @default(WEEKLY)
-  lastSummaryEmailAt        DateTime?
-  coldEmailBlocker          ColdEmailSetting?
-  coldEmailDigest           Boolean           @default(false)
-  coldEmailPrompt           String?
-  rulesPrompt               String?
-  outboundReplyTracking     Boolean           @default(false)
-  autoCategorizeSenders     Boolean           @default(false)
-  userId                    String
-  accountId                 String            @unique
-  categories                Category[]
-  chats                     Chat[]
-  cleanupJobs               CleanupJob[]
-  cleanupThreads            CleanupThread[]
-  coldEmails                ColdEmail[]
-  digests                   Digest[]
-  account                   Account           @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  user                      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailMessages             EmailMessage[]
-  emailTokens               EmailToken[]
-  executedRules             ExecutedRule[]
-  groups                    Group[]
-  knowledge                 Knowledge[]
-  labels                    Label[]
-  newsletters               Newsletter[]
-  rules                     Rule[]
-  digestSchedule            Schedule?
-  scheduledActions          ScheduledAction[]
-  threadTrackers            ThreadTracker[]
+
+  statsEmailFrequency   Frequency         @default(WEEKLY)
+  summaryEmailFrequency Frequency         @default(WEEKLY)
+  lastSummaryEmailAt    DateTime?
+  coldEmailBlocker      ColdEmailSetting?
+  coldEmailDigest       Boolean           @default(false)
+  coldEmailPrompt       String?
+  rulesPrompt           String?
+  outboundReplyTracking Boolean           @default(false)
+  autoCategorizeSenders Boolean           @default(false)
+
+  digestSchedule Schedule?
+
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId String  @unique
+  account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  labels           Label[]
+  rules            Rule[]
+  executedRules    ExecutedRule[]
+  newsletters      Newsletter[]
+  coldEmails       ColdEmail[]
+  groups           Group[]
+  categories       Category[]
+  threadTrackers   ThreadTracker[]
+  cleanupJobs      CleanupJob[]
+  cleanupThreads   CleanupThread[]
+  emailMessages    EmailMessage[]
+  emailTokens      EmailToken[]
+  knowledge        Knowledge[]
+  chats            Chat[]
+  digests          Digest[]
+  scheduledActions ScheduledAction[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -129,10 +152,10 @@ model Digest {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   emailAccountId String
-  sentAt         DateTime?
-  status         DigestStatus @default(PENDING)
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   items          DigestItem[]
+  sentAt         DateTime?
+  status         DigestStatus @default(PENDING)
 
   @@index([emailAccountId])
 }
@@ -143,70 +166,98 @@ model DigestItem {
   updatedAt   DateTime        @updatedAt
   messageId   String
   threadId    String
-  content     String
+  content     String          @db.Text
   digestId    String
-  actionId    String?
-  coldEmailId String?
-  action      ExecutedAction? @relation(fields: [actionId], references: [id])
-  coldEmail   ColdEmail?      @relation(fields: [coldEmailId], references: [id])
   digest      Digest          @relation(fields: [digestId], references: [id], onDelete: Cascade)
+  actionId    String?
+  action      ExecutedAction? @relation(fields: [actionId], references: [id])
+  coldEmailId String?
+  coldEmail   ColdEmail?      @relation(fields: [coldEmailId], references: [id])
 
   @@unique([digestId, threadId, messageId])
 }
 
 model Schedule {
-  id               String       @id @default(cuid())
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
-  intervalDays     Int?
-  occurrences      Int?
-  daysOfWeek       Int?
-  timeOfDay        DateTime?
-  emailAccountId   String       @unique
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intervalDays Int? // Total interval in days
+  occurrences  Int? // Number of times within the interval
+
+  // Bit mask for days of week (0b0000000 to 0b1111111)
+  // Each bit represents a day (Sunday to Saturday)
+  // e.g., 0b1000001 means Sunday and Saturday
+  daysOfWeek Int? // 0-127 (2^7 - 1)
+
+  // Time of day stored as DateTime with canonical date (1970-01-01)
+  // Only the time portion is used, but DateTime preserves timezone info
+  // Example: "1970-01-01T09:30:00Z", "1970-01-01T14:15:00Z"
+  timeOfDay DateTime?
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   lastOccurrenceAt DateTime?
   nextOccurrenceAt DateTime?
-  emailAccount     EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([emailAccountId])
 }
 
 model Premium {
-  id                             String       @id @default(cuid())
-  createdAt                      DateTime     @default(now())
-  updatedAt                      DateTime     @updatedAt
-  pendingInvites                 String[]
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users  User[] @relation(name: "userPremium")
+  admins User[]
+
+  pendingInvites String[]
+
+  // lemon squeezy
   lemonSqueezyRenewsAt           DateTime?
   lemonSqueezyCustomerId         Int?
   lemonSqueezySubscriptionId     Int?
   lemonSqueezySubscriptionItemId Int?
-  lemonSqueezyOrderId            Int?
+  lemonSqueezyOrderId            Int? // lifetime purchase is an order and not a subscription
   lemonSqueezyProductId          Int?
   lemonSqueezyVariantId          Int?
   lemonLicenseKey                String?
   lemonLicenseInstanceId         String?
   lemonSubscriptionStatus        String?
-  stripeCustomerId               String?      @unique
-  stripeSubscriptionId           String?      @unique
-  stripeSubscriptionItemId       String?      @unique
-  stripePriceId                  String?
-  stripeProductId                String?
-  stripeSubscriptionStatus       String?
-  stripeCancelAtPeriodEnd        Boolean?
-  stripeRenewsAt                 DateTime?
-  stripeTrialEnd                 DateTime?
-  stripeCanceledAt               DateTime?
-  stripeEndedAt                  DateTime?
-  tier                           PremiumTier?
-  emailAccountsAccess            Int?
-  unsubscribeMonth               Int?
-  unsubscribeCredits             Int?
-  aiMonth                        Int?
-  aiCredits                      Int?
-  payments                       Payment[]
-  admins                         User[]
-  users                          User[]       @relation("userPremium")
+
+  // stripe
+  stripeCustomerId         String?   @unique
+  stripeSubscriptionId     String?   @unique
+  stripeSubscriptionItemId String?   @unique
+  stripePriceId            String?
+  stripeProductId          String?
+  stripeSubscriptionStatus String? // The current status from Stripe (e.g., 'active', 'trialing', 'past_due', 'canceled', 'unpaid').
+  stripeCancelAtPeriodEnd  Boolean? // If true, the subscription is set to cancel automatically at the end of the current billing period, rather than renew.
+  stripeRenewsAt           DateTime? // Timestamp for when the current billing period ends and the subscription attempts renewal (if not canceling). Derived from `current_period_end`.
+  stripeTrialEnd           DateTime? // Timestamp for when the free trial period ends (if applicable). Important for managing trial-to-paid transitions.
+  stripeCanceledAt         DateTime? // Timestamp for when the subscription was definitively marked as canceled in Stripe (might be immediate or after period end). Historical data.
+  stripeEndedAt            DateTime? // Timestamp for when the subscription ended permanently for any reason (cancellation, final payment failure). Historical data.
+
+  tier PremiumTier?
+
+  emailAccountsAccess Int?
+
+  // unsubscribe/ai credits
+  // if `unsubscribeMonth` not set to this month, set to current month
+  // reset `unsubscribeCredits` each time month is changed
+  unsubscribeMonth   Int? // 1-12
+  unsubscribeCredits Int?
+  aiMonth            Int? // 1-12
+  aiCredits          Int?
+
+  // Payment history
+  payments Payment[]
 
   @@index([pendingInvites])
 }
 
+// not in use as it's only used for passwordless login
 model VerificationToken {
   identifier String
   token      String   @unique
@@ -214,18 +265,18 @@ model VerificationToken {
   createdAt  DateTime @default(now())
   id         String   @id @default(cuid())
   updatedAt  DateTime @updatedAt
-
   @@unique([identifier, token])
 }
 
 model Label {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  gmailLabelId   String
-  name           String
-  description    String?
-  enabled        Boolean      @default(true)
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  gmailLabelId String
+  name         String
+  description  String? // used in prompts
+  enabled      Boolean  @default(true)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -234,59 +285,79 @@ model Label {
 }
 
 model Rule {
-  id                  String              @id @default(cuid())
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  name                String
-  enabled             Boolean             @default(true)
-  automate            Boolean             @default(false)
-  runOnThreads        Boolean             @default(false)
-  emailAccountId      String
-  conditionalOperator LogicalOperator     @default(AND)
-  instructions        String?
-  groupId             String?             @unique
-  from                String?
-  to                  String?
-  subject             String?
-  body                String?
-  categoryFilterType  CategoryFilterType?
-  systemType          SystemType?
-  promptText          String?
-  actions             Action[]
-  executedRules       ExecutedRule[]
-  emailAccount        EmailAccount        @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  group               Group?              @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  history             RuleHistory[]
-  categoryFilters     Category[]          @relation("CategoryToRule")
+  id           String   @id @default(cuid())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  name         String
+  actions      Action[]
+  enabled      Boolean  @default(true)
+  automate     Boolean  @default(false) // if disabled, user must approve to execute
+  runOnThreads Boolean  @default(false) // if disabled, only runs on individual emails
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  executedRules ExecutedRule[]
+
+  // conditions: ai, group, static, category
+  conditionalOperator LogicalOperator @default(AND)
+
+  // ai conditions
+  instructions String?
+
+  // group condition
+  groupId String? @unique
+  group   Group?  @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  // static condition
+  // automatically apply this rule if it matches a filter. supports regex
+  from    String?
+  to      String?
+  subject String?
+  body    String?
+
+  // category condition
+  // only apply to (or do not apply to) senders in these categories
+  categoryFilterType CategoryFilterType?
+  categoryFilters    Category[]
+
+  systemType SystemType?
+
+  promptText String? // natural language for this rule for prompt file. prompt file is combination of these fields
+
+  history RuleHistory[]
 
   @@unique([name, emailAccountId])
   @@unique([emailAccountId, systemType])
 }
 
 model Action {
-  id             String     @id @default(cuid())
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-  type           ActionType
-  ruleId         String
-  label          String?
-  subject        String?
-  content        String?
-  to             String?
-  cc             String?
-  bcc            String?
-  url            String?
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  type      ActionType
+  ruleId    String
+  rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
   delayInMinutes Int?
-  rule           Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 }
 
 model RuleHistory {
-  id                  String   @id @default(cuid())
-  createdAt           DateTime @default(now())
-  ruleId              String
-  version             Int
-  triggerType         String
-  promptText          String?
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  ruleId      String
+  rule        Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  version     Int
+  triggerType String // "ai_update" (AI), "manual_update" (user), "ai_creation" (AI), "manual_creation" (user), "system_creation" (system), "system_update" (system)
+  promptText  String? // The prompt text that generated this version
+
   name                String
   instructions        String?
   enabled             Boolean
@@ -299,28 +370,35 @@ model RuleHistory {
   body                String?
   categoryFilterType  String?
   systemType          String?
-  actions             Json
-  categoryFilters     Json?
-  rule                Rule     @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  actions         Json
+  categoryFilters Json?
 
   @@unique([ruleId, version])
   @@index([ruleId, createdAt])
 }
 
+// Rule/Action models represent the rules and actions that the AI can take.
+// ExecutedRule/ExecutedAction models represent the rules/actions that have been planned or executed by the AI.
 model ExecutedRule {
-  id               String             @id @default(cuid())
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  threadId         String
-  messageId        String
-  status           ExecutedRuleStatus
-  automated        Boolean
-  reason           String?
-  ruleId           String?
-  emailAccountId   String
+  id        String             @id @default(cuid())
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+  threadId  String
+  messageId String
+  status    ExecutedRuleStatus
+  automated Boolean
+  reason    String?
+
+  // may be null if the rule was deleted
+  ruleId String?
+  rule   Rule?   @relation(fields: [ruleId], references: [id])
+
+  // storing user here in case rule was deleted
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
   actionItems      ExecutedAction[]
-  emailAccount     EmailAccount       @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  rule             Rule?              @relation(fields: [ruleId], references: [id])
   scheduledActions ScheduledAction[]
 
   @@unique([emailAccountId, threadId, messageId], name: "unique_emailAccount_thread_message")
@@ -328,66 +406,82 @@ model ExecutedRule {
 }
 
 model ExecutedAction {
-  id              String           @id @default(cuid())
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  type            ActionType
-  executedRuleId  String
-  label           String?
-  subject         String?
-  content         String?
-  to              String?
-  cc              String?
-  bcc             String?
-  url             String?
-  draftId         String?
-  wasDraftSent    Boolean?
-  digestItems     DigestItem[]
-  draftSendLog    DraftSendLog?
-  executedRule    ExecutedRule     @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
-  scheduledAction ScheduledAction?
+  id             String       @id @default(cuid())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  type           ActionType
+  executedRuleId String
+  executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+
+  // optional extra fields to be used with the action
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
+
+  // additional fields as a result of the action
+  draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
+  wasDraftSent    Boolean? // Tracks if the corresponding draft was sent (true) or ignored/superseded (false)
+  draftSendLog    DraftSendLog? // Will exist if the draft was sent
+  digestItems     DigestItem[] // Relation to digest items created by this action
+  scheduledAction ScheduledAction? // Reverse relation for delayed actions
 }
 
 model ScheduledAction {
-  id               String                @id @default(cuid())
-  createdAt        DateTime              @default(now())
-  updatedAt        DateTime              @updatedAt
-  executedRuleId   String
-  actionType       ActionType
-  messageId        String
-  threadId         String
-  scheduledFor     DateTime
-  emailAccountId   String
-  status           ScheduledActionStatus @default(PENDING)
-  schedulingStatus SchedulingStatus      @default(PENDING)
-  label            String?
-  subject          String?
-  content          String?
-  to               String?
-  cc               String?
-  bcc              String?
-  url              String?
-  scheduledId      String?
+  id             String                @id @default(cuid())
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  executedRuleId String
+  actionType     ActionType
+  messageId      String
+  threadId       String
+  scheduledFor   DateTime
+  emailAccountId String
+  status         ScheduledActionStatus @default(PENDING)
+  schedulingStatus SchedulingStatus    @default(PENDING)
+
+  label   String?
+  subject String?
+  content String?
+  to      String?
+  cc      String?
+  bcc     String?
+  url     String?
+
+  scheduledId String?
+
   executedAt       DateTime?
-  executedActionId String?               @unique
-  emailAccount     EmailAccount          @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  executedAction   ExecutedAction?       @relation(fields: [executedActionId], references: [id])
-  executedRule     ExecutedRule          @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  executedActionId String?   @unique
+
+  executedRule   ExecutedRule    @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
+  executedAction ExecutedAction? @relation(fields: [executedActionId], references: [id])
+  emailAccount   EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@index([status, scheduledFor])
   @@index([emailAccountId, messageId])
 }
 
+// Notes:
+// In the past groups stood on their own. Now they are attached to a rule.
+// A group without a rule does not do anything anymore. I may delete all detached groups in the future, and then make rule required
+// "Prompt" is no longer in use. It was used to generate the group, but now it's based on the rule the group is attached to.
+// "Name" is no longer in use although still required.
+// If we really wanted we could remove Group and just have a relation between Rule and GroupItem, but leaving as is for now.
 model Group {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  name           String
-  prompt         String?
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  name      String
+  prompt    String?
+
+  items GroupItem[]
+  rule  Rule?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  items          GroupItem[]
-  rule           Rule?
 
   @@unique([name, emailAccountId])
 }
@@ -397,57 +491,68 @@ model GroupItem {
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
   groupId   String?
-  type      GroupItemType
-  value     String
-  exclude   Boolean       @default(false)
   group     Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  type      GroupItemType
+  value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
+  exclude   Boolean       @default(false) // Whether this pattern should be excluded rather than included
 
   @@unique([groupId, type, value])
 }
 
 model Category {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  name           String
-  description    String?
+  id          String   @id @default(cuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  name        String
+  description String?
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  emailSenders   Newsletter[]
-  rules          Rule[]       @relation("CategoryToRule")
+
+  emailSenders Newsletter[]
+  rules        Rule[]
 
   @@unique([name, emailAccountId])
 }
 
+// Represents a sender (`email`) that a user can unsubscribe from,
+// or that our AI can mark as a cold email.
+// `Newsletter` is a bad name for this. Will rename this model in the future.
 model Newsletter {
-  id              String            @id @default(cuid())
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  email           String
-  status          NewsletterStatus?
-  patternAnalyzed Boolean           @default(false)
+  id        String            @id @default(cuid())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  email     String
+  status    NewsletterStatus?
+
+  // For learned patterns for rules
+  patternAnalyzed Boolean   @default(false)
   lastAnalyzedAt  DateTime?
-  emailAccountId  String
-  categoryId      String?
-  category        Category?         @relation(fields: [categoryId], references: [id])
-  emailAccount    EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id])
 
   @@unique([email, emailAccountId])
   @@index([emailAccountId, status])
 }
 
 model ColdEmail {
-  id             String           @id @default(cuid())
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  fromEmail      String
-  messageId      String?
-  threadId       String?
-  status         ColdEmailStatus?
-  reason         String?
+  id        String           @id @default(cuid())
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  fromEmail String
+  messageId String?
+  threadId  String?
+  status    ColdEmailStatus?
+  reason    String?
+
   emailAccountId String
-  emailAccount   EmailAccount     @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  digestItems    DigestItem[]
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  digestItems DigestItem[]
 
   @@unique([emailAccountId, fromEmail])
   @@index([emailAccountId, status])
@@ -455,12 +560,12 @@ model ColdEmail {
 }
 
 model EmailMessage {
-  id              String       @id @default(cuid())
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
+  id              String   @id @default(cuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
   threadId        String
   messageId       String
-  date            DateTime
+  date            DateTime // date of the email
   from            String
   fromDomain      String
   to              String
@@ -469,8 +574,9 @@ model EmailMessage {
   sent            Boolean
   draft           Boolean
   inbox           Boolean
-  emailAccountId  String
-  emailAccount    EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, threadId])
@@ -479,16 +585,17 @@ model EmailMessage {
 }
 
 model ThreadTracker {
-  id             String            @id @default(cuid())
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
-  sentAt         DateTime
-  threadId       String
-  messageId      String
-  resolved       Boolean           @default(false)
-  type           ThreadTrackerType
+  id        String            @id @default(cuid())
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  sentAt    DateTime
+  threadId  String
+  messageId String
+  resolved  Boolean           @default(false)
+  type      ThreadTrackerType
+
   emailAccountId String
-  emailAccount   EmailAccount      @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([emailAccountId, threadId, messageId])
   @@index([emailAccountId, resolved])
@@ -497,11 +604,11 @@ model ThreadTracker {
 }
 
 model CleanupJob {
-  id               String          @id @default(cuid())
-  createdAt        DateTime        @default(now())
-  updatedAt        DateTime        @updatedAt
-  action           CleanAction     @default(ARCHIVE)
-  daysOld          Int             @default(7)
+  id               String      @id @default(cuid())
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  action           CleanAction @default(ARCHIVE)
+  daysOld          Int         @default(7)
   instructions     String?
   skipReply        Boolean?
   skipStarred      Boolean?
@@ -509,29 +616,33 @@ model CleanupJob {
   skipReceipt      Boolean?
   skipAttachment   Boolean?
   skipConversation Boolean?
-  emailAccountId   String
-  emailAccount     EmailAccount    @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  threads          CleanupThread[]
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  threads CleanupThread[]
 }
 
 model CleanupThread {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  threadId       String
-  archived       Boolean
-  jobId          String
+  id        String     @id @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  threadId  String
+  archived  Boolean // this can also mean "mark as read". depends on CleanupJob.action
+  jobId     String
+  job       CleanupJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  job            CleanupJob   @relation(fields: [jobId], references: [id], onDelete: Cascade)
 }
 
 model Knowledge {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  title          String
-  content        String
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  title     String
+  content   String
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
@@ -545,60 +656,76 @@ model ApiKey {
   name      String?
   hashedKey String   @unique
   isActive  Boolean  @default(true)
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, isActive])
 }
 
 model EmailToken {
-  id             String       @id @default(cuid())
-  createdAt      DateTime     @default(now())
-  token          String       @unique
-  expiresAt      DateTime
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  token     String   @unique
+  expiresAt DateTime
+  // action    EmailTokenAction @default(UNSUBSCRIBE)
+
   emailAccountId String
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 }
 
 model Payment {
-  id                      String        @id @default(cuid())
-  createdAt               DateTime
-  updatedAt               DateTime
-  premiumId               String?
+  id        String   @id @default(cuid())
+  createdAt DateTime // from processor
+  updatedAt DateTime // from processor
+
+  // Relation to Premium
+  premiumId String?
+  premium   Premium? @relation(fields: [premiumId], references: [id], onDelete: SetNull)
+
+  // Payment processor information
   processorType           ProcessorType @default(LEMON_SQUEEZY)
-  processorId             String?       @unique
-  processorSubscriptionId String?
-  processorCustomerId     String?
-  amount                  Int
-  currency                String
-  status                  String
-  tax                     Int
-  taxInclusive            Boolean
-  refunded                Boolean       @default(false)
-  refundedAt              DateTime?
-  refundedAmount          Int?
-  billingReason           String?
-  premium                 Premium?      @relation(fields: [premiumId], references: [id])
+  processorId             String?       @unique // External payment ID from Stripe/Lemon Squeezy
+  processorSubscriptionId String? // External subscription ID
+  processorCustomerId     String? // External customer ID
+
+  // Core payment information
+  amount       Int // Total amount in cents
+  currency     String // 3-letter currency code: USD, EUR, etc.
+  status       String // paid, failed, refunded, etc.
+  tax          Int
+  taxInclusive Boolean
+
+  // Refund information
+  refunded       Boolean   @default(false)
+  refundedAt     DateTime?
+  refundedAmount Int? // in cents
+
+  // Metadata
+  billingReason String? // initial, renewal, update, etc.
 }
 
 model DraftSendLog {
-  id               String         @id @default(cuid())
-  createdAt        DateTime       @default(now())
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
   executedActionId String         @unique
-  sentMessageId    String
-  similarityScore  Float
   executedAction   ExecutedAction @relation(fields: [executedActionId], references: [id], onDelete: Cascade)
+
+  sentMessageId   String
+  similarityScore Float // Similarity score (0.0 to 1.0) between original draft and sent message
 
   @@index([executedActionId])
 }
 
 model Chat {
-  id             String        @id @default(cuid())
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages       ChatMessage[]
   emailAccountId String
   emailAccount   EmailAccount  @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
-  messages       ChatMessage[]
 
   @@index([emailAccountId])
 }
@@ -607,27 +734,40 @@ model ChatMessage {
   id        String   @id @default(cuid())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  role      String
-  parts     Json
-  chatId    String
-  chat      Chat     @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  role  String
+  parts Json
+  // attachments Json?
+
+  chatId String
+  chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId])
 }
 
 model Referral {
-  id                         String         @id @default(cuid())
-  createdAt                  DateTime       @default(now())
-  updatedAt                  DateTime       @updatedAt
-  referrerUserId             String
-  referredUserId             String         @unique
-  referralCodeUsed           String
-  status                     ReferralStatus @default(PENDING)
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // The user who made the referral (referrer)
+  referrerUserId String
+  referrerUser   User   @relation(name: "ReferrerUser", fields: [referrerUserId], references: [id], onDelete: Cascade)
+
+  // The user who was referred
+  referredUserId String @unique // Each user can only be referred once
+  referredUser   User   @relation(name: "ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
+
+  // The referral code used (stored as string)
+  referralCodeUsed String
+
+  // Status tracking
+  status ReferralStatus @default(PENDING)
+
+  // Reward tracking - using Stripe balance transactions
   rewardGrantedAt            DateTime?
-  stripeBalanceTransactionId String?
-  rewardAmount               Int?
-  referredUser               User           @relation("ReferredUser", fields: [referredUserId], references: [id], onDelete: Cascade)
-  referrerUser               User           @relation("ReferrerUser", fields: [referrerUserId], references: [id], onDelete: Cascade)
+  stripeBalanceTransactionId String? // Store Stripe txn ID for reference
+  rewardAmount               Int? // Amount in cents (e.g., 2000 for $20)
 
   @@index([referrerUserId])
   @@index([status])
@@ -645,12 +785,18 @@ enum ActionType {
   MARK_READ
   TRACK_THREAD
   DIGEST
+  // SUMMARIZE
+  // SNOOZE
+  // ADD_TO_DO
+  // INTEGRATION // for example, add to Notion
 }
 
 enum Frequency {
   NEVER
   DAILY
   WEEKLY
+  // MONTHLY
+  // ANNUALLY
 }
 
 enum NewsletterStatus {
@@ -711,9 +857,9 @@ enum LogicalOperator {
 }
 
 enum ThreadTrackerType {
-  AWAITING
-  NEEDS_REPLY
-  NEEDS_ACTION
+  AWAITING // We're waiting for their reply
+  NEEDS_REPLY // We need to reply to this
+  NEEDS_ACTION // We need to do something else
 }
 
 enum ProcessorType {
@@ -736,8 +882,8 @@ enum SystemType {
 }
 
 enum ReferralStatus {
-  PENDING
-  COMPLETED
+  PENDING // Referral created, waiting for trial completion
+  COMPLETED // Referral completed and reward granted
 }
 
 enum DigestStatus {
