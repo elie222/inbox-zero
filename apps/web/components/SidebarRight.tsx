@@ -13,7 +13,7 @@ export function SidebarRight({
   return (
     <Sidebar
       collapsible="icon"
-      className="sticky top-0 hidden h-svh border-l lg:flex min-w-[400px]"
+      className="sticky top-0 hidden h-svh border-l lg:flex min-w-[450px]"
       side="right"
       {...props}
     >
