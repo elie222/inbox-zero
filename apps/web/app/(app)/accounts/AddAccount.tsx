@@ -14,12 +14,15 @@ import { DialogTrigger } from "@/components/ui/dialog";
 import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
+import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
     await authClient.signIn.social({
       provider: "google",
       callbackURL: "/accounts",
+      scopes: [...GMAIL_SCOPES],
     });
   };
 
@@ -38,6 +41,7 @@ export function AddAccount() {
     await authClient.signIn.social({
       provider: "microsoft",
       callbackURL: "/accounts",
+      scopes: [...OUTLOOK_SCOPES],
     });
   };
 

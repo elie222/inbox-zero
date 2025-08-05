@@ -23,13 +23,13 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
-  baseURL: env.NEXT_PUBLIC_BASE_URL,
   logger: {
     level: "debug",
     log: (_, message, ...args) => {
       logger.info(message, { args });
     },
   },
+  baseURL: env.NEXT_PUBLIC_BASE_URL,
   trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: process.env.NEXTAUTH_SECRET,
   emailAndPassword: {
@@ -100,6 +100,7 @@ export const auth = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
+      requireSelectAccount: true,
     },
   },
   events: {
@@ -108,20 +109,6 @@ export const auth = betterAuth({
   databaseHooks: {
     account: {
       create: {
-        before: async (account) => {
-          const withEncryptedTokens = { ...account };
-          if (account.accessToken) {
-            const encryptedAccessToken = encryptToken(account.accessToken);
-            withEncryptedTokens.accessToken = encryptedAccessToken;
-          }
-          if (account.refreshToken) {
-            const encryptedRefreshToken = encryptToken(account.refreshToken);
-            withEncryptedTokens.refreshToken = encryptedRefreshToken;
-          }
-          return {
-            data: withEncryptedTokens,
-          };
-        },
         after: async (account: Account) => {
           await handleLinkAccount(account);
         },
