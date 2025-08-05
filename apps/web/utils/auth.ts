@@ -23,8 +23,8 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
+  baseURL: env.NEXT_PUBLIC_BASE_URL,
   logger: {
-    disabled: false,
     level: "debug",
     log: (_, message, ...args) => {
       logger.info(message, { args });
@@ -72,6 +72,11 @@ export const auth = betterAuth({
       createdAt: "createdAt",
       updatedAt: "updatedAt",
     },
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "microsoft"],
+      allowDifferentEmails: true,
+    },
   },
   verification: {
     modelName: "VerificationToken",
@@ -83,15 +88,15 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: env.GOOGLE_CLIENT_ID!,
-      clientSecret: env.GOOGLE_CLIENT_SECRET!,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
       prompt: "select_account+consent",
     },
     microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID!,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+      clientId: env.MICROSOFT_CLIENT_ID,
+      clientSecret: env.MICROSOFT_CLIENT_SECRET,
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
@@ -103,6 +108,20 @@ export const auth = betterAuth({
   databaseHooks: {
     account: {
       create: {
+        before: async (account) => {
+          const withEncryptedTokens = { ...account };
+          if (account.accessToken) {
+            const encryptedAccessToken = encryptToken(account.accessToken);
+            withEncryptedTokens.accessToken = encryptedAccessToken;
+          }
+          if (account.refreshToken) {
+            const encryptedRefreshToken = encryptToken(account.refreshToken);
+            withEncryptedTokens.refreshToken = encryptedRefreshToken;
+          }
+          return {
+            data: withEncryptedTokens,
+          };
+        },
         after: async (account: Account) => {
           await handleLinkAccount(account);
         },

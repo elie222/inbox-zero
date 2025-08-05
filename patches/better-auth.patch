@@ -1,0 +1,25 @@
+diff --git a/dist/shared/better-auth.Bafolo-S.cjs b/dist/shared/better-auth.Bafolo-S.cjs
+index 45a337da8177b9a7d82da067b2518920df9fe18f..3bcf3fb0384bb25a55189fa78c16c699ff2f01ed 100644
+--- a/dist/shared/better-auth.Bafolo-S.cjs
++++ b/dist/shared/better-auth.Bafolo-S.cjs
+@@ -1203,6 +1203,9 @@ async function generateState(c, link) {
+ async function parseState(c) {
+   const state = c.query.state || c.body.state;
+   const data = await c.context.internalAdapter.findVerificationValue(state);
++
++  c.context.logger.debug("verification value", { data });
++
+   if (!data) {
+     c.context.logger.error("State Mismatch. Verification not found", {
+       state
+@@ -1226,6 +1229,10 @@ async function parseState(c) {
+     parsedData.errorURL = `${c.context.baseURL}/error`;
+   }
+   if (parsedData.expiresAt < Date.now()) {
++    c.context.logger.error("expiresAt is in the past", {
++      expiresAt: parsedData.expiresAt,
++      now: Date.now()
++    });
+     await c.context.internalAdapter.deleteVerificationValue(data.id);
+     const errorURL = c.context.options.onAPIError?.errorURL || `${c.context.baseURL}/error`;
+     throw c.redirect(`${errorURL}?error=please_restart_the_process`);
