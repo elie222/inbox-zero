@@ -88,7 +88,10 @@ const SidebarProvider = React.forwardRef<
         }
 
         // This sets the cookie to keep the sidebar state.
-        document.cookie = `${sidebarNames.map((sidebarName) => `${sidebarName}:state=${openState.includes(sidebarName)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`).join("; ")}`;
+        // This sets the cookie to keep the sidebar state.
+        sidebarNames.forEach((sidebarName) => {
+          document.cookie = `${sidebarName}:state=${openState.includes(sidebarName)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        });
       },
       [setOpenProp, open, sidebarNames],
     );
