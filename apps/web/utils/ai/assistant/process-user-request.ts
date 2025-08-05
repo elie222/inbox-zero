@@ -205,7 +205,7 @@ ${senderCategory || "No category"}
     tools: {
       update_conditional_operator: tool({
         description: "Update the conditional operator of a rule",
-        parameters: z.object({
+        inputSchema: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           conditionalOperator: z
             .enum([LogicalOperator.AND, LogicalOperator.OR])
@@ -226,7 +226,7 @@ ${senderCategory || "No category"}
       }),
       update_ai_instructions: tool({
         description: "Update the AI instructions of a rule",
-        parameters: z.object({
+        inputSchema: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           aiInstructions: z.string().describe("The new AI instructions"),
         }),
@@ -242,7 +242,7 @@ ${senderCategory || "No category"}
       }),
       update_static_conditions: tool({
         description: "Update the static conditions of a rule",
-        parameters: z.object({
+        inputSchema: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
           staticConditions: createRuleSchema.shape.condition.shape.static,
         }),
@@ -263,7 +263,7 @@ ${senderCategory || "No category"}
       // We may bring this back as "learned patterns"
       // add_pattern: tool({
       //   description: "Add a pattern",
-      //   parameters: z.object({
+      //   inputSchema: z.object({
       //     ruleName: z
       //       .string()
       //       .describe("The name of the rule to add the pattern to"),
@@ -326,7 +326,7 @@ ${senderCategory || "No category"}
         ? {
             remove_pattern: tool({
               description: "Remove a pattern",
-              parameters: z.object({
+              inputSchema: z.object({
                 type: z
                   .enum(["from", "subject"])
                   .describe("The type of the pattern to remove"),
@@ -403,7 +403,7 @@ ${senderCategory || "No category"}
             }),
             add_categories: tool({
               description: "Add categories to a rule",
-              parameters: z.object({
+              inputSchema: z.object({
                 ruleName: z
                   .string()
                   .describe("The exact name of the rule to edit"),
@@ -464,7 +464,7 @@ ${senderCategory || "No category"}
             }),
             remove_categories: tool({
               description: "Remove categories from a rule",
-              parameters: z.object({
+              inputSchema: z.object({
                 ruleName: z
                   .string()
                   .describe("The exact name of the rule to edit"),
@@ -527,7 +527,7 @@ ${senderCategory || "No category"}
         : {}),
       create_rule: tool({
         description: "Create a new rule",
-        parameters: categories
+        inputSchema: categories
           ? getCreateRuleSchemaWithCategories(
               categories.map((c) => c.name) as [string, ...string[]],
             )
@@ -549,7 +549,25 @@ ${senderCategory || "No category"}
             });
 
             const rule = await createRule({
-              result: { name, condition, actions },
+              result: {
+                name,
+                condition,
+                actions: actions.map((action) => ({
+                  ...action,
+                  fields: action.fields
+                    ? {
+                        ...action.fields,
+                        label: action.fields.label ?? null,
+                        to: action.fields.to ?? null,
+                        cc: action.fields.cc ?? null,
+                        bcc: action.fields.bcc ?? null,
+                        subject: action.fields.subject ?? null,
+                        content: action.fields.content ?? null,
+                        webhookUrl: action.fields.webhookUrl ?? null,
+                      }
+                    : null,
+                })),
+              },
               emailAccountId: emailAccount.id,
               categoryIds,
             });
@@ -587,7 +605,7 @@ ${senderCategory || "No category"}
       }),
       list_rules: tool({
         description: "List all existing rules for the user",
-        parameters: z.object({}),
+        inputSchema: z.object({}),
         execute: async () => {
           trackToolCall({
             tool: "list_rules",
@@ -598,7 +616,7 @@ ${senderCategory || "No category"}
       }),
       reply: tool({
         description: "Send an email reply to the user",
-        parameters: z.object({
+        inputSchema: z.object({
           content: z.string().describe("The content of the reply"),
         }),
         // no execute function - invoking it will terminate the agent
@@ -677,7 +695,7 @@ const getUpdateCategoryTool = ({
 }) =>
   tool({
     description: "Update the category of a sender",
-    parameters: z.object({
+    inputSchema: z.object({
       sender: z.string().describe("The sender to update"),
       category: z
         .enum([
