@@ -23,6 +23,14 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
+  logger: {
+    disabled: false,
+    level: "debug",
+    log: (_, message, ...args) => {
+      logger.info(message, { args });
+    },
+  },
+  trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: process.env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
@@ -98,12 +106,6 @@ export const auth = betterAuth({
     account: {
       create: {
         after: async (account: Account) => {
-          logger.info("Debug: Better Auth created account", {
-            accountId: account.accountId,
-            providerId: account.providerId,
-            userId: account.userId,
-          });
-
           await handleLinkAccount(account);
         },
       },
