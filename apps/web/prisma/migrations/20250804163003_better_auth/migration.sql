@@ -4,8 +4,8 @@ UPDATE "Account"
 SET "provider" = 'microsoft' 
 WHERE "provider" = 'microsoft-entra-id';
 
--- Remove type column from Account table (Better Auth doesn't use it)
-ALTER TABLE "Account" DROP COLUMN "type";
+-- Add default value to type column in Account table
+ALTER TABLE "Account" ALTER COLUMN "type" SET DEFAULT 'oidc';
 
 -- Change expires_at from Int to DateTime with default
 ALTER TABLE "Account" ALTER COLUMN "expires_at" TYPE TIMESTAMP(3) USING 
@@ -19,7 +19,7 @@ ALTER TABLE "Account" ALTER COLUMN "expires_at" SET DEFAULT now();
 ALTER TABLE "Session" ADD COLUMN "ipAddress" TEXT;
 ALTER TABLE "Session" ADD COLUMN "userAgent" TEXT;
 ALTER TABLE "Session" ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE "Session" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "Session" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL;
 
 -- Change emailVerified from DateTime to Boolean
 ALTER TABLE "User" ALTER COLUMN "emailVerified" TYPE BOOLEAN USING 
@@ -30,7 +30,7 @@ ALTER TABLE "User" ALTER COLUMN "emailVerified" TYPE BOOLEAN USING
 ALTER TABLE "User" ALTER COLUMN "emailVerified" SET DEFAULT false;
 
 -- Add new columns to VerificationToken table
-ALTER TABLE "VerificationToken" ADD COLUMN "id" TEXT NOT NULL DEFAULT gen_random_uuid();
+ALTER TABLE "VerificationToken" ADD COLUMN "id" TEXT NOT NULL;
 ALTER TABLE "VerificationToken" ADD PRIMARY KEY ("id");
 ALTER TABLE "VerificationToken" ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
-ALTER TABLE "VerificationToken" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP; 
+ALTER TABLE "VerificationToken" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL; 
