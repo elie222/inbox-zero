@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import { after } from "next/server";
-import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 import { deleteUser } from "@/utils/user/delete";
 import { extractGmailSignature } from "@/utils/gmail/signature";
@@ -81,10 +80,6 @@ export const resetAnalyticsAction = actionClient
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
-    try {
-      await auth.api.signOut();
-    } catch {}
-
     await deleteUser({ userId });
   });
 

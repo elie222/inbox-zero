@@ -21,7 +21,7 @@ export async function getGmailClientForEmail({
   const gmail = getGmailClientWithRefresh({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken || "",
-    expiresAt: tokens.expiresAt ?? null,
+    expiresAt: tokens.expiresAt,
     emailAccountId,
   });
   return gmail;
@@ -36,7 +36,7 @@ export async function getGmailAndAccessTokenForEmail({
   const gmail = await getGmailClientWithRefresh({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken || "",
-    expiresAt: tokens.expiresAt ?? null,
+    expiresAt: tokens.expiresAt,
     emailAccountId,
   });
   const accessToken = getAccessTokenFromClient(gmail);
@@ -59,7 +59,7 @@ export async function getGmailClientForEmailId({
   const gmail = getGmailClientWithRefresh({
     accessToken: account?.account.access_token,
     refreshToken: account?.account.refresh_token || "",
-    expiresAt: account?.account.expires_at ?? null,
+    expiresAt: account?.account.expires_at?.getTime() ?? null,
     emailAccountId,
   });
   return gmail;
@@ -74,7 +74,7 @@ export async function getOutlookClientForEmail({
   const outlook = await getOutlookClientWithRefresh({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken || "",
-    expiresAt: tokens.expiresAt ?? null,
+    expiresAt: tokens.expiresAt,
     emailAccountId,
   });
   return outlook;
@@ -89,7 +89,7 @@ export async function getOutlookAndAccessTokenForEmail({
   const outlook = await getOutlookClientWithRefresh({
     accessToken: tokens.accessToken,
     refreshToken: tokens.refreshToken || "",
-    expiresAt: tokens.expiresAt ?? null,
+    expiresAt: tokens.expiresAt,
     emailAccountId,
   });
   const accessToken = getOutlookAccessToken(outlook);
@@ -112,7 +112,7 @@ export async function getOutlookClientForEmailId({
   const outlook = await getOutlookClientWithRefresh({
     accessToken: account?.account.access_token,
     refreshToken: account?.account.refresh_token || "",
-    expiresAt: account?.account.expires_at ?? null,
+    expiresAt: account?.account.expires_at?.getTime() ?? null,
     emailAccountId,
   });
   return outlook;
@@ -131,7 +131,7 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
   return {
     accessToken: emailAccount?.account.access_token,
     refreshToken: emailAccount?.account.refresh_token,
-    expiresAt: emailAccount?.account.expires_at,
+    expiresAt: emailAccount?.account.expires_at?.getTime() ?? null,
   };
 }
 

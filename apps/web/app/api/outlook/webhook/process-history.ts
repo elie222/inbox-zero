@@ -128,7 +128,7 @@ export async function processHistoryForUser({
     const outlookClient = await getOutlookClientWithRefresh({
       accessToken: emailAccount.account?.access_token,
       refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      expiresAt: emailAccount.account?.expires_at?.getTime() || null,
       emailAccountId: emailAccount.id,
     });
 
