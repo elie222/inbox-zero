@@ -48,7 +48,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   name          String?
   email         String    @unique
-  emailVerified Boolean @default(false)
+  emailVerified Boolean?  @default(false)
   image         String?
   accounts      Account[]
   sessions      Session[]
