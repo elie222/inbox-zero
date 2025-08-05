@@ -23,8 +23,8 @@ export const env = createEnv({
 
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
-    MICROSOFT_CLIENT_ID: z.string().optional(),
-    MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    MICROSOFT_CLIENT_ID: z.string(),
+    MICROSOFT_CLIENT_SECRET: z.string(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 

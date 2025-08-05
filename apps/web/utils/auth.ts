@@ -24,12 +24,12 @@ const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
   logger: {
-    disabled: false,
     level: "debug",
     log: (_, message, ...args) => {
       logger.info(message, { args });
     },
   },
+  baseURL: env.NEXT_PUBLIC_BASE_URL,
   trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: process.env.NEXTAUTH_SECRET,
   emailAndPassword: {
@@ -72,6 +72,11 @@ export const auth = betterAuth({
       createdAt: "createdAt",
       updatedAt: "updatedAt",
     },
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "microsoft"],
+      allowDifferentEmails: true,
+    },
   },
   verification: {
     modelName: "VerificationToken",
@@ -83,18 +88,19 @@ export const auth = betterAuth({
   },
   socialProviders: {
     google: {
-      clientId: env.GOOGLE_CLIENT_ID!,
-      clientSecret: env.GOOGLE_CLIENT_SECRET!,
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
       prompt: "select_account+consent",
     },
     microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID!,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET!,
+      clientId: env.MICROSOFT_CLIENT_ID,
+      clientSecret: env.MICROSOFT_CLIENT_SECRET,
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
+      requireSelectAccount: true,
     },
   },
   events: {
