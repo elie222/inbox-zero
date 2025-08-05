@@ -1,3 +1,4 @@
+import { tool } from "ai";
 import { z } from "zod";
 import { chatCompletionTools } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -113,16 +114,24 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
     prompt,
     system,
     tools: {
-      generate_rules: {
-        description: "Generate a list of email management rules",
-        parameters: hasSnippets ? parametersSnippets : parameters,
-      },
+      generate_rules: hasSnippets
+        ? tool({
+            description: "Generate a list of email management rules",
+            inputSchema: parametersSnippets,
+          })
+        : tool({
+            description: "Generate a list of email management rules",
+            inputSchema: parameters,
+          }),
     },
     userEmail: emailAccount.email,
     label: "Generate rules prompt",
   });
 
-  const args = aiResponse.toolCalls[0]?.args;
+  const toolCall = aiResponse.toolCalls.find(
+    (toolCall) => toolCall.toolName === "generate_rules",
+  );
+  const args = toolCall?.input;
 
   logger.trace("Args", { args });
 

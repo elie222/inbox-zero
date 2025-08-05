@@ -1,3 +1,4 @@
+import { tool } from "ai";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 import { chatCompletionTools } from "@/utils/llms";
@@ -5,7 +6,6 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
-  type CreateOrUpdateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { env } from "@/env";
@@ -78,18 +78,21 @@ ${cleanedPromptFile}
     prompt,
     system,
     tools: {
-      parse_rules: {
+      parse_rules: tool({
         description: "Parse rules from prompt file",
-        parameters,
-      },
+        inputSchema: parameters,
+      }),
     },
     userEmail: emailAccount.email,
     label: "Prompt to rules",
   });
 
-  const result = aiResponse.toolCalls?.[0]?.args as {
-    rules: CreateOrUpdateRuleSchemaWithCategories[];
-  } | null;
+  const toolCall = aiResponse.toolCalls.find(
+    (toolCall) => toolCall.toolName === "parse_rules",
+  );
+  const args = toolCall?.input;
+
+  const result = args as z.infer<typeof parameters>;
 
   if (!result) {
     logger.error("No rules found in AI response", { aiResponse });
