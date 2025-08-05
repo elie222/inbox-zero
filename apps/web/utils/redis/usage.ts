@@ -5,7 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("redis/usage");
 
-type Usage = {
+export type RedisUsage = {
   openaiCalls?: number;
   openaiTokensUsed?: number;
   openaiCompletionTokensUsed?: number;
@@ -21,7 +21,7 @@ function getUsageKey(email: string) {
 
 export async function getUsage(options: { email: string }) {
   const key = getUsageKey(options.email);
-  const data = await redis.hgetall<Usage>(key);
+  const data = await redis.hgetall<RedisUsage>(key);
   return data;
 }
 
