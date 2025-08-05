@@ -80,7 +80,7 @@ export const auth = betterAuth({
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
       prompt: "select_account+consent",
-      redirectURI: `${env.NEXTAUTH_URL}/api/auth/callback/google`,
+      redirectURI: `${env.NEXT_PUBLIC_BASE_URL}/api/auth/callback/google`,
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID!,
@@ -88,7 +88,7 @@ export const auth = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
-      redirectURI: `${env.NEXTAUTH_URL}/api/auth/callback/microsoft-entra-id`,
+      redirectURI: `${env.NEXT_PUBLIC_BASE_URL}/api/auth/callback/microsoft-entra-id`,
     },
   },
   events: {
