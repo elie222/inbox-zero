@@ -15,13 +15,14 @@ import { useChats } from "@/hooks/useChats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
-import { type Chat as ChatType, useChat } from "@/providers/ChatProvider";
+import { useChat } from "@/providers/ChatProvider";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 
 const MAX_MESSAGES = 20;
 
 export function Chat() {
-  const { chatId, chat, input, setInput, handleSubmit, setNewChat } = useChat();
+  const { chat, chatId, input, setInput, handleSubmit, setNewChat } = useChat();
+  const { messages, status, stop, regenerate, setMessages } = chat;
 
   useEffect(() => {
     if (!chatId) {
@@ -29,44 +30,6 @@ export function Chat() {
     }
   }, [chatId, setNewChat]);
 
-  return (
-    <ChatUI
-      chat={chat}
-      input={input}
-      setInput={setInput}
-      handleSubmit={handleSubmit}
-    />
-  );
-
-  // return tab ? (
-  //   <ResizablePanelGroup
-  //     direction={isMobile ? "vertical" : "horizontal"}
-  //     className="flex-grow"
-  //   >
-  //     <ResizablePanel defaultSize={65}>
-  //       <AssistantTabs />
-  //     </ResizablePanel>
-  //     <ResizableHandle withHandle />
-  //     <ResizablePanel className="overflow-y-auto" defaultSize={35}>
-  //       {chatPanel}
-  //     </ResizablePanel>
-  //   </ResizablePanelGroup>
-  // ) : (
-  //   chatPanel
-  // );
-}
-
-function ChatUI({
-  chat: { messages, setMessages, status, stop, regenerate },
-  input,
-  setInput,
-  handleSubmit,
-}: {
-  chat: ChatType;
-  input: string;
-  setInput: (input: string) => void;
-  handleSubmit: () => void;
-}) {
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
@@ -126,23 +89,6 @@ function NewChatButton() {
     </Tooltip>
   );
 }
-
-// function OpenArtifactButton() {
-//   const [tab, setTab] = useQueryState("tab");
-
-//   if (tab) return null;
-
-//   const handleOpenArtifact = () => setTab("rules");
-
-//   return (
-//     <Tooltip content="Open side panel">
-//       <Button variant="ghost" size="icon" onClick={handleOpenArtifact}>
-//         <ArrowLeftToLineIcon className="size-5" />
-//         <span className="sr-only">Open side panel</span>
-//       </Button>
-//     </Tooltip>
-//   );
-// }
 
 function ChatHistoryDropdown() {
   const { setChatId } = useChat();
