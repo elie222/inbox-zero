@@ -4,7 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("ioredis");
 
-// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
+// biome-ignore lint/complexity/noStaticOnlyClass: ignore
 class RedisSubscriber {
   private static instance: Redis | null = null;
 

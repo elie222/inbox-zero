@@ -33,7 +33,7 @@ export function MessageEditor({
   );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ignore
   useEffect(() => {
     if (textareaRef.current) {
       adjustHeight();
