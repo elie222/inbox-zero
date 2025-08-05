@@ -297,7 +297,7 @@ const Sidebar = React.forwardRef<
                 child.type === SidebarMenuButton
               ) {
                 return React.cloneElement(child, {
-                  isCollapsed: state.includes(name),
+                  isCollapsed: !state.includes(name),
                 } as React.ComponentProps<typeof SidebarMenuButton>);
               }
               return child;
