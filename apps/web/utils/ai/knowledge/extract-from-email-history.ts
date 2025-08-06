@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";

@@ -1,11 +1,13 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { generateObject } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
 import { preprocessBooleanLike } from "@/utils/zod";
+import { getModel } from "@/utils/llms/model";
+import { saveAiUsage } from "@/utils/usage";
 // import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai/clean");
@@ -92,14 +94,36 @@ The current date is ${currentDate}.
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Clean",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema,
-    userEmail: emailAccount.email,
-    usageLabel: "Clean",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Clean",
+    });
+  }
 
   logger.trace("Result", { response: aiResponse.object });
 
