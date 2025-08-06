@@ -1,6 +1,6 @@
 "use client";
 
-import { useCompletion } from "ai/react";
+import { useCompletion } from "@ai-sdk/react";
 import { useEffect } from "react";
 import { ButtonLoader } from "@/components/Loading";
 import { ViewMoreButton } from "@/app/(app)/[emailAccountId]/simple/ViewMoreButton";

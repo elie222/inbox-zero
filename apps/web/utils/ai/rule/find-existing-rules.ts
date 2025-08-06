@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { chatCompletionTools } from "@/utils/llms";
+import { chatCompletionObject, chatCompletionTools } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
 
@@ -44,23 +44,18 @@ ${JSON.stringify(databaseRules, null, 2)}
 
 Please return the existing rules that match the prompt rules.`;
 
-  const aiResponse = await chatCompletionTools({
+  const aiResponse = await chatCompletionObject({
     userAi: emailAccount.user,
     prompt,
     system,
-    tools: {
-      find_existing_rules: {
-        description: "Find the existing rules that match the prompt rules",
-        parameters,
-      },
-    },
+    schemaName: "Find existing rules",
+    schemaDescription: "Find the existing rules that match the prompt rules",
+    schema: parameters,
     userEmail: emailAccount.email,
-    label: "Find existing rules",
+    usageLabel: "Find existing rules",
   });
 
-  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
-    typeof parameters
-  >;
+  const parsedRules = aiResponse.object;
 
   const existingRules = parsedRules.existingRules.map((rule) => {
     const promptRule = rule.promptNumber

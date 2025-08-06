@@ -25,7 +25,7 @@ export function PostHogPageview() {
     }
   }, [pathname, searchParams]);
 
-  return <></>;
+  return null;
 }
 
 export function PostHogIdentify() {
@@ -38,7 +38,7 @@ export function PostHogIdentify() {
       });
   }, [session?.data?.user.email]);
 
-  return <></>;
+  return null;
 }
 
 if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { MessageCircleIcon, SlidersIcon } from "lucide-react";
+import { SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -20,6 +20,7 @@ import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/Set
 import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
+import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -85,7 +86,7 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="mx-4">
+        <div className="mx-4 mt-2">
           <div className="w-screen-xl mx-auto max-w-screen-xl">
             <div className="w-full">
               <PremiumAlertWithData className="mb-2" />
@@ -203,12 +204,7 @@ function ExtraActions({ emailAccountId }: { emailAccountId: string }) {
         buttonProps={{ size: "sm", variant: "ghost" }}
       />
 
-      <Button size="sm" variant="primaryBlue" asChild>
-        <Link href={prefixPath(emailAccountId, "/assistant")}>
-          <MessageCircleIcon className="mr-2 size-4" />
-          AI Chat
-        </Link>
-      </Button>
+      <AIChatButton />
     </div>
   );
 }

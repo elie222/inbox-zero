@@ -1,25 +1,25 @@
-import type { UIMessage } from "ai";
 import { PreviewMessage, ThinkingMessage } from "./message";
 import { useScrollToBottom } from "./use-scroll-to-bottom";
 import { Overview } from "./overview";
 import { memo } from "react";
 import equal from "fast-deep-equal";
 import type { UseChatHelpers } from "@ai-sdk/react";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 
 interface MessagesProps {
-  status: UseChatHelpers["status"];
-  messages: Array<UIMessage>;
-  setMessages: UseChatHelpers["setMessages"];
-  reload: UseChatHelpers["reload"];
+  status: UseChatHelpers<ChatMessage>["status"];
+  messages: Array<ChatMessage>;
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isArtifactVisible: boolean;
-  setInput: UseChatHelpers["setInput"];
+  setInput: (input: string) => void;
 }
 
 function PureMessages({
   status,
   messages,
   setMessages,
-  reload,
+  regenerate,
   setInput,
 }: MessagesProps) {
   const [messagesContainerRef, messagesEndRef] =
@@ -38,7 +38,7 @@ function PureMessages({
           message={message}
           isLoading={status === "streaming" && messages.length - 1 === index}
           setMessages={setMessages}
-          reload={reload}
+          regenerate={regenerate}
         />
       ))}
 

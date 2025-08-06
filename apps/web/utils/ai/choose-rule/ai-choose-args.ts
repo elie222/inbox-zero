@@ -1,6 +1,10 @@
 import { z } from "zod";
-import { InvalidToolArgumentsError } from "ai";
-import { chatCompletionTools, withRetry } from "@/utils/llms";
+import { InvalidArgumentError } from "ai";
+import {
+  chatCompletionObject,
+  chatCompletionTools,
+  withRetry,
+} from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -73,42 +77,32 @@ export async function aiGenerateArgs({
 
   const aiResponse = await withRetry(
     () =>
-      chatCompletionTools({
+      chatCompletionObject({
         userAi: emailAccount.user,
         prompt,
         system,
-        tools: {
-          apply_rule: {
-            description: "Apply the rule with the given arguments.",
-            parameters: z.object(
-              Object.fromEntries(
-                parameters.map((p) => [
-                  `${p.type}-${p.actionId}`,
-                  p.parameters,
-                ]),
-              ),
-            ),
-          },
-        },
-        label: "Args for rule",
+        schemaName: "Apply rule",
+        schemaDescription: "Apply the rule with the given arguments.",
+        schema: z.object(
+          Object.fromEntries(
+            parameters.map((p) => [`${p.type}-${p.actionId}`, p.parameters]),
+          ),
+        ),
+        usageLabel: "Args for rule",
         userEmail: emailAccount.email,
       }),
     {
-      retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
+      retryIf: (error: unknown) => InvalidArgumentError.isInstance(error),
       maxRetries: 3,
       delayMs: 1000,
     },
   );
 
-  const toolCall = aiResponse.toolCalls[0];
+  const result = aiResponse.object;
 
-  if (!toolCall?.toolName) return;
+  logger.trace("Result", { result });
 
-  const toolCallArgs = toolCall.args;
-
-  logger.trace("Tool call args", { toolCallArgs });
-
-  return toolCallArgs;
+  return result;
 }
 
 function getSystemPrompt({

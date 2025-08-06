@@ -1,4 +1,4 @@
-import { appendClientMessage, appendResponseMessages } from "ai";
+import { convertToModelMessages, type UIMessage } from "ai";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -6,7 +6,9 @@ import { NextResponse } from "next/server";
 import { aiProcessAssistantChat } from "@/utils/ai/assistant/chat";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { Prisma, type ChatMessage } from "@prisma/client";
+import type { Prisma } from "@prisma/client";
+import { convertToUIMessages } from "@/components/assistant-chat/helpers";
+import { captureException } from "@/utils/error";
 
 export const maxDuration = 120;
 
@@ -21,19 +23,8 @@ const assistantInputSchema = z.object({
   id: z.string(),
   message: z.object({
     id: z.string(),
-    createdAt: z.coerce.date(),
     role: z.enum(["user"]),
-    content: z.string().min(1).max(3000),
     parts: z.array(textPartSchema),
-    // experimental_attachments: z
-    //   .array(
-    //     z.object({
-    //       url: z.string().url(),
-    //       name: z.string().min(1).max(100),
-    //       contentType: z.enum(["image/png", "image/jpg", "image/jpeg"]),
-    //     }),
-    //   )
-    //   .optional(),
   }),
 });
 
@@ -49,7 +40,6 @@ export const POST = withEmailAccount(async (request) => {
 
   if (error) return NextResponse.json({ error: error.errors }, { status: 400 });
 
-  // create chat if it doesn't exist
   const chat =
     (await getChatById(data.id)) ||
     (await createNewChat({ emailAccountId, chatId: data.id }));
@@ -69,63 +59,27 @@ export const POST = withEmailAccount(async (request) => {
   }
 
   const { message } = data;
-  const mappedDbMessages = chat.messages.map((dbMsg: ChatMessage) => {
-    return {
-      ...dbMsg,
-      role: convertDbRoleToSdkRole(dbMsg.role),
-      content: "",
-      parts: dbMsg.parts as any,
-    };
-  });
-
-  const messages = appendClientMessage({
-    messages: mappedDbMessages,
-    message,
-  });
+  const uiMessages = [...convertToUIMessages(chat), message];
 
   await saveChatMessage({
     chat: { connect: { id: chat.id } },
     id: message.id,
     role: "user",
     parts: message.parts,
-    // attachments: message.experimental_attachments ?? [],
   });
 
   try {
     const result = await aiProcessAssistantChat({
-      messages,
+      messages: convertToModelMessages(uiMessages),
       emailAccountId,
       user,
-      onFinish: async ({ response }) => {
-        const assistantMessages = response.messages.filter(
-          (message) => message.role === "assistant",
-        );
-        const assistantId = getTrailingMessageId(assistantMessages);
-
-        if (!assistantId) {
-          logger.error("No assistant message found!", { response });
-          throw new Error("No assistant message found!");
-        }
-
-        // handles all tool calls
-        const [, assistantMessage] = appendResponseMessages({
-          messages: [message],
-          responseMessages: response.messages,
-        });
-
-        await saveChatMessage({
-          id: assistantId,
-          chat: { connect: { id: chat.id } },
-          role: assistantMessage.role,
-          parts: assistantMessage.parts
-            ? (assistantMessage.parts as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-          // attachments: assistantMessage.experimental_attachments ?? [],
-        });
-      },
     });
 
-    return result.toDataStreamResponse();
+    return result.toUIMessageStreamResponse({
+      onFinish: async ({ messages }) => {
+        await saveChatMessages(messages, chat.id);
+      },
+    });
   } catch (error) {
     logger.error("Error in assistant chat", { error });
     return NextResponse.json(
@@ -155,10 +109,6 @@ async function createNewChat({
   }
 }
 
-async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
-  return prisma.chatMessage.create({ data: message });
-}
-
 async function getChatById(chatId: string) {
   const chat = await prisma.chat.findUnique({
     where: { id: chatId },
@@ -167,29 +117,22 @@ async function getChatById(chatId: string) {
   return chat;
 }
 
-function convertDbRoleToSdkRole(
-  role: string,
-): "user" | "assistant" | "system" | "data" {
-  switch (role) {
-    case "user":
-      return "user";
-    case "assistant":
-      return "assistant";
-    case "system":
-      return "system";
-    case "data":
-      return "data";
-    default:
-      return "assistant";
-  }
+async function saveChatMessage(message: Prisma.ChatMessageCreateInput) {
+  return prisma.chatMessage.create({ data: message });
 }
 
-function getTrailingMessageId<T extends { id: string }>(
-  messages: Array<T>,
-): string | null {
-  const trailingMessage = messages.at(-1);
-
-  if (!trailingMessage) return null;
-
-  return trailingMessage.id;
+async function saveChatMessages(messages: UIMessage[], chatId: string) {
+  try {
+    return prisma.chatMessage.createMany({
+      data: messages.map((message) => ({
+        chatId,
+        role: message.role,
+        parts: message.parts as Prisma.InputJsonValue,
+      })),
+    });
+  } catch (error) {
+    logger.error("Failed to save chat messages", { error, chatId });
+    captureException(error, { extra: { chatId } });
+    throw error;
+  }
 }

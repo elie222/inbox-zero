@@ -286,7 +286,7 @@ async function subscriptionUpdated({
 }
 
 async function subscriptionCancelled({
-  payload,
+  payload: _payload,
   premiumId,
   endsAt,
   variantId,
