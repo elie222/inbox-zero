@@ -24,6 +24,9 @@ const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
   advanced: {
+    database: {
+      generateId: false,
+    },
     crossSubDomainCookies: {
       enabled: true,
       domain: env.COOKIE_DOMAIN,
@@ -113,8 +116,7 @@ export const auth = betterAuth({
       identifier: "identifier",
       value: "token",
       expiresAt: "expires",
-    },
-    disableCleanup: true,
+    }
   },
   socialProviders: {
     google: {
