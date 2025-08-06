@@ -67,6 +67,8 @@ ${cleanedPromptFile}
     userAi: emailAccount.user,
     prompt,
     system,
+    schemaName: "Parse rules",
+    schemaDescription: "Parse rules from prompt file",
     schema: parameters,
     userEmail: emailAccount.email,
     usageLabel: "Prompt to rules",
