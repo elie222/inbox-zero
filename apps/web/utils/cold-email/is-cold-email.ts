@@ -214,7 +214,7 @@ ${stringifyEmail(email, 500)}
     }),
     userEmail: emailAccount.email,
     usageLabel: "Cold email check",
-    modelType: modelType ? "chat" : "default",
+    modelType,
   });
 
   logger.trace("AI is cold email response", { response: response.object });
