@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { ModelType } from "@/utils/llms/model";
 import { ActionType, type Action } from "@prisma/client";
 import {
   type RuleWithActions,
@@ -27,11 +28,13 @@ export async function getActionItemsWithAiArgs({
   emailAccount,
   selectedRule,
   client,
+  modelType,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
   client: EmailProvider;
+  modelType: ModelType;
 }): Promise<Action[]> {
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
@@ -64,6 +67,7 @@ export async function getActionItemsWithAiArgs({
     emailAccount,
     selectedRule,
     parameters,
+    modelType,
   });
 
   return combineActionsWithAiArgs(selectedRule.actions, result, draft);

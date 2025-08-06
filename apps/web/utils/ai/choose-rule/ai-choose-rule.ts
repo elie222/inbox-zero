@@ -4,6 +4,7 @@ import { chatCompletionObject } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
+import type { ModelType } from "@/utils/llms/model";
 // import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai-choose-rule");
@@ -14,10 +15,11 @@ type GetAiResponseOptions = {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
   rules: { name: string; instructions: string }[];
+  modelType?: ModelType;
 };
 
 async function getAiResponse(options: GetAiResponseOptions) {
-  const { email, emailAccount, rules } = options;
+  const { email, emailAccount, rules, modelType = "default" } = options;
 
   const emailSection = stringifyEmail(email, 500);
 
@@ -80,6 +82,7 @@ ${emailSection}
 
   const aiResponse = await chatCompletionObject({
     userAi: emailAccount.user,
+    modelType,
     messages: [
       {
         role: "system",
@@ -133,10 +136,12 @@ export async function aiChooseRule<
   email,
   rules,
   emailAccount,
+  modelType,
 }: {
   email: EmailForLLM;
   rules: T[];
   emailAccount: EmailAccountWithAI;
+  modelType?: ModelType;
 }) {
   if (!rules.length) return { reason: "No rules" };
 
@@ -144,6 +149,7 @@ export async function aiChooseRule<
     email,
     rules,
     emailAccount,
+    modelType,
   });
 
   if (aiResponse.noMatchFound)

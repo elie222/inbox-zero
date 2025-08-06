@@ -44,6 +44,7 @@ IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`
     system,
     prompt,
     userEmail: emailAccount.email,
+    modelType: "chat",
     usageLabel: "Reply",
   });
 

@@ -10,6 +10,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import type { ActionType } from "@prisma/client";
+import type { ModelType } from "@/utils/llms/model";
 
 /**
  * AI Argument Generator for Email Actions
@@ -43,6 +44,7 @@ export async function aiGenerateArgs({
   emailAccount,
   selectedRule,
   parameters,
+  modelType,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
@@ -54,6 +56,7 @@ export async function aiGenerateArgs({
       Record<string, z.ZodObject<Record<string, z.ZodString>>>
     >;
   }[];
+  modelType: ModelType;
 }) {
   const loggerOptions = {
     email: emailAccount.email,
@@ -79,6 +82,7 @@ export async function aiGenerateArgs({
     () =>
       chatCompletionObject({
         userAi: emailAccount.user,
+        modelType,
         prompt,
         system,
         schemaName: "Apply rule",

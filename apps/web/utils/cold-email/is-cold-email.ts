@@ -13,6 +13,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/provider";
+import type { ModelType } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -22,10 +23,12 @@ export async function isColdEmail({
   email,
   emailAccount,
   provider,
+  modelType,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
   provider: EmailProvider;
+  modelType?: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -68,7 +71,7 @@ export async function isColdEmail({
   }
 
   // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount);
+  const res = await aiIsColdEmail(email, emailAccount, modelType);
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -87,10 +90,12 @@ export async function isColdEmailWithProvider({
   email,
   emailAccount,
   provider,
+  modelType,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
   provider: EmailProvider;
+  modelType: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -133,7 +138,7 @@ export async function isColdEmailWithProvider({
   }
 
   // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount);
+  const res = await aiIsColdEmail(email, emailAccount, modelType);
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -170,6 +175,7 @@ async function isKnownColdEmailSender({
 async function aiIsColdEmail(
   email: EmailForLLM,
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI,
+  modelType?: ModelType,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
@@ -208,6 +214,7 @@ ${stringifyEmail(email, 500)}
     }),
     userEmail: emailAccount.email,
     usageLabel: "Cold email check",
+    modelType,
   });
 
   logger.trace("AI is cold email response", { response: response.object });
@@ -220,6 +227,7 @@ export async function runColdEmailBlockerWithProvider(options: {
   provider: EmailProvider;
   emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
     EmailAccountWithAI;
+  modelType: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -230,6 +238,7 @@ export async function runColdEmailBlockerWithProvider(options: {
     email: options.email,
     emailAccount: options.emailAccount,
     provider: options.provider,
+    modelType: options.modelType,
   });
 
   if (!response.isColdEmail) return { ...response, coldEmailId: null };
