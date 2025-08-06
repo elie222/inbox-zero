@@ -116,7 +116,7 @@ export const auth = betterAuth({
       identifier: "identifier",
       value: "token",
       expiresAt: "expires",
-    }
+    },
   },
   socialProviders: {
     google: {
@@ -137,7 +137,7 @@ export const auth = betterAuth({
       disableIdTokenSignIn: true,
     },
   },
-  events: {
+  /* events: {
     signIn: handleSignIn,
   },
   databaseHooks: {
@@ -148,13 +148,13 @@ export const auth = betterAuth({
         },
       },
     },
-  },
+  }, */
   onAPIError: {
     throw: true,
     onError: (error, ctx) => {
       logger.error("Auth error:", { error, ctx });
     },
-    errorURL: "/login",
+    errorURL: "/login/error",
   },
 });
 async function handleSignIn({
