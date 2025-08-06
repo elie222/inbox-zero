@@ -34,6 +34,7 @@ export function SideNavMenu({
             isActive={item.active || activeHref === item.href}
             className="h-9"
             tooltip={item.name}
+            sidebarName="left-sidebar"
           >
             <Link href={item.href}>
               <item.icon />

@@ -341,6 +341,7 @@ function MailNav({ path }: { path: string }) {
             <SidebarMenuButton
               className="h-9 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               onClick={onOpen}
+              sidebarName="left-sidebar"
             >
               <PenIcon className="size-4" />
               <span className="truncate font-semibold">Compose</span>

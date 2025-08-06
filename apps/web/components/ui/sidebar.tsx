@@ -592,7 +592,7 @@ const SidebarMenuButton = React.forwardRef<
   HTMLButtonElement,
   React.ComponentProps<"button"> & {
     asChild?: boolean;
-    isCollapsed?: boolean;
+    sidebarName?: string;
     isActive?: boolean;
     tooltip?: string | React.ComponentProps<typeof TooltipContent>;
   } & VariantProps<typeof sidebarMenuButtonVariants>
@@ -605,13 +605,15 @@ const SidebarMenuButton = React.forwardRef<
       size = "default",
       tooltip,
       className,
-      isCollapsed = false,
+      sidebarName,
       ...props
     },
     ref,
   ) => {
     const Comp = asChild ? Slot : "button";
-    const { isMobile } = useSidebar();
+    const { isMobile, state } = useSidebar();
+
+    const isCollapsed = state.includes(sidebarName ?? "");
 
     const button = (
       <Comp
