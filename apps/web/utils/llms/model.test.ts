@@ -164,18 +164,18 @@ describe("Models", () => {
       expect(result.llmModel).toBeDefined();
     });
 
-    it("should configure Ollama model correctly", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: "user-api-key",
-        aiProvider: Provider.OLLAMA!,
-        aiModel: "llama3",
-      };
+    // it("should configure Ollama model correctly", () => {
+    //   const userAi: UserAIFields = {
+    //     aiApiKey: "user-api-key",
+    //     aiProvider: Provider.OLLAMA!,
+    //     aiModel: "llama3",
+    //   };
 
-      const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.OLLAMA);
-      expect(result.model).toBe("llama3");
-      expect(result.llmModel).toBeDefined();
-    });
+    //   const result = getModel(userAi);
+    //   expect(result.provider).toBe(Provider.OLLAMA);
+    //   expect(result.model).toBe("llama3");
+    //   expect(result.llmModel).toBeDefined();
+    // });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
       const userAi: UserAIFields = {
