@@ -24,9 +24,16 @@ const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
   logger: {
-    level: "debug",
-    log: (_, message, ...args) => {
-      logger.info(message, { args });
+    level: "info",
+    log: (level, message, ...args) => {
+      switch (level) {
+        case "info":
+          logger.info(message, { args });
+          break;
+        case "error":
+          logger.error(message, { args });
+          break;
+      }
     },
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
@@ -72,11 +79,11 @@ export const auth = betterAuth({
       createdAt: "createdAt",
       updatedAt: "updatedAt",
     },
-    accountLinking: {
+    /* accountLinking: {
       enabled: true,
       trustedProviders: ["google", "microsoft"],
       allowDifferentEmails: true,
-    },
+    }, */
   },
   verification: {
     modelName: "VerificationToken",
@@ -85,6 +92,7 @@ export const auth = betterAuth({
       value: "token",
       expiresAt: "expires",
     },
+    disableCleanup: true,
   },
   socialProviders: {
     google: {
