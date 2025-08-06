@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
+import { generateObject } from "ai";
+import { getModel } from "@/utils/llms/model";
+import { saveAiUsage } from "@/utils/usage";
 
 export async function aiFindExistingRules({
   emailAccount,
@@ -31,28 +33,59 @@ ${JSON.stringify(databaseRules, null, 2)}
 
 Please return the existing rules that match the prompt rules.`;
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    prompt,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   prompt,
+  //   system,
+  //   output: "array",
+  //   schemaName: "Find existing rules",
+  //   schemaDescription: "Find the existing rules that match the prompt rules",
+  //   schema: z
+  //     .object({
+  //       ruleId: z.string().describe("The id of the existing rule"),
+  //       promptNumber: z
+  //         .number()
+  //         .describe("The index of the prompt that matches the rule"),
+  //     })
+  //     .describe("The existing rules that match the prompt rules"),
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Find existing rules",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+    "chat",
+  );
+
+  const result = await generateObject({
+    model: llmModel,
     system,
+    prompt,
+    providerOptions,
     output: "array",
     schemaName: "Find existing rules",
     schemaDescription: "Find the existing rules that match the prompt rules",
     schema: z
-      .array(
-        z.object({
-          ruleId: z.string().describe("The id of the existing rule"),
-          promptNumber: z
-            .number()
-            .describe("The index of the prompt that matches the rule"),
-        }),
-      )
+      .object({
+        ruleId: z.string().describe("The id of the existing rule"),
+        promptNumber: z
+          .number()
+          .describe("The index of the prompt that matches the rule"),
+      })
       .describe("The existing rules that match the prompt rules"),
-    userEmail: emailAccount.email,
-    usageLabel: "Find existing rules",
   });
 
-  const parsedRules = aiResponse.object;
+  if (result.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: result.usage,
+      provider,
+      model,
+      label: "Find existing rules",
+    });
+  }
+
+  const parsedRules = result.object;
 
   const existingRules = parsedRules.map((rule) => {
     // not sure why, but rule can be object or array, so we have to handle both cases
