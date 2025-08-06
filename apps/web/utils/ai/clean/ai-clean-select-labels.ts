@@ -2,6 +2,7 @@ import { z } from "zod";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+
 const logger = createScopedLogger("ai/clean/select-labels");
 
 const schema = z.object({ labels: z.array(z.string()).optional() });

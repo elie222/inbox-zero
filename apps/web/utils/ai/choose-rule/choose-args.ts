@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { ActionType, type Action } from "@prisma/client";
 import {
@@ -10,13 +9,10 @@ import {
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
-import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("choose-args");
-
-type EmailClient = gmail_v1.Gmail | OutlookClient;
 
 type ActionArgResponse = {
   [key: `${string}-${string}`]: {

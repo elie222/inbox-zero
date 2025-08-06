@@ -91,6 +91,8 @@ type ChatCompletionObjectArgs<T> = {
   userAi: UserAIFields;
   modelType?: ModelType;
   schema: z.Schema<T>;
+  schemaName?: string;
+  schemaDescription?: string;
   userEmail: string;
   usageLabel: string;
 } & (
@@ -119,6 +121,8 @@ async function chatCompletionObjectInternal<T>({
   prompt,
   messages,
   schema,
+  schemaName,
+  schemaDescription,
   userEmail,
   usageLabel,
 }: ChatCompletionObjectArgs<T>) {
@@ -134,6 +138,8 @@ async function chatCompletionObjectInternal<T>({
       prompt,
       messages,
       schema,
+      schemaName,
+      schemaDescription,
       output: "object",
       providerOptions,
       ...commonOptions,
