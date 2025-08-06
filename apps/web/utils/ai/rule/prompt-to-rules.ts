@@ -1,14 +1,12 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { chatCompletionTools } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
+  type CreateOrUpdateRuleSchemaWithCategories,
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
-  type CreateOrUpdateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
-import { env } from "@/env";
 import { convertMentionsToLabels } from "@/utils/mention";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
@@ -27,7 +25,7 @@ export async function aiPromptToRules({
   promptFile: string;
   isEditing: boolean;
   availableCategories?: string[];
-}) {
+}): Promise<CreateOrUpdateRuleSchemaWithCategories[]> {
   function getSchema() {
     if (availableCategories?.length) {
       const createRuleSchemaWithCategories = getCreateRuleSchemaWithCategories(
@@ -45,11 +43,9 @@ export async function aiPromptToRules({
     return isEditing ? updateRuleSchema : createRuleSchema;
   }
 
-  const schema = getSchema();
-
   const parameters = z.object({
     rules: z
-      .array(schema)
+      .array(getSchema())
       .describe("The parsed rules list from the prompt file"),
   });
 
@@ -65,42 +61,29 @@ export async function aiPromptToRules({
 ${cleanedPromptFile}
 </prompt>`;
 
-  if (env.NODE_ENV === "development") {
-    logger.trace("Input", {
-      system,
-      prompt,
-      parameters: zodToJsonSchema(parameters),
-    });
-  }
+  logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionTools({
+  const aiResponse = await chatCompletionObject({
     userAi: emailAccount.user,
     prompt,
     system,
-    tools: {
-      parse_rules: {
-        description: "Parse rules from prompt file",
-        parameters,
-      },
-    },
+    schemaName: "Parse rules",
+    schemaDescription: "Parse rules from prompt file",
+    schema: parameters,
     userEmail: emailAccount.email,
-    label: "Prompt to rules",
+    usageLabel: "Prompt to rules",
   });
 
-  const result = aiResponse.toolCalls?.[0]?.args as {
-    rules: CreateOrUpdateRuleSchemaWithCategories[];
-  } | null;
-
-  if (!result) {
+  if (!aiResponse) {
     logger.error("No rules found in AI response", { aiResponse });
     throw new Error("No rules found in AI response");
   }
 
-  const { rules } = result;
+  const { rules } = aiResponse.object;
 
   logger.trace("Output", { rules });
 
-  return rules;
+  return rules as CreateOrUpdateRuleSchemaWithCategories[];
 }
 
 function getSystemPrompt({

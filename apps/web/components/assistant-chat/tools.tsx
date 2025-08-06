@@ -2,15 +2,13 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryState } from "nuqs";
 import type {
-  UpdateAboutSchema,
-  UpdateRuleConditionSchema,
-  UpdateRuleActionsSchema,
-  UpdateLearnedPatternsSchema,
-  AddToKnowledgeBaseSchema,
-  UpdateRuleConditionsResult,
-  UpdateRuleActionsResult,
+  UpdateAboutTool,
+  UpdateRuleConditionsTool,
+  UpdateRuleActionsTool,
+  UpdateLearnedPatternsTool,
+  AddToKnowledgeBaseTool,
+  CreateRuleTool,
 } from "@/utils/ai/assistant/chat";
-import type { CreateRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { EyeIcon, SparklesIcon, TrashIcon, FileDiffIcon } from "lucide-react";
@@ -22,64 +20,7 @@ import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 
-export function ToolCard({
-  toolName,
-  args,
-  ruleId,
-  result,
-}: {
-  toolName: string;
-  args: any;
-  ruleId?: string;
-  result?: any;
-}) {
-  switch (toolName) {
-    case "get_user_rules_and_settings":
-      return <BasicInfo text="Read rules and settings" />;
-    case "get_learned_patterns":
-      return <BasicInfo text={`Read learned patterns for ${args.ruleName}`} />;
-    case "create_rule":
-      return <CreatedRule args={args as CreateRuleSchema} ruleId={ruleId} />;
-    case "update_rule_conditions": {
-      const conditionsResult = result as UpdateRuleConditionsResult;
-      return (
-        <UpdatedRuleConditions
-          args={args as UpdateRuleConditionSchema}
-          ruleId={ruleId || ""}
-          originalConditions={conditionsResult?.originalConditions}
-          updatedConditions={conditionsResult?.updatedConditions}
-        />
-      );
-    }
-    case "update_rule_actions": {
-      const actionsResult = result as UpdateRuleActionsResult;
-      return (
-        <UpdatedRuleActions
-          args={args as UpdateRuleActionsSchema}
-          ruleId={ruleId || ""}
-          originalActions={actionsResult?.originalActions}
-          updatedActions={actionsResult?.updatedActions}
-        />
-      );
-    }
-    case "update_learned_patterns": {
-      return (
-        <UpdatedLearnedPatterns
-          args={args as UpdateLearnedPatternsSchema}
-          ruleId={ruleId || ""}
-        />
-      );
-    }
-    case "update_about":
-      return <UpdateAbout args={args as UpdateAboutSchema} />;
-    case "add_to_knowledge_base":
-      return <AddToKnowledgeBase args={args as AddToKnowledgeBaseSchema} />;
-    default:
-      return null;
-  }
-}
-
-function BasicInfo({ text }: { text: string }) {
+export function BasicToolInfo({ text }: { text: string }) {
   return (
     <Card className="p-2">
       <div className="text-sm">{text}</div>
@@ -87,11 +28,11 @@ function BasicInfo({ text }: { text: string }) {
   );
 }
 
-function CreatedRule({
+export function CreatedRuleToolCard({
   args,
   ruleId,
 }: {
-  args: CreateRuleSchema;
+  args: CreateRuleTool["input"];
   ruleId?: string;
 }) {
   const conditionsArray = [
@@ -104,8 +45,7 @@ function CreatedRule({
       <ToolCardHeader
         title={
           <>
-            <strong>{ruleId ? "New rule created:" : "Creating rule:"}</strong>{" "}
-            {args.name}
+            {ruleId ? "New rule created:" : "Creating rule:"} {args.name}
           </>
         }
         actions={ruleId && <RuleActions ruleId={ruleId} />}
@@ -160,16 +100,16 @@ function CreatedRule({
   );
 }
 
-function UpdatedRuleConditions({
+export function UpdatedRuleConditions({
   args,
   ruleId,
   originalConditions,
   updatedConditions,
 }: {
-  args: UpdateRuleConditionSchema;
+  args: UpdateRuleConditionsTool["input"];
   ruleId: string;
-  originalConditions?: UpdateRuleConditionsResult["originalConditions"];
-  updatedConditions?: UpdateRuleConditionsResult["updatedConditions"];
+  originalConditions?: UpdateRuleConditionsTool["output"]["originalConditions"];
+  updatedConditions?: UpdateRuleConditionsTool["output"]["updatedConditions"];
 }) {
   const [showChanges, setShowChanges] = useState(false);
 
@@ -249,16 +189,16 @@ function UpdatedRuleConditions({
   );
 }
 
-function UpdatedRuleActions({
+export function UpdatedRuleActions({
   args,
   ruleId,
   originalActions,
   updatedActions,
 }: {
-  args: UpdateRuleActionsSchema;
+  args: UpdateRuleActionsTool["input"];
   ruleId: string;
-  originalActions?: UpdateRuleActionsResult["originalActions"];
-  updatedActions?: UpdateRuleActionsResult["updatedActions"];
+  originalActions?: UpdateRuleActionsTool["output"]["originalActions"];
+  updatedActions?: UpdateRuleActionsTool["output"]["updatedActions"];
 }) {
   const [showChanges, setShowChanges] = useState(false);
 
@@ -268,7 +208,11 @@ function UpdatedRuleActions({
     updatedActions &&
     JSON.stringify(originalActions) !== JSON.stringify(updatedActions);
 
-  const formatActions = (actions: any[]) => {
+  const formatActions = <
+    T extends { type: string; fields: Record<string, string | null> },
+  >(
+    actions: T[],
+  ) => {
     return actions
       .map((action) => {
         const parts = [`Type: ${action.type}`];
@@ -333,11 +277,11 @@ function UpdatedRuleActions({
   );
 }
 
-function UpdatedLearnedPatterns({
+export function UpdatedLearnedPatterns({
   args,
   ruleId,
 }: {
-  args: UpdateLearnedPatternsSchema;
+  args: UpdateLearnedPatternsTool["input"];
   ruleId: string;
 }) {
   return (
@@ -389,7 +333,7 @@ function UpdatedLearnedPatterns({
   );
 }
 
-function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
+export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
   return (
     <Card className="space-y-3 p-4">
       <ToolCardHeader title={<>Updated About Information</>} />
@@ -398,7 +342,11 @@ function UpdateAbout({ args }: { args: UpdateAboutSchema }) {
   );
 }
 
-function AddToKnowledgeBase({ args }: { args: AddToKnowledgeBaseSchema }) {
+export function AddToKnowledgeBase({
+  args,
+}: {
+  args: AddToKnowledgeBaseTool["input"];
+}) {
   const [_, setTab] = useQueryState("tab");
 
   return (
@@ -569,7 +517,7 @@ function renderActionFields(fields: {
   const fieldEntries = [];
 
   // Only add fields that have actual values
-  if (fields.label) fieldEntries.push([fields.label]);
+  if (fields.label) fieldEntries.push(["Label", fields.label]);
   if (fields.subject) fieldEntries.push(["Subject", fields.subject]);
   if (fields.to) fieldEntries.push(["To", fields.to]);
   if (fields.cc) fieldEntries.push(["CC", fields.cc]);

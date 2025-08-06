@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { chatCompletionTools } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -108,23 +108,31 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
 
   logger.trace("generate-rules-prompt", { system, prompt });
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    tools: {
-      generate_rules: {
-        description: "Generate a list of email management rules",
-        parameters: hasSnippets ? parametersSnippets : parameters,
-      },
-    },
-    userEmail: emailAccount.email,
-    label: "Generate rules prompt",
-  });
+  const aiResponse = hasSnippets
+    ? await chatCompletionObject({
+        userAi: emailAccount.user,
+        prompt,
+        system,
+        schemaName: "Generate rules",
+        schemaDescription: "Generate a list of email management rules",
+        schema: parametersSnippets,
+        userEmail: emailAccount.email,
+        usageLabel: "Generate rules prompt",
+      })
+    : await chatCompletionObject({
+        userAi: emailAccount.user,
+        prompt,
+        system,
+        schemaName: "Generate rules",
+        schemaDescription: "Generate a list of email management rules",
+        schema: parameters,
+        userEmail: emailAccount.email,
+        usageLabel: "Generate rules prompt",
+      });
 
-  const args = aiResponse.toolCalls[0]?.args;
+  const args = aiResponse?.object;
 
-  logger.trace("Args", { args });
+  logger.trace("Result", { args });
 
   return parseRulesResponse(args, hasSnippets);
 }

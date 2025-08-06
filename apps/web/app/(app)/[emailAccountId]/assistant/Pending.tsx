@@ -30,7 +30,7 @@ import { Checkbox } from "@/components/Checkbox";
 import { useToggleSelect } from "@/hooks/useToggleSelect";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/assistant/RulesSelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useChat } from "@/components/assistant-chat/ChatContext";
+import { useChat } from "@/providers/ChatProvider";
 
 export function Pending() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));

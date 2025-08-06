@@ -14,7 +14,7 @@ export async function createFilter(options: {
   addLabelIds?: string[];
   removeLabelIds?: string[];
 }) {
-  const { client, from, addLabelIds, removeLabelIds } = options;
+  const { client, from, removeLabelIds } = options;
 
   try {
     // Create a mail rule that moves messages from specific sender
@@ -196,7 +196,6 @@ export async function updateFilter({
   client,
   id,
   from,
-  addLabelIds,
   removeLabelIds,
 }: {
   client: OutlookClient;

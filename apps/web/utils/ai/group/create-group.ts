@@ -1,3 +1,4 @@
+import { tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
@@ -95,10 +96,10 @@ Key guidelines:
     maxSteps: 10,
     tools: {
       listEmails: listEmailsTool(gmail),
-      [GENERATE_GROUP_ITEMS]: {
+      [GENERATE_GROUP_ITEMS]: tool({
         description: "Create a group",
-        parameters: generateGroupItemsSchema,
-      },
+        inputSchema: generateGroupItemsSchema,
+      }),
     },
     userEmail: emailAccount.email,
     label: "Create group",
@@ -113,8 +114,8 @@ Key guidelines:
   const combinedArgs = generateGroupItemsToolCalls.reduce<
     z.infer<typeof generateGroupItemsSchema>
   >(
-    (acc, { args }) => {
-      const typedArgs = args as z.infer<typeof generateGroupItemsSchema>;
+    (acc, { input }) => {
+      const typedArgs = input as z.infer<typeof generateGroupItemsSchema>;
       return {
         senders: [...acc.senders, ...typedArgs.senders],
         subjects: [...acc.subjects, ...typedArgs.subjects],
@@ -166,10 +167,10 @@ Guidelines:
     maxSteps: 10,
     tools: {
       listEmails: listEmailsTool(gmail),
-      [VERIFY_GROUP_ITEMS]: {
+      [VERIFY_GROUP_ITEMS]: tool({
         description: "Remove incorrect or overly broad group criteria",
-        parameters: verifyGroupItemsSchema,
-      },
+        inputSchema: verifyGroupItemsSchema,
+      }),
     },
     userEmail: emailAccount.email,
     label: "Verify group criteria",
@@ -184,9 +185,12 @@ Guidelines:
     return initialItems;
   }
 
-  const verificationResult = verifyGroupItemsToolCalls[
-    verifyGroupItemsToolCalls.length - 1
-  ].args as z.infer<typeof verifyGroupItemsSchema>;
+  const toolCall =
+    verifyGroupItemsToolCalls[verifyGroupItemsToolCalls.length - 1];
+
+  const verificationResult = toolCall.input as z.infer<
+    typeof verifyGroupItemsSchema
+  >;
 
   // Remove the identified items from the initial lists
   const verifiedItems = {

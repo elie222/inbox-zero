@@ -7,13 +7,9 @@ import { usePremium } from "@/components/PremiumAlert";
 import { LoadingContent } from "@/components/LoadingContent";
 import { env } from "@/env";
 import { isPremium } from "@/utils/premium";
+import type { RedisUsage } from "@/utils/redis/usage";
 
-export function Usage(props: {
-  usage?: {
-    openaiCalls: number;
-    openaiTokensUsed: number;
-  } | null;
-}) {
+export function Usage(props: { usage: RedisUsage | null }) {
   const { premium, isLoading, error } = usePremium();
 
   return (

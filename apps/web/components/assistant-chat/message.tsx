@@ -1,7 +1,6 @@
 "use client";
 
 import { memo, useState } from "react";
-import type { UIMessage } from "ai";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { SparklesIcon } from "lucide-react";
@@ -10,19 +9,27 @@ import { Markdown } from "./markdown";
 import { cn } from "@/utils";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
-import { ToolCard } from "@/components/assistant-chat/tools";
-import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AddToKnowledgeBase,
+  BasicToolInfo,
+  CreatedRuleToolCard,
+  UpdateAbout,
+  UpdatedLearnedPatterns,
+  UpdatedRuleActions,
+  UpdatedRuleConditions,
+} from "@/components/assistant-chat/tools";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 
 const PurePreviewMessage = ({
   message,
   isLoading,
   setMessages,
-  reload,
+  regenerate,
 }: {
-  message: UIMessage;
+  message: ChatMessage;
   isLoading: boolean;
-  setMessages: UseChatHelpers["setMessages"];
-  reload: UseChatHelpers["reload"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -62,13 +69,15 @@ const PurePreviewMessage = ({
                   <MessageReasoning
                     key={key}
                     isLoading={isLoading}
-                    reasoning={part.reasoning}
+                    reasoning={part.text}
                   />
                 );
               }
 
               if (type === "text") {
                 if (mode === "view") {
+                  if (!part.text) return null;
+
                   return (
                     <div key={key} className="flex flex-row items-start gap-2">
                       <div
@@ -94,30 +103,270 @@ const PurePreviewMessage = ({
                         message={message}
                         setMode={setMode}
                         setMessages={setMessages}
-                        reload={reload}
+                        regenerate={regenerate}
                       />
                     </div>
                   );
                 }
               }
 
-              if (type === "tool-invocation") {
-                const { toolInvocation } = part;
-                const { toolName, toolCallId, state } = toolInvocation;
+              if (type === "tool-getUserRulesAndSettings") {
+                const { toolCallId, state } = part;
 
-                if (state === "call") {
-                  return <Skeleton key={toolCallId} className="h-16 w-full" />;
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Reading rules and settings..."
+                    />
+                  );
                 }
 
-                if (state === "result") {
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
                   return (
-                    <ToolCard
+                    <BasicToolInfo
                       key={toolCallId}
-                      toolName={toolName}
-                      args={toolInvocation.args}
-                      result={toolInvocation.result}
-                      ruleId={toolInvocation.result?.ruleId}
+                      text="Read rules and settings"
                     />
+                  );
+                }
+              }
+
+              if (type === "tool-getLearnedPatterns") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Reading learned patterns..."
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Read learned patterns"
+                    />
+                  );
+                }
+              }
+
+              if (type === "tool-createRule") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text={`Creating rule "${part.input.name}"...`}
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <CreatedRuleToolCard
+                      key={toolCallId}
+                      args={part.input}
+                      ruleId={output.ruleId}
+                    />
+                  );
+                }
+              }
+
+              if (type === "tool-updateRuleConditions") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text={`Updating rule "${part.input.ruleName}" conditions...`}
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <UpdatedRuleConditions
+                      key={toolCallId}
+                      args={part.input}
+                      ruleId={output.ruleId}
+                      originalConditions={output.originalConditions}
+                      updatedConditions={output.updatedConditions}
+                    />
+                  );
+                }
+              }
+
+              if (type === "tool-updateRuleActions") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text={`Updating rule "${part.input.ruleName}" actions...`}
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <UpdatedRuleActions
+                      key={toolCallId}
+                      args={part.input}
+                      ruleId={output.ruleId}
+                      originalActions={output.originalActions}
+                      updatedActions={output.updatedActions}
+                    />
+                  );
+                }
+              }
+
+              if (type === "tool-updateLearnedPatterns") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text={`Updating learned patterns for rule "${part.input.ruleName}"...`}
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <UpdatedLearnedPatterns
+                      key={toolCallId}
+                      args={part.input}
+                      ruleId={output.ruleId}
+                    />
+                  );
+                }
+              }
+
+              if (type === "tool-updateAbout") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo key={toolCallId} text="Updating about..." />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return <UpdateAbout key={toolCallId} args={part.input} />;
+                }
+              }
+
+              if (type === "tool-addToKnowledgeBase") {
+                const { toolCallId, state } = part;
+
+                if (state === "input-available") {
+                  return (
+                    <BasicToolInfo
+                      key={toolCallId}
+                      text="Adding to knowledge base..."
+                    />
+                  );
+                }
+
+                if (state === "output-available") {
+                  const { output } = part;
+
+                  if ("error" in output) {
+                    return (
+                      <ErrorToolCard
+                        key={toolCallId}
+                        error={String(output.error)}
+                      />
+                    );
+                  }
+
+                  return (
+                    <AddToKnowledgeBase key={toolCallId} args={part.input} />
                   );
                 }
               }
@@ -128,6 +377,10 @@ const PurePreviewMessage = ({
     </AnimatePresence>
   );
 };
+
+function ErrorToolCard({ error }: { error: string }) {
+  return <div className="rounded border p-2 text-red-500">Error: {error}</div>;
+}
 
 export const PreviewMessage = memo(
   PurePreviewMessage,

@@ -3,7 +3,6 @@ import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
-import { createScopedLogger } from "@/utils/logger";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
 
@@ -164,7 +163,7 @@ export async function draftEmail(
     attachments?: Attachment[];
   },
 ) {
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
     textContent: args.content,
     message: originalEmail,
   });

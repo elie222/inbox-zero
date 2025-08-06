@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { createPatch } from "diff";
-import { chatCompletionTools } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai-diff-rules");
 
 const parameters = z.object({
   addedRules: z.array(z.string()).describe("The added rules"),
@@ -54,23 +57,21 @@ IMPORTANT: Do not include a rule in more than one category. If a rule is edited,
 If a rule is edited, it is an edit and not a removal! Be extra careful to not make this mistake.
 `;
 
-  const aiResponse = await chatCompletionTools({
+  const aiResponse = await chatCompletionObject({
     userAi: emailAccount.user,
     prompt,
     system,
-    tools: {
-      diff_rules: {
-        description:
-          "Analyze two prompt files and their diff to return the differences",
-        parameters,
-      },
-    },
+    schemaName: "Diff rules",
+    schemaDescription:
+      "Analyze two prompt files and their diff to return the differences",
+    schema: parameters,
     userEmail: emailAccount.email,
-    label: "Diff rules",
+    usageLabel: "Diff rules",
   });
 
-  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
-    typeof parameters
-  >;
+  const parsedRules = aiResponse.object;
+
+  logger.trace("Result", { parsedRules });
+
   return parsedRules;
 }

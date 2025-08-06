@@ -383,6 +383,7 @@ export async function filterToReplyPreset(
     "noreply@",
     "no-reply@",
     "notifications@",
+    "notif@",
     "info@",
     "newsletter@",
     "updates@",

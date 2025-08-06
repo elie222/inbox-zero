@@ -1,3 +1,4 @@
+import { tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { chatCompletionTools } from "@/utils/llms";
@@ -97,10 +98,10 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     maxSteps: 10,
     tools: {
       listEmails: listEmailsTool(gmail),
-      [FIND_EXAMPLE_MATCHES]: {
+      [FIND_EXAMPLE_MATCHES]: tool({
         description: "Find example matches",
-        parameters: findExampleMatchesSchema,
-      },
+        inputSchema: findExampleMatchesSchema,
+      }),
     },
     userEmail: emailAccount.email,
     label: "Find example matches",
@@ -112,8 +113,8 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
 
   const matches = findExampleMatchesToolCalls.reduce<
     z.infer<typeof findExampleMatchesSchema>["matches"]
-  >((acc, { args }) => {
-    const typedArgs = args as z.infer<typeof findExampleMatchesSchema>;
+  >((acc, { input }) => {
+    const typedArgs = input as z.infer<typeof findExampleMatchesSchema>;
     return acc.concat(typedArgs.matches);
   }, []);
 
