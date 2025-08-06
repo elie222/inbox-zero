@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { tool } from "ai";
+import { chatCompletionTools } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   type CreateOrUpdateRuleSchemaWithCategories,
@@ -57,24 +58,30 @@ ${cleanedPromptFile}
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
+  const aiResponse = await chatCompletionTools({
     userAi: emailAccount.user,
     prompt,
     system,
-    schemaName: "Parse rules",
-    schemaDescription: "Parse rules from prompt file",
-    schema: getSchema().describe("The parsed rules list from the prompt file"),
-    output: "array",
+    tools: {
+      parseRules: tool({
+        description: "Parse rules from prompt file",
+        inputSchema: getSchema(),
+      }),
+    },
     userEmail: emailAccount.email,
-    usageLabel: "Prompt to rules",
+    label: "Prompt to rules",
   });
 
-  if (!aiResponse) {
+  const toolCall = aiResponse.toolCalls.find(
+    (toolCall) => toolCall.toolName === "parseRules",
+  );
+
+  if (!toolCall) {
     logger.error("No rules found in AI response", { aiResponse });
     throw new Error("No rules found in AI response");
   }
 
-  const rules = aiResponse.object;
+  const rules = (toolCall.input as any)?.rules;
 
   logger.trace("Output", { rules });
 
