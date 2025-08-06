@@ -24,6 +24,20 @@ const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
   advanced: {
+    crossSubDomainCookies: {
+      domain: "getinboxzero.com",
+      enabled: true,
+    },
+    cookie: {
+      sameSite: "none",
+      secure: true,
+      domain: "getinboxzero.com",
+      path: "/",
+    },
+    defaultCookieAttributes: {
+      secure: true,
+      sameSite: "none",
+    },
     ipAddress: {
       disableIpTracking: true,
     },
