@@ -1,20 +1,7 @@
 import { z } from "zod";
-import { chatCompletionObject, chatCompletionTools } from "@/utils/llms";
+import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
-
-const parameters = z.object({
-  existingRules: z
-    .array(
-      z.object({
-        ruleId: z.string().describe("The id of the existing rule"),
-        promptNumber: z
-          .number()
-          .describe("The index of the prompt that matches the rule"),
-      }),
-    )
-    .describe("The existing rules that match the prompt rules"),
-});
 
 export async function aiFindExistingRules({
   emailAccount,
@@ -48,19 +35,30 @@ Please return the existing rules that match the prompt rules.`;
     userAi: emailAccount.user,
     prompt,
     system,
+    output: "array",
     schemaName: "Find existing rules",
     schemaDescription: "Find the existing rules that match the prompt rules",
-    schema: parameters,
+    schema: z
+      .array(
+        z.object({
+          ruleId: z.string().describe("The id of the existing rule"),
+          promptNumber: z
+            .number()
+            .describe("The index of the prompt that matches the rule"),
+        }),
+      )
+      .describe("The existing rules that match the prompt rules"),
     userEmail: emailAccount.email,
     usageLabel: "Find existing rules",
   });
 
   const parsedRules = aiResponse.object;
 
-  const existingRules = parsedRules.existingRules.map((rule) => {
-    const promptRule = rule.promptNumber
-      ? promptRules[rule.promptNumber - 1]
-      : null;
+  const existingRules = parsedRules.map((rule) => {
+    // not sure why, but rule can be object or array, so we have to handle both cases
+    const r = Array.isArray(rule) ? rule[0] : rule;
+
+    const promptRule = r.promptNumber ? promptRules[r.promptNumber - 1] : null;
 
     const toRemove = promptRule
       ? promptRulesToRemove.includes(promptRule)
@@ -71,8 +69,8 @@ Please return the existing rules that match the prompt rules.`;
       : null;
 
     return {
-      rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
-      promptNumber: rule.promptNumber,
+      rule: databaseRules.find((dbRule) => dbRule.id === r.ruleId),
+      promptNumber: r.promptNumber,
       promptRule,
       toRemove: !!toRemove,
       toEdit: !!toEdit,

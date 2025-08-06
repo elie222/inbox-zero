@@ -43,12 +43,6 @@ export async function aiPromptToRules({
     return isEditing ? updateRuleSchema : createRuleSchema;
   }
 
-  const parameters = z.object({
-    rules: z
-      .array(getSchema())
-      .describe("The parsed rules list from the prompt file"),
-  });
-
   const system = getSystemPrompt({
     hasSmartCategories: !!availableCategories?.length,
   });
@@ -69,7 +63,10 @@ ${cleanedPromptFile}
     system,
     schemaName: "Parse rules",
     schemaDescription: "Parse rules from prompt file",
-    schema: parameters,
+    schema: z
+      .array(getSchema())
+      .describe("The parsed rules list from the prompt file"),
+    output: "array",
     userEmail: emailAccount.email,
     usageLabel: "Prompt to rules",
   });
@@ -79,7 +76,7 @@ ${cleanedPromptFile}
     throw new Error("No rules found in AI response");
   }
 
-  const { rules } = aiResponse.object;
+  const rules = aiResponse.object;
 
   logger.trace("Output", { rules });
 
@@ -105,35 +102,33 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       When I get a newsletter, archive it and label it as "Newsletter"
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Label Newsletters",
-          "condition": {
-            "aiInstructions": "Apply this rule to newsletters"
-            ${
-              hasSmartCategories
-                ? `,
-              "categories": {
-                "categoryFilterType": "INCLUDE",
-                "categoryFilters": ["Newsletters"]
-              },
-              "conditionalOperator": "OR"`
-                : ""
-            }
-          },
-          "actions": [
-            {
-              "type": "ARCHIVE"
+      [{
+        "name": "Label Newsletters",
+        "condition": {
+          "aiInstructions": "Apply this rule to newsletters"
+          ${
+            hasSmartCategories
+              ? `,
+            "categories": {
+              "categoryFilterType": "INCLUDE",
+              "categoryFilters": ["Newsletters"]
             },
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Newsletter"
-              }
+            "conditionalOperator": "OR"`
+              : ""
+          }
+        },
+        "actions": [
+          {
+            "type": "ARCHIVE"
+          },
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Newsletter"
             }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -142,28 +137,26 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       When someone mentions system outages or critical issues, forward to urgent-support@company.com and label as Urgent-Support
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Forward Urgent Emails",
-          "condition": {
-            "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
-          },
-          "actions": [
-            {
-              "type": "FORWARD",
-              "fields": {
-                "to": "urgent-support@company.com"
-              }
-            },
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Urgent-Support"
-              }
+      [{
+        "name": "Forward Urgent Emails",
+        "condition": {
+          "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
+        },
+        "actions": [
+          {
+            "type": "FORWARD",
+            "fields": {
+              "to": "urgent-support@company.com"
             }
-          ]
-        }]
-      }
+          },
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Urgent-Support"
+            }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -172,26 +165,24 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       Label all urgent emails from company.com as "Urgent"
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Matt Urgent Emails",
-          "condition": {
-            "conditionalOperator": "AND",
-            "aiInstructions": "Apply this rule to urgent emails",
-            "static": {
-              "from": "@company.com"
+      [{
+        "name": "Matt Urgent Emails",
+        "condition": {
+          "conditionalOperator": "AND",
+          "aiInstructions": "Apply this rule to urgent emails",
+          "static": {
+            "from": "@company.com"
+          }
+        },
+        "actions": [
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Urgent"
             }
-          },
-          "actions": [
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Urgent"
-              }
-            }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -207,22 +198,20 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       """
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Reply to Call Requests",
-          "condition": {
-            "aiInstructions": "Apply this rule to emails from people asking to set up a call"
-          },
-          "actions": [
-            {
-              "type": "REPLY",
-              "fields": {
-                "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
-              }
+      [{
+        "name": "Reply to Call Requests",
+        "condition": {
+          "aiInstructions": "Apply this rule to emails from people asking to set up a call"
+        },
+        "actions": [
+          {
+            "type": "REPLY",
+            "fields": {
+              "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
             }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 </examples>
