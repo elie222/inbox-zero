@@ -64,7 +64,8 @@ Please return the existing rules that match the prompt rules.`;
     providerOptions,
     output: "array",
     schemaName: "Find existing rules",
-    schemaDescription: "Find the existing rules that match the prompt rules",
+    schemaDescription:
+      "Find the existing rules that match the prompt rules. Return a JSON array of objects.",
     schema: z
       .object({
         ruleId: z.string().describe("The id of the existing rule"),
