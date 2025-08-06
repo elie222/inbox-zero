@@ -22,6 +22,7 @@ export function AddAccount() {
     await authClient.signIn.social({
       provider: "google",
       callbackURL: "/accounts",
+      newUserCallbackURL: "/welcome",
       scopes: [...GMAIL_SCOPES],
     });
   };
@@ -41,6 +42,7 @@ export function AddAccount() {
     await authClient.signIn.social({
       provider: "microsoft",
       callbackURL: "/accounts",
+      newUserCallbackURL: "/welcome",
       scopes: [...OUTLOOK_SCOPES],
     });
   };

@@ -25,13 +25,13 @@ const logger = createScopedLogger("auth");
 export const auth = betterAuth({
   advanced: {
     crossSubDomainCookies: {
-      domain: "getinboxzero.com",
       enabled: true,
+      domain: env.COOKIE_DOMAIN,
     },
     cookie: {
       sameSite: "none",
       secure: true,
-      domain: "getinboxzero.com",
+      domain: env.COOKIE_DOMAIN,
       path: "/",
     },
     defaultCookieAttributes: {
@@ -101,11 +101,11 @@ export const auth = betterAuth({
       createdAt: "createdAt",
       updatedAt: "updatedAt",
     },
-    /* accountLinking: {
+    accountLinking: {
       enabled: true,
-      trustedProviders: ["google", "microsoft"],
       allowDifferentEmails: true,
-    }, */
+      trustedProviders: ["google", "microsoft"],
+    },
   },
   verification: {
     modelName: "VerificationToken",
@@ -123,6 +123,7 @@ export const auth = betterAuth({
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
       prompt: "select_account+consent",
+      disableIdTokenSignIn: true,
     },
     microsoft: {
       clientId: env.MICROSOFT_CLIENT_ID,
@@ -131,6 +132,7 @@ export const auth = betterAuth({
       tenantId: "common",
       prompt: "consent",
       requireSelectAccount: true,
+      disableIdTokenSignIn: true,
     },
   },
   events: {
