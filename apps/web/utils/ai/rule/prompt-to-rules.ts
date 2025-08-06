@@ -63,9 +63,7 @@ ${cleanedPromptFile}
     system,
     schemaName: "Parse rules",
     schemaDescription: "Parse rules from prompt file",
-    schema: z
-      .array(getSchema())
-      .describe("The parsed rules list from the prompt file"),
+    schema: getSchema().describe("The parsed rules list from the prompt file"),
     output: "array",
     userEmail: emailAccount.email,
     usageLabel: "Prompt to rules",
