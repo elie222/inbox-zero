@@ -1,9 +1,24 @@
 import { z } from "zod";
+import { generateText, tool } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
-import { generateObject } from "ai";
 import { getModel } from "@/utils/llms/model";
 import { saveAiUsage } from "@/utils/usage";
+import { isDefined } from "@/utils/types";
+
+const schema = z
+  .object({
+    ruleId: z.string().describe("The id of the existing rule"),
+    promptNumber: z
+      .number()
+      .describe("The index of the prompt that matches the rule"),
+  })
+  .describe("The existing rules that match the prompt rules");
+
+const findExistingRules = tool({
+  description: "Find the existing rules that match the prompt rules.",
+  inputSchema: schema,
+});
 
 export async function aiFindExistingRules({
   emailAccount,
@@ -57,23 +72,14 @@ Please return the existing rules that match the prompt rules.`;
     "chat",
   );
 
-  const result = await generateObject({
+  const result = await generateText({
     model: llmModel,
     system,
     prompt,
     providerOptions,
-    output: "array",
-    schemaName: "Find existing rules",
-    schemaDescription:
-      "Find the existing rules that match the prompt rules. Return a JSON array of objects.",
-    schema: z
-      .object({
-        ruleId: z.string().describe("The id of the existing rule"),
-        promptNumber: z
-          .number()
-          .describe("The index of the prompt that matches the rule"),
-      })
-      .describe("The existing rules that match the prompt rules"),
+    tools: {
+      findExistingRules,
+    },
   });
 
   if (result.usage) {
@@ -86,31 +92,34 @@ Please return the existing rules that match the prompt rules.`;
     });
   }
 
-  const parsedRules = result.object;
+  const existingRules = result.toolCalls
+    .map((toolCall) => {
+      if (toolCall.toolName !== "findExistingRules") return;
 
-  const existingRules = parsedRules.map((rule) => {
-    // not sure why, but rule can be object or array, so we have to handle both cases
-    const r = Array.isArray(rule) ? rule[0] : rule;
+      const rule = toolCall.input as z.infer<typeof schema>;
 
-    const promptRule = r.promptNumber ? promptRules[r.promptNumber - 1] : null;
+      const promptRule = rule.promptNumber
+        ? promptRules[rule.promptNumber - 1]
+        : null;
 
-    const toRemove = promptRule
-      ? promptRulesToRemove.includes(promptRule)
-      : null;
+      const toRemove = promptRule
+        ? promptRulesToRemove.includes(promptRule)
+        : null;
 
-    const toEdit = promptRule
-      ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
-      : null;
+      const toEdit = promptRule
+        ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
+        : null;
 
-    return {
-      rule: databaseRules.find((dbRule) => dbRule.id === r.ruleId),
-      promptNumber: r.promptNumber,
-      promptRule,
-      toRemove: !!toRemove,
-      toEdit: !!toEdit,
-      updatedPromptRule: toEdit?.newRule,
-    };
-  });
+      return {
+        rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
+        promptNumber: rule.promptNumber,
+        promptRule,
+        toRemove: !!toRemove,
+        toEdit: !!toEdit,
+        updatedPromptRule: toEdit?.newRule,
+      };
+    })
+    .filter(isDefined);
 
   return {
     editedRules: existingRules.filter((rule) => rule.toEdit),

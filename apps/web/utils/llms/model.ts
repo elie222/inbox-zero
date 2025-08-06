@@ -299,7 +299,7 @@ function selectDefaultModel(userAi: UserAIFields) {
           // to avoid rate limits, we'll select a random model
           const models = [
             "google/gemini-2.5-pro",
-            "anthropic/claude-sonnet-4",
+            // "anthropic/claude-sonnet-4",
             // "anthropic/claude-3.7-sonnet",
           ];
           return models[Math.floor(Math.random() * models.length)];
