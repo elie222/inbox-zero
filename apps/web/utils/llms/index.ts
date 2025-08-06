@@ -12,6 +12,7 @@ import {
   stepCountIs,
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
+  type ToolSet,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -244,10 +245,10 @@ export async function chatCompletionStream({
   return result;
 }
 
-type ChatCompletionToolsArgs = {
+type ChatCompletionToolsArgs<TOOLS extends ToolSet = ToolSet> = {
   userAi: UserAIFields;
   modelType?: ModelType;
-  tools: Record<string, Tool>;
+  tools?: TOOLS;
   maxSteps?: number;
   label: string;
   userEmail: string;
@@ -264,11 +265,13 @@ type ChatCompletionToolsArgs = {
     }
 );
 
-export async function chatCompletionTools(options: ChatCompletionToolsArgs) {
-  return withBackupModel(chatCompletionToolsInternal, options);
+export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
+  options: ChatCompletionToolsArgs<TOOLS>,
+) {
+  return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
 }
 
-async function chatCompletionToolsInternal({
+async function chatCompletionToolsInternal<TOOLS extends ToolSet = ToolSet>({
   userAi,
   modelType,
   system,
@@ -278,7 +281,7 @@ async function chatCompletionToolsInternal({
   maxSteps,
   label,
   userEmail,
-}: ChatCompletionToolsArgs) {
+}: ChatCompletionToolsArgs<TOOLS>) {
   try {
     const { provider, model, llmModel, providerOptions } = getModel(
       userAi,
