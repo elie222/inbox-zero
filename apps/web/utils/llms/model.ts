@@ -35,8 +35,9 @@ function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
   switch (modelType) {
     case "economy":
       return selectEconomyModel(userAi);
-    case "chat":
-      return selectChatModel(userAi);
+    // disabled for now
+    // case "chat":
+    //   return selectChatModel(userAi);
     default:
       return selectDefaultModel(userAi);
   }

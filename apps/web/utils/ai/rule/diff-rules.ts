@@ -75,41 +75,49 @@ If a rule is edited, it is an edit and not a removal! Be extra careful to not ma
     "chat",
   );
 
-  const result = await generateObject({
-    model: llmModel,
-    system,
-    prompt,
-    providerOptions,
-    schemaName: "Diff rules",
-    schemaDescription:
-      "Analyze two prompt files and their diff to return the differences",
-    schema: z.object({
-      addedRules: z.array(z.string()).describe("The added rules"),
-      editedRules: z
-        .array(
-          z.object({
-            oldRule: z.string().describe("The old rule"),
-            newRule: z.string().describe("The new rule"),
-          }),
-        )
-        .describe("The edited rules"),
-      removedRules: z.array(z.string()).describe("The removed rules"),
-    }),
-  });
-
-  if (result.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: result.usage,
-      provider,
-      model,
-      label: "Diff rules",
+  try {
+    const result = await generateObject({
+      model: llmModel,
+      system,
+      prompt,
+      providerOptions,
+      schemaName: "Diff rules",
+      schemaDescription:
+        "Analyze two prompt files and their diff to return the differences. Return the result as JSON.",
+      schema: z.object({
+        addedRules: z.array(z.string()).describe("The added rules"),
+        editedRules: z
+          .array(
+            z.object({
+              oldRule: z.string().describe("The old rule"),
+              newRule: z.string().describe("The new rule"),
+            }),
+          )
+          .describe("The edited rules"),
+        removedRules: z.array(z.string()).describe("The removed rules"),
+      }),
     });
+
+    if (result.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: result.usage,
+        provider,
+        model,
+        label: "Diff rules",
+      });
+    }
+
+    const parsedRules = result.object;
+
+    logger.trace("Result", { parsedRules });
+
+    return parsedRules;
+  } catch (error) {
+    logger.error("Error diffing rules", {
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+      error,
+    });
+    throw error;
   }
-
-  const parsedRules = result.object;
-
-  logger.trace("Result", { parsedRules });
-
-  return parsedRules;
 }
