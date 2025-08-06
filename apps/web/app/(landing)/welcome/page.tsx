@@ -2,7 +2,6 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { env } from "@/env";
@@ -22,7 +21,7 @@ export default async function WelcomePage(props: {
   searchParams: Promise<{ question?: string; force?: boolean }>;
 }) {
   const searchParams = await props.searchParams;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
 
   if (!session?.user) redirect("/login");
   if (!env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID)

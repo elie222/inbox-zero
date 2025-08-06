@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
-import { authClient } from "@/utils/auth-client";
+import { useSession } from "@/utils/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
@@ -31,7 +31,7 @@ import { useAction } from "next-safe-action/hooks";
 import { toastError, toastSuccess } from "@/components/Toast";
 
 export function MultiAccountSection() {
-  const { data: session } = authClient.useSession();
+  const { data: session } = useSession();
   const { data, isLoading, error, mutate } = useSWR<MultiAccountEmailsResponse>(
     "/api/user/settings/multi-account",
   );

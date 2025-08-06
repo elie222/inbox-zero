@@ -5,7 +5,6 @@ import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import {
   EMAIL_ACCOUNT_HEADER,
@@ -138,7 +137,7 @@ function withMiddleware<T extends NextRequest>(
 async function authMiddleware(
   req: NextRequest,
 ): Promise<RequestWithAuth | Response> {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
   if (!session?.user) {
     return NextResponse.json(
       { error: "Unauthorized", isKnownError: true },

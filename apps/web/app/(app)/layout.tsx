@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
@@ -36,7 +35,7 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
 
   if (!session?.user.email) redirect("/login");
 
