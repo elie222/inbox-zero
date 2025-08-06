@@ -23,10 +23,18 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 const logger = createScopedLogger("auth");
 
 export const auth = betterAuth({
+  advanced: {
+    ipAddress: {
+      disableIpTracking: true,
+    },
+  },
   logger: {
-    level: "info",
+    level: "debug",
     log: (level, message, ...args) => {
       switch (level) {
+        case "debug":
+          logger.info(message, { args });
+          break;
         case "info":
           logger.info(message, { args });
           break;
