@@ -1,9 +1,11 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("detect-recurring-pattern");
 
@@ -98,14 +100,36 @@ ${stringifyEmail(email, 500)}
   logger.trace("Input", { system, prompt });
 
   try {
-    const aiResponse = await chatCompletionObject({
-      userAi: emailAccount.user,
+    // const aiResponse = await chatCompletionObject({
+    //   userAi: emailAccount.user,
+    //   system,
+    //   prompt,
+    //   schema,
+    //   userEmail: emailAccount.email,
+    //   usageLabel: "Detect recurring pattern",
+    // });
+
+    const { provider, model, llmModel, providerOptions } = getModel(
+      emailAccount.user,
+    );
+
+    const aiResponse = await generateObject({
+      model: llmModel,
       system,
       prompt,
       schema,
-      userEmail: emailAccount.email,
-      usageLabel: "Detect recurring pattern",
+      providerOptions,
     });
+
+    if (aiResponse.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: aiResponse.usage,
+        provider,
+        model,
+        label: "Detect recurring pattern",
+      });
+    }
 
     logger.trace("Response", aiResponse.object);
 

@@ -5,6 +5,9 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -130,14 +133,36 @@ export async function aiDraftWithKnowledge({
 
     logger.trace("Input", { system, prompt });
 
-    const result = await chatCompletionObject({
+    // const result = await chatCompletionObject({
+    //   system,
+    //   prompt,
+    //   schema: draftSchema,
+    //   usageLabel: "Email draft with knowledge",
+    //   userAi: emailAccount.user,
+    //   userEmail: emailAccount.email,
+    // });
+
+    const { provider, model, llmModel, providerOptions } = getModel(
+      emailAccount.user,
+    );
+
+    const result = await generateObject({
+      model: llmModel,
       system,
       prompt,
       schema: draftSchema,
-      usageLabel: "Email draft with knowledge",
-      userAi: emailAccount.user,
-      userEmail: emailAccount.email,
+      providerOptions,
     });
+
+    if (result.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: result.usage,
+        provider,
+        model,
+        label: "Email draft with knowledge",
+      });
+    }
 
     logger.trace("Output", result.object);
 

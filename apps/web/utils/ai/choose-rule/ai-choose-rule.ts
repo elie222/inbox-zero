@@ -1,10 +1,11 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionObject } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import type { ModelType } from "@/utils/llms/model";
+import { getModel, type ModelType } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 // import { Braintrust } from "@/utils/braintrust";
 
 const logger = createScopedLogger("ai-choose-rule");
@@ -80,35 +81,61 @@ ${emailSection}
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    modelType,
-    messages: [
-      {
-        role: "system",
-        content: system,
-        // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
-        // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
-        // NOTE: Needs permission from AWS to use this. Otherwise gives error: "You do not have access to explicit prompt caching"
-        // Currently only available to select customers: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
-        // providerOptions: {
-        //   bedrock: { cachePoint: { type: "ephemeral" } },
-        //   anthropic: { cacheControl: { type: "ephemeral" } },
-        // },
-      },
-      {
-        role: "user",
-        content: prompt,
-      },
-    ],
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   modelType,
+  //   messages: [
+  //     {
+  //       role: "system",
+  //       content: system,
+  //       // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
+  //       // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
+  //       // NOTE: Needs permission from AWS to use this. Otherwise gives error: "You do not have access to explicit prompt caching"
+  //       // Currently only available to select customers: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
+  //       // providerOptions: {
+  //       //   bedrock: { cachePoint: { type: "ephemeral" } },
+  //       //   anthropic: { cacheControl: { type: "ephemeral" } },
+  //       // },
+  //     },
+  //     {
+  //       role: "user",
+  //       content: prompt,
+  //     },
+  //   ],
+  //   schema: z.object({
+  //     reason: z.string(),
+  //     ruleName: z.string().nullish(),
+  //     noMatchFound: z.boolean().nullish(),
+  //   }),
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Choose rule",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
+    system,
+    prompt,
     schema: z.object({
       reason: z.string(),
       ruleName: z.string().nullish(),
       noMatchFound: z.boolean().nullish(),
     }),
-    userEmail: emailAccount.email,
-    usageLabel: "Choose rule",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Choose rule",
+    });
+  }
 
   logger.trace("Response", aiResponse.object);
 

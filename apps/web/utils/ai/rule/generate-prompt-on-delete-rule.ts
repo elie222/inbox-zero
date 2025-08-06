@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("generate-prompt-on-delete-rule");
 
@@ -52,14 +54,36 @@ ${deletedRulePrompt}
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    prompt,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   prompt,
+  //   system,
+  //   schema: parameters,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Update prompt on delete rule",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
     system,
+    prompt,
     schema: parameters,
-    userEmail: emailAccount.email,
-    usageLabel: "Update prompt on delete rule",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Update prompt on delete rule",
+    });
+  }
 
   const parsedResponse = aiResponse.object;
 
