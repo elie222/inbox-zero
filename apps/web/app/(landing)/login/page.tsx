@@ -43,7 +43,7 @@ export default async function AuthenticationPage(props: {
         </div>
 
         {searchParams?.error && (
-          <ErrorAlert error={searchParams?.error} loggedIn={!!session?.user} />
+          <ErrorAlert error={searchParams?.error} />
         )}
 
         <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
