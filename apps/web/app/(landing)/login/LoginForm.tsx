@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { authClient } from "@/utils/auth-client";
+import { signIn } from "@/utils/auth-client";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -24,7 +24,7 @@ export function LoginForm() {
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
-    await authClient.signIn.social({
+    await signIn.social({
       provider: "google",
       errorCallbackURL: "/login",
       callbackURL: next && next.length > 0 ? next : "/welcome",
@@ -35,7 +35,7 @@ export function LoginForm() {
 
   const handleMicrosoftSignIn = async () => {
     setLoadingMicrosoft(true);
-    await authClient.signIn.social({
+    await signIn.social({
       provider: "microsoft",
       errorCallbackURL: "/login",
       callbackURL: next && next.length > 0 ? next : "/welcome",

@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import prisma from "@/utils/prisma";
 
 export async function checkUserOwnsEmailAccount({
@@ -8,7 +7,7 @@ export async function checkUserOwnsEmailAccount({
 }: {
   emailAccountId: string;
 }) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
   const userId = session?.user.id;
   if (!userId) notFound();
 

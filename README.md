@@ -142,7 +142,9 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
     4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
+    5. In `Authorized redirect URIs` enter:
+      - `http://localhost:3000/api/auth/callback/google`
+      - `http://localhost:3000/api/google/linking/callback`
     6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
 3.  Update .env file:

@@ -1,5 +1,4 @@
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import {
   getGmailClientWithRefresh,
   getAccessTokenFromClient,
@@ -136,7 +135,7 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
 }
 
 export async function redirectToEmailAccountPath(path: `/${string}`) {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
 
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");

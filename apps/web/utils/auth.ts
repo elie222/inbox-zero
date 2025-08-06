@@ -14,7 +14,7 @@ import { trackDubSignUp } from "@/utils/dub";
 import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { encryptToken } from "@/utils/encryption";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { updateAccountSeats } from "@/utils/premium/server";
 import type { Prisma } from "@prisma/client";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
@@ -22,24 +22,10 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 
 const logger = createScopedLogger("auth");
 
-export const auth = betterAuth({
+export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
       generateId: false,
-    },
-    crossSubDomainCookies: {
-      enabled: true,
-      domain: env.COOKIE_DOMAIN,
-    },
-    cookie: {
-      sameSite: "none",
-      secure: true,
-      domain: env.COOKIE_DOMAIN,
-      path: "/",
-    },
-    defaultCookieAttributes: {
-      secure: true,
-      sameSite: "none",
     },
     ipAddress: {
       disableIpTracking: true,
@@ -133,11 +119,10 @@ export const auth = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
-      requireSelectAccount: true,
       disableIdTokenSignIn: true,
     },
   },
-  /* events: {
+  events: {
     signIn: handleSignIn,
   },
   databaseHooks: {
@@ -148,10 +133,10 @@ export const auth = betterAuth({
         },
       },
     },
-  }, */
+  },
   onAPIError: {
     throw: true,
-    onError: (error, ctx) => {
+    onError: (error: any, ctx: any) => {
       logger.error("Auth error:", { error, ctx });
     },
     errorURL: "/login/error",
@@ -290,7 +275,9 @@ export async function handleReferralOnSignUp({
 
 async function getProfileData(providerId: string, accessToken: string) {
   if (providerId === "google") {
-    const contactsClient = getGoogleContactsClient({ accessToken });
+    const contactsClient = getGoogleContactsClient({
+      accessToken: accessToken,
+    });
     const profileResponse = await contactsClient.people.get({
       resourceName: "people/me",
       personFields: "emailAddresses,names,photos",
@@ -307,7 +294,7 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 
   if (providerId === "microsoft") {
-    const client = getOutlookContactsClient({ accessToken });
+    const client = getOutlookContactsClient({ accessToken: accessToken });
     try {
       const profileResponse = await client.getUserProfile();
 
@@ -348,7 +335,6 @@ async function handleLinkAccount(account: Account) {
       );
       throw new Error("Missing access token during account linking.");
     }
-
     const profileData = await getProfileData(
       account.providerId,
       account.accessToken,
@@ -429,7 +415,7 @@ async function handleLinkAccount(account: Account) {
   }
 }
 
-// Function to save refreshed tokens (compatible with existing structure)
+// Use by Outlook and Gmail providers
 export async function saveTokens({
   tokens,
   accountRefreshToken,
@@ -472,3 +458,6 @@ export async function saveTokens({
     updatedAccount: updatedAccount.id,
   });
 }
+
+export const auth = async () =>
+  betterAuthConfig.api.getSession({ headers: await headers() });

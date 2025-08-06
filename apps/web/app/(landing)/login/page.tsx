@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
-import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
@@ -20,7 +18,7 @@ export default async function AuthenticationPage(props: {
   searchParams?: Promise<Record<string, string>>;
 }) {
   const searchParams = await props.searchParams;
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
   if (session?.user && !searchParams?.error) {
     if (searchParams?.next) {
       redirect(searchParams?.next);
@@ -82,7 +80,7 @@ export default async function AuthenticationPage(props: {
   );
 }
 
-function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
+function ErrorAlert({ error }: { error: string; }) {
   if (error === "RequiresReconsent") return null;
 
   if (error === "OAuthAccountNotLinked") {
@@ -103,13 +101,10 @@ function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
   }
 
   return (
-    <>
       <AlertBasic
         variant="destructive"
         title="Error logging in"
         description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
       />
-      {/* <AutoLogOut loggedIn={loggedIn} /> */}
-    </>
   );
 }

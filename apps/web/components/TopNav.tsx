@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { authClient } from "@/utils/auth-client";
+import { useSession } from "@/utils/auth-client";
 import {
   Menu,
   MenuButton,
@@ -43,7 +43,7 @@ export function TopNav({ trigger }: { trigger: React.ReactNode }) {
 }
 
 function ProfileDropdown() {
-  const { data: session, isPending } = authClient.useSession();
+  const { data: session, isPending } = useSession();
   const { emailAccountId, emailAccount, provider } = useAccount();
   const router = useRouter();
 

@@ -1,12 +1,11 @@
 import { auth } from "@/utils/auth";
-import { headers } from "next/headers";
 import { AlertError } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { clearUserErrorMessagesAction } from "@/utils/actions/error-messages";
 import { getUserErrorMessages } from "@/utils/error-messages";
 
 export async function ErrorMessages() {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
   if (!session?.user) return null;
 
   const errorMessages = await getUserErrorMessages(session.user.id);

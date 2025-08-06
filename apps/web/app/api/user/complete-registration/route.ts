@@ -12,7 +12,7 @@ import type { ReadonlyHeaders } from "next/dist/server/web/spec-extension/adapte
 const logger = createScopedLogger("complete-registration");
 
 export const POST = withError(async () => {
-  const session = await auth.api.getSession({ headers: await headers() });
+  const session = await auth();
   if (!session?.user.email)
     return NextResponse.json({ error: "Not authenticated" });
 
