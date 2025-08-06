@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { truncate } from "@/utils/string";
 import { removeExcessiveWhitespace } from "@/utils/string";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("writing-style-analyzer");
 
@@ -55,7 +57,7 @@ Explicitly mention if the user often skips a greeting.
 
 - Examples: Include 2-3 representative examples of the user's actual writing style, including sentences or short paragraphs extracted from their emails that best showcase their typical writing patterns.
 
-Provide this analysis in a structured format that serves as a personalized email style guide for the user.`;
+Provide this analysis in a structured format that serves as a personalized email style guide for the user. The result should be valid JSON.`;
 
   const prompt = `Here are the emails I've sent previously. Please analyze my writing style:
 <emails>
@@ -78,14 +80,36 @@ ${
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const result = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Writing Style Analysis",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const result = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema,
-    userEmail: emailAccount.email,
-    usageLabel: "Writing Style Analysis",
+    providerOptions,
   });
+
+  if (result.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: result.usage,
+      provider,
+      model,
+      label: "Writing Style Analysis",
+    });
+  }
 
   logger.trace("Output", { result });
 

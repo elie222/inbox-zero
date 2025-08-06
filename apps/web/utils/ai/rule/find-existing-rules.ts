@@ -1,19 +1,23 @@
 import { z } from "zod";
-import { chatCompletionObject, chatCompletionTools } from "@/utils/llms";
+import { generateText, tool } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
+import { getModel } from "@/utils/llms/model";
+import { saveAiUsage } from "@/utils/usage";
+import { isDefined } from "@/utils/types";
 
-const parameters = z.object({
-  existingRules: z
-    .array(
-      z.object({
-        ruleId: z.string().describe("The id of the existing rule"),
-        promptNumber: z
-          .number()
-          .describe("The index of the prompt that matches the rule"),
-      }),
-    )
-    .describe("The existing rules that match the prompt rules"),
+const schema = z
+  .object({
+    ruleId: z.string().describe("The id of the existing rule"),
+    promptNumber: z
+      .number()
+      .describe("The index of the prompt that matches the rule"),
+  })
+  .describe("The existing rules that match the prompt rules");
+
+const findExistingRules = tool({
+  description: "Find the existing rules that match the prompt rules.",
+  inputSchema: schema,
 });
 
 export async function aiFindExistingRules({
@@ -44,41 +48,78 @@ ${JSON.stringify(databaseRules, null, 2)}
 
 Please return the existing rules that match the prompt rules.`;
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    prompt,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   prompt,
+  //   system,
+  //   output: "array",
+  //   schemaName: "Find existing rules",
+  //   schemaDescription: "Find the existing rules that match the prompt rules",
+  //   schema: z
+  //     .object({
+  //       ruleId: z.string().describe("The id of the existing rule"),
+  //       promptNumber: z
+  //         .number()
+  //         .describe("The index of the prompt that matches the rule"),
+  //     })
+  //     .describe("The existing rules that match the prompt rules"),
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Find existing rules",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+    "chat",
+  );
+
+  const result = await generateText({
+    model: llmModel,
     system,
-    schemaName: "Find existing rules",
-    schemaDescription: "Find the existing rules that match the prompt rules",
-    schema: parameters,
-    userEmail: emailAccount.email,
-    usageLabel: "Find existing rules",
+    prompt,
+    providerOptions,
+    tools: {
+      findExistingRules,
+    },
   });
 
-  const parsedRules = aiResponse.object;
+  if (result.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: result.usage,
+      provider,
+      model,
+      label: "Find existing rules",
+    });
+  }
 
-  const existingRules = parsedRules.existingRules.map((rule) => {
-    const promptRule = rule.promptNumber
-      ? promptRules[rule.promptNumber - 1]
-      : null;
+  const existingRules = result.toolCalls
+    .map((toolCall) => {
+      if (toolCall.toolName !== "findExistingRules") return;
 
-    const toRemove = promptRule
-      ? promptRulesToRemove.includes(promptRule)
-      : null;
+      const rule = toolCall.input as z.infer<typeof schema>;
 
-    const toEdit = promptRule
-      ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
-      : null;
+      const promptRule = rule.promptNumber
+        ? promptRules[rule.promptNumber - 1]
+        : null;
 
-    return {
-      rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
-      promptNumber: rule.promptNumber,
-      promptRule,
-      toRemove: !!toRemove,
-      toEdit: !!toEdit,
-      updatedPromptRule: toEdit?.newRule,
-    };
-  });
+      const toRemove = promptRule
+        ? promptRulesToRemove.includes(promptRule)
+        : null;
+
+      const toEdit = promptRule
+        ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
+        : null;
+
+      return {
+        rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
+        promptNumber: rule.promptNumber,
+        promptRule,
+        toRemove: !!toRemove,
+        toEdit: !!toEdit,
+        updatedPromptRule: toEdit?.newRule,
+      };
+    })
+    .filter(isDefined);
 
   return {
     editedRules: existingRules.filter((rule) => rule.toEdit),

@@ -93,6 +93,7 @@ type ChatCompletionObjectArgs<T> = {
   schema: z.Schema<T>;
   schemaName?: string;
   schemaDescription?: string;
+  output?: "object" | "array" | "enum" | "no-schema";
   userEmail: string;
   usageLabel: string;
 } & (
@@ -123,6 +124,7 @@ async function chatCompletionObjectInternal<T>({
   schema,
   schemaName,
   schemaDescription,
+  output = "object",
   userEmail,
   usageLabel,
 }: ChatCompletionObjectArgs<T>) {
@@ -140,7 +142,7 @@ async function chatCompletionObjectInternal<T>({
       schema,
       schemaName,
       schemaDescription,
-      output: "object",
+      output,
       providerOptions,
       ...commonOptions,
     });

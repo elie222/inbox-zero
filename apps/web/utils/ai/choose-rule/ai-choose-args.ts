@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { InvalidArgumentError } from "ai";
-import {
-  chatCompletionObject,
-  chatCompletionTools,
-  withRetry,
-} from "@/utils/llms";
+import { chatCompletionObject, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
