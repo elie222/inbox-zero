@@ -1,6 +1,6 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { betterAuth } from "better-auth";
-import type { Account, User } from "better-auth";
+import type { Account, User, AuthContext } from "better-auth";
 
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -136,8 +136,8 @@ export const betterAuthConfig = betterAuth({
   },
   onAPIError: {
     throw: true,
-    onError: (error: any, ctx: any) => {
-      logger.error("Auth error:", { error, ctx });
+    onError: (error: unknown, ctx: AuthContext) => {
+      logger.error("Auth API encountered an error", { error, ctx });
     },
     errorURL: "/login/error",
   },
@@ -275,9 +275,7 @@ export async function handleReferralOnSignUp({
 
 async function getProfileData(providerId: string, accessToken: string) {
   if (providerId === "google") {
-    const contactsClient = getGoogleContactsClient({
-      accessToken: accessToken,
-    });
+    const contactsClient = getGoogleContactsClient({ accessToken });
     const profileResponse = await contactsClient.people.get({
       resourceName: "people/me",
       personFields: "emailAddresses,names,photos",
@@ -294,7 +292,7 @@ async function getProfileData(providerId: string, accessToken: string) {
   }
 
   if (providerId === "microsoft") {
-    const client = getOutlookContactsClient({ accessToken: accessToken });
+    const client = getOutlookContactsClient({ accessToken });
     try {
       const profileResponse = await client.getUserProfile();
 
@@ -415,7 +413,7 @@ async function handleLinkAccount(account: Account) {
   }
 }
 
-// Use by Outlook and Gmail providers
+// Used by Outlook and Gmail providers
 export async function saveTokens({
   tokens,
   accountRefreshToken,

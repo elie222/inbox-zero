@@ -8,7 +8,6 @@ import {
   assessAction,
 } from "@/utils/actions/assess";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { sleep } from "@/utils/sleep";
 
 export function AssessUser() {
   const { emailAccountId, provider } = useAccount();
@@ -27,10 +26,7 @@ export function AssessUser() {
     if (!emailAccountId) return;
 
     async function assess() {
-      /**
-       * This is a hack to give enough time for the encrypted token to written by better-auth
-       */
-      const result = await sleep(1000).then(() => executeAssessAsync());
+      const result = await executeAssessAsync();
       // no need to run this over and over after the first time
       if (!result?.data?.skipped && provider !== "microsoft") {
         executeWhitelistInboxZero();
