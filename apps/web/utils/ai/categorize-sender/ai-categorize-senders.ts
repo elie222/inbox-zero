@@ -1,11 +1,13 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("ai-categorize-senders");
 
@@ -89,14 +91,36 @@ ${formatCategoriesForPrompt(categories)}
 
   logger.trace("Categorize senders", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema: categorizeSendersSchema,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Categorize senders bulk",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema: categorizeSendersSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "Categorize senders bulk",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Categorize senders bulk",
+    });
+  }
 
   logger.trace("Categorize senders response", {
     senders: aiResponse.object.senders,

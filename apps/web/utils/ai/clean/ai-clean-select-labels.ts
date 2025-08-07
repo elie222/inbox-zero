@@ -1,7 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("ai/clean/select-labels");
 
@@ -31,14 +33,36 @@ ${instructions}
 
   logger.trace("Input", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Clean - Select Labels",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema,
-    userEmail: emailAccount.email,
-    usageLabel: "Clean - Select Labels",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Clean - Select Labels",
+    });
+  }
 
   logger.trace("Result", { response: aiResponse.object });
 

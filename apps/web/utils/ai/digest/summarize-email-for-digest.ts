@@ -1,9 +1,11 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 export const schema = z.object({
   type: z.enum(["structured", "unstructured"]).describe("Type of content"),
@@ -73,14 +75,36 @@ Use this category as context to help interpret the email: ${ruleName}.`;
   logger.info("Summarizing email for digest");
 
   try {
-    const aiResponse = await chatCompletionObject({
-      userAi: emailAccount.user,
+    // const aiResponse = await chatCompletionObject({
+    //   userAi: emailAccount.user,
+    //   system,
+    //   prompt,
+    //   schema,
+    //   userEmail: emailAccount.email,
+    //   usageLabel: "Summarize email",
+    // });
+
+    const { provider, model, llmModel, providerOptions } = getModel(
+      emailAccount.user,
+    );
+
+    const aiResponse = await generateObject({
+      model: llmModel,
       system,
       prompt,
       schema,
-      userEmail: emailAccount.email,
-      usageLabel: "Summarize email",
+      providerOptions,
     });
+
+    if (aiResponse.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: aiResponse.usage,
+        provider,
+        model,
+        label: "Summarize email",
+      });
+    }
 
     logger.trace("Result", { response: aiResponse.object });
 

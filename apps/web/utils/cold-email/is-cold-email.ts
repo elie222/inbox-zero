@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ColdEmail } from "@prisma/client";
 import {
@@ -13,7 +12,9 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/provider";
-import type { ModelType } from "@/utils/llms/model";
+import { getModel, type ModelType } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -204,18 +205,44 @@ ${stringifyEmail(email, 500)}
 
   logger.trace("AI is cold email prompt", { system, prompt });
 
-  const response = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const response = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema: z.object({
+  //     coldEmail: z.boolean(),
+  //     reason: z.string(),
+  //   }),
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Cold email check",
+  //   modelType,
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+    modelType,
+  );
+
+  const response = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema: z.object({
       coldEmail: z.boolean(),
       reason: z.string(),
     }),
-    userEmail: emailAccount.email,
-    usageLabel: "Cold email check",
-    modelType,
+    providerOptions,
   });
+
+  if (response.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: response.usage,
+      provider,
+      model,
+      label: "Cold email check",
+    });
+  }
 
   logger.trace("AI is cold email response", { response: response.object });
 

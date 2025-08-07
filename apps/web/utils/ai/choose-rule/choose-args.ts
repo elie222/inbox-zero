@@ -70,7 +70,11 @@ export async function getActionItemsWithAiArgs({
     modelType,
   });
 
-  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
+  return combineActionsWithAiArgs(
+    selectedRule.actions,
+    result as ActionArgResponse,
+    draft,
+  );
 }
 
 function combineActionsWithAiArgs(

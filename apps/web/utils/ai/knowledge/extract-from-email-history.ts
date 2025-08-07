@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
@@ -96,15 +98,38 @@ export async function aiExtractFromEmailHistory({
 
     logger.trace("Input", { system, prompt });
 
-    const result = await chatCompletionObject({
+    // const result = await chatCompletionObject({
+    //   system,
+    //   prompt,
+    //   schema: extractionSchema,
+    //   usageLabel: "Email history extraction",
+    //   userAi: emailAccount.user,
+    //   userEmail: emailAccount.email,
+    //   modelType: "economy",
+    // });
+
+    const { provider, model, llmModel, providerOptions } = getModel(
+      emailAccount.user,
+      "economy",
+    );
+
+    const result = await generateObject({
+      model: llmModel,
       system,
       prompt,
       schema: extractionSchema,
-      usageLabel: "Email history extraction",
-      userAi: emailAccount.user,
-      userEmail: emailAccount.email,
-      modelType: "economy",
+      providerOptions,
     });
+
+    if (result.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: result.usage,
+        provider,
+        model,
+        label: "Email history extraction",
+      });
+    }
 
     logger.trace("Output", result.object);
 

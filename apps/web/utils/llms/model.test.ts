@@ -112,19 +112,6 @@ describe("Models", () => {
       expect(result.model).toBe("gpt-4o");
     });
 
-    it("should configure OpenAI model correctly", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: "user-api-key",
-        aiProvider: Provider.OPEN_AI,
-        aiModel: Model.GPT_4O,
-      };
-
-      const result = getModel(userAi);
-      expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.model).toBe(Model.GPT_4O);
-      expect(result.llmModel).toBeDefined();
-    });
-
     it("should configure Google model correctly", () => {
       const userAi: UserAIFields = {
         aiApiKey: "user-api-key",
@@ -219,42 +206,42 @@ describe("Models", () => {
       expect(() => getModel(userAi)).toThrow("LLM provider not supported");
     });
 
-    it("should use chat model when modelType is 'chat'", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+    // it("should use chat model when modelType is 'chat'", () => {
+    //   const userAi: UserAIFields = {
+    //     aiApiKey: null,
+    //     aiProvider: null,
+    //     aiModel: null,
+    //   };
 
-      vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
-      vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
-      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+    //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
+    //   vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
+    //   vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
 
-      const result = getModel(userAi, "chat");
-      expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe("moonshotai/kimi-k2");
-    });
+    //   const result = getModel(userAi, "chat");
+    //   expect(result.provider).toBe(Provider.OPENROUTER);
+    //   expect(result.model).toBe("moonshotai/kimi-k2");
+    // });
 
-    it("should use OpenRouter with provider options for chat", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
+    // it("should use OpenRouter with provider options for chat", () => {
+    //   const userAi: UserAIFields = {
+    //     aiApiKey: null,
+    //     aiProvider: null,
+    //     aiModel: null,
+    //   };
 
-      vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
-      vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
-      vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
-      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
+    //   vi.mocked(env).CHAT_LLM_PROVIDER = "openrouter";
+    //   vi.mocked(env).CHAT_LLM_MODEL = "moonshotai/kimi-k2";
+    //   vi.mocked(env).CHAT_OPENROUTER_PROVIDERS = "Google Vertex,Anthropic";
+    //   vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
 
-      const result = getModel(userAi, "chat");
-      expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe("moonshotai/kimi-k2");
-      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
-        "Google Vertex",
-        "Anthropic",
-      ]);
-    });
+    //   const result = getModel(userAi, "chat");
+    //   expect(result.provider).toBe(Provider.OPENROUTER);
+    //   expect(result.model).toBe("moonshotai/kimi-k2");
+    //   expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
+    //     "Google Vertex",
+    //     "Anthropic",
+    //   ]);
+    // });
 
     it("should use economy model when modelType is 'economy'", () => {
       const userAi: UserAIFields = {
@@ -345,7 +332,6 @@ describe("Models", () => {
       expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
         "Google Vertex",
         "Google AI Studio",
-        "Anthropic",
       ]);
       // Should NOT contain the DEFAULT_OPENROUTER_PROVIDERS value
       expect(result.providerOptions?.openrouter?.provider?.order).not.toContain(

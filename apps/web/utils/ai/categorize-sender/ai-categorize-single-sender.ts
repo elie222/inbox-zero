@@ -1,9 +1,11 @@
+import { generateObject } from "ai";
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("aiCategorizeSender");
 
@@ -57,14 +59,36 @@ ${formatCategoriesForPrompt(categories)}
 
   logger.trace("aiCategorizeSender", { system, prompt });
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // const aiResponse = await chatCompletionObject({
+  //   userAi: emailAccount.user,
+  //   system,
+  //   prompt,
+  //   schema: categorizeSenderSchema,
+  //   userEmail: emailAccount.email,
+  //   usageLabel: "Categorize sender",
+  // });
+
+  const { provider, model, llmModel, providerOptions } = getModel(
+    emailAccount.user,
+  );
+
+  const aiResponse = await generateObject({
+    model: llmModel,
     system,
     prompt,
     schema: categorizeSenderSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "Categorize sender",
+    providerOptions,
   });
+
+  if (aiResponse.usage) {
+    await saveAiUsage({
+      email: emailAccount.email,
+      usage: aiResponse.usage,
+      provider,
+      model,
+      label: "Categorize sender",
+    });
+  }
 
   if (!categories.find((c) => c.name === aiResponse.object.category))
     return null;

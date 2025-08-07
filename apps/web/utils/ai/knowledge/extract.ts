@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { getModel } from "@/utils/llms/model";
+import { generateObject } from "ai";
+import { saveAiUsage } from "@/utils/usage";
 
 const logger = createScopedLogger("ai/knowledge/extract");
 
@@ -98,15 +100,38 @@ export async function aiExtractRelevantKnowledge({
 
     logger.trace("Input", { system, prompt: prompt.slice(0, 500) });
 
-    const result = await chatCompletionObject({
+    // const result = await chatCompletionObject({
+    //   system,
+    //   prompt,
+    //   schema: extractionSchema,
+    //   usageLabel: "Knowledge extraction",
+    //   userAi: emailAccount.user,
+    //   userEmail: emailAccount.email,
+    //   modelType: "economy",
+    // });
+
+    const { provider, model, llmModel, providerOptions } = getModel(
+      emailAccount.user,
+      "economy",
+    );
+
+    const result = await generateObject({
+      model: llmModel,
       system,
       prompt,
       schema: extractionSchema,
-      usageLabel: "Knowledge extraction",
-      userAi: emailAccount.user,
-      userEmail: emailAccount.email,
-      modelType: "economy",
+      providerOptions,
     });
+
+    if (result.usage) {
+      await saveAiUsage({
+        email: emailAccount.email,
+        usage: result.usage,
+        provider,
+        model,
+        label: "Knowledge extraction",
+      });
+    }
 
     logger.trace("Output", result.object);
 
