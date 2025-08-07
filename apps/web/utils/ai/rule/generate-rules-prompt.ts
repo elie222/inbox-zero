@@ -136,11 +136,20 @@ IMPORTANT: Do not create overly specific rules that only occur on a one off basi
 function parseRulesResponse(result: unknown, hasSnippets: boolean): string[] {
   if (hasSnippets) {
     const parsedRules = result as z.infer<typeof parametersSnippets>;
-    return parsedRules.rules.map(({ rule, snippet }) =>
-      snippet ? `${rule}\n> ${snippet}\n` : rule,
-    );
+    return parsedRules.rules.map(({ rule, snippet }) => {
+      const formattedRule = `* ${rule}\n`;
+      if (snippet) return `${formattedRule}${formatSnippet(snippet)}\n`;
+      return formattedRule;
+    });
   }
 
   const parsedRules = result as z.infer<typeof parameters>;
   return parsedRules.rules;
+}
+
+function formatSnippet(snippet: string) {
+  return snippet
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
 }
