@@ -42,9 +42,7 @@ export default async function AuthenticationPage(props: {
           </Suspense>
         </div>
 
-        {searchParams?.error && (
-          <ErrorAlert error={searchParams?.error} />
-        )}
+        {searchParams?.error && <ErrorAlert error={searchParams?.error} />}
 
         <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
           By clicking continue, you agree to our{" "}
@@ -80,7 +78,7 @@ export default async function AuthenticationPage(props: {
   );
 }
 
-function ErrorAlert({ error }: { error: string; }) {
+function ErrorAlert({ error }: { error: string }) {
   if (error === "RequiresReconsent") return null;
 
   if (error === "OAuthAccountNotLinked") {
@@ -101,10 +99,10 @@ function ErrorAlert({ error }: { error: string; }) {
   }
 
   return (
-      <AlertBasic
-        variant="destructive"
-        title="Error logging in"
-        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-      />
+    <AlertBasic
+      variant="destructive"
+      title="Error logging in"
+      description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+    />
   );
 }

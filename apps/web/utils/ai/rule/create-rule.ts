@@ -1,10 +1,10 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionTools } from "@/utils/llms";
 import {
   type CreateOrUpdateRuleSchemaWithCategories,
-  type CreateRuleSchema,
   createRuleSchema,
 } from "@/utils/ai/rule/create-rule-schema";
+import { getModel } from "@/utils/llms/model";
+import { createGenerateText } from "@/utils/llms";
 
 export async function aiCreateRule(
   instructions: string,
@@ -14,21 +14,26 @@ export async function aiCreateRule(
     "You are an AI assistant that helps people manage their emails.";
   const prompt = `Generate a rule for these instructions:\n${instructions}`;
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Categorize rule",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
     system,
+    prompt,
     tools: {
       generate_rule: {
         description: "Generate a rule to handle the email",
         parameters: createRuleSchema,
       },
     },
-    userEmail: emailAccount.email,
-    label: "Categorize rule",
   });
 
-  const result = aiResponse.toolCalls[0]?.args as CreateRuleSchema;
-
-  return result;
+  return aiResponse.toolCalls?.[0]
+    ?.input as CreateOrUpdateRuleSchemaWithCategories;
 }

@@ -30,7 +30,8 @@ ALTER TABLE "User" ALTER COLUMN "emailVerified" TYPE BOOLEAN USING
 ALTER TABLE "User" ALTER COLUMN "emailVerified" SET DEFAULT false;
 
 -- Add new columns to VerificationToken table
-ALTER TABLE "VerificationToken" ADD COLUMN "id" TEXT NOT NULL;
-ALTER TABLE "VerificationToken" ADD PRIMARY KEY ("id");
+ALTER TABLE "VerificationToken"
+  ADD COLUMN "id" TEXT NOT NULL DEFAULT gen_random_uuid(),
+  ADD PRIMARY KEY ("id");
 ALTER TABLE "VerificationToken" ADD COLUMN "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE "VerificationToken" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL; 

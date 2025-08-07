@@ -2,7 +2,6 @@ import "../../styles/globals.css";
 import type React from "react";
 import { cookies } from "next/headers";
 import { Suspense } from "react";
-import dynamic from "next/dynamic";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
 
@@ -40,7 +39,7 @@ export default async function AppLayout({
   if (!session?.user.email) redirect("/login");
 
   const cookieStore = await cookies();
-  const isClosed = cookieStore.get("sidebar_state")?.value === "false";
+  const isClosed = cookieStore.get("left-sidebar:state")?.value === "false";
 
   return (
     <AppProviders>
@@ -59,12 +58,12 @@ export default async function AppLayout({
         <Suspense>
           <LastLogin email={session.user.email} />
         </Suspense>
-        <Suspense>
+        {/* <Suspense>
           <CrispWithNoSSR email={session.user.email} />
-        </Suspense>
+        </Suspense> */}
       </ErrorBoundary>
     </AppProviders>
   );
 }
 
-const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
+// const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));

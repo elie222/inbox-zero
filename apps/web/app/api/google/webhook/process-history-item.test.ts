@@ -218,6 +218,7 @@ describe("processHistoryItem", () => {
     expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
+        to: "",
         subject: "Test Email",
         content: expect.any(String),
         id: "123",
@@ -226,6 +227,7 @@ describe("processHistoryItem", () => {
       }),
       provider: expect.any(Object),
       emailAccount: options.emailAccount,
+      modelType: "default",
     });
   });
 
@@ -282,6 +284,7 @@ describe("processHistoryItem", () => {
     expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
+        to: "",
         subject: "Test Email",
         content: expect.any(String),
         id: "123",
@@ -290,6 +293,7 @@ describe("processHistoryItem", () => {
       }),
       provider: expect.any(Object),
       emailAccount: options.emailAccount,
+      modelType: "default",
     });
 
     // Verify that cold email is added to digest
@@ -381,6 +385,7 @@ describe("processHistoryItem", () => {
     expect(runColdEmailBlockerWithProvider).toHaveBeenCalledWith({
       email: expect.objectContaining({
         from: "sender@example.com",
+        to: "",
         subject: "Test Email",
         content: expect.any(String),
         id: "456",
@@ -389,6 +394,7 @@ describe("processHistoryItem", () => {
       }),
       provider: expect.any(Object),
       emailAccount: options.emailAccount,
+      modelType: "default",
     });
 
     // Verify that the second email from known cold emailer is added to digest

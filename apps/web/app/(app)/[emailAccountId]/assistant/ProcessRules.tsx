@@ -38,8 +38,7 @@ import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/Pro
 import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import { useChat } from "@/components/assistant-chat/ChatContext";
-import type { SetInputFunction } from "@/components/assistant-chat/types";
+import { useChat } from "@/providers/ChatProvider";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -318,7 +317,7 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   emailAccountId: string;
-  setInput: SetInputFunction;
+  setInput: (input: string) => void;
 }) {
   return (
     <TableRow

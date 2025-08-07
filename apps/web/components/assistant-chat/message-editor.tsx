@@ -1,6 +1,5 @@
 "use client";
 
-import type { Message } from "ai";
 import {
   type Dispatch,
   type SetStateAction,
@@ -11,27 +10,30 @@ import {
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 // import { deleteTrailingMessages } from "@/app/(app)/assistant/chat/actions";
 
-export type MessageEditorProps = {
-  message: Message;
+type MessageEditorProps = {
+  message: ChatMessage;
   setMode: Dispatch<SetStateAction<"view" | "edit">>;
-  setMessages: UseChatHelpers["setMessages"];
-  reload: UseChatHelpers["reload"];
+  setMessages: UseChatHelpers<ChatMessage>["setMessages"];
+  regenerate: UseChatHelpers<ChatMessage>["regenerate"];
 };
 
 export function MessageEditor({
   message,
   setMode,
   setMessages,
-  reload,
+  regenerate,
 }: MessageEditorProps) {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const [draftContent, setDraftContent] = useState<string>(message.content);
+  const [draftContent, setDraftContent] = useState<string>(
+    getTextFromMessage(message),
+  );
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+  // biome-ignore lint/correctness/useExhaustiveDependencies: ignore
   useEffect(() => {
     if (textareaRef.current) {
       adjustHeight();
@@ -89,7 +91,6 @@ export function MessageEditor({
               if (index !== -1) {
                 const updatedMessage = {
                   ...message,
-                  content: draftContent,
                   parts: [{ type: "text", text: draftContent }],
                 };
 
@@ -100,7 +101,7 @@ export function MessageEditor({
             });
 
             setMode("view");
-            reload();
+            regenerate();
           }}
         >
           {isSubmitting ? "Sending..." : "Send"}
@@ -108,4 +109,11 @@ export function MessageEditor({
       </div>
     </div>
   );
+}
+
+function getTextFromMessage(message: ChatMessage): string {
+  return message.parts
+    .filter((part) => part.type === "text")
+    .map((part) => part.text)
+    .join("");
 }

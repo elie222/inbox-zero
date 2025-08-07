@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/sidebar";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
-import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
 
@@ -38,7 +37,6 @@ export function AccountSwitcherInternal({
   emailAccounts: GetEmailAccountsResponse["emailAccounts"];
 }) {
   const { isMobile } = useSidebar();
-  const { symbol: modifierSymbol } = useModifierKey();
 
   const {
     emailAccountId: activeEmailAccountId,
@@ -76,6 +74,7 @@ export function AccountSwitcherInternal({
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              sidebarName="left-sidebar"
             >
               {activeEmailAccount ? (
                 <>

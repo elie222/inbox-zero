@@ -26,7 +26,7 @@ export function LoginForm() {
     setLoadingGoogle(true);
     await signIn.social({
       provider: "google",
-      errorCallbackURL: "/login",
+      errorCallbackURL: "/login/error",
       callbackURL: next && next.length > 0 ? next : "/welcome",
       ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });
@@ -37,7 +37,7 @@ export function LoginForm() {
     setLoadingMicrosoft(true);
     await signIn.social({
       provider: "microsoft",
-      errorCallbackURL: "/login",
+      errorCallbackURL: "/login/error",
       callbackURL: next && next.length > 0 ? next : "/welcome",
       ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });

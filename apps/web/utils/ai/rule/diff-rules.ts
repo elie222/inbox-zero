@@ -1,20 +1,8 @@
-import { z } from "zod";
+import z from "zod";
 import { createPatch } from "diff";
-import { chatCompletionTools } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-
-const parameters = z.object({
-  addedRules: z.array(z.string()).describe("The added rules"),
-  editedRules: z
-    .array(
-      z.object({
-        oldRule: z.string().describe("The old rule"),
-        newRule: z.string().describe("The new rule"),
-      }),
-    )
-    .describe("The edited rules"),
-  removedRules: z.array(z.string()).describe("The removed rules"),
-});
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiDiffRules({
   emailAccount,
@@ -52,25 +40,51 @@ Organize your response using the 'diff_rules' function.
 
 IMPORTANT: Do not include a rule in more than one category. If a rule is edited, do not include it in the 'removedRules' category!
 If a rule is edited, it is an edit and not a removal! Be extra careful to not make this mistake.
+
+Return the result in JSON format. Do not include any other text in your response.
+
+<example>
+{
+  "addedRules": ["rule text1", "rule text2"],
+  "editedRules": [
+    {
+      "oldRule": "rule text3",
+      "newRule": "rule text4 updated"
+    },
+  ],
+  "removedRules": ["rule text5", "rule text6"]
+}
+</example>
 `;
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    tools: {
-      diff_rules: {
-        description:
-          "Analyze two prompt files and their diff to return the differences",
-        parameters,
-      },
-    },
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Diff rules",
+    modelOptions,
   });
 
-  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
-    typeof parameters
-  >;
-  return parsedRules;
+  const result = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schemaName: "diff_rules",
+    schemaDescription:
+      "The result of the diff rules analysis. Return the result in JSON format. Do not include any other text in your response.",
+    schema: z.object({
+      addedRules: z.array(z.string()).describe("The added rules"),
+      editedRules: z
+        .array(
+          z.object({
+            oldRule: z.string().describe("The old rule"),
+            newRule: z.string().describe("The new rule"),
+          }),
+        )
+        .describe("The edited rules"),
+      removedRules: z.array(z.string()).describe("The removed rules"),
+    }),
+  });
+
+  return result.object;
 }

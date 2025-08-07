@@ -1,6 +1,6 @@
 import { z } from "zod";
-import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import type { ModelType } from "@/utils/llms/model";
 import { ActionType, type Action } from "@prisma/client";
 import {
   type RuleWithActions,
@@ -10,13 +10,10 @@ import {
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
-import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/provider";
 
 const logger = createScopedLogger("choose-args");
-
-type EmailClient = gmail_v1.Gmail | OutlookClient;
 
 type ActionArgResponse = {
   [key: `${string}-${string}`]: {
@@ -31,11 +28,13 @@ export async function getActionItemsWithAiArgs({
   emailAccount,
   selectedRule,
   client,
+  modelType,
 }: {
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
   selectedRule: RuleWithActions;
   client: EmailProvider;
+  modelType: ModelType;
 }): Promise<Action[]> {
   // Draft content is handled via its own AI call
   // We provide a lot more context to the AI to draft the content
@@ -68,9 +67,14 @@ export async function getActionItemsWithAiArgs({
     emailAccount,
     selectedRule,
     parameters,
+    modelType,
   });
 
-  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
+  return combineActionsWithAiArgs(
+    selectedRule.actions,
+    result as ActionArgResponse,
+    draft,
+  );
 }
 
 function combineActionsWithAiArgs(

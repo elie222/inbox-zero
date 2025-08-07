@@ -12,6 +12,8 @@ import { actionClient, actionClientUser } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { updateAccountSeats } from "@/utils/premium/server";
+import { betterAuthConfig } from "@/utils/auth";
+import { headers } from "next/headers";
 
 const saveAboutBody = z.object({ about: z.string().max(2000) });
 export type SaveAboutBody = z.infer<typeof saveAboutBody>;
@@ -80,6 +82,11 @@ export const resetAnalyticsAction = actionClient
 export const deleteAccountAction = actionClientUser
   .metadata({ name: "deleteAccount" })
   .action(async ({ ctx: { userId } }) => {
+    try {
+      await betterAuthConfig.api.signOut({
+        headers: await headers(),
+      });
+    } catch {}
     await deleteUser({ userId });
   });
 

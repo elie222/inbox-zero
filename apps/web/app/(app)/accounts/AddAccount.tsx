@@ -21,7 +21,7 @@ export function AddAccount() {
   const handleConnectGoogle = async () => {
     await signIn.social({
       provider: "google",
-      callbackURL: "/welcome",
+      callbackURL: "/accounts",
       scopes: [...GMAIL_SCOPES],
     });
   };
@@ -40,7 +40,7 @@ export function AddAccount() {
   const handleConnectMicrosoft = async () => {
     await signIn.social({
       provider: "microsoft",
-      callbackURL: "/welcome",
+      callbackURL: "/accounts",
       scopes: [...OUTLOOK_SCOPES],
     });
   };

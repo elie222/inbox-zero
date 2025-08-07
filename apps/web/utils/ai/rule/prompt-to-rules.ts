@@ -1,15 +1,15 @@
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { chatCompletionTools } from "@/utils/llms";
+import { tool } from "ai";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
+  type CreateOrUpdateRuleSchemaWithCategories,
   createRuleSchema,
   getCreateRuleSchemaWithCategories,
-  type CreateOrUpdateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
-import { env } from "@/env";
 import { convertMentionsToLabels } from "@/utils/mention";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -27,7 +27,7 @@ export async function aiPromptToRules({
   promptFile: string;
   isEditing: boolean;
   availableCategories?: string[];
-}) {
+}): Promise<CreateOrUpdateRuleSchemaWithCategories[]> {
   function getSchema() {
     if (availableCategories?.length) {
       const createRuleSchemaWithCategories = getCreateRuleSchemaWithCategories(
@@ -45,14 +45,6 @@ export async function aiPromptToRules({
     return isEditing ? updateRuleSchema : createRuleSchema;
   }
 
-  const schema = getSchema();
-
-  const parameters = z.object({
-    rules: z
-      .array(schema)
-      .describe("The parsed rules list from the prompt file"),
-  });
-
   const system = getSystemPrompt({
     hasSmartCategories: !!availableCategories?.length,
   });
@@ -65,42 +57,38 @@ export async function aiPromptToRules({
 ${cleanedPromptFile}
 </prompt>`;
 
-  if (env.NODE_ENV === "development") {
-    logger.trace("Input", {
-      system,
-      prompt,
-      parameters: zodToJsonSchema(parameters),
-    });
-  }
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Prompt to rules",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
     prompt,
     system,
     tools: {
-      parse_rules: {
+      parseRules: tool({
         description: "Parse rules from prompt file",
-        parameters,
-      },
+        inputSchema: getSchema(),
+      }),
     },
-    userEmail: emailAccount.email,
-    label: "Prompt to rules",
   });
 
-  const result = aiResponse.toolCalls?.[0]?.args as {
-    rules: CreateOrUpdateRuleSchemaWithCategories[];
-  } | null;
+  const toolCall = aiResponse.toolCalls.find(
+    (toolCall) => toolCall.toolName === "parseRules",
+  );
 
-  if (!result) {
+  if (!toolCall) {
     logger.error("No rules found in AI response", { aiResponse });
     throw new Error("No rules found in AI response");
   }
 
-  const { rules } = result;
+  const rules = (toolCall.input as any)?.rules;
 
-  logger.trace("Output", { rules });
-
-  return rules;
+  return rules as CreateOrUpdateRuleSchemaWithCategories[];
 }
 
 function getSystemPrompt({
@@ -122,35 +110,33 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       When I get a newsletter, archive it and label it as "Newsletter"
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Label Newsletters",
-          "condition": {
-            "aiInstructions": "Apply this rule to newsletters"
-            ${
-              hasSmartCategories
-                ? `,
-              "categories": {
-                "categoryFilterType": "INCLUDE",
-                "categoryFilters": ["Newsletters"]
-              },
-              "conditionalOperator": "OR"`
-                : ""
-            }
-          },
-          "actions": [
-            {
-              "type": "ARCHIVE"
+      [{
+        "name": "Label Newsletters",
+        "condition": {
+          "aiInstructions": "Apply this rule to newsletters"
+          ${
+            hasSmartCategories
+              ? `,
+            "categories": {
+              "categoryFilterType": "INCLUDE",
+              "categoryFilters": ["Newsletters"]
             },
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Newsletter"
-              }
+            "conditionalOperator": "OR"`
+              : ""
+          }
+        },
+        "actions": [
+          {
+            "type": "ARCHIVE"
+          },
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Newsletter"
             }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -159,28 +145,26 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       When someone mentions system outages or critical issues, forward to urgent-support@company.com and label as Urgent-Support
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Forward Urgent Emails",
-          "condition": {
-            "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
-          },
-          "actions": [
-            {
-              "type": "FORWARD",
-              "fields": {
-                "to": "urgent-support@company.com"
-              }
-            },
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Urgent-Support"
-              }
+      [{
+        "name": "Forward Urgent Emails",
+        "condition": {
+          "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
+        },
+        "actions": [
+          {
+            "type": "FORWARD",
+            "fields": {
+              "to": "urgent-support@company.com"
             }
-          ]
-        }]
-      }
+          },
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Urgent-Support"
+            }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -189,26 +173,24 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       Label all urgent emails from company.com as "Urgent"
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Matt Urgent Emails",
-          "condition": {
-            "conditionalOperator": "AND",
-            "aiInstructions": "Apply this rule to urgent emails",
-            "static": {
-              "from": "@company.com"
+      [{
+        "name": "Matt Urgent Emails",
+        "condition": {
+          "conditionalOperator": "AND",
+          "aiInstructions": "Apply this rule to urgent emails",
+          "static": {
+            "from": "@company.com"
+          }
+        },
+        "actions": [
+          {
+            "type": "LABEL",
+            "fields": {
+              "label": "Urgent"
             }
-          },
-          "actions": [
-            {
-              "type": "LABEL",
-              "fields": {
-                "label": "Urgent"
-              }
-            }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 
@@ -224,22 +206,20 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       """
     </input>
     <output>
-      {
-        "rules": [{
-          "name": "Reply to Call Requests",
-          "condition": {
-            "aiInstructions": "Apply this rule to emails from people asking to set up a call"
-          },
-          "actions": [
-            {
-              "type": "REPLY",
-              "fields": {
-                "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
-              }
+      [{
+        "name": "Reply to Call Requests",
+        "condition": {
+          "aiInstructions": "Apply this rule to emails from people asking to set up a call"
+        },
+        "actions": [
+          {
+            "type": "REPLY",
+            "fields": {
+              "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
             }
-          ]
-        }]
-      }
+          }
+        ]
+      }]
     </output>
   </example>
 </examples>

@@ -309,7 +309,7 @@ function RulesPromptForm({
 
                         if (result?.data?.rulesPrompt) {
                           editorRef.current?.appendText(
-                            result?.data?.rulesPrompt,
+                            `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
                           toast.error("Error generating prompt");
