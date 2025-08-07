@@ -112,23 +112,14 @@ Your response should only include the list of general rules. Aim for 3-10 broadl
     modelOptions,
   });
 
-  const aiResponse = hasSnippets
-    ? await generateObject({
-        ...modelOptions,
-        system,
-        prompt,
-        schemaName: "Generate rules",
-        schemaDescription: "Generate a list of email management rules",
-        schema: parametersSnippets,
-      })
-    : await generateObject({
-        ...modelOptions,
-        system,
-        prompt,
-        schemaName: "Generate rules",
-        schemaDescription: "Generate a list of email management rules",
-        schema: parameters,
-      });
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schemaName: "Generate rules",
+    schemaDescription: "Generate a list of email management rules",
+    schema: hasSnippets ? parametersSnippets : parameters,
+  });
 
   const args = aiResponse?.object;
 
