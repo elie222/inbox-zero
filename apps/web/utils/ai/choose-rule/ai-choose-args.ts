@@ -108,9 +108,15 @@ export async function aiGenerateArgs({
     },
   );
 
-  const toolCall = aiResponse.toolCalls[0];
+  const toolCall = aiResponse.toolCalls?.[0];
 
-  if (!toolCall?.toolName) return;
+  if (!toolCall?.input) {
+    logger.warn("No tool call found", {
+      ...loggerOptions,
+      aiResponse,
+    });
+    return;
+  }
 
   const result = toolCall.input;
 

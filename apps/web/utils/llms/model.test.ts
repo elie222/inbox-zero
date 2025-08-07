@@ -85,7 +85,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.model).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-4o");
     });
 
     it("should use user's provider and model when API key is provided", () => {
@@ -97,7 +97,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
-      expect(result.model).toBe(Model.GEMINI_1_5_PRO);
+      expect(result.modelName).toBe(Model.GEMINI_1_5_PRO);
     });
 
     it("should use user's API key with default provider when only API key is provided", () => {
@@ -109,7 +109,7 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.model).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-4o");
     });
 
     it("should configure Google model correctly", () => {
@@ -121,8 +121,8 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GOOGLE);
-      expect(result.model).toBe(Model.GEMINI_1_5_PRO);
-      expect(result.llmModel).toBeDefined();
+      expect(result.modelName).toBe(Model.GEMINI_1_5_PRO);
+      expect(result.model).toBeDefined();
     });
 
     it("should configure Groq model correctly", () => {
@@ -134,8 +134,8 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.GROQ);
-      expect(result.model).toBe(Model.GROQ_LLAMA_3_3_70B);
-      expect(result.llmModel).toBeDefined();
+      expect(result.modelName).toBe(Model.GROQ_LLAMA_3_3_70B);
+      expect(result.model).toBeDefined();
     });
 
     it("should configure OpenRouter model correctly", () => {
@@ -147,8 +147,8 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe(Model.GROQ_LLAMA_3_3_70B);
-      expect(result.llmModel).toBeDefined();
+      expect(result.modelName).toBe(Model.GROQ_LLAMA_3_3_70B);
+      expect(result.model).toBeDefined();
     });
 
     // it("should configure Ollama model correctly", () => {
@@ -160,8 +160,8 @@ describe("Models", () => {
 
     //   const result = getModel(userAi);
     //   expect(result.provider).toBe(Provider.OLLAMA);
-    //   expect(result.model).toBe("llama3");
-    //   expect(result.llmModel).toBeDefined();
+    //   expect(result.modelName).toBe("llama3");
+    //   expect(result.model).toBeDefined();
     // });
 
     it("should configure Anthropic model correctly without Bedrock credentials", () => {
@@ -176,8 +176,8 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.ANTHROPIC);
-      expect(result.model).toBe(Model.CLAUDE_3_7_SONNET_ANTHROPIC);
-      expect(result.llmModel).toBeDefined();
+      expect(result.modelName).toBe(Model.CLAUDE_3_7_SONNET_ANTHROPIC);
+      expect(result.model).toBeDefined();
     });
 
     it("should configure Anthropic model with Bedrock when Bedrock credentials exist", () => {
@@ -192,8 +192,8 @@ describe("Models", () => {
 
       const result = getModel(userAi);
       expect(result.provider).toBe(Provider.ANTHROPIC);
-      expect(result.model).toBe(Model.CLAUDE_3_7_SONNET_BEDROCK);
-      expect(result.llmModel).toBeDefined();
+      expect(result.modelName).toBe(Model.CLAUDE_3_7_SONNET_BEDROCK);
+      expect(result.model).toBeDefined();
     });
 
     it("should throw error for unsupported provider", () => {
@@ -219,7 +219,7 @@ describe("Models", () => {
 
     //   const result = getModel(userAi, "chat");
     //   expect(result.provider).toBe(Provider.OPENROUTER);
-    //   expect(result.model).toBe("moonshotai/kimi-k2");
+    //   expect(result.modelName).toBe("moonshotai/kimi-k2");
     // });
 
     // it("should use OpenRouter with provider options for chat", () => {
@@ -236,7 +236,7 @@ describe("Models", () => {
 
     //   const result = getModel(userAi, "chat");
     //   expect(result.provider).toBe(Provider.OPENROUTER);
-    //   expect(result.model).toBe("moonshotai/kimi-k2");
+    //   expect(result.modelName).toBe("moonshotai/kimi-k2");
     //   expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
     //     "Google Vertex",
     //     "Anthropic",
@@ -257,7 +257,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "economy");
       expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe("google/gemini-2.5-flash-preview-05-20");
+      expect(result.modelName).toBe("google/gemini-2.5-flash-preview-05-20");
     });
 
     it("should use OpenRouter with provider options for economy", () => {
@@ -275,7 +275,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "economy");
       expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe("google/gemini-2.5-flash-preview-05-20");
+      expect(result.modelName).toBe("google/gemini-2.5-flash-preview-05-20");
       expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
         "Google Vertex",
         "Anthropic",
@@ -291,7 +291,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPEN_AI);
-      expect(result.model).toBe("gpt-4o");
+      expect(result.modelName).toBe("gpt-4o");
     });
 
     it("should use OpenRouter with provider options for default model", () => {
@@ -308,7 +308,7 @@ describe("Models", () => {
 
       const result = getModel(userAi, "default");
       expect(result.provider).toBe(Provider.OPENROUTER);
-      expect(result.model).toBe("anthropic/claude-3.5-sonnet");
+      expect(result.modelName).toBe("anthropic/claude-3.5-sonnet");
       expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
         "Google Vertex",
         "Anthropic",
