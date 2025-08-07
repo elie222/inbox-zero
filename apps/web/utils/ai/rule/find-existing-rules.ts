@@ -1,27 +1,8 @@
 import { z } from "zod";
-import { tool } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
 import { getModel } from "@/utils/llms/model";
-import { createGenerateText } from "@/utils/llms";
-
-const schema = z.object({
-  existingRules: z
-    .array(
-      z.object({
-        ruleId: z.string().describe("The id of the existing rule"),
-        promptNumber: z
-          .number()
-          .describe("The index of the prompt that matches the rule"),
-      }),
-    )
-    .describe("The existing rules that match the prompt rules"),
-});
-
-const findExistingRules = tool({
-  description: "Find the existing rules that match the prompt rules.",
-  inputSchema: schema,
-});
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiFindExistingRules({
   emailAccount,
@@ -49,28 +30,47 @@ ${promptRules.map((rule, index) => `${index + 1}: ${rule}`).join("\n")}
 ## Existing database rules:
 ${JSON.stringify(databaseRules, null, 2)}
 
-Please return the existing rules that match the prompt rules.`;
+Please return the existing rules that match the prompt rules in JSON format.
+
+<example>
+{
+  "existingRules": [
+    {
+      "ruleId": "123",
+      "promptNumber": 1
+    }
+  ]
+}
+</example>
+`;
 
   const modelOptions = getModel(emailAccount.user, "chat");
 
-  const generateText = createGenerateText({
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Find existing rules",
     modelOptions,
   });
 
-  const result = await generateText({
+  const result = await generateObject({
     ...modelOptions,
     system,
     prompt,
-    tools: {
-      findExistingRules,
-    },
+    schema: z.object({
+      existingRules: z
+        .array(
+          z.object({
+            ruleId: z.string().describe("The id of the existing rule"),
+            promptNumber: z
+              .number()
+              .describe("The index of the prompt that matches the rule"),
+          }),
+        )
+        .describe("The existing rules that match the prompt rules"),
+    }),
   });
 
-  const parsedRules = result.toolCalls?.[0]?.input as z.infer<typeof schema>;
-
-  const existingRules = parsedRules.existingRules.map((rule) => {
+  const existingRules = result.object.existingRules.map((rule) => {
     const promptRule = rule.promptNumber
       ? promptRules[rule.promptNumber - 1]
       : null;
