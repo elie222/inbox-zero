@@ -32,12 +32,14 @@ const getUserPrompt = ({
   emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  emailHistoryContext,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  emailHistoryContext: string | null;
   writingStyle: string | null;
 }) => {
   const userAbout = emailAccount.about
@@ -59,11 +61,20 @@ ${knowledgeBaseContent}
     : "";
 
   const historicalContext = emailHistorySummary
-    ? `Historical email context:
+    ? `Historical email context with this sender:
     
-<historical_context>
+<sender_history>
 ${emailHistorySummary}
-</historical_context>
+</sender_history>
+`
+    : "";
+
+  const precedentHistoryContext = emailHistoryContext
+    ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
+    
+<email_history>
+${emailHistoryContext}
+</email_history>
 `
     : "";
 
@@ -79,6 +90,7 @@ ${writingStyle}
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
+${precedentHistoryContext}
 ${writingStylePrompt}
 
 Here is the context of the email thread (from oldest to newest):
@@ -108,12 +120,14 @@ export async function aiDraftWithKnowledge({
   emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  emailHistoryContext,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  emailHistoryContext: string | null;
   writingStyle: string | null;
 }) {
   try {
@@ -128,6 +142,7 @@ export async function aiDraftWithKnowledge({
       emailAccount,
       knowledgeBaseContent,
       emailHistorySummary,
+      emailHistoryContext,
       writingStyle,
     });
 
