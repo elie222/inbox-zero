@@ -69,8 +69,8 @@ export function createGenerateText({
         });
       }
 
-      if (result.toolCalls?.[0]) {
-        const toolCallInput = result.toolCalls[0].input;
+      if (args[0].tools) {
+        const toolCallInput = result.toolCalls?.[0]?.input;
         logger.trace("Result", { result: toolCallInput });
       }
 
@@ -118,52 +118,6 @@ export function createGenerateObject({
       throw error;
     }
   };
-}
-
-export async function chatCompletion({
-  userAi,
-  modelType = "default",
-  prompt,
-  system,
-  userEmail,
-  usageLabel,
-}: {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  prompt: string;
-  system?: string;
-  userEmail: string;
-  usageLabel: string;
-}) {
-  try {
-    const { provider, model, llmModel, providerOptions } = getModel(
-      userAi,
-      modelType,
-    );
-
-    const result = await generateText({
-      model: llmModel,
-      prompt,
-      system,
-      providerOptions,
-      ...commonOptions,
-    });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: userEmail,
-        usage: result.usage,
-        provider,
-        model,
-        label: usageLabel,
-      });
-    }
-
-    return result;
-  } catch (error) {
-    await handleError(error, userEmail);
-    throw error;
-  }
 }
 
 type ChatCompletionObjectArgs<T> = {
