@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("ai-generate-rules-prompt");
+import { getModel } from "@/utils/llms/model";
 
 const parameters = z.object({
   rules: z
@@ -106,33 +104,33 @@ IMPORTANT: Our system can only perform email management actions (labeling, archi
 
 Your response should only include the list of general rules. Aim for 3-10 broadly applicable rules that would be useful for this user's email management.`;
 
-  logger.trace("generate-rules-prompt", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Generate rules prompt",
+    modelOptions,
+  });
 
   const aiResponse = hasSnippets
-    ? await chatCompletionObject({
-        userAi: emailAccount.user,
-        prompt,
+    ? await generateObject({
+        ...modelOptions,
         system,
+        prompt,
         schemaName: "Generate rules",
         schemaDescription: "Generate a list of email management rules",
         schema: parametersSnippets,
-        userEmail: emailAccount.email,
-        usageLabel: "Generate rules prompt",
       })
-    : await chatCompletionObject({
-        userAi: emailAccount.user,
-        prompt,
+    : await generateObject({
+        ...modelOptions,
         system,
+        prompt,
         schemaName: "Generate rules",
         schemaDescription: "Generate a list of email management rules",
         schema: parameters,
-        userEmail: emailAccount.email,
-        usageLabel: "Generate rules prompt",
       });
 
   const args = aiResponse?.object;
-
-  logger.trace("Result", { args });
 
   return parseRulesResponse(args, hasSnippets);
 }
