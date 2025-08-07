@@ -26,7 +26,7 @@ export async function generatePromptOnDeleteRule({
   if (!deletedRulePrompt) return "";
 
   const system =
-    "You are an AI assistant that helps maintain email management rule prompts. Your task is to update an existing prompt file by removing a specific rule while maintaining the exact format and style.";
+    "You are an AI assistant that helps maintain email management rule prompts. Your task is to update an existing prompt file by removing a specific rule while maintaining the exact format and style. Return the result in JSON format.";
 
   const prompt = `Here is the current prompt file that defines email management rules:
 

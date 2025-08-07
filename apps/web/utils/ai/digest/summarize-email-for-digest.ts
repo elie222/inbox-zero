@@ -57,7 +57,7 @@ Your task is to:
 **Formatting rules:**
 - Follow the schema provided separately (do not describe or return the schema).
 - Do not include HTML, markdown, or explanations.
-- Return only the final JSON result (or "null").
+- Return only the final result in JSON format (or "null").
 
 Now, classify and summarize the following email:
 `;
@@ -68,8 +68,6 @@ ${stringifyEmailSimple(userMessageForPrompt)}
 </email_content>
 
 Use this category as context to help interpret the email: ${ruleName}.`;
-
-  logger.trace("Input", { system, prompt });
 
   logger.info("Summarizing email for digest");
 

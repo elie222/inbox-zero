@@ -21,7 +21,7 @@ Guidelines:
 - Do not create labels that weren't mentioned
 - If no labels are specified, return an empty array
 
-Return the labels as an array of strings.`;
+Return the labels as an array of strings in JSON format.`;
 
   const prompt = `<instructions>
 ${instructions}

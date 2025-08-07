@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import {
   APICallError,
   type ModelMessage,
@@ -12,7 +11,6 @@ import {
   stepCountIs,
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
-  type ToolSet,
 } from "ai";
 import { env } from "@/env";
 import { saveAiUsage } from "@/utils/usage";
@@ -52,12 +50,20 @@ export function createGenerateText({
 }): typeof generateText {
   return async (...args) => {
     try {
+      const [options, ...restArgs] = args;
+
       logger.trace("Generating text", {
-        system: args[0].system,
-        prompt: args[0].prompt,
+        system: options.system,
+        prompt: options.prompt,
       });
 
-      const result = await generateText(...args);
+      const result = await generateText(
+        {
+          ...options,
+          ...commonOptions,
+        },
+        ...restArgs,
+      );
 
       if (result.usage) {
         await saveAiUsage({
@@ -93,12 +99,20 @@ export function createGenerateObject({
 }): typeof generateObject {
   return async (...args) => {
     try {
+      const [options, ...restArgs] = args;
+
       logger.trace("Generating object", {
-        system: args[0].system,
-        prompt: args[0].prompt,
+        system: options.system,
+        prompt: options.prompt,
       });
 
-      const result = await generateObject(...args);
+      const result = await generateObject(
+        {
+          ...options,
+          ...commonOptions,
+        },
+        ...restArgs,
+      );
 
       if (result.usage) {
         await saveAiUsage({
@@ -209,130 +223,9 @@ export async function chatCompletionStream({
   return result;
 }
 
-type ChatCompletionToolsArgs<TOOLS extends ToolSet = ToolSet> = {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  tools?: TOOLS;
-  maxSteps?: number;
-  label: string;
-  userEmail: string;
-} & (
-  | {
-      system?: string;
-      prompt: string;
-      messages?: never;
-    }
-  | {
-      system?: never;
-      prompt?: never;
-      messages: ModelMessage[];
-    }
-);
-
-export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
-  options: ChatCompletionToolsArgs<TOOLS>,
-) {
-  return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
-}
-
-async function chatCompletionToolsInternal<TOOLS extends ToolSet = ToolSet>({
-  userAi,
-  modelType,
-  system,
-  prompt,
-  messages,
-  tools,
-  maxSteps,
-  label,
-  userEmail,
-}: ChatCompletionToolsArgs<TOOLS>) {
-  try {
-    const { provider, model, modelName, providerOptions } = getModel(
-      userAi,
-      modelType,
-    );
-
-    const result = await generateText({
-      model,
-      tools,
-      toolChoice: "required",
-      system,
-      prompt,
-      messages,
-      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-      providerOptions,
-      ...commonOptions,
-    });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: userEmail,
-        usage: result.usage,
-        provider,
-        model: modelName,
-        label,
-      });
-    }
-
-    return result;
-  } catch (error) {
-    await handleError(error, userEmail);
-    throw error;
-  }
-}
-
-// not in use atm
-// async function _streamCompletionTools({
-//   userAi,
-//   modelType,
-//   prompt,
-//   system,
-//   tools,
-//   maxSteps,
-//   userEmail,
-//   label,
-//   onFinish,
-// }: {
-//   userAi: UserAIFields;
-//   modelType?: ModelType;
-//   prompt: string;
-//   system?: string;
-//   tools: Record<string, Tool>;
-//   maxSteps?: number;
-//   userEmail: string;
-//   label: string;
-//   onFinish?: (text: string) => Promise<void>;
-// }) {
-//   const { provider, model, llmModel, providerOptions } = getModel(
-//     userAi,
-//     modelType,
-//   );
-
-//   const result = streamText({
-//     model: llmModel,
-//     tools,
-//     toolChoice: "required",
-//     prompt,
-//     system,
-//     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-//     providerOptions,
-//     ...commonOptions,
-//     onFinish: async ({ usage, text }) => {
-//       const usagePromise = saveAiUsage({
-//         email: userEmail,
-//         provider,
-//         model,
-//         usage,
-//         label,
-//       });
-
-//       const finishPromise = onFinish?.(text);
-
-//       await Promise.all([usagePromise, finishPromise]);
-//     },
-//   });
-
-//   return result;
+// export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
+// ) {
+//   // return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
 // }
 
 // NOTE: Think we can just switch this out for p-retry that we already use in the project

@@ -83,6 +83,7 @@ ${formatCategoriesForPrompt(categories)}
 - Accuracy is more important than completeness
 - Only use the categories provided above
 - Respond with "Unknown" if unsure
+- Return your response in JSON format
 </important>`;
 
   const modelOptions = getModel(emailAccount.user, "chat");

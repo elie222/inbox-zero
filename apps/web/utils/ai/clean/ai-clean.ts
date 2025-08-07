@@ -58,7 +58,9 @@ ${
     ? `Do not archive emails that are actual financial records: receipts, payment confirmations, or invoices.
 However, do archive payment-related communications like overdue payment notifications, payment reminders, or subscription renewal notices.`
     : ""
-}`.trim();
+}
+
+Return your response in JSON format.`.trim();
 
   const message = `${stringifyEmailSimple(lastMessage)}
   ${

@@ -43,6 +43,7 @@ ${formatCategoriesForPrompt(categories)}
 3. If the category is clear, assign it.
 4. If you're not certain, respond with "Unknown".
 5. If multiple categories are possible, respond with "Unknown".
+6. Return your response in JSON format.
 </instructions>`;
 
   const modelOptions = getModel(emailAccount.user);

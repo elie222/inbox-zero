@@ -23,6 +23,8 @@ Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.
+
+Return your response in JSON format.
 `;
 
 const getUserPrompt = ({

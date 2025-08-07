@@ -28,39 +28,20 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { UserEmailWithAI } from "@/utils/llms/types";
-// Import other necessary types and utilities
 
-// 1. Create a scoped logger
-const logger = createScopedLogger("feature-name");
-
-// 2. Define output schema with zod
-export const schema = z.object({
-  // Define expected response fields
-  field1: z.string(),
-  field2: z.number(),
-  nested: z.object({
-    subfield: z.string(),
-  }),
-  array_field: z.array(z.string()),
-});
-
-// 3. Create main function with typed options
 export async function featureFunction(options: {
   inputData: InputType;
   user: UserEmailWithAI;
 }) {
   const { inputData, user } = options;
 
-  // 4. Add early validation/returns
   if (!inputData || [other validation conditions]) {
     logger.warn("Invalid input for feature function");
     return null;
   }
 
-  // 5. Define system prompt
   const system = `[Detailed system prompt that defines the LLM's role and task]`;
 
-  // 6. Construct user prompt
   const prompt = `[User prompt with context and specific instructions]
 
 <data>
@@ -69,24 +50,23 @@ export async function featureFunction(options: {
 
 ${user.about ? `<user_info>${user.about}</user_info>` : ""}`;
 
-  // 7. Log inputs
-  logger.trace("Input", { system, prompt });
-
-  // 8. Call LLM with proper configuration
   const result = await chatCompletionObject({
     userAi: user,
     system,
     prompt,
-    schema,
+    schema: z.object({
+      field1: z.string(),
+      field2: z.number(),
+      nested: z.object({
+        subfield: z.string(),
+      }),
+      array_field: z.array(z.string()),
+    }),
     userEmail: user.email,
     usageLabel: "Feature Name",
   });
 
-  // 9. Log outputs
-  logger.trace("Output", { result });
-
-  // 10. Return validated result
-  return result.object;
+return result.object;
 }
 ```
 

@@ -28,7 +28,7 @@ Your task is to update an existing prompt file by modifying a specific rule whil
 Requirements:
 1. Maintain the exact same format and style as the original
 2. Keep all other rules intact
-3. Return only the updated prompt file
+3. Return only the updated prompt file in JSON format
 4. Ensure the output is properly formatted with consistent spacing and line breaks
 5. If you cannot find a similar rule in the current prompt, append the new rule at the end.`;
 

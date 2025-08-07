@@ -22,7 +22,9 @@ Provide a concise summary (max 500 characters) that captures the most important 
 - Key unresolved points or questions from past exchanges
 - Any commitments or promises made in previous conversations
 - Important dates or deadlines established in past emails
-- Notable preferences or patterns in communication`;
+- Notable preferences or patterns in communication
+
+Return your response in JSON format.`;
 
 const getUserPrompt = ({
   currentThreadMessages,
