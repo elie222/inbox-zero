@@ -64,7 +64,7 @@ export function createGenerateText({
           email: userEmail,
           usage: result.usage,
           provider: modelOptions.provider,
-          model: modelOptions.model,
+          model: modelOptions.modelName,
           label,
         });
       }
@@ -105,7 +105,7 @@ export function createGenerateObject({
           email: userEmail,
           usage: result.usage,
           provider: modelOptions.provider,
-          model: modelOptions.model,
+          model: modelOptions.modelName,
           label,
         });
       }
@@ -162,13 +162,13 @@ async function chatCompletionObjectInternal<T>({
   usageLabel,
 }: ChatCompletionObjectArgs<T>) {
   try {
-    const { provider, model, llmModel, providerOptions } = getModel(
+    const { provider, model, modelName, providerOptions } = getModel(
       userAi,
       modelType,
     );
 
     const result = await generateObject({
-      model: llmModel,
+      model,
       system,
       prompt,
       messages,
@@ -185,7 +185,7 @@ async function chatCompletionObjectInternal<T>({
         email: userEmail,
         usage: result.usage,
         provider,
-        model,
+        model: modelName,
         label: usageLabel,
       });
     }
@@ -222,13 +222,13 @@ export async function chatCompletionStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const { provider, model, llmModel, providerOptions } = getModel(
+  const { provider, model, modelName, providerOptions } = getModel(
     userAi,
     modelType,
   );
 
   const result = streamText({
-    model: llmModel,
+    model,
     system,
     prompt,
     messages,
@@ -242,7 +242,7 @@ export async function chatCompletionStream({
       const usagePromise = saveAiUsage({
         email: userEmail,
         provider,
-        model,
+        model: modelName,
         usage: result.usage,
         label,
       });
@@ -324,13 +324,13 @@ async function chatCompletionToolsInternal<TOOLS extends ToolSet = ToolSet>({
   userEmail,
 }: ChatCompletionToolsArgs<TOOLS>) {
   try {
-    const { provider, model, llmModel, providerOptions } = getModel(
+    const { provider, model, modelName, providerOptions } = getModel(
       userAi,
       modelType,
     );
 
     const result = await generateText({
-      model: llmModel,
+      model,
       tools,
       toolChoice: "required",
       system,
@@ -346,7 +346,7 @@ async function chatCompletionToolsInternal<TOOLS extends ToolSet = ToolSet>({
         email: userEmail,
         usage: result.usage,
         provider,
-        model,
+        model: modelName,
         label,
       });
     }

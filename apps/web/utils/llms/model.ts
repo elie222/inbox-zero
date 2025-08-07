@@ -15,10 +15,17 @@ const logger = createScopedLogger("llms/model");
 
 export type ModelType = "default" | "economy" | "chat";
 
+type SelectModel = {
+  provider: string;
+  modelName: string;
+  model: LanguageModelV2;
+  providerOptions?: Record<string, any>;
+};
+
 export function getModel(
   userAi: UserAIFields,
   modelType: ModelType = "default",
-) {
+): SelectModel {
   const data = selectModelByType(userAi, modelType);
 
   logger.info("Using model", {
@@ -35,9 +42,8 @@ function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
   switch (modelType) {
     case "economy":
       return selectEconomyModel(userAi);
-    // disabled for now
-    // case "chat":
-    //   return selectChatModel(userAi);
+    case "chat":
+      return selectChatModel(userAi);
     default:
       return selectDefaultModel(userAi);
   }
@@ -54,20 +60,15 @@ function selectModel(
     aiApiKey: string | null;
   },
   providerOptions?: Record<string, any>,
-): {
-  provider: string;
-  model: string;
-  llmModel: LanguageModelV2;
-  providerOptions?: Record<string, any>;
-} {
+): SelectModel {
   switch (aiProvider) {
     case Provider.OPEN_AI: {
-      const model = aiModel || Model.GPT_4O;
+      const modelName = aiModel || Model.GPT_4O;
       return {
         provider: Provider.OPEN_AI,
-        model,
-        llmModel: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
-          model,
+        modelName,
+        model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
+          modelName,
         ),
       };
     }
@@ -75,22 +76,22 @@ function selectModel(
       const mod = aiModel || Model.GEMINI_2_0_FLASH;
       return {
         provider: Provider.GOOGLE,
-        model: mod,
-        llmModel: createGoogleGenerativeAI({
+        modelName: mod,
+        model: createGoogleGenerativeAI({
           apiKey: aiApiKey || env.GOOGLE_API_KEY,
         })(mod),
       };
     }
     case Provider.GROQ: {
-      const model = aiModel || Model.GROQ_LLAMA_3_3_70B;
+      const modelName = aiModel || Model.GROQ_LLAMA_3_3_70B;
       return {
         provider: Provider.GROQ,
-        model,
-        llmModel: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(model),
+        modelName,
+        model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
       };
     }
     case Provider.OPENROUTER: {
-      const model = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
+      const modelName = aiModel || Model.CLAUDE_4_SONNET_OPENROUTER;
       const openrouter = createOpenRouter({
         apiKey: aiApiKey || env.OPENROUTER_API_KEY,
         headers: {
@@ -98,12 +99,12 @@ function selectModel(
           "X-Title": "Inbox Zero",
         },
       });
-      const chatModel = openrouter.chat(model);
+      const chatModel = openrouter.chat(modelName);
 
       return {
         provider: Provider.OPENROUTER,
-        model,
-        llmModel: chatModel,
+        modelName,
+        model: chatModel,
         providerOptions,
       };
     }
@@ -111,24 +112,24 @@ function selectModel(
       throw new Error(
         "Ollama is not supported. Revert to version v1.7.28 or older to use it.",
       );
-      // const model = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
-      // if (!model) throw new Error("Ollama model is not set");
+      // const modelName = aiModel || env.NEXT_PUBLIC_OLLAMA_MODEL;
+      // if (!modelName) throw new Error("Ollama model is not set");
       // return {
       //   provider: Provider.OLLAMA!,
-      //   model,
-      //   llmModel: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
+      //   modelName,
+      //   model: createOllama({ baseURL: env.OLLAMA_BASE_URL })(model),
       // };
     }
 
     // this is messy. better to have two providers. one for bedrock and one for anthropic
     case Provider.ANTHROPIC: {
       if (env.BEDROCK_ACCESS_KEY && env.BEDROCK_SECRET_KEY && !aiApiKey) {
-        const model = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
+        const modelName = aiModel || Model.CLAUDE_3_7_SONNET_BEDROCK;
         return {
           provider: Provider.ANTHROPIC,
-          model,
+          modelName,
           // Based on: https://github.com/vercel/ai/issues/4996#issuecomment-2751630936
-          llmModel: createAmazonBedrock({
+          model: createAmazonBedrock({
             // accessKeyId: env.BEDROCK_ACCESS_KEY,
             // secretAccessKey: env.BEDROCK_SECRET_KEY,
             // sessionToken: undefined,
@@ -138,16 +139,16 @@ function selectModel(
               secretAccessKey: env.BEDROCK_SECRET_KEY!,
               sessionToken: undefined,
             }),
-          })(model),
+          })(modelName),
         };
       } else {
-        const model = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
+        const modelName = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
         return {
           provider: Provider.ANTHROPIC,
-          model,
-          llmModel: createAnthropic({
+          modelName,
+          model: createAnthropic({
             apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
-          })(model),
+          })(modelName),
         };
       }
     }
@@ -183,7 +184,7 @@ function createOpenRouterProviderOptions(
  * - Bulk processing emails
  * - Any task with large context windows where cost efficiency matters
  */
-function selectEconomyModel(userAi: UserAIFields) {
+function selectEconomyModel(userAi: UserAIFields): SelectModel {
   if (env.ECONOMY_LLM_PROVIDER && env.ECONOMY_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.ECONOMY_LLM_PROVIDER);
     if (!apiKey) {
@@ -220,7 +221,7 @@ function selectEconomyModel(userAi: UserAIFields) {
 /**
  * Selects the appropriate chat model for fast conversational tasks
  */
-function selectChatModel(userAi: UserAIFields) {
+function selectChatModel(userAi: UserAIFields): SelectModel {
   if (env.CHAT_LLM_PROVIDER && env.CHAT_LLM_MODEL) {
     const apiKey = getProviderApiKey(env.CHAT_LLM_PROVIDER);
     if (!apiKey) {
@@ -254,7 +255,7 @@ function selectChatModel(userAi: UserAIFields) {
   return selectDefaultModel(userAi);
 }
 
-function selectDefaultModel(userAi: UserAIFields) {
+function selectDefaultModel(userAi: UserAIFields): SelectModel {
   let aiProvider: string;
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
@@ -276,15 +277,15 @@ function selectDefaultModel(userAi: UserAIFields) {
       const models = [
         // {
         //   provider: Provider.ANTHROPIC,
-        //   model: Model.CLAUDE_3_7_SONNET_BEDROCK,
+        //   modelName: Model.CLAUDE_3_7_SONNET_BEDROCK,
         // },
         // {
         //   provider: Provider.ANTHROPIC,
-        //   model: Model.CLAUDE_4_SONNET_BEDROCK,
+        //   modelName: Model.CLAUDE_4_SONNET_BEDROCK,
         // },
         {
           provider: Provider.OPENROUTER,
-          model: null,
+          modelName: null,
         },
       ];
 
@@ -292,7 +293,7 @@ function selectDefaultModel(userAi: UserAIFields) {
         models[Math.floor(Math.random() * models.length)];
 
       aiProvider = selectedProviderAndModel.provider;
-      aiModel = selectedProviderAndModel.model;
+      aiModel = selectedProviderAndModel.modelName;
 
       if (aiProvider === Provider.OPENROUTER) {
         function selectRandomModel() {
