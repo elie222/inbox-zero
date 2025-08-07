@@ -53,8 +53,8 @@ export function createGenerateText({
     const generate = async (model: LanguageModelV2) => {
       logger.trace("Generating text", {
         label,
-        system: options.system,
-        prompt: options.prompt,
+        system: options.system?.slice(0, 200),
+        prompt: options.prompt?.slice(0, 200),
       });
 
       const result = await generateText(
@@ -128,8 +128,8 @@ export function createGenerateObject({
 
       logger.trace("Generating object", {
         label,
-        system: options.system,
-        prompt: options.prompt,
+        system: options.system?.slice(0, 200),
+        prompt: options.prompt?.slice(0, 200),
       });
 
       const result = await generateObject(

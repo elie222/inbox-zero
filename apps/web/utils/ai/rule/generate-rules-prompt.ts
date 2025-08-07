@@ -37,9 +37,7 @@ export async function aiGenerateRulesPrompt({
   snippets: string[];
 }): Promise<string[] | undefined> {
   const labelsList = userLabels
-    ? userLabels
-        .map((label) => `<label><name>${label}</name></label>`)
-        .join("\n")
+    ? userLabels.map((label) => `<label>${label}</label>`).join("\n")
     : "No labels found";
 
   const hasSnippets = snippets.length > 0;
