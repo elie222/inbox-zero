@@ -1,12 +1,12 @@
 import { z } from "zod";
 import { InvalidArgumentError } from "ai";
-import { chatCompletionObject, withRetry } from "@/utils/llms";
+import { createGenerateText, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import type { ActionType } from "@prisma/client";
-import type { ModelType } from "@/utils/llms/model";
+import { getModel, type ModelType } from "@/utils/llms/model";
 
 /**
  * AI Argument Generator for Email Actions
@@ -74,22 +74,33 @@ export async function aiGenerateArgs({
   logger.trace("System and prompt", { system, prompt });
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
+  const modelOptions = getModel(emailAccount.user, modelType);
+
+  const generateText = createGenerateText({
+    label: "Args for rule",
+    userEmail: emailAccount.email,
+    modelOptions,
+  });
+
   const aiResponse = await withRetry(
     () =>
-      chatCompletionObject({
-        userAi: emailAccount.user,
-        modelType,
-        prompt,
+      generateText({
+        ...modelOptions,
         system,
-        schemaName: "Apply rule",
-        schemaDescription: "Apply the rule with the given arguments.",
-        schema: z.object(
-          Object.fromEntries(
-            parameters.map((p) => [`${p.type}-${p.actionId}`, p.parameters]),
-          ),
-        ),
-        usageLabel: "Args for rule",
-        userEmail: emailAccount.email,
+        prompt,
+        tools: {
+          apply_rule: {
+            description: "Apply the rule with the given arguments.",
+            inputSchema: z.object(
+              Object.fromEntries(
+                parameters.map((p) => [
+                  `${p.type}-${p.actionId}`,
+                  p.parameters,
+                ]),
+              ),
+            ),
+          },
+        },
       }),
     {
       retryIf: (error: unknown) => InvalidArgumentError.isInstance(error),
@@ -98,7 +109,11 @@ export async function aiGenerateArgs({
     },
   );
 
-  const result = aiResponse.object;
+  const toolCall = aiResponse.toolCalls[0];
+
+  if (!toolCall?.toolName) return;
+
+  const result = toolCall.input;
 
   logger.trace("Result", { result });
 

@@ -41,6 +41,68 @@ const commonOptions: {
   providerOptions?: Record<string, Record<string, JSONValue>>;
 } = { experimental_telemetry: { isEnabled: true } };
 
+export function createGenerateText({
+  userEmail,
+  label,
+  modelOptions,
+}: {
+  userEmail: string;
+  label: string;
+  modelOptions: ReturnType<typeof getModel>;
+}): typeof generateText {
+  return async (...args) => {
+    try {
+      const result = await generateText(...args);
+
+      if (result.usage) {
+        await saveAiUsage({
+          email: userEmail,
+          usage: result.usage,
+          provider: modelOptions.provider,
+          model: modelOptions.model,
+          label,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      await handleError(error, userEmail);
+      throw error;
+    }
+  };
+}
+
+export function createGenerateObject({
+  userEmail,
+  label,
+  modelOptions,
+}: {
+  userEmail: string;
+  label: string;
+  modelOptions: ReturnType<typeof getModel>;
+}): typeof generateObject {
+  return async (...args) => {
+    try {
+      const result = await generateObject(...args);
+
+      if (result.usage) {
+        await saveAiUsage({
+          email: userEmail,
+          usage: result.usage,
+          provider: modelOptions.provider,
+          model: modelOptions.model,
+          label,
+        });
+      }
+
+      return result;
+    } catch (error) {
+      await handleError(error, userEmail);
+      throw error;
+    }
+  };
+}
+
 export async function chatCompletion({
   userAi,
   modelType = "default",
