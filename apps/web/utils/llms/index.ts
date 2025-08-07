@@ -1,4 +1,3 @@
-import type { z } from "zod";
 import {
   APICallError,
   type ModelMessage,
@@ -12,11 +11,9 @@ import {
   stepCountIs,
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
-  type ToolSet,
 } from "ai";
-import { env } from "@/env";
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
-import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
@@ -41,127 +38,129 @@ const commonOptions: {
   providerOptions?: Record<string, Record<string, JSONValue>>;
 } = { experimental_telemetry: { isEnabled: true } };
 
-export async function chatCompletion({
-  userAi,
-  modelType = "default",
-  prompt,
-  system,
+export function createGenerateText({
   userEmail,
-  usageLabel,
+  label,
+  modelOptions,
 }: {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  prompt: string;
-  system?: string;
   userEmail: string;
-  usageLabel: string;
-}) {
-  try {
-    const { provider, model, llmModel, providerOptions } = getModel(
-      userAi,
-      modelType,
-    );
+  label: string;
+  modelOptions: ReturnType<typeof getModel>;
+}): typeof generateText {
+  return async (...args) => {
+    const [options, ...restArgs] = args;
 
-    const result = await generateText({
-      model: llmModel,
-      prompt,
-      system,
-      providerOptions,
-      ...commonOptions,
-    });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: userEmail,
-        usage: result.usage,
-        provider,
-        model,
-        label: usageLabel,
+    const generate = async (model: LanguageModelV2) => {
+      logger.trace("Generating text", {
+        label,
+        system: options.system?.slice(0, 200),
+        prompt: options.prompt?.slice(0, 200),
       });
-    }
 
-    return result;
-  } catch (error) {
-    await handleError(error, userEmail);
-    throw error;
-  }
+      const result = await generateText(
+        {
+          ...options,
+          ...commonOptions,
+          model,
+        },
+        ...restArgs,
+      );
+
+      if (result.usage) {
+        await saveAiUsage({
+          email: userEmail,
+          usage: result.usage,
+          provider: modelOptions.provider,
+          model: modelOptions.modelName,
+          label,
+        });
+      }
+
+      if (args[0].tools) {
+        const toolCallInput = result.toolCalls?.[0]?.input;
+        logger.trace("Result", {
+          label,
+          result: toolCallInput,
+        });
+      }
+
+      return result;
+    };
+
+    try {
+      return await generate(modelOptions.model);
+    } catch (error) {
+      if (
+        modelOptions.backupModel &&
+        (isServiceUnavailableError(error) || isAWSThrottlingError(error))
+      ) {
+        logger.warn("Using backup model", {
+          error,
+          model: modelOptions.backupModel,
+        });
+
+        try {
+          return await generate(modelOptions.backupModel);
+        } catch (error) {
+          await handleError(error, userEmail);
+          throw error;
+        }
+      }
+
+      await handleError(error, userEmail);
+      throw error;
+    }
+  };
 }
 
-type ChatCompletionObjectArgs<T> = {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  schema: z.Schema<T>;
-  schemaName?: string;
-  schemaDescription?: string;
-  output?: "object" | "array" | "enum" | "no-schema";
-  userEmail: string;
-  usageLabel: string;
-} & (
-  | {
-      system?: string;
-      prompt: string;
-      messages?: never;
-    }
-  | {
-      system?: never;
-      prompt?: never;
-      messages: ModelMessage[];
-    }
-);
-
-export async function chatCompletionObject<T>(
-  options: ChatCompletionObjectArgs<T>,
-) {
-  return withBackupModel(chatCompletionObjectInternal, options);
-}
-
-async function chatCompletionObjectInternal<T>({
-  userAi,
-  modelType,
-  system,
-  prompt,
-  messages,
-  schema,
-  schemaName,
-  schemaDescription,
-  output = "object",
+export function createGenerateObject({
   userEmail,
-  usageLabel,
-}: ChatCompletionObjectArgs<T>) {
-  try {
-    const { provider, model, llmModel, providerOptions } = getModel(
-      userAi,
-      modelType,
-    );
+  label,
+  modelOptions,
+}: {
+  userEmail: string;
+  label: string;
+  modelOptions: ReturnType<typeof getModel>;
+}): typeof generateObject {
+  return async (...args) => {
+    try {
+      const [options, ...restArgs] = args;
 
-    const result = await generateObject({
-      model: llmModel,
-      system,
-      prompt,
-      messages,
-      schema,
-      schemaName,
-      schemaDescription,
-      output,
-      providerOptions,
-      ...commonOptions,
-    });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: userEmail,
-        usage: result.usage,
-        provider,
-        model,
-        label: usageLabel,
+      logger.trace("Generating object", {
+        label,
+        system: options.system?.slice(0, 200),
+        prompt: options.prompt?.slice(0, 200),
       });
-    }
 
-    return result;
-  } catch (error) {
-    await handleError(error, userEmail);
-    throw error;
-  }
+      const result = await generateObject(
+        {
+          ...options,
+          ...commonOptions,
+        },
+        ...restArgs,
+      );
+
+      if (result.usage) {
+        await saveAiUsage({
+          email: userEmail,
+          usage: result.usage,
+          provider: modelOptions.provider,
+          model: modelOptions.modelName,
+          label,
+        });
+      }
+
+      logger.trace("Generated object", {
+        label,
+        result: result.object,
+      });
+
+      return result;
+    } catch (error) {
+      await handleError(error, userEmail);
+      throw error;
+    }
+  };
 }
 
 export async function chatCompletionStream({
@@ -189,13 +188,13 @@ export async function chatCompletionStream({
   onFinish?: StreamTextOnFinishCallback<Record<string, Tool>>;
   onStepFinish?: StreamTextOnStepFinishCallback<Record<string, Tool>>;
 }) {
-  const { provider, model, llmModel, providerOptions } = getModel(
+  const { provider, model, modelName, providerOptions } = getModel(
     userAi,
     modelType,
   );
 
   const result = streamText({
-    model: llmModel,
+    model,
     system,
     prompt,
     messages,
@@ -209,7 +208,7 @@ export async function chatCompletionStream({
       const usagePromise = saveAiUsage({
         email: userEmail,
         provider,
-        model,
+        model: modelName,
         usage: result.usage,
         label,
       });
@@ -253,200 +252,9 @@ export async function chatCompletionStream({
   return result;
 }
 
-type ChatCompletionToolsArgs<TOOLS extends ToolSet = ToolSet> = {
-  userAi: UserAIFields;
-  modelType?: ModelType;
-  tools?: TOOLS;
-  maxSteps?: number;
-  label: string;
-  userEmail: string;
-} & (
-  | {
-      system?: string;
-      prompt: string;
-      messages?: never;
-    }
-  | {
-      system?: never;
-      prompt?: never;
-      messages: ModelMessage[];
-    }
-);
-
-export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
-  options: ChatCompletionToolsArgs<TOOLS>,
-) {
-  return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
-}
-
-async function chatCompletionToolsInternal<TOOLS extends ToolSet = ToolSet>({
-  userAi,
-  modelType,
-  system,
-  prompt,
-  messages,
-  tools,
-  maxSteps,
-  label,
-  userEmail,
-}: ChatCompletionToolsArgs<TOOLS>) {
-  try {
-    const { provider, model, llmModel, providerOptions } = getModel(
-      userAi,
-      modelType,
-    );
-
-    const result = await generateText({
-      model: llmModel,
-      tools,
-      toolChoice: "required",
-      system,
-      prompt,
-      messages,
-      stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-      providerOptions,
-      ...commonOptions,
-    });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: userEmail,
-        usage: result.usage,
-        provider,
-        model,
-        label,
-      });
-    }
-
-    return result;
-  } catch (error) {
-    await handleError(error, userEmail);
-    throw error;
-  }
-}
-
-// not in use atm
-// async function _streamCompletionTools({
-//   userAi,
-//   modelType,
-//   prompt,
-//   system,
-//   tools,
-//   maxSteps,
-//   userEmail,
-//   label,
-//   onFinish,
-// }: {
-//   userAi: UserAIFields;
-//   modelType?: ModelType;
-//   prompt: string;
-//   system?: string;
-//   tools: Record<string, Tool>;
-//   maxSteps?: number;
-//   userEmail: string;
-//   label: string;
-//   onFinish?: (text: string) => Promise<void>;
-// }) {
-//   const { provider, model, llmModel, providerOptions } = getModel(
-//     userAi,
-//     modelType,
-//   );
-
-//   const result = streamText({
-//     model: llmModel,
-//     tools,
-//     toolChoice: "required",
-//     prompt,
-//     system,
-//     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
-//     providerOptions,
-//     ...commonOptions,
-//     onFinish: async ({ usage, text }) => {
-//       const usagePromise = saveAiUsage({
-//         email: userEmail,
-//         provider,
-//         model,
-//         usage,
-//         label,
-//       });
-
-//       const finishPromise = onFinish?.(text);
-
-//       await Promise.all([usagePromise, finishPromise]);
-//     },
-//   });
-
-//   return result;
-// }
-
-// NOTE: Think we can just switch this out for p-retry that we already use in the project
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  {
-    retryIf,
-    maxRetries,
-    delayMs,
-  }: {
-    retryIf: (error: unknown) => boolean;
-    maxRetries: number;
-    delayMs: number;
-  },
-): Promise<T> {
-  let attempts = 0;
-  let lastError: unknown;
-
-  while (attempts < maxRetries) {
-    try {
-      return await fn();
-    } catch (error) {
-      attempts++;
-      lastError = error;
-
-      if (retryIf(error)) {
-        logger.warn("Operation failed. Retrying...", {
-          attempts,
-          error,
-        });
-
-        if (attempts < maxRetries) {
-          await sleep(delayMs);
-          continue;
-        }
-      }
-
-      throw error;
-    }
-  }
-
-  throw lastError;
-}
-
-// Helps when service is unavailable / throttled / rate limited
-async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
-  fn: (args: Args) => Promise<T>,
-  args: Args,
-): Promise<T> {
-  try {
-    return await fn(args);
-  } catch (error) {
-    if (
-      env.USE_BACKUP_MODEL &&
-      (isServiceUnavailableError(error) || isAWSThrottlingError(error))
-    ) {
-      return await fn({
-        ...args,
-        userAi: {
-          aiProvider: Provider.ANTHROPIC,
-          aiModel: env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
-          aiApiKey: args.userAi.aiApiKey,
-        },
-      });
-    }
-    throw error;
-  }
-}
-
 async function handleError(error: unknown, userEmail: string) {
+  logger.error("Error in LLM call", { error, userEmail });
+
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await addUserErrorMessage(
@@ -488,4 +296,46 @@ async function handleError(error: unknown, userEmail: string) {
       );
     }
   }
+}
+
+// NOTE: Think we can just switch this out for p-retry that we already use in the project
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  {
+    retryIf,
+    maxRetries,
+    delayMs,
+  }: {
+    retryIf: (error: unknown) => boolean;
+    maxRetries: number;
+    delayMs: number;
+  },
+): Promise<T> {
+  let attempts = 0;
+  let lastError: unknown;
+
+  while (attempts < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      attempts++;
+      lastError = error;
+
+      if (retryIf(error)) {
+        logger.warn("Operation failed. Retrying...", {
+          attempts,
+          error,
+        });
+
+        if (attempts < maxRetries) {
+          await sleep(delayMs);
+          continue;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
 }

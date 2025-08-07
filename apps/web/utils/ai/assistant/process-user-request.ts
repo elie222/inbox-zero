@@ -1,7 +1,7 @@
-import { tool } from "ai";
+import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import { after } from "next/server";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
 import {
   type Category,
@@ -35,6 +35,7 @@ import {
 import { env } from "@/env";
 import { posthogCaptureEvent } from "@/utils/posthog";
 import { getUserCategoriesForNames } from "@/utils/category.server";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-fix-rules");
 
@@ -198,10 +199,18 @@ ${senderCategory || "No category"}
     }
   }
 
-  const result = await chatCompletionTools({
-    userAi: emailAccount.user,
-    modelType: "chat",
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Process user request",
+    modelOptions,
+  });
+
+  const result = await generateText({
+    ...modelOptions,
     messages: allMessages,
+    stopWhen: stepCountIs(5),
     tools: {
       update_conditional_operator: tool({
         description: "Update the conditional operator of a rule",
@@ -622,9 +631,6 @@ ${senderCategory || "No category"}
         // no execute function - invoking it will terminate the agent
       }),
     },
-    maxSteps: 5,
-    label: "Fix Rule",
-    userEmail: emailAccount.email,
   });
 
   const toolCalls = result.steps.flatMap((step) => step.toolCalls);

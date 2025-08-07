@@ -552,7 +552,7 @@ export const generateRulesPromptAction = actionClient
     const result = await aiGenerateRulesPrompt({
       emailAccount,
       lastSentEmails,
-      snippets: snippetsResult.map((snippet) => snippet.text),
+      snippets: snippetsResult.snippets.map((snippet) => snippet.text),
       userLabels: labelsWithCounts.map((label) => label.label),
     });
 

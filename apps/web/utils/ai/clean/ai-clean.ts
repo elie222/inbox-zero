@@ -1,16 +1,12 @@
 import { z } from "zod";
-import { generateObject } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { formatDateForLLM, formatRelativeTimeForLLM } from "@/utils/date";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 // import { Braintrust } from "@/utils/braintrust";
-
-const logger = createScopedLogger("ai/clean");
 
 // TODO: allow specific labels
 // Pass in prompt labels
@@ -24,7 +20,7 @@ const schema = z.object({
 
 export async function aiClean({
   emailAccount,
-  messageId,
+  messageId: _messageId,
   messages,
   instructions,
   skips,
@@ -62,7 +58,9 @@ ${
     ? `Do not archive emails that are actual financial records: receipts, payment confirmations, or invoices.
 However, do archive payment-related communications like overdue payment notifications, payment reminders, or subscription renewal notices.`
     : ""
-}`.trim();
+}
+
+Return your response in JSON format.`.trim();
 
   const message = `${stringifyEmailSimple(lastMessage)}
   ${
@@ -92,40 +90,20 @@ The current date is ${currentDate}.
 
   // ${user.about ? `<user_background_information>${user.about}</user_background_information>` : ""}
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   system,
-  //   prompt,
-  //   schema,
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Clean",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Clean",
+    modelOptions,
+  });
 
   const aiResponse = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema,
-    providerOptions,
   });
-
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Clean",
-    });
-  }
-
-  logger.trace("Result", { response: aiResponse.object });
 
   // braintrust.insertToDataset({
   //   id: messageId,

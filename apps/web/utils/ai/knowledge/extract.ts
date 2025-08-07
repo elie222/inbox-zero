@@ -3,12 +3,11 @@ import { createScopedLogger } from "@/utils/logger";
 import type { Knowledge } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("ai/knowledge/extract");
 
-const SYSTEM_PROMPT = `You are a knowledge extraction agent. Your task is to analyze the provided knowledge base entries and extract the most relevant information for drafting an email response, based ONLY on the provided knowledge base entries.
+const system = `You are a knowledge extraction agent. Your task is to analyze the provided knowledge base entries and extract the most relevant information for drafting an email response, based ONLY on the provided knowledge base entries.
 
 Given:
 1. A set of knowledge base entries (each with a title and content)
@@ -95,45 +94,22 @@ export async function aiExtractRelevantKnowledge({
   try {
     if (!knowledgeBase.length) return null;
 
-    const system = SYSTEM_PROMPT;
     const prompt = getUserPrompt({ knowledgeBase, emailContent, emailAccount });
 
-    logger.trace("Input", { system, prompt: prompt.slice(0, 500) });
+    const modelOptions = getModel(emailAccount.user, "economy");
 
-    // const result = await chatCompletionObject({
-    //   system,
-    //   prompt,
-    //   schema: extractionSchema,
-    //   usageLabel: "Knowledge extraction",
-    //   userAi: emailAccount.user,
-    //   userEmail: emailAccount.email,
-    //   modelType: "economy",
-    // });
-
-    const { provider, model, llmModel, providerOptions } = getModel(
-      emailAccount.user,
-      "economy",
-    );
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Knowledge extraction",
+      modelOptions,
+    });
 
     const result = await generateObject({
-      model: llmModel,
+      ...modelOptions,
       system,
       prompt,
       schema: extractionSchema,
-      providerOptions,
     });
-
-    if (result.usage) {
-      await saveAiUsage({
-        email: emailAccount.email,
-        usage: result.usage,
-        provider,
-        model,
-        label: "Knowledge extraction",
-      });
-    }
-
-    logger.trace("Output", result.object);
 
     return result.object;
   } catch (error) {

@@ -1,13 +1,9 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
-
-const logger = createScopedLogger("generate-prompt-on-delete-rule");
+import { createGenerateObject } from "@/utils/llms";
 
 const parameters = z.object({
   updatedPrompt: z
@@ -30,7 +26,7 @@ export async function generatePromptOnDeleteRule({
   if (!deletedRulePrompt) return "";
 
   const system =
-    "You are an AI assistant that helps maintain email management rule prompts. Your task is to update an existing prompt file by removing a specific rule while maintaining the exact format and style.";
+    "You are an AI assistant that helps maintain email management rule prompts. Your task is to update an existing prompt file by removing a specific rule while maintaining the exact format and style. Return the result in JSON format.";
 
   const prompt = `Here is the current prompt file that defines email management rules:
 
@@ -52,42 +48,22 @@ ${deletedRulePrompt}
 6. If you cannot find the rule in the current prompt, return the current prompt as is
 </instructions>`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   prompt,
-  //   system,
-  //   schema: parameters,
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Update prompt on delete rule",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Update prompt on delete rule",
+    modelOptions,
+  });
 
   const aiResponse = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema: parameters,
-    providerOptions,
   });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Update prompt on delete rule",
-    });
-  }
-
   const parsedResponse = aiResponse.object;
-
-  logger.trace("Output", { updatedPrompt: parsedResponse.updatedPrompt });
 
   return parsedResponse.updatedPrompt;
 }

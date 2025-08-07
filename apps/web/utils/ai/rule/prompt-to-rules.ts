@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { tool } from "ai";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   type CreateOrUpdateRuleSchemaWithCategories,
@@ -9,6 +9,7 @@ import {
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMentionsToLabels } from "@/utils/mention";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
@@ -56,10 +57,16 @@ export async function aiPromptToRules({
 ${cleanedPromptFile}
 </prompt>`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Prompt to rules",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
     prompt,
     system,
     tools: {
@@ -68,8 +75,6 @@ ${cleanedPromptFile}
         inputSchema: getSchema(),
       }),
     },
-    userEmail: emailAccount.email,
-    label: "Prompt to rules",
   });
 
   const toolCall = aiResponse.toolCalls.find(
@@ -82,8 +87,6 @@ ${cleanedPromptFile}
   }
 
   const rules = (toolCall.input as any)?.rules;
-
-  logger.trace("Output", { rules });
 
   return rules as CreateOrUpdateRuleSchemaWithCategories[];
 }

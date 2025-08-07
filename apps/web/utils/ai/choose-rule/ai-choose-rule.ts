@@ -2,13 +2,9 @@ import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel, type ModelType } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 // import { Braintrust } from "@/utils/braintrust";
-
-const logger = createScopedLogger("ai-choose-rule");
 
 // const braintrust = new Braintrust("choose-rule-2");
 
@@ -79,44 +75,16 @@ Respond with a valid JSON object with the following fields:
 ${emailSection}
 </email>`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, modelType);
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   modelType,
-  //   messages: [
-  //     {
-  //       role: "system",
-  //       content: system,
-  //       // This will cache if the user has a very long prompt. Although usually won't do anything as it's hard for this prompt to reach 1024 tokens
-  //       // https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching#cache-limitations
-  //       // NOTE: Needs permission from AWS to use this. Otherwise gives error: "You do not have access to explicit prompt caching"
-  //       // Currently only available to select customers: https://docs.aws.amazon.com/bedrock/latest/userguide/prompt-caching.html
-  //       // providerOptions: {
-  //       //   bedrock: { cachePoint: { type: "ephemeral" } },
-  //       //   anthropic: { cacheControl: { type: "ephemeral" } },
-  //       // },
-  //     },
-  //     {
-  //       role: "user",
-  //       content: prompt,
-  //     },
-  //   ],
-  //   schema: z.object({
-  //     reason: z.string(),
-  //     ruleName: z.string().nullish(),
-  //     noMatchFound: z.boolean().nullish(),
-  //   }),
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Choose rule",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Choose rule",
+    modelOptions,
+  });
 
   const aiResponse = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema: z.object({
@@ -124,20 +92,7 @@ ${emailSection}
       ruleName: z.string().nullish(),
       noMatchFound: z.boolean().nullish(),
     }),
-    providerOptions,
   });
-
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Choose rule",
-    });
-  }
-
-  logger.trace("Response", aiResponse.object);
 
   // braintrust.insertToDataset({
   //   id: email.id,

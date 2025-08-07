@@ -1,9 +1,10 @@
-import { tool } from "ai";
+import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { queryBatchMessages } from "@/utils/gmail/message";
+import { getModel } from "@/utils/llms/model";
 
 const FIND_EXAMPLE_MATCHES = "findExampleMatches";
 
@@ -91,11 +92,19 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     },
   });
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Find example matches",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
     system,
     prompt,
-    maxSteps: 10,
+    stopWhen: stepCountIs(10),
     tools: {
       listEmails: listEmailsTool(gmail),
       [FIND_EXAMPLE_MATCHES]: tool({
@@ -103,8 +112,6 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
         inputSchema: findExampleMatchesSchema,
       }),
     },
-    userEmail: emailAccount.email,
-    label: "Find example matches",
   });
 
   const findExampleMatchesToolCalls = aiResponse.toolCalls.filter(
