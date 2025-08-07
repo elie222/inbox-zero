@@ -20,6 +20,7 @@ type SelectModel = {
   modelName: string;
   model: LanguageModelV2;
   providerOptions?: Record<string, any>;
+  backupModel: LanguageModelV2 | null;
 };
 
 export function getModel(
@@ -70,6 +71,7 @@ function selectModel(
         model: createOpenAI({ apiKey: aiApiKey || env.OPENAI_API_KEY })(
           modelName,
         ),
+        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.GOOGLE: {
@@ -80,6 +82,7 @@ function selectModel(
         model: createGoogleGenerativeAI({
           apiKey: aiApiKey || env.GOOGLE_API_KEY,
         })(mod),
+        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.GROQ: {
@@ -88,6 +91,7 @@ function selectModel(
         provider: Provider.GROQ,
         modelName,
         model: createGroq({ apiKey: aiApiKey || env.GROQ_API_KEY })(modelName),
+        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.OPENROUTER: {
@@ -106,6 +110,7 @@ function selectModel(
         modelName,
         model: chatModel,
         providerOptions,
+        backupModel: getBackupModel(aiApiKey),
       };
     }
     case Provider.OLLAMA: {
@@ -140,6 +145,7 @@ function selectModel(
               sessionToken: undefined,
             }),
           })(modelName),
+          backupModel: getBackupModel(aiApiKey),
         };
       } else {
         const modelName = aiModel || Model.CLAUDE_3_7_SONNET_ANTHROPIC;
@@ -149,6 +155,7 @@ function selectModel(
           model: createAnthropic({
             apiKey: aiApiKey || env.ANTHROPIC_API_KEY,
           })(modelName),
+          backupModel: getBackupModel(aiApiKey),
         };
       }
     }
@@ -365,4 +372,14 @@ function getProviderApiKey(provider: string) {
   };
 
   return providerApiKeys[provider];
+}
+
+function getBackupModel(userApiKey: string | null): LanguageModelV2 | null {
+  // disable backup model if user is using their own api key
+  if (userApiKey) return null;
+  if (!env.OPENROUTER_BACKUP_MODEL) return null;
+
+  return createOpenRouter({
+    apiKey: env.OPENROUTER_API_KEY,
+  }).chat(env.OPENROUTER_BACKUP_MODEL);
 }

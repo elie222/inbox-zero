@@ -12,9 +12,8 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
 } from "ai";
-import { env } from "@/env";
+import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
-import { Provider } from "@/utils/llms/config";
 import type { UserAIFields } from "@/utils/llms/types";
 import { addUserErrorMessage, ErrorType } from "@/utils/error-messages";
 import {
@@ -49,9 +48,9 @@ export function createGenerateText({
   modelOptions: ReturnType<typeof getModel>;
 }): typeof generateText {
   return async (...args) => {
-    try {
-      const [options, ...restArgs] = args;
+    const [options, ...restArgs] = args;
 
+    const generate = async (model: LanguageModelV2) => {
       logger.trace("Generating text", {
         system: options.system,
         prompt: options.prompt,
@@ -61,6 +60,7 @@ export function createGenerateText({
         {
           ...options,
           ...commonOptions,
+          model,
         },
         ...restArgs,
       );
@@ -81,7 +81,28 @@ export function createGenerateText({
       }
 
       return result;
+    };
+
+    try {
+      return await generate(modelOptions.model);
     } catch (error) {
+      if (
+        modelOptions.backupModel &&
+        (isServiceUnavailableError(error) || isAWSThrottlingError(error))
+      ) {
+        logger.warn("Using backup model", {
+          error,
+          model: modelOptions.backupModel,
+        });
+
+        try {
+          return await generate(modelOptions.backupModel);
+        } catch (error) {
+          await handleError(error, userEmail);
+          throw error;
+        }
+      }
+
       await handleError(error, userEmail);
       throw error;
     }
@@ -310,33 +331,3 @@ export async function withRetry<T>(
 
   throw lastError;
 }
-
-// export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
-// ) {
-//   // return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
-// }
-
-// // Helps when service is unavailable / throttled / rate limited
-// async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
-//   fn: (args: Args) => Promise<T>,
-//   args: Args,
-// ): Promise<T> {
-//   try {
-//     return await fn(args);
-//   } catch (error) {
-//     if (
-//       env.USE_BACKUP_MODEL &&
-//       (isServiceUnavailableError(error) || isAWSThrottlingError(error))
-//     ) {
-//       return await fn({
-//         ...args,
-//         userAi: {
-//           aiProvider: Provider.ANTHROPIC,
-//           aiModel: env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
-//           aiApiKey: args.userAi.aiApiKey,
-//         },
-//       });
-//     }
-//     throw error;
-//   }
-// }
