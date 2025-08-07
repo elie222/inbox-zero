@@ -52,6 +52,11 @@ export function createGenerateText({
 }): typeof generateText {
   return async (...args) => {
     try {
+      logger.trace("Generating text", {
+        system: args[0].system,
+        prompt: args[0].prompt,
+      });
+
       const result = await generateText(...args);
 
       if (result.usage) {
@@ -62,6 +67,11 @@ export function createGenerateText({
           model: modelOptions.model,
           label,
         });
+      }
+
+      if (result.toolCalls?.[0]) {
+        const toolCallInput = result.toolCalls[0].input;
+        logger.trace("Result", { result: toolCallInput });
       }
 
       return result;
@@ -83,6 +93,11 @@ export function createGenerateObject({
 }): typeof generateObject {
   return async (...args) => {
     try {
+      logger.trace("Generating object", {
+        system: args[0].system,
+        prompt: args[0].prompt,
+      });
+
       const result = await generateObject(...args);
 
       if (result.usage) {
@@ -94,6 +109,8 @@ export function createGenerateObject({
           label,
         });
       }
+
+      logger.trace("Generated object", { result: result.object });
 
       return result;
     } catch (error) {

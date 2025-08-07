@@ -71,7 +71,6 @@ export async function aiGenerateArgs({
   const prompt = getPrompt({ email, selectedRule });
 
   logger.info("Calling chat completion tools", loggerOptions);
-  logger.trace("System and prompt", { system, prompt });
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
 
   const modelOptions = getModel(emailAccount.user, modelType);
@@ -114,8 +113,6 @@ export async function aiGenerateArgs({
   if (!toolCall?.toolName) return;
 
   const result = toolCall.input;
-
-  logger.trace("Result", { result });
 
   return result;
 }
