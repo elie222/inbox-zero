@@ -5,8 +5,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { truncate } from "@/utils/string";
 import { removeExcessiveWhitespace } from "@/utils/string";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("writing-style-analyzer");
 
@@ -78,40 +77,20 @@ ${
     : ""
 }`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  // const result = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   system,
-  //   prompt,
-  //   schema,
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Writing Style Analysis",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Writing Style Analysis",
+    modelOptions,
+  });
 
   const result = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema,
-    providerOptions,
   });
-
-  if (result.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: result.usage,
-      provider,
-      model,
-      label: "Writing Style Analysis",
-    });
-  }
-
-  logger.trace("Output", { result });
 
   return result.object;
 }

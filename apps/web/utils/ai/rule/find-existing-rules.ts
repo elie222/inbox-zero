@@ -1,19 +1,22 @@
 import { z } from "zod";
-import { generateText, tool } from "ai";
+import { tool } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
 import { getModel } from "@/utils/llms/model";
-import { saveAiUsage } from "@/utils/usage";
-import { isDefined } from "@/utils/types";
+import { createGenerateText } from "@/utils/llms";
 
-const schema = z
-  .object({
-    ruleId: z.string().describe("The id of the existing rule"),
-    promptNumber: z
-      .number()
-      .describe("The index of the prompt that matches the rule"),
-  })
-  .describe("The existing rules that match the prompt rules");
+const schema = z.object({
+  existingRules: z
+    .array(
+      z.object({
+        ruleId: z.string().describe("The id of the existing rule"),
+        promptNumber: z
+          .number()
+          .describe("The index of the prompt that matches the rule"),
+      }),
+    )
+    .describe("The existing rules that match the prompt rules"),
+});
 
 const findExistingRules = tool({
   description: "Find the existing rules that match the prompt rules.",
@@ -48,78 +51,47 @@ ${JSON.stringify(databaseRules, null, 2)}
 
 Please return the existing rules that match the prompt rules.`;
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   prompt,
-  //   system,
-  //   output: "array",
-  //   schemaName: "Find existing rules",
-  //   schemaDescription: "Find the existing rules that match the prompt rules",
-  //   schema: z
-  //     .object({
-  //       ruleId: z.string().describe("The id of the existing rule"),
-  //       promptNumber: z
-  //         .number()
-  //         .describe("The index of the prompt that matches the rule"),
-  //     })
-  //     .describe("The existing rules that match the prompt rules"),
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Find existing rules",
-  // });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-    "chat",
-  );
+  const generateText = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Find existing rules",
+    modelOptions,
+  });
 
   const result = await generateText({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
-    providerOptions,
     tools: {
       findExistingRules,
     },
   });
 
-  if (result.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: result.usage,
-      provider,
-      model,
-      label: "Find existing rules",
-    });
-  }
+  const parsedRules = result.toolCalls?.[0]?.input as z.infer<typeof schema>;
 
-  const existingRules = result.toolCalls
-    .map((toolCall) => {
-      if (toolCall.toolName !== "findExistingRules") return;
+  const existingRules = parsedRules.existingRules.map((rule) => {
+    const promptRule = rule.promptNumber
+      ? promptRules[rule.promptNumber - 1]
+      : null;
 
-      const rule = toolCall.input as z.infer<typeof schema>;
+    const toRemove = promptRule
+      ? promptRulesToRemove.includes(promptRule)
+      : null;
 
-      const promptRule = rule.promptNumber
-        ? promptRules[rule.promptNumber - 1]
-        : null;
+    const toEdit = promptRule
+      ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
+      : null;
 
-      const toRemove = promptRule
-        ? promptRulesToRemove.includes(promptRule)
-        : null;
-
-      const toEdit = promptRule
-        ? promptRulesToEdit.find((r) => r.oldRule === promptRule)
-        : null;
-
-      return {
-        rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
-        promptNumber: rule.promptNumber,
-        promptRule,
-        toRemove: !!toRemove,
-        toEdit: !!toEdit,
-        updatedPromptRule: toEdit?.newRule,
-      };
-    })
-    .filter(isDefined);
+    return {
+      rule: databaseRules.find((dbRule) => dbRule.id === rule.ruleId),
+      promptNumber: rule.promptNumber,
+      promptRule,
+      toRemove: !!toRemove,
+      toEdit: !!toEdit,
+      updatedPromptRule: toEdit?.newRule,
+    };
+  });
 
   return {
     editedRules: existingRules.filter((rule) => rule.toEdit),

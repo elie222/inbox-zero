@@ -13,8 +13,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/provider";
 import { getModel, type ModelType } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -203,48 +202,23 @@ Determine if the email is a cold email or not.`;
 ${stringifyEmail(email, 500)}
 </email>`;
 
-  logger.trace("AI is cold email prompt", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, modelType);
 
-  // const response = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   system,
-  //   prompt,
-  //   schema: z.object({
-  //     coldEmail: z.boolean(),
-  //     reason: z.string(),
-  //   }),
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Cold email check",
-  //   modelType,
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-    modelType,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Cold email check",
+    modelOptions,
+  });
 
   const response = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema: z.object({
       coldEmail: z.boolean(),
       reason: z.string(),
     }),
-    providerOptions,
   });
-
-  if (response.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: response.usage,
-      provider,
-      model,
-      label: "Cold email check",
-    });
-  }
-
-  logger.trace("AI is cold email response", { response: response.object });
 
   return response.object;
 }

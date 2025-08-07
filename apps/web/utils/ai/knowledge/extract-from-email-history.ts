@@ -6,12 +6,11 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { preprocessBooleanLike } from "@/utils/zod";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("EmailHistoryExtractor");
 
-const SYSTEM_PROMPT = `You are an email history analysis agent. Your task is to analyze the provided historical email threads and extract relevant information that would be helpful for drafting a response to the current email thread.
+const system = `You are an email history analysis agent. Your task is to analyze the provided historical email threads and extract relevant information that would be helpful for drafting a response to the current email thread.
 
 Your task:
 1. Analyze the historical email threads to understand relevant past context and interactions
@@ -61,7 +60,7 @@ ${getTodayForLLM()}
 Analyze the historical email threads and extract any relevant information that would be helpful for drafting a response to the current email thread. Provide a concise summary of the key historical context.`;
 };
 
-const extractionSchema = z.object({
+const schema = z.object({
   hasHistoricalContext: z
     .preprocess(preprocessBooleanLike, z.boolean())
     .describe("Whether there is any relevant historical context found."),
@@ -89,49 +88,26 @@ export async function aiExtractFromEmailHistory({
 
     if (historicalMessages.length === 0) return null;
 
-    const system = SYSTEM_PROMPT;
     const prompt = getUserPrompt({
       currentThreadMessages,
       historicalMessages,
       emailAccount,
     });
 
-    logger.trace("Input", { system, prompt });
+    const modelOptions = getModel(emailAccount.user, "economy");
 
-    // const result = await chatCompletionObject({
-    //   system,
-    //   prompt,
-    //   schema: extractionSchema,
-    //   usageLabel: "Email history extraction",
-    //   userAi: emailAccount.user,
-    //   userEmail: emailAccount.email,
-    //   modelType: "economy",
-    // });
-
-    const { provider, model, llmModel, providerOptions } = getModel(
-      emailAccount.user,
-      "economy",
-    );
-
-    const result = await generateObject({
-      model: llmModel,
-      system,
-      prompt,
-      schema: extractionSchema,
-      providerOptions,
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Email history extraction",
+      modelOptions,
     });
 
-    if (result.usage) {
-      await saveAiUsage({
-        email: emailAccount.email,
-        usage: result.usage,
-        provider,
-        model,
-        label: "Email history extraction",
-      });
-    }
-
-    logger.trace("Output", result.object);
+    const result = await generateObject({
+      ...modelOptions,
+      system,
+      prompt,
+      schema,
+    });
 
     return result.object.summary;
   } catch (error) {

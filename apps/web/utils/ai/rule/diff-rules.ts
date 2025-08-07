@@ -1,12 +1,21 @@
-import { z } from "zod";
+import z from "zod";
 import { createPatch } from "diff";
-import { generateObject } from "ai";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateText } from "@/utils/llms";
 
-const logger = createScopedLogger("ai-diff-rules");
+const inputSchema = z.object({
+  addedRules: z.array(z.string()).describe("The added rules"),
+  editedRules: z
+    .array(
+      z.object({
+        oldRule: z.string().describe("The old rule"),
+        newRule: z.string().describe("The new rule"),
+      }),
+    )
+    .describe("The edited rules"),
+  removedRules: z.array(z.string()).describe("The removed rules"),
+});
 
 export async function aiDiffRules({
   emailAccount,
@@ -46,78 +55,29 @@ IMPORTANT: Do not include a rule in more than one category. If a rule is edited,
 If a rule is edited, it is an edit and not a removal! Be extra careful to not make this mistake.
 `;
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   prompt,
-  //   system,
-  //   schemaName: "Diff rules",
-  //   schemaDescription:
-  //     "Analyze two prompt files and their diff to return the differences",
-  //   schema: z.object({
-  //     addedRules: z.array(z.string()).describe("The added rules"),
-  //     editedRules: z
-  //       .array(
-  //         z.object({
-  //           oldRule: z.string().describe("The old rule"),
-  //           newRule: z.string().describe("The new rule"),
-  //         }),
-  //       )
-  //       .describe("The edited rules"),
-  //     removedRules: z.array(z.string()).describe("The removed rules"),
-  //   }),
-  //   output: "array",
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Diff rules",
-  // });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-    "chat",
-  );
+  const generateObject = createGenerateText({
+    userEmail: emailAccount.email,
+    label: "Diff rules",
+    modelOptions,
+  });
 
-  try {
-    const result = await generateObject({
-      model: llmModel,
-      system,
-      prompt,
-      providerOptions,
-      schemaName: "Diff rules",
-      schemaDescription:
-        "Analyze two prompt files and their diff to return the differences. Return the result as JSON.",
-      schema: z.object({
-        addedRules: z.array(z.string()).describe("The added rules"),
-        editedRules: z
-          .array(
-            z.object({
-              oldRule: z.string().describe("The old rule"),
-              newRule: z.string().describe("The new rule"),
-            }),
-          )
-          .describe("The edited rules"),
-        removedRules: z.array(z.string()).describe("The removed rules"),
-      }),
-    });
+  const result = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    tools: {
+      diff_rules: {
+        description:
+          "Analyze two prompt files and their diff to return the differences",
+        inputSchema,
+      },
+    },
+  });
 
-    if (result.usage) {
-      await saveAiUsage({
-        email: emailAccount.email,
-        usage: result.usage,
-        provider,
-        model,
-        label: "Diff rules",
-      });
-    }
-
-    const parsedRules = result.object;
-
-    logger.trace("Result", { parsedRules });
-
-    return parsedRules;
-  } catch (error) {
-    logger.error("Error diffing rules", {
-      errorMessage: error instanceof Error ? error.message : "Unknown error",
-      error,
-    });
-    throw error;
-  }
+  const parsedRules = result.toolCalls?.[0]?.input as z.infer<
+    typeof inputSchema
+  >;
+  return parsedRules;
 }

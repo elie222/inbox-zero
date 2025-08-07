@@ -1,21 +1,9 @@
-import { generateObject } from "ai";
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-import { saveAiUsage } from "@/utils/usage";
-
-const logger = createScopedLogger("aiCategorizeSender");
-
-const categorizeSenderSchema = z.object({
-  rationale: z.string().describe("Keep it short. 1-2 sentences max."),
-  category: z.string(),
-  // possibleCategories: z
-  //   .array(z.string())
-  //   .describe("Possible categories when the main category is unknown"),
-});
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiCategorizeSender({
   emailAccount,
@@ -57,43 +45,26 @@ ${formatCategoriesForPrompt(categories)}
 5. If multiple categories are possible, respond with "Unknown".
 </instructions>`;
 
-  logger.trace("aiCategorizeSender", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   system,
-  //   prompt,
-  //   schema: categorizeSenderSchema,
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Categorize sender",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
-
-  const aiResponse = await generateObject({
-    model: llmModel,
-    system,
-    prompt,
-    schema: categorizeSenderSchema,
-    providerOptions,
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Categorize sender",
+    modelOptions,
   });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Categorize sender",
-    });
-  }
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      rationale: z.string().describe("Keep it short. 1-2 sentences max."),
+      category: z.string(),
+    }),
+  });
 
   if (!categories.find((c) => c.name === aiResponse.object.category))
     return null;
-
-  logger.trace("aiCategorizeSender result", { aiResponse: aiResponse.object });
 
   return aiResponse.object;
 }

@@ -1,13 +1,9 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
-
-const logger = createScopedLogger("generate-prompt-on-delete-rule");
+import { createGenerateObject } from "@/utils/llms";
 
 const parameters = z.object({
   updatedPrompt: z
@@ -52,42 +48,22 @@ ${deletedRulePrompt}
 6. If you cannot find the rule in the current prompt, return the current prompt as is
 </instructions>`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   prompt,
-  //   system,
-  //   schema: parameters,
-  //   userEmail: emailAccount.email,
-  //   usageLabel: "Update prompt on delete rule",
-  // });
-
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-  );
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Update prompt on delete rule",
+    modelOptions,
+  });
 
   const aiResponse = await generateObject({
-    model: llmModel,
+    ...modelOptions,
     system,
     prompt,
     schema: parameters,
-    providerOptions,
   });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "Update prompt on delete rule",
-    });
-  }
-
   const parsedResponse = aiResponse.object;
-
-  logger.trace("Output", { updatedPrompt: parsedResponse.updatedPrompt });
 
   return parsedResponse.updatedPrompt;
 }

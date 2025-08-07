@@ -4,8 +4,7 @@ import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
-import { generateObject } from "ai";
-import { saveAiUsage } from "@/utils/usage";
+import { createGenerateObject } from "@/utils/llms";
 
 export const schema = z.object({
   type: z.enum(["structured", "unstructured"]).describe("Type of content"),
@@ -75,38 +74,20 @@ Use this category as context to help interpret the email: ${ruleName}.`;
   logger.info("Summarizing email for digest");
 
   try {
-    // const aiResponse = await chatCompletionObject({
-    //   userAi: emailAccount.user,
-    //   system,
-    //   prompt,
-    //   schema,
-    //   userEmail: emailAccount.email,
-    //   usageLabel: "Summarize email",
-    // });
+    const modelOptions = getModel(emailAccount.user);
 
-    const { provider, model, llmModel, providerOptions } = getModel(
-      emailAccount.user,
-    );
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Summarize email",
+      modelOptions,
+    });
 
     const aiResponse = await generateObject({
-      model: llmModel,
+      ...modelOptions,
       system,
       prompt,
       schema,
-      providerOptions,
     });
-
-    if (aiResponse.usage) {
-      await saveAiUsage({
-        email: emailAccount.email,
-        usage: aiResponse.usage,
-        provider,
-        model,
-        label: "Summarize email",
-      });
-    }
-
-    logger.trace("Result", { response: aiResponse.object });
 
     // Temporary logging to check the summarization output
     if (aiResponse.object.type === "unstructured") {
