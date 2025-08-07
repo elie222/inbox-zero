@@ -32,6 +32,8 @@ import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("llms");
 
+const MAX_LOG_LENGTH = 200;
+
 const commonOptions: {
   experimental_telemetry: { isEnabled: boolean };
   headers?: Record<string, string>;
@@ -53,8 +55,8 @@ export function createGenerateText({
     const generate = async (model: LanguageModelV2) => {
       logger.trace("Generating text", {
         label,
-        system: options.system?.slice(0, 200),
-        prompt: options.prompt?.slice(0, 200),
+        system: options.system?.slice(0, MAX_LOG_LENGTH),
+        prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
       const result = await generateText(
@@ -128,8 +130,8 @@ export function createGenerateObject({
 
       logger.trace("Generating object", {
         label,
-        system: options.system?.slice(0, 200),
-        prompt: options.prompt?.slice(0, 200),
+        system: options.system?.slice(0, MAX_LOG_LENGTH),
+        prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
       const result = await generateObject(
