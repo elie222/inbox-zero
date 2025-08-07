@@ -52,6 +52,7 @@ export function createGenerateText({
 
     const generate = async (model: LanguageModelV2) => {
       logger.trace("Generating text", {
+        label,
         system: options.system,
         prompt: options.prompt,
       });
@@ -77,7 +78,10 @@ export function createGenerateText({
 
       if (args[0].tools) {
         const toolCallInput = result.toolCalls?.[0]?.input;
-        logger.trace("Result", { result: toolCallInput });
+        logger.trace("Result", {
+          label,
+          result: toolCallInput,
+        });
       }
 
       return result;
@@ -123,6 +127,7 @@ export function createGenerateObject({
       const [options, ...restArgs] = args;
 
       logger.trace("Generating object", {
+        label,
         system: options.system,
         prompt: options.prompt,
       });
@@ -145,7 +150,10 @@ export function createGenerateObject({
         });
       }
 
-      logger.trace("Generated object", { result: result.object });
+      logger.trace("Generated object", {
+        label,
+        result: result.object,
+      });
 
       return result;
     } catch (error) {

@@ -32,7 +32,7 @@ export function getModel(
   logger.info("Using model", {
     modelType,
     provider: data.provider,
-    model: data.model,
+    model: data.modelName,
     providerOptions: data.providerOptions,
   });
 
