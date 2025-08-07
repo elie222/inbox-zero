@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { createGenerateText } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 
@@ -46,7 +46,7 @@ export async function aiGenerateRulesPrompt({
   const lastSentEmailsCount = hasSnippets ? 20 : 50;
 
   const system =
-    "You are an AI assistant that helps people manage their emails by generating rules based on their email behavior and existing labels.";
+    "You are an AI assistant that helps people manage their emails by generating rules based on their email behavior and existing labels. Generate a JSON response with the rule details.";
 
   const prompt = `Analyze the user's email behavior and suggest general rules for managing their inbox effectively. Here's the context:
 
@@ -106,32 +106,30 @@ IMPORTANT: Do not create overly specific rules that only occur on a one off basi
 
   const modelOptions = getModel(emailAccount.user, "chat");
 
-  const generateText = createGenerateText({
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Generate rules prompt",
     modelOptions,
   });
 
-  const aiResponse = await generateText({
+  const aiResponse = await generateObject({
     ...modelOptions,
     system,
     prompt,
-    tools: {
-      generate_rules: {
-        description: "Generate a list of email management rules",
-        inputSchema: hasSnippets ? parametersSnippets : parameters,
-      },
-    },
+    schema: hasSnippets ? parametersSnippets : parameters,
   });
 
-  const result = aiResponse?.toolCalls?.[0]?.input;
+  const result = aiResponse.object;
 
   if (!result) return;
 
   return parseRulesResponse(result, hasSnippets);
 }
 
-function parseRulesResponse(result: unknown, hasSnippets: boolean): string[] {
+function parseRulesResponse(
+  result: z.infer<typeof parameters> | z.infer<typeof parametersSnippets>,
+  hasSnippets: boolean,
+): string[] {
   if (hasSnippets) {
     const parsedRules = result as z.infer<typeof parametersSnippets>;
     return parsedRules.rules.map(({ rule, snippet }) => {
