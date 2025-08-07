@@ -136,7 +136,6 @@ async function getTokens({ emailAccountId }: { emailAccountId: string }) {
 
 export async function redirectToEmailAccountPath(path: `/${string}`) {
   const session = await auth();
-
   const userId = session?.user.id;
   if (!userId) throw new Error("Not authenticated");
 
