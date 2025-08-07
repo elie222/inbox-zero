@@ -1,8 +1,8 @@
 "use client";
 
-import { useSession } from "@/utils/auth-client";
+import { authClient } from "@/utils/auth-client";
 
-export { useSession };
+export const useSession = authClient.useSession;
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

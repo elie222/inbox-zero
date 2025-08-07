@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useSession } from "@/utils/auth-client";
+import { authClient } from "@/utils/auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { env } from "@/env";
 
@@ -29,7 +29,7 @@ export function PostHogPageview() {
 }
 
 export function PostHogIdentify() {
-  const { data: session } = useSession();
+  const { data: session } = authClient.useSession();
 
   useEffect(() => {
     if (session?.user.email)

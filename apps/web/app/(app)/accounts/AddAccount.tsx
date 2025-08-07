@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "@/utils/auth-client";
+import { authClient } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { toastError } from "@/components/Toast";
@@ -19,9 +19,10 @@ import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
-    await signIn.social({
+    await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/welcome",
+      callbackURL: "/accounts",
+      newUserCallbackURL: "/welcome",
       scopes: [...GMAIL_SCOPES],
     });
   };
@@ -38,9 +39,10 @@ export function AddAccount() {
   };
 
   const handleConnectMicrosoft = async () => {
-    await signIn.social({
+    await authClient.signIn.social({
       provider: "microsoft",
-      callbackURL: "/welcome",
+      callbackURL: "/accounts",
+      newUserCallbackURL: "/welcome",
       scopes: [...OUTLOOK_SCOPES],
     });
   };

@@ -11,12 +11,13 @@ import { Badge } from "@/components/ui/badge";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { auth } from "@/utils/auth";
+import { headers } from "next/headers";
 
 export default async function RuleHistoryPage(props: {
   params: Promise<{ emailAccountId: string; ruleId: string }>;
 }) {
   const { emailAccountId, ruleId } = await props.params;
-  const session = await auth();
+  const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user.id) notFound();
 
   const rule = await prisma.rule.findFirst({

@@ -116,6 +116,8 @@ export const env = createEnv({
     LICENSE_25_SEAT_VARIANT_ID: z.coerce.number().optional(),
 
     DUB_API_KEY: z.string().optional(),
+
+    COOKIE_DOMAIN: z.string().default("getinboxzero.com"),
   },
   client: {
     // stripe

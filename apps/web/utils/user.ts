@@ -1,9 +1,9 @@
 "use client";
 
-import { signOut } from "@/utils/auth-client";
+import { authClient } from "@/utils/auth-client";
 
 export async function logOut(callbackUrl?: string) {
-  await signOut({
+  await authClient.signOut({
     fetchOptions: {
       onSuccess: () => {
         if (callbackUrl) {

@@ -1,6 +1,6 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { betterAuth } from "better-auth";
-import type { Account, User, AuthContext } from "better-auth";
+import type { Account, User } from "better-auth";
 
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
@@ -14,7 +14,7 @@ import { trackDubSignUp } from "@/utils/dub";
 import { createScopedLogger } from "@/utils/logger";
 import { captureException } from "@/utils/error";
 import { encryptToken } from "@/utils/encryption";
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { updateAccountSeats } from "@/utils/premium/server";
 import type { Prisma } from "@prisma/client";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
@@ -22,10 +22,24 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 
 const logger = createScopedLogger("auth");
 
-export const betterAuthConfig = betterAuth({
+export const auth = betterAuth({
   advanced: {
     database: {
       generateId: false,
+    },
+    crossSubDomainCookies: {
+      enabled: true,
+      domain: env.COOKIE_DOMAIN,
+    },
+    cookie: {
+      sameSite: "none",
+      secure: true,
+      domain: env.COOKIE_DOMAIN,
+      path: "/",
+    },
+    defaultCookieAttributes: {
+      secure: true,
+      sameSite: "none",
     },
     ipAddress: {
       disableIpTracking: true,
@@ -119,10 +133,11 @@ export const betterAuthConfig = betterAuth({
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
+      requireSelectAccount: true,
       disableIdTokenSignIn: true,
     },
   },
-  events: {
+  /* events: {
     signIn: handleSignIn,
   },
   databaseHooks: {
@@ -133,11 +148,11 @@ export const betterAuthConfig = betterAuth({
         },
       },
     },
-  },
+  }, */
   onAPIError: {
     throw: true,
-    onError: (error: unknown, ctx: AuthContext) => {
-      logger.error("Auth API encountered an error", { error, ctx });
+    onError: (error, ctx) => {
+      logger.error("Auth error:", { error, ctx });
     },
     errorURL: "/login/error",
   },
@@ -333,6 +348,7 @@ async function handleLinkAccount(account: Account) {
       );
       throw new Error("Missing access token during account linking.");
     }
+
     const profileData = await getProfileData(
       account.providerId,
       account.accessToken,
@@ -413,7 +429,7 @@ async function handleLinkAccount(account: Account) {
   }
 }
 
-// Used by Outlook and Gmail providers
+// Function to save refreshed tokens (compatible with existing structure)
 export async function saveTokens({
   tokens,
   accountRefreshToken,
@@ -456,6 +472,3 @@ export async function saveTokens({
     updatedAccount: updatedAccount.id,
   });
 }
-
-export const auth = async () =>
-  betterAuthConfig.api.getSession({ headers: await headers() });
