@@ -6,9 +6,10 @@ export async function logOut(callbackUrl?: string) {
   await signOut({
     fetchOptions: {
       onSuccess: () => {
-        if (callbackUrl) {
-          window.location.href = callbackUrl;
-        }
+        window.location.href = callbackUrl || "/";
+      },
+      onError: () => {
+        window.location.href = callbackUrl || "/";
       },
     },
   });
