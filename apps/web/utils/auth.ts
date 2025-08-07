@@ -27,9 +27,6 @@ export const betterAuthConfig = betterAuth({
     database: {
       generateId: false,
     },
-    ipAddress: {
-      disableIpTracking: true,
-    },
   },
   logger: {
     level: "debug",
@@ -57,49 +54,35 @@ export const betterAuthConfig = betterAuth({
     provider: "postgresql",
   }),
   plugins: [nextCookies()],
-  user: {
-    modelName: "User",
-    fields: {
-      name: "name",
-      email: "email",
-      emailVerified: "emailVerified",
-      image: "image",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
-    },
-  },
   session: {
     modelName: "Session",
     fields: {
-      userId: "userId",
       token: "sessionToken",
       expiresAt: "expires",
+    },
+    session: {
+      cookieCache: {
+        enabled: true,
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      },
+      expiresIn: 60 * 60 * 24 * 30, // 30 days
+      updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
     },
   },
   account: {
     modelName: "Account",
     fields: {
-      userId: "userId",
       accountId: "providerAccountId",
       providerId: "provider",
       refreshToken: "refresh_token",
       accessToken: "access_token",
       accessTokenExpiresAt: "expires_at",
-      scope: "scope",
       idToken: "id_token",
-      createdAt: "createdAt",
-      updatedAt: "updatedAt",
-    },
-    accountLinking: {
-      enabled: true,
-      allowDifferentEmails: true,
-      trustedProviders: ["google", "microsoft"],
     },
   },
   verification: {
     modelName: "VerificationToken",
     fields: {
-      identifier: "identifier",
       value: "token",
       expiresAt: "expires",
     },
@@ -132,6 +115,11 @@ export const betterAuthConfig = betterAuth({
           await handleLinkAccount(account);
         },
       },
+      update: {
+        after: async (account: Account) => {
+          await handleLinkAccount(account);
+        },
+      },
     },
   },
   onAPIError: {
@@ -142,6 +130,7 @@ export const betterAuthConfig = betterAuth({
     errorURL: "/login/error",
   },
 });
+
 async function handleSignIn({
   user,
   isNewUser,
@@ -359,7 +348,7 @@ async function handleLinkAccount(account: Account) {
     });
 
     if (!user?.email) {
-      logger.error("[handleLinkAccount] No user email found", {
+      logger.error("[linkAccount] No user email found", {
         userId: account.userId,
       });
       return;
@@ -386,23 +375,20 @@ async function handleLinkAccount(account: Account) {
 
     // Handle premium account seats
     await updateAccountSeats({ userId: account.userId }).catch((error) => {
-      logger.error(
-        "[handleLinkAccount] Error updating premium account seats:",
-        {
-          userId: account.userId,
-          error,
-        },
-      );
+      logger.error("[linkAccount] Error updating premium account seats:", {
+        userId: account.userId,
+        error,
+      });
       captureException(error, { extra: { userId: account.userId } });
     });
 
-    logger.info("[handleLinkAccount] Successfully linked account", {
+    logger.info("[linkAccount] Successfully linked account", {
       email: user.email,
       userId: account.userId,
       accountId: account.id,
     });
   } catch (error) {
-    logger.error("[handleLinkAccount] Error during linking process:", {
+    logger.error("[linkAccount] Error during linking process:", {
       userId: account.userId,
       error,
     });
