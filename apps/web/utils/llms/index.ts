@@ -223,78 +223,6 @@ export async function chatCompletionStream({
   return result;
 }
 
-// export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
-// ) {
-//   // return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
-// }
-
-// NOTE: Think we can just switch this out for p-retry that we already use in the project
-export async function withRetry<T>(
-  fn: () => Promise<T>,
-  {
-    retryIf,
-    maxRetries,
-    delayMs,
-  }: {
-    retryIf: (error: unknown) => boolean;
-    maxRetries: number;
-    delayMs: number;
-  },
-): Promise<T> {
-  let attempts = 0;
-  let lastError: unknown;
-
-  while (attempts < maxRetries) {
-    try {
-      return await fn();
-    } catch (error) {
-      attempts++;
-      lastError = error;
-
-      if (retryIf(error)) {
-        logger.warn("Operation failed. Retrying...", {
-          attempts,
-          error,
-        });
-
-        if (attempts < maxRetries) {
-          await sleep(delayMs);
-          continue;
-        }
-      }
-
-      throw error;
-    }
-  }
-
-  throw lastError;
-}
-
-// Helps when service is unavailable / throttled / rate limited
-async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
-  fn: (args: Args) => Promise<T>,
-  args: Args,
-): Promise<T> {
-  try {
-    return await fn(args);
-  } catch (error) {
-    if (
-      env.USE_BACKUP_MODEL &&
-      (isServiceUnavailableError(error) || isAWSThrottlingError(error))
-    ) {
-      return await fn({
-        ...args,
-        userAi: {
-          aiProvider: Provider.ANTHROPIC,
-          aiModel: env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
-          aiApiKey: args.userAi.aiApiKey,
-        },
-      });
-    }
-    throw error;
-  }
-}
-
 async function handleError(error: unknown, userEmail: string) {
   logger.error("Error in LLM call", { error, userEmail });
 
@@ -340,3 +268,75 @@ async function handleError(error: unknown, userEmail: string) {
     }
   }
 }
+
+// NOTE: Think we can just switch this out for p-retry that we already use in the project
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  {
+    retryIf,
+    maxRetries,
+    delayMs,
+  }: {
+    retryIf: (error: unknown) => boolean;
+    maxRetries: number;
+    delayMs: number;
+  },
+): Promise<T> {
+  let attempts = 0;
+  let lastError: unknown;
+
+  while (attempts < maxRetries) {
+    try {
+      return await fn();
+    } catch (error) {
+      attempts++;
+      lastError = error;
+
+      if (retryIf(error)) {
+        logger.warn("Operation failed. Retrying...", {
+          attempts,
+          error,
+        });
+
+        if (attempts < maxRetries) {
+          await sleep(delayMs);
+          continue;
+        }
+      }
+
+      throw error;
+    }
+  }
+
+  throw lastError;
+}
+
+// export async function chatCompletionTools<TOOLS extends ToolSet = ToolSet>(
+// ) {
+//   // return withBackupModel(chatCompletionToolsInternal<TOOLS>, options);
+// }
+
+// // Helps when service is unavailable / throttled / rate limited
+// async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
+//   fn: (args: Args) => Promise<T>,
+//   args: Args,
+// ): Promise<T> {
+//   try {
+//     return await fn(args);
+//   } catch (error) {
+//     if (
+//       env.USE_BACKUP_MODEL &&
+//       (isServiceUnavailableError(error) || isAWSThrottlingError(error))
+//     ) {
+//       return await fn({
+//         ...args,
+//         userAi: {
+//           aiProvider: Provider.ANTHROPIC,
+//           aiModel: env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
+//           aiApiKey: args.userAi.aiApiKey,
+//         },
+//       });
+//     }
+//     throw error;
+//   }
+// }
