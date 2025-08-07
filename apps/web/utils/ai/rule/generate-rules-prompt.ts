@@ -35,7 +35,7 @@ export async function aiGenerateRulesPrompt({
   lastSentEmails: string[];
   userLabels: string[];
   snippets: string[];
-}): Promise<string[]> {
+}): Promise<string[] | undefined> {
   const labelsList = userLabels
     ? userLabels
         .map((label) => `<label><name>${label}</name></label>`)
@@ -120,13 +120,15 @@ IMPORTANT: Do not create overly specific rules that only occur on a one off basi
     prompt,
     tools: {
       generate_rules: {
-        description: "Generate a list of email management rules.",
+        description: "Generate a list of email management rules",
         inputSchema: hasSnippets ? parametersSnippets : parameters,
       },
     },
   });
 
   const result = aiResponse?.toolCalls?.[0]?.input;
+
+  if (!result) return;
 
   return parseRulesResponse(result, hasSnippets);
 }
@@ -135,7 +137,7 @@ function parseRulesResponse(result: unknown, hasSnippets: boolean): string[] {
   if (hasSnippets) {
     const parsedRules = result as z.infer<typeof parametersSnippets>;
     return parsedRules.rules.map(({ rule, snippet }) =>
-      snippet ? `${rule}\n---\n${snippet}\n---\n` : rule,
+      snippet ? `${rule}\n> ${snippet}\n` : rule,
     );
   }
 

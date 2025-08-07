@@ -480,6 +480,8 @@ async function withBackupModel<T, Args extends { userAi: UserAIFields }>(
 }
 
 async function handleError(error: unknown, userEmail: string) {
+  logger.error("Error in LLM call", { error, userEmail });
+
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
       return await addUserErrorMessage(
