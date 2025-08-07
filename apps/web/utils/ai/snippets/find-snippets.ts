@@ -1,13 +1,9 @@
 import { z } from "zod";
-import { generateObject } from "ai";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import { getModel } from "@/utils/llms/model";
-import { saveAiUsage } from "@/utils/usage";
-
-const logger = createScopedLogger("AI Find Snippets");
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiFindSnippets({
   emailAccount,
@@ -53,51 +49,27 @@ ${sentEmails
   .map((email) => `<email>${stringifyEmail(email, 2000)}</email>`)
   .join("\n")}`;
 
-  // const aiResponse = await chatCompletionObject({
-  //   userAi: emailAccount.user,
-  //   prompt,
-  //   system,
-  //   output: "array",
-  //   schemaName: "Find snippets",
-  //   schemaDescription: "Snippets",
-  //   schema: z.object({
-  //     text: z.string(),
-  //     count: z.number(),
-  //   }),
-  //   userEmail: emailAccount.email ?? "",
-  //   usageLabel: "ai-find-snippets",
-  // });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const { provider, model, llmModel, providerOptions } = getModel(
-    emailAccount.user,
-    "chat",
-  );
-
-  const aiResponse = await generateObject({
-    model: llmModel,
-    system,
-    prompt,
-    providerOptions,
-    output: "array",
-    schemaName: "Find snippets",
-    schemaDescription: "Snippets",
-    schema: z.object({
-      text: z.string(),
-      count: z.number(),
-    }),
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "ai-find-snippets",
+    modelOptions,
   });
 
-  if (aiResponse.usage) {
-    await saveAiUsage({
-      email: emailAccount.email,
-      usage: aiResponse.usage,
-      provider,
-      model,
-      label: "ai-find-snippets",
-    });
-  }
-
-  logger.trace("Result", { result: aiResponse.object });
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      snippets: z.array(
+        z.object({
+          text: z.string(),
+          count: z.number(),
+        }),
+      ),
+    }),
+  });
 
   return aiResponse.object;
 }
