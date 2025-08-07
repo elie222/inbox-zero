@@ -22,7 +22,7 @@ import { TablePagination } from "@/components/TablePagination";
 import { Badge } from "@/components/Badge";
 import { RulesSelect } from "@/app/(app)/[emailAccountId]/assistant/RulesSelect";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { useChat } from "@/components/assistant-chat/ChatContext";
+import { useChat } from "@/providers/ChatProvider";
 
 export function History() {
   const [page] = useQueryState("page", parseAsInteger.withDefault(1));

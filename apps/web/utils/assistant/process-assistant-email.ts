@@ -221,7 +221,8 @@ async function processAssistantEmailInternal({
   const lastToolCall = toolCalls[toolCalls.length - 1];
 
   if (lastToolCall?.toolName === "reply") {
-    await provider.replyToEmail(message, lastToolCall.args.content);
+    const input = lastToolCall.input as { content: string } | undefined;
+    await provider.replyToEmail(message, input?.content || "");
   }
 }
 

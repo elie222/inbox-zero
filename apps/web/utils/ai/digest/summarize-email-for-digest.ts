@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmailSimple } from "@/utils/stringify-email";
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export const schema = z.object({
   type: z.enum(["structured", "unstructured"]).describe("Type of content"),
@@ -56,7 +57,7 @@ Your task is to:
 **Formatting rules:**
 - Follow the schema provided separately (do not describe or return the schema).
 - Do not include HTML, markdown, or explanations.
-- Return only the final JSON result (or "null").
+- Return only the final result in JSON format (or "null").
 
 Now, classify and summarize the following email:
 `;
@@ -68,21 +69,23 @@ ${stringifyEmailSimple(userMessageForPrompt)}
 
 Use this category as context to help interpret the email: ${ruleName}.`;
 
-  logger.trace("Input", { system, prompt });
-
   logger.info("Summarizing email for digest");
 
   try {
-    const aiResponse = await chatCompletionObject({
-      userAi: emailAccount.user,
+    const modelOptions = getModel(emailAccount.user);
+
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Summarize email",
+      modelOptions,
+    });
+
+    const aiResponse = await generateObject({
+      ...modelOptions,
       system,
       prompt,
       schema,
-      userEmail: emailAccount.email,
-      usageLabel: "Summarize email",
     });
-
-    logger.trace("Result", { response: aiResponse.object });
 
     // Temporary logging to check the summarization output
     if (aiResponse.object.type === "unstructured") {

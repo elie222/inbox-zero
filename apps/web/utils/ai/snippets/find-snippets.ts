@@ -1,22 +1,9 @@
 import { z } from "zod";
 import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("AI Find Snippets");
-
-const snippetsSchema = z.object({
-  snippets: z.array(
-    z.object({
-      text: z.string(),
-      count: z.number(),
-    }),
-  ),
-});
-
-export type SnippetsResponse = z.infer<typeof snippetsSchema>;
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiFindSnippets({
   emailAccount,
@@ -62,16 +49,27 @@ ${sentEmails
   .map((email) => `<email>${stringifyEmail(email, 2000)}</email>`)
   .join("\n")}`;
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    schema: snippetsSchema,
-    userEmail: emailAccount.email ?? "",
-    usageLabel: "ai-find-snippets",
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "ai-find-snippets",
+    modelOptions,
   });
 
-  logger.trace("ai-find-snippets", { snippets: aiResponse.object.snippets });
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      snippets: z.array(
+        z.object({
+          text: z.string(),
+          count: z.number(),
+        }),
+      ),
+    }),
+  });
 
   return aiResponse.object;
 }

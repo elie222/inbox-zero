@@ -1,11 +1,12 @@
 import { z } from "zod";
-import { InvalidToolArgumentsError } from "ai";
-import { chatCompletionTools, withRetry } from "@/utils/llms";
+import { InvalidArgumentError } from "ai";
+import { createGenerateText, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
 import type { ActionType } from "@prisma/client";
+import { getModel, type ModelType } from "@/utils/llms/model";
 
 /**
  * AI Argument Generator for Email Actions
@@ -39,6 +40,7 @@ export async function aiGenerateArgs({
   emailAccount,
   selectedRule,
   parameters,
+  modelType,
 }: {
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
@@ -50,6 +52,7 @@ export async function aiGenerateArgs({
       Record<string, z.ZodObject<Record<string, z.ZodString>>>
     >;
   }[];
+  modelType: ModelType;
 }) {
   const loggerOptions = {
     email: emailAccount.email,
@@ -68,19 +71,26 @@ export async function aiGenerateArgs({
   const prompt = getPrompt({ email, selectedRule });
 
   logger.info("Calling chat completion tools", loggerOptions);
-  logger.trace("System and prompt", { system, prompt });
   // logger.trace("Parameters:", zodToJsonSchema(parameters));
+
+  const modelOptions = getModel(emailAccount.user, modelType);
+
+  const generateText = createGenerateText({
+    label: "Args for rule",
+    userEmail: emailAccount.email,
+    modelOptions,
+  });
 
   const aiResponse = await withRetry(
     () =>
-      chatCompletionTools({
-        userAi: emailAccount.user,
-        prompt,
+      generateText({
+        ...modelOptions,
         system,
+        prompt,
         tools: {
           apply_rule: {
             description: "Apply the rule with the given arguments.",
-            parameters: z.object(
+            inputSchema: z.object(
               Object.fromEntries(
                 parameters.map((p) => [
                   `${p.type}-${p.actionId}`,
@@ -90,25 +100,27 @@ export async function aiGenerateArgs({
             ),
           },
         },
-        label: "Args for rule",
-        userEmail: emailAccount.email,
       }),
     {
-      retryIf: (error: unknown) => InvalidToolArgumentsError.isInstance(error),
+      retryIf: (error: unknown) => InvalidArgumentError.isInstance(error),
       maxRetries: 3,
       delayMs: 1000,
     },
   );
 
-  const toolCall = aiResponse.toolCalls[0];
+  const toolCall = aiResponse.toolCalls?.[0];
 
-  if (!toolCall?.toolName) return;
+  if (!toolCall?.input) {
+    logger.warn("No tool call found", {
+      ...loggerOptions,
+      aiResponse,
+    });
+    return;
+  }
 
-  const toolCallArgs = toolCall.args;
+  const result = toolCall.input;
 
-  logger.trace("Tool call args", { toolCallArgs });
-
-  return toolCallArgs;
+  return result;
 }
 
 function getSystemPrompt({

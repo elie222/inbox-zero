@@ -1,4 +1,4 @@
-import { type Message, type StepResult, type Tool, tool } from "ai";
+import { type InferUITool, tool, type ModelMessage } from "ai";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
@@ -21,7 +21,226 @@ const logger = createScopedLogger("ai/assistant/chat");
 
 export const maxDuration = 120;
 
-// schemas
+// tools
+const getUserRulesAndSettingsTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "getUserRulesAndSettings",
+    description:
+      "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
+    inputSchema: z.object({}),
+    execute: async () => {
+      trackToolCall({
+        tool: "get_user_rules_and_settings",
+        email,
+      });
+
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          about: true,
+          coldEmailBlocker: true,
+          rules: {
+            select: {
+              name: true,
+              instructions: true,
+              from: true,
+              to: true,
+              subject: true,
+              conditionalOperator: true,
+              enabled: true,
+              automate: true,
+              runOnThreads: true,
+              actions: {
+                select: {
+                  type: true,
+                  content: true,
+                  label: true,
+                  to: true,
+                  cc: true,
+                  bcc: true,
+                  subject: true,
+                  url: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return {
+        about: emailAccount?.about || "Not set",
+        coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
+        rules: emailAccount?.rules.map((rule) => {
+          const staticFilter = filterNullProperties({
+            from: rule.from,
+            to: rule.to,
+            subject: rule.subject,
+          });
+
+          const staticConditions =
+            Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
+
+          return {
+            name: rule.name,
+            conditions: {
+              aiInstructions: rule.instructions,
+              static: staticConditions,
+              // only need to show conditional operator if there are multiple conditions
+              conditionalOperator:
+                rule.instructions && staticConditions
+                  ? rule.conditionalOperator
+                  : undefined,
+            },
+            actions: rule.actions.map((action) => ({
+              type: action.type,
+              fields: filterNullProperties({
+                label: action.label,
+                content: action.content,
+                to: action.to,
+                cc: action.cc,
+                bcc: action.bcc,
+                subject: action.subject,
+                url: action.url,
+              }),
+            })),
+            enabled: rule.enabled,
+            automate: rule.automate,
+            runOnThreads: rule.runOnThreads,
+          };
+        }),
+      };
+    },
+  });
+
+export type GetUserRulesAndSettingsTool = InferUITool<
+  ReturnType<typeof getUserRulesAndSettingsTool>
+>;
+
+const getLearnedPatternsTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "getLearnedPatterns",
+    description: "Retrieve the learned patterns for a rule",
+    inputSchema: z.object({
+      ruleName: z
+        .string()
+        .describe("The name of the rule to get the learned patterns for"),
+    }),
+    execute: async ({ ruleName }) => {
+      trackToolCall({ tool: "get_learned_patterns", email });
+
+      const rule = await prisma.rule.findUnique({
+        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+        select: {
+          group: {
+            select: {
+              items: {
+                select: {
+                  type: true,
+                  value: true,
+                  exclude: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!rule) {
+        return {
+          error:
+            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      return {
+        patterns: rule.group?.items,
+      };
+    },
+  });
+
+export type GetLearnedPatternsTool = InferUITool<
+  ReturnType<typeof getLearnedPatternsTool>
+>;
+
+const createRuleTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "createRule",
+    description: "Create a new rule",
+    inputSchema: createRuleSchema,
+    execute: async ({ name, condition, actions }) => {
+      trackToolCall({ tool: "create_rule", email });
+
+      try {
+        const rule = await createRule({
+          result: {
+            name,
+            condition,
+            actions: actions.map((action) => ({
+              type: action.type,
+              fields: action.fields
+                ? {
+                    content: action.fields.content ?? null,
+                    to: action.fields.to ?? null,
+                    subject: action.fields.subject ?? null,
+                    label: action.fields.label ?? null,
+                    webhookUrl: action.fields.webhookUrl ?? null,
+                    cc: action.fields.cc ?? null,
+                    bcc: action.fields.bcc ?? null,
+                  }
+                : null,
+            })),
+          },
+          emailAccountId,
+        });
+
+        if ("error" in rule) {
+          logger.error("Error while creating rule", {
+            // ...loggerOptions,
+            error: rule.error,
+          });
+
+          return {
+            error: "Failed to create rule",
+            message: rule.error,
+          };
+        }
+
+        // createdRules.set(rule.id, rule);
+
+        return { success: true, ruleId: rule.id };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        logger.error("Failed to create rule", {
+          // ...loggerOptions,
+          error: message,
+        });
+
+        return { error: "Failed to create rule", message };
+      }
+    },
+  });
+
+export type CreateRuleTool = InferUITool<ReturnType<typeof createRuleTool>>;
+
 const updateRuleConditionSchema = z.object({
   ruleName: z.string().describe("The name of the rule to update"),
   condition: z.object({
@@ -42,135 +261,397 @@ export type UpdateRuleConditionSchema = z.infer<
   typeof updateRuleConditionSchema
 >;
 
-// Tool result types
-export type UpdateRuleConditionsResult = {
-  success: boolean;
-  ruleId: string;
-  originalConditions?: {
-    aiInstructions: string | null;
-    static: Partial<{
-      from: string | null;
-      to: string | null;
-      subject: string | null;
-    }>;
-    conditionalOperator: string | null;
-  };
-  updatedConditions?: {
-    aiInstructions?: string;
-    static?: Partial<{
-      from: string | null;
-      to: string | null;
-      subject: string | null;
-    }>;
-    conditionalOperator?: string | null;
-  };
-  error?: string;
-};
+const updateRuleConditionsTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "updateRuleConditions",
+    description: "Update the conditions of an existing rule",
+    inputSchema: updateRuleConditionSchema,
+    execute: async ({ ruleName, condition }) => {
+      trackToolCall({ tool: "update_rule_conditions", email });
 
-const updateRuleActionsSchema = z.object({
-  ruleName: z.string().describe("The name of the rule to update"),
-  actions: z.array(
-    z.object({
-      type: z.enum([
-        ActionType.ARCHIVE,
-        ActionType.LABEL,
-        ActionType.DRAFT_EMAIL,
-        ActionType.FORWARD,
-        ActionType.REPLY,
-        ActionType.SEND_EMAIL,
-        ActionType.MARK_READ,
-        ActionType.MARK_SPAM,
-        ActionType.CALL_WEBHOOK,
-        ActionType.DIGEST,
-      ]),
-      fields: z.object({
-        label: z.string().nullish(),
-        content: z.string().nullish(),
-        webhookUrl: z.string().nullish(),
-        to: z.string().nullish(),
-        cc: z.string().nullish(),
-        bcc: z.string().nullish(),
-        subject: z.string().nullish(),
-      }),
-      delayInMinutes: delayInMinutesSchema,
-    }),
-  ),
-});
-export type UpdateRuleActionsSchema = z.infer<typeof updateRuleActionsSchema>;
+      const rule = await prisma.rule.findUnique({
+        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+        select: {
+          id: true,
+          name: true,
+          instructions: true,
+          from: true,
+          to: true,
+          subject: true,
+          conditionalOperator: true,
+        },
+      });
 
-export type UpdateRuleActionsResult = {
-  success: boolean;
-  ruleId: string;
-  originalActions?: Array<{
-    type: string;
-    fields: Partial<{
-      label: string | null;
-      content: string | null;
-      to: string | null;
-      cc: string | null;
-      bcc: string | null;
-      subject: string | null;
-      webhookUrl: string | null;
-    }>;
-  }>;
-  updatedActions?: Array<{
-    type: string;
-    fields: Record<string, string | null>;
-    delayInMinutes?: number | null;
-  }>;
-  error?: string;
-};
+      if (!rule) {
+        return {
+          success: false,
+          ruleId: "",
+          error:
+            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
 
-// Schema for updating learned patterns
-const updateLearnedPatternsSchema = z.object({
-  ruleName: z.string().describe("The name of the rule to update"),
-  learnedPatterns: z
-    .array(
-      z.object({
-        include: z
-          .object({
-            from: z.string().optional(),
-            subject: z.string().optional(),
-          })
-          .optional(),
-        exclude: z
-          .object({
-            from: z.string().optional(),
-            subject: z.string().optional(),
-          })
-          .optional(),
-      }),
-    )
-    .min(1, "At least one learned pattern is required"),
-});
-export type UpdateLearnedPatternsSchema = z.infer<
-  typeof updateLearnedPatternsSchema
+      // Store original state
+      const originalConditions = {
+        aiInstructions: rule.instructions,
+        static: filterNullProperties({
+          from: rule.from,
+          to: rule.to,
+          subject: rule.subject,
+        }),
+        conditionalOperator: rule.conditionalOperator,
+      };
+
+      await partialUpdateRule({
+        ruleId: rule.id,
+        data: {
+          instructions: condition.aiInstructions,
+          from: condition.static?.from,
+          to: condition.static?.to,
+          subject: condition.static?.subject,
+          conditionalOperator: condition.conditionalOperator ?? undefined,
+        },
+      });
+
+      // Prepare updated state
+      const updatedConditions = {
+        aiInstructions: condition.aiInstructions,
+        static: condition.static
+          ? filterNullProperties({
+              from: condition.static.from,
+              to: condition.static.to,
+              subject: condition.static.subject,
+            })
+          : undefined,
+        conditionalOperator: condition.conditionalOperator,
+      };
+
+      return {
+        success: true,
+        ruleId: rule.id,
+        originalConditions,
+        updatedConditions,
+      };
+    },
+  });
+
+export type UpdateRuleConditionsTool = InferUITool<
+  ReturnType<typeof updateRuleConditionsTool>
 >;
 
-const updateAboutSchema = z.object({ about: z.string() });
-export type UpdateAboutSchema = z.infer<typeof updateAboutSchema>;
+const updateRuleActionsTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "updateRuleActions",
+    description:
+      "Update the actions of an existing rule. This replaces the existing actions.",
+    inputSchema: z.object({
+      ruleName: z.string().describe("The name of the rule to update"),
+      actions: z.array(
+        z.object({
+          type: z.enum([
+            ActionType.ARCHIVE,
+            ActionType.LABEL,
+            ActionType.DRAFT_EMAIL,
+            ActionType.FORWARD,
+            ActionType.REPLY,
+            ActionType.SEND_EMAIL,
+            ActionType.MARK_READ,
+            ActionType.MARK_SPAM,
+            ActionType.CALL_WEBHOOK,
+            ActionType.DIGEST,
+          ]),
+          fields: z.object({
+            label: z.string().nullish(),
+            content: z.string().nullish(),
+            webhookUrl: z.string().nullish(),
+            to: z.string().nullish(),
+            cc: z.string().nullish(),
+            bcc: z.string().nullish(),
+            subject: z.string().nullish(),
+          }),
+          delayInMinutes: delayInMinutesSchema,
+        }),
+      ),
+    }),
+    execute: async ({ ruleName, actions }) => {
+      trackToolCall({ tool: "update_rule_actions", email });
+      const rule = await prisma.rule.findUnique({
+        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+        select: {
+          id: true,
+          name: true,
+          actions: {
+            select: {
+              type: true,
+              content: true,
+              label: true,
+              to: true,
+              cc: true,
+              bcc: true,
+              subject: true,
+              url: true,
+            },
+          },
+        },
+      });
 
-const addToKnowledgeBaseSchema = z.object({
-  title: z.string(),
-  content: z.string(),
-});
-export type AddToKnowledgeBaseSchema = z.infer<typeof addToKnowledgeBaseSchema>;
+      if (!rule) {
+        return {
+          success: false,
+          ruleId: "",
+          error:
+            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      // Store original actions
+      const originalActions = rule.actions.map((action) => ({
+        type: action.type,
+        fields: filterNullProperties({
+          label: action.label,
+          content: action.content,
+          to: action.to,
+          cc: action.cc,
+          bcc: action.bcc,
+          subject: action.subject,
+          webhookUrl: action.url,
+        }),
+      }));
+
+      await updateRuleActions({
+        ruleId: rule.id,
+        actions: actions.map((action) => ({
+          type: action.type,
+          fields: {
+            label: action.fields?.label ?? null,
+            to: action.fields?.to ?? null,
+            cc: action.fields?.cc ?? null,
+            bcc: action.fields?.bcc ?? null,
+            subject: action.fields?.subject ?? null,
+            content: action.fields?.content ?? null,
+            webhookUrl: action.fields?.webhookUrl ?? null,
+          },
+          delayInMinutes: action.delayInMinutes ?? null,
+        })),
+      });
+
+      return {
+        success: true,
+        ruleId: rule.id,
+        originalActions,
+        updatedActions: actions,
+      };
+    },
+  });
+
+export type UpdateRuleActionsTool = InferUITool<
+  ReturnType<typeof updateRuleActionsTool>
+>;
+
+const updateLearnedPatternsTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "updateLearnedPatterns",
+    description: "Update the learned patterns of an existing rule",
+    inputSchema: z.object({
+      ruleName: z.string().describe("The name of the rule to update"),
+      learnedPatterns: z
+        .array(
+          z.object({
+            include: z
+              .object({
+                from: z.string().optional(),
+                subject: z.string().optional(),
+              })
+              .optional(),
+            exclude: z
+              .object({
+                from: z.string().optional(),
+                subject: z.string().optional(),
+              })
+              .optional(),
+          }),
+        )
+        .min(1, "At least one learned pattern is required"),
+    }),
+    execute: async ({ ruleName, learnedPatterns }) => {
+      trackToolCall({ tool: "update_learned_patterns", email });
+
+      const rule = await prisma.rule.findUnique({
+        where: { name_emailAccountId: { name: ruleName, emailAccountId } },
+      });
+
+      if (!rule) {
+        return {
+          success: false,
+          ruleId: "",
+          error:
+            "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
+        };
+      }
+
+      // Convert the learned patterns format
+      const patternsToSave: Array<{
+        type: GroupItemType;
+        value: string;
+        exclude?: boolean;
+      }> = [];
+
+      for (const pattern of learnedPatterns) {
+        if (pattern.include?.from) {
+          patternsToSave.push({
+            type: GroupItemType.FROM,
+            value: pattern.include.from,
+            exclude: false,
+          });
+        }
+
+        if (pattern.include?.subject) {
+          patternsToSave.push({
+            type: GroupItemType.SUBJECT,
+            value: pattern.include.subject,
+            exclude: false,
+          });
+        }
+
+        if (pattern.exclude?.from) {
+          patternsToSave.push({
+            type: GroupItemType.FROM,
+            value: pattern.exclude.from,
+            exclude: true,
+          });
+        }
+
+        if (pattern.exclude?.subject) {
+          patternsToSave.push({
+            type: GroupItemType.SUBJECT,
+            value: pattern.exclude.subject,
+            exclude: true,
+          });
+        }
+      }
+
+      if (patternsToSave.length > 0) {
+        await saveLearnedPatterns({
+          emailAccountId,
+          ruleName: rule.name,
+          patterns: patternsToSave,
+        });
+      }
+
+      return { success: true, ruleId: rule.id };
+    },
+  });
+
+export type UpdateLearnedPatternsTool = InferUITool<
+  ReturnType<typeof updateLearnedPatternsTool>
+>;
+
+const updateAboutTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "updateAbout",
+    description:
+      "Update the user's about information. Read the user's about information first as this replaces the existing information.",
+    inputSchema: z.object({ about: z.string() }),
+    execute: async ({ about }) => {
+      trackToolCall({ tool: "update_about", email });
+      const existing = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: { about: true },
+      });
+
+      if (!existing) return { error: "Account not found" };
+
+      await prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { about },
+      });
+
+      return {
+        success: true,
+        previousAbout: existing.about,
+        updatedAbout: about,
+      };
+    },
+  });
+
+export type UpdateAboutTool = InferUITool<ReturnType<typeof updateAboutTool>>;
+
+const addToKnowledgeBaseTool = ({
+  email,
+  emailAccountId,
+}: {
+  email: string;
+  emailAccountId: string;
+}) =>
+  tool({
+    name: "addToKnowledgeBase",
+    description: "Add content to the knowledge base",
+    inputSchema: z.object({
+      title: z.string(),
+      content: z.string(),
+    }),
+    execute: async ({ title, content }) => {
+      trackToolCall({ tool: "add_to_knowledge_base", email });
+
+      try {
+        await prisma.knowledge.create({
+          data: {
+            emailAccountId,
+            title,
+            content,
+          },
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (isDuplicateError(error, "title")) {
+          return {
+            error: "A knowledge item with this title already exists",
+          };
+        }
+
+        logger.error("Failed to add to knowledge base", { error });
+        return { error: "Failed to add to knowledge base" };
+      }
+    },
+  });
+
+export type AddToKnowledgeBaseTool = InferUITool<
+  ReturnType<typeof addToKnowledgeBaseTool>
+>;
 
 export async function aiProcessAssistantChat({
   messages,
   emailAccountId,
   user,
-  onFinish,
 }: {
-  messages: Message[];
+  messages: ModelMessage[];
   emailAccountId: string;
   user: EmailAccountWithAI;
-  onFinish: (
-    response: Omit<
-      StepResult<Record<string, Tool>>,
-      "stepType" | "isContinued"
-    >,
-  ) => Promise<void>;
 }) {
   const system = `You are an assistant that helps create and update rules to manage a user's inbox. Our platform is called Inbox Zero.
   
@@ -432,6 +913,8 @@ Examples:
 
   logger.trace("Input", { messages });
 
+  const toolOptions = { email: user.email, emailAccountId };
+
   const result = chatCompletionStream({
     userAi: user.user,
     userEmail: user.email,
@@ -442,468 +925,16 @@ Examples:
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },
-    onFinish,
     maxSteps: 10,
     tools: {
-      get_user_rules_and_settings: tool({
-        description:
-          "Retrieve all existing rules for the user, their about information, and the cold email blocker setting",
-        parameters: z.object({}),
-        execute: async () => {
-          trackToolCall({
-            tool: "get_user_rules_and_settings",
-            email: user.email,
-          });
-
-          const emailAccount = await prisma.emailAccount.findUnique({
-            where: { id: emailAccountId },
-            select: {
-              about: true,
-              coldEmailBlocker: true,
-              rules: {
-                select: {
-                  name: true,
-                  instructions: true,
-                  from: true,
-                  to: true,
-                  subject: true,
-                  conditionalOperator: true,
-                  enabled: true,
-                  automate: true,
-                  runOnThreads: true,
-                  actions: {
-                    select: {
-                      type: true,
-                      content: true,
-                      label: true,
-                      to: true,
-                      cc: true,
-                      bcc: true,
-                      subject: true,
-                      url: true,
-                    },
-                  },
-                },
-              },
-            },
-          });
-
-          return {
-            about: emailAccount?.about || "Not set",
-            coldEmailBlocker: emailAccount?.coldEmailBlocker || "Not set",
-            rules: emailAccount?.rules.map((rule) => {
-              const staticFilter = filterNullProperties({
-                from: rule.from,
-                to: rule.to,
-                subject: rule.subject,
-              });
-
-              const staticConditions =
-                Object.keys(staticFilter).length > 0 ? staticFilter : undefined;
-
-              return {
-                name: rule.name,
-                conditions: {
-                  aiInstructions: rule.instructions,
-                  static: staticConditions,
-                  // only need to show conditional operator if there are multiple conditions
-                  conditionalOperator:
-                    rule.instructions && staticConditions
-                      ? rule.conditionalOperator
-                      : undefined,
-                },
-                actions: rule.actions.map((action) => ({
-                  type: action.type,
-                  fields: filterNullProperties({
-                    label: action.label,
-                    content: action.content,
-                    to: action.to,
-                    cc: action.cc,
-                    bcc: action.bcc,
-                    subject: action.subject,
-                    url: action.url,
-                  }),
-                })),
-                enabled: rule.enabled,
-                automate: rule.automate,
-                runOnThreads: rule.runOnThreads,
-              };
-            }),
-          };
-        },
-      }),
-
-      get_learned_patterns: tool({
-        description: "Retrieve the learned patterns for a rule",
-        parameters: z.object({
-          ruleName: z
-            .string()
-            .describe("The name of the rule to get the learned patterns for"),
-        }),
-        execute: async ({ ruleName }) => {
-          trackToolCall({ tool: "get_learned_patterns", email: user.email });
-
-          const rule = await prisma.rule.findUnique({
-            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-            select: {
-              group: {
-                select: {
-                  items: {
-                    select: {
-                      type: true,
-                      value: true,
-                      exclude: true,
-                    },
-                  },
-                },
-              },
-            },
-          });
-
-          if (!rule) {
-            return {
-              error:
-                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-            };
-          }
-
-          return {
-            patterns: rule.group?.items,
-          };
-        },
-      }),
-
-      create_rule: tool({
-        description: "Create a new rule",
-        parameters: createRuleSchema,
-        execute: async ({ name, condition, actions }) => {
-          trackToolCall({ tool: "create_rule", email: user.email });
-
-          try {
-            const rule = await createRule({
-              result: { name, condition, actions },
-              emailAccountId,
-            });
-
-            if ("error" in rule) {
-              logger.error("Error while creating rule", {
-                // ...loggerOptions,
-                error: rule.error,
-              });
-
-              return {
-                error: "Failed to create rule",
-                message: rule.error,
-              };
-            }
-
-            // createdRules.set(rule.id, rule);
-
-            return { success: true, ruleId: rule.id };
-          } catch (error) {
-            const message =
-              error instanceof Error ? error.message : String(error);
-
-            logger.error("Failed to create rule", {
-              // ...loggerOptions,
-              error: message,
-            });
-
-            return {
-              error: "Failed to create rule",
-              message,
-            };
-          }
-        },
-      }),
-
-      update_rule_conditions: tool({
-        description: "Update the conditions of an existing rule",
-        parameters: updateRuleConditionSchema,
-        execute: async ({
-          ruleName,
-          condition,
-        }): Promise<UpdateRuleConditionsResult> => {
-          trackToolCall({ tool: "update_rule_conditions", email: user.email });
-
-          const rule = await prisma.rule.findUnique({
-            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-            select: {
-              id: true,
-              name: true,
-              instructions: true,
-              from: true,
-              to: true,
-              subject: true,
-              conditionalOperator: true,
-            },
-          });
-
-          if (!rule) {
-            return {
-              success: false,
-              ruleId: "",
-              error:
-                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-            };
-          }
-
-          // Store original state
-          const originalConditions = {
-            aiInstructions: rule.instructions,
-            static: filterNullProperties({
-              from: rule.from,
-              to: rule.to,
-              subject: rule.subject,
-            }),
-            conditionalOperator: rule.conditionalOperator,
-          };
-
-          await partialUpdateRule({
-            ruleId: rule.id,
-            data: {
-              instructions: condition.aiInstructions,
-              from: condition.static?.from,
-              to: condition.static?.to,
-              subject: condition.static?.subject,
-              conditionalOperator: condition.conditionalOperator ?? undefined,
-            },
-          });
-
-          // Prepare updated state
-          const updatedConditions = {
-            aiInstructions: condition.aiInstructions,
-            static: condition.static
-              ? filterNullProperties({
-                  from: condition.static.from,
-                  to: condition.static.to,
-                  subject: condition.static.subject,
-                })
-              : undefined,
-            conditionalOperator: condition.conditionalOperator,
-          };
-
-          return {
-            success: true,
-            ruleId: rule.id,
-            originalConditions,
-            updatedConditions,
-          };
-        },
-      }),
-
-      update_rule_actions: tool({
-        description:
-          "Update the actions of an existing rule. This replaces the existing actions.",
-        parameters: updateRuleActionsSchema,
-        execute: async ({
-          ruleName,
-          actions,
-        }): Promise<UpdateRuleActionsResult> => {
-          trackToolCall({ tool: "update_rule_actions", email: user.email });
-          const rule = await prisma.rule.findUnique({
-            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-            select: {
-              id: true,
-              name: true,
-              actions: {
-                select: {
-                  type: true,
-                  content: true,
-                  label: true,
-                  to: true,
-                  cc: true,
-                  bcc: true,
-                  subject: true,
-                  url: true,
-                },
-              },
-            },
-          });
-
-          if (!rule) {
-            return {
-              success: false,
-              ruleId: "",
-              error:
-                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-            };
-          }
-
-          // Store original actions
-          const originalActions = rule.actions.map((action) => ({
-            type: action.type,
-            fields: filterNullProperties({
-              label: action.label,
-              content: action.content,
-              to: action.to,
-              cc: action.cc,
-              bcc: action.bcc,
-              subject: action.subject,
-              webhookUrl: action.url,
-            }),
-          }));
-
-          await updateRuleActions({
-            ruleId: rule.id,
-            actions: actions.map((action) => ({
-              type: action.type,
-              fields: {
-                label: action.fields?.label ?? null,
-                to: action.fields?.to ?? null,
-                cc: action.fields?.cc ?? null,
-                bcc: action.fields?.bcc ?? null,
-                subject: action.fields?.subject ?? null,
-                content: action.fields?.content ?? null,
-                webhookUrl: action.fields?.webhookUrl ?? null,
-              },
-              delayInMinutes: action.delayInMinutes ?? null,
-            })),
-          });
-
-          return {
-            success: true,
-            ruleId: rule.id,
-            originalActions,
-            updatedActions: actions,
-          };
-        },
-      }),
-
-      update_learned_patterns: tool({
-        description: "Update the learned patterns of an existing rule",
-        parameters: updateLearnedPatternsSchema,
-        execute: async ({ ruleName, learnedPatterns }) => {
-          trackToolCall({ tool: "update_learned_patterns", email: user.email });
-
-          const rule = await prisma.rule.findUnique({
-            where: { name_emailAccountId: { name: ruleName, emailAccountId } },
-          });
-
-          if (!rule) {
-            return {
-              success: false,
-              ruleId: "",
-              error:
-                "Rule not found. Try listing the rules again. The user may have made changes since you last checked.",
-            };
-          }
-
-          // Convert the learned patterns format
-          const patternsToSave: Array<{
-            type: GroupItemType;
-            value: string;
-            exclude?: boolean;
-          }> = [];
-
-          for (const pattern of learnedPatterns) {
-            if (pattern.include?.from) {
-              patternsToSave.push({
-                type: GroupItemType.FROM,
-                value: pattern.include.from,
-                exclude: false,
-              });
-            }
-
-            if (pattern.include?.subject) {
-              patternsToSave.push({
-                type: GroupItemType.SUBJECT,
-                value: pattern.include.subject,
-                exclude: false,
-              });
-            }
-
-            if (pattern.exclude?.from) {
-              patternsToSave.push({
-                type: GroupItemType.FROM,
-                value: pattern.exclude.from,
-                exclude: true,
-              });
-            }
-
-            if (pattern.exclude?.subject) {
-              patternsToSave.push({
-                type: GroupItemType.SUBJECT,
-                value: pattern.exclude.subject,
-                exclude: true,
-              });
-            }
-          }
-
-          if (patternsToSave.length > 0) {
-            const result = await saveLearnedPatterns({
-              emailAccountId,
-              ruleName: rule.name,
-              patterns: patternsToSave,
-            });
-
-            if ("error" in result) {
-              return {
-                success: false,
-                ruleId: rule.id,
-                error: result.error,
-              };
-            }
-          }
-
-          return { success: true, ruleId: rule.id };
-        },
-      }),
-
-      update_about: tool({
-        description:
-          "Update the user's about information. Read the user's about information first as this replaces the existing information.",
-        parameters: updateAboutSchema,
-        execute: async ({ about }) => {
-          trackToolCall({ tool: "update_about", email: user.email });
-          const existing = await prisma.emailAccount.findUnique({
-            where: { id: emailAccountId },
-            select: { about: true },
-          });
-
-          if (!existing) return { error: "Account not found" };
-
-          await prisma.emailAccount.update({
-            where: { id: emailAccountId },
-            data: { about },
-          });
-
-          return {
-            success: true,
-            previousAbout: existing.about,
-            updatedAbout: about,
-          };
-        },
-      }),
-
-      add_to_knowledge_base: tool({
-        description: "Add content to the knowledge base",
-        parameters: addToKnowledgeBaseSchema,
-        execute: async ({ title, content }) => {
-          trackToolCall({ tool: "add_to_knowledge_base", email: user.email });
-
-          try {
-            await prisma.knowledge.create({
-              data: {
-                emailAccountId,
-                title,
-                content,
-              },
-            });
-
-            return { success: true };
-          } catch (error) {
-            if (isDuplicateError(error, "title")) {
-              return {
-                error: "A knowledge item with this title already exists",
-              };
-            }
-
-            logger.error("Failed to add to knowledge base", { error });
-            return { error: "Failed to add to knowledge base" };
-          }
-        },
-      }),
+      getUserRulesAndSettings: getUserRulesAndSettingsTool(toolOptions),
+      getLearnedPatterns: getLearnedPatternsTool(toolOptions),
+      createRule: createRuleTool(toolOptions),
+      updateRuleConditions: updateRuleConditionsTool(toolOptions),
+      updateRuleActions: updateRuleActionsTool(toolOptions),
+      updateLearnedPatterns: updateLearnedPatternsTool(toolOptions),
+      updateAbout: updateAboutTool(toolOptions),
+      addToKnowledgeBase: addToKnowledgeBaseTool(toolOptions),
     },
   });
 

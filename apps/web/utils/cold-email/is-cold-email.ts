@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ColdEmail } from "@prisma/client";
 import {
@@ -13,6 +12,8 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/provider";
+import { getModel, type ModelType } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -22,10 +23,12 @@ export async function isColdEmail({
   email,
   emailAccount,
   provider,
+  modelType,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
   provider: EmailProvider;
+  modelType?: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -68,7 +71,7 @@ export async function isColdEmail({
   }
 
   // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount);
+  const res = await aiIsColdEmail(email, emailAccount, modelType);
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -87,10 +90,12 @@ export async function isColdEmailWithProvider({
   email,
   emailAccount,
   provider,
+  modelType,
 }: {
   email: EmailForLLM & { threadId?: string };
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
   provider: EmailProvider;
+  modelType: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -133,7 +138,7 @@ export async function isColdEmailWithProvider({
   }
 
   // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount);
+  const res = await aiIsColdEmail(email, emailAccount, modelType);
 
   logger.info("AI is cold email?", {
     ...loggerOptions,
@@ -170,6 +175,7 @@ async function isKnownColdEmailSender({
 async function aiIsColdEmail(
   email: EmailForLLM,
   emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI,
+  modelType?: ModelType,
 ) {
   const system = `You are an assistant that decides if an email is a cold email or not.
 
@@ -196,21 +202,23 @@ Determine if the email is a cold email or not.`;
 ${stringifyEmail(email, 500)}
 </email>`;
 
-  logger.trace("AI is cold email prompt", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, modelType);
 
-  const response = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Cold email check",
+    modelOptions,
+  });
+
+  const response = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: z.object({
       coldEmail: z.boolean(),
       reason: z.string(),
     }),
-    userEmail: emailAccount.email,
-    usageLabel: "Cold email check",
   });
-
-  logger.trace("AI is cold email response", { response: response.object });
 
   return response.object;
 }
@@ -220,6 +228,7 @@ export async function runColdEmailBlockerWithProvider(options: {
   provider: EmailProvider;
   emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
     EmailAccountWithAI;
+  modelType: ModelType;
 }): Promise<{
   isColdEmail: boolean;
   reason: ColdEmailBlockerReason;
@@ -230,6 +239,7 @@ export async function runColdEmailBlockerWithProvider(options: {
     email: options.email,
     emailAccount: options.emailAccount,
     provider: options.provider,
+    modelType: options.modelType,
   });
 
   if (!response.isColdEmail) return { ...response, coldEmailId: null };

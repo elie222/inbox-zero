@@ -123,7 +123,7 @@ const reply: ActionFunction<{
   content?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, userEmail, userId, emailAccountId }) => {
+}> = async ({ client, email, args, emailAccountId }) => {
   if (!args.content) return;
 
   await client.replyToEmail(
@@ -249,8 +249,6 @@ const mark_read: ActionFunction<Record<string, unknown>> = async ({
 const track_thread: ActionFunction<Record<string, unknown>> = async ({
   client,
   email,
-  userEmail,
-  userId,
   emailAccountId,
 }) => {
   await coordinateReplyProcess({

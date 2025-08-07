@@ -1,19 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("aiCategorizeSender");
-
-const categorizeSenderSchema = z.object({
-  rationale: z.string().describe("Keep it short. 1-2 sentences max."),
-  category: z.string(),
-  // possibleCategories: z
-  //   .array(z.string())
-  //   .describe("Possible categories when the main category is unknown"),
-});
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiCategorizeSender({
   emailAccount,
@@ -53,23 +43,29 @@ ${formatCategoriesForPrompt(categories)}
 3. If the category is clear, assign it.
 4. If you're not certain, respond with "Unknown".
 5. If multiple categories are possible, respond with "Unknown".
+6. Return your response in JSON format.
 </instructions>`;
 
-  logger.trace("aiCategorizeSender", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Categorize sender",
+    modelOptions,
+  });
+
+  const aiResponse = await generateObject({
+    ...modelOptions,
     system,
     prompt,
-    schema: categorizeSenderSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "Categorize sender",
+    schema: z.object({
+      rationale: z.string().describe("Keep it short. 1-2 sentences max."),
+      category: z.string(),
+    }),
   });
 
   if (!categories.find((c) => c.name === aiResponse.object.category))
     return null;
-
-  logger.trace("aiCategorizeSender result", { aiResponse: aiResponse.object });
 
   return aiResponse.object;
 }

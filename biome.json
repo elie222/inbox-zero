@@ -21,6 +21,7 @@
         "useCollapsedElseIf": "off"
       },
       "suspicious": {
+        "noConsole": "warn",
         "noExplicitAny": "off",
         "noArrayIndexKey": "off",
         "noEmptyBlockStatements": "off",
