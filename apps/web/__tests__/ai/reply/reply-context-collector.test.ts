@@ -9,7 +9,7 @@ import { getEmailAccount } from "@/__tests__/helpers";
 vi.mock("server-only", () => ({}));
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
-const TEST_TIMEOUT = 30_000;
+const TEST_TIMEOUT = 60_000;
 
 describe.runIf(isAiTest)("aiCollectReplyContext", () => {
   test(
@@ -89,7 +89,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["3-5 business days", "march invoice"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -143,7 +150,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["invoice", "5-10 business days", "3-5 days"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -227,7 +241,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["connection pool", "webhook"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -294,7 +315,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["duplicate charges", "activated premium"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -361,7 +389,18 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = [
+        "annual billing",
+        "200+ seats",
+        "volume discount",
+      ];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -428,7 +467,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["expedited shipping"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -495,7 +541,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["r integration", "1tb", "terabyte"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -562,7 +615,14 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
 
       expect(result).not.toBeNull();
       expect(Array.isArray(result?.relevantEmails)).toBe(true);
-      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+      expect(result?.relevantEmails.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      const expectedPhrases = ["2fa", "temporary password"];
+      const containsExpected = expectedPhrases.some((p) =>
+        outputText.includes(p.toLowerCase()),
+      );
+      expect(containsExpected).toBe(true);
 
       console.log("result", result);
     },
@@ -730,4 +790,10 @@ function getSupportHistoricalMessages(ownerEmail: string): ParsedMessage[] {
       to: "customer.kappa@example.com",
     }),
   ].map((m) => ({ ...m, internalDate: base, date: base }));
+}
+
+function relevantEmailsToLowerText(
+  result: { relevantEmails?: string[] } | null,
+): string {
+  return (result?.relevantEmails || []).join(" \n\n").toLowerCase();
 }
