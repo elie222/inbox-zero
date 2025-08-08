@@ -82,7 +82,7 @@ function isAutoArchiveFilter(filter: EmailFilter, provider: EmailProvider) {
   switch (provider.name) {
     case "google":
       return isGmailAutoArchiveFilter(filter);
-    case "microsoft-entra-id":
+    case "microsoft":
       return isOutlookAutoArchiveFilter(filter);
     default:
       return false;

@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/utils/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";

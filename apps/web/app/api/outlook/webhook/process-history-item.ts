@@ -86,7 +86,7 @@ export async function processHistoryItem(
 
     const emailProvider = await createEmailProvider({
       emailAccountId,
-      provider: "microsoft-entra-id",
+      provider: "microsoft",
     });
 
     if (

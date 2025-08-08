@@ -197,7 +197,7 @@ describe("api-auth", () => {
           {
             access_token: "access-token",
             refresh_token: "refresh-token",
-            expires_at: 1_234_567_890,
+            expires_at: new Date(),
             providerAccountId: "google-account-id",
           },
         ],
@@ -235,7 +235,7 @@ describe("api-auth", () => {
           {
             access_token: "access-token",
             refresh_token: "refresh-token",
-            expires_at: 1_234_567_890,
+            expires_at: new Date(1_234_567_890 * 1000),
             providerAccountId: "google-account-id",
           },
         ],
@@ -266,7 +266,7 @@ describe("api-auth", () => {
       expect(gmailClient.getGmailClientWithRefresh).toHaveBeenCalledWith({
         accessToken: "access-token",
         refreshToken: "refresh-token",
-        expiresAt: 1_234_567_890,
+        expiresAt: 1_234_567_890 * 1000,
       });
     });
   });

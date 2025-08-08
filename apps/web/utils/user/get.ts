@@ -87,7 +87,10 @@ export async function getEmailAccountWithAiAndTokens({
 
   return {
     ...emailAccount,
-    tokens: emailAccount.account,
+    tokens: {
+      ...emailAccount.account,
+      expires_at: emailAccount.account.expires_at?.getTime() ?? null,
+    },
   };
 }
 

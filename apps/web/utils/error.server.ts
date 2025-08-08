@@ -1,6 +1,6 @@
 import { setUser } from "@sentry/nextjs";
 import { trackError } from "@/utils/posthog";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("error.server");

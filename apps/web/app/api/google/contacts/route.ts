@@ -33,7 +33,6 @@ export const GET = withEmailAccount(async (request) => {
   const client = getContactsClient({
     accessToken: emailAccount?.account.access_token,
     refreshToken: emailAccount?.account.refresh_token,
-    expiryDate: emailAccount?.account.expires_at,
   });
 
   const { searchParams } = new URL(request.url);

@@ -55,7 +55,7 @@ async function performGmailAction({
   const gmail = await getGmailClientWithRefresh({
     accessToken: account.account.access_token,
     refreshToken: account.account.refresh_token,
-    expiresAt: account.account.expires_at,
+    expiresAt: account.account.expires_at?.getTime() || null,
     emailAccountId,
   });
 

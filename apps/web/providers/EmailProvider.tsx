@@ -38,7 +38,7 @@ function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
 
   if (provider === "google") {
     return label.color;
-  } else if (provider === "microsoft-entra-id") {
+  } else if (provider === "microsoft") {
     const presetColor = label.color as string;
     const backgroundColor =
       OUTLOOK_COLOR_MAP[presetColor as keyof typeof OUTLOOK_COLOR_MAP] ||

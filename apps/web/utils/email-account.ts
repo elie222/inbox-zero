@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
 
 export async function checkUserOwnsEmailAccount({

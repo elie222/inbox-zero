@@ -26,9 +26,7 @@ export async function watchEmails({
         data: {
           watchEmailsExpirationDate: result.expirationDate,
           watchEmailsSubscriptionId:
-            provider.name === "microsoft-entra-id"
-              ? result.subscriptionId
-              : null,
+            provider.name === "microsoft" ? result.subscriptionId : null,
         },
       });
 

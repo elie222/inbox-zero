@@ -3,8 +3,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { LoginForm } from "@/app/(landing)/login/LoginForm";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import AutoLogOut from "@/app/(landing)/login/error/AutoLogOut";
+import { auth } from "@/utils/auth";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
@@ -43,9 +42,7 @@ export default async function AuthenticationPage(props: {
           </Suspense>
         </div>
 
-        {searchParams?.error && (
-          <ErrorAlert error={searchParams?.error} loggedIn={!!session?.user} />
-        )}
+        {searchParams?.error && <ErrorAlert error={searchParams?.error} />}
 
         <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
           By clicking continue, you agree to our{" "}
@@ -81,7 +78,7 @@ export default async function AuthenticationPage(props: {
   );
 }
 
-function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
+function ErrorAlert({ error }: { error: string }) {
   if (error === "RequiresReconsent") return null;
 
   if (error === "OAuthAccountNotLinked") {
@@ -102,13 +99,10 @@ function ErrorAlert({ error, loggedIn }: { error: string; loggedIn: boolean }) {
   }
 
   return (
-    <>
-      <AlertBasic
-        variant="destructive"
-        title="Error logging in"
-        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-      />
-      <AutoLogOut loggedIn={loggedIn} />
-    </>
+    <AlertBasic
+      variant="destructive"
+      title="Error logging in"
+      description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+    />
   );
 }

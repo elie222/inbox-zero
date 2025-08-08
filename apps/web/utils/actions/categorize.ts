@@ -118,13 +118,13 @@ export const categorizeSenderAction = actionClient
       const userResult = await validateUserAndAiAccess({ emailAccountId });
       const { emailAccount } = userResult;
 
-      if (!session.accessToken) throw new SafeError("No access token");
+      if (!session.session.token) throw new SafeError("No access token");
 
       const result = await categorizeSender(
         senderAddress,
         emailAccount,
         gmail,
-        session.accessToken,
+        session.session.token,
       );
 
       revalidatePath(prefixPath(emailAccountId, "/smart-categories"));

@@ -14,20 +14,18 @@ model Account {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   userId            String
-  type              String
   provider          String
+  type              String   @default("oidc")
   providerAccountId String
   refresh_token     String?  @db.Text
   access_token      String?  @db.Text
-  expires_at        Int?
+  expires_at        DateTime? @default(now())
   token_type        String?
   scope             String?
   id_token          String?  @db.Text
   session_state     String?
-
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emailAccount EmailAccount?
-
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount      EmailAccount?
   @@unique([provider, providerAccountId])
 }
 
@@ -37,6 +35,10 @@ model Session {
   sessionToken String   @unique
   userId       String
   expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ipAddress    String?
+  userAgent    String?
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -46,7 +48,7 @@ model User {
   updatedAt     DateTime  @updatedAt
   name          String?
   email         String    @unique
-  emailVerified DateTime?
+  emailVerified Boolean?  @default(false)
   image         String?
   accounts      Account[]
   sessions      Session[]
@@ -261,7 +263,9 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
-
+  createdAt  DateTime @default(now())
+  id         String   @id @default(cuid())
+  updatedAt  DateTime @updatedAt
   @@unique([identifier, token])
 }
 

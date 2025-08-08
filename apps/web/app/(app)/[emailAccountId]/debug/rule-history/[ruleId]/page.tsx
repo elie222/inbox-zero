@@ -10,7 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 
 export default async function RuleHistoryPage(props: {
   params: Promise<{ emailAccountId: string; ruleId: string }>;
