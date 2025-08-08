@@ -169,11 +169,12 @@ export async function queryBatchMessages(
   if (query?.trim()) {
     if (isODataFilter) {
       // Filter path - use filter and skipToken
-      // Combine the existing filter with folder restrictions
+      // Combine the existing filter with folder restrictions and exclude drafts
       const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+      const draftFilter = "isDraft eq false";
       const combinedFilter = query.trim()
-        ? `${query.trim()} and ${folderFilter}`
-        : folderFilter;
+        ? `${query.trim()} and ${folderFilter} and ${draftFilter}`
+        : `${folderFilter} and ${draftFilter}`;
       request = request.filter(combinedFilter);
 
       if (pageToken) {
@@ -204,11 +205,12 @@ export async function queryBatchMessages(
       }
 
       const response = await request.get();
-      // Filter messages to only include inbox and archive folders
+      // Filter messages to only include inbox and archive folders and exclude drafts
       const filteredMessages = response.value.filter(
         (message: Message) =>
-          message.parentFolderId === inboxFolderId ||
-          message.parentFolderId === archiveFolderId,
+          (message.parentFolderId === inboxFolderId ||
+            message.parentFolderId === archiveFolderId) &&
+          !message.isDraft,
       );
       const messages = await convertMessages(filteredMessages, folderIds);
 
@@ -227,14 +229,17 @@ export async function queryBatchMessages(
     }
   } else {
     // Non-search path - use filter, skip and orderBy
-    // Always filter to only include inbox and archive folders
+    // Always filter to only include inbox and archive folders and exclude drafts
     const folderFilter = `(parentFolderId eq '${inboxFolderId}' or parentFolderId eq '${archiveFolderId}')`;
+    const draftFilter = "isDraft eq false";
 
     // If a specific folder is requested, override the default filter
     if (folderId) {
-      request = request.filter(`parentFolderId eq '${folderId}'`);
+      request = request.filter(
+        `parentFolderId eq '${folderId}' and ${draftFilter}`,
+      );
     } else {
-      request = request.filter(folderFilter);
+      request = request.filter(`${folderFilter} and ${draftFilter}`);
     }
 
     request = request
@@ -310,7 +315,11 @@ export async function getMessages(
     );
 
   if (options.query) {
-    request = request.filter(`contains(subject, '${options.query}')`);
+    request = request.filter(
+      `contains(subject, '${options.query}') and isDraft eq false`,
+    );
+  } else {
+    request = request.filter("isDraft eq false");
   }
 
   const response = await request.get();
