@@ -13,6 +13,16 @@ import {
   replyTrackerQuerySchema,
   replyTrackerResponseSchema,
 } from "@/app/api/v1/reply-tracker/validation";
+import {
+  summaryStatsQuerySchema,
+  summaryStatsResponseSchema,
+  statsByPeriodQuerySchema,
+  statsByPeriodResponseSchema,
+  newsletterStatsQuerySchema,
+  newsletterStatsResponseSchema,
+  dateRangeSchema,
+  emailActionsResponseSchema,
+} from "@/app/api/v1/stats/validation";
 import { API_KEY_HEADER } from "@/utils/api-auth";
 
 extendZodWithOpenApi(z);
@@ -66,6 +76,87 @@ registry.registerPath({
       content: {
         "application/json": {
           schema: replyTrackerResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+// Stats endpoints
+registry.registerPath({
+  method: "get",
+  path: "/stats/summary",
+  description: "Get email account summary statistics",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: summaryStatsQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Summary statistics for email activity",
+      content: {
+        "application/json": {
+          schema: summaryStatsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/by-period",
+  description: "Get email statistics grouped by time period",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: statsByPeriodQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Email statistics grouped by the specified period",
+      content: {
+        "application/json": {
+          schema: statsByPeriodResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/newsletters",
+  description: "Get newsletter statistics",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: newsletterStatsQuerySchema,
+  },
+  responses: {
+    200: {
+      description: "Newsletter sender statistics",
+      content: {
+        "application/json": {
+          schema: newsletterStatsResponseSchema,
+        },
+      },
+    },
+  },
+});
+
+registry.registerPath({
+  method: "get",
+  path: "/stats/email-actions",
+  description: "Get email actions (archived/deleted) statistics by day",
+  security: [{ ApiKeyAuth: [] }],
+  request: {
+    query: dateRangeSchema,
+  },
+  responses: {
+    200: {
+      description: "Email actions performed with Inbox Zero",
+      content: {
+        "application/json": {
+          schema: emailActionsResponseSchema,
         },
       },
     },
