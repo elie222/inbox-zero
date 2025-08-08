@@ -21,7 +21,7 @@ import {
   cancelScheduledActions,
 } from "@/utils/scheduled-actions/scheduler";
 import groupBy from "lodash/groupBy";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import type { ModelType } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-run-rules");

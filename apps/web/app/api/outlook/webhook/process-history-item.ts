@@ -21,7 +21,7 @@ import {
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,

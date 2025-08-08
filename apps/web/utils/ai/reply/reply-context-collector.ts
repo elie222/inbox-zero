@@ -8,7 +8,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { captureException } from "@/utils/error";
 
@@ -22,7 +22,7 @@ const resultSchema = z.object({
   relevantEmails: z
     .array(z.string())
     .describe(
-      "Relevant emails and the user's responses. One question+answer per array item.",
+      "Past email conversations from search results that could help draft the response. Leave empty if no relevant past emails found.",
     ),
 });
 export type ReplyContextCollectorResult = z.infer<typeof resultSchema>;
@@ -32,14 +32,17 @@ const agentSystem = `You are an intelligent email assistant that gathers histori
 Your task is to:
 1. Analyze the current email thread to understand the main topic, question, or request
 2. Search through the user's email history to find similar conversations from the past 6 months
-3. Collect and synthesize the most relevant findings
+3. Collect and synthesize the most relevant findings from your searches
 4. When you are done, CALL finalizeResults with your final results
 
 You have access to these tools:
 - searchEmails: Search for emails using queries to find relevant historical context
 - finalizeResults: Finalize and return your results
 
-Important guidelines:
+CRITICAL GUIDELINES:
+- The current email thread is already provided to the drafting agent - DO NOT include it in relevantEmails
+- The relevantEmails array should ONLY contain past emails found through your searches that could help draft a response
+- If no relevant past emails are found through searching, leave the relevantEmails array empty
 - Perform as many searches as needed to confidently gather context, but be efficient
 - Focus on emails that show how similar questions were answered before
 - Only include information that directly helps a downstream drafting agent
@@ -126,6 +129,9 @@ ${getTodayForLLM()}`;
                 return getEmailForLLM(message, { maxLength: 2000 });
               });
 
+              logger.info("Found emails", { emails: emails.length });
+              // logger.trace("Found emails", { emails });
+
               return emails;
             } catch (error) {
               const errorMessage =
@@ -148,8 +154,11 @@ ${getTodayForLLM()}`;
           inputSchema: resultSchema,
           execute: async (finalResult) => {
             logger.info("Finalizing results", {
-              notes: finalResult.notes,
               relevantEmails: finalResult.relevantEmails.length,
+            });
+            logger.trace("Finalizing results", {
+              notes: finalResult.notes,
+              relevantEmails: finalResult.relevantEmails,
             });
 
             result = finalResult;
