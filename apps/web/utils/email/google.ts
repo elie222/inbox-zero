@@ -79,10 +79,10 @@ export class GmailProvider implements EmailProvider {
     this.client = client;
   }
 
-  async getThreads(folderId?: string): Promise<EmailThread[]> {
+  async getThreads(labelId?: string): Promise<EmailThread[]> {
     const response = await this.client.users.threads.list({
       userId: "me",
-      q: folderId ? `in:${folderId}` : undefined,
+      q: labelId ? `in:${labelId}` : undefined,
     });
 
     const threads = response.data.threads || [];
