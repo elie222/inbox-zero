@@ -25,7 +25,7 @@ const resultSchema = z.object({
       "Relevant emails and the user's responses. One question+answer per array item.",
     ),
 });
-type Result = z.infer<typeof resultSchema>;
+export type ReplyContextCollectorResult = z.infer<typeof resultSchema>;
 
 const agentSystem = `You are an intelligent email assistant that gathers historical context from the user's email history to inform a later drafting step.
 
@@ -67,7 +67,7 @@ export async function aiCollectReplyContext({
   currentThread: EmailForLLM[];
   emailAccount: EmailAccountWithAI;
   emailProvider: EmailProvider;
-}): Promise<Result | null> {
+}): Promise<ReplyContextCollectorResult | null> {
   try {
     const sixMonthsAgo = subMonths(new Date(), 6);
 
@@ -93,7 +93,7 @@ ${getTodayForLLM()}`;
       modelOptions,
     });
 
-    let result: Result | null = null;
+    let result: ReplyContextCollectorResult | null = null;
 
     await generateText({
       ...modelOptions,

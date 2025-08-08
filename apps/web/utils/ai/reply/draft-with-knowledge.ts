@@ -6,6 +6,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
+import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -39,7 +40,7 @@ const getUserPrompt = ({
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
-  emailHistoryContext: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
   writingStyle: string | null;
 }) => {
   const userAbout = emailAccount.about
@@ -69,12 +70,22 @@ ${emailHistorySummary}
 `
     : "";
 
-  const precedentHistoryContext = emailHistoryContext
+  const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
     ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
     
 <email_history>
-${emailHistoryContext}
+${emailHistoryContext.relevantEmails
+  .map(
+    (item) => `<item>
+${item}
+</item>`,
+  )
+  .join("\n")}
 </email_history>
+
+<email_history_notes>
+${emailHistoryContext.notes || "No notes"}
+</email_history_notes>
 `
     : "";
 
@@ -127,7 +138,7 @@ export async function aiDraftWithKnowledge({
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
-  emailHistoryContext: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
   writingStyle: string | null;
 }) {
   try {
