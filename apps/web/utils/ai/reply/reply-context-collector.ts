@@ -1,3 +1,5 @@
+import { tool } from "ai";
+import subMonths from "date-fns/subMonths";
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
@@ -7,8 +9,22 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { EmailProvider } from "@/utils/email/provider";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 
 const logger = createScopedLogger("reply-context-collector");
+
+const resultSchema = z.object({
+  notes: z
+    .string()
+    .describe("Any notes about the emails that may be helpful")
+    .nullish(),
+  relevantEmails: z
+    .array(z.string())
+    .describe(
+      "Relevant emails and the user's responses. One question+answer per array item.",
+    ),
+});
+type Result = z.infer<typeof resultSchema>;
 
 const agentSystem = `You are an intelligent email assistant that gathers historical context from the user's email history to inform a later drafting step.
 
@@ -16,26 +32,26 @@ Your task is to:
 1. Analyze the current email thread to understand the main topic, question, or request
 2. Search through the user's email history to find similar conversations from the past 6 months
 3. Collect and synthesize the most relevant findings
-4. When you are done, CALL finalizeReport with your final synthesized report as plain text
+4. When you are done, CALL finalizeResults with your final results
 
 You have access to these tools:
 - searchEmails: Search for emails using queries to find relevant historical context
-- finalizeReport: Finalize and return your compiled report as plain text
+- finalizeResults: Finalize and return your results
 
 Important guidelines:
 - Perform as many searches as needed to confidently gather context, but be efficient
 - Focus on emails that show how similar questions were answered before
-- Identify patterns in how the user typically responds to such requests
-- Prioritize emails that contain substantive responses, not just acknowledgments
 - Only include information that directly helps a downstream drafting agent
- - Prefer precedent answers to general support questions across customers; do not rely on this sender's specific past conversation because that's already processed by the drafting agent
 
-Example queries (provider-agnostic, general support):
-- "order status" OR "shipment arrival"
-- "refund policy" OR "return policy"
-- "billing issue" OR "invoice question"
+When searching, use natural language queries that would find relevant emails. The search will look through the past 6 months automatically.
 
-When searching, use natural language queries that would find relevant emails. The search will look through the past 6 months automatically.`;
+Example search queries:
+- "order status" OR "shipment arrival" OR "tracking number"
+- "refund" OR "return policy" OR "return window"
+- "billing issue" OR "invoice question" OR "duplicate charge"
+- "account access" OR "password reset" OR "2FA disabled"
+- "API error" OR "500 errors" OR "database timeout"
+- "enterprise pricing" OR "annual payment" OR "volume discount"`;
 
 export async function aiCollectReplyContext({
   currentThread,
@@ -45,15 +61,13 @@ export async function aiCollectReplyContext({
   currentThread: EmailForLLM[];
   emailAccount: EmailAccountWithAI;
   emailProvider: EmailProvider;
-}): Promise<string | null> {
+}): Promise<Result | null> {
   try {
-    // Get 6 months ago date for search filtering
-    const sixMonthsAgo = new Date();
-    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    const sixMonthsAgo = subMonths(new Date(), 6);
 
     const threadSummary = currentThread
-      .map((email) => stringifyEmail(email, 1000))
-      .join("\n---\n");
+      .map((email) => `<email>${stringifyEmail(email, 1000)}</email>`)
+      .join("\n");
 
     const prompt = `Current email thread to analyze:
 <current_thread>
@@ -63,15 +77,7 @@ ${threadSummary}
 User email: ${emailAccount.email}
 ${emailAccount.about ? `User context: ${emailAccount.about}` : ""}
 
-${getTodayForLLM()}
-
-Please analyze this email thread and search through the email history to find relevant context that could help a downstream drafting agent.
-
-Perform as many searches as needed for recall and coverage. When finished, call finalizeReport with a concise, well-structured report containing:
-- A brief topic summary
-- Key precedents (bulleted), with why they are relevant
-- Notable user response patterns or preferences
-- Any suggested data points or snippets to surface to the drafting agent.`;
+${getTodayForLLM()}`;
 
     const modelOptions = getModel(emailAccount.user, "economy");
 
@@ -81,7 +87,7 @@ Perform as many searches as needed for recall and coverage. When finished, call 
       modelOptions,
     });
 
-    let finalReport: string | null = null;
+    let result: Result | null = null;
 
     await generateText({
       ...modelOptions,
@@ -89,10 +95,10 @@ Perform as many searches as needed for recall and coverage. When finished, call 
       prompt,
       stopWhen: (result) =>
         result.steps.some((step) =>
-          step.toolCalls?.some((call) => call.toolName === "finalizeReport"),
+          step.toolCalls?.some((call) => call.toolName === "finalizeResults"),
         ) || result.steps.length > 25,
       tools: {
-        searchEmails: {
+        searchEmails: tool({
           description:
             "Search for emails in the user's history to find relevant context",
           inputSchema: z.object({
@@ -100,7 +106,8 @@ Perform as many searches as needed for recall and coverage. When finished, call 
               .string()
               .describe("Search query to find relevant emails in history"),
           }),
-          execute: async ({ query, reasoning }) => {
+          execute: async ({ query }) => {
+            logger.info("Searching emails", { query });
             try {
               const { messages } =
                 await emailProvider.getMessagesWithPagination({
@@ -109,34 +116,45 @@ Perform as many searches as needed for recall and coverage. When finished, call 
                   after: sixMonthsAgo,
                 });
 
-              return messages;
+              const emails = messages.map((message) => {
+                return getEmailForLLM(message, { maxLength: 2000 });
+              });
+
+              return emails;
             } catch (error) {
-              logger.error("Email search failed", { error, query });
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
+              logger.error("Email search failed", {
+                error,
+                errorMessage,
+                query,
+              });
               return {
                 success: false,
-                error: "Failed to search emails",
-                query,
-                reasoning,
+                error: errorMessage,
               };
             }
           },
-        },
-        finalizeReport: {
+        }),
+        finalizeResults: tool({
           description:
-            "Finalize and return your compiled report as plain text for downstream drafting",
-          inputSchema: z.object({
-            report: z.string().describe("Final compiled report as plain text"),
-          }),
-          execute: async ({ report }) => {
-            finalReport = report;
+            "Finalize and return your compiled results for downstream drafting",
+          inputSchema: resultSchema,
+          execute: async (finalResult) => {
+            logger.info("Finalizing results", {
+              notes: finalResult.notes,
+              relevantEmails: finalResult.relevantEmails.length,
+            });
+
+            result = finalResult;
 
             return { success: true };
           },
-        },
+        }),
       },
     });
 
-    return finalReport;
+    return result;
   } catch (error) {
     logger.error("Reply context collection failed", { error });
     return null;
