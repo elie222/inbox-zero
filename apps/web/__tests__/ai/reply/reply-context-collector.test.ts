@@ -82,24 +82,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Basic: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Basic: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      // New result shape: { notes?: string | null; relevantEmails: string[] } | null
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        expect(result.relevantEmails.length).toBeGreaterThanOrEqual(0);
-        // notes can be undefined or string|null
-        console.log(
-          `Generated context object with ${result.relevantEmails.length} item(s).`,
-        );
-      } else {
-        console.log("No context object was generated (result is null)");
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -144,23 +136,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      // Helpful logs to understand behavior
-      if (observedQueries.length > 0) {
-        console.log(
-          `LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (support scenario):",
-          result.relevantEmails.length,
-        );
-      } else {
-        console.log("No context object was generated for support scenario");
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -235,20 +220,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Technical support: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Technical support: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (technical support):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -306,20 +287,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Escalation: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Escalation: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (escalation):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -377,20 +354,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Billing: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Billing: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (billing):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -448,20 +421,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Shipping: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Shipping: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (shipping):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -519,20 +488,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Product inquiry: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Product inquiry: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (product inquiry):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -590,20 +555,16 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         emailProvider,
       });
 
-      if (observedQueries.length > 0) {
-        console.log(
-          `Security: LLM issued ${observedQueries.length} search call(s):`,
-          observedQueries,
-        );
-      }
+      console.log(
+        `Security: LLM issued ${observedQueries.length} search call(s):`,
+        observedQueries,
+      );
 
-      if (result !== null) {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        console.log(
-          "Generated context object (security):",
-          result.relevantEmails.length,
-        );
-      }
+      expect(result).not.toBeNull();
+      expect(Array.isArray(result?.relevantEmails)).toBe(true);
+      expect(result?.relevantEmails.length).toBeGreaterThanOrEqual(0);
+
+      console.log("result", result);
     },
     TEST_TIMEOUT,
   );
@@ -665,13 +626,7 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
         observedQueries,
       );
 
-      // Expect no fabricated content: either null or empty relevantEmails
-      if (result === null) {
-        expect(result).toBeNull();
-      } else {
-        expect(Array.isArray(result.relevantEmails)).toBe(true);
-        expect(result.relevantEmails.length).toBe(0);
-      }
+      expect(result?.relevantEmails.length || 0).toBe(0);
     },
     TEST_TIMEOUT,
   );
@@ -776,6 +731,3 @@ function getSupportHistoricalMessages(ownerEmail: string): ParsedMessage[] {
     }),
   ].map((m) => ({ ...m, internalDate: base, date: base }));
 }
-
-// kept for reference; not directly used in updated tests
-/* removed unused historical helpers; tests now inline their historical pairs to better reflect completed threads */
