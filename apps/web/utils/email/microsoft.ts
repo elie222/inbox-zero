@@ -561,6 +561,9 @@ export class OutlookProvider implements EmailProvider {
         );
       }
 
+      // Always exclude drafts
+      filters.push("isDraft eq false");
+
       return filters.length > 0 ? filters.join(" and ") : undefined;
     }
 
