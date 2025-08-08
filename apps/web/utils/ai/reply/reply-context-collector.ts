@@ -10,6 +10,7 @@ import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { EmailProvider } from "@/utils/email/provider";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { captureException } from "@/utils/error";
 
 const logger = createScopedLogger("reply-context-collector");
 
@@ -44,6 +45,11 @@ Important guidelines:
 - Only include information that directly helps a downstream drafting agent
 
 When searching, use natural language queries that would find relevant emails. The search will look through the past 6 months automatically.
+
+Search Tips:
+- The search looks for EXACT text matches in emails
+- IMPORTANT: Try simpler queries if you don't get results for your first search
+- Try the subject line first if it contains the main topic
 
 Example search queries:
 - "order status" OR "shipment arrival" OR "tracking number"
@@ -156,7 +162,17 @@ ${getTodayForLLM()}`;
 
     return result;
   } catch (error) {
-    logger.error("Reply context collection failed", { error });
+    logger.error("Reply context collection failed", {
+      email: emailAccount.email,
+      error,
+    });
+    captureException(error, {
+      extra: {
+        scope: "reply-context-collector",
+        email: emailAccount.email,
+        userId: emailAccount.userId,
+      },
+    });
     return null;
   }
 }

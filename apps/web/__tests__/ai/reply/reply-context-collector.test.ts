@@ -690,6 +690,95 @@ describe.runIf(isAiTest)("aiCollectReplyContext", () => {
     },
     TEST_TIMEOUT,
   );
+
+  test(
+    "uses simple subject line search first for better results",
+    async () => {
+      const emailAccount = getEmailAccount({ email: "support@company.com" });
+      const currentThread: EmailForLLM[] = [
+        {
+          id: "msg-1",
+          from: "customer@example.com",
+          to: emailAccount.email,
+          subject: "Failed payment",
+          content:
+            "Hey, I saw your payment failed. The payment link I sent is no longer valid. Can you help?",
+          date: new Date(),
+        },
+      ];
+
+      // Historical messages about failed payments
+      const historicalMessages = [
+        getParsedMessage({
+          id: "h1",
+          subject: "Failed payment",
+          snippet: "Your payment was declined. Here's a new link...",
+          from: emailAccount.email,
+          to: "other@example.com",
+        }),
+        getParsedMessage({
+          id: "h2",
+          subject: "Re: Failed payment",
+          snippet: "Thanks, the new payment link worked!",
+          from: "other@example.com",
+          to: emailAccount.email,
+        }),
+        getParsedMessage({
+          id: "h3",
+          subject: "Payment processing error",
+          snippet: "We're having issues with payment processing...",
+          from: emailAccount.email,
+          to: "another@example.com",
+        }),
+      ];
+
+      const observedQueries: string[] = [];
+      const emailProvider = {
+        name: "google",
+        getMessagesWithPagination: vi
+          .fn()
+          .mockImplementation(async (options: { query?: string }) => {
+            const query = options.query || "";
+            observedQueries.push(query);
+
+            // Simulate realistic search behavior - exact matches work better
+            if (
+              query === "Failed payment" ||
+              query.includes("Failed payment")
+            ) {
+              return {
+                messages: [historicalMessages[0], historicalMessages[1]],
+              };
+            } else if (query.includes("payment")) {
+              return { messages: historicalMessages };
+            }
+            return { messages: [] };
+          }),
+      } as unknown as EmailProvider;
+
+      const result = await aiCollectReplyContext({
+        currentThread,
+        emailAccount,
+        emailProvider,
+      });
+
+      console.log("Subject line search queries:", observedQueries);
+
+      // Verify it searched using the subject line first or early
+      const usedSubjectLine = observedQueries.some(
+        (q) => q === "Failed payment" || q.includes("Failed payment"),
+      );
+      expect(usedSubjectLine).toBe(true);
+
+      // Verify it found relevant results
+      expect(result).not.toBeNull();
+      expect(result?.relevantEmails?.length).toBeGreaterThan(0);
+
+      const outputText = relevantEmailsToLowerText(result);
+      expect(outputText).toContain("payment");
+    },
+    TEST_TIMEOUT,
+  );
 });
 
 function getParsedMessage(overrides: {
