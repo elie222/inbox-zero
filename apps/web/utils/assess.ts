@@ -1,6 +1,6 @@
 import uniq from "lodash/uniq";
 import countBy from "lodash/countBy";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { GmailProvider } from "@/utils/email/provider";
 import { getEmailClient } from "@/utils/mail";
 import { isDefined } from "@/utils/types";

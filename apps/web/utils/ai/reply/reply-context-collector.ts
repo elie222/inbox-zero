@@ -8,7 +8,7 @@ import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { captureException } from "@/utils/error";
 
@@ -148,8 +148,11 @@ ${getTodayForLLM()}`;
           inputSchema: resultSchema,
           execute: async (finalResult) => {
             logger.info("Finalizing results", {
-              notes: finalResult.notes,
               relevantEmails: finalResult.relevantEmails.length,
+            });
+            logger.trace("Finalizing results", {
+              notes: finalResult.notes,
+              relevantEmails: finalResult.relevantEmails,
             });
 
             result = finalResult;

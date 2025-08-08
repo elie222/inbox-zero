@@ -10,7 +10,7 @@ import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 
 const logger = createScopedLogger("generate-reply");
@@ -111,6 +111,7 @@ async function generateDraftContent(
 
   if (!lastMessage) throw new Error("No message provided");
 
+  // Check Redis cache for reply
   const reply = await getReply({
     emailAccountId: emailAccount.id,
     messageId: lastMessage.id,

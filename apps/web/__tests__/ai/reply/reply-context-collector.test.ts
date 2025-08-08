@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai reply-context-collector
