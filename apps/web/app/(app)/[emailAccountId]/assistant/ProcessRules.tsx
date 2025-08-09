@@ -103,20 +103,14 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const { emailAccountId, userEmail } = useAccount();
 
   // Fetch existing executed rules for current messages
-  const messagesToFetch = useMemo(
-    () =>
-      messages.map((m) => ({
-        messageId: m.id,
-        threadId: m.threadId,
-      })),
+  const messageIdsToFetch = useMemo(
+    () => messages.map((m) => m.id),
     [messages],
   );
 
   const { data: existingRules } = useSWR<BatchExecutedRulesResponse>(
-    messagesToFetch.length > 0
-      ? `/api/user/executed-rules/batch?messageIds=${messagesToFetch
-          .map((m) => m.messageId)
-          .join(",")}`
+    messageIdsToFetch.length > 0
+      ? `/api/user/executed-rules/batch?messageIds=${messageIdsToFetch.join(",")}`
       : null,
   );
 

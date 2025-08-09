@@ -28,6 +28,7 @@ async function getData({
       rule: true,
       status: true,
     },
+    orderBy: { id: "asc" },
   });
 
   // Convert to a map for easy lookup by messageId
