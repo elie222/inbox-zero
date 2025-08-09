@@ -52,8 +52,8 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
     HTMLAttributes: {
       class: "mention-label",
     },
-    renderText({ options, node }) {
-      return `${options.suggestion.char}${node.attrs.label ?? node.attrs.id}`;
+    renderLabel({ node }) {
+      return `${node.attrs.label ?? node.attrs.id}`;
     },
     suggestion: {
       char: "@",
@@ -263,7 +263,7 @@ export const createLabelMentionExtension = (labels: EmailLabel[]) => {
                     ];
 
                     const textToken = state.push("text", "", 0);
-                    textToken.content = `@${labelName}`;
+                    textToken.content = labelName;
 
                     state.push("mention_close", "mention", -1);
                   }
