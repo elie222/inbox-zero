@@ -113,24 +113,30 @@ export function AccountSwitcherInternal({
               Accounts
             </DropdownMenuLabel>
             {emailAccounts.map((emailAccount) => (
-              <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
-                <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
-                  <ProfileImage
-                    image={emailAccount.image}
-                    label={emailAccount.name || emailAccount.email}
-                  />
-                  <div className="flex flex-col">
-                    <span className="truncate font-medium">
-                      {emailAccount.name || emailAccount.email}
+              <DropdownMenuItem
+                key={emailAccount.id}
+                className="gap-2 p-2"
+                onSelect={() => {
+                  // Force a hard page reload to refresh all data.
+                  // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
+                  window.location.href = getHref(emailAccount.id);
+                }}
+              >
+                <ProfileImage
+                  image={emailAccount.image}
+                  label={emailAccount.name || emailAccount.email}
+                />
+                <div className="flex flex-col">
+                  <span className="truncate font-medium">
+                    {emailAccount.name || emailAccount.email}
+                  </span>
+                  {emailAccount.name && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {emailAccount.email}
                     </span>
-                    {emailAccount.name && (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {emailAccount.email}
-                      </span>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              </Link>
+                  )}
+                </div>
+              </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <Link href="/accounts">
