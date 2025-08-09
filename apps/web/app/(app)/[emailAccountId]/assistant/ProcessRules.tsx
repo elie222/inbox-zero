@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Badge } from "@/components/Badge";
+import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import {
   isAIRule,
   isCategoryRule,
@@ -101,6 +102,18 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
   const { emailAccountId, userEmail } = useAccount();
 
+  // Fetch existing executed rules for current messages
+  const messageIdsToFetch = useMemo(
+    () => messages.map((m) => m.id),
+    [messages],
+  );
+
+  const { data: existingRules } = useSWR<BatchExecutedRulesResponse>(
+    messageIdsToFetch.length > 0
+      ? `/api/user/executed-rules/batch?messageIds=${messageIdsToFetch.join(",")}`
+      : null,
+  );
+
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
     (rule) =>
@@ -116,6 +129,24 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
   const handledThreadsRef = useRef(new Set<string>());
+
+  // Merge existing rules with results
+  const allResults = useMemo(() => {
+    const merged = { ...results };
+    if (existingRules?.rulesMap) {
+      for (const [messageId, rule] of Object.entries(existingRules.rulesMap)) {
+        if (!merged[messageId]) {
+          merged[messageId] = {
+            rule: rule.rule,
+            actionItems: rule.actionItems,
+            reason: rule.reason,
+            existing: true,
+          };
+        }
+      }
+    }
+    return merged;
+  }, [results, existingRules]);
 
   const onRun = useCallback(
     async (message: Message, rerun?: boolean) => {
@@ -161,7 +192,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       // Filter messages that should be processed
       const messagesToProcess = currentBatch.filter((message) => {
-        if (results[message.id]) return false;
+        if (allResults[message.id]) return false;
         if (handledThreadsRef.current.has(message.threadId)) return false;
         return true;
       });
@@ -267,7 +298,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     message={message}
                     userEmail={userEmail}
                     isRunning={isRunning[message.id]}
-                    result={results[message.id]}
+                    result={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     emailAccountId={emailAccountId}
