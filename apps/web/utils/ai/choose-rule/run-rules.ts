@@ -150,7 +150,7 @@ async function executeMatchedRule(
   }
 
   const shouldExecute =
-    executedRule && rule.automate && immediateActions.length > 0;
+    executedRule && rule.automate && immediateActions?.length > 0;
 
   if (shouldExecute) {
     await executeAct({
@@ -225,7 +225,7 @@ async function saveExecutedRule(
       createMany: {
         data:
           actionItems?.map((item) => {
-            const { delayInMinutes, ...executedActionFields } =
+            const { delayInMinutes: _delayInMinutes, ...executedActionFields } =
               sanitizeActionFields(item);
             return executedActionFields;
           }) || [],
