@@ -1,7 +1,9 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
+import { getOrCreateFolderByName } from "./message";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import { WELL_KNOWN_FOLDERS } from "./message";
 
 const logger = createScopedLogger("outlook/label");
 
@@ -233,23 +235,30 @@ export async function archiveThread({
   threadId,
   ownerEmail,
   actionSource,
-  labelId,
+  folderName = "archive",
 }: {
   client: OutlookClient;
   threadId: string;
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
-  labelId?: string;
+  folderName?: string;
 }) {
   try {
-    // In Outlook, archiving is moving to the Archive folder
+    // In Outlook, archiving is moving to a folder
     // We need to move each message in the thread individually
-    // Escape single quotes in threadId for the filter
+
+    // Get or create the destination folder (handles both well-known and custom folders)
+    const destinationFolderId = await getOrCreateFolderByName(
+      client,
+      folderName,
+    );
+
+    // Move each message in the thread individually
     const escapedThreadId = threadId.replace(/'/g, "''");
     const messages = await client
       .getClient()
       .api("/me/messages")
-      .filter(`conversationId eq '${escapedThreadId}'`)
+      .filter(`conversationId eq '${escapedThreadId}'`) // Escape single quotes in threadId for the filter
       .get();
 
     const archivePromise = Promise.all(
@@ -259,11 +268,10 @@ export async function archiveThread({
             .getClient()
             .api(`/me/messages/${message.id}/move`)
             .post({
-              destinationId: "archive",
+              destinationId: destinationFolderId,
             });
         } catch (error) {
-          // Log the error but don't fail the entire operation
-          logger.warn("Failed to move message to archive", {
+          logger.warn(`Failed to move message to ${destinationFolderId}`, {
             messageId: message.id,
             threadId,
             error: error instanceof Error ? error.message : error,
@@ -291,12 +299,15 @@ export async function archiveThread({
         logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
         return { status: 404, message: "Thread not found" };
       }
-      logger.error("Failed to archive thread", { threadId, error });
+      logger.error(`Failed to move thread to ${folderName}`, {
+        threadId,
+        error,
+      });
       throw error;
     }
 
     if (publishResult.status === "rejected") {
-      logger.error("Failed to publish archive action", {
+      logger.error(`Failed to publish action to move thread to ${folderName}`, {
         threadId,
         error: publishResult.reason,
       });
@@ -325,7 +336,7 @@ export async function archiveThread({
       );
 
       if (threadMessages.length > 0) {
-        // Move each message in the thread to the archive folder
+        // Move each message in the thread to the destination folder
         const movePromises = threadMessages.map(
           async (message: { id: string }) => {
             try {
@@ -333,11 +344,11 @@ export async function archiveThread({
                 .getClient()
                 .api(`/me/messages/${message.id}/move`)
                 .post({
-                  destinationId: "archive",
+                  destinationId: folderName,
                 });
             } catch (moveError) {
               // Log the error but don't fail the entire operation
-              logger.warn("Failed to move message to archive", {
+              logger.warn(`Failed to move message to ${folderName}`, {
                 messageId: message.id,
                 threadId,
                 error:
@@ -352,7 +363,7 @@ export async function archiveThread({
       } else {
         // If no messages found, try treating threadId as a messageId
         await client.getClient().api(`/me/messages/${threadId}/move`).post({
-          destinationId: "archive",
+          destinationId: folderName,
         });
       }
 
@@ -365,16 +376,19 @@ export async function archiveThread({
           timestamp: Date.now(),
         });
       } catch (publishError) {
-        logger.error("Failed to publish archive action", {
-          email: ownerEmail,
-          threadId,
-          error: publishError,
-        });
+        logger.error(
+          `Failed to publish action to move thread to ${folderName}`,
+          {
+            email: ownerEmail,
+            threadId,
+            error: publishError,
+          },
+        );
       }
 
       return { status: 200 };
     } catch (directError) {
-      logger.error("Failed to archive thread", {
+      logger.error(`Failed to move thread to ${folderName}`, {
         threadId,
         error: directError,
       });

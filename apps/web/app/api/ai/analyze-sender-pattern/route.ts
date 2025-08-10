@@ -63,6 +63,11 @@ async function process({
   try {
     const emailAccount = await getEmailAccountWithRules({ emailAccountId });
 
+    if (emailAccount?.account?.provider !== "google") {
+      logger.warn("Unsupported provider", { emailAccountId });
+      return NextResponse.json({ success: false }, { status: 400 });
+    }
+
     if (!emailAccount) {
       logger.error("Email account not found", { emailAccountId });
       return NextResponse.json({ success: false }, { status: 404 });
@@ -270,6 +275,7 @@ async function getEmailAccountWithRules({
       },
       account: {
         select: {
+          provider: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,

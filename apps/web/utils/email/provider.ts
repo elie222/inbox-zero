@@ -273,6 +273,11 @@ export interface EmailProvider {
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   isReplyInThread(message: ParsedMessage): boolean;
+  moveThreadToFolder(
+    threadId: string,
+    ownerEmail: string,
+    folderName: string,
+  ): Promise<void>;
 }
 
 export class GmailProvider implements EmailProvider {
@@ -863,6 +868,16 @@ export class GmailProvider implements EmailProvider {
   isReplyInThread(message: ParsedMessage): boolean {
     return !!(message.id && message.id !== message.threadId);
   }
+
+  async moveThreadToFolder(
+    _threadId: string,
+    _ownerEmail: string,
+    _folderName: string,
+  ): Promise<void> {
+    logger.warn(
+      "Attempted to move thread to folder, but this is not supported for Gmail",
+    );
+  }
 }
 
 export class OutlookProvider implements EmailProvider {
@@ -974,14 +989,12 @@ export class OutlookProvider implements EmailProvider {
   async archiveThreadWithLabel(
     threadId: string,
     ownerEmail: string,
-    labelId?: string,
   ): Promise<void> {
     await outlookArchiveThread({
       client: this.client,
       threadId,
       ownerEmail,
       actionSource: "user",
-      labelId,
     });
   }
 
@@ -1623,6 +1636,20 @@ export class OutlookProvider implements EmailProvider {
       });
       return false;
     }
+  }
+
+  async moveThreadToFolder(
+    threadId: string,
+    ownerEmail: string,
+    folderName: string,
+  ): Promise<void> {
+    await outlookArchiveThread({
+      client: this.client,
+      threadId,
+      ownerEmail,
+      actionSource: "automation",
+      folderName,
+    });
   }
 }
 

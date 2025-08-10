@@ -10,6 +10,7 @@ const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.DRAFT_EMAIL,
   ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
+  ActionType.MOVE_FOLDER,
 ];
 
 export function canActionBeDelayed(actionType: ActionType): boolean {
