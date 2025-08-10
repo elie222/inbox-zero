@@ -26,7 +26,7 @@ export function StepIntro() {
         <div className="grid gap-8">
           <Benefit
             index={1}
-            title="We sort your emails"
+            title="Emails sorted automatically"
             description="Emails are automatically organized into categories like 'To Reply', 'Newsletters', and 'Cold Emails'. You can create any categories you want."
             image="/images/onboarding/newsletters.png"
           />
