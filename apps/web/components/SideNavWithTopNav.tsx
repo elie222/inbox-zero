@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
@@ -16,6 +19,12 @@ export function SideNavWithTopNav({
   children: React.ReactNode;
   defaultOpen: boolean;
 }) {
+  const pathname = usePathname();
+
+  if (!pathname) return null;
+
+  if (pathname.endsWith("/onboarding")) return children;
+
   return (
     <SidebarProvider
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}

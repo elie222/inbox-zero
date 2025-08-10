@@ -2,10 +2,12 @@
 
 import Image from "next/image";
 import { MailsIcon } from "lucide-react";
-import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
+import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 
 export function StepDigest() {
   console.log("StepDigest");
@@ -24,7 +26,8 @@ export function StepDigest() {
           </TypographyP>
         </div>
 
-        {/* TODO */}
+        <DigestItemsForm />
+        <DigestScheduleForm />
 
         <div className="flex justify-center mt-8">
           <ContinueButton href="/onboarding?step=4" />

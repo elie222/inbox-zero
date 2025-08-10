@@ -2,11 +2,11 @@
 
 import Image from "next/image";
 import { Settings2Icon } from "lucide-react";
-import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
-import { CategoriesSetup } from "@/app/(landing)/onboarding/OnboardingCategories";
-import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
+import { CategoriesSetup } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCategories";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 
 export function StepLabels() {
   return (

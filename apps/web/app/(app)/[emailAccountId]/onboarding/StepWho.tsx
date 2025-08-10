@@ -1,15 +1,14 @@
 "use client";
 
-import { useTransition, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
+import { SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
-import { SendIcon } from "lucide-react";
 import { USER_ROLES } from "@/app/(landing)/welcome/survey";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
@@ -17,8 +16,9 @@ import {
   stepWhoBody,
   type StepWhoBody,
 } from "@/utils/actions/onboarding.validation";
-import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 
 interface StepWhoProps {
   initialRole?: string | null;

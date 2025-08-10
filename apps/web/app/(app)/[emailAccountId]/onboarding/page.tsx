@@ -4,10 +4,10 @@ import { redirect } from "next/navigation";
 import { auth } from "@/app/api/auth/[...nextauth]/auth";
 import prisma from "@/utils/prisma";
 import { env } from "@/env";
-import { StepWho } from "@/app/(landing)/onboarding/StepWho";
-import { StepIntro } from "@/app/(landing)/onboarding/StepIntro";
-import { StepLabels } from "@/app/(landing)/onboarding/StepLabels";
-import { StepDigest } from "@/app/(landing)/onboarding/StepDigest";
+import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
+import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
+import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
+import { StepDigest } from "@/app/(app)/[emailAccountId]/onboarding/StepDigest";
 
 export const metadata: Metadata = {
   title: "Onboarding | Inbox Zero",
