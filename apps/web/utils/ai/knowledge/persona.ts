@@ -4,7 +4,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
-import { USER_ROLES } from "@/app/(landing)/welcome/survey";
+import { USER_ROLES } from "@/utils/constants/user-roles";
 import { stringifyEmail } from "@/utils/stringify-email";
 
 const logger = createScopedLogger("persona-analyzer");
