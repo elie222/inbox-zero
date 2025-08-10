@@ -34,7 +34,7 @@ export interface EmailFilter {
 }
 
 export interface EmailProvider {
-  readonly name: "google" | "microsoft-entra-id";
+  readonly name: "google" | "microsoft";
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
@@ -157,4 +157,9 @@ export interface EmailProvider {
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   isReplyInThread(message: ParsedMessage): boolean;
+  moveThreadToFolder(
+    threadId: string,
+    ownerEmail: string,
+    folderName: string,
+  ): Promise<void>;
 }

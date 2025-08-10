@@ -21,7 +21,6 @@
     "@ai-sdk/provider": "2.0.0",
     "@ai-sdk/react": "2.0.0",
     "@asteasolutions/zod-to-openapi": "7.3.2",
-
     "@dub/analytics": "0.0.27",
     "@formkit/auto-animate": "0.8.2",
     "@googleapis/gmail": "12.0.1",

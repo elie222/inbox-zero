@@ -61,7 +61,7 @@ import type {
 const logger = createScopedLogger("outlook-provider");
 
 export class OutlookProvider implements EmailProvider {
-  readonly name = "microsoft-entra-id";
+  readonly name = "microsoft";
   private client: OutlookClient;
 
   constructor(client: OutlookClient) {
