@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/onboarding" },
 };
 
-export default async function WelcomeV2Page(props: {
+export default async function OnboardingPage(props: {
   searchParams: Promise<{ step?: string; force?: string }>;
 }) {
   const searchParams = await props.searchParams;
@@ -48,7 +48,7 @@ export default async function WelcomeV2Page(props: {
   }
 
   return (
-    <div className="flex flex-col justify-center px-6 py-20 text-gray-900 bg-slate-50">
+    <div className="flex flex-col justify-center px-6 py-20 text-gray-900 bg-slate-50 min-h-screen">
       <div className="mx-auto flex max-w-6xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         <Suspense>
           <StepContent />

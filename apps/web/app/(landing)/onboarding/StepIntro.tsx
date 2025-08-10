@@ -6,6 +6,7 @@ import { ArrowRightIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 
 export function StepIntro() {
   return (
@@ -40,7 +41,7 @@ export function StepIntro() {
         </div>
         <div className="flex justify-center mt-8">
           <Button asChild size="sm" variant="primaryBlue">
-            <Link href="/welcome-v2?step=3">
+            <Link href="/onboarding?step=2">
               Continue <ArrowRightIcon className="size-4 ml-2" />
             </Link>
           </Button>
@@ -64,7 +65,7 @@ function Benefit({
   return (
     <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[50vh]">
       <div className="flex items-center gap-4 col-span-2">
-        <NumberCircle index={index} />
+        <IconCircle>{index}</IconCircle>
         <div>
           <div className="font-semibold text-xl">{title}</div>
           <div className="text-sm text-muted-foreground mt-1 leading-6">
@@ -82,16 +83,5 @@ function Benefit({
         />
       </div>
     </CardBasic>
-  );
-}
-
-function NumberCircle({ index }: { index: number }) {
-  return (
-    <div className="min-w-12 relative flex h-12 w-12 items-center justify-center">
-      <div className="absolute inset-0 rounded-full bg-gradient-to-b from-blue-600/40 to-blue-600/5 shadow-sm" />
-      <div className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm">
-        <span className="text-sm font-semibold text-blue-600">{index}</span>
-      </div>
-    </div>
   );
 }

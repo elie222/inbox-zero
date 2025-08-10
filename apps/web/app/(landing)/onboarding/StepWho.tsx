@@ -5,25 +5,15 @@ import { useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
+import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
+import { ArrowRightIcon, CircleUserRoundIcon, SendIcon } from "lucide-react";
+import { survey } from "@/app/(landing)/welcome/survey";
+import { cn } from "@/utils";
+import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 
 const schema = z.object({
   role: z.string().min(1, "Please select your role."),
@@ -38,6 +28,7 @@ export function StepWho() {
     resolver: zodResolver(schema),
     defaultValues: { role: "", about: "" },
   });
+  const { watch } = form;
 
   const roles = useMemo(
     () => [
@@ -56,15 +47,25 @@ export function StepWho() {
 
   return (
     <div>
-      <PageHeading>Let's understand how you use email</PageHeading>
-      <TypographyP className="mt-2">
-        Your role helps us design a smarter, clearer inbox with AI tailored just
-        for you.
-      </TypographyP>
+      <div className="flex justify-center">
+        <IconCircle size="lg">
+          <SendIcon className="size-6" />
+        </IconCircle>
+      </div>
+
+      <div className="text-center">
+        <PageHeading className="mt-4">
+          Let's understand how you use email
+        </PageHeading>
+        <TypographyP className="mt-2">
+          Your role helps us design a smarter, clearer inbox with AI tailored
+          just for you.
+        </TypographyP>
+      </div>
 
       <Form {...form}>
         <form
-          className="space-y-6"
+          className="space-y-6 mt-4"
           onSubmit={form.handleSubmit(async (values) => {
             const responses = { role: values.role, about: values.about ?? "" };
             await saveOnboardingAnswersAction({ answers: responses });
@@ -73,7 +74,7 @@ export function StepWho() {
             });
           })}
         >
-          <FormField
+          {/* <FormField
             control={form.control}
             name="role"
             render={({ field }) => (
@@ -114,11 +115,71 @@ export function StepWho() {
                 <FormMessage />
               </FormItem>
             )}
-          />
+          /> */}
 
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isPending}>
+          {/* <ButtonList
+            items={
+              survey.questions[1].choices?.map((choice) => ({
+                id: choice,
+                name: choice,
+              })) || []
+            }
+            onSelect={(id) => {
+              form.setValue("role", id);
+            }}
+            // onSelect={(id) => {
+            //   onSelect(id);
+            //   setIsOpen(false);
+            // }}
+            emptyMessage=""
+            columns={2}
+                    /> */}
+
+          <ScrollableFadeContainer
+            className="grid gap-2 px-1 pt-6 pb-6"
+            fadeFromClass="from-slate-50"
+          >
+            {(
+              survey.questions[1].choices?.map((choice) => ({
+                id: choice,
+                name: choice,
+              })) || []
+            ).map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                className={cn(
+                  "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
+                  watch("role") === item.id &&
+                    "border-blue-600 ring-2 ring-blue-100",
+                )}
+                onClick={() => {
+                  form.setValue("role", item.id);
+                }}
+              >
+                <IconCircle size="sm">
+                  <CircleUserRoundIcon className="size-4" />
+                </IconCircle>
+
+                <div>
+                  <div className="font-medium">{item.name}</div>
+                  {/* <div className="text-sm text-muted-foreground">
+                    {"item.description"}
+                  </div> */}
+                </div>
+              </button>
+            ))}
+          </ScrollableFadeContainer>
+
+          <div className="flex justify-center">
+            <Button
+              type="submit"
+              disabled={isPending}
+              variant="primaryBlue"
+              size="sm"
+            >
               {isPending ? "Saving…" : "Continue"}
+              <ArrowRightIcon className="size-4 ml-2" />
             </Button>
           </div>
         </form>
