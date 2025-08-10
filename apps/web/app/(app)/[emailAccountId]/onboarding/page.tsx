@@ -1,9 +1,5 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
-import prisma from "@/utils/prisma";
-import { env } from "@/env";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
@@ -21,20 +17,20 @@ export default async function OnboardingPage(props: {
 }) {
   const { emailAccountId } = await props.params;
   const searchParams = await props.searchParams;
-  const session = await auth();
+  // const session = await auth();
 
-  if (!session?.user) redirect("/login");
+  // if (!session?.user) redirect("/login");
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { completedAppOnboardingAt: true, surveyRole: true },
-  });
+  // const user = await prisma.user.findUnique({
+  //   where: { id: session.user.id },
+  //   select: { completedAppOnboardingAt: true, surveyRole: true },
+  // });
 
-  if (!user) redirect("/login");
+  // if (!user) redirect("/login");
 
-  if (!searchParams.force && user.completedAppOnboardingAt) {
-    redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
-  }
+  // if (!searchParams.force && user.completedAppOnboardingAt) {
+  //   redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
+  // }
 
   const step = searchParams.step ? Number.parseInt(searchParams.step, 10) : 1;
   const clampedStep = Math.min(Math.max(step, 1), 4);
@@ -46,7 +42,8 @@ export default async function OnboardingPage(props: {
       case 2:
         return (
           <StepWho
-            initialRole={user?.surveyRole}
+            // initialRole={user?.surveyRole}
+            initialRole={null}
             emailAccountId={emailAccountId}
           />
         );
