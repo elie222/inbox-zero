@@ -1,4 +1,107 @@
 // copy pasted from PostHog
+
+import {
+  RocketIcon,
+  BriefcaseIcon,
+  StoreIcon,
+  CodeIcon,
+  CalendarDaysIcon,
+  TrendingUpIcon,
+  PhoneIcon,
+  MegaphoneIcon,
+  HeadphonesIcon,
+  HomeIcon,
+  VideoIcon,
+  UsersIcon,
+  ShoppingCartIcon,
+  GraduationCapIcon,
+  UserIcon,
+  CircleHelpIcon,
+} from "lucide-react";
+
+export const USER_ROLES = [
+  {
+    value: "Founder",
+    description: "Building a startup or running my own company",
+    icon: RocketIcon,
+  },
+  {
+    value: "Executive",
+    description: "C-level, VP, or Director managing teams",
+    icon: BriefcaseIcon,
+  },
+  {
+    value: "Small Business Owner",
+    description: "Running a local business or solo venture",
+    icon: StoreIcon,
+  },
+  {
+    value: "Software Engineer",
+    description: "Writing code and building software",
+    icon: CodeIcon,
+  },
+  {
+    value: "Assistant",
+    description: "Managing communications and calendars for others",
+    icon: CalendarDaysIcon,
+  },
+  {
+    value: "Investor",
+    description: "VC, angel investor, or fund manager",
+    icon: TrendingUpIcon,
+  },
+  {
+    value: "Sales",
+    description: "Closing deals and managing client relationships",
+    icon: PhoneIcon,
+  },
+  {
+    value: "Marketing",
+    description: "Growing brands and driving campaigns",
+    icon: MegaphoneIcon,
+  },
+  {
+    value: "Customer Support",
+    description: "Helping customers and resolving issues",
+    icon: HeadphonesIcon,
+  },
+  {
+    value: "Realtor",
+    description: "Buying, selling, and managing properties",
+    icon: HomeIcon,
+  },
+  {
+    value: "Content Creator",
+    description: "YouTuber, blogger, or social media influencer",
+    icon: VideoIcon,
+  },
+  {
+    value: "Consultant",
+    description: "Advising businesses and solving problems",
+    icon: UsersIcon,
+  },
+  {
+    value: "E-commerce",
+    description: "Running an online store or marketplace",
+    icon: ShoppingCartIcon,
+  },
+  {
+    value: "Student",
+    description: "Studying at school or university",
+    icon: GraduationCapIcon,
+  },
+  {
+    value: "Individual",
+    description: "Managing my personal email",
+    icon: UserIcon,
+  },
+  {
+    value: "Other",
+    description: "My role isn't listed here",
+    icon: CircleHelpIcon,
+  },
+] as const;
+
 export const survey = {
   questions: [
     {
@@ -18,24 +121,7 @@ export const survey = {
       key: "role",
       type: "single_choice",
       question: "Which role best describes you?",
-      choices: [
-        "Founder",
-        "Executive",
-        "Small Business Owner",
-        "Software Engineer",
-        "Assistant",
-        "Investor",
-        "Sales",
-        "Marketing",
-        "Customer Support",
-        "Realtor",
-        "Content Creator",
-        "Consultant",
-        "E-commerce",
-        "Student",
-        "Individual",
-        "Other",
-      ],
+      choices: USER_ROLES.map((role) => role.value),
       skippable: true,
     },
     {

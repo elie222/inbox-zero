@@ -2,11 +2,12 @@
 
 import { cn } from "@/utils";
 import type { ReactNode } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ScrollableFadeContainerProps {
   children: ReactNode;
   className?: string;
-  maxHeight?: string;
+  height?: string;
   showTopFade?: boolean;
   showBottomFade?: boolean;
   fadeHeight?: string;
@@ -16,7 +17,7 @@ interface ScrollableFadeContainerProps {
 export function ScrollableFadeContainer({
   children,
   className,
-  maxHeight = "max-h-[500px]",
+  height = "h-[500px]",
   showTopFade = true,
   showBottomFade = true,
   fadeHeight = "h-8",
@@ -34,9 +35,9 @@ export function ScrollableFadeContainer({
         />
       )}
 
-      <div className={cn("overflow-y-auto", maxHeight, className)}>
-        {children}
-      </div>
+      <ScrollArea className={cn(height, "pr-1.5")}>
+        <div className={className}>{children}</div>
+      </ScrollArea>
 
       {showBottomFade && (
         <div

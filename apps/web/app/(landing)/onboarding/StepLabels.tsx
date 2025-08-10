@@ -61,7 +61,7 @@ export function StepLabels() {
       <div className="flex justify-end gap-3">
         <Button
           variant="secondary"
-          onClick={() => router.push("/welcome-v2?step=2")}
+          onClick={() => router.push("/onboarding?step=4")}
         >
           Back
         </Button>

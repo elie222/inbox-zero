@@ -1,7 +1,6 @@
 "use client";
 
-import { z } from "zod";
-import { useMemo, useTransition } from "react";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,40 +9,25 @@ import { Button } from "@/components/ui/button";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
-import { ArrowRightIcon, CircleUserRoundIcon, SendIcon } from "lucide-react";
-import { survey } from "@/app/(landing)/welcome/survey";
+import { ArrowRightIcon, SendIcon } from "lucide-react";
+import { USER_ROLES } from "@/app/(landing)/welcome/survey";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
-
-const schema = z.object({
-  role: z.string().min(1, "Please select your role."),
-  about: z.string().max(2000).optional(),
-});
+import {
+  stepWhoBody,
+  type StepWhoBody,
+} from "@/utils/actions/onboarding.validation";
 
 export function StepWho() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const form = useForm<z.infer<typeof schema>>({
-    resolver: zodResolver(schema),
-    defaultValues: { role: "", about: "" },
+  const form = useForm<StepWhoBody>({
+    // @ts-expect-error - Type compatibility issue with zodResolver
+    resolver: zodResolver(stepWhoBody),
+    defaultValues: { role: "" },
   });
   const { watch } = form;
-
-  const roles = useMemo(
-    () => [
-      "Founder",
-      "Executive",
-      "Manager",
-      "Engineer",
-      "Designer",
-      "Sales",
-      "Marketing",
-      "Realtor",
-      "Other",
-    ],
-    [],
-  );
 
   return (
     <div>
@@ -67,10 +51,12 @@ export function StepWho() {
         <form
           className="space-y-6 mt-4"
           onSubmit={form.handleSubmit(async (values) => {
-            const responses = { role: values.role, about: values.about ?? "" };
-            await saveOnboardingAnswersAction({ answers: responses });
+            await saveOnboardingAnswersAction({
+              answers: { role: values.role },
+            });
+
             startTransition(() => {
-              router.push("/welcome-v2?step=2");
+              router.push("/onboarding?step=2");
             });
           })}
         >
@@ -139,36 +125,34 @@ export function StepWho() {
             className="grid gap-2 px-1 pt-6 pb-6"
             fadeFromClass="from-slate-50"
           >
-            {(
-              survey.questions[1].choices?.map((choice) => ({
-                id: choice,
-                name: choice,
-              })) || []
-            ).map((item) => (
-              <button
-                type="button"
-                key={item.id}
-                className={cn(
-                  "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                  watch("role") === item.id &&
-                    "border-blue-600 ring-2 ring-blue-100",
-                )}
-                onClick={() => {
-                  form.setValue("role", item.id);
-                }}
-              >
-                <IconCircle size="sm">
-                  <CircleUserRoundIcon className="size-4" />
-                </IconCircle>
+            {USER_ROLES.map((role) => {
+              const Icon = role.icon;
+              return (
+                <button
+                  type="button"
+                  key={role.value}
+                  className={cn(
+                    "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
+                    watch("role") === role.value &&
+                      "border-blue-600 ring-2 ring-blue-100",
+                  )}
+                  onClick={() => {
+                    form.setValue("role", role.value);
+                  }}
+                >
+                  <IconCircle size="sm">
+                    <Icon className="size-4" />
+                  </IconCircle>
 
-                <div>
-                  <div className="font-medium">{item.name}</div>
-                  {/* <div className="text-sm text-muted-foreground">
-                    {"item.description"}
-                  </div> */}
-                </div>
-              </button>
-            ))}
+                  <div>
+                    <div className="font-medium">{role.value}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {role.description}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </ScrollableFadeContainer>
 
           <div className="flex justify-center">
