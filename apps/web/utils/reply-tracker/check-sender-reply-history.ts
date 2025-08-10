@@ -1,6 +1,6 @@
 import { extractEmailAddress } from "@/utils/email";
 import { createScopedLogger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("reply-tracker/query");
 

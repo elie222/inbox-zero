@@ -1,4 +1,4 @@
-import type { EmailProvider, EmailFilter } from "@/utils/email/provider";
+import type { EmailProvider, EmailFilter } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";

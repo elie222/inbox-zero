@@ -82,7 +82,8 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>(
             {item.isCreateNew ? (
               <>
                 <span className="flex-1 truncate">
-                  Create label: <span className="font-medium">{item.name}</span>
+                  <strong>Create label:</strong>{" "}
+                  <span className="font-medium">{item.name}</span>
                 </span>
                 <span className="ml-2 text-xs text-slate-500">+</span>
               </>
