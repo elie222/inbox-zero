@@ -325,13 +325,23 @@ export default function DigestEmail(props: DigestEmailProps) {
                     ),
                   )}
                 </Section>
-              ) : (
-                <Text className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]">
-                  {item.content?.type === "unstructured"
-                    ? (item.content.content as string)
-                    : ""}
-                </Text>
-              )}
+              ) : item.content?.type === "unstructured" ? (
+                typeof item.content.content === "string" ? (
+                  item.content.content
+                    .split("\n")
+                    .filter((line) => line.trim())
+                    .map((line, idx) => (
+                      <Text
+                        key={idx}
+                        className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]"
+                      >
+                        {line}
+                      </Text>
+                    ))
+                ) : (
+                  item.content.content.toString()
+                )
+              ) : null}
             </div>
           ))}
         </div>
@@ -414,7 +424,7 @@ DigestEmail.PreviewProps = {
       content: {
         type: "unstructured",
         content:
-          "The latest on tech layoffs, market trends, and startup funding rounds...",
+          "• Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\n• Stripe raises $6.5B at $50B valuation as fintech consolidation continues\n• Tesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
       },
     },
     {
@@ -423,7 +433,7 @@ DigestEmail.PreviewProps = {
       content: {
         type: "unstructured",
         content:
-          "Stay informed with the latest headlines and analysis from around the world...",
+          "• Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\n• Supreme Court rules 6-3 on landmark digital privacy case affecting tech giants\n• NASA's Artemis mission discovers water ice deposits in lunar south pole crater",
       },
     },
     {
@@ -432,7 +442,7 @@ DigestEmail.PreviewProps = {
       content: {
         type: "unstructured",
         content:
-          "Discover the newest apps, websites, and tech products that launched today...",
+          "• Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\n• ScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\n• Cursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
       },
     },
   ],
