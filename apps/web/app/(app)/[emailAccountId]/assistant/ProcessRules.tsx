@@ -36,7 +36,6 @@ import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRule
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
-import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useChat } from "@/providers/ChatProvider";
@@ -384,19 +383,17 @@ function ProcessRulesRow({
                   message={message}
                   result={result}
                 />
-                <Tooltip content={testMode ? "Retest" : "Rerun"}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isRunning}
-                    onClick={() => onRun(true)}
-                  >
-                    <RefreshCcwIcon
-                      className={cn("size-4", isRunning && "animate-spin")}
-                    />
-                    <span className="sr-only">{testMode ? "Test" : "Run"}</span>
-                  </Button>
-                </Tooltip>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isRunning}
+                  onClick={() => onRun(true)}
+                >
+                  <RefreshCcwIcon
+                    className={cn("mr-2 size-4", isRunning && "animate-spin")}
+                  />
+                  <span>{testMode ? "Retest" : "Rerun"}</span>
+                </Button>
               </>
             ) : (
               <Button
