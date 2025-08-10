@@ -7,6 +7,7 @@ import { env } from "@/env";
 import { StepWho } from "@/app/(landing)/onboarding/StepWho";
 import { StepIntro } from "@/app/(landing)/onboarding/StepIntro";
 import { StepLabels } from "@/app/(landing)/onboarding/StepLabels";
+import { StepDigest } from "@/app/(landing)/onboarding/StepDigest";
 
 export const metadata: Metadata = {
   title: "Onboarding | Inbox Zero",
@@ -34,7 +35,7 @@ export default async function OnboardingPage(props: {
   }
 
   const step = searchParams.step ? Number.parseInt(searchParams.step, 10) : 1;
-  const clampedStep = Math.min(Math.max(step, 1), 3);
+  const clampedStep = Math.min(Math.max(step, 1), 4);
 
   function StepContent() {
     switch (clampedStep) {
@@ -42,8 +43,12 @@ export default async function OnboardingPage(props: {
         return <StepIntro />;
       case 2:
         return <StepWho initialRole={user?.surveyRole} />;
-      default:
+      case 3:
         return <StepLabels />;
+      case 4:
+        return <StepDigest />;
+      default:
+        return <StepIntro />;
     }
   }
 
