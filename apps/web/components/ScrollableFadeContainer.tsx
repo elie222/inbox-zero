@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/utils";
-import type { ReactNode } from "react";
+import { forwardRef, type ReactNode } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ScrollableFadeContainerProps {
@@ -14,15 +14,21 @@ interface ScrollableFadeContainerProps {
   fadeFromClass?: string;
 }
 
-export function ScrollableFadeContainer({
-  children,
-  className,
-  height = "h-[500px]",
-  showTopFade = true,
-  showBottomFade = true,
-  fadeHeight = "h-8",
-  fadeFromClass = "from-background",
-}: ScrollableFadeContainerProps) {
+export const ScrollableFadeContainer = forwardRef<
+  HTMLDivElement,
+  ScrollableFadeContainerProps
+>(function ScrollableFadeContainer(
+  {
+    children,
+    className,
+    height = "h-[500px]",
+    showTopFade = true,
+    showBottomFade = true,
+    fadeHeight = "h-8",
+    fadeFromClass = "from-background",
+  },
+  ref,
+) {
   return (
     <div className="relative">
       {showTopFade && (
@@ -36,7 +42,9 @@ export function ScrollableFadeContainer({
       )}
 
       <ScrollArea className={cn(height, "pr-1.5")}>
-        <div className={className}>{children}</div>
+        <div ref={ref} className={className}>
+          {children}
+        </div>
       </ScrollArea>
 
       {showBottomFade && (
@@ -50,4 +58,4 @@ export function ScrollableFadeContainer({
       )}
     </div>
   );
-}
+});

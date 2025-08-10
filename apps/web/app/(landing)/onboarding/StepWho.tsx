@@ -1,11 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useTransition, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
@@ -18,16 +19,60 @@ import {
   type StepWhoBody,
 } from "@/utils/actions/onboarding.validation";
 
-export function StepWho() {
+interface StepWhoProps {
+  initialRole?: string | null;
+}
+
+export function StepWho({ initialRole }: StepWhoProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [customRole, setCustomRole] = useState("");
+
+  // Check if the initial role is not in our list (custom role)
+  const isCustomRole =
+    initialRole && !USER_ROLES.some((role) => role.value === initialRole);
+  const defaultRole = isCustomRole ? "Other" : initialRole || "";
 
   const form = useForm<StepWhoBody>({
     // @ts-expect-error - Type compatibility issue with zodResolver
     resolver: zodResolver(stepWhoBody),
-    defaultValues: { role: "" },
+    defaultValues: { role: defaultRole },
   });
-  const { watch } = form;
+  const { watch, setValue } = form;
+  const watchedRole = watch("role");
+
+  // Initialize custom role if it's a custom value
+  useEffect(() => {
+    if (isCustomRole && initialRole) {
+      setCustomRole(initialRole);
+    }
+  }, [isCustomRole, initialRole]);
+
+  // Scroll to selected role on mount
+  useEffect(() => {
+    if (defaultRole && scrollContainerRef.current) {
+      // Find the button with the selected role
+      const selectedIndex = USER_ROLES.findIndex(
+        (role) => role.value === defaultRole,
+      );
+      if (selectedIndex !== -1) {
+        const buttons = scrollContainerRef.current.querySelectorAll(
+          'button[type="button"]',
+        );
+        const selectedButton = buttons[selectedIndex];
+        if (selectedButton) {
+          // Use setTimeout to ensure the DOM is ready
+          setTimeout(() => {
+            selectedButton.scrollIntoView({
+              behavior: "smooth",
+              block: "center",
+            });
+          }, 100);
+        }
+      }
+    }
+  }, [defaultRole]);
 
   return (
     <div>
@@ -51,12 +96,16 @@ export function StepWho() {
         <form
           className="space-y-6 mt-4"
           onSubmit={form.handleSubmit(async (values) => {
+            // Use custom role if "Other" is selected
+            const roleToSave =
+              values.role === "Other" ? customRole : values.role;
+
             await saveOnboardingAnswersAction({
-              answers: { role: values.role },
+              answers: { role: roleToSave },
             });
 
             startTransition(() => {
-              router.push("/onboarding?step=2");
+              router.push("/onboarding?step=3");
             });
           })}
         >
@@ -122,6 +171,7 @@ export function StepWho() {
                     /> */}
 
           <ScrollableFadeContainer
+            ref={scrollContainerRef}
             className="grid gap-2 px-1 pt-6 pb-6"
             fadeFromClass="from-slate-50"
           >
@@ -133,11 +183,14 @@ export function StepWho() {
                   key={role.value}
                   className={cn(
                     "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                    watch("role") === role.value &&
+                    watchedRole === role.value &&
                       "border-blue-600 ring-2 ring-blue-100",
                   )}
                   onClick={() => {
-                    form.setValue("role", role.value);
+                    setValue("role", role.value);
+                    if (role.value !== "Other") {
+                      setCustomRole("");
+                    }
                   }}
                 >
                   <IconCircle size="sm">
@@ -155,10 +208,29 @@ export function StepWho() {
             })}
           </ScrollableFadeContainer>
 
+          {watchedRole === "Other" && (
+            <div className="px-1 pb-6">
+              <Input
+                name="customRole"
+                type="text"
+                placeholder="Enter your role..."
+                registerProps={{
+                  value: customRole,
+                  onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+                    setCustomRole(e.target.value),
+                  autoFocus: true,
+                }}
+                className="w-full border-slate-300 focus:border-blue-600 focus:ring-blue-600 transition-all py-3 px-4 text-lg"
+              />
+            </div>
+          )}
+
           <div className="flex justify-center">
             <Button
               type="submit"
-              disabled={isPending}
+              disabled={
+                isPending || (watchedRole === "Other" && !customRole.trim())
+              }
               variant="primaryBlue"
               size="sm"
             >

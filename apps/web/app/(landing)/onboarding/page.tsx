@@ -24,7 +24,7 @@ export default async function OnboardingPage(props: {
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { completedAppOnboardingAt: true },
+    select: { completedAppOnboardingAt: true, surveyRole: true },
   });
 
   if (!user) redirect("/login");
@@ -41,7 +41,7 @@ export default async function OnboardingPage(props: {
       case 1:
         return <StepIntro />;
       case 2:
-        return <StepWho />;
+        return <StepWho initialRole={user?.surveyRole} />;
       default:
         return <StepLabels />;
     }
