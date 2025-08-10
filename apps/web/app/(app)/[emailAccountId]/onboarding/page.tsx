@@ -16,8 +16,10 @@ export const metadata: Metadata = {
 };
 
 export default async function OnboardingPage(props: {
+  params: Promise<{ emailAccountId: string }>;
   searchParams: Promise<{ step?: string; force?: string }>;
 }) {
+  const { emailAccountId } = await props.params;
   const searchParams = await props.searchParams;
   const session = await auth();
 
@@ -40,15 +42,20 @@ export default async function OnboardingPage(props: {
   function StepContent() {
     switch (clampedStep) {
       case 1:
-        return <StepIntro />;
+        return <StepIntro emailAccountId={emailAccountId} />;
       case 2:
-        return <StepWho initialRole={user?.surveyRole} />;
+        return (
+          <StepWho
+            initialRole={user?.surveyRole}
+            emailAccountId={emailAccountId}
+          />
+        );
       case 3:
-        return <StepLabels />;
+        return <StepLabels emailAccountId={emailAccountId} />;
       case 4:
-        return <StepDigest />;
+        return <StepDigest emailAccountId={emailAccountId} />;
       default:
-        return <StepIntro />;
+        return <StepIntro emailAccountId={emailAccountId} />;
     }
   }
 

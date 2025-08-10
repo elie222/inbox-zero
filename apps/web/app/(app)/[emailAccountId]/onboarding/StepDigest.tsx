@@ -8,9 +8,9 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
+import { prefixPath } from "@/utils/path";
 
-export function StepDigest() {
-  console.log("StepDigest");
+export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -26,11 +26,13 @@ export function StepDigest() {
           </TypographyP>
         </div>
 
-        <DigestItemsForm />
-        <DigestScheduleForm />
+        <DigestItemsForm showSaveButton={false} />
+        <DigestScheduleForm showSaveButton={false} />
 
         <div className="flex justify-center mt-8">
-          <ContinueButton href="/onboarding?step=4" />
+          <ContinueButton
+            href={prefixPath(emailAccountId, "/onboarding?step=4")}
+          />
         </div>
       </OnboardingWrapper>
 

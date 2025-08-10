@@ -19,12 +19,17 @@ import {
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { prefixPath } from "@/utils/path";
 
 interface StepWhoProps {
+  emailAccountId: string;
   initialRole?: string | null;
 }
 
-export function StepWho({ initialRole }: StepWhoProps) {
+export function StepWho({
+  initialRole,
+  emailAccountId,
+}: StepWhoProps & { emailAccountId: string }) {
   const router = useRouter();
   // const [isPending, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -106,7 +111,7 @@ export function StepWho({ initialRole }: StepWhoProps) {
             });
 
             // startTransition(() => {
-            router.push("/onboarding?step=3");
+            router.push(prefixPath(emailAccountId, "/onboarding?step=3"));
             // });
           })}
         >
@@ -239,7 +244,9 @@ export function StepWho({ initialRole }: StepWhoProps) {
               <ArrowRightIcon className="size-4 ml-2" />
             </Button> */}
 
-            <ContinueButton href="/onboarding?step=3" />
+            <ContinueButton
+              href={prefixPath(emailAccountId, "/onboarding?step=3")}
+            />
           </div>
         </form>
       </Form>

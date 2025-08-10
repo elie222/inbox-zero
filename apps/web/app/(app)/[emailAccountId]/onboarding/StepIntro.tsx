@@ -7,8 +7,9 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { prefixPath } from "@/utils/path";
 
-export function StepIntro() {
+export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
   return (
     <OnboardingWrapper>
       <IconCircle size="lg" className="mx-auto">
@@ -44,7 +45,9 @@ export function StepIntro() {
           />
         </div>
         <div className="flex justify-center mt-8">
-          <ContinueButton href="/onboarding?step=2" />
+          <ContinueButton
+            href={prefixPath(emailAccountId, "/onboarding?step=2")}
+          />
         </div>
       </div>
     </OnboardingWrapper>

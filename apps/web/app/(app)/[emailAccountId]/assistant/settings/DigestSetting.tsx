@@ -46,8 +46,8 @@ export function DigestSetting() {
                 </DialogDescription>
               </DialogHeader>
 
-              <DigestItemsForm />
-              <DigestScheduleForm />
+              <DigestItemsForm showSaveButton />
+              <DigestScheduleForm showSaveButton />
             </DialogContent>
           </Dialog>
         }

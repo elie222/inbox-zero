@@ -18,7 +18,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function DigestItemsForm() {
+export function DigestItemsForm({
+  showSaveButton,
+}: {
+  showSaveButton: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const {
     data: rules,
@@ -127,9 +131,11 @@ export function DigestItemsForm() {
           />
         </div>
 
-        <Button type="submit" loading={isSubmitting} className="mt-4">
-          Save
-        </Button>
+        {showSaveButton && (
+          <Button type="submit" loading={isSubmitting} className="mt-4">
+            Save
+          </Button>
+        )}
       </form>
     </LoadingContent>
   );
