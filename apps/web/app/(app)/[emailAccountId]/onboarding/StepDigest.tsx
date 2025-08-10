@@ -30,9 +30,7 @@ export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
         <DigestScheduleForm showSaveButton={false} />
 
         <div className="flex justify-center mt-8">
-          <ContinueButton
-            href={prefixPath(emailAccountId, "/onboarding?step=4")}
-          />
+          <ContinueButton href={prefixPath(emailAccountId, "/setup")} />
         </div>
       </OnboardingWrapper>
 
