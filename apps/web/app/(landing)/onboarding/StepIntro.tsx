@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
+import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
 
 export function StepIntro() {
   return (
-    <div>
+    <OnboardingWrapper>
       <IconCircle size="lg" className="mx-auto">
         <MailIcon className="size-6" />
       </IconCircle>
@@ -51,7 +52,7 @@ export function StepIntro() {
           </Button>
         </div>
       </div>
-    </div>
+    </OnboardingWrapper>
   );
 }
 

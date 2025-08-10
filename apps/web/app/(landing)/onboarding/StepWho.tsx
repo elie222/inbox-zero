@@ -18,6 +18,7 @@ import {
   stepWhoBody,
   type StepWhoBody,
 } from "@/utils/actions/onboarding.validation";
+import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
 
 interface StepWhoProps {
   initialRole?: string | null;
@@ -75,7 +76,7 @@ export function StepWho({ initialRole }: StepWhoProps) {
   }, [defaultRole]);
 
   return (
-    <div>
+    <OnboardingWrapper>
       <div className="flex justify-center">
         <IconCircle size="lg">
           <SendIcon className="size-6" />
@@ -240,6 +241,6 @@ export function StepWho({ initialRole }: StepWhoProps) {
           </div>
         </form>
       </Form>
-    </div>
+    </OnboardingWrapper>
   );
 }
