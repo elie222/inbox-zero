@@ -180,7 +180,7 @@ function DigestScheduleFormInner({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Label className="mb-2 mt-4">Send the digest</Label>
+      <Label className="mb-2 mt-4">Send the digest email</Label>
 
       <div className="grid grid-cols-3 gap-2">
         <FormItem>
