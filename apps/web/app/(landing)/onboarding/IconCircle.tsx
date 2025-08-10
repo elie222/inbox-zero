@@ -5,6 +5,7 @@ type IconCircleSize = "sm" | "md" | "lg";
 interface IconCircleProps {
   children: React.ReactNode;
   size?: IconCircleSize;
+  className?: string;
 }
 
 const sizeConfig = {
@@ -25,12 +26,20 @@ const sizeConfig = {
   },
 };
 
-export function IconCircle({ children, size = "md" }: IconCircleProps) {
+export function IconCircle({
+  children,
+  size = "md",
+  className,
+}: IconCircleProps) {
   const config = sizeConfig[size];
 
   return (
     <div
-      className={cn("relative flex items-center justify-center", config.outer)}
+      className={cn(
+        "relative flex items-center justify-center",
+        config.outer,
+        className,
+      )}
     >
       <div className="absolute inset-0 rounded-full bg-gradient-to-b from-blue-600/40 to-blue-600/5 shadow-sm" />
       <div

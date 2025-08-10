@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRightIcon } from "lucide-react";
+import { ArrowRightIcon, MailIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CardBasic } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
@@ -11,7 +11,11 @@ import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 export function StepIntro() {
   return (
     <div>
-      <div className="text-center">
+      <IconCircle size="lg" className="mx-auto">
+        <MailIcon className="size-6" />
+      </IconCircle>
+
+      <div className="text-center mt-4">
         <PageHeading>Get to know Inbox Zero</PageHeading>
         <TypographyP className="mt-2 max-w-lg mx-auto">
           Here are the basics of Inbox Zero. We'll take you through the steps to
