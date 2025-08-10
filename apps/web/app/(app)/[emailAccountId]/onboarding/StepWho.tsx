@@ -41,7 +41,6 @@ export function StepWho({
   const defaultRole = isCustomRole ? "Other" : initialRole || "";
 
   const form = useForm<StepWhoBody>({
-    // @ts-expect-error - Type compatibility issue with zodResolver
     resolver: zodResolver(stepWhoBody),
     defaultValues: { role: defaultRole },
   });
