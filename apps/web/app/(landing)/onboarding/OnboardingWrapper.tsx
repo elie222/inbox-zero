@@ -1,6 +1,19 @@
-export function OnboardingWrapper({ children }: { children: React.ReactNode }) {
+import { cn } from "@/utils";
+
+export function OnboardingWrapper({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="flex flex-col justify-center px-6 py-20 text-gray-900 bg-slate-50 min-h-screen">
+    <div
+      className={cn(
+        "flex flex-col justify-center px-6 py-20 text-gray-900 bg-slate-50 min-h-screen",
+        className,
+      )}
+    >
       <div className="mx-auto flex max-w-6xl flex-col justify-center space-y-6 p-10 duration-500 animate-in fade-in">
         {children}
       </div>

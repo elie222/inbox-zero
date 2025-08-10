@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
-import { ArrowRightIcon, SendIcon } from "lucide-react";
+import { SendIcon } from "lucide-react";
 import { USER_ROLES } from "@/app/(landing)/welcome/survey";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
@@ -19,6 +18,7 @@ import {
   type StepWhoBody,
 } from "@/utils/actions/onboarding.validation";
 import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
+import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
 
 interface StepWhoProps {
   initialRole?: string | null;
@@ -26,7 +26,7 @@ interface StepWhoProps {
 
 export function StepWho({ initialRole }: StepWhoProps) {
   const router = useRouter();
-  const [isPending, startTransition] = useTransition();
+  // const [isPending, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [customRole, setCustomRole] = useState("");
 
@@ -105,9 +105,9 @@ export function StepWho({ initialRole }: StepWhoProps) {
               answers: { role: roleToSave },
             });
 
-            startTransition(() => {
-              router.push("/onboarding?step=3");
-            });
+            // startTransition(() => {
+            router.push("/onboarding?step=3");
+            // });
           })}
         >
           {/* <FormField
@@ -227,7 +227,7 @@ export function StepWho({ initialRole }: StepWhoProps) {
           )}
 
           <div className="flex justify-center">
-            <Button
+            {/* <Button
               type="submit"
               disabled={
                 isPending || (watchedRole === "Other" && !customRole.trim())
@@ -237,7 +237,9 @@ export function StepWho({ initialRole }: StepWhoProps) {
             >
               {isPending ? "Saving…" : "Continue"}
               <ArrowRightIcon className="size-4 ml-2" />
-            </Button>
+            </Button> */}
+
+            <ContinueButton href="/onboarding?step=3" />
           </div>
         </form>
       </Form>

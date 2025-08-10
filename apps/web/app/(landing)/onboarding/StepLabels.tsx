@@ -1,14 +1,17 @@
 "use client";
 
+import Image from "next/image";
 import { Settings2Icon } from "lucide-react";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
+import { CategoriesSetup } from "@/app/(landing)/onboarding/OnboardingCategories";
+import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
 
 export function StepLabels() {
   return (
-    <div className="grid grid-cols-2">
-      <OnboardingWrapper>
+    <div className="grid xl:grid-cols-2">
+      <OnboardingWrapper className="py-0">
         <IconCircle size="lg" className="mx-auto">
           <Settings2Icon className="size-6" />
         </IconCircle>
@@ -20,9 +23,23 @@ export function StepLabels() {
             later.
           </TypographyP>
         </div>
+
+        <CategoriesSetup defaultValues={undefined} />
+
+        <div className="flex justify-center mt-8">
+          <ContinueButton href="/onboarding?step=4" />
+        </div>
       </OnboardingWrapper>
 
-      <div className="bg-white h-screen">x</div>
+      <div className="bg-white h-screen items-center justify-center hidden xl:flex">
+        <Image
+          src="/images/assistant/labels.png"
+          alt="Categorize your emails"
+          width={1200}
+          height={800}
+          className="mx-auto rounded border-4 border-blue-50 shadow-sm ml-32"
+        />
+      </div>
     </div>
   );
 }

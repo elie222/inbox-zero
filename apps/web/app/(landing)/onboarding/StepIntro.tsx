@@ -1,13 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRightIcon, MailIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MailIcon } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(landing)/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(landing)/onboarding/OnboardingWrapper";
+import { ContinueButton } from "@/app/(landing)/onboarding/ContinueButton";
 
 export function StepIntro() {
   return (
@@ -45,11 +44,7 @@ export function StepIntro() {
           />
         </div>
         <div className="flex justify-center mt-8">
-          <Button asChild size="sm" variant="primaryBlue">
-            <Link href="/onboarding?step=2">
-              Continue <ArrowRightIcon className="size-4 ml-2" />
-            </Link>
-          </Button>
+          <ContinueButton href="/onboarding?step=2" />
         </div>
       </div>
     </OnboardingWrapper>
