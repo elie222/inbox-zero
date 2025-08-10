@@ -13,7 +13,6 @@ import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
-import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("enableReplyTracker");

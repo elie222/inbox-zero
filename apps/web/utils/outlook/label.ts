@@ -3,7 +3,6 @@ import { createScopedLogger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { getOrCreateFolderByName } from "./message";
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
-import { WELL_KNOWN_FOLDERS } from "./message";
 
 const logger = createScopedLogger("outlook/label");
 
