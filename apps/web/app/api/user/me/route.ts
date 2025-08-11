@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 
 export type UserResponse = Awaited<ReturnType<typeof getUser>> | null;
 

@@ -16,7 +16,7 @@ export async function createEmailProvider({
   if (provider === "google") {
     const client = await getGmailClientForEmail({ emailAccountId });
     return new GmailProvider(client);
-  } else if (provider === "microsoft-entra-id") {
+  } else if (provider === "microsoft") {
     const client = await getOutlookClientForEmail({ emailAccountId });
     return new OutlookProvider(client);
   }

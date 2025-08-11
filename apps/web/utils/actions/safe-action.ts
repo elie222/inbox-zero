@@ -1,7 +1,7 @@
 import { createSafeActionClient } from "next-safe-action";
 import { withServerActionInstrumentation } from "@sentry/nextjs";
 import { z } from "zod";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";

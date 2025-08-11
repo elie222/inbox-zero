@@ -662,4 +662,12 @@ export class GmailProvider implements EmailProvider {
   isReplyInThread(message: ParsedMessage): boolean {
     return !!(message.id && message.id !== message.threadId);
   }
+
+  async moveThreadToFolder(
+    _threadId: string,
+    _ownerEmail: string,
+    _folderName: string,
+  ): Promise<void> {
+    logger.warn("Moving thread to folder is not supported for Gmail");
+  }
 }

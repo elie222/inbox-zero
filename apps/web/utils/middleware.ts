@@ -4,7 +4,7 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import {
   EMAIL_ACCOUNT_HEADER,

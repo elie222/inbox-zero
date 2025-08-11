@@ -62,7 +62,7 @@ async function getMessages({
           // Only show sent message that are in the inbox
           return isInbox;
         }
-      } else if (emailProvider.name === "microsoft-entra-id") {
+      } else if (emailProvider.name === "microsoft") {
         // For Outlook, we already filter out drafts in the message fetching
         // No additional filtering needed here
       }

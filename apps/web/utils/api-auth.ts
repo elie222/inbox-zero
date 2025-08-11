@@ -77,7 +77,7 @@ export async function validateApiKeyAndGetGmailClient(request: NextRequest) {
   const gmail = await getGmailClientWithRefresh({
     accessToken: account.access_token,
     refreshToken: account.refresh_token,
-    expiresAt: account.expires_at,
+    expiresAt: account.expires_at?.getTime() || null,
     emailAccountId: account.id,
   });
 

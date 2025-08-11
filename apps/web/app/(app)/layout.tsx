@@ -4,8 +4,8 @@ import { cookies } from "next/headers";
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { SideNavWithTopNav } from "@/components/SideNavWithTopNav";
-import { TokenCheck } from "@/components/TokenCheck";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+
+import { auth } from "@/utils/auth";
 import { PostHogIdentify } from "@/providers/PostHogProvider";
 import { CommandK } from "@/components/CommandK";
 import { AppProviders } from "@/providers/AppProviders";
@@ -50,7 +50,7 @@ export default async function AppLayout({
       <EmailViewer />
       <ErrorBoundary extra={{ component: "AppLayout" }}>
         <PostHogIdentify />
-        <TokenCheck />
+
         <CommandK />
         <QueueInitializer />
         <AssessUser />

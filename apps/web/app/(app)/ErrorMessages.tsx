@@ -1,4 +1,4 @@
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { AlertError } from "@/components/Alert";
 import { Button } from "@/components/ui/button";
 import { clearUserErrorMessagesAction } from "@/utils/actions/error-messages";

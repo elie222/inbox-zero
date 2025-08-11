@@ -156,6 +156,7 @@ export async function createToReplyRule(
             cc: null,
             bcc: null,
             webhookUrl: null,
+            folderName: null,
           },
         },
         ...(addDigest ? [{ type: ActionType.DIGEST }] : []),

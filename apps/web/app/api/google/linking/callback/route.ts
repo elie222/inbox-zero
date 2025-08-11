@@ -99,7 +99,11 @@ export const GET = withError(async (request: NextRequest) => {
 
     if (!existingAccount) {
       logger.warn(
-        `Merge Failed: Google account ${providerEmail} (${providerAccountId}) not found in the system. Cannot merge.`,
+        "Merge Failed: Google account not found in the system. Cannot merge.",
+        {
+          email: providerEmail,
+          providerAccountId,
+        },
       );
       redirectUrl.searchParams.set("error", "account_not_found_for_merge");
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
@@ -107,7 +111,12 @@ export const GET = withError(async (request: NextRequest) => {
 
     if (existingAccount.userId === targetUserId) {
       logger.warn(
-        `Google account ${providerEmail} (${providerAccountId}) is already linked to the correct user ${targetUserId}. Merge action unnecessary.`,
+        "Google account is already linked to the correct user. Merge action unnecessary.",
+        {
+          email: providerEmail,
+          providerAccountId,
+          userId: targetUserId,
+        },
       );
       redirectUrl.searchParams.set("error", "already_linked_to_self");
       return NextResponse.redirect(redirectUrl, {
@@ -116,7 +125,13 @@ export const GET = withError(async (request: NextRequest) => {
     }
 
     logger.info(
-      `Merging Google account ${providerEmail} (${providerAccountId}) linked to user ${existingAccount.userId}, merging into ${targetUserId}.`,
+      "Merging Google account linked to user, merging into target user.",
+      {
+        email: providerEmail,
+        providerAccountId,
+        existingUserId: existingAccount.userId,
+        targetUserId,
+      },
     );
     await prisma.$transaction([
       prisma.account.update({
@@ -136,9 +151,11 @@ export const GET = withError(async (request: NextRequest) => {
       }),
     ]);
 
-    logger.info(
-      `Account ${providerAccountId} re-assigned to user ${targetUserId}. Original user was ${existingAccount.userId}`,
-    );
+    logger.info("Account re-assigned to user. Original user was different.", {
+      providerAccountId,
+      targetUserId,
+      originalUserId: existingAccount.userId,
+    });
     redirectUrl.searchParams.set("success", "account_merged");
     return NextResponse.redirect(redirectUrl, {
       headers: response.headers,

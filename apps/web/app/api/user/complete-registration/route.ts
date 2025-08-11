@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cookies, headers } from "next/headers";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { withError } from "@/utils/middleware";
 import { sendCompleteRegistrationEvent } from "@/utils/fb";
 import { trackUserSignedUp } from "@/utils/posthog";

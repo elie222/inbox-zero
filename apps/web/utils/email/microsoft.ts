@@ -61,7 +61,7 @@ import type {
 const logger = createScopedLogger("outlook-provider");
 
 export class OutlookProvider implements EmailProvider {
-  readonly name = "microsoft-entra-id";
+  readonly name = "microsoft";
   private client: OutlookClient;
 
   constructor(client: OutlookClient) {
@@ -169,14 +169,12 @@ export class OutlookProvider implements EmailProvider {
   async archiveThreadWithLabel(
     threadId: string,
     ownerEmail: string,
-    labelId?: string,
   ): Promise<void> {
     await outlookArchiveThread({
       client: this.client,
       threadId,
       ownerEmail,
       actionSource: "user",
-      labelId,
     });
   }
 
@@ -818,5 +816,19 @@ export class OutlookProvider implements EmailProvider {
       });
       return false;
     }
+  }
+
+  async moveThreadToFolder(
+    threadId: string,
+    ownerEmail: string,
+    folderName: string,
+  ): Promise<void> {
+    await outlookArchiveThread({
+      client: this.client,
+      threadId,
+      ownerEmail,
+      actionSource: "automation",
+      folderName,
+    });
   }
 }

@@ -10,6 +10,7 @@ import {
   WebhookIcon,
   EyeIcon,
   FileTextIcon,
+  FolderInputIcon,
 } from "lucide-react";
 import { ActionType } from "@prisma/client";
 
@@ -25,6 +26,7 @@ const ACTION_TYPE_COLORS = {
   [ActionType.CALL_WEBHOOK]: "bg-gray-500",
   [ActionType.TRACK_THREAD]: "bg-indigo-500",
   [ActionType.DIGEST]: "bg-teal-500",
+  [ActionType.MOVE_FOLDER]: "bg-emerald-500",
 } as const;
 
 export const ACTION_TYPE_TEXT_COLORS = {
@@ -39,6 +41,7 @@ export const ACTION_TYPE_TEXT_COLORS = {
   [ActionType.CALL_WEBHOOK]: "text-gray-500",
   [ActionType.TRACK_THREAD]: "text-indigo-500",
   [ActionType.DIGEST]: "text-teal-500",
+  [ActionType.MOVE_FOLDER]: "text-emerald-500",
 } as const;
 
 export const ACTION_TYPE_ICONS = {
@@ -53,6 +56,7 @@ export const ACTION_TYPE_ICONS = {
   [ActionType.CALL_WEBHOOK]: WebhookIcon,
   [ActionType.TRACK_THREAD]: EyeIcon,
   [ActionType.DIGEST]: FileTextIcon,
+  [ActionType.MOVE_FOLDER]: FolderInputIcon,
 } as const;
 
 // Helper function to get action type from string (for RulesPrompt.tsx)
@@ -82,6 +86,9 @@ export function getActionTypeColor(example: string): string {
   }
   if (lowerExample.includes("digest")) {
     return ACTION_TYPE_COLORS[ActionType.DIGEST];
+  }
+  if (lowerExample.includes("folder")) {
+    return ACTION_TYPE_COLORS[ActionType.MOVE_FOLDER];
   }
 
   // Default fallback
