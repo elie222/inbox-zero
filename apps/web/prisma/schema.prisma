@@ -15,7 +15,7 @@ model Account {
   updatedAt         DateTime @updatedAt
   userId            String
   provider          String
-  type              String   @default("oidc")
+  type              String   @default("oidc") // next-auth deprecated field
   providerAccountId String
   refresh_token     String?  @db.Text
   access_token      String?  @db.Text
@@ -260,12 +260,12 @@ model Premium {
 
 // not in use as it's only used for passwordless login
 model VerificationToken {
+  id         String   @id @default(cuid())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
   identifier String
   token      String   @unique
   expires    DateTime
-  createdAt  DateTime @default(now())
-  id         String   @id @default(cuid())
-  updatedAt  DateTime @updatedAt
   @@unique([identifier, token])
 }
 

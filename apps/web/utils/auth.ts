@@ -29,12 +29,9 @@ export const betterAuthConfig = betterAuth({
     },
   },
   logger: {
-    level: "debug",
+    level: "info",
     log: (level, message, ...args) => {
       switch (level) {
-        case "debug":
-          logger.info(message, { args });
-          break;
         case "info":
           logger.info(message, { args });
           break;
@@ -60,14 +57,12 @@ export const betterAuthConfig = betterAuth({
       token: "sessionToken",
       expiresAt: "expires",
     },
-    session: {
-      cookieCache: {
-        enabled: true,
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-      },
-      expiresIn: 60 * 60 * 24 * 30, // 30 days
-      updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
+    cookieCache: {
+      enabled: true,
+      maxAge: 60 * 60 * 24 * 30, // 30 days
     },
+    expiresIn: 60 * 60 * 24 * 30, // 30 days
+    updateAge: 60 * 60 * 24 * 3, // 1 day (every 1 day the session expiration is updated)
   },
   account: {
     modelName: "Account",
@@ -97,8 +92,8 @@ export const betterAuthConfig = betterAuth({
       disableIdTokenSignIn: true,
     },
     microsoft: {
-      clientId: env.MICROSOFT_CLIENT_ID,
-      clientSecret: env.MICROSOFT_CLIENT_SECRET,
+      clientId: env.MICROSOFT_CLIENT_ID || "",
+      clientSecret: env.MICROSOFT_CLIENT_SECRET || "",
       scope: [...OUTLOOK_SCOPES],
       tenantId: "common",
       prompt: "consent",
