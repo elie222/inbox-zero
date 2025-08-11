@@ -103,7 +103,7 @@ export const GET = withError(async (request: NextRequest) => {
       where: {
         provider: "microsoft",
         user: {
-          email: providerEmail,
+          email: providerEmail.trim().toLowerCase(),
         },
       },
       select: {
