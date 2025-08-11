@@ -26,6 +26,7 @@ const zodActionType = z.enum([
   ActionType.MARK_READ,
   ActionType.TRACK_THREAD,
   ActionType.DIGEST,
+  ActionType.MOVE_FOLDER,
 ]);
 
 const zodConditionType = z.enum([
@@ -69,6 +70,24 @@ const zodField = z
   })
   .nullish();
 
+const zodFolderNameField = z
+  .object({
+    value: z
+      .string()
+      .nullish()
+      .refine((val) => {
+        if (!val?.trim()) return true;
+        // Check for empty folder parts
+        if (val.includes("//") || val.split("/").some((part) => !part.trim()))
+          return false;
+
+        return true;
+      }),
+    ai: z.boolean().nullish(),
+    setManually: z.boolean().nullish(),
+  })
+  .nullish();
+
 const zodAction = z
   .object({
     id: z.string().optional(),
@@ -80,6 +99,7 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
+    folderName: zodFolderNameField,
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
@@ -102,6 +122,17 @@ const zodAction = z
         code: z.ZodIssueCode.custom,
         message: "Please enter a webhook URL",
         path: ["url"],
+      });
+    }
+    if (
+      data.type === ActionType.MOVE_FOLDER &&
+      !data.folderName?.value?.trim()
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "Please enter a valid folder name or path to move the emails to",
+        path: ["folderName"],
       });
     }
   });

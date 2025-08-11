@@ -92,6 +92,9 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
       case ActionType.DIGEST:
         actions.push("add to digest");
         break;
+      case ActionType.MOVE_FOLDER:
+        actions.push("move to folder");
+        break;
       default:
         logger.warn("Unknown action type", { actionType: action.type });
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check

@@ -125,7 +125,7 @@ export function RuleForm({
   isDialog?: boolean;
   mutate?: (data?: any, options?: any) => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   const form = useForm<CreateRuleBody>({
     resolver: zodResolver(createRuleBody),
@@ -140,6 +140,7 @@ export function RuleForm({
                 ...action.content,
                 setManually: !!action.content?.value,
               },
+              folderName: action.folderName,
             })),
           ],
         }
@@ -319,9 +320,19 @@ export function RuleForm({
   const conditionalOperator = watch("conditionalOperator");
 
   const typeOptions = useMemo(() => {
-    return [
+    const providerOptions: { label: string; value: ActionType }[] = [];
+
+    if (provider === "microsoft") {
+      providerOptions.push({
+        label: "Move to folder",
+        value: ActionType.MOVE_FOLDER,
+      });
+    }
+
+    const options = [
       { label: "Archive", value: ActionType.ARCHIVE },
       { label: "Label", value: ActionType.LABEL },
+      ...providerOptions,
       { label: "Draft reply", value: ActionType.DRAFT_EMAIL },
       { label: "Reply", value: ActionType.REPLY },
       { label: "Send email", value: ActionType.SEND_EMAIL },
@@ -332,7 +343,9 @@ export function RuleForm({
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
       { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
     ];
-  }, []);
+
+    return options;
+  }, [provider]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =

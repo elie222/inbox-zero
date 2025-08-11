@@ -133,6 +133,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
           cc: null,
           bcc: null,
           url: null,
+          folderName: null,
           delayInMinutes: null,
         },
         showArchiveAction
@@ -149,6 +150,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               cc: null,
               bcc: null,
               url: null,
+              folderName: null,
               delayInMinutes: null,
             }
           : null,
@@ -166,6 +168,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               cc: null,
               bcc: null,
               url: null,
+              folderName: null,
               delayInMinutes: null,
             }
           : null,
@@ -464,6 +467,7 @@ export function ActionBadges({
     id: string;
     type: ActionType;
     label?: string | null;
+    folderName?: string | null;
   }[];
 }) {
   return (

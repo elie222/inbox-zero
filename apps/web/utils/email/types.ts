@@ -157,4 +157,9 @@ export interface EmailProvider {
   } | null>;
   unwatchEmails(subscriptionId?: string): Promise<void>;
   isReplyInThread(message: ParsedMessage): boolean;
+  moveThreadToFolder(
+    threadId: string,
+    ownerEmail: string,
+    folderName: string,
+  ): Promise<void>;
 }
