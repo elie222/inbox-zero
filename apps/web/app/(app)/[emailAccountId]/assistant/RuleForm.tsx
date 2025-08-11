@@ -137,7 +137,6 @@ export function RuleForm({
               ...action,
               delayInMinutes: action.delayInMinutes,
               content: {
-                // @ts-ignore
                 ...action.content,
                 setManually: !!action.content?.value,
               },

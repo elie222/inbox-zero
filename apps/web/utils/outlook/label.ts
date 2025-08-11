@@ -242,17 +242,12 @@ export async function archiveThread({
   actionSource: TinybirdEmailAction["actionSource"];
   folderName?: string;
 }) {
+  // Get or create the destination folder (handles both well-known and custom folders)
+  const destinationFolderId = await getOrCreateFolderByName(client, folderName);
+
   try {
     // In Outlook, archiving is moving to a folder
     // We need to move each message in the thread individually
-
-    // Get or create the destination folder (handles both well-known and custom folders)
-    const destinationFolderId = await getOrCreateFolderByName(
-      client,
-      folderName,
-    );
-
-    // Move each message in the thread individually
     const escapedThreadId = threadId.replace(/'/g, "''");
     const messages = await client
       .getClient()
@@ -343,7 +338,7 @@ export async function archiveThread({
                 .getClient()
                 .api(`/me/messages/${message.id}/move`)
                 .post({
-                  destinationId: folderName,
+                  destinationId: destinationFolderId,
                 });
             } catch (moveError) {
               // Log the error but don't fail the entire operation
@@ -362,7 +357,7 @@ export async function archiveThread({
       } else {
         // If no messages found, try treating threadId as a messageId
         await client.getClient().api(`/me/messages/${threadId}/move`).post({
-          destinationId: folderName,
+          destinationId: destinationFolderId,
         });
       }
 

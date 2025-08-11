@@ -42,7 +42,7 @@ export const processPreviousSentEmailsAction = actionClient
       },
     });
 
-    if (emailAccount?.account?.provider === "microsoft") {
+    if (emailAccount?.account?.provider !== "google") {
       return { success: true };
     }
 

@@ -453,7 +453,7 @@ model ScheduledAction {
   cc      String?
   bcc     String?
   url     String?
-  folderId String?
+  folderName String?
   scheduledId String?
 
   executedAt       DateTime?
