@@ -68,7 +68,11 @@ const ampmOptions = [
   { value: "PM", label: "PM" },
 ];
 
-export function DigestScheduleForm() {
+export function DigestScheduleForm({
+  showSaveButton,
+}: {
+  showSaveButton: boolean;
+}) {
   const { data, isLoading, error, mutate } = useSWR<GetDigestScheduleResponse>(
     "/api/user/digest-schedule",
   );
@@ -79,7 +83,11 @@ export function DigestScheduleForm() {
       error={error}
       loadingComponent={<Skeleton className="min-h-[200px] w-full" />}
     >
-      <DigestScheduleFormInner data={data} mutate={mutate} />
+      <DigestScheduleFormInner
+        data={data}
+        mutate={mutate}
+        showSaveButton={showSaveButton}
+      />
     </LoadingContent>
   );
 }
@@ -87,9 +95,11 @@ export function DigestScheduleForm() {
 function DigestScheduleFormInner({
   data,
   mutate,
+  showSaveButton,
 }: {
   data: GetDigestScheduleResponse | undefined;
   mutate: () => void;
+  showSaveButton: boolean;
 }) {
   const { emailAccountId } = useAccount();
 
@@ -170,9 +180,9 @@ function DigestScheduleFormInner({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)}>
-      <Label className="mb-2 mt-4">When to send the digest:</Label>
+      <Label className="mb-2 mt-4">Send the digest email</Label>
 
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-3 gap-2">
         <FormItem>
           <Label htmlFor="frequency-select">Every</Label>
           <Select
@@ -311,13 +321,15 @@ function DigestScheduleFormInner({
           )}
         </div>
       </div>
-      <Button
-        type="submit"
-        loading={isExecuting || isSubmitting}
-        className="mt-4"
-      >
-        Save
-      </Button>
+      {showSaveButton && (
+        <Button
+          type="submit"
+          loading={isExecuting || isSubmitting}
+          className="mt-4"
+        >
+          Save
+        </Button>
+      )}
     </form>
   );
 }

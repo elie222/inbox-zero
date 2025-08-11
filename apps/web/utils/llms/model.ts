@@ -40,6 +40,8 @@ export function getModel(
 }
 
 function selectModelByType(userAi: UserAIFields, modelType: ModelType) {
+  if (userAi.aiApiKey) return selectDefaultModel(userAi);
+
   switch (modelType) {
     case "economy":
       return selectEconomyModel(userAi);

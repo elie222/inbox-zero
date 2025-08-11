@@ -8,7 +8,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { runActionFunction } from "@/utils/ai/actions";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("scheduled-actions-executor");
 

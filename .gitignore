@@ -73,3 +73,6 @@ docker-compose.override.yml
 
 # Private submodule configuration (generated at build time)
 .gitmodules
+
+# cli logs
+logs

@@ -4,7 +4,7 @@ import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
 import { coordinateReplyProcess } from "@/utils/reply-tracker/inbound";
 import { internalDateToDate } from "@/utils/date";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 
 const logger = createScopedLogger("ai-actions");

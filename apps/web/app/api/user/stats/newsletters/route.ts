@@ -5,7 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import {
   getAutoArchiveFilters,
   findNewsletterStatus,

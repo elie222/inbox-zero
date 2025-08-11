@@ -12,7 +12,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import { SafeError } from "@/utils/error";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("categorize/senders");
 

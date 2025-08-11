@@ -18,7 +18,11 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import { Skeleton } from "@/components/ui/skeleton";
 
-export function DigestItemsForm() {
+export function DigestItemsForm({
+  showSaveButton,
+}: {
+  showSaveButton: boolean;
+}) {
   const { emailAccountId } = useAccount();
   const {
     data: rules,
@@ -108,7 +112,7 @@ export function DigestItemsForm() {
       loadingComponent={<Skeleton className="min-h-[500px] w-full" />}
     >
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Label>Choose what to include in the digest:</Label>
+        <Label>What to include in the digest email</Label>
 
         <div className="mt-2 space-y-2">
           {rules?.map((rule) => (
@@ -127,9 +131,11 @@ export function DigestItemsForm() {
           />
         </div>
 
-        <Button type="submit" loading={isSubmitting} className="mt-4">
-          Save
-        </Button>
+        {showSaveButton && (
+          <Button type="submit" loading={isSubmitting} className="mt-4">
+            Save
+          </Button>
+        )}
       </form>
     </LoadingContent>
   );
@@ -145,7 +151,7 @@ function DigestItem({
   onChange: (enabled: boolean) => void;
 }) {
   return (
-    <div className="flex items-center gap-4 rounded-lg border p-4">
+    <div className="flex items-center gap-4 rounded-lg border p-4 bg-background">
       <div className="flex flex-1 items-center gap-2">
         <span className="font-medium">{label}</span>
       </div>

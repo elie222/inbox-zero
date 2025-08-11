@@ -10,7 +10,8 @@ import prisma from "@/utils/prisma";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
+import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -68,6 +69,7 @@ export async function fetchMessagesAndGenerateDraft(
     emailAccount,
     threadMessages,
     previousConversationMessages,
+    client,
   );
 
   if (typeof result !== "string") {
@@ -103,11 +105,13 @@ async function generateDraftContent(
   emailAccount: EmailAccountWithAI,
   threadMessages: ParsedMessage[],
   previousConversationMessages: ParsedMessage[] | null,
+  emailProvider: EmailProvider,
 ) {
   const lastMessage = threadMessages.at(-1);
 
   if (!lastMessage) throw new Error("No message provided");
 
+  // Check Redis cache for reply
   const reply = await getReply({
     emailAccountId: emailAccount.id,
     messageId: lastMessage.id,
@@ -137,11 +141,18 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const knowledgeResult = await aiExtractRelevantKnowledge({
-    knowledgeBase,
-    emailContent: lastMessageContent,
-    emailAccount,
-  });
+  const [knowledgeResult, emailHistoryContext] = await Promise.all([
+    aiExtractRelevantKnowledge({
+      knowledgeBase,
+      emailContent: lastMessageContent,
+      emailAccount,
+    }),
+    aiCollectReplyContext({
+      currentThread: messages,
+      emailAccount,
+      emailProvider,
+    }),
+  ]);
 
   // 2b. Extract email history context
   const senderEmail = lastMessage.headers.from;
@@ -177,6 +188,7 @@ async function generateDraftContent(
     emailAccount,
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
+    emailHistoryContext,
     writingStyle,
   });
 
