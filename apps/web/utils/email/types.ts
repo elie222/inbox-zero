@@ -34,7 +34,7 @@ export interface EmailFilter {
 }
 
 export interface EmailProvider {
-  readonly name: "google" | "microsoft-entra-id";
+  readonly name: "google" | "microsoft";
   getThreads(folderId?: string): Promise<EmailThread[]>;
   getThread(threadId: string): Promise<EmailThread>;
   getLabels(): Promise<EmailLabel[]>;
