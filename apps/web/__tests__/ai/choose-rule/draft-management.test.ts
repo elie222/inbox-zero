@@ -4,7 +4,7 @@ import prisma from "@/utils/prisma";
 import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 vi.mock("@/utils/prisma", () => ({
   default: {

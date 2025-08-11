@@ -9,14 +9,6 @@ import { createGenerateObject } from "@/utils/llms";
 
 const logger = createScopedLogger("writing-style-analyzer");
 
-export const schema = z.object({
-  typicalLength: z.string(),
-  formality: z.string(),
-  commonGreeting: z.string(),
-  notableTraits: z.array(z.string()),
-  examples: z.array(z.string()),
-});
-
 export async function aiAnalyzeWritingStyle(options: {
   emails: EmailForLLM[];
   emailAccount: EmailAccountWithAI;
@@ -89,7 +81,13 @@ ${
     ...modelOptions,
     system,
     prompt,
-    schema,
+    schema: z.object({
+      typicalLength: z.string(),
+      formality: z.string(),
+      commonGreeting: z.string(),
+      notableTraits: z.array(z.string()),
+      examples: z.array(z.string()),
+    }),
   });
 
   return result.object;

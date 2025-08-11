@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { tool } from "ai";
-import { createGenerateText } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
   type CreateOrUpdateRuleSchemaWithCategories,
@@ -59,36 +58,27 @@ ${cleanedPromptFile}
 
   const modelOptions = getModel(emailAccount.user, "chat");
 
-  const generateText = createGenerateText({
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Prompt to rules",
     modelOptions,
   });
 
-  const aiResponse = await generateText({
+  const aiResponse = await generateObject({
     ...modelOptions,
     prompt,
     system,
-    tools: {
-      parseRules: tool({
-        description: "Parse rules from prompt file",
-        inputSchema: getSchema(),
-      }),
-    },
+    schema: z.object({ rules: z.array(getSchema()) }),
   });
 
-  const toolCall = aiResponse.toolCalls.find(
-    (toolCall) => toolCall.toolName === "parseRules",
-  );
-
-  if (!toolCall) {
+  if (!aiResponse.object) {
     logger.error("No rules found in AI response", { aiResponse });
     throw new Error("No rules found in AI response");
   }
 
-  const rules = (toolCall.input as any)?.rules;
+  const rules = aiResponse.object.rules;
 
-  return rules as CreateOrUpdateRuleSchemaWithCategories[];
+  return rules;
 }
 
 function getSystemPrompt({

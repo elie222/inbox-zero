@@ -1,4 +1,52 @@
 // copy pasted from PostHog
+
+import {
+  RocketIcon,
+  BriefcaseIcon,
+  StoreIcon,
+  CodeIcon,
+  CalendarDaysIcon,
+  TrendingUpIcon,
+  PhoneIcon,
+  MegaphoneIcon,
+  HeadphonesIcon,
+  HomeIcon,
+  VideoIcon,
+  UsersIcon,
+  ShoppingCartIcon,
+  GraduationCapIcon,
+  UserIcon,
+  CircleHelpIcon,
+} from "lucide-react";
+import { USER_ROLES as USER_ROLES_DATA } from "@/utils/constants/user-roles";
+
+// Add icons to the plain user roles data for UI display
+export const USER_ROLES = USER_ROLES_DATA.map((role) => {
+  const iconMap: Record<string, any> = {
+    Founder: RocketIcon,
+    Executive: BriefcaseIcon,
+    "Small Business Owner": StoreIcon,
+    "Software Engineer": CodeIcon,
+    Assistant: CalendarDaysIcon,
+    Investor: TrendingUpIcon,
+    Sales: PhoneIcon,
+    Marketing: MegaphoneIcon,
+    "Customer Support": HeadphonesIcon,
+    Realtor: HomeIcon,
+    "Content Creator": VideoIcon,
+    Consultant: UsersIcon,
+    "E-commerce": ShoppingCartIcon,
+    Student: GraduationCapIcon,
+    Individual: UserIcon,
+    Other: CircleHelpIcon,
+  };
+
+  return {
+    ...role,
+    icon: iconMap[role.value],
+  };
+});
+
 export const survey = {
   questions: [
     {
@@ -18,24 +66,7 @@ export const survey = {
       key: "role",
       type: "single_choice",
       question: "Which role best describes you?",
-      choices: [
-        "Founder",
-        "Executive",
-        "Small Business Owner",
-        "Software Engineer",
-        "Assistant",
-        "Investor",
-        "Sales",
-        "Marketing",
-        "Customer Support",
-        "Realtor",
-        "Content Creator",
-        "Consultant",
-        "E-commerce",
-        "Student",
-        "Individual",
-        "Other",
-      ],
+      choices: USER_ROLES.map((role) => role.value),
       skippable: true,
     },
     {

@@ -1,11 +1,13 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 
-export function getEmailAccount(): EmailAccountWithAI {
+export function getEmailAccount(
+  overrides: Partial<EmailAccountWithAI> = {},
+): EmailAccountWithAI {
   return {
     id: "email-account-id",
     userId: "user1",
-    email: "user@test.com",
+    email: overrides.email || "user@test.com",
     about: null,
     user: {
       aiModel: null,
@@ -17,6 +19,7 @@ export function getEmailAccount(): EmailAccountWithAI {
 
 export function getEmail({
   from = "user@test.com",
+  to = "user2@test.com",
   subject = "Test Subject",
   content = "Test content",
   replyTo,
@@ -25,6 +28,7 @@ export function getEmail({
   return {
     id: "email-id",
     from,
+    to,
     subject,
     content,
     ...(replyTo && { replyTo }),
