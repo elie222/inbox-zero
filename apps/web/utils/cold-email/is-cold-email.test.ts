@@ -3,7 +3,7 @@ import prisma from "@/utils/prisma";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { blockColdEmailWithProvider } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 // Mock dependencies
 vi.mock("server-only", () => ({}));

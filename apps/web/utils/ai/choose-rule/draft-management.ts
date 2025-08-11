@@ -2,7 +2,7 @@ import prisma from "@/utils/prisma";
 import { ActionType } from "@prisma/client";
 import type { ExecutedRule } from "@prisma/client";
 import type { Logger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 /**
  * Handles finding and potentially deleting a previous AI-generated draft for a thread.

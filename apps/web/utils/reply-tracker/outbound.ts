@@ -10,7 +10,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
 import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export async function handleOutboundReply({
   emailAccount,

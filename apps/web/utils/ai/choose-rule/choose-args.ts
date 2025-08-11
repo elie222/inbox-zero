@@ -11,7 +11,7 @@ import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-dr
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
 import { createScopedLogger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("choose-args");
 
@@ -46,13 +46,27 @@ export async function getActionItemsWithAiArgs({
 
   if (draftEmailActions.length) {
     try {
+      logger.info("Generating draft", {
+        email: emailAccount.email,
+        threadId: message.threadId,
+      });
+
       draft = await fetchMessagesAndGenerateDraft(
         emailAccount,
         message.threadId,
         client,
       );
+
+      logger.info("Draft generated", {
+        email: emailAccount.email,
+        threadId: message.threadId,
+      });
     } catch (error) {
-      logger.error("Failed to generate draft", { error });
+      logger.error("Failed to generate draft", {
+        email: emailAccount.email,
+        threadId: message.threadId,
+        error,
+      });
       // Continue without draft if generation fails
       draft = null;
     }

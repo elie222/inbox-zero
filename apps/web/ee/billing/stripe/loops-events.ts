@@ -44,7 +44,15 @@ export async function handleLoopsEvents({
 
     if (hasNewTrial) {
       logger.info("Trial started", { email });
-      await createContact(email, name?.split(" ")[0]);
+      await createContact(email, name?.split(" ")[0]).catch((error) => {
+        // ignore if already exists
+        if (error.message.includes("Email already on list")) {
+          logger.info("Email already on list", { email });
+          return;
+        }
+
+        throw error;
+      });
     }
 
     // 2. Payment scenarios - distinguish between trial completion and direct purchase
