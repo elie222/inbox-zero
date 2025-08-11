@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 
 const logger = createScopedLogger("outlook/message");
 
@@ -143,7 +144,7 @@ async function getOrCreateSingleFolder(
   const response = await client
     .getClient()
     .api("/me/mailFolders")
-    .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+    .filter(`displayName eq '${escapeODataString(folderName)}'`)
     .select("id,displayName")
     .get();
 
@@ -169,7 +170,7 @@ async function getOrCreateSubfolder(
   const response = await client
     .getClient()
     .api(`/me/mailFolders/${parentFolderId}/childFolders`)
-    .filter(`displayName eq '${folderName.replace(/'/g, "''")}'`)
+    .filter(`displayName eq '${escapeODataString(folderName)}'`)
     .select("id,displayName")
     .get();
 
@@ -446,7 +447,9 @@ export async function getMessages(
     );
 
   if (options.query) {
-    request = request.filter(`contains(subject, '${options.query}')`);
+    request = request.filter(
+      `contains(subject, '${escapeODataString(options.query)}')`,
+    );
   }
 
   const response = await request.get();
