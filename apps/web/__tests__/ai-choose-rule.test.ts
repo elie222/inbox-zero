@@ -76,6 +76,7 @@ describe.runIf(isAiTest)("aiChooseRule", () => {
         cc: null,
         bcc: null,
         url: null,
+        folderName: null,
         delayInMinutes: null,
       },
     ]);

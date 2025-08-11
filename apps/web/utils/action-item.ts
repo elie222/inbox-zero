@@ -9,7 +9,15 @@ export const actionInputs: Record<
   ActionType,
   {
     fields: {
-      name: "label" | "subject" | "content" | "to" | "cc" | "bcc" | "url";
+      name:
+        | "label"
+        | "subject"
+        | "content"
+        | "to"
+        | "cc"
+        | "bcc"
+        | "url"
+        | "folderName";
       label: string;
       textArea?: boolean;
       expandable?: boolean;
@@ -135,6 +143,14 @@ export const actionInputs: Record<
   },
   [ActionType.MARK_READ]: { fields: [] },
   [ActionType.TRACK_THREAD]: { fields: [] },
+  [ActionType.MOVE_FOLDER]: {
+    fields: [
+      {
+        name: "folderName",
+        label: "Folder name",
+      },
+    ],
+  },
 };
 
 export function getActionFields(fields: Action | ExecutedAction | undefined) {
@@ -146,6 +162,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
     cc?: string;
     bcc?: string;
     url?: string;
+    folderName?: string;
   } = {};
 
   // only return fields with a value
@@ -156,6 +173,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.cc) res.cc = fields.cc;
   if (fields?.bcc) res.bcc = fields.bcc;
   if (fields?.url) res.url = fields.url;
+  if (fields?.folderName) res.folderName = fields.folderName;
 
   return res;
 }
@@ -170,6 +188,7 @@ type ActionFieldsSelection = Pick<
   | "cc"
   | "bcc"
   | "url"
+  | "folderName"
   | "delayInMinutes"
 >;
 
@@ -185,6 +204,7 @@ export function sanitizeActionFields(
     cc: null,
     bcc: null,
     url: null,
+    folderName: null,
     delayInMinutes: action.delayInMinutes || null,
   };
 
@@ -195,6 +215,12 @@ export function sanitizeActionFields(
     case ActionType.TRACK_THREAD:
     case ActionType.DIGEST:
       return base;
+    case ActionType.MOVE_FOLDER: {
+      return {
+        ...base,
+        folderName: action.folderName ?? null,
+      };
+    }
     case ActionType.LABEL: {
       return {
         ...base,

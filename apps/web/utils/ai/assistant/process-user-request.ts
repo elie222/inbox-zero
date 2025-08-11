@@ -573,6 +573,7 @@ ${senderCategory || "No category"}
                         subject: action.fields.subject ?? null,
                         content: action.fields.content ?? null,
                         webhookUrl: action.fields.webhookUrl ?? null,
+                        folderName: action.fields.folderName ?? null,
                       }
                     : null,
                 })),

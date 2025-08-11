@@ -87,6 +87,7 @@ export const createRuleAction = actionClient
                         cc,
                         bcc,
                         url,
+                        folderName,
                         delayInMinutes,
                       }) => {
                         return sanitizeActionFields({
@@ -98,6 +99,7 @@ export const createRuleAction = actionClient
                           cc: cc?.value,
                           bcc: bcc?.value,
                           url: url?.value,
+                          folderName: folderName?.value,
                           delayInMinutes,
                         });
                       },
@@ -230,6 +232,7 @@ export const updateRuleAction = actionClient
                 cc: a.cc?.value,
                 bcc: a.bcc?.value,
                 url: a.url?.value,
+                folderName: a.folderName?.value,
                 delayInMinutes: a.delayInMinutes,
               }),
             });
@@ -249,6 +252,7 @@ export const updateRuleAction = actionClient
                         cc: a.cc?.value,
                         bcc: a.bcc?.value,
                         url: a.url?.value,
+                        folderName: a.folderName?.value,
                         delayInMinutes: a.delayInMinutes,
                       }),
                       ruleId: id,

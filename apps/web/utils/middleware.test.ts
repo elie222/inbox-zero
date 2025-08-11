@@ -30,6 +30,11 @@ vi.mock("better-auth", () => {
   };
 });
 
+// Mock the auth function from @/utils/auth
+vi.mock("@/utils/auth", () => ({
+  auth: vi.fn(),
+}));
+
 vi.mock("@/utils/redis/account-validation");
 
 // Mock specific functions from @/utils/error, keep original SafeError

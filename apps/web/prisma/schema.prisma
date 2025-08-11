@@ -347,6 +347,7 @@ model Action {
   cc      String?
   bcc     String?
   url     String?
+  folderName String?
   delayInMinutes Int?
 }
 
@@ -422,6 +423,7 @@ model ExecutedAction {
   cc      String?
   bcc     String?
   url     String?
+  folderName String?
 
   // additional fields as a result of the action
   draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
@@ -451,7 +453,7 @@ model ScheduledAction {
   cc      String?
   bcc     String?
   url     String?
-
+  folderName String?
   scheduledId String?
 
   executedAt       DateTime?
@@ -786,6 +788,7 @@ enum ActionType {
   MARK_READ
   TRACK_THREAD
   DIGEST
+  MOVE_FOLDER
   // SUMMARIZE
   // SNOOZE
   // ADD_TO_DO

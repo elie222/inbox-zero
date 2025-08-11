@@ -65,6 +65,8 @@ export const runActionFunction = async (options: {
       return track_thread(opts);
     case ActionType.DIGEST:
       return digest(opts);
+    case ActionType.MOVE_FOLDER:
+      return move_folder(opts);
     default:
       throw new Error(`Unknown action: ${action}`);
   }
@@ -263,4 +265,13 @@ const track_thread: ActionFunction<Record<string, unknown>> = async ({
 const digest: ActionFunction<any> = async ({ email, emailAccountId, args }) => {
   const actionId = args.id;
   await enqueueDigestItem({ email, emailAccountId, actionId });
+};
+
+const move_folder: ActionFunction<any> = async ({
+  client,
+  email,
+  userEmail,
+  args,
+}) => {
+  await client.moveThreadToFolder(email.threadId, userEmail, args.folderName);
 };

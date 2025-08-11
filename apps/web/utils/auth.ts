@@ -399,48 +399,80 @@ async function handleLinkAccount(account: Account) {
   }
 }
 
-// Used by Outlook and Gmail providers
 export async function saveTokens({
   tokens,
   accountRefreshToken,
+  providerAccountId,
   emailAccountId,
   provider,
 }: {
   tokens: {
     access_token?: string;
+    refresh_token?: string;
     expires_at?: number;
   };
-  accountRefreshToken: string;
-  emailAccountId: string;
-  provider: "google" | "microsoft";
-}) {
-  const account = await prisma.account.findUnique({
-    where: { id: emailAccountId },
-  });
+  accountRefreshToken: string | null;
+  provider: string;
+} & ( // provide one of these:
+  | {
+      providerAccountId: string;
+      emailAccountId?: never;
+    }
+  | {
+      emailAccountId: string;
+      providerAccountId?: never;
+    }
+)) {
+  const refreshToken = tokens.refresh_token ?? accountRefreshToken;
 
-  if (!account) {
-    logger.error("Account not found for token save", { emailAccountId });
+  if (!refreshToken) {
+    logger.error("Attempted to save null refresh token", { providerAccountId });
+    captureException("Cannot save null refresh token", {
+      extra: { providerAccountId },
+    });
     return;
   }
 
-  const updatedAccount = await prisma.account.update({
-    where: { id: account.id },
-    data: {
-      access_token: tokens.access_token
-        ? encryptToken(tokens.access_token)
-        : account.access_token,
-      expires_at: tokens.expires_at
-        ? new Date(tokens.expires_at * 1000)
-        : account.expires_at,
-      refresh_token: accountRefreshToken,
-    },
-  });
+  const data = {
+    access_token: tokens.access_token,
+    expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000) : null,
+    refresh_token: refreshToken,
+  };
 
-  logger.info("Tokens saved for account", {
-    emailAccountId,
-    provider,
-    updatedAccount: updatedAccount.id,
-  });
+  if (emailAccountId) {
+    // Encrypt tokens in data directly
+    // Usually we do this in prisma-extensions.ts but we need to do it here because we're updating the account via the emailAccount
+    // We could also edit prisma-extensions.ts to handle this case but this is easier for now
+    if (data.access_token)
+      data.access_token = encryptToken(data.access_token) || undefined;
+    if (data.refresh_token)
+      data.refresh_token = encryptToken(data.refresh_token) || "";
+
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { account: { update: data } },
+    });
+  } else {
+    if (!providerAccountId) {
+      logger.error("No providerAccountId found in database", {
+        emailAccountId,
+      });
+      captureException("No providerAccountId found in database", {
+        extra: { emailAccountId },
+      });
+      return;
+    }
+
+    return await prisma.account.update({
+      where: {
+        provider_providerAccountId: {
+          provider,
+          providerAccountId,
+        },
+      },
+      data,
+    });
+  }
 }
 
 export const auth = async () =>
