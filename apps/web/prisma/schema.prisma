@@ -110,6 +110,7 @@ model EmailAccount {
   watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
+  personaAnalysis           Json?
 
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)

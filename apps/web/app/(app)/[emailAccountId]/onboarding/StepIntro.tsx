@@ -66,7 +66,7 @@ function Benefit({
   image: string;
 }) {
   return (
-    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[50vh]">
+    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[400px]">
       <div className="flex items-center gap-4 col-span-2">
         <IconCircle>{index}</IconCircle>
         <div>

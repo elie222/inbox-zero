@@ -1,9 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
-import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
-import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
-import { StepDigest } from "@/app/(app)/[emailAccountId]/onboarding/StepDigest";
+import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 
 export const metadata: Metadata = {
   title: "Onboarding | Inbox Zero",
@@ -33,32 +30,10 @@ export default async function OnboardingPage(props: {
   // }
 
   const step = searchParams.step ? Number.parseInt(searchParams.step, 10) : 1;
-  const clampedStep = Math.min(Math.max(step, 1), 4);
-
-  function StepContent() {
-    switch (clampedStep) {
-      case 1:
-        return <StepIntro emailAccountId={emailAccountId} />;
-      case 2:
-        return (
-          <StepWho
-            // initialRole={user?.surveyRole}
-            initialRole={null}
-            emailAccountId={emailAccountId}
-          />
-        );
-      case 3:
-        return <StepLabels emailAccountId={emailAccountId} />;
-      case 4:
-        return <StepDigest emailAccountId={emailAccountId} />;
-      default:
-        return <StepIntro emailAccountId={emailAccountId} />;
-    }
-  }
 
   return (
     <Suspense>
-      <StepContent />
+      <OnboardingContent emailAccountId={emailAccountId} step={step} />
     </Suspense>
   );
 }
