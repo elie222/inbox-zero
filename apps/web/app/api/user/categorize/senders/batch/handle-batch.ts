@@ -55,6 +55,7 @@ async function handleBatchInternal(request: Request) {
           access_token: true,
           refresh_token: true,
           expires_at: true,
+          provider: true,
         },
       },
     },
@@ -89,7 +90,10 @@ async function handleBatchInternal(request: Request) {
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
-    emailAccount,
+    emailAccount: {
+      ...emailAccount,
+      account: { provider: account.provider },
+    },
     sendersWithEmails,
     categories,
   });
