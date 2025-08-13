@@ -148,8 +148,17 @@ export async function aiChooseRule<
 
   // The AI found a match, but didn't select a rule
   // We should probably force a retry in this case
-  if (!selectedRule) {
-    logger.error("No rule found", { email, rules, aiResponse });
+  if (aiResponse.ruleName && !selectedRule) {
+    logger.error("No matching rule found", {
+      noMatchFound: aiResponse.noMatchFound,
+      reason: aiResponse.reason,
+      ruleName: aiResponse.ruleName,
+      rules: rules.map((r) => ({
+        name: r.name,
+        instructions: r.instructions,
+      })),
+      emailId: email.id,
+    });
   }
 
   return {
