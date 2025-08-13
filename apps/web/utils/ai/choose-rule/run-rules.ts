@@ -1,4 +1,3 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { after } from "next/server";
 import type {
   ParsedMessage,
@@ -22,7 +21,8 @@ import {
   cancelScheduledActions,
 } from "@/utils/scheduled-actions/scheduler";
 import groupBy from "lodash/groupBy";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
+import type { ModelType } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-run-rules");
 
@@ -40,18 +40,21 @@ export async function runRules({
   rules,
   emailAccount,
   isTest,
+  modelType,
 }: {
   client: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   emailAccount: EmailAccountWithAI;
   isTest: boolean;
+  modelType: ModelType;
 }): Promise<RunRulesResult> {
   const result = await findMatchingRule({
     rules,
     message,
     emailAccount,
     client,
+    modelType,
   });
 
   analyzeSenderPatternIfAiMatch({
@@ -72,6 +75,7 @@ export async function runRules({
       result.reason,
       result.matchReasons,
       isTest,
+      modelType,
     );
   } else {
     await saveSkippedExecutedRule({
@@ -92,6 +96,7 @@ async function executeMatchedRule(
   reason: string | undefined,
   matchReasons: MatchReason[] | undefined,
   isTest: boolean,
+  modelType: ModelType,
 ) {
   // get action items with args
   const actionItems = await getActionItemsWithAiArgs({
@@ -99,6 +104,7 @@ async function executeMatchedRule(
     emailAccount,
     selectedRule: rule,
     client,
+    modelType,
   });
 
   if (!isTest) {
@@ -144,7 +150,7 @@ async function executeMatchedRule(
   }
 
   const shouldExecute =
-    executedRule && rule.automate && immediateActions.length > 0;
+    executedRule && rule.automate && immediateActions?.length > 0;
 
   if (shouldExecute) {
     await executeAct({
@@ -219,7 +225,7 @@ async function saveExecutedRule(
       createMany: {
         data:
           actionItems?.map((item) => {
-            const { delayInMinutes, ...executedActionFields } =
+            const { delayInMinutes: _delayInMinutes, ...executedActionFields } =
               sanitizeActionFields(item);
             return executedActionFields;
           }) || [],

@@ -1,34 +1,33 @@
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionTools } from "@/utils/llms";
-import {
-  type CreateOrUpdateRuleSchemaWithCategories,
-  type CreateRuleSchema,
-  createRuleSchema,
-} from "@/utils/ai/rule/create-rule-schema";
+import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiCreateRule(
   instructions: string,
   emailAccount: EmailAccountWithAI,
-): Promise<CreateOrUpdateRuleSchemaWithCategories> {
+) {
   const system =
-    "You are an AI assistant that helps people manage their emails.";
-  const prompt = `Generate a rule for these instructions:\n${instructions}`;
+    "You are an AI assistant that helps people manage their emails. Generate a JSON response with the rule details.";
+  const prompt = `Generate a rule for these instructions:
+<instructions>
+  ${instructions}
+</instructions>`;
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    tools: {
-      generate_rule: {
-        description: "Generate a rule to handle the email",
-        parameters: createRuleSchema,
-      },
-    },
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Categorize rule",
+    modelOptions,
   });
 
-  const result = aiResponse.toolCalls[0]?.args as CreateRuleSchema;
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: createRuleSchema(emailAccount.account.provider),
+  });
 
-  return result;
+  return aiResponse.object;
 }

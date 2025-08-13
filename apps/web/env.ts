@@ -9,6 +9,7 @@ const llmProviderEnum = z.enum([
   "bedrock",
   "openrouter",
   "groq",
+  "aigateway",
   "ollama",
 ]);
 
@@ -42,6 +43,11 @@ export const env = createEnv({
     CHAT_LLM_MODEL: z.string().optional(),
     CHAT_OPENROUTER_PROVIDERS: z.string().optional(), // Comma-separated list of OpenRouter providers for chat (e.g., "Google Vertex,Anthropic")
 
+    OPENROUTER_BACKUP_MODEL: z
+      .string()
+      .optional()
+      .default("google/gemini-2.5-flash"),
+
     OPENAI_API_KEY: z.string().optional(),
     ANTHROPIC_API_KEY: z.string().optional(),
     BEDROCK_ACCESS_KEY: z.string().optional(),
@@ -50,6 +56,7 @@ export const env = createEnv({
     GOOGLE_API_KEY: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
+    AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
 
     UPSTASH_REDIS_URL: z.string().optional(),
@@ -160,9 +167,6 @@ export const env = createEnv({
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
       .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
-    NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL: z
-      .string()
-      .default("us.anthropic.claude-3-5-sonnet-20241022-v2:0"),
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
@@ -216,8 +220,6 @@ export const env = createEnv({
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
       process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
-    NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL:
-      process.env.NEXT_PUBLIC_BEDROCK_ANTHROPIC_BACKUP_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,

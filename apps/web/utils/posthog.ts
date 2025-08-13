@@ -1,4 +1,3 @@
-import type Stripe from "stripe";
 import { PostHog } from "posthog-node";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";

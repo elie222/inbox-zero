@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/sidebar";
 import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
-import { useModifierKey } from "@/hooks/useModifierKey";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
 
@@ -38,7 +37,6 @@ export function AccountSwitcherInternal({
   emailAccounts: GetEmailAccountsResponse["emailAccounts"];
 }) {
   const { isMobile } = useSidebar();
-  const { symbol: modifierSymbol } = useModifierKey();
 
   const {
     emailAccountId: activeEmailAccountId,
@@ -76,6 +74,7 @@ export function AccountSwitcherInternal({
             <SidebarMenuButton
               size="lg"
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              sidebarName="left-sidebar"
             >
               {activeEmailAccount ? (
                 <>
@@ -113,25 +112,31 @@ export function AccountSwitcherInternal({
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Accounts
             </DropdownMenuLabel>
-            {emailAccounts.map((emailAccount, index) => (
-              <Link href={getHref(emailAccount.id)} key={emailAccount.id}>
-                <DropdownMenuItem key={emailAccount.id} className="gap-2 p-2">
-                  <ProfileImage
-                    image={emailAccount.image}
-                    label={emailAccount.name || emailAccount.email}
-                  />
-                  <div className="flex flex-col">
-                    <span className="truncate font-medium">
-                      {emailAccount.name || emailAccount.email}
+            {emailAccounts.map((emailAccount) => (
+              <DropdownMenuItem
+                key={emailAccount.id}
+                className="gap-2 p-2"
+                onSelect={() => {
+                  // Force a hard page reload to refresh all data.
+                  // I tried to fix with resetting the SWR cache but it didn't seem to work. This is much more reliable anyway.
+                  window.location.href = getHref(emailAccount.id);
+                }}
+              >
+                <ProfileImage
+                  image={emailAccount.image}
+                  label={emailAccount.name || emailAccount.email}
+                />
+                <div className="flex flex-col">
+                  <span className="truncate font-medium">
+                    {emailAccount.name || emailAccount.email}
+                  </span>
+                  {emailAccount.name && (
+                    <span className="truncate text-xs text-muted-foreground">
+                      {emailAccount.email}
                     </span>
-                    {emailAccount.name && (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {emailAccount.email}
-                      </span>
-                    )}
-                  </div>
-                </DropdownMenuItem>
-              </Link>
+                  )}
+                </div>
+              </DropdownMenuItem>
             ))}
             <DropdownMenuSeparator />
             <Link href="/accounts">

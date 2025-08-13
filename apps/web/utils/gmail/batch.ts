@@ -93,7 +93,7 @@ function checkBatchResponseForError(batchResponse: string) {
         jsonResponse.error,
       );
     }
-  } catch (error) {
+  } catch {
     // not json. skipping
   }
 }

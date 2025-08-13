@@ -1,11 +1,9 @@
-import { chatCompletion } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import { getTodayForLLM } from "@/utils/llms/helpers";
-
-const logger = createScopedLogger("generate-nudge");
+import { getModel } from "@/utils/llms/model";
 
 export async function aiGenerateNudge({
   messages,
@@ -37,17 +35,19 @@ Write a brief follow-up email to politely nudge for a response.
 ${getTodayForLLM()}
 IMPORTANT: The person you're writing an email for is: ${messages.at(-1)?.from}.`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const response = await chatCompletion({
-    userAi: emailAccount.user,
-    system,
-    prompt,
+  const generateText = createGenerateText({
+    label: "Reply",
     userEmail: emailAccount.email,
-    usageLabel: "Reply",
+    modelOptions,
   });
 
-  logger.trace("Output", { response: response.text });
+  const response = await generateText({
+    ...modelOptions,
+    system,
+    prompt,
+  });
 
   return response.text;
 }

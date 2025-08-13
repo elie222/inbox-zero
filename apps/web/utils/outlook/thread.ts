@@ -1,9 +1,7 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Message } from "@microsoft/microsoft-graph-types";
 import type { ParsedMessage } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("outlook/thread");
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 
 export async function getThread(
   threadId: string,
@@ -30,7 +28,7 @@ export async function getThreads(
   const response = await client
     .getClient()
     .api("/me/messages")
-    .filter(query ? `contains(subject, '${query}')` : "")
+    .filter(query ? `contains(subject, '${escapeODataString(query)}')` : "")
     .top(maxResults)
     .select("id,conversationId,subject,bodyPreview")
     .get();
@@ -70,7 +68,9 @@ export async function getThreadsWithNextPageToken({
     .select("id,conversationId,subject,bodyPreview");
 
   if (query) {
-    request = request.filter(`contains(subject, '${query}')`);
+    request = request.filter(
+      `contains(subject, '${escapeODataString(query)}')`,
+    );
   }
 
   const response = await request.get();
@@ -100,7 +100,7 @@ export async function getThreadsFromSender(
   const response = await client
     .getClient()
     .api("/me/messages")
-    .filter(`from/emailAddress/address eq '${sender}'`)
+    .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
     .top(limit)
     .select("id,conversationId,bodyPreview")
     .get();
@@ -127,7 +127,7 @@ export async function getThreadsFromSenderWithSubject(
   const response = await client
     .getClient()
     .api("/me/messages")
-    .filter(`from/emailAddress/address eq '${sender}'`)
+    .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
     .top(limit)
     .select("id,conversationId,subject,bodyPreview")
     .get();

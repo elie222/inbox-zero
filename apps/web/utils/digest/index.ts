@@ -1,6 +1,5 @@
 import { env } from "@/env";
 import { publishToQstashQueue } from "@/utils/upstash";
-import { getCronSecretHeader } from "@/utils/cron";
 import { createScopedLogger } from "@/utils/logger";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
 import type { EmailForAction } from "@/utils/ai/types";

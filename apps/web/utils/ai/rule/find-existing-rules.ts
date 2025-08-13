@@ -1,20 +1,8 @@
 import { z } from "zod";
-import { chatCompletionTools } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Action, Rule } from "@prisma/client";
-
-const parameters = z.object({
-  existingRules: z
-    .array(
-      z.object({
-        ruleId: z.string().describe("The id of the existing rule"),
-        promptNumber: z
-          .number()
-          .describe("The index of the prompt that matches the rule"),
-      }),
-    )
-    .describe("The existing rules that match the prompt rules"),
-});
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function aiFindExistingRules({
   emailAccount,
@@ -42,27 +30,47 @@ ${promptRules.map((rule, index) => `${index + 1}: ${rule}`).join("\n")}
 ## Existing database rules:
 ${JSON.stringify(databaseRules, null, 2)}
 
-Please return the existing rules that match the prompt rules.`;
+Please return the existing rules that match the prompt rules in JSON format.
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    tools: {
-      find_existing_rules: {
-        description: "Find the existing rules that match the prompt rules",
-        parameters,
-      },
-    },
+<example>
+{
+  "existingRules": [
+    {
+      "ruleId": "123",
+      "promptNumber": 1
+    }
+  ]
+}
+</example>
+`;
+
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Find existing rules",
+    modelOptions,
   });
 
-  const parsedRules = aiResponse.toolCalls[0]?.args as z.infer<
-    typeof parameters
-  >;
+  const result = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      existingRules: z
+        .array(
+          z.object({
+            ruleId: z.string().describe("The id of the existing rule"),
+            promptNumber: z
+              .number()
+              .describe("The index of the prompt that matches the rule"),
+          }),
+        )
+        .describe("The existing rules that match the prompt rules"),
+    }),
+  });
 
-  const existingRules = parsedRules.existingRules.map((rule) => {
+  const existingRules = result.object.existingRules.map((rule) => {
     const promptRule = rule.promptNumber
       ? promptRules[rule.promptNumber - 1]
       : null;

@@ -3,6 +3,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { OutlookLabel } from "./label";
+import { escapeODataString } from "@/utils/outlook/odata-escape";
 
 const logger = createScopedLogger("outlook/message");
 
@@ -10,7 +11,7 @@ const logger = createScopedLogger("outlook/message");
 let folderIdCache: Record<string, string> | null = null;
 
 // Well-known folder names in Outlook that are consistent across all languages
-const WELL_KNOWN_FOLDERS = {
+export const WELL_KNOWN_FOLDERS = {
   inbox: "inbox",
   sentitems: "sentitems",
   drafts: "drafts",
@@ -51,6 +52,142 @@ export async function getFolderIds(client: OutlookClient) {
 
   logger.info("Fetched Outlook folder IDs", { folders: folderIdCache });
   return folderIdCache;
+}
+
+export async function getOrCreateFolderByName(
+  client: OutlookClient,
+  folderPath: string,
+): Promise<string> {
+  try {
+    const folderParts = folderPath
+      .replace(/^\/+|\/+$/g, "") // Remove leading and trailing slashes
+      .split("/") // Split into parts
+      .map((part) => part.trim()) // Trim each part
+      .filter((part) => part); // Remove empty parts
+
+    if (folderParts.length === 0) {
+      throw new Error("Invalid folder path: empty path");
+    }
+
+    // If it's a single folder, check if it's well-known first
+    if (folderParts.length === 1) {
+      const folderName = folderParts[0];
+      const wellKnownFolderValues = Object.values(WELL_KNOWN_FOLDERS);
+      const normalizedFolderName = folderName.toLowerCase();
+
+      // If it's a well-known folder, return its name (Outlook accepts well-known folder names as IDs)
+      if (
+        wellKnownFolderValues.includes(
+          normalizedFolderName as (typeof wellKnownFolderValues)[number],
+        )
+      ) {
+        return normalizedFolderName;
+      }
+
+      // Otherwise create or find custom folder
+      return await getOrCreateSingleFolder(client, folderName);
+    }
+
+    // Handle hierarchical folders
+    let parentFolderId: string | null = null;
+
+    for (let i = 0; i < folderParts.length; i++) {
+      const folderName = folderParts[i];
+      const isFirstLevel = i === 0;
+
+      if (isFirstLevel) {
+        // Check if first level is a well-known folder
+        const wellKnownFolderValues = Object.values(WELL_KNOWN_FOLDERS);
+        const normalizedFolderName = folderName.toLowerCase();
+
+        if (
+          wellKnownFolderValues.includes(
+            normalizedFolderName as (typeof wellKnownFolderValues)[number],
+          )
+        ) {
+          // Use the well-known folder ID
+          const response = await client
+            .getClient()
+            .api(`/me/mailFolders/${normalizedFolderName}`)
+            .select("id")
+            .get();
+          parentFolderId = response.id;
+        } else {
+          // Create or find custom top-level folder
+          parentFolderId = await getOrCreateSingleFolder(client, folderName);
+        }
+      } else {
+        // Create or find subfolder within parent
+        parentFolderId = await getOrCreateSubfolder(
+          client,
+          parentFolderId!,
+          folderName,
+        );
+      }
+    }
+
+    return parentFolderId!;
+  } catch (error) {
+    logger.error("Error getting or creating folder path", {
+      folderPath,
+      error,
+    });
+    throw error;
+  }
+}
+
+async function getOrCreateSingleFolder(
+  client: OutlookClient,
+  folderName: string,
+): Promise<string> {
+  // First try to find the folder by name at root level
+  const response = await client
+    .getClient()
+    .api("/me/mailFolders")
+    .filter(`displayName eq '${escapeODataString(folderName)}'`)
+    .select("id,displayName")
+    .get();
+
+  if (response.value.length > 0) {
+    return response.value[0].id!;
+  }
+
+  // If folder doesn't exist, create it at root level
+  const createResponse = await client.getClient().api("/me/mailFolders").post({
+    displayName: folderName,
+    isHidden: false,
+  });
+
+  return createResponse.id!;
+}
+
+async function getOrCreateSubfolder(
+  client: OutlookClient,
+  parentFolderId: string,
+  folderName: string,
+): Promise<string> {
+  // First try to find the subfolder within the parent
+  const response = await client
+    .getClient()
+    .api(`/me/mailFolders/${parentFolderId}/childFolders`)
+    .filter(`displayName eq '${escapeODataString(folderName)}'`)
+    .select("id,displayName")
+    .get();
+
+  if (response.value.length > 0) {
+    return response.value[0].id!;
+  }
+
+  // If subfolder doesn't exist, create it within the parent
+  const createResponse = await client
+    .getClient()
+    .api(`/me/mailFolders/${parentFolderId}/childFolders`)
+    .post({
+      displayName: folderName,
+      isHidden: false,
+    });
+
+  return createResponse.id!;
 }
 
 function getOutlookLabels(
@@ -101,25 +238,29 @@ function getOutlookLabels(
 
 export async function queryBatchMessages(
   client: OutlookClient,
-  {
-    query,
-    maxResults = 20,
-    pageToken,
-    folderId,
-  }: {
+  options: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
     folderId?: string;
   },
 ) {
-  if (maxResults > 20) {
-    throw new Error(
-      "Max results must be 20 or Microsoft Graph API will rate limit us.",
+  const { query, pageToken, folderId } = options;
+
+  const MAX_RESULTS = 20;
+
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+
+  // Is this true for Microsoft Graph API or was it copy pasted from Gmail?
+  if (options.maxResults && options.maxResults > MAX_RESULTS) {
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults,
+      },
     );
   }
 
-  // Get folder IDs first
   const folderIds = await getFolderIds(client);
 
   logger.info("Building Outlook request", {
@@ -306,7 +447,9 @@ export async function getMessages(
     );
 
   if (options.query) {
-    request = request.filter(`contains(subject, '${options.query}')`);
+    request = request.filter(
+      `contains(subject, '${escapeODataString(options.query)}')`,
+    );
   }
 
   const response = await request.get();

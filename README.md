@@ -142,7 +142,9 @@ Create [new credentials](https://console.cloud.google.com/apis/credentials):
     2. In `Application Type`, Choose `Web application`
     3. Choose a name for your web client
     4. In Authorized JavaScript origins, add a URI and enter `http://localhost:3000`
-    5. In `Authorized redirect URIs` enter `http://localhost:3000/api/auth/callback/google`
+    5. In `Authorized redirect URIs` enter:
+      - `http://localhost:3000/api/auth/callback/google`
+      - `http://localhost:3000/api/google/linking/callback`
     6. Click `Create`.
     7. A popup will show up with the new credentials, including the Client ID and secret.
 3.  Update .env file:
@@ -185,7 +187,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
    2. Under "Supported account types" select "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)"
    3. Set the Redirect URI:
       - Platform: Web
-      - URL: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+      - URL: `http://localhost:3000/api/auth/callback/microsoft`
    4. Click "Register"
    5. In the "Manage" menu click "Authentication (Preview)"
    6. Add the Redirect URI: `http://localhost:3000/api/outlook/linking/callback`

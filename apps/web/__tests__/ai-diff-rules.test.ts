@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { getEmailAccount } from "@/__tests__/helpers";
 
-// pnpm test-ai ai-diff-rules
+// RUN_AI_TESTS=true pnpm test-ai ai-diff-rules
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
@@ -33,13 +33,14 @@ describe.runIf(isAiTest)("aiDiffRules", () => {
     });
 
     expect(result).toEqual({
-      addedRules: ['Label all emails from support@company.com as "Support"'],
+      addedRules: ['* Label all emails from support@company.com as "Support"'],
       editedRules: [
         {
-          oldRule: `Archive all newsletters and label them "Newsletter"`,
-          newRule: `Archive all newsletters and label them "Newsletter Updates"`,
+          oldRule: `* Archive all newsletters and label them "Newsletter"`,
+          newRule: `* Archive all newsletters and label them "Newsletter Updates"`,
         },
       ],
+      removedRules: [`* Label receipts as "Receipt"`],
     });
   }, 15_000);
 

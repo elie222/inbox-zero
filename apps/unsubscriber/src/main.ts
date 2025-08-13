@@ -1,5 +1,6 @@
+/** biome-ignore-all lint/suspicious/noConsole: not used in production yet */
 import { chromium } from "playwright";
-import type { Page, ElementHandle, Locator } from "playwright";
+import type { Page, Locator } from "playwright";
 import { z } from "zod";
 import { generateText } from "ai";
 import { env } from "./env";
@@ -10,9 +11,9 @@ const AI_TIMEOUT = 30_000;
 
 const NETWORK_IDLE_TIMEOUT = 10_000;
 const MAX_RETRIES = 3; // Limit retries to 3 to avoid infinite loops
-const RETRY_DELAY = 1_000; // Delay between retries in milliseconds
-const ACTION_TIMEOUT = 5_000; // Timeout for each action in milliseconds
-const ACTION_DELAY = 2_000; // Delay between actions in milliseconds
+const RETRY_DELAY = 1000; // Delay between retries in milliseconds
+const ACTION_TIMEOUT = 5000; // Timeout for each action in milliseconds
+const ACTION_DELAY = 2000; // Delay between actions in milliseconds
 
 const pageAnalysisSchema = z.object({
   actions: z.array(

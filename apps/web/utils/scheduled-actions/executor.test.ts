@@ -121,7 +121,7 @@ describe("executor", () => {
         tokens: {
           access_token: "token",
           refresh_token: "refresh",
-          expires_at: Date.now() + 3600000,
+          expires_at: Date.now() + 3_600_000,
         },
       });
 
@@ -196,7 +196,7 @@ describe("executor", () => {
         tokens: {
           access_token: "token",
           refresh_token: "refresh",
-          expires_at: Date.now() + 3600000,
+          expires_at: Date.now() + 3_600_000,
         },
       });
 

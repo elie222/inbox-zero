@@ -4,6 +4,7 @@ import { ActionType } from "@prisma/client";
 export function getActionDisplay(action: {
   type: ActionType;
   label?: string | null;
+  folderName?: string | null;
 }): string {
   switch (action.type) {
     case ActionType.DRAFT_EMAIL:
@@ -22,6 +23,10 @@ export function getActionDisplay(action: {
       return "Call Webhook";
     case ActionType.TRACK_THREAD:
       return "Auto-update reply label";
+    case ActionType.MOVE_FOLDER:
+      return action.folderName
+        ? `Folder: ${action.folderName}`
+        : "Move to folder";
     default:
       // Default to capital case for other action types
       return capitalCase(action.type);

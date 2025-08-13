@@ -1,9 +1,7 @@
 import { z } from "zod";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("ai-generate-rules-prompt");
+import { getModel } from "@/utils/llms/model";
 
 const parameters = z.object({
   rules: z
@@ -37,11 +35,9 @@ export async function aiGenerateRulesPrompt({
   lastSentEmails: string[];
   userLabels: string[];
   snippets: string[];
-}): Promise<string[]> {
+}): Promise<string[] | undefined> {
   const labelsList = userLabels
-    ? userLabels
-        .map((label) => `<label><name>${label}</name></label>`)
-        .join("\n")
+    ? userLabels.map((label) => `<label>${label}</label>`).join("\n")
     : "No labels found";
 
   const hasSnippets = snippets.length > 0;
@@ -50,7 +46,7 @@ export async function aiGenerateRulesPrompt({
   const lastSentEmailsCount = hasSnippets ? 20 : 50;
 
   const system =
-    "You are an AI assistant that helps people manage their emails by generating rules based on their email behavior and existing labels.";
+    "You are an AI assistant that helps people manage their emails by generating rules based on their email behavior and existing labels. Generate a JSON response with the rule details.";
 
   const prompt = `Analyze the user's email behavior and suggest general rules for managing their inbox effectively. Here's the context:
 
@@ -104,39 +100,52 @@ ${
 
 IMPORTANT: Our system can only perform email management actions (labeling, archiving, forwarding, drafting responses). We cannot add events to calendars or create todo list items. Do not suggest rules that include these actions.
 
-Your response should only include the list of general rules. Aim for 3-10 broadly applicable rules that would be useful for this user's email management.`;
+Your response should only include the list of general rules. Aim for 3-10 broadly applicable rules that would be useful for this user's email management.
 
-  logger.trace("generate-rules-prompt", { system, prompt });
+IMPORTANT: Do not create overly specific rules that only occur on a one off basis.`;
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    tools: {
-      generate_rules: {
-        description: "Generate a list of email management rules",
-        parameters: hasSnippets ? parametersSnippets : parameters,
-      },
-    },
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
     label: "Generate rules prompt",
+    modelOptions,
   });
 
-  const args = aiResponse.toolCalls[0]?.args;
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: hasSnippets ? parametersSnippets : parameters,
+  });
 
-  logger.trace("Args", { args });
+  const result = aiResponse.object;
 
-  return parseRulesResponse(args, hasSnippets);
+  if (!result) return;
+
+  return parseRulesResponse(result, hasSnippets);
 }
 
-function parseRulesResponse(args: unknown, hasSnippets: boolean): string[] {
+function parseRulesResponse(
+  result: z.infer<typeof parameters> | z.infer<typeof parametersSnippets>,
+  hasSnippets: boolean,
+): string[] {
   if (hasSnippets) {
-    const parsedRules = args as z.infer<typeof parametersSnippets>;
-    return parsedRules.rules.map(({ rule, snippet }) =>
-      snippet ? `${rule}\n---\n${snippet}\n---\n` : rule,
-    );
+    const parsedRules = result as z.infer<typeof parametersSnippets>;
+    return parsedRules.rules.map(({ rule, snippet }) => {
+      const formattedRule = `* ${rule}\n`;
+      if (snippet) return `${formattedRule}${formatSnippet(snippet)}\n`;
+      return formattedRule;
+    });
   }
 
-  const parsedRules = args as z.infer<typeof parameters>;
+  const parsedRules = result as z.infer<typeof parameters>;
   return parsedRules.rules;
+}
+
+function formatSnippet(snippet: string) {
+  return snippet
+    .split("\n")
+    .map((line) => `> ${line}`)
+    .join("\n");
 }

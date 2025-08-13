@@ -1,17 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { RuleWithRelations } from "./create-prompt-from-rule";
 import { createPromptFromRule } from "./create-prompt-from-rule";
-
-const logger = createScopedLogger("generate-prompt-on-update-rule");
-
-const parameters = z.object({
-  updatedPrompt: z
-    .string()
-    .describe("The updated prompt file with the rule updated"),
-});
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function generatePromptOnUpdateRule({
   emailAccount,
@@ -36,7 +28,7 @@ Your task is to update an existing prompt file by modifying a specific rule whil
 Requirements:
 1. Maintain the exact same format and style as the original
 2. Keep all other rules intact
-3. Return only the updated prompt file
+3. Return only the updated prompt file in JSON format
 4. Ensure the output is properly formatted with consistent spacing and line breaks
 5. If you cannot find a similar rule in the current prompt, append the new rule at the end.`;
 
@@ -55,20 +47,24 @@ ${currentRulePrompt}
 ${updatedRulePrompt}
 </updated_rule>`;
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    prompt,
-    system,
-    schema: parameters,
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
-    usageLabel: "Update prompt on update rule",
+    label: "Update prompt on update rule",
+    modelOptions,
   });
 
-  const parsedResponse = aiResponse.object;
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      updatedPrompt: z
+        .string()
+        .describe("The updated prompt file with the rule updated"),
+    }),
+  });
 
-  logger.trace("Output", { updatedPrompt: parsedResponse.updatedPrompt });
-
-  return parsedResponse.updatedPrompt;
+  return aiResponse.object.updatedPrompt;
 }

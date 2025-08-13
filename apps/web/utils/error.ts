@@ -4,6 +4,9 @@ import {
 } from "@sentry/nextjs";
 import { APICallError, RetryError } from "ai";
 import type { z } from "zod";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("error");
 
 export type ErrorMessage = { error: string; data?: any };
 export type ZodError = {
@@ -63,7 +66,7 @@ export function captureException(
   userEmail?: string,
 ) {
   if (isKnownApiError(error)) {
-    console.warn("Known API error", error, additionalInfo);
+    logger.warn("Known API error", { error, additionalInfo });
     return;
   }
 
@@ -169,7 +172,7 @@ export function checkCommonErrors(
   url: string,
 ): ApiErrorType | null {
   if (isGmailInsufficientPermissionsError(error)) {
-    console.warn(`Gmail insufficient permissions error for url: ${url}`);
+    logger.warn("Gmail insufficient permissions error for url", { url });
     return {
       type: "Gmail Insufficient Permissions",
       message:
@@ -179,7 +182,7 @@ export function checkCommonErrors(
   }
 
   if (isGmailRateLimitExceededError(error)) {
-    console.warn(`Gmail rate limit exceeded for url: ${url}`);
+    logger.warn("Gmail rate limit exceeded for url", { url });
     const errorMessage =
       (error as any)?.errors?.[0]?.message ?? "Unknown error";
     return {
@@ -190,7 +193,7 @@ export function checkCommonErrors(
   }
 
   if (isGmailQuotaExceededError(error)) {
-    console.warn(`Gmail quota exceeded for url: ${url}`);
+    logger.warn("Gmail quota exceeded for url", { url });
     return {
       type: "Gmail Quota Exceeded",
       message: "You have exceeded the Gmail quota. Please try again later.",
@@ -199,7 +202,7 @@ export function checkCommonErrors(
   }
 
   if (RetryError.isInstance(error) && isOpenAIRetryError(error)) {
-    console.warn(`OpenAI quota exceeded for url: ${url}`);
+    logger.warn("OpenAI quota exceeded for url", { url });
     return {
       type: "OpenAI Quota Exceeded",
       message: `OpenAI error: ${error.message}`,

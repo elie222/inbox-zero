@@ -5,6 +5,7 @@ import {
   LogicalOperator,
 } from "@prisma/client";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
+import type { EmailProvider } from "@/utils/email/types";
 
 const conditionSchema = z
   .object({
@@ -33,65 +34,83 @@ const conditionSchema = z
   })
   .describe("The conditions to match");
 
-const actionSchema = z.object({
-  type: z.nativeEnum(ActionType).describe("The type of the action"),
-  fields: z
-    .object({
-      label: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The label to apply to the email"),
-      to: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The to email address to send the email to"),
-      cc: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The cc email address to send the email to"),
-      bcc: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The bcc email address to send the email to"),
-      subject: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The subject of the email"),
-      content: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The content of the email"),
-      webhookUrl: z
-        .string()
-        .nullish()
-        .transform((v) => v ?? null)
-        .describe("The webhook URL to call"),
-    })
-    .nullish()
-    .describe(
-      "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
-    ),
-  delayInMinutes: delayInMinutesSchema,
-});
+const actionSchema = (provider: string) =>
+  z.object({
+    type: z
+      .enum(
+        provider === "microsoft"
+          ? (Object.values(ActionType) as [ActionType, ...ActionType[]])
+          : (Object.values(ActionType).filter(
+              (type) => type !== ActionType.MOVE_FOLDER,
+            ) as [ActionType, ...ActionType[]]),
+      )
+      .describe("The type of the action"),
+    fields: z
+      .object({
+        label: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The label to apply to the email"),
+        to: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The to email address to send the email to"),
+        cc: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The cc email address to send the email to"),
+        bcc: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The bcc email address to send the email to"),
+        subject: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The subject of the email"),
+        content: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The content of the email"),
+        webhookUrl: z
+          .string()
+          .nullish()
+          .transform((v) => v ?? null)
+          .describe("The webhook URL to call"),
+        ...(provider === "microsoft" && {
+          folderName: z
+            .string()
+            .nullish()
+            .transform((v) => v ?? null)
+            .describe("The folder to move the email to"),
+        }),
+      })
+      .nullish()
+      .describe(
+        "The fields to use for the action. Static text can be combined with dynamic values using double braces {{}}. For example: 'Hi {{sender's name}}' or 'Re: {{subject}}' or '{{when I'm available for a meeting}}'. Dynamic values will be replaced with actual email data when the rule is executed. Dynamic values are generated in real time by the AI. Only use dynamic values where absolutely necessary. Otherwise, use plain static text. A field can be also be fully static or fully dynamic.",
+      ),
+    delayInMinutes: delayInMinutesSchema,
+  });
 
-export const createRuleSchema = z.object({
-  name: z
-    .string()
-    .describe("The name of the rule. No need to include 'Rule' in the name."),
-  condition: conditionSchema,
-  actions: z.array(actionSchema).describe("The actions to take"),
-});
+export const createRuleSchema = (provider: string) =>
+  z.object({
+    name: z
+      .string()
+      .describe("The name of the rule. No need to include 'Rule' in the name."),
+    condition: conditionSchema,
+    actions: z.array(actionSchema(provider)).describe("The actions to take"),
+  });
 
 export const getCreateRuleSchemaWithCategories = (
   availableCategories: [string, ...string[]],
+  provider: string,
 ) => {
-  return createRuleSchema.extend({
+  return createRuleSchema(provider).extend({
     condition: conditionSchema.extend({
       categories: z
         .object({
@@ -116,7 +135,7 @@ export const getCreateRuleSchemaWithCategories = (
   });
 };
 
-export type CreateRuleSchema = z.infer<typeof createRuleSchema>;
+export type CreateRuleSchema = z.infer<ReturnType<typeof createRuleSchema>>;
 export type CreateRuleSchemaWithCategories = CreateRuleSchema & {
   condition: CreateRuleSchema["condition"] & {
     categories?: {

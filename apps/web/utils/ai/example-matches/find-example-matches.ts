@@ -1,8 +1,10 @@
+import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { queryBatchMessages } from "@/utils/gmail/message";
+import { getModel } from "@/utils/llms/model";
 
 const FIND_EXAMPLE_MATCHES = "findExampleMatches";
 
@@ -30,8 +32,6 @@ export async function aiFindExampleMatches(
   gmail: gmail_v1.Gmail,
   rulesPrompt: string,
 ) {
-  console.log(`findExampleMatches. rulesPrompt: ${rulesPrompt}`);
-
   const system =
     "You are an AI assistant specializing in email management and organization. Your task is to find example emails that match the given rules with high confidence.";
 
@@ -92,20 +92,26 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
     },
   });
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    system,
-    prompt,
-    maxSteps: 10,
-    tools: {
-      listEmails: listEmailsTool(gmail),
-      [FIND_EXAMPLE_MATCHES]: {
-        description: "Find example matches",
-        parameters: findExampleMatchesSchema,
-      },
-    },
+  const modelOptions = getModel(emailAccount.user, "chat");
+
+  const generateText = createGenerateText({
     userEmail: emailAccount.email,
     label: "Find example matches",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
+    system,
+    prompt,
+    stopWhen: stepCountIs(10),
+    tools: {
+      listEmails: listEmailsTool(gmail),
+      [FIND_EXAMPLE_MATCHES]: tool({
+        description: "Find example matches",
+        inputSchema: findExampleMatchesSchema,
+      }),
+    },
   });
 
   const findExampleMatchesToolCalls = aiResponse.toolCalls.filter(
@@ -114,8 +120,8 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
 
   const matches = findExampleMatchesToolCalls.reduce<
     z.infer<typeof findExampleMatchesSchema>["matches"]
-  >((acc, { args }) => {
-    const typedArgs = args as z.infer<typeof findExampleMatchesSchema>;
+  >((acc, { input }) => {
+    const typedArgs = input as z.infer<typeof findExampleMatchesSchema>;
     return acc.concat(typedArgs.matches);
   }, []);
 

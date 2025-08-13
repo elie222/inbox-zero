@@ -55,6 +55,7 @@ async function handleBatchInternal(request: Request) {
           access_token: true,
           refresh_token: true,
           expires_at: true,
+          provider: true,
         },
       },
     },
@@ -69,7 +70,7 @@ async function handleBatchInternal(request: Request) {
   const gmail = await getGmailClientWithRefresh({
     accessToken: account.access_token,
     refreshToken: account.refresh_token,
-    expiresAt: account.expires_at,
+    expiresAt: account.expires_at?.getTime() || null,
     emailAccountId,
   });
 
@@ -89,7 +90,10 @@ async function handleBatchInternal(request: Request) {
 
   // 2. categorize senders with ai
   const results = await categorizeWithAi({
-    emailAccount,
+    emailAccount: {
+      ...emailAccount,
+      account: { provider: account.provider },
+    },
     sendersWithEmails,
     categories,
   });

@@ -21,14 +21,13 @@ import {
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
   {
     client,
     emailAccount,
-    accessToken,
     hasAutomationRules,
     hasAiAccess,
     rules,
@@ -87,7 +86,7 @@ export async function processHistoryItem(
 
     const emailProvider = await createEmailProvider({
       emailAccountId,
-      provider: "microsoft-entra-id",
+      provider: "microsoft",
     });
 
     if (
@@ -186,6 +185,7 @@ export async function processHistoryItem(
         },
         provider: emailProvider,
         emailAccount,
+        modelType: "default",
       });
 
       if (response.isColdEmail) {
@@ -237,6 +237,7 @@ export async function processHistoryItem(
         rules,
         emailAccount,
         isTest: false,
+        modelType: "default",
       });
     }
   } catch (error) {

@@ -1,8 +1,7 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
-const logger = createScopedLogger("ai/clean/select-labels");
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 const schema = z.object({ labels: z.array(z.string()).optional() });
 
@@ -22,24 +21,26 @@ Guidelines:
 - Do not create labels that weren't mentioned
 - If no labels are specified, return an empty array
 
-Return the labels as an array of strings.`;
+Return the labels as an array of strings in JSON format.`;
 
   const prompt = `<instructions>
 ${instructions}
 </instructions>`.trim();
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Clean - Select Labels",
+    modelOptions,
+  });
+
+  const aiResponse = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema,
-    userEmail: emailAccount.email,
-    usageLabel: "Clean - Select Labels",
   });
-
-  logger.trace("Result", { response: aiResponse.object });
 
   return aiResponse.object.labels;
 }

@@ -15,7 +15,7 @@ import { getAccessTokenFromClient } from "@/utils/gmail/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { isIgnoredSender } from "@/utils/filter-ignored-senders";
 import parse from "gmail-api-parse-message";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("gmail/message");
 
@@ -153,7 +153,7 @@ export async function getMessagesBatch({
       missingMessageIds: Array.from(missingMessageIds),
     });
     const nextRetryCount = retryCount + 1;
-    await sleep(1_000 * nextRetryCount);
+    await sleep(1000 * nextRetryCount);
     const missingMessages = await getMessagesBatch({
       messageIds: Array.from(missingMessageIds),
       accessToken,
@@ -271,19 +271,24 @@ export async function getMessages(
 
 export async function queryBatchMessages(
   gmail: gmail_v1.Gmail,
-  {
-    query,
-    maxResults = 20,
-    pageToken,
-  }: {
+  options: {
     query?: string;
     maxResults?: number;
     pageToken?: string;
   },
 ) {
-  if (maxResults > 20) {
-    throw new Error(
-      "Max results must be 20 or Google will rate limit us and return 429 errors.",
+  const { query, pageToken } = options;
+
+  const MAX_RESULTS = 20;
+
+  const maxResults = Math.min(options.maxResults || MAX_RESULTS, MAX_RESULTS);
+
+  if (options.maxResults && options.maxResults > MAX_RESULTS) {
+    logger.warn(
+      "Max results is greater than 20, which will cause rate limiting",
+      {
+        maxResults,
+      },
     );
   }
 
@@ -330,35 +335,4 @@ export async function getSentMessages(gmail: gmail_v1.Gmail, maxResults = 20) {
     maxResults,
   });
   return messages.messages;
-}
-
-export async function getMessagesLargeBatch({
-  gmail,
-  messageIds,
-}: {
-  gmail: gmail_v1.Gmail;
-  messageIds: string[];
-}): Promise<ParsedMessage[]> {
-  const accessToken = getAccessTokenFromClient(gmail);
-  if (!accessToken) throw new Error("No access token");
-  if (messageIds.length > 2000) throw new Error("Too many messages. Max 2000");
-
-  const batchSize = 100;
-  const allMessages: ParsedMessage[] = [];
-
-  for (let i = 0; i < messageIds.length; i += batchSize) {
-    const batchIds = messageIds.slice(i, i + batchSize);
-    const messages = await getMessagesBatch({
-      messageIds: batchIds,
-      accessToken,
-    });
-    allMessages.push(...messages);
-
-    // Wait 2 seconds between batches, except after the last batch
-    if (i + batchSize < messageIds.length) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  }
-
-  return allMessages;
 }

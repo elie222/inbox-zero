@@ -1,3 +1,6 @@
+"use client";
+
+import { usePathname } from "next/navigation";
 import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
@@ -7,23 +10,36 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
+import { SidebarRight } from "@/components/SidebarRight";
 
 export function SideNavWithTopNav({
   children,
   defaultOpen,
 }: {
   children: React.ReactNode;
-  defaultOpen?: boolean;
+  defaultOpen: boolean;
 }) {
+  const pathname = usePathname();
+
+  if (!pathname) return null;
+
+  // Ugly code. May change the onboarding path later so we don't need to do this.
+  // Only return children for the main onboarding page: /[emailAccountId]/onboarding
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 2 && segments[1] === "onboarding") return children;
+
   return (
-    <SidebarProvider defaultOpen={defaultOpen}>
-      <SideNav />
+    <SidebarProvider
+      defaultOpen={defaultOpen ? ["left-sidebar"] : []}
+      sidebarNames={["left-sidebar", "chat-sidebar"]}
+    >
+      <SideNav name="left-sidebar" />
       <SidebarInset className="overflow-hidden bg-background">
-        <TopNav trigger={<SidebarTrigger className="sm:-ml-4" />} />
+        <TopNav
+          trigger={<SidebarTrigger name="left-sidebar" className="sm:-ml-4" />}
+        />
         <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}
-        {/* space for Crisp so it doesn't cover content */}
-        {/* <div className="h-16" /> */}
         <div
           className="md:hidden md:pt-0"
           style={{ paddingTop: "calc(env(safe-area-inset-bottom) + 1rem)" }}
@@ -31,6 +47,7 @@ export function SideNavWithTopNav({
           <NavBottom />
         </div>
       </SidebarInset>
+      <SidebarRight name="chat-sidebar" />
     </SidebarProvider>
   );
 }

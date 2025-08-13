@@ -1,12 +1,12 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { ActionType, type User } from "@prisma/client";
+import { ActionType } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { calculateSimilarity } from "@/utils/similarity-score";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import { formatError } from "@/utils/error";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("draft-tracking");
 

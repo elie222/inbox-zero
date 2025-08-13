@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { SearchForm } from "@/components/SearchForm";
 import { Badge } from "@/components/Badge";
+import type { BatchExecutedRulesResponse } from "@/app/api/user/executed-rules/batch/route";
 import {
   isAIRule,
   isCategoryRule,
@@ -35,11 +36,9 @@ import { BulkRunRules } from "@/app/(app)/[emailAccountId]/assistant/BulkRunRule
 import { cn } from "@/utils";
 import { TestCustomEmailForm } from "@/app/(app)/[emailAccountId]/assistant/TestCustomEmailForm";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
-import { Tooltip } from "@/components/Tooltip";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import { useChat } from "@/components/assistant-chat/ChatContext";
-import type { SetInputFunction } from "@/components/assistant-chat/types";
+import { useChat } from "@/providers/ChatProvider";
 
 type Message = MessagesResponse["messages"][number];
 
@@ -102,6 +101,18 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const { data: rules } = useSWR<RulesResponse>("/api/user/rules");
   const { emailAccountId, userEmail } = useAccount();
 
+  // Fetch existing executed rules for current messages
+  const messageIdsToFetch = useMemo(
+    () => messages.map((m) => m.id),
+    [messages],
+  );
+
+  const { data: existingRules } = useSWR<BatchExecutedRulesResponse>(
+    messageIdsToFetch.length > 0
+      ? `/api/user/executed-rules/batch?messageIds=${messageIdsToFetch.join(",")}`
+      : null,
+  );
+
   // only show test rules form if we have an AI rule. this form won't match group/static rules which will confuse users
   const hasAiRules = rules?.some(
     (rule) =>
@@ -117,6 +128,24 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
   const [isRunning, setIsRunning] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, RunRulesResult>>({});
   const handledThreadsRef = useRef(new Set<string>());
+
+  // Merge existing rules with results
+  const allResults = useMemo(() => {
+    const merged = { ...results };
+    if (existingRules?.rulesMap) {
+      for (const [messageId, rule] of Object.entries(existingRules.rulesMap)) {
+        if (!merged[messageId]) {
+          merged[messageId] = {
+            rule: rule.rule,
+            actionItems: rule.actionItems,
+            reason: rule.reason,
+            existing: true,
+          };
+        }
+      }
+    }
+    return merged;
+  }, [results, existingRules]);
 
   const onRun = useCallback(
     async (message: Message, rerun?: boolean) => {
@@ -162,7 +191,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
 
       // Filter messages that should be processed
       const messagesToProcess = currentBatch.filter((message) => {
-        if (results[message.id]) return false;
+        if (allResults[message.id]) return false;
         if (handledThreadsRef.current.has(message.threadId)) return false;
         return true;
       });
@@ -268,7 +297,7 @@ export function ProcessRulesContent({ testMode }: { testMode: boolean }) {
                     message={message}
                     userEmail={userEmail}
                     isRunning={isRunning[message.id]}
-                    result={results[message.id]}
+                    result={allResults[message.id]}
                     onRun={(rerun) => onRun(message, rerun)}
                     testMode={testMode}
                     emailAccountId={emailAccountId}
@@ -318,7 +347,7 @@ function ProcessRulesRow({
   onRun: (rerun?: boolean) => void;
   testMode: boolean;
   emailAccountId: string;
-  setInput: SetInputFunction;
+  setInput: (input: string) => void;
 }) {
   return (
     <TableRow
@@ -354,19 +383,17 @@ function ProcessRulesRow({
                   message={message}
                   result={result}
                 />
-                <Tooltip content={testMode ? "Retest" : "Rerun"}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isRunning}
-                    onClick={() => onRun(true)}
-                  >
-                    <RefreshCcwIcon
-                      className={cn("size-4", isRunning && "animate-spin")}
-                    />
-                    <span className="sr-only">{testMode ? "Test" : "Run"}</span>
-                  </Button>
-                </Tooltip>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isRunning}
+                  onClick={() => onRun(true)}
+                >
+                  <RefreshCcwIcon
+                    className={cn("mr-2 size-4", isRunning && "animate-spin")}
+                  />
+                  <span>{testMode ? "Retest" : "Rerun"}</span>
+                </Button>
               </>
             ) : (
               <Button

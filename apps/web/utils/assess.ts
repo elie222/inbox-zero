@@ -1,7 +1,7 @@
 import uniq from "lodash/uniq";
 import countBy from "lodash/countBy";
-import type { EmailProvider } from "@/utils/email/provider";
-import { GmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
+import { GmailProvider } from "@/utils/email/google";
 import { getEmailClient } from "@/utils/mail";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
@@ -128,7 +128,7 @@ async function getForwardingAddressesCount(client: EmailProvider) {
 
 async function getEmailClients(client: EmailProvider) {
   try {
-    const messages = await client.getMessages("from:me", 50);
+    const messages = await client.getSentMessages(50);
 
     // go through the messages, and check the headers for the email client
     const clients = messages

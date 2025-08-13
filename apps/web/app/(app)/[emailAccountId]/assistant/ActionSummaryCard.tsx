@@ -190,6 +190,10 @@ export function ActionSummaryCard({
       summaryContent = "Add to digest";
       break;
 
+    case ActionType.MOVE_FOLDER:
+      summaryContent = `Folder: ${action.folderName?.value || "unset"}`;
+      break;
+
     default:
       summaryContent = actionTypeLabel;
   }

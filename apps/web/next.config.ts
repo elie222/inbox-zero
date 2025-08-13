@@ -53,7 +53,7 @@ const nextConfig: NextConfig = {
         has: [
           {
             type: "cookie",
-            key: "__Secure-authjs.session-token",
+            key: "__Secure-better-auth.session_token",
           },
         ],
         permanent: false,
@@ -64,29 +64,7 @@ const nextConfig: NextConfig = {
         has: [
           {
             type: "cookie",
-            key: "__Secure-authjs.session-token.0",
-          },
-        ],
-        permanent: false,
-      },
-      {
-        source: "/",
-        destination: "/setup",
-        has: [
-          {
-            type: "cookie",
-            key: "__Secure-authjs.session-token.1",
-          },
-        ],
-        permanent: false,
-      },
-      {
-        source: "/",
-        destination: "/setup",
-        has: [
-          {
-            type: "cookie",
-            key: "__Secure-authjs.session-token.2",
+            key: "__Secure-better-auth.session-token.1",
           },
         ],
         permanent: false,

@@ -5,6 +5,9 @@ import {
   ActionType,
   type Prisma,
 } from "@prisma/client";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("ai/rule/create-prompt-from-rule");
 
 export type RuleWithRelations = Rule & {
   actions: Action[];
@@ -89,8 +92,11 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
       case ActionType.DIGEST:
         actions.push("add to digest");
         break;
+      case ActionType.MOVE_FOLDER:
+        actions.push("move to folder");
+        break;
       default:
-        console.warn(`Unknown action type: ${action.type}`);
+        logger.warn("Unknown action type", { actionType: action.type });
         // biome-ignore lint/correctness/noSwitchDeclarations: intentional exhaustive check
         const exhaustiveCheck: never = action.type;
         return exhaustiveCheck;

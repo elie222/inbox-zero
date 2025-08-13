@@ -6,10 +6,7 @@ import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
-import type {
-  ProcessHistoryOptions,
-  OutlookResourceData,
-} from "@/app/api/outlook/webhook/types";
+import type { OutlookResourceData } from "@/app/api/outlook/webhook/types";
 import { processHistoryItem } from "@/app/api/outlook/webhook/process-history-item";
 import { logger } from "@/app/api/outlook/webhook/logger";
 
@@ -80,7 +77,7 @@ export async function processHistoryForUser({
     });
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft-entra-id",
+      provider: emailAccount.account?.provider || "microsoft",
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
@@ -96,7 +93,7 @@ export async function processHistoryForUser({
     logger.trace("Does not have ai access", { email: emailAccount.email });
     const provider = await createEmailProvider({
       emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft-entra-id",
+      provider: emailAccount.account?.provider || "microsoft",
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
@@ -131,7 +128,7 @@ export async function processHistoryForUser({
     const outlookClient = await getOutlookClientWithRefresh({
       accessToken: emailAccount.account?.access_token,
       refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at,
+      expiresAt: emailAccount.account?.expires_at?.getTime() || null,
       emailAccountId: emailAccount.id,
     });
 

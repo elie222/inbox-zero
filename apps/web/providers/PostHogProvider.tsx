@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/utils/auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { env } from "@/env";
 
@@ -25,20 +25,20 @@ export function PostHogPageview() {
     }
   }, [pathname, searchParams]);
 
-  return <></>;
+  return null;
 }
 
 export function PostHogIdentify() {
-  const session = useSession();
+  const { data: session } = useSession();
 
   useEffect(() => {
-    if (session?.data?.user.email)
-      posthog.identify(session.data.user.email, {
-        email: session.data.user.email,
+    if (session?.user.email)
+      posthog.identify(session.user.email, {
+        email: session.user.email,
       });
-  }, [session?.data?.user.email]);
+  }, [session?.user.email]);
 
-  return <></>;
+  return null;
 }
 
 if (typeof window !== "undefined" && env.NEXT_PUBLIC_POSTHOG_KEY) {

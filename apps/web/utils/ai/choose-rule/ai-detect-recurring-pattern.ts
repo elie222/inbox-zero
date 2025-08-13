@@ -1,11 +1,12 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { chatCompletionObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("detect-recurring-pattern");
+const logger = createScopedLogger("ai-detect-recurring-pattern");
 
 // const braintrust = new Braintrust("recurring-pattern-detection");
 
@@ -95,19 +96,21 @@ ${stringifyEmail(email, 500)}
   .join("\n")}
 </sample_emails>`;
 
-  logger.trace("Input", { system, prompt });
-
   try {
-    const aiResponse = await chatCompletionObject({
-      userAi: emailAccount.user,
+    const modelOptions = getModel(emailAccount.user, "chat");
+
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Detect recurring pattern",
+      modelOptions,
+    });
+
+    const aiResponse = await generateObject({
+      ...modelOptions,
       system,
       prompt,
       schema,
-      userEmail: emailAccount.email,
-      usageLabel: "Detect recurring pattern",
     });
-
-    logger.trace("Response", aiResponse.object);
 
     // braintrust.insertToDataset({
     //   id: emails[0].id,

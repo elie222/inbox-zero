@@ -7,8 +7,6 @@ import { RuleName } from "@/utils/rule/consts";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { hasCronSecret } from "@/utils/cron";
-import { captureException } from "@/utils/error";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";

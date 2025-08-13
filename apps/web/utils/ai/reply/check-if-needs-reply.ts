@@ -1,26 +1,13 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { createScopedLogger } from "@/utils/logger";
 import type { EmailForLLM } from "@/utils/types";
 import {
   stringifyEmailFromBody,
   stringifyEmailSimple,
 } from "@/utils/stringify-email";
 import { preprocessBooleanLike } from "@/utils/zod";
-
-const logger = createScopedLogger("check-if-needs-reply");
-
-const schema = z.object({
-  rationale: z
-    .string()
-    .describe("Brief one-line explanation for the decision."),
-  needsReply: z.preprocess(
-    preprocessBooleanLike,
-    z.boolean().describe("Whether a reply is needed."),
-  ),
-});
-export type AICheckResult = z.infer<typeof schema>;
+import { getModel } from "@/utils/llms/model";
 
 export async function aiCheckIfNeedsReply({
   emailAccount,
@@ -30,7 +17,7 @@ export async function aiCheckIfNeedsReply({
   emailAccount: EmailAccountWithAI;
   messageToSend: EmailForLLM;
   threadContextMessages: EmailForLLM[];
-}): Promise<AICheckResult> {
+}) {
   // If messageToSend somehow is null/undefined, default to no reply needed.
   if (!messageToSend)
     return { needsReply: false, rationale: "No message provided" };
@@ -60,21 +47,33 @@ ${threadContextMessages
     : ""
 }
 
-Decide if the message we are sending needs a reply.
+Decide if the message we are sending needs a reply. Respond with a JSON object with the following fields:
+- rationale: Brief one-line explanation for the decision.
+- needsReply: Whether a reply is needed.
 `.trim();
 
-  logger.trace("Input", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
-    system,
-    prompt,
-    schema,
+  const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
-    usageLabel: "Check if needs reply",
+    label: "Check if needs reply",
+    modelOptions,
   });
 
-  logger.trace("Result", { response: aiResponse.object });
+  const aiResponse = await generateObject({
+    ...modelOptions,
+    system,
+    prompt,
+    schema: z.object({
+      rationale: z
+        .string()
+        .describe("Brief one-line explanation for the decision."),
+      needsReply: z.preprocess(
+        preprocessBooleanLike,
+        z.boolean().describe("Whether a reply is needed."),
+      ),
+    }),
+  });
 
-  return aiResponse.object as AICheckResult;
+  return aiResponse.object;
 }

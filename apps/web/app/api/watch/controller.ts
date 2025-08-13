@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("watch/controller");
 
@@ -26,9 +26,7 @@ export async function watchEmails({
         data: {
           watchEmailsExpirationDate: result.expirationDate,
           watchEmailsSubscriptionId:
-            provider.name === "microsoft-entra-id"
-              ? result.subscriptionId
-              : null,
+            provider.name === "microsoft" ? result.subscriptionId : null,
         },
       });
 

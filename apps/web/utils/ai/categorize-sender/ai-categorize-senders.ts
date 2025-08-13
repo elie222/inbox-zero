@@ -1,13 +1,11 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
 import { isDefined } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
-import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
-
-const logger = createScopedLogger("ai-categorize-senders");
+import { getModel } from "@/utils/llms/model";
+import { createGenerateObject } from "@/utils/llms";
 
 export const REQUEST_MORE_INFORMATION_CATEGORY = "RequestMoreInformation";
 export const UNKNOWN_CATEGORY = "Unknown";
@@ -85,21 +83,22 @@ ${formatCategoriesForPrompt(categories)}
 - Accuracy is more important than completeness
 - Only use the categories provided above
 - Respond with "Unknown" if unsure
+- Return your response in JSON format
 </important>`;
 
-  logger.trace("Categorize senders", { system, prompt });
+  const modelOptions = getModel(emailAccount.user, "chat");
 
-  const aiResponse = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Categorize senders bulk",
+    modelOptions,
+  });
+
+  const aiResponse = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: categorizeSendersSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "Categorize senders bulk",
-  });
-
-  logger.trace("Categorize senders response", {
-    senders: aiResponse.object.senders,
   });
 
   const matchedSenders = matchSendersWithFullEmail(
@@ -118,8 +117,6 @@ ${formatCategoriesForPrompt(categories)}
 
     return r;
   });
-
-  logger.trace("Categorize senders results", { results });
 
   return results;
 }

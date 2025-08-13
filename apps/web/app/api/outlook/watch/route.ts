@@ -17,7 +17,7 @@ export const GET = withAuth(async (request) => {
     where: {
       userId,
       account: {
-        provider: "microsoft-entra-id",
+        provider: "microsoft",
       },
     },
     select: { id: true },
@@ -58,7 +58,7 @@ export const GET = withAuth(async (request) => {
       const outlookClient = await getOutlookClientWithRefresh({
         accessToken: account.account.access_token,
         refreshToken: account.account.refresh_token,
-        expiresAt: account.account.expires_at,
+        expiresAt: account.account.expires_at?.getTime() || null,
         emailAccountId,
       });
 

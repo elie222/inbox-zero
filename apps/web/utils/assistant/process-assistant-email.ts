@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { emailToContent } from "@/utils/mail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { internalDateToDate } from "@/utils/date";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("process-assistant-email");
 
@@ -127,6 +127,7 @@ async function processAssistantEmailInternal({
           },
         },
         categories: true,
+        account: { select: { provider: true } },
       },
     }),
     originalMessage
@@ -221,7 +222,8 @@ async function processAssistantEmailInternal({
   const lastToolCall = toolCalls[toolCalls.length - 1];
 
   if (lastToolCall?.toolName === "reply") {
-    await provider.replyToEmail(message, lastToolCall.args.content);
+    const input = lastToolCall.input as { content: string } | undefined;
+    await provider.replyToEmail(message, input?.content || "");
   }
 }
 
@@ -236,11 +238,6 @@ function verifyUserSentEmail({
     extractEmailAddress(message.headers.from).toLowerCase() ===
     userEmail.toLowerCase()
   );
-}
-
-function replaceName(email: string, name: string) {
-  const emailAddress = extractEmailAddress(email);
-  return `${name} <${emailAddress}>`;
 }
 
 // Label the message with processing and assistant labels, and remove the processing label when done

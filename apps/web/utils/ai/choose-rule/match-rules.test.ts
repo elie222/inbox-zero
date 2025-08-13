@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { gmail_v1 } from "@googleapis/gmail";
 import {
   findMatchingRule,
   matchesStaticRule,
@@ -20,7 +19,7 @@ import type {
   ParsedMessage,
   ParsedMessageHeaders,
 } from "@/utils/types";
-import type { EmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import prisma from "@/utils/__mocks__/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
 import { getEmailAccount } from "@/__tests__/helpers";

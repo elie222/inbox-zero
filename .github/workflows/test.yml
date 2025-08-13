@@ -47,6 +47,8 @@ jobs:
           NEXTAUTH_SECRET: "secret"
           GOOGLE_CLIENT_ID: "client_id"
           GOOGLE_CLIENT_SECRET: "client_secret"
+          MICROSOFT_CLIENT_ID: "client_id"
+          MICROSOFT_CLIENT_SECRET: "client_secret"
           GOOGLE_PUBSUB_TOPIC_NAME: "topic"
           EMAIL_ENCRYPT_SECRET: "secret"
           EMAIL_ENCRYPT_SALT: "salt"

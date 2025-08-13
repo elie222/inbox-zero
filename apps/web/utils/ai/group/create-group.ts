@@ -1,12 +1,12 @@
+import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
-import { chatCompletionTools } from "@/utils/llms";
+import { createGenerateText } from "@/utils/llms";
 import type { Group } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
-
-// no longer in use. delete?
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("aiCreateGroup");
 
@@ -58,11 +58,6 @@ export async function aiGenerateGroupItems(
   gmail: gmail_v1.Gmail,
   group: Pick<Group, "name" | "prompt">,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
-  logger.info("aiGenerateGroupItems", {
-    name: group.name,
-    prompt: group.prompt,
-  });
-
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to create highly specific email groups based on user prompts and their actual email history.
 
@@ -86,35 +81,37 @@ Key guidelines:
 8. It's better to suggest fewer, more reliable criteria than to risk overgeneralization.
 9. If the user explicitly excludes certain types of emails, ensure your suggestions do not include them.`;
 
-  logger.trace("aiGenerateGroupItems", { system, prompt });
+  const modelOptions = getModel(emailAccount.user);
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    system,
-    prompt,
-    maxSteps: 10,
-    tools: {
-      listEmails: listEmailsTool(gmail),
-      [GENERATE_GROUP_ITEMS]: {
-        description: "Create a group",
-        parameters: generateGroupItemsSchema,
-      },
-    },
+  const generateText = createGenerateText({
     userEmail: emailAccount.email,
     label: "Create group",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
+    system,
+    prompt,
+    stopWhen: stepCountIs(10),
+    tools: {
+      listEmails: listEmailsTool(gmail),
+      [GENERATE_GROUP_ITEMS]: tool({
+        description: "Create a group",
+        inputSchema: generateGroupItemsSchema,
+      }),
+    },
   });
 
   const generateGroupItemsToolCalls = aiResponse.toolCalls.filter(
     ({ toolName }) => toolName === GENERATE_GROUP_ITEMS,
   );
 
-  logger.trace("aiGenerateGroupItems result", { generateGroupItemsToolCalls });
-
   const combinedArgs = generateGroupItemsToolCalls.reduce<
     z.infer<typeof generateGroupItemsSchema>
   >(
-    (acc, { args }) => {
-      const typedArgs = args as z.infer<typeof generateGroupItemsSchema>;
+    (acc, { input }) => {
+      const typedArgs = input as z.infer<typeof generateGroupItemsSchema>;
       return {
         senders: [...acc.senders, ...typedArgs.senders],
         subjects: [...acc.subjects, ...typedArgs.subjects],
@@ -132,11 +129,6 @@ async function verifyGroupItems(
   group: Pick<Group, "name" | "prompt">,
   initialItems: z.infer<typeof generateGroupItemsSchema>,
 ): Promise<z.infer<typeof generateGroupItemsSchema>> {
-  logger.info("verifyGroupItems", {
-    name: group.name,
-    prompt: group.prompt,
-  });
-
   const system = `You are an AI assistant specializing in email management and organization.
 Your task is to identify and remove any incorrect or overly broad criteria from the generated email group.
 One word subjects are almost always too broad and should be removed.`;
@@ -159,20 +151,26 @@ Guidelines:
 5. If all items are correct and specific, you can return empty arrays for removedSenders and removedSubjects.
 6. When using listEmails, make separate calls for each sender and subject. Do not combine them in a single query.`;
 
-  const aiResponse = await chatCompletionTools({
-    userAi: emailAccount.user,
-    system,
-    prompt,
-    maxSteps: 10,
-    tools: {
-      listEmails: listEmailsTool(gmail),
-      [VERIFY_GROUP_ITEMS]: {
-        description: "Remove incorrect or overly broad group criteria",
-        parameters: verifyGroupItemsSchema,
-      },
-    },
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateText = createGenerateText({
     userEmail: emailAccount.email,
     label: "Verify group criteria",
+    modelOptions,
+  });
+
+  const aiResponse = await generateText({
+    ...modelOptions,
+    system,
+    prompt,
+    stopWhen: stepCountIs(10),
+    tools: {
+      listEmails: listEmailsTool(gmail),
+      [VERIFY_GROUP_ITEMS]: tool({
+        description: "Remove incorrect or overly broad group criteria",
+        inputSchema: verifyGroupItemsSchema,
+      }),
+    },
   });
 
   const verifyGroupItemsToolCalls = aiResponse.toolCalls.filter(
@@ -184,9 +182,12 @@ Guidelines:
     return initialItems;
   }
 
-  const verificationResult = verifyGroupItemsToolCalls[
-    verifyGroupItemsToolCalls.length - 1
-  ].args as z.infer<typeof verifyGroupItemsSchema>;
+  const toolCall =
+    verifyGroupItemsToolCalls[verifyGroupItemsToolCalls.length - 1];
+
+  const verificationResult = toolCall.input as z.infer<
+    typeof verifyGroupItemsSchema
+  >;
 
   // Remove the identified items from the initial lists
   const verifiedItems = {

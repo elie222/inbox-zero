@@ -105,11 +105,7 @@ function RulesPromptForm({
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
 }) {
-  const {
-    userLabels,
-    isLoading: isLoadingLabels,
-    error: errorLabels,
-  } = useLabels();
+  const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -313,7 +309,7 @@ function RulesPromptForm({
 
                         if (result?.data?.rulesPrompt) {
                           editorRef.current?.appendText(
-                            result?.data?.rulesPrompt,
+                            `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
                           toast.error("Error generating prompt");

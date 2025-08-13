@@ -27,12 +27,13 @@ const schema = z.object({
 export type AnalyzeSenderPatternBody = z.infer<typeof schema>;
 
 export const POST = withError(async (request) => {
+  const json = await request.json();
+
   if (!isValidInternalApiKey(await headers(), logger)) {
-    logger.error("Invalid API key");
+    logger.error("Invalid API key for sender pattern analysis", json);
     return NextResponse.json({ error: "Invalid API key" });
   }
 
-  const json = await request.json();
   const data = schema.parse(json);
   const { emailAccountId } = data;
   const from = extractEmailAddress(data.from);
@@ -61,6 +62,11 @@ async function process({
 }) {
   try {
     const emailAccount = await getEmailAccountWithRules({ emailAccountId });
+
+    if (emailAccount?.account?.provider !== "google") {
+      logger.warn("Unsupported provider", { emailAccountId });
+      return NextResponse.json({ success: false }, { status: 400 });
+    }
 
     if (!emailAccount) {
       logger.error("Email account not found", { emailAccountId });
@@ -92,7 +98,7 @@ async function process({
     const gmail = await getGmailClientWithRefresh({
       accessToken: account.access_token,
       refreshToken: account.refresh_token,
-      expiresAt: account.expires_at,
+      expiresAt: account.expires_at?.getTime() || null,
       emailAccountId,
     });
 
@@ -269,6 +275,7 @@ async function getEmailAccountWithRules({
       },
       account: {
         select: {
+          provider: true,
           access_token: true,
           refresh_token: true,
           expires_at: true,

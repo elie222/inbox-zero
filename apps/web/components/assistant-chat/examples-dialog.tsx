@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import type { UseChatHelpers } from "@ai-sdk/react";
 import {
   Dialog,
   DialogContent,
@@ -28,7 +27,7 @@ import { parseAsStringEnum, useQueryState } from "nuqs";
 import { cn } from "@/utils";
 
 interface ExamplesDialogProps {
-  setInput: UseChatHelpers["setInput"];
+  setInput: (input: string) => void;
   children?: React.ReactNode;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;

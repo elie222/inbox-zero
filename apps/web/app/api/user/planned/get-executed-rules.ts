@@ -65,7 +65,13 @@ export async function getExecutedRules({
           message: await emailProvider.getMessage(p.messageId),
         };
       } catch (error) {
-        logger.error("Error getting message", { error });
+        logger.error("Error getting message", {
+          error,
+          messageId: p.messageId,
+          threadId: p.threadId,
+          emailAccountId,
+          ruleId,
+        });
       }
     }),
   );

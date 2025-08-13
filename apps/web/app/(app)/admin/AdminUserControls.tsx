@@ -46,6 +46,13 @@ export const AdminUserControls = () => {
           }`,
         });
       },
+      onError: (error) => {
+        console.error(error);
+        toastError({
+          title: "Error checking permissions",
+          description: error.error.serverError ?? "Unknown error",
+        });
+      },
     });
   const { execute: deleteAccount, isExecuting: isDeleting } = useAction(
     adminDeleteAccountAction,

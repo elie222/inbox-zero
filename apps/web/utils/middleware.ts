@@ -4,17 +4,15 @@ import { captureException, checkCommonErrors, SafeError } from "@/utils/error";
 import { env } from "@/env";
 import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
-import { auth } from "@/app/api/auth/[...nextauth]/auth";
+import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
 import {
   EMAIL_ACCOUNT_HEADER,
   NO_REFRESH_TOKEN_ERROR_CODE,
 } from "@/utils/config";
 import prisma from "@/utils/prisma";
-import {
-  createEmailProvider,
-  type EmailProvider,
-} from "@/utils/email/provider";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("middleware");
 
@@ -116,6 +114,7 @@ function withMiddleware<T extends NextRequest>(
 
       // Quick fix: log full error in development. TODO: handle properly
       if (env.NODE_ENV === "development") {
+        // biome-ignore lint/suspicious/noConsole: helpful for debugging
         console.error(error);
       }
 

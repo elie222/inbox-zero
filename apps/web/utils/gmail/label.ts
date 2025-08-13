@@ -335,7 +335,7 @@ export async function getOrCreateInboxZeroLabel({
   if (!parentLabel) {
     try {
       await createLabel({ gmail, name: PARENT_LABEL });
-    } catch (error) {
+    } catch {
       logger.warn("Parent label already exists", { name: PARENT_LABEL });
     }
   }

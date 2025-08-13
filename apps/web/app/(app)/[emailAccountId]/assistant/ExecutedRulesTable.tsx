@@ -15,7 +15,6 @@ import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import type { SetInputFunction } from "@/components/assistant-chat/types";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
@@ -74,7 +73,7 @@ export function RuleCell({
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
-  setInput: SetInputFunction;
+  setInput: (input: string) => void;
 }) {
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
 

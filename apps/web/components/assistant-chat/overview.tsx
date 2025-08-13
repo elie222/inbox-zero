@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import type { UseChatHelpers } from "@ai-sdk/react";
 import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
@@ -8,7 +7,7 @@ import { ExamplesDialog } from "./examples-dialog";
 export const Overview = ({
   setInput,
 }: {
-  setInput: UseChatHelpers["setInput"];
+  setInput: (input: string) => void;
 }) => {
   return (
     <motion.div
@@ -25,10 +24,10 @@ export const Overview = ({
         </p>
 
         <TypographyH3 className="mt-8">
-          Hey, I'm your AI email assistant!
+          Hey, I'm your email assistant!
         </TypographyH3>
 
-        <MessageText className="mt-4">
+        <MessageText className="mt-4 text-base">
           Teach me how to handle your incoming emails for you
         </MessageText>
 

@@ -101,6 +101,7 @@ export const runRulesAction = actionClient
         message,
         rules,
         emailAccount,
+        modelType: "chat",
       });
 
       return result;
@@ -152,6 +153,7 @@ export const testAiCustomContentAction = actionClient
         },
         rules,
         emailAccount,
+        modelType: "chat",
       });
 
       return result;
@@ -276,6 +278,11 @@ export const saveRulesPromptAction = actionClient
             aiProvider: true,
             aiModel: true,
             aiApiKey: true,
+          },
+        },
+        account: {
+          select: {
+            provider: true,
           },
         },
       },

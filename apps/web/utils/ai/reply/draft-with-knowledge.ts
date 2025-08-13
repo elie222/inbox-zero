@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
+import { getModel } from "@/utils/llms/model";
+import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -22,6 +24,8 @@ Don't reply with a Subject. Only reply with the body of the email.
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
 Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.
+
+Return your response in JSON format.
 `;
 
 const getUserPrompt = ({
@@ -29,12 +33,14 @@ const getUserPrompt = ({
   emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  emailHistoryContext,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
   writingStyle: string | null;
 }) => {
   const userAbout = emailAccount.about
@@ -56,11 +62,30 @@ ${knowledgeBaseContent}
     : "";
 
   const historicalContext = emailHistorySummary
-    ? `Historical email context:
+    ? `Historical email context with this sender:
     
-<historical_context>
+<sender_history>
 ${emailHistorySummary}
-</historical_context>
+</sender_history>
+`
+    : "";
+
+  const precedentHistoryContext = emailHistoryContext?.relevantEmails.length
+    ? `Information from similar email threads that may be relevant to the current conversation to draft a reply.
+    
+<email_history>
+${emailHistoryContext.relevantEmails
+  .map(
+    (item) => `<item>
+${item}
+</item>`,
+  )
+  .join("\n")}
+</email_history>
+
+<email_history_notes>
+${emailHistoryContext.notes || "No notes"}
+</email_history_notes>
 `
     : "";
 
@@ -76,6 +101,7 @@ ${writingStyle}
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
+${precedentHistoryContext}
 ${writingStylePrompt}
 
 Here is the context of the email thread (from oldest to newest):
@@ -105,12 +131,14 @@ export async function aiDraftWithKnowledge({
   emailAccount,
   knowledgeBaseContent,
   emailHistorySummary,
+  emailHistoryContext,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
   emailAccount: EmailAccountWithAI;
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
+  emailHistoryContext: ReplyContextCollectorResult | null;
   writingStyle: string | null;
 }) {
   try {
@@ -125,21 +153,24 @@ export async function aiDraftWithKnowledge({
       emailAccount,
       knowledgeBaseContent,
       emailHistorySummary,
+      emailHistoryContext,
       writingStyle,
     });
 
-    logger.trace("Input", { system, prompt });
+    const modelOptions = getModel(emailAccount.user);
 
-    const result = await chatCompletionObject({
+    const generateObject = createGenerateObject({
+      userEmail: emailAccount.email,
+      label: "Email draft with knowledge",
+      modelOptions,
+    });
+
+    const result = await generateObject({
+      ...modelOptions,
       system,
       prompt,
       schema: draftSchema,
-      usageLabel: "Email draft with knowledge",
-      userAi: emailAccount.user,
-      userEmail: emailAccount.email,
     });
-
-    logger.trace("Output", result.object);
 
     return result.object.reply;
   } catch (error) {

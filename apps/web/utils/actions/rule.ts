@@ -47,8 +47,6 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
-import type { CreateOrUpdateRuleSchemaWithCategories } from "@/utils/ai/rule/create-rule-schema";
-import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -89,6 +87,7 @@ export const createRuleAction = actionClient
                         cc,
                         bcc,
                         url,
+                        folderName,
                         delayInMinutes,
                       }) => {
                         return sanitizeActionFields({
@@ -100,6 +99,7 @@ export const createRuleAction = actionClient
                           cc: cc?.value,
                           bcc: bcc?.value,
                           url: url?.value,
+                          folderName: folderName?.value,
                           delayInMinutes,
                         });
                       },
@@ -232,6 +232,7 @@ export const updateRuleAction = actionClient
                 cc: a.cc?.value,
                 bcc: a.bcc?.value,
                 url: a.url?.value,
+                folderName: a.folderName?.value,
                 delayInMinutes: a.delayInMinutes,
               }),
             });
@@ -251,6 +252,7 @@ export const updateRuleAction = actionClient
                         cc: a.cc?.value,
                         bcc: a.bcc?.value,
                         url: a.url?.value,
+                        folderName: a.folderName?.value,
                         delayInMinutes: a.delayInMinutes,
                       }),
                       ruleId: id,
@@ -390,7 +392,7 @@ export const enableDraftRepliesAction = actionClient
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+  .action(async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id, emailAccountId },
       include: { actions: true, categoryFilters: true, group: true },
@@ -431,7 +433,7 @@ export const deleteRuleAction = actionClient
         if (!emailAccount.rulesPrompt) return;
 
         const updatedPrompt = await generatePromptOnDeleteRule({
-          emailAccount,
+          emailAccount: { ...emailAccount, account: { provider } },
           existingPrompt: emailAccount.rulesPrompt,
           deletedRule: rule,
         });
@@ -661,7 +663,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Newsletter,
           "Newsletters: Regular content from publications, blogs, or services I've subscribed to",
-          "Label all newsletters as 'Newsletter'",
+          "Label all newsletters as @[Newsletter]",
           false,
           newsletter.action,
           "Newsletter",
@@ -678,7 +680,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Marketing,
           "Marketing: Promotional emails about products, services, sales, or offers",
-          "Label all marketing emails as 'Marketing'",
+          "Label all marketing emails as @[Marketing]",
           false,
           marketing.action,
           "Marketing",
@@ -695,7 +697,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Calendar,
           "Calendar: Any email related to scheduling, meeting invites, or calendar notifications",
-          "Label all calendar emails as 'Calendar'",
+          "Label all calendar emails as @[Calendar]",
           false,
           calendar.action,
           "Calendar",
@@ -712,7 +714,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Receipt,
           "Receipts: Purchase confirmations, payment receipts, transaction records or invoices",
-          "Label all receipts as 'Receipts'",
+          "Label all receipts as @[Receipt]",
           false,
           receipt.action,
           "Receipt",
@@ -729,7 +731,7 @@ export const createRulesOnboardingAction = actionClient
         createRule(
           RuleName.Notification,
           "Notifications: Alerts, status updates, or system messages",
-          "Label all notifications as 'Notifications'",
+          "Label all notifications as @[Notifications]",
           false,
           notification.action,
           "Notification",

@@ -55,7 +55,8 @@ export class OutlookClient {
         return `data:image/jpeg;base64,${base64}`;
       }
       return null;
-    } catch (error) {
+    } catch {
+      logger.warn("Error getting user photo");
       return null;
     }
   }
@@ -86,7 +87,7 @@ export const getOutlookClientWithRefresh = async ({
   if (!refreshToken) throw new SafeError("No refresh token");
 
   // Check if token needs refresh
-  const expiryDate = expiresAt ? expiresAt * 1000 : null;
+  const expiryDate = expiresAt ? expiresAt : null;
   if (accessToken && expiryDate && expiryDate > Date.now()) {
     return createOutlookClient(accessToken);
   }
@@ -128,7 +129,7 @@ export const getOutlookClientWithRefresh = async ({
       },
       accountRefreshToken: refreshToken,
       emailAccountId,
-      provider: "microsoft-entra-id",
+      provider: "microsoft",
     });
 
     return createOutlookClient(tokens.access_token);

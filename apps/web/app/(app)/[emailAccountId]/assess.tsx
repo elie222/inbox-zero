@@ -28,7 +28,7 @@ export function AssessUser() {
     async function assess() {
       const result = await executeAssessAsync();
       // no need to run this over and over after the first time
-      if (!result?.data?.skipped && provider !== "microsoft-entra-id") {
+      if (!result?.data?.skipped && provider !== "microsoft") {
         executeWhitelistInboxZero();
       }
     }

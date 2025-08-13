@@ -65,7 +65,7 @@ export function EmailMessage({
   }, []);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: <explanation>
+    // biome-ignore lint/a11y/useKeyWithClickEvents: ignore
     <li
       className={cn(
         "bg-background p-4 shadow sm:rounded-lg",

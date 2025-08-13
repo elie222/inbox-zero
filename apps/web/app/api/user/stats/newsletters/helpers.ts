@@ -1,4 +1,4 @@
-import type { EmailProvider, EmailFilter } from "@/utils/email/provider";
+import type { EmailProvider, EmailFilter } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
@@ -82,7 +82,7 @@ function isAutoArchiveFilter(filter: EmailFilter, provider: EmailProvider) {
   switch (provider.name) {
     case "google":
       return isGmailAutoArchiveFilter(filter);
-    case "microsoft-entra-id":
+    case "microsoft":
       return isOutlookAutoArchiveFilter(filter);
     default:
       return false;

@@ -78,77 +78,75 @@ export function CommandK() {
   const navigation = useNavigation();
 
   return (
-    <>
-      <CommandDialog
-        open={open}
-        onOpenChange={setOpen}
-        commandProps={{
-          onKeyDown: (e) => {
-            // allow closing modal
-            if (e.key !== "Escape") {
-              // stop propagation to prevent keyboard shortcuts from firing on the page
-              e.stopPropagation();
-            }
-          },
-        }}
-      >
-        <CommandInput placeholder="Type a command..." />
-        <CommandList>
-          <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Actions">
-            {threadId && (
-              <CommandItem
-                onSelect={() => {
-                  onArchive();
-                  setOpen(false);
-                }}
-              >
-                <ArchiveIcon className="mr-2 h-4 w-4" />
-                <span>Archive</span>
-                <CommandShortcut>E</CommandShortcut>
-              </CommandItem>
-            )}
+    <CommandDialog
+      open={open}
+      onOpenChange={setOpen}
+      commandProps={{
+        onKeyDown: (e) => {
+          // allow closing modal
+          if (e.key !== "Escape") {
+            // stop propagation to prevent keyboard shortcuts from firing on the page
+            e.stopPropagation();
+          }
+        },
+      }}
+    >
+      <CommandInput placeholder="Type a command..." />
+      <CommandList>
+        <CommandEmpty>No results found.</CommandEmpty>
+        <CommandGroup heading="Actions">
+          {threadId && (
             <CommandItem
               onSelect={() => {
+                onArchive();
                 setOpen(false);
-                onOpenComposeModal();
               }}
             >
-              <PenLineIcon className="mr-2 h-4 w-4" />
-              <span>Compose</span>
-              <CommandShortcut>C</CommandShortcut>
+              <ArchiveIcon className="mr-2 h-4 w-4" />
+              <span>Archive</span>
+              <CommandShortcut>E</CommandShortcut>
             </CommandItem>
-          </CommandGroup>
-          <CommandGroup heading="Assistant">
-            {navigation.assistantItems.map((option) => (
-              <CommandItem
-                key={option.name}
-                onSelect={() => {
-                  router.push(option.href);
-                  setOpen(false);
-                }}
-              >
-                <option.icon className="mr-2 h-4 w-4" />
-                <span>{option.name}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-          <CommandGroup heading="Clean">
-            {navigation.cleanItems.map((option) => (
-              <CommandItem
-                key={option.name}
-                onSelect={() => {
-                  router.push(option.href);
-                  setOpen(false);
-                }}
-              >
-                <option.icon className="mr-2 h-4 w-4" />
-                <span>{option.name}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        </CommandList>
-      </CommandDialog>
-    </>
+          )}
+          <CommandItem
+            onSelect={() => {
+              setOpen(false);
+              onOpenComposeModal();
+            }}
+          >
+            <PenLineIcon className="mr-2 h-4 w-4" />
+            <span>Compose</span>
+            <CommandShortcut>C</CommandShortcut>
+          </CommandItem>
+        </CommandGroup>
+        <CommandGroup heading="Assistant">
+          {navigation.assistantItems.map((option) => (
+            <CommandItem
+              key={option.name}
+              onSelect={() => {
+                router.push(option.href);
+                setOpen(false);
+              }}
+            >
+              <option.icon className="mr-2 h-4 w-4" />
+              <span>{option.name}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandGroup heading="Clean">
+          {navigation.cleanItems.map((option) => (
+            <CommandItem
+              key={option.name}
+              onSelect={() => {
+                router.push(option.href);
+                setOpen(false);
+              }}
+            >
+              <option.icon className="mr-2 h-4 w-4" />
+              <span>{option.name}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      </CommandList>
+    </CommandDialog>
   );
 }

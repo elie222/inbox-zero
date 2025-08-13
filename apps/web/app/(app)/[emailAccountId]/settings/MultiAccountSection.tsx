@@ -2,7 +2,7 @@
 
 import { useCallback } from "react";
 import { type SubmitHandler, useFieldArray, useForm } from "react-hook-form";
-import { useSession } from "next-auth/react";
+import { useSession } from "@/utils/auth-client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import useSWR from "swr";
 import { usePostHog } from "posthog-js/react";
@@ -46,19 +46,18 @@ export function MultiAccountSection() {
 
   const { openModal, PremiumModal } = usePremiumModal();
 
-  const { execute: claimPremiumAdmin, isExecuting: isClaimingPremiumAdmin } =
-    useAction(claimPremiumAdminAction, {
-      onSuccess: () => {
-        toastSuccess({ description: "Admin claimed!" });
-        mutate();
-      },
-      onError: (error) => {
-        toastError({
-          description:
-            `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
-        });
-      },
-    });
+  const { execute: claimPremiumAdmin } = useAction(claimPremiumAdminAction, {
+    onSuccess: () => {
+      toastSuccess({ description: "Admin claimed!" });
+      mutate();
+    },
+    onError: (error) => {
+      toastError({
+        description:
+          `Failed to claim premium admin. ${error.error.serverError || ""}`.trim(),
+      });
+    },
+  });
 
   if (
     isPremium &&

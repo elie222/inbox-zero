@@ -1,8 +1,5 @@
-import { useRouter } from "next/navigation";
-import { useQueryState } from "nuqs";
 import { MessageCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { SetInputFunction } from "@/components/assistant-chat/types";
 import type { ParsedMessage } from "@/utils/types";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
 import { truncate } from "@/utils/string";
@@ -18,28 +15,30 @@ import { useRules } from "@/hooks/useRules";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useModal } from "@/hooks/useModal";
 import { NEW_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
-import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { Label } from "@/components/Input";
 import { ButtonList } from "@/components/ButtonList";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
+import { useSidebar } from "@/components/ui/sidebar";
 
 export function FixWithChat({
   setInput,
   message,
   result,
 }: {
-  setInput: SetInputFunction;
+  setInput: (input: string) => void;
   message: ParsedMessage;
   result: RunRulesResult | null;
 }) {
   const { data, isLoading, error } = useRules();
   const { emailAccountId } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
-  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
-  const router = useRouter();
-  const [currentTab] = useQueryState("tab");
+  // const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
+  // const router = useRouter();
+  // const [currentTab] = useQueryState("tab");
+
+  const { setOpen } = useSidebar();
 
   return (
     <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -82,23 +81,22 @@ export function FixWithChat({
                   });
                 }
 
-                if (setInput) {
-                  // this is only set if we're in the correct context
-                  setInput(input);
-                } else {
-                  // redirect to the assistant page
-                  const searchParams = new URLSearchParams();
-                  searchParams.set("input", input);
-                  if (currentTab) searchParams.set("tab", currentTab);
+                setInput(input);
+                setOpen(["chat-sidebar"]);
+                // } else {
+                //   // redirect to the assistant page
+                //   const searchParams = new URLSearchParams();
+                //   searchParams.set("input", input);
+                //   if (currentTab) searchParams.set("tab", currentTab);
 
-                  router.push(
-                    createAssistantUrl({
-                      input,
-                      tab: currentTab || undefined,
-                      path: `/assistant${searchParams.toString()}`,
-                    }),
-                  );
-                }
+                //   router.push(
+                //     createAssistantUrl({
+                //       input,
+                //       tab: currentTab || undefined,
+                //       path: `/assistant${searchParams.toString()}`,
+                //     }),
+                //   );
+                // }
 
                 setIsModalOpen(false);
               }}
