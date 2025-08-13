@@ -177,7 +177,7 @@ export function RuleForm({
     isLoading: categoriesLoading,
     error: categoriesError,
   } = useCategories();
-  const { folders, isLoading: foldersLoading } = useFolders();
+  const { folders, isLoading: foldersLoading } = useFolders({ emailAccountId });
   const router = useRouter();
 
   const posthog = usePostHog();

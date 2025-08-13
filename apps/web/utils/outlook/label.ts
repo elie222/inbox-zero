@@ -243,6 +243,15 @@ export async function archiveThread({
   actionSource: TinybirdEmailAction["actionSource"];
   folderId?: string;
 }) {
+  if (!folderId) {
+    logger.warn("No folderId provided, skipping archive operation", {
+      threadId,
+      ownerEmail,
+      actionSource,
+    });
+    return;
+  }
+
   // Check if the destination folder exists (only for custom folders, well-known names can be trusted and used directly)
   const wellKnownFolders = Object.keys(WELL_KNOWN_FOLDERS);
   if (!wellKnownFolders.includes(folderId.toLowerCase())) {

@@ -133,7 +133,7 @@ export function FolderSelector({
 
     for (const folder of folderList) {
       const currentPath = parentPath
-        ? `${parentPath} ⦙ ${folder.displayName}`
+        ? `${parentPath}${FOLDER_SEPARATOR}${folder.displayName}`
         : folder.displayName;
       if (folder.displayName.toLowerCase().includes(query)) {
         results.push({ folder, displayPath: currentPath });
