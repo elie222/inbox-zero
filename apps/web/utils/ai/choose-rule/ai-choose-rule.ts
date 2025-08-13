@@ -115,7 +115,7 @@ ${emailSection}
   //   expected: aiResponse.object.ruleName,
   // });
 
-  return aiResponse.object;
+  return { result: aiResponse.object, modelOptions };
 }
 
 export async function aiChooseRule<
@@ -133,7 +133,7 @@ export async function aiChooseRule<
 }) {
   if (!rules.length) return { reason: "No rules" };
 
-  const aiResponse = await getAiResponse({
+  const { result: aiResponse, modelOptions } = await getAiResponse({
     email,
     rules,
     emailAccount,
@@ -162,6 +162,10 @@ export async function aiChooseRule<
         instructions: r.instructions,
       })),
       emailId: email.id,
+      model: modelOptions.modelName,
+      provider: modelOptions.provider,
+      providerOptions: modelOptions.providerOptions,
+      modelType,
     });
   }
 
