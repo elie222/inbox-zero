@@ -90,9 +90,13 @@ ${emailSection}
     system,
     prompt,
     schema: z.object({
-      reason: z.string(),
-      ruleName: z.string().nullish(),
-      noMatchFound: z.boolean().nullish(),
+      reason: z.string().describe("The reason you chose that rule."),
+      ruleName: z
+        .string()
+        .describe("The exact name of the rule you want to apply"),
+      noMatchFound: z
+        .boolean()
+        .describe("True if no match was found, false otherwise"),
     }),
   });
 
