@@ -9,7 +9,7 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { USER_ROLES } from "@/app/(landing)/welcome/survey";
+import { USER_ROLES } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 import {

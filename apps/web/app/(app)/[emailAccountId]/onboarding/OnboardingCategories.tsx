@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ControllerRenderProps } from "react-hook-form";
+import { PencilLineIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import {
@@ -73,6 +74,23 @@ export function CategoriesSetup({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
+        <div className="text-sm font-medium mb-2">SUGGESTED FOR YOU</div>
+
+        <div className="grid grid-cols-1 gap-2">
+          {categoryConfig.slice(0, 4).map((category) => (
+            <CategoryCard
+              key={category.key}
+              id={category.key}
+              label={category.label}
+              tooltipText={category.tooltipText}
+              icon={category.icon}
+              form={form}
+            />
+          ))}
+        </div>
+
+        <div className="text-sm font-medium mt-8 mb-2">BASIC LABELS</div>
+
         <div className="grid grid-cols-1 gap-2">
           {categoryConfig.map((category) => (
             <CategoryCard
@@ -84,6 +102,16 @@ export function CategoriesSetup({
               form={form}
             />
           ))}
+
+          <Card>
+            <CardContent className="flex items-center gap-4 p-4">
+              <PencilLineIcon className="h-5 w-5 text-purple-500" />
+              <div className="flex flex-1 items-center gap-2">Custom</div>
+              <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
+                You can set your own custom categories later
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </form>
     </Form>
