@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import { getOutlookFolders } from "@/utils/outlook/folders";
-import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
-import prisma from "@/utils/prisma";
+import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
+import { getOutlookClientForEmail } from "@/utils/account";
 
 export type GetFoldersResponse = Awaited<ReturnType<typeof getFolders>>;
 
@@ -14,30 +14,11 @@ export const GET = withEmailAccount(async (request) => {
 });
 
 async function getFolders({ emailAccountId }: { emailAccountId: string }) {
-  const emailAccount = await prisma.emailAccount.findUnique({
-    where: { id: emailAccountId },
-    select: {
-      account: {
-        select: {
-          provider: true,
-          access_token: true,
-          refresh_token: true,
-          expires_at: true,
-        },
-      },
-    },
-  });
+  const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
 
   if (emailAccount?.account?.provider === "microsoft") {
-    const client = await getOutlookClientWithRefresh({
-      accessToken: emailAccount.account.access_token,
-      refreshToken: emailAccount.account.refresh_token,
-      expiresAt: emailAccount.account.expires_at
-        ? Math.floor(emailAccount.account.expires_at.getTime() / 1000)
-        : null,
-      emailAccountId,
-    });
-    return getOutlookFolders(client);
+    const outlook = await getOutlookClientForEmail({ emailAccountId });
+    return getOutlookFolders(outlook);
   }
 
   return [];
