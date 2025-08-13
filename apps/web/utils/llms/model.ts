@@ -5,6 +5,7 @@ import { createAmazonBedrock } from "@ai-sdk/amazon-bedrock";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createGroq } from "@ai-sdk/groq";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { createGateway } from "@ai-sdk/gateway";
 // import { createOllama } from "ollama-ai-provider";
 import { env } from "@/env";
 import { Model, Provider } from "@/utils/llms/config";
@@ -112,6 +113,18 @@ function selectModel(
         modelName,
         model: chatModel,
         providerOptions,
+        backupModel: getBackupModel(aiApiKey),
+      };
+    }
+    case Provider.AI_GATEWAY: {
+      const modelName = aiModel || Model.GEMINI_2_5_PRO_OPENROUTER;
+      const gateway = createGateway({
+        apiKey: aiApiKey || env.AI_GATEWAY_API_KEY,
+      });
+      return {
+        provider: Provider.AI_GATEWAY,
+        modelName,
+        model: gateway(modelName),
         backupModel: getBackupModel(aiApiKey),
       };
     }
@@ -371,6 +384,7 @@ function getProviderApiKey(provider: string) {
     [Provider.GOOGLE]: env.GOOGLE_API_KEY,
     [Provider.GROQ]: env.GROQ_API_KEY,
     [Provider.OPENROUTER]: env.OPENROUTER_API_KEY,
+    [Provider.AI_GATEWAY]: env.AI_GATEWAY_API_KEY,
   };
 
   return providerApiKeys[provider];
