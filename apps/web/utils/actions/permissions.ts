@@ -53,9 +53,7 @@ export const adminCheckPermissionsAction = adminActionClient
     try {
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email },
-        select: {
-          id: true,
-        },
+        select: { id: true },
       });
       if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;

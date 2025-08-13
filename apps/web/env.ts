@@ -9,6 +9,7 @@ const llmProviderEnum = z.enum([
   "bedrock",
   "openrouter",
   "groq",
+  "aigateway",
   "ollama",
 ]);
 
@@ -55,6 +56,7 @@ export const env = createEnv({
     GOOGLE_API_KEY: z.string().optional(),
     GROQ_API_KEY: z.string().optional(),
     OPENROUTER_API_KEY: z.string().optional(),
+    AI_GATEWAY_API_KEY: z.string().optional(),
     OLLAMA_BASE_URL: z.string().optional(),
 
     UPSTASH_REDIS_URL: z.string().optional(),

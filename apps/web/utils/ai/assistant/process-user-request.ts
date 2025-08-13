@@ -253,7 +253,8 @@ ${senderCategory || "No category"}
         description: "Update the static conditions of a rule",
         inputSchema: z.object({
           ruleName: z.string().describe("The exact name of the rule to edit"),
-          staticConditions: createRuleSchema.shape.condition.shape.static,
+          staticConditions: createRuleSchema(emailAccount.account.provider)
+            .shape.condition.shape.static,
         }),
         execute: async ({ ruleName, staticConditions }) => {
           logger.info("Edit Static Conditions", { ruleName, staticConditions });
@@ -539,8 +540,9 @@ ${senderCategory || "No category"}
         inputSchema: categories
           ? getCreateRuleSchemaWithCategories(
               categories.map((c) => c.name) as [string, ...string[]],
+              emailAccount.account.provider,
             )
-          : createRuleSchema,
+          : createRuleSchema(emailAccount.account.provider),
         execute: async ({ name, condition, actions }) => {
           logger.info("Create Rule", { name, condition, actions });
           trackToolCall({

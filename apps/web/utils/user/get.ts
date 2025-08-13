@@ -20,6 +20,7 @@ export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
         access_token: true;
         refresh_token: true;
         expires_at: true;
+        provider: true;
       };
     };
   };
@@ -50,6 +51,11 @@ export async function getEmailAccountWithAi({
           aiApiKey: true,
         },
       },
+      account: {
+        select: {
+          provider: true,
+        },
+      },
     },
   });
 }
@@ -78,6 +84,7 @@ export async function getEmailAccountWithAiAndTokens({
           access_token: true,
           refresh_token: true,
           expires_at: true,
+          provider: true,
         },
       },
     },

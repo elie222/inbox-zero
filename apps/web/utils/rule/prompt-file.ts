@@ -34,6 +34,7 @@ export async function updatePromptFileOnRuleUpdated({
       about: true,
       rulesPrompt: true,
       user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+      account: { select: { provider: true } },
     },
   });
   if (!emailAccount) return;

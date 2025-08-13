@@ -187,7 +187,7 @@ Go to [Microsoft Azure Portal](https://portal.azure.com/). Create a new Azure Ac
    2. Under "Supported account types" select "Accounts in any organizational directory (Any Azure AD directory - Multitenant) and personal Microsoft accounts (e.g. Skype, Xbox)"
    3. Set the Redirect URI:
       - Platform: Web
-      - URL: `http://localhost:3000/api/auth/callback/microsoft-entra-id`
+      - URL: `http://localhost:3000/api/auth/callback/microsoft`
    4. Click "Register"
    5. In the "Manage" menu click "Authentication (Preview)"
    6. Add the Redirect URI: `http://localhost:3000/api/outlook/linking/callback`

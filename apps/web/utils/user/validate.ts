@@ -26,6 +26,7 @@ export async function validateUserAndAiAccess({
           },
         },
       },
+      account: { select: { provider: true } },
     },
   });
   if (!emailAccount) throw new SafeError("User not found");
