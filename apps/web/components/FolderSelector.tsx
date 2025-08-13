@@ -25,19 +25,21 @@ import {
 import { FOLDER_SEPARATOR, type OutlookFolder } from "@/utils/outlook/folders";
 import type { FieldError } from "react-hook-form";
 
+interface FolderItemProps {
+  folder: OutlookFolder;
+  level: number;
+  value: { name: string; id: string };
+  onSelect: (folderId: string) => void;
+  displayPath?: string;
+}
+
 function FolderItem({
   folder,
   level,
   value,
   onSelect,
   displayPath,
-}: {
-  folder: OutlookFolder;
-  level: number;
-  value: { name: string; id: string };
-  onSelect: (folderId: string) => void;
-  displayPath?: string;
-}) {
+}: FolderItemProps) {
   return (
     <div key={folder.id}>
       <CommandItem

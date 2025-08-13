@@ -91,6 +91,7 @@ import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
 import { useFolders } from "@/hooks/useFolders";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 
 export function Rule({
   ruleId,
@@ -1003,7 +1004,7 @@ function ActionCard({
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
-  folders: any[];
+  folders: OutlookFolder[];
   foldersLoading: boolean;
 }) {
   const fields = actionInputs[action.type].fields;
