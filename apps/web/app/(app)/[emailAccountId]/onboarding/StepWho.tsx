@@ -9,7 +9,8 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { USER_ROLES } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 import {
@@ -30,6 +31,7 @@ export function StepWho({
   initialRole,
   emailAccountId,
 }: StepWhoProps & { emailAccountId: string }) {
+  console.log("initialRole", initialRole);
   const router = useRouter();
   // const [isPending, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -180,20 +182,24 @@ export function StepWho({
             className="grid gap-2 px-1 pt-6 pb-6"
             fadeFromClass="from-slate-50"
           >
-            {USER_ROLES.map((role) => {
+            {Object.entries(usersRolesInfo).map(([roleName, role]) => {
               const Icon = role.icon;
+              const description = USER_ROLES.find(
+                (r) => r.value === roleName,
+              )?.description;
+
               return (
                 <button
                   type="button"
-                  key={role.value}
+                  key={roleName}
                   className={cn(
                     "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                    watchedRole === role.value &&
+                    watchedRole === roleName &&
                       "border-blue-600 ring-2 ring-blue-100",
                   )}
                   onClick={() => {
-                    setValue("role", role.value);
-                    if (role.value !== "Other") {
+                    setValue("role", roleName);
+                    if (roleName !== "Other") {
                       setCustomRole("");
                     }
                   }}
@@ -203,9 +209,9 @@ export function StepWho({
                   </IconCircle>
 
                   <div>
-                    <div className="font-medium">{role.value}</div>
+                    <div className="font-medium">{roleName}</div>
                     <div className="text-sm text-muted-foreground">
-                      {role.description}
+                      {description}
                     </div>
                   </div>
                 </button>

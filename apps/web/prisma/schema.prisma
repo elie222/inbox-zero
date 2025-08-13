@@ -63,7 +63,7 @@ model User {
 
   // survey answers (extracted from onboardingAnswers for easier querying)
   surveyFeatures     String[] // multiple choice: features user is interested in
-  surveyRole         String? // single choice: user's role
+  surveyRole         String? // single choice: user's role. Now using `EmailAccount.role` instead
   surveyGoal         String? // single choice: what user wants to achieve
   surveySource       String? // single choice: how user heard about Inbox Zero
   surveyImprovements String? // open text: what user wants to improve
@@ -110,7 +110,8 @@ model EmailAccount {
   watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?
   behaviorProfile           Json?
-  personaAnalysis           Json?
+  personaAnalysis           Json? // ai analysis of the user's persona
+  role                      String? // the role confirmed by the user - previously `User.surveyRole`
 
   statsEmailFrequency   Frequency         @default(WEEKLY)
   summaryEmailFrequency Frequency         @default(WEEKLY)

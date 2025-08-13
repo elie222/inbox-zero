@@ -47,16 +47,7 @@ export const analyzePersonaAction = actionClient
       getEmailForLLM(message, { removeForwarded: true, maxLength: 2000 }),
     );
 
-    const personaAnalysis = await aiAnalyzePersona({
-      emails,
-      emailAccount: {
-        id: emailAccount.id,
-        userId: emailAccount.userId,
-        email: emailAccount.email,
-        about: emailAccount.about,
-        user: emailAccount.user,
-      },
-    });
+    const personaAnalysis = await aiAnalyzePersona({ emails, emailAccount });
 
     if (!personaAnalysis) {
       throw new SafeError("Failed to analyze persona");

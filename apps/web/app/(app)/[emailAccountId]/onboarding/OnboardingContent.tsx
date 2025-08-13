@@ -7,7 +7,6 @@ import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { StepDigest } from "@/app/(app)/[emailAccountId]/onboarding/StepDigest";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
-import type { PersonaAnalysis } from "@/utils/ai/knowledge/persona";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -42,9 +41,7 @@ export function OnboardingContent({
     case 2:
       return (
         <StepWho
-          initialRole={
-            (data?.personaAnalysis as PersonaAnalysis | null)?.persona || null
-          }
+          initialRole={data?.role || data?.personaAnalysis?.persona}
           emailAccountId={emailAccountId}
         />
       );

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ControllerRenderProps } from "react-hook-form";
-import { PencilLineIcon } from "lucide-react";
+import { PencilLineIcon, UserIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import {
@@ -25,6 +25,8 @@ import { prefixPath } from "@/utils/path";
 import { categoryConfig } from "@/utils/category-config";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
+import { usePersona } from "@/hooks/usePersona";
+import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
 // copy paste of old file
 export function CategoriesSetup({
@@ -34,6 +36,8 @@ export function CategoriesSetup({
 }) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
+  const { data } = usePersona();
+  console.log("🚀 ~ CategoriesSetup ~ data:", data);
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
@@ -71,23 +75,30 @@ export function CategoriesSetup({
     [emailAccountId, router],
   );
 
+  const suggestedLabels = usersRolesInfo[data?.role || ""]?.suggestedLabels;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)}>
-        <div className="text-sm font-medium mb-2">SUGGESTED FOR YOU</div>
+        {suggestedLabels && suggestedLabels.length > 0 && (
+          <>
+            <div className="text-sm font-medium mb-2">SUGGESTED FOR YOU</div>
 
-        <div className="grid grid-cols-1 gap-2">
-          {categoryConfig.slice(0, 4).map((category) => (
-            <CategoryCard
-              key={category.key}
-              id={category.key}
-              label={category.label}
-              tooltipText={category.tooltipText}
-              icon={category.icon}
-              form={form}
-            />
-          ))}
-        </div>
+            <div className="grid grid-cols-1 gap-2">
+              {suggestedLabels.map((s) => (
+                <CategoryCard
+                  key={s.label}
+                  id={s.label as keyof CreateRulesOnboardingBody} // TODO:
+                  label={s.label}
+                  tooltipText={s.description}
+                  icon={<UserIcon />} // TODO:
+                  // icon={s.icon}
+                  form={form}
+                />
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="text-sm font-medium mt-8 mb-2">BASIC LABELS</div>
 
