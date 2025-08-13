@@ -26,7 +26,7 @@ export async function aiCreateRule(
     ...modelOptions,
     system,
     prompt,
-    schema: createRuleSchema,
+    schema: createRuleSchema(emailAccount.account.provider),
   });
 
   return aiResponse.object;

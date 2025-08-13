@@ -179,14 +179,16 @@ export type GetLearnedPatternsTool = InferUITool<
 const createRuleTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "createRule",
     description: "Create a new rule",
-    inputSchema: createRuleSchema,
+    inputSchema: createRuleSchema(provider),
     execute: async ({ name, condition, actions }) => {
       trackToolCall({ tool: "create_rule", email });
 
@@ -920,7 +922,11 @@ Examples:
 
   logger.trace("Input", { messages });
 
-  const toolOptions = { email: user.email, emailAccountId };
+  const toolOptions = {
+    email: user.email,
+    emailAccountId,
+    provider: user.account.provider,
+  };
 
   const result = chatCompletionStream({
     userAi: user.user,

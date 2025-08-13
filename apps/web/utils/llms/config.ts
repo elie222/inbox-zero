@@ -10,6 +10,7 @@ export const Provider = {
   GOOGLE: "google",
   GROQ: "groq",
   OPENROUTER: "openrouter",
+  AI_GATEWAY: "aigateway",
   CUSTOM: "custom",
   ...(supportsOllama ? { OLLAMA: "ollama" } : {}),
 };
@@ -27,8 +28,8 @@ export const Model = {
   GEMINI_1_5_FLASH: "gemini-1.5-flash-latest",
   GEMINI_2_0_FLASH_LITE: "gemini-2.0-flash-lite",
   GEMINI_2_0_FLASH: "gemini-2.0-flash",
-  GEMINI_2_0_FLASH_OPENROUTER: "google/gemini-2.0-flash-001",
-  GEMINI_2_5_PRO_OPENROUTER: "google/gemini-2.5-pro-preview-03-25",
+  GEMINI_2_0_FLASH_OPENROUTER: "google/gemini-2.0-flash",
+  GEMINI_2_5_PRO_OPENROUTER: "google/gemini-2.5",
   GROQ_LLAMA_3_3_70B: "llama-3.3-70b-versatile",
   KIMI_K2_OPENROUTER: "moonshotai/kimi-k2",
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),
@@ -41,6 +42,7 @@ export const providerOptions: { label: string; value: string }[] = [
   { label: "Google", value: Provider.GOOGLE },
   { label: "Groq", value: Provider.GROQ },
   { label: "OpenRouter", value: Provider.OPENROUTER },
+  { label: "AI Gateway", value: Provider.AI_GATEWAY },
   ...(supportsOllama && Provider.OLLAMA
     ? [{ label: "Ollama", value: Provider.OLLAMA }]
     : []),

@@ -12,9 +12,10 @@ import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
-const updateRuleSchema = createRuleSchema.extend({
-  ruleId: z.string().optional(),
-});
+const updateRuleSchema = (provider: string) =>
+  createRuleSchema(provider).extend({
+    ruleId: z.string().optional(),
+  });
 
 export async function aiPromptToRules({
   emailAccount,
@@ -31,6 +32,7 @@ export async function aiPromptToRules({
     if (availableCategories?.length) {
       const createRuleSchemaWithCategories = getCreateRuleSchemaWithCategories(
         availableCategories as [string, ...string[]],
+        emailAccount.account.provider,
       );
       const updateRuleSchemaWithCategories =
         createRuleSchemaWithCategories.extend({
@@ -41,7 +43,9 @@ export async function aiPromptToRules({
         ? updateRuleSchemaWithCategories
         : createRuleSchemaWithCategories;
     }
-    return isEditing ? updateRuleSchema : createRuleSchema;
+    return isEditing
+      ? updateRuleSchema(emailAccount.account.provider)
+      : createRuleSchema(emailAccount.account.provider);
   }
 
   const system = getSystemPrompt({
