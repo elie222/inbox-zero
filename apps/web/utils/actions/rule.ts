@@ -88,6 +88,7 @@ export const createRuleAction = actionClient
                         bcc,
                         url,
                         folderName,
+                        folderId,
                         delayInMinutes,
                       }) => {
                         return sanitizeActionFields({
@@ -100,6 +101,7 @@ export const createRuleAction = actionClient
                           bcc: bcc?.value,
                           url: url?.value,
                           folderName: folderName?.value,
+                          folderId: folderId?.value,
                           delayInMinutes,
                         });
                       },
@@ -233,6 +235,7 @@ export const updateRuleAction = actionClient
                 bcc: a.bcc?.value,
                 url: a.url?.value,
                 folderName: a.folderName?.value,
+                folderId: a.folderId?.value,
                 delayInMinutes: a.delayInMinutes,
               }),
             });
@@ -253,6 +256,7 @@ export const updateRuleAction = actionClient
                         bcc: a.bcc?.value,
                         url: a.url?.value,
                         folderName: a.folderName?.value,
+                        folderId: a.folderId?.value,
                         delayInMinutes: a.delayInMinutes,
                       }),
                       ruleId: id,
