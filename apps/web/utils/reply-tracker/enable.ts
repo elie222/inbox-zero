@@ -137,6 +137,15 @@ export async function createToReplyRule(
   emailAccountId: string,
   addDigest: boolean,
 ) {
+  const emailAccount = await prisma.emailAccount.findUnique({
+    where: { id: emailAccountId },
+    select: {
+      account: { select: { provider: true } },
+    },
+  });
+
+  if (!emailAccount) throw new SafeError("Email account not found");
+
   return await safeCreateRule({
     result: {
       name: RuleName.ToReply,
@@ -166,6 +175,7 @@ export async function createToReplyRule(
     systemType: SystemType.TO_REPLY,
     triggerType: "system_creation",
     shouldCreateIfDuplicate: false,
+    provider: emailAccount.account.provider,
   });
 }
 
