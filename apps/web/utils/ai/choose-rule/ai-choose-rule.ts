@@ -4,9 +4,11 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import type { EmailForLLM } from "@/utils/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { createScopedLogger } from "@/utils/logger";
 // import { Braintrust } from "@/utils/braintrust";
-
 // const braintrust = new Braintrust("choose-rule-2");
+
+const logger = createScopedLogger("AI Choose Rule");
 
 type GetAiResponseOptions = {
   email: EmailForLLM;
@@ -143,6 +145,12 @@ export async function aiChooseRule<
           rule.name.toLowerCase() === aiResponse.ruleName?.toLowerCase(),
       )
     : undefined;
+
+  // The AI found a match, but didn't select a rule
+  // We should probably force a retry in this case
+  if (!selectedRule) {
+    logger.error("No rule found", { email, rules, aiResponse });
+  }
 
   return {
     rule: selectedRule,
