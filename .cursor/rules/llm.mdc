@@ -31,7 +31,7 @@ import type { UserEmailWithAI } from "@/utils/llms/types";
 
 export async function featureFunction(options: {
   inputData: InputType;
-  user: UserEmailWithAI;
+  emailAccount: EmailAccountWithAI;
 }) {
   const { inputData, user } = options;
 
@@ -48,10 +48,14 @@ export async function featureFunction(options: {
 ...
 </data>
 
-${user.about ? `<user_info>${user.about}</user_info>` : ""}`;
+${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
 
+  // 7. Log inputs
+  logger.trace("Input", { system, prompt });
+
+  // 8. Call LLM with proper configuration
   const result = await chatCompletionObject({
-    userAi: user,
+    userAi: emailAccount.user,
     system,
     prompt,
     schema: z.object({
@@ -66,7 +70,11 @@ ${user.about ? `<user_info>${user.about}</user_info>` : ""}`;
     usageLabel: "Feature Name",
   });
 
-return result.object;
+  // 9. Log outputs
+  logger.trace("Output", result.object);
+
+  // 10. Return validated result
+  return result.object;
 }
 ```
 

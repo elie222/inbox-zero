@@ -1,10 +1,10 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
-import { getMessages, getMessage } from "@/utils/gmail/message";
-import { parseMessage } from "@/utils/mail";
+import { getMessages, getMessage, parseMessage } from "@/utils/gmail/message";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
-import type { EmailAccount, User, Account } from "@prisma/client";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { sleep } from "@/utils/sleep";
+import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("email-report-fetch");
 
@@ -36,36 +36,16 @@ async function fetchEmailsByQuery(
 
   while (emails.length < count && retryCount < maxRetries) {
     try {
-      logger.info("fetchEmailsByQuery: calling getMessages", {
-        query,
-        maxResults: Math.min(100, count - emails.length),
-        hasPageToken: !!nextPageToken,
-        currentEmailsCount: emails.length,
-        retryCount,
-      });
-
       const response = await getMessages(gmail, {
         query: query || undefined,
         maxResults: Math.min(100, count - emails.length),
         pageToken: nextPageToken,
       });
 
-      logger.info("fetchEmailsByQuery: getMessages response received", {
-        hasMessages: !!response.messages,
-        messagesCount: response.messages?.length || 0,
-        hasNextPageToken: !!response.nextPageToken,
-        responseKeys: Object.keys(response),
-      });
-
       if (!response.messages || response.messages.length === 0) {
-        logger.info("fetchEmailsByQuery: no messages found, breaking");
+        logger.warn("No messages found, breaking");
         break;
       }
-
-      logger.info("fetchEmailsByQuery: starting to fetch individual messages", {
-        messageIdsCount: response.messages?.length || 0,
-        messageIds: response.messages?.map((m: any) => m.id).slice(0, 5) || [],
-      });
 
       const messagePromises = (response.messages || []).map(
         async (message: any, index: number) => {
@@ -77,41 +57,15 @@ async function fetchEmailsByQuery(
             return null;
           }
 
-          logger.info("fetchEmailsByQuery: fetching individual message", {
-            messageId: message.id,
-            index,
-            totalMessages: response.messages?.length || 0,
-          });
-
           for (let i = 0; i < 3; i++) {
             try {
-              logger.info("fetchEmailsByQuery: calling getMessage", {
-                messageId: message.id,
-                attempt: i + 1,
-                format: "full",
-              });
-
               const messageWithPayload = await getMessage(
                 message.id,
                 gmail,
                 "full",
               );
 
-              logger.info("fetchEmailsByQuery: getMessage successful", {
-                messageId: message.id,
-                hasPayload: !!messageWithPayload,
-                payloadKeys: messageWithPayload
-                  ? Object.keys(messageWithPayload)
-                  : [],
-              });
-
               const parsedMessage = parseMessage(messageWithPayload);
-              logger.info("fetchEmailsByQuery: message parsed successfully", {
-                messageId: message.id,
-                hasHeaders: !!parsedMessage.headers,
-                hasTextPlain: !!parsedMessage.textPlain,
-                hasTextHtml: !!parsedMessage.textHtml,
-              });
 
               return parsedMessage;
             } catch (error) {
@@ -128,18 +82,12 @@ async function fetchEmailsByQuery(
                 );
                 return null;
               }
-              await new Promise((resolve) =>
-                setTimeout(resolve, 1000 * (i + 1)),
-              );
+              await sleep(1000 * (i + 1));
             }
           }
           return null;
         },
       );
-
-      logger.info("fetchEmailsByQuery: waiting for all message promises", {
-        promisesCount: messagePromises.length,
-      });
 
       const messages = await Promise.all(messagePromises);
       const validMessages = messages.filter((msg) => msg !== null);
@@ -154,16 +102,10 @@ async function fetchEmailsByQuery(
 
       nextPageToken = response.nextPageToken || undefined;
       if (!nextPageToken) {
-        logger.info("fetchEmailsByQuery: no next page token, breaking");
         break;
       }
 
       retryCount = 0;
-      logger.info("fetchEmailsByQuery: successful iteration completed", {
-        currentEmailsCount: emails.length,
-        targetCount: count,
-        hasNextPageToken: !!nextPageToken,
-      });
     } catch (error) {
       retryCount++;
       logger.error("fetchEmailsByQuery: main loop error", {
@@ -181,7 +123,7 @@ async function fetchEmailsByQuery(
         break;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 2000 * retryCount));
+      await sleep(2000 * retryCount);
     }
   }
 
@@ -194,115 +136,34 @@ async function fetchEmailsByQuery(
   return emails;
 }
 
-export interface EmailFetchResult {
-  receivedEmails: ParsedMessage[];
-  sentEmails: ParsedMessage[];
-  totalReceived: number;
-  totalSent: number;
-}
-
 export async function fetchEmailsForReport({
   emailAccount,
 }: {
-  emailAccount: EmailAccount & {
-    account: Account;
-    user: Pick<User, "email" | "aiProvider" | "aiModel" | "aiApiKey">;
-  };
-}): Promise<EmailFetchResult> {
+  emailAccount: EmailAccountWithAI;
+}) {
   logger.info("fetchEmailsForReport started", {
-    emailAccountId: emailAccount?.id,
-    userEmail: emailAccount?.user?.email,
-    hasAccessToken: !!emailAccount?.account?.access_token,
-    hasRefreshToken: !!emailAccount?.account?.refresh_token,
+    emailAccountId: emailAccount.id,
   });
 
-  if (
-    !emailAccount.account?.access_token ||
-    !emailAccount.account?.refresh_token
-  ) {
-    logger.error("fetchEmailsForReport: missing Gmail tokens", {
-      hasAccessToken: !!emailAccount?.account?.access_token,
-      hasRefreshToken: !!emailAccount?.account?.refresh_token,
-    });
-    throw new Error("Missing Gmail tokens");
-  }
+  const gmail = await getGmailClientForEmail({
+    emailAccountId: emailAccount.id,
+  });
 
-  let gmail: gmail_v1.Gmail;
-  try {
-    logger.info("fetchEmailsForReport: initializing Gmail client", {
-      emailAccountId: emailAccount.id,
-      expiresAt: emailAccount.account.expires_at,
-    });
-
-    gmail = await getGmailClientWithRefresh({
-      accessToken: emailAccount.account.access_token,
-      refreshToken: emailAccount.account.refresh_token,
-      expiresAt: emailAccount.account.expires_at,
-      emailAccountId: emailAccount.id,
-    });
-
-    logger.info("fetchEmailsForReport: Gmail client initialized successfully");
-  } catch (error) {
-    logger.error("Failed to initialize Gmail client", { error });
-    throw new Error("Failed to initialize Gmail client");
-  }
-
-  let receivedEmails: ParsedMessage[];
-  let sentEmails: ParsedMessage[];
-
-  try {
-    logger.info("fetchEmailsForReport: about to fetch received emails", {
-      targetCount: 200,
-    });
-
-    receivedEmails = await fetchReceivedEmails(gmail, 200);
-
-    logger.info("fetchEmailsForReport: received emails fetched successfully", {
-      count: receivedEmails.length,
-    });
-  } catch (error) {
-    logger.error("Failed to fetch received emails", { error });
-    throw new Error(
-      `Failed to fetch received emails: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-
-  try {
-    logger.info("fetchEmailsForReport: about to fetch sent emails", {
-      targetCount: 50,
-    });
-
-    sentEmails = await fetchSentEmails(gmail, 50);
-
-    logger.info("fetchEmailsForReport: sent emails fetched successfully", {
-      count: sentEmails.length,
-    });
-  } catch (error) {
-    logger.error("Failed to fetch sent emails", { error });
-    throw new Error("Failed to fetch sent emails");
-  }
+  const receivedEmails = await fetchReceivedEmails(gmail, 200);
+  await sleep(3000);
+  const sentEmails = await fetchSentEmails(gmail, 50);
 
   logger.info("fetchEmailsForReport: preparing return result", {
     receivedCount: receivedEmails.length,
     sentCount: sentEmails.length,
   });
 
-  const result = {
+  return {
     receivedEmails,
     sentEmails,
     totalReceived: receivedEmails.length,
     totalSent: sentEmails.length,
   };
-
-  logger.info("fetchEmailsForReport: returning result", {
-    resultKeys: Object.keys(result),
-    receivedCount: result.totalReceived,
-    sentCount: result.totalSent,
-  });
-
-  return result;
 }
 
 async function fetchReceivedEmails(
@@ -330,7 +191,6 @@ async function fetchReceivedEmails(
       logger.error(`Error fetching emails from ${source.name}`, {
         error,
         query: source.query,
-        maxResults: targetCount - emails.length,
       });
     }
   }
@@ -347,9 +207,7 @@ async function fetchSentEmails(
 
     return emails;
   } catch (error) {
-    logger.error("Error fetching sent emails", {
-      error,
-    });
+    logger.error("Error fetching sent emails", { error });
     return [];
   }
 }
