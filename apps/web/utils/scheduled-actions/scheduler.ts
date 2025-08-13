@@ -64,6 +64,8 @@ export async function createScheduledAction({
         cc: actionItem.cc,
         bcc: actionItem.bcc,
         url: actionItem.url,
+        folderName: actionItem.folderName,
+        folderId: actionItem.folderId,
       },
     });
 

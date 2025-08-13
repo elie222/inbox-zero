@@ -70,24 +70,6 @@ const zodField = z
   })
   .nullish();
 
-const zodFolderNameField = z
-  .object({
-    value: z
-      .string()
-      .nullish()
-      .refine((val) => {
-        if (!val?.trim()) return true;
-        // Check for empty folder parts
-        if (val.includes("//") || val.split("/").some((part) => !part.trim()))
-          return false;
-
-        return true;
-      }),
-    ai: z.boolean().nullish(),
-    setManually: z.boolean().nullish(),
-  })
-  .nullish();
-
 const zodAction = z
   .object({
     id: z.string().optional(),
@@ -99,7 +81,8 @@ const zodAction = z
     cc: zodField,
     bcc: zodField,
     url: zodField,
-    folderName: zodFolderNameField,
+    folderName: zodField,
+    folderId: zodField,
     delayInMinutes: delayInMinutesSchema,
   })
   .superRefine((data, ctx) => {
@@ -126,12 +109,11 @@ const zodAction = z
     }
     if (
       data.type === ActionType.MOVE_FOLDER &&
-      !data.folderName?.value?.trim()
+      (!data.folderName?.value?.trim() || !data.folderId?.value?.trim())
     ) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message:
-          "Please enter a valid folder name or path to move the emails to",
+        message: "Please select a folder from the list",
         path: ["folderName"],
       });
     }

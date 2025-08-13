@@ -33,6 +33,7 @@ export function partialUpdateRule({
 export async function safeCreateRule({
   result,
   emailAccountId,
+  provider,
   categoryNames,
   systemType,
   triggerType = "ai_creation",
@@ -40,6 +41,7 @@ export async function safeCreateRule({
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
+  provider: string;
   categoryNames?: string[] | null;
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
@@ -57,6 +59,7 @@ export async function safeCreateRule({
       categoryIds,
       systemType,
       triggerType,
+      provider,
     });
     return rule;
   } catch (error) {
@@ -68,6 +71,7 @@ export async function safeCreateRule({
           emailAccountId,
           categoryIds,
           triggerType,
+          provider,
         });
         return rule;
       } else {
@@ -100,12 +104,14 @@ export async function safeUpdateRule({
   emailAccountId,
   categoryIds,
   triggerType = "ai_update",
+  provider,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
   triggerType?: "ai_update" | "manual_update" | "system_update";
+  provider: string;
 }) {
   try {
     const rule = await updateRule({
@@ -114,6 +120,7 @@ export async function safeUpdateRule({
       emailAccountId,
       categoryIds,
       triggerType,
+      provider,
     });
     return { id: rule.id };
   } catch (error) {
@@ -124,6 +131,7 @@ export async function safeUpdateRule({
         emailAccountId,
         categoryIds,
         triggerType: "ai_creation", // Default for safeUpdateRule fallback
+        provider,
       });
       return { id: rule.id };
     }
@@ -146,14 +154,16 @@ export async function createRule({
   categoryIds,
   systemType,
   triggerType = "ai_creation",
+  provider,
 }: {
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
   systemType?: SystemType | null;
   triggerType?: "ai_creation" | "manual_creation" | "system_creation";
+  provider: string;
 }) {
-  const mappedActions = mapActionFields(result.actions);
+  const mappedActions = mapActionFields(result.actions, provider);
 
   const rule = await prisma.rule.create({
     data: {
@@ -202,12 +212,14 @@ async function updateRule({
   emailAccountId,
   categoryIds,
   triggerType = "ai_update",
+  provider,
 }: {
   ruleId: string;
   result: CreateOrUpdateRuleSchemaWithCategories;
   emailAccountId: string;
   categoryIds?: string[] | null;
   triggerType?: "ai_update" | "manual_update" | "system_update";
+  provider: string;
 }) {
   const rule = await prisma.rule.update({
     where: { id: ruleId },
@@ -218,7 +230,7 @@ async function updateRule({
       // but if we add relations to `Action`, we would need to `update` here instead of `deleteMany` and `createMany` to avoid cascading deletes
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(result.actions) },
+        createMany: { data: mapActionFields(result.actions, provider) },
       },
       conditionalOperator: result.condition.conditionalOperator ?? undefined,
       instructions: result.condition.aiInstructions,
@@ -246,16 +258,18 @@ async function updateRule({
 export async function updateRuleActions({
   ruleId,
   actions,
+  provider,
 }: {
   ruleId: string;
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"];
+  provider: string;
 }) {
   return prisma.rule.update({
     where: { id: ruleId },
     data: {
       actions: {
         deleteMany: {},
-        createMany: { data: mapActionFields(actions) },
+        createMany: { data: mapActionFields(actions, provider) },
       },
     },
   });
@@ -350,6 +364,7 @@ export async function removeRuleCategories(
 
 function mapActionFields(
   actions: CreateOrUpdateRuleSchemaWithCategories["actions"],
+  provider: string,
 ) {
   return actions.map(
     (a): Prisma.ActionCreateManyRuleInput => ({
@@ -361,7 +376,9 @@ function mapActionFields(
       subject: a.fields?.subject,
       content: a.fields?.content,
       url: a.fields?.webhookUrl,
-      folderName: a.fields?.folderName,
+      ...(provider === "microsoft" && {
+        folderName: a.fields?.folderName as string | null,
+      }),
       delayInMinutes: a.delayInMinutes,
     }),
   );

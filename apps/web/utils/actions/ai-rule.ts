@@ -185,6 +185,7 @@ export const createAutomationAction = actionClient
       result,
       emailAccountId,
       shouldCreateIfDuplicate: true,
+      provider: emailAccount.account.provider,
     });
     return createdRule;
   });
@@ -456,6 +457,7 @@ export const saveRulesPromptAction = actionClient
             result: rule,
             emailAccountId,
             categoryIds,
+            provider: emailAccount.account.provider,
           });
         }
       }
@@ -486,6 +488,7 @@ export const saveRulesPromptAction = actionClient
         emailAccountId,
         categoryNames: rule.condition.categories?.categoryFilters || [],
         shouldCreateIfDuplicate: false,
+        provider: emailAccount.account.provider,
       });
     }
 

@@ -348,6 +348,7 @@ model Action {
   bcc     String?
   url     String?
   folderName String?
+  folderId String?
   delayInMinutes Int?
 }
 
@@ -424,6 +425,7 @@ model ExecutedAction {
   bcc     String?
   url     String?
   folderName String?
+  folderId String?
 
   // additional fields as a result of the action
   draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
@@ -454,6 +456,7 @@ model ScheduledAction {
   bcc     String?
   url     String?
   folderName String?
+  folderId String?
   scheduledId String?
 
   executedAt       DateTime?

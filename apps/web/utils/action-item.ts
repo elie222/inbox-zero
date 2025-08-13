@@ -17,7 +17,8 @@ export const actionInputs: Record<
         | "cc"
         | "bcc"
         | "url"
-        | "folderName";
+        | "folderName"
+        | "folderId";
       label: string;
       textArea?: boolean;
       expandable?: boolean;
@@ -163,6 +164,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
     bcc?: string;
     url?: string;
     folderName?: string;
+    folderId?: string;
   } = {};
 
   // only return fields with a value
@@ -174,6 +176,7 @@ export function getActionFields(fields: Action | ExecutedAction | undefined) {
   if (fields?.bcc) res.bcc = fields.bcc;
   if (fields?.url) res.url = fields.url;
   if (fields?.folderName) res.folderName = fields.folderName;
+  if (fields?.folderId) res.folderId = fields.folderId;
 
   return res;
 }
@@ -189,6 +192,7 @@ type ActionFieldsSelection = Pick<
   | "bcc"
   | "url"
   | "folderName"
+  | "folderId"
   | "delayInMinutes"
 >;
 
@@ -205,6 +209,7 @@ export function sanitizeActionFields(
     bcc: null,
     url: null,
     folderName: null,
+    folderId: null,
     delayInMinutes: action.delayInMinutes || null,
   };
 
@@ -219,6 +224,7 @@ export function sanitizeActionFields(
       return {
         ...base,
         folderName: action.folderName ?? null,
+        folderId: action.folderId ?? null,
       };
     }
     case ActionType.LABEL: {

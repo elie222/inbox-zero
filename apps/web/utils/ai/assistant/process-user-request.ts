@@ -582,6 +582,7 @@ ${senderCategory || "No category"}
               },
               emailAccountId: emailAccount.id,
               categoryIds,
+              provider: emailAccount.account.provider,
             });
 
             if ("error" in rule) {
