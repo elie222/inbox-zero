@@ -64,12 +64,7 @@ ${
 </user_info>`
 }
 
-<outputFormat>
-Respond with a valid JSON object with the following fields:
-"reason" - the reason you chose that rule. Keep it concise.
-"ruleName" - the exact name of the rule you want to apply
-"noMatchFound" - true if no match was found, false otherwise
-</outputFormat>`;
+Respond with a valid JSON object.`;
 
   const prompt = `Select a rule to apply to this email that was sent to me:
 
@@ -90,7 +85,7 @@ ${emailSection}
     system,
     prompt,
     schema: z.object({
-      reason: z.string().describe("The reason you chose that rule."),
+      reason: z.string().describe("The reason you chose the rule. Keep it concise"),
       ruleName: z
         .string()
         .describe("The exact name of the rule you want to apply"),
