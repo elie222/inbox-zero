@@ -392,7 +392,7 @@ export const enableDraftRepliesAction = actionClient
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
+  .action(async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
     const rule = await prisma.rule.findUnique({
       where: { id, emailAccountId },
       include: { actions: true, categoryFilters: true, group: true },
@@ -426,7 +426,6 @@ export const deleteRuleAction = actionClient
                 aiApiKey: true,
               },
             },
-            account: { select: { provider: true } },
           },
         });
         if (!emailAccount) throw new SafeError("User not found");
@@ -434,7 +433,7 @@ export const deleteRuleAction = actionClient
         if (!emailAccount.rulesPrompt) return;
 
         const updatedPrompt = await generatePromptOnDeleteRule({
-          emailAccount,
+          emailAccount: { ...emailAccount, account: { provider } },
           existingPrompt: emailAccount.rulesPrompt,
           deletedRule: rule,
         });

@@ -82,11 +82,13 @@ const actionSchema = (provider: string) =>
           .nullish()
           .transform((v) => v ?? null)
           .describe("The webhook URL to call"),
-        folderName: z
-          .string()
-          .nullish()
-          .transform((v) => v ?? null)
-          .describe("The folder to move the email to"),
+        ...(provider === "microsoft" && {
+          folderName: z
+            .string()
+            .nullish()
+            .transform((v) => v ?? null)
+            .describe("The folder to move the email to"),
+        }),
       })
       .nullish()
       .describe(
