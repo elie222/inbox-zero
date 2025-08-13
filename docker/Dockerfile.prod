@@ -34,8 +34,7 @@ ENV NODE_ENV=production
 # Provide dummy build-time ENV VARS (Still needed for build)
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
 ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
-ENV NEXTAUTH_SECRET="dummy_secret_for_build_only"
-ENV NEXTAUTH_URL="http://localhost:3000"
+ENV BETTER_AUTH_SECRET="dummy_secret_for_build_only"
 ENV GOOGLE_CLIENT_ID="dummy_id_for_build_only"
 ENV GOOGLE_CLIENT_SECRET="dummy_secret_for_build_only"
 ENV EMAIL_ENCRYPT_SECRET="dummy_encrypt_secret_for_build_only"

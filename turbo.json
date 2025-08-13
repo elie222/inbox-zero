@@ -7,8 +7,7 @@
         "NODE_ENV",
         "DATABASE_URL",
         "DIRECT_URL",
-        "NEXTAUTH_SECRET",
-        "NEXTAUTH_URL",
+        "BETTER_AUTH_SECRET",
 
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",
