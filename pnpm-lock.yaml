@@ -107,6 +107,9 @@ importers:
       '@ai-sdk/anthropic':
         specifier: 2.0.0
         version: 2.0.0(zod@3.25.46)
+      '@ai-sdk/gateway':
+        specifier: 1.0.5
+        version: 1.0.5(zod@3.25.46)
       '@ai-sdk/google':
         specifier: 2.0.0
         version: 2.0.0(zod@3.25.46)
@@ -745,6 +748,12 @@ packages:
     peerDependencies:
       zod: ^3.25.76 || ^4
 
+  '@ai-sdk/gateway@1.0.5':
+    resolution: {integrity: sha512-GOhxiHm2nfuS618Ia13AWxEIhCsj5+tFaw6sjSO7pvMZT03QgFAJyX4xBYj+3i3mfIvw+yJOvyhVu1fI+pAHQA==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
   '@ai-sdk/google@1.2.18':
     resolution: {integrity: sha512-8B70+i+uB12Ae6Sn6B9Oc6W0W/XorGgc88Nx0pyUrcxFOdytHBaAVhTPqYsO3LLClfjYN8pQ9GMxd5cpGEnUcA==}
     engines: {node: '>=18'}
@@ -792,6 +801,12 @@ packages:
 
   '@ai-sdk/provider-utils@3.0.0':
     resolution: {integrity: sha512-BoQZtGcBxkeSH1zK+SRYNDtJPIPpacTeiMZqnG4Rv6xXjEwM0FH4MGs9c+PlhyEWmQCzjRM2HAotEydFhD4dYw==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      zod: ^3.25.76 || ^4
+
+  '@ai-sdk/provider-utils@3.0.2':
+    resolution: {integrity: sha512-0a5a6VafkV6+0irdpqnub8WE6qzG2VMsDBpXb9NQIz8c4TG8fI+GSTFIL9sqrLEwXrHdiRj7fwJsrir4jClL0w==}
     engines: {node: '>=18'}
     peerDependencies:
       zod: ^3.25.76 || ^4
@@ -10971,6 +10986,12 @@ snapshots:
       '@ai-sdk/provider-utils': 3.0.0(zod@3.25.46)
       zod: 3.25.46
 
+  '@ai-sdk/gateway@1.0.5(zod@3.25.46)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@ai-sdk/provider-utils': 3.0.2(zod@3.25.46)
+      zod: 3.25.46
+
   '@ai-sdk/google@1.2.18(zod@3.25.46)':
     dependencies:
       '@ai-sdk/provider': 1.1.3
@@ -11018,6 +11039,14 @@ snapshots:
       zod: 3.25.46
 
   '@ai-sdk/provider-utils@3.0.0(zod@3.25.46)':
+    dependencies:
+      '@ai-sdk/provider': 2.0.0
+      '@standard-schema/spec': 1.0.0
+      eventsource-parser: 3.0.3
+      zod: 3.25.46
+      zod-to-json-schema: 3.24.5(zod@3.25.46)
+
+  '@ai-sdk/provider-utils@3.0.2(zod@3.25.46)':
     dependencies:
       '@ai-sdk/provider': 2.0.0
       '@standard-schema/spec': 1.0.0
