@@ -392,63 +392,64 @@ export const enableDraftRepliesAction = actionClient
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
   .schema(deleteRuleBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { id } }) => {
-    const rule = await prisma.rule.findUnique({
-      where: { id, emailAccountId },
-      include: { actions: true, categoryFilters: true, group: true },
-    });
-    if (!rule) return; // already deleted
-    if (rule.emailAccountId !== emailAccountId)
-      throw new SafeError("You don't have permission to delete this rule");
-
-    try {
-      await deleteRule({
-        ruleId: id,
-        emailAccountId,
-        groupId: rule.groupId,
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { id } }) => {
+      const rule = await prisma.rule.findUnique({
+        where: { id, emailAccountId },
+        include: { actions: true, categoryFilters: true, group: true },
       });
+      if (!rule) return; // already deleted
+      if (rule.emailAccountId !== emailAccountId)
+        throw new SafeError("You don't have permission to delete this rule");
 
-      revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+      try {
+        await deleteRule({
+          ruleId: id,
+          emailAccountId,
+          groupId: rule.groupId,
+        });
 
-      after(async () => {
-        const emailAccount = await prisma.emailAccount.findUnique({
-          where: { id: emailAccountId },
-          select: {
-            id: true,
-            userId: true,
-            email: true,
-            about: true,
-            rulesPrompt: true,
-            user: {
-              select: {
-                aiModel: true,
-                aiProvider: true,
-                aiApiKey: true,
+        revalidatePath(prefixPath(emailAccountId, `/assistant/rule/${id}`));
+
+        after(async () => {
+          const emailAccount = await prisma.emailAccount.findUnique({
+            where: { id: emailAccountId },
+            select: {
+              id: true,
+              userId: true,
+              email: true,
+              about: true,
+              rulesPrompt: true,
+              user: {
+                select: {
+                  aiModel: true,
+                  aiProvider: true,
+                  aiApiKey: true,
+                },
               },
             },
-            account: { select: { provider: true } },
-          },
-        });
-        if (!emailAccount) throw new SafeError("User not found");
+          });
+          if (!emailAccount) throw new SafeError("User not found");
 
-        if (!emailAccount.rulesPrompt) return;
+          if (!emailAccount.rulesPrompt) return;
 
-        const updatedPrompt = await generatePromptOnDeleteRule({
-          emailAccount,
-          existingPrompt: emailAccount.rulesPrompt,
-          deletedRule: rule,
-        });
+          const updatedPrompt = await generatePromptOnDeleteRule({
+            emailAccount: { ...emailAccount, account: { provider } },
+            existingPrompt: emailAccount.rulesPrompt,
+            deletedRule: rule,
+          });
 
-        await prisma.emailAccount.update({
-          where: { id: emailAccountId },
-          data: { rulesPrompt: updatedPrompt },
+          await prisma.emailAccount.update({
+            where: { id: emailAccountId },
+            data: { rulesPrompt: updatedPrompt },
+          });
         });
-      });
-    } catch (error) {
-      if (isNotFoundError(error)) return;
-      throw error;
-    }
-  });
+      } catch (error) {
+        if (isNotFoundError(error)) return;
+        throw error;
+      }
+    },
+  );
 
 export const getRuleExamplesAction = actionClient
   .metadata({ name: "getRuleExamples" })
