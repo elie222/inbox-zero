@@ -290,7 +290,8 @@ export async function archiveThread({
               destinationId: folderId,
             });
         } catch (error) {
-          logger.warn(`Failed to move message to folder ${folderId}`, {
+          logger.warn("Failed to move message to folder", {
+            folderId,
             messageId: message.id,
             threadId,
             error: error instanceof Error ? error.message : error,
@@ -370,7 +371,8 @@ export async function archiveThread({
                 });
             } catch (moveError) {
               // Log the error but don't fail the entire operation
-              logger.warn(`Failed to move message to folder ${folderId}`, {
+              logger.warn("Failed to move message to folder", {
+                folderId,
                 messageId: message.id,
                 threadId,
                 error:
@@ -398,19 +400,18 @@ export async function archiveThread({
           timestamp: Date.now(),
         });
       } catch (publishError) {
-        logger.error(
-          `Failed to publish action to move thread to folder ${folderId}`,
-          {
-            email: ownerEmail,
-            threadId,
-            error: publishError,
-          },
-        );
+        logger.error("Failed to publish action to move thread to folder", {
+          folderId,
+          email: ownerEmail,
+          threadId,
+          error: publishError,
+        });
       }
 
       return { status: 200 };
     } catch (directError) {
-      logger.error(`Failed to move thread to folder ${folderId}`, {
+      logger.error("Failed to move thread to folder", {
+        folderId,
         threadId,
         error: directError,
       });
