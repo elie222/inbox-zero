@@ -43,7 +43,11 @@ export const betterAuthConfig = betterAuth({
   },
   baseURL: env.NEXT_PUBLIC_BASE_URL,
   trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
-  secret: process.env.NEXTAUTH_SECRET,
+  secret:
+    env.BETTER_AUTH_SECRET ||
+    env.NEXTAUTH_SECRET ||
+    process.env.BETTER_AUTH_SECRET ||
+    process.env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
   },
@@ -71,7 +75,8 @@ export const betterAuthConfig = betterAuth({
       providerId: "provider",
       refreshToken: "refresh_token",
       accessToken: "access_token",
-      accessTokenExpiresAt: "expires_at",
+      accessTokenExpiresAt: "accessTokenExpiresAt",
+      refreshTokenExpiresAt: "refreshTokenExpiresAt",
       idToken: "id_token",
     },
   },
@@ -430,7 +435,9 @@ export async function saveTokens({
 
   const data = {
     access_token: tokens.access_token,
-    expires_at: tokens.expires_at ? new Date(tokens.expires_at * 1000) : null,
+    accessTokenExpiresAt: tokens.expires_at
+      ? new Date(tokens.expires_at * 1000)
+      : null,
     refresh_token: refreshToken,
   };
 

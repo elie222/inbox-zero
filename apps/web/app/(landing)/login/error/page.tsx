@@ -10,6 +10,7 @@ import { env } from "@/env";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Loading } from "@/components/Loading";
+import AutoLogOut from "./AutoLogOut";
 
 export default function LogInErrorPage() {
   const { data, isLoading, error } = useUser();
@@ -39,7 +40,7 @@ export default function LogInErrorPage() {
             </Button>
           }
         />
-        {/* <AutoLogOut loggedIn={!!session?.user.email} /> */}
+        <AutoLogOut loggedIn={!!data?.id} />
       </LoadingContent>
     </BasicLayout>
   );
