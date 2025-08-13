@@ -426,6 +426,7 @@ export const deleteRuleAction = actionClient
                 aiApiKey: true,
               },
             },
+            account: { select: { provider: true } },
           },
         });
         if (!emailAccount) throw new SafeError("User not found");

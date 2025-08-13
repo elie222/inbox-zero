@@ -320,19 +320,12 @@ export function RuleForm({
   const conditionalOperator = watch("conditionalOperator");
 
   const typeOptions = useMemo(() => {
-    const providerOptions: { label: string; value: ActionType }[] = [];
-
-    if (provider === "microsoft") {
-      providerOptions.push({
-        label: "Move to folder",
-        value: ActionType.MOVE_FOLDER,
-      });
-    }
-
-    const options = [
+    const options: { label: string; value: ActionType }[] = [
       { label: "Archive", value: ActionType.ARCHIVE },
       { label: "Label", value: ActionType.LABEL },
-      ...providerOptions,
+      ...(provider === "microsoft"
+        ? [{ label: "Move to folder", value: ActionType.MOVE_FOLDER }]
+        : []),
       { label: "Draft reply", value: ActionType.DRAFT_EMAIL },
       { label: "Reply", value: ActionType.REPLY },
       { label: "Send email", value: ActionType.SEND_EMAIL },

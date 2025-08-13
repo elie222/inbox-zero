@@ -280,6 +280,11 @@ export const saveRulesPromptAction = actionClient
             aiApiKey: true,
           },
         },
+        account: {
+          select: {
+            provider: true,
+          },
+        },
       },
     });
 

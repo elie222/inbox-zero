@@ -127,6 +127,7 @@ async function processAssistantEmailInternal({
           },
         },
         categories: true,
+        account: { select: { provider: true } },
       },
     }),
     originalMessage
