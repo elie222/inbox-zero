@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
-import { getOutlookFolders } from "@/utils/outlook/folders";
+import { getOutlookFolderTree } from "@/utils/outlook/folders";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { getOutlookClientForEmail } from "@/utils/account";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 export type GetFoldersResponse = Awaited<ReturnType<typeof getFolders>>;
 
@@ -16,9 +17,9 @@ export const GET = withEmailAccount(async (request) => {
 async function getFolders({ emailAccountId }: { emailAccountId: string }) {
   const emailAccount = await getEmailAccountWithAiAndTokens({ emailAccountId });
 
-  if (emailAccount?.account?.provider === "microsoft") {
+  if (isMicrosoftProvider(emailAccount?.account?.provider)) {
     const outlook = await getOutlookClientForEmail({ emailAccountId });
-    return getOutlookFolders(outlook);
+    return getOutlookFolderTree(outlook);
   }
 
   return [];

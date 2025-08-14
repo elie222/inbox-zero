@@ -319,7 +319,8 @@ export async function archiveThread({
         logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
         return { status: 404, message: "Thread not found" };
       }
-      logger.error(`Failed to move thread to folder ${folderId}`, {
+      logger.error("Failed to move thread to folder", {
+        folderId,
         threadId,
         error,
       });
@@ -327,13 +328,11 @@ export async function archiveThread({
     }
 
     if (publishResult.status === "rejected") {
-      logger.error(
-        `Failed to publish action to move thread to folder ${folderId}`,
-        {
-          threadId,
-          error: publishResult.reason,
-        },
-      );
+      logger.error("Failed to publish action to move thread to folder", {
+        folderId,
+        threadId,
+        error: publishResult.reason,
+      });
     }
 
     return { status: 200 };
