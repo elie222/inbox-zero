@@ -5,7 +5,7 @@ import { MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import { prefixPath } from "@/utils/path";
@@ -30,7 +30,7 @@ export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
         <DigestScheduleForm showSaveButton={false} />
 
         <div className="flex justify-center mt-8">
-          <ContinueButton href={prefixPath(emailAccountId, "/setup")} />
+          <ContinueButtonLink href={prefixPath(emailAccountId, "/setup")} />
         </div>
       </OnboardingWrapper>
 

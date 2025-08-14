@@ -473,15 +473,34 @@ export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    const newsletter = parsedInput.find((c) => c.name === RuleName.Newsletter);
-    const coldEmail = parsedInput.find((c) => c.name === RuleName.ColdEmail);
-    const toReply = parsedInput.find((c) => c.name === RuleName.ToReply);
-    const marketing = parsedInput.find((c) => c.name === RuleName.Marketing);
-    const calendar = parsedInput.find((c) => c.name === RuleName.Calendar);
-    const receipt = parsedInput.find((c) => c.name === RuleName.Receipt);
-    const notification = parsedInput.find(
-      (c) => c.name === RuleName.Notification,
-    );
+    const systemCategories = [
+      "toReply",
+      "newsletter",
+      "marketing",
+      "calendar",
+      "receipt",
+      "notification",
+      "coldEmail",
+    ];
+
+    const systemCategoryMap: Record<string, (typeof parsedInput)[0]> = {};
+    const customCategories: typeof parsedInput = [];
+
+    for (const category of parsedInput) {
+      if (systemCategories.includes(category.name)) {
+        systemCategoryMap[category.name] = category;
+      } else {
+        customCategories.push(category);
+      }
+    }
+
+    const newsletter = systemCategoryMap[RuleName.Newsletter];
+    const coldEmail = systemCategoryMap[RuleName.ColdEmail];
+    const toReply = systemCategoryMap[RuleName.ToReply];
+    const marketing = systemCategoryMap[RuleName.Marketing];
+    const calendar = systemCategoryMap[RuleName.Calendar];
+    const receipt = systemCategoryMap[RuleName.Receipt];
+    const notification = systemCategoryMap[RuleName.Notification];
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
@@ -548,13 +567,17 @@ export const createRulesOnboardingAction = actionClient
       runOnThreads: boolean,
       categoryAction: "label" | "label_archive" | "label_archive_delayed",
       label: string,
-      systemType: SystemType,
+      systemType: SystemType | null,
       emailAccountId: string,
       hasDigest: boolean,
     ) {
-      const existingRule = await prisma.rule.findUnique({
-        where: { emailAccountId_systemType: { emailAccountId, systemType } },
-      });
+      const existingRule = systemType
+        ? await prisma.rule.findUnique({
+            where: {
+              emailAccountId_systemType: { emailAccountId, systemType },
+            },
+          })
+        : null;
 
       if (existingRule) {
         const promise = prisma.rule
@@ -599,7 +622,7 @@ export const createRulesOnboardingAction = actionClient
               emailAccountId,
               name,
               instructions,
-              systemType,
+              systemType: systemType ?? undefined,
               automate: true,
               runOnThreads,
               actions: {
@@ -738,6 +761,24 @@ export const createRulesOnboardingAction = actionClient
       );
     } else {
       deleteRule(SystemType.NOTIFICATION, emailAccountId);
+    }
+
+    // Create rules for custom categories
+    for (const customCategory of customCategories) {
+      if (customCategory.action && isSet(customCategory.action)) {
+        createRule(
+          customCategory.name,
+          customCategory.description ||
+            `Custom category: ${customCategory.name}`,
+          `Label all emails that match "${customCategory.description || customCategory.name}" as @[${customCategory.name}]`,
+          false,
+          customCategory.action,
+          customCategory.name,
+          null, // No systemType for custom categories
+          emailAccountId,
+          !!customCategory.hasDigest,
+        );
+      }
     }
 
     await Promise.allSettled(promises);

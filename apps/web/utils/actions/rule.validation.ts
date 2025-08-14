@@ -213,11 +213,12 @@ export type CategoryAction = z.infer<typeof categoryAction>;
 const categoryConfig = z.object({
   action: categoryAction.nullish(),
   hasDigest: z.boolean().nullish(),
+  name: z.string(),
+  description: z.string(),
 });
+export type CategoryConfig = z.infer<typeof categoryConfig>;
 
-export const createRulesOnboardingBody = z.array(
-  categoryConfig.extend({ name: z.string() }),
-);
+export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;

@@ -6,10 +6,8 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { CategoriesSetup } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCategories";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
-import { prefixPath } from "@/utils/path";
 
-export function StepLabels({ emailAccountId }: { emailAccountId: string }) {
+export function StepLabels() {
   return (
     <div className="relative">
       <div className="xl:pr-[50%]">
@@ -26,13 +24,7 @@ export function StepLabels({ emailAccountId }: { emailAccountId: string }) {
             </TypographyP>
           </div>
 
-          <CategoriesSetup defaultValues={undefined} />
-
-          <div className="flex justify-center mt-8">
-            <ContinueButton
-              href={prefixPath(emailAccountId, "/onboarding?step=4")}
-            />
-          </div>
+          <CategoriesSetup />
         </OnboardingWrapper>
       </div>
 

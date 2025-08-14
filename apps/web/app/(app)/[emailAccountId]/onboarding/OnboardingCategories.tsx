@@ -26,8 +26,8 @@ import {
 } from "@/components/ui/select";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import type {
-  CreateRulesOnboardingBody,
   CategoryAction,
+  CategoryConfig,
 } from "@/utils/actions/rule.validation";
 import { prefixPath } from "@/utils/path";
 import { categoryConfig } from "@/utils/category-config";
@@ -41,6 +41,7 @@ import {
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 
 // copy paste of old file
 export function CategoriesSetup() {
@@ -50,13 +51,14 @@ export function CategoriesSetup() {
 
   // State for managing suggested and basic categories separately
   const [suggestedCategories, setSuggestedCategories] = React.useState<
-    Array<{ name: string; description?: string; action?: CategoryAction }>
+    CategoryConfig[]
   >([]);
   const [basicCategories, setBasicCategories] = React.useState<
-    Array<{ name: string; description?: string; action?: CategoryAction }>
+    CategoryConfig[]
   >(
     categoryConfig.map((c) => ({
       name: c.key,
+      description: "",
       action: "label",
     })),
   );
@@ -124,7 +126,7 @@ export function CategoriesSetup() {
               {suggestedCategories.map((category, index) => {
                 return (
                   <CategoryCard
-                    key={`suggested-${index}`}
+                    key={category.name}
                     index={index}
                     label={category.name}
                     Icon={icons[index % icons.length]}
@@ -147,7 +149,7 @@ export function CategoriesSetup() {
             if (!config) return null;
             return (
               <CategoryCard
-                key={`basic-${index}`}
+                key={config.label}
                 index={index}
                 label={config.label}
                 description={config.tooltipText}
@@ -175,12 +177,9 @@ export function CategoriesSetup() {
           </Card>
         </div>
 
-        <button
-          onClick={onSubmit}
-          className="hidden"
-          id="submit-categories"
-          type="button"
-        />
+        <div className="flex justify-center mt-8">
+          <ContinueButton type="submit" onClick={onSubmit} />
+        </div>
       </div>
     </LoadingContent>
   );
@@ -201,7 +200,7 @@ function CategoryCard({
   iconColor: IconCircleColor;
   description?: string;
   update: (index: number, value: { action?: CategoryAction }) => void;
-  value?: CategoryAction;
+  value?: CategoryAction | null;
 }) {
   const delayedActionsEnabled = useDelayedActionsEnabled();
 
@@ -216,7 +215,7 @@ function CategoryCard({
 
         <div className="ml-auto flex items-center gap-4">
           <Select
-            value={value}
+            value={value || undefined}
             onValueChange={(value) => {
               update(index, {
                 action:

@@ -387,7 +387,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                 <DropdownMenuItem
                                   onClick={async () => {
                                     const yes = confirm(
-                                      "Are you sure you want to delete this rule?",
+                                      `Are you sure you want to delete the rule "${rule.name}"?`,
                                     );
                                     if (yes) {
                                       toast.promise(
