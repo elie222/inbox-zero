@@ -1,4 +1,5 @@
-import { convertToModelMessages, type UIMessage } from "ai";
+import { convertToCoreMessages } from "ai";
+import type { UIMessage } from "@ai-sdk/ui-utils";
 import { z } from "zod";
 import { withEmailAccount } from "@/utils/middleware";
 import { getEmailAccountWithAi } from "@/utils/user/get";
@@ -70,7 +71,7 @@ export const POST = withEmailAccount(async (request) => {
 
   try {
     const result = await aiProcessAssistantChat({
-      messages: convertToModelMessages(uiMessages),
+      messages: convertToCoreMessages(uiMessages),
       emailAccountId,
       user,
     });

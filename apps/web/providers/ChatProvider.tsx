@@ -1,7 +1,6 @@
 "use client";
 
 import { useChat as useAiChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
 import { parseAsString, useQueryState } from "nuqs";
 import {
   createContext,
@@ -47,20 +46,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const chat = useAiChat<ChatMessage>({
     id: chatId ?? undefined,
-    transport: new DefaultChatTransport({
-      api: "/api/chat",
-      headers: {
-        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-      },
-      prepareSendMessagesRequest({ messages, id, body }) {
-        return {
-          body: {
-            id,
-            message: messages.at(-1),
-            ...body,
-          },
-        };
-      },
+    api: "/api/chat",
+    headers: {
+      [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+    },
+    experimental_prepareRequestBody: ({ id, messages, requestBody }) => ({
+      id,
+      message: messages.at(-1),
+      ...requestBody,
     }),
     // TODO: couldn't get this to work
     // messages: initialMessages,
@@ -83,7 +76,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [chat.setMessages, data]);
 
   const handleSubmit = useCallback(() => {
-    chat.sendMessage({
+    chat.append({
       role: "user",
       parts: [
         {
@@ -94,7 +87,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     });
 
     setInput("");
-  }, [chat.sendMessage, input]);
+  }, [chat.append, input]);
 
   return (
     <ChatContext.Provider

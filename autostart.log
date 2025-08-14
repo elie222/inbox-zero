@@ -1,0 +1,22 @@
+[2025-07-13 22:12:05] Starting autostart setup script...
+[2025-07-13 22:12:05] Working directory: /home/jason/services/inbox-zero
+[2025-07-13 22:12:05] Method: auto
+[2025-07-13 22:12:05] Validating environment...
+[2025-07-13 22:12:05] Environment validation completed successfully
+[2025-07-13 22:12:05] Auto-selecting best available method...
+[2025-07-13 22:12:05] Setting up Docker restart policies...
+[2025-07-13 22:12:05] Docker restart policies already configured
+[2025-07-13 22:12:05] Successfully configured Docker restart policies
+[2025-07-13 22:12:05] Autostart setup completed successfully!
+[2025-07-13 22:12:05] Your inbox-zero Docker Compose stack will now start automatically on boot.
+[2025-07-13 22:12:05] 
+[2025-07-13 22:12:05] To test the configuration, run: ./setup-autostart.sh --test
+[2025-07-13 22:12:05] To remove the configuration, run: ./setup-autostart.sh --remove
+Cleanup completed at Sun Jul 13 10:12:05 PM CDT 2025
+[2025-07-13 22:12:26] Starting autostart setup script...
+[2025-07-13 22:12:27] Working directory: /home/jason/services/inbox-zero
+[2025-07-13 22:12:27] Method: auto
+[2025-07-13 22:12:27] Testing current autostart configuration...
+[2025-07-13 22:12:27] ✓ Docker restart policies are configured
+Script exited with error code: 1
+Cleanup completed at Sun Jul 13 10:12:27 PM CDT 2025

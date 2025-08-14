@@ -1,0 +1,19 @@
+#!/bin/bash
+
+# Source the environment file to load UPSTASH_REDIS_TOKEN
+if [ -f "apps/web/.env" ]; then
+    set -a  # Enable export of all variables
+    source apps/web/.env
+    set +a  # Disable export of all variables
+    echo "✓ Sourced apps/web/.env"
+    echo "✓ UPSTASH_REDIS_TOKEN is set: ${UPSTASH_REDIS_TOKEN:0:10}..."
+else
+    echo "❌ Error: apps/web/.env file not found"
+    exit 1
+fi
+
+# Run docker compose in detached mode
+echo "🚀 Starting docker compose..."
+docker compose up -d
+
+echo "✅ Docker compose started successfully"
