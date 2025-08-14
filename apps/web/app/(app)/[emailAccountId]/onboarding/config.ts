@@ -1,4 +1,3 @@
-import type { CategoryAction } from "@/utils/actions/rule.validation";
 import {
   RocketIcon,
   BriefcaseIcon,
@@ -47,8 +46,45 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Executive: { icon: BriefcaseIcon, suggestedLabels: [] },
-  "Small Business Owner": { icon: StoreIcon, suggestedLabels: [] },
+  Executive: {
+    icon: BriefcaseIcon,
+    suggestedLabels: [
+      {
+        label: "Board",
+        description: "Board meetings, materials, and director communications",
+      },
+      {
+        label: "Strategic Initiative",
+        description: "High-priority strategic projects and planning",
+      },
+      {
+        label: "Direct Reports",
+        description: "Communications from team leaders and direct reports",
+      },
+      {
+        label: "Key Stakeholder",
+        description:
+          "Important partners, major clients, and VIP communications",
+      },
+    ],
+  },
+  "Small Business Owner": {
+    icon: StoreIcon,
+    suggestedLabels: [
+      {
+        label: "Customer Feedback",
+        description: "Feedback and suggestions from customers",
+      },
+      {
+        label: "Team",
+        description: "Internal team communications",
+      },
+      {
+        label: "Urgent",
+        description: "Time-sensitive emails requiring immediate attention",
+      },
+    ],
+  },
   "Software Engineer": {
     icon: CodeIcon,
     suggestedLabels: [
@@ -95,7 +131,7 @@ export const usersRolesInfo: Record<
     icon: TrendingUpIcon,
     suggestedLabels: [
       {
-        label: "Investor Update",
+        label: "Company Update",
         description: "Portfolio company progress reports",
       },
       {
@@ -133,7 +169,27 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Marketing: { icon: MegaphoneIcon, suggestedLabels: [] },
+  Marketing: {
+    icon: MegaphoneIcon,
+    suggestedLabels: [
+      {
+        label: "Campaign",
+        description: "Marketing campaigns and promotional activities",
+      },
+      {
+        label: "Content Review",
+        description: "Content drafts requiring approval or feedback",
+      },
+      {
+        label: "Analytics Report",
+        description: "Performance metrics and marketing analytics",
+      },
+      {
+        label: "Partner/Agency",
+        description: "Communications with marketing agencies and partners",
+      },
+    ],
+  },
   "Customer Support": {
     icon: HeadphonesIcon,
     suggestedLabels: [
@@ -148,10 +204,6 @@ export const usersRolesInfo: Record<
       {
         label: "Feature Request",
         description: "Customer suggestions for new features",
-      },
-      {
-        label: "Urgent Support",
-        description: "Critical issues requiring immediate attention",
       },
     ],
   },
@@ -197,7 +249,23 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Consultant: { icon: UsersIcon, suggestedLabels: [] },
+  Consultant: {
+    icon: UsersIcon,
+    suggestedLabels: [
+      {
+        label: "Client Project",
+        description: "Active client engagements and project updates",
+      },
+      {
+        label: "Proposal",
+        description: "New business proposals and RFP responses",
+      },
+      {
+        label: "Professional Network",
+        description: "Industry contacts and referral opportunities",
+      },
+    ],
+  },
   "E-commerce": { icon: ShoppingCartIcon, suggestedLabels: [] },
   Student: {
     icon: GraduationCapIcon,
