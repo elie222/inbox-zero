@@ -18,7 +18,8 @@ export const env = createEnv({
     NODE_ENV: z.enum(["development", "production", "test"]),
     DATABASE_URL: z.string().url(),
 
-    BETTER_AUTH_SECRET: z.string().min(1),
+    AUTH_SECRET: z.string().optional(),
+    NEXTAUTH_SECRET: z.string().optional(),
     GOOGLE_CLIENT_ID: z.string().min(1),
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),
@@ -222,3 +223,9 @@ export const env = createEnv({
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
   },
 });
+
+if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
+  );
+}
