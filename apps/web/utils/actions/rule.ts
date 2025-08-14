@@ -47,6 +47,7 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
+import type { CategoryKey } from "@/utils/category-config";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -473,7 +474,8 @@ export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
   .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
-    const systemCategories = [
+    // TODO: not saving system cats
+    const systemCategories: CategoryKey[] = [
       "toReply",
       "newsletter",
       "marketing",
@@ -483,7 +485,7 @@ export const createRulesOnboardingAction = actionClient
       "coldEmail",
     ];
 
-    const systemCategoryMap: Record<string, (typeof parsedInput)[0]> = {};
+    const systemCategoryMap: Record<CategoryKey, (typeof parsedInput)[0]> = {};
     const customCategories: typeof parsedInput = [];
 
     for (const category of parsedInput) {
@@ -494,13 +496,15 @@ export const createRulesOnboardingAction = actionClient
       }
     }
 
-    const newsletter = systemCategoryMap[RuleName.Newsletter];
-    const coldEmail = systemCategoryMap[RuleName.ColdEmail];
-    const toReply = systemCategoryMap[RuleName.ToReply];
-    const marketing = systemCategoryMap[RuleName.Marketing];
-    const calendar = systemCategoryMap[RuleName.Calendar];
-    const receipt = systemCategoryMap[RuleName.Receipt];
-    const notification = systemCategoryMap[RuleName.Notification];
+    const {
+      newsletter,
+      coldEmail,
+      toReply,
+      marketing,
+      calendar,
+      receipt,
+      notification,
+    } = systemCategoryMap;
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
