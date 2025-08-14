@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
+import shuffle from "lodash/shuffle";
 import { useRouter } from "next/navigation";
 import {
   AirplayIcon,
@@ -110,6 +111,8 @@ export function CategoriesSetup() {
     [],
   );
 
+  const icons = useMemo(() => getRandomIcons(), []);
+
   return (
     <LoadingContent
       loading={isLoading}
@@ -127,7 +130,7 @@ export function CategoriesSetup() {
                     key={`suggested-${index}`}
                     index={index}
                     label={category.name}
-                    Icon={getRandomIcon()}
+                    Icon={icons[index % icons.length]}
                     iconColor="blue"
                     description={category.description}
                     update={updateSuggestedCategory}
@@ -244,7 +247,7 @@ function CategoryCard({
   );
 }
 
-function getRandomIcon() {
+function getRandomIcons() {
   const icons = [
     MailIcon,
     InboxIcon,
@@ -258,6 +261,5 @@ function getRandomIcon() {
     BlendIcon,
   ];
 
-  const Icon = icons[Math.floor(Math.random() * icons.length)];
-  return Icon;
+  return shuffle(icons);
 }
