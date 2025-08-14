@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("email-report-label-analysis");
 
@@ -53,13 +54,19 @@ Each suggestion should include the reason and expected impact.`;
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user, "economy");
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "email-report-label-analysis",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: labelAnalysisSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "email-report-label-analysis",
   });
 
   logger.trace("Output", result.object);

@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("email-report-user-persona");
 
@@ -68,13 +69,19 @@ Analyze the data and identify:
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "email-report-user-persona",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: userPersonaSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "email-report-user-persona",
   });
 
   logger.trace("Output", result.object);

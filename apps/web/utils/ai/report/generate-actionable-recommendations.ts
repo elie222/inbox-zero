@@ -1,9 +1,10 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { UserPersona } from "@/utils/ai/report/build-user-persona";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("email-report-actionable-recommendations");
 
@@ -60,13 +61,19 @@ Focus on practical, implementable solutions that improve email organization and 
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "email-report-actionable-recommendations",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: actionableRecommendationsSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "email-report-actionable-recommendations",
   });
 
   logger.trace("Output", result.object);

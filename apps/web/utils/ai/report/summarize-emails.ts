@@ -1,10 +1,11 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailForLLM } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { sleep } from "@/utils/sleep";
 import { stringifyEmail } from "@/utils/stringify-email";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("email-report-summarize-emails");
 
@@ -81,8 +82,16 @@ Return the analysis as a JSON array of objects.`;
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user, "economy");
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "email-report-summary-generation",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: z.object({
@@ -90,9 +99,6 @@ Return the analysis as a JSON array of objects.`;
         .array(emailSummarySchema)
         .describe("Summaries of the emails"),
     }),
-    userEmail: emailAccount.email,
-    usageLabel: "email-report-summary-generation",
-    modelType: "economy",
   });
 
   logger.trace("Output", { result: result.object.summaries });

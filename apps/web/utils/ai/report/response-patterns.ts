@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { chatCompletionObject } from "@/utils/llms";
+import { createGenerateObject } from "@/utils/llms";
 import type { EmailSummary } from "@/utils/ai/report/summarize-emails";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";
+import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("email-report-response-patterns");
 
@@ -89,13 +90,19 @@ Only suggest categories that are meaningful and provide clear organizational val
 
   logger.trace("Input", { system, prompt });
 
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "email-report-response-patterns",
+    modelOptions,
+  });
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: responsePatternsSchema,
-    userEmail: emailAccount.email,
-    usageLabel: "email-report-response-patterns",
   });
 
   logger.trace("Output", result.object);

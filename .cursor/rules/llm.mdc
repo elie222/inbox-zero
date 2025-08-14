@@ -28,6 +28,7 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
+import { createGenerateObject } from "@/utils/llms";
 
 export async function featureFunction(options: {
   inputData: InputType;
@@ -53,9 +54,18 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
   // 7. Log inputs
   logger.trace("Input", { system, prompt });
 
-  // 8. Call LLM with proper configuration
-  const result = await chatCompletionObject({
-    userAi: emailAccount.user,
+  // 8. Set up and call LLM
+  const modelOptions = getModel(emailAccount.user);
+
+  const generateObject = createGenerateObject({
+    userEmail: emailAccount.email,
+    label: "Feature Name",
+    modelOptions,
+  });
+
+
+  const result = await generateObject({
+    ...modelOptions,
     system,
     prompt,
     schema: z.object({
@@ -66,8 +76,6 @@ ${emailAccount.about ? `<user_info>${emailAccount.about}</user_info>` : ""}`;
       }),
       array_field: z.array(z.string()),
     }),
-    userEmail: user.email,
-    usageLabel: "Feature Name",
   });
 
   // 9. Log outputs
