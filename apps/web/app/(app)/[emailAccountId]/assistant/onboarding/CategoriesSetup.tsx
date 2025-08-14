@@ -35,6 +35,11 @@ import {
 import { categoryConfig } from "@/utils/category-config";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
+import {
+  type IconCircleColor,
+  textVariants,
+} from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { cn } from "@/utils";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -119,10 +124,11 @@ export function CategoriesSetup({
           {categoryConfig.map((category) => (
             <CategoryCard
               key={category.key}
-              id={category.key}
+              id={category.key as keyof CreateRulesOnboardingBody}
               label={category.label}
               tooltipText={category.tooltipText}
-              icon={category.icon}
+              Icon={category.Icon}
+              iconColor={category.iconColor}
               form={form}
             />
           ))}
@@ -153,13 +159,15 @@ export function CategoriesSetup({
 function CategoryCard({
   id,
   label,
-  icon,
+  Icon,
+  iconColor,
   form,
   tooltipText,
 }: {
   id: keyof CreateRulesOnboardingBody;
   label: string;
-  icon: React.ReactNode;
+  Icon: React.ElementType;
+  iconColor: IconCircleColor;
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
 }) {
@@ -168,7 +176,7 @@ function CategoryCard({
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
-        {icon}
+        <Icon className={cn("size-5", textVariants({ color: iconColor }))} />
         <div className="flex flex-1 items-center gap-2">
           {label}
           {tooltipText && (

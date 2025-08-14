@@ -85,7 +85,9 @@ ${emailSection}
     system,
     prompt,
     schema: z.object({
-      reason: z.string().describe("The reason you chose the rule. Keep it concise"),
+      reason: z
+        .string()
+        .describe("The reason you chose the rule. Keep it concise"),
       ruleName: z
         .string()
         .describe("The exact name of the rule you want to apply"),

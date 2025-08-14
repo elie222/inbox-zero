@@ -7,6 +7,17 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
+import { z } from "zod";
+
+export const updateEmailAccountRoleAction = actionClient
+  .metadata({ name: "updateEmailAccountRole" })
+  .schema(z.object({ role: z.string() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { role } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { role },
+    });
+  });
 
 export const analyzePersonaAction = actionClient
   .metadata({ name: "analyzePersona" })

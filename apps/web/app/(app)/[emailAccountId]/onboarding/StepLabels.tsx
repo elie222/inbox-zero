@@ -36,13 +36,13 @@ export function StepLabels({ emailAccountId }: { emailAccountId: string }) {
         </OnboardingWrapper>
       </div>
 
-      <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex">
+      <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex px-10">
         <Image
           src="/images/assistant/labels.png"
           alt="Categorize your emails"
           width={1200}
           height={800}
-          className="mx-auto rounded border-4 border-blue-50 shadow-sm ml-32"
+          className="mx-auto rounded border-4 border-blue-50 shadow-sm"
         />
       </div>
     </div>

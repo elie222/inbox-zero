@@ -1,57 +1,71 @@
+import type { IconCircleColor } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import {
-  Mail,
-  Newspaper,
-  Megaphone,
-  Calendar,
-  Receipt,
-  Bell,
-  Users,
+  MailIcon,
+  NewspaperIcon,
+  MegaphoneIcon,
+  CalendarIcon,
+  ReceiptIcon,
+  BellIcon,
+  UsersIcon,
 } from "lucide-react";
 
-export const categoryConfig = [
+export const categoryConfig: {
+  key: string;
+  label: string;
+  tooltipText: string;
+  Icon: React.ElementType;
+  iconColor: IconCircleColor;
+}[] = [
   {
     key: "toReply" as const,
     label: "To Reply",
     tooltipText:
       "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
-    icon: <Mail className="h-5 w-5 text-blue-500" />,
+    Icon: MailIcon,
+    iconColor: "blue",
   },
   {
     key: "newsletter" as const,
     label: "Newsletter",
     tooltipText: "Newsletters, blogs, and publications",
-    icon: <Newspaper className="h-5 w-5 text-purple-500" />,
+    Icon: NewspaperIcon,
+    iconColor: "purple",
   },
   {
     key: "marketing" as const,
     label: "Marketing",
     tooltipText: "Promotional emails about sales and offers",
-    icon: <Megaphone className="h-5 w-5 text-green-500" />,
+    Icon: MegaphoneIcon,
+    iconColor: "green",
   },
   {
     key: "calendar" as const,
     label: "Calendar",
     tooltipText: "Events, appointments, and reminders",
-    icon: <Calendar className="h-5 w-5 text-yellow-500" />,
+    Icon: CalendarIcon,
+    iconColor: "yellow",
   },
   {
     key: "receipt" as const,
     label: "Receipt",
     tooltipText: "Invoices, receipts, and payments",
-    icon: <Receipt className="h-5 w-5 text-orange-500" />,
+    Icon: ReceiptIcon,
+    iconColor: "orange",
   },
   {
     key: "notification" as const,
     label: "Notification",
     tooltipText: "Alerts, status updates, and system messages",
-    icon: <Bell className="h-5 w-5 text-red-500" />,
+    Icon: BellIcon,
+    iconColor: "red",
   },
   {
     key: "coldEmail" as const,
     label: "Cold Email",
     tooltipText:
       "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before",
-    icon: <Users className="h-5 w-5 text-indigo-500" />,
+    Icon: UsersIcon,
+    iconColor: "indigo",
   },
 ];
 
