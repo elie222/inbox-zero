@@ -60,6 +60,12 @@ export function decryptToken(encryptedText: string | null): string | null {
   try {
     const buffer = Buffer.from(encryptedText, "hex");
 
+    // Validate buffer length - must contain at least IV + Auth Tag
+    if (buffer.length < IV_LENGTH + AUTH_TAG_LENGTH) {
+      logger.warn("Encrypted token too short, likely corrupted");
+      return null;
+    }
+
     // Extract IV (first 16 bytes)
     const iv = buffer.subarray(0, IV_LENGTH);
 
@@ -79,7 +85,15 @@ export function decryptToken(encryptedText: string | null): string | null {
 
     return decrypted.toString("utf8");
   } catch (error) {
-    logger.error("Decryption failed", { error });
+    // Reduce log noise - only log detailed errors in development
+    if (process.env.NODE_ENV === "development") {
+      logger.error("Decryption failed", {
+        error,
+        encryptedLength: encryptedText?.length,
+      });
+    } else {
+      logger.warn("Token decryption failed - token may need refresh");
+    }
     return null;
   }
 }

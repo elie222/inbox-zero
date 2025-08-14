@@ -12,6 +12,7 @@ import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
+import { StartupMigrations } from "@/components/StartupMigrations";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -84,6 +85,7 @@ export default async function RootLayout({
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
+        <StartupMigrations />
         <PostHogProvider>
           <Suspense>
             <PostHogPageview />

@@ -32,7 +32,7 @@ services:
       - ./apps/web/.env
     environment:
       SRH_MODE: env
-      SRH_TOKEN: ${UPSTASH_REDIS_TOKEN}
+      SRH_TOKEN: "70f1b6da1de3dbdd53e02e017b1c598e2a6ee5cb805539c0f8919fede5f40010"
       SRH_CONNECTION_STRING: "redis://redis:6379" # Using `redis` hostname since they're in the same Docker network.
     networks:
       - inbox-zero-network
@@ -58,7 +58,24 @@ services:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-password}@db:5432/${POSTGRES_DB:-inboxzero}?schema=public"
       UPSTASH_REDIS_URL: "http://serverless-redis-http:80"
-      UPSTASH_REDIS_TOKEN: "${UPSTASH_REDIS_TOKEN}"
+      UPSTASH_REDIS_TOKEN: "70f1b6da1de3dbdd53e02e017b1c598e2a6ee5cb805539c0f8919fede5f40010" # fuck you, hard coded
+
+  cron:
+    image: alpine:latest
+    restart: unless-stopped
+    container_name: inbox-zero-cron
+    depends_on:
+      - web
+    networks:
+      - inbox-zero-network
+    env_file:
+      - ./apps/web/.env
+    command: >
+      sh -c "
+        apk add --no-cache curl dcron &&
+        echo '0 1 * * * curl -H \"Authorization: Bearer $$CRON_SECRET\" http://web:3000/api/google/watch/all >/dev/null 2>&1' | crontab - &&
+        crond -f -l 2
+      "
 
 volumes:
   database-data:

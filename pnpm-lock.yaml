@@ -125,6 +125,9 @@ importers:
       '@ai-sdk/react':
         specifier: 2.0.0
         version: 2.0.0(react@19.1.0)(zod@3.25.46)
+      '@ai-sdk/ui-utils':
+        specifier: ^1.2.11
+        version: 1.2.11(zod@3.25.46)
       '@asteasolutions/zod-to-openapi':
         specifier: 7.3.2
         version: 7.3.2(zod@3.25.46)
