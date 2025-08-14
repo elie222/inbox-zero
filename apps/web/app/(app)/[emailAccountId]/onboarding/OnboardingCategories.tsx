@@ -42,6 +42,7 @@ import {
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { cn } from "@/utils";
 
 // copy paste of old file
 export function CategoriesSetup() {
@@ -72,7 +73,7 @@ export function CategoriesSetup() {
         suggestedLabels.map((s) => ({
           name: s.label,
           description: s.description,
-          action: "label",
+          action: undefined,
         })),
       );
     }
@@ -118,29 +119,7 @@ export function CategoriesSetup() {
       loadingComponent={<Skeleton className="w-full h-[1000px]" />}
     >
       <div>
-        {suggestedCategories.length > 0 && (
-          <>
-            <div className="text-sm font-medium mb-2">SUGGESTED FOR YOU</div>
-            <div className="grid grid-cols-1 gap-2">
-              {suggestedCategories.map((category, index) => {
-                return (
-                  <CategoryCard
-                    key={category.name}
-                    index={index}
-                    label={category.name}
-                    Icon={icons[index % icons.length]}
-                    iconColor="blue"
-                    description={category.description}
-                    update={updateSuggestedCategory}
-                    value={category.action}
-                  />
-                );
-              })}
-            </div>
-          </>
-        )}
-
-        <div className="text-sm font-medium mt-8 mb-2">BASIC LABELS</div>
+        <SectionHeader>BASIC LABELS</SectionHeader>
 
         <div className="grid grid-cols-1 gap-2">
           {basicCategories.map((category, index) => {
@@ -160,21 +139,31 @@ export function CategoriesSetup() {
             );
           })}
 
-          <Card>
-            <CardContent className="flex items-center gap-4 p-4">
-              <IconCircle size="sm" color="purple">
-                <PencilLineIcon className="size-4 text-purple-500" />
-              </IconCircle>
-
-              <div className="flex flex-1 items-center gap-2 font-medium">
-                Custom
-              </div>
-              <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
-                You can set your own custom categories later
-              </div>
-            </CardContent>
-          </Card>
+          {/* <CustomCategoryCard /> */}
         </div>
+
+        {suggestedCategories.length > 0 && (
+          <>
+            <SectionHeader className="mt-8">SUGGESTED FOR YOU</SectionHeader>
+            <div className="grid grid-cols-1 gap-2">
+              {suggestedCategories.map((category, index) => {
+                return (
+                  <CategoryCard
+                    key={category.name}
+                    index={index}
+                    label={category.name}
+                    Icon={icons[index % icons.length]}
+                    iconColor="blue"
+                    description={category.description}
+                    update={updateSuggestedCategory}
+                    value={category.action}
+                  />
+                );
+              })}
+              <CustomCategoryCard />
+            </div>
+          </>
+        )}
 
         <div className="flex justify-center mt-8">
           <ContinueButton type="submit" onClick={onSubmit} />
@@ -239,6 +228,33 @@ function CategoryCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function CustomCategoryCard() {
+  return (
+    <Card>
+      <CardContent className="flex items-center gap-4 p-4">
+        <IconCircle size="sm" color="blue" Icon={PencilLineIcon} />
+
+        <div className="flex flex-1 items-center gap-2 font-medium">Custom</div>
+        <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
+          You can set your own custom categories later
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SectionHeader({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("text-sm font-medium mb-2", className)}>{children}</div>
   );
 }
 
