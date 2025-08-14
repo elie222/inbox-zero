@@ -216,13 +216,7 @@ const categoryConfig = z.object({
 });
 
 export const createRulesOnboardingBody = z.object({
-  toReply: categoryConfig,
-  newsletter: categoryConfig,
-  marketing: categoryConfig,
-  calendar: categoryConfig,
-  receipt: categoryConfig,
-  coldEmail: categoryConfig,
-  notification: categoryConfig,
+  categories: z.array(categoryConfig.extend({ name: z.string() })),
 });
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody

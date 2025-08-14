@@ -1,13 +1,21 @@
 "use client";
 
-import { useCallback } from "react";
+import React, { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { ControllerRenderProps } from "react-hook-form";
-import { PencilLineIcon, UserIcon } from "lucide-react";
+import {
+  AirplayIcon,
+  AtomIcon,
+  AudioWaveformIcon,
+  AwardIcon,
+  AxeIcon,
+  BlendIcon,
+  InboxIcon,
+  MailIcon,
+  PencilLineIcon,
+  PenIcon,
+  UserIcon,
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -16,86 +24,117 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
-import {
-  createRulesOnboardingBody,
-  type CreateRulesOnboardingBody,
+import type {
+  CreateRulesOnboardingBody,
+  CategoryAction,
 } from "@/utils/actions/rule.validation";
-import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { prefixPath } from "@/utils/path";
 import { categoryConfig } from "@/utils/category-config";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import { usePersona } from "@/hooks/usePersona";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import {
+  IconCircle,
+  type IconCircleColor,
+} from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { LoadingContent } from "@/components/LoadingContent";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // copy paste of old file
-export function CategoriesSetup({
-  defaultValues,
-}: {
-  defaultValues?: Partial<CreateRulesOnboardingBody>;
-}) {
+export function CategoriesSetup() {
   const router = useRouter();
   const { emailAccountId } = useAccount();
-  const { data } = usePersona();
-  console.log("🚀 ~ CategoriesSetup ~ data:", data);
+  const { data, isLoading, error } = usePersona();
 
-  const form = useForm<CreateRulesOnboardingBody>({
-    resolver: zodResolver(createRulesOnboardingBody),
-    defaultValues: {
-      toReply: {
-        action: defaultValues?.toReply?.action || "label",
-      },
-      newsletter: {
-        action: defaultValues?.newsletter?.action || "label",
-      },
-      marketing: {
-        action: defaultValues?.marketing?.action || "label_archive",
-      },
-      calendar: {
-        action: defaultValues?.calendar?.action || "label",
-      },
-      receipt: {
-        action: defaultValues?.receipt?.action || "label",
-      },
-      notification: {
-        action: defaultValues?.notification?.action || "label",
-      },
-      coldEmail: {
-        action: defaultValues?.coldEmail?.action || "label_archive",
-      },
-    },
-  });
-
-  const onSubmit = useCallback(
-    async (data: CreateRulesOnboardingBody) => {
-      // runs in background so we can move on to next step faster
-      createRulesOnboardingAction(emailAccountId, data);
-      router.push(prefixPath(emailAccountId, "/onboarding?step=4"));
-    },
-    [emailAccountId, router],
+  // State for managing suggested and basic categories separately
+  const [suggestedCategories, setSuggestedCategories] = React.useState<
+    Array<{ name: string; description?: string; action?: CategoryAction }>
+  >([]);
+  const [basicCategories, setBasicCategories] = React.useState<
+    Array<{ name: string; description?: string; action?: CategoryAction }>
+  >(
+    categoryConfig.map((c) => ({
+      name: c.key,
+      action: "label",
+    })),
   );
 
   const suggestedLabels = usersRolesInfo[data?.role || ""]?.suggestedLabels;
 
+  // Initialize categories when persona data loads
+  useEffect(() => {
+    if (!isLoading && suggestedLabels) {
+      setSuggestedCategories(
+        suggestedLabels.map((s) => ({
+          name: s.label,
+          description: s.description,
+          action: "label",
+        })),
+      );
+    }
+  }, [suggestedLabels, isLoading]);
+
+  const onSubmit = useCallback(async () => {
+    // Combine and filter categories
+    const allCategories = [...suggestedCategories, ...basicCategories];
+
+    const data: CreateRulesOnboardingBody = {
+      categories: allCategories,
+    };
+    // runs in background so we can move on to next step faster
+    createRulesOnboardingAction(emailAccountId, data);
+
+    router.push(prefixPath(emailAccountId, "/onboarding?step=4"));
+  }, [emailAccountId, router, suggestedCategories, basicCategories]);
+
+  const updateSuggestedCategory = useCallback(
+    (index: number, value: { action?: CategoryAction }) => {
+      setSuggestedCategories((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], ...value };
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const updateBasicCategory = useCallback(
+    (index: number, value: { action?: CategoryAction }) => {
+      setBasicCategories((prev) => {
+        const updated = [...prev];
+        updated[index] = { ...updated[index], ...value };
+        return updated;
+      });
+    },
+    [],
+  );
+
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)}>
-        {suggestedLabels && suggestedLabels.length > 0 && (
+    <LoadingContent
+      loading={isLoading}
+      error={error}
+      loadingComponent={<Skeleton className="w-full h-[1000px]" />}
+    >
+      <div>
+        {suggestedCategories.length > 0 && (
           <>
             <div className="text-sm font-medium mb-2">SUGGESTED FOR YOU</div>
-
             <div className="grid grid-cols-1 gap-2">
-              {suggestedLabels.map((s) => (
-                <CategoryCard
-                  key={s.label}
-                  id={s.label as keyof CreateRulesOnboardingBody} // TODO:
-                  label={s.label}
-                  tooltipText={s.description}
-                  icon={<UserIcon />} // TODO:
-                  // icon={s.icon}
-                  form={form}
-                />
-              ))}
+              {suggestedCategories.map((category, index) => {
+                return (
+                  <CategoryCard
+                    key={`suggested-${index}`}
+                    index={index}
+                    label={category.name}
+                    Icon={getRandomIcon()}
+                    iconColor="blue"
+                    description={category.description}
+                    update={updateSuggestedCategory}
+                    value={category.action}
+                  />
+                );
+              })}
             </div>
           </>
         )}
@@ -103,105 +142,122 @@ export function CategoriesSetup({
         <div className="text-sm font-medium mt-8 mb-2">BASIC LABELS</div>
 
         <div className="grid grid-cols-1 gap-2">
-          {categoryConfig.map((category) => (
-            <CategoryCard
-              key={category.key}
-              id={category.key}
-              label={category.label}
-              tooltipText={category.tooltipText}
-              icon={category.icon}
-              form={form}
-            />
-          ))}
+          {basicCategories.map((category, index) => {
+            const config = categoryConfig.find((c) => c.key === category.name);
+            if (!config) return null;
+            return (
+              <CategoryCard
+                key={`basic-${index}`}
+                index={index}
+                label={config.label}
+                description={config.tooltipText}
+                Icon={config.Icon}
+                iconColor={config.iconColor}
+                update={updateBasicCategory}
+                value={category.action}
+              />
+            );
+          })}
 
           <Card>
             <CardContent className="flex items-center gap-4 p-4">
-              <PencilLineIcon className="h-5 w-5 text-purple-500" />
-              <div className="flex flex-1 items-center gap-2">Custom</div>
+              <IconCircle size="sm" color="purple">
+                <PencilLineIcon className="size-4 text-purple-500" />
+              </IconCircle>
+
+              <div className="flex flex-1 items-center gap-2 font-medium">
+                Custom
+              </div>
               <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
                 You can set your own custom categories later
               </div>
             </CardContent>
           </Card>
         </div>
-      </form>
-    </Form>
+
+        <button
+          onClick={onSubmit}
+          className="hidden"
+          id="submit-categories"
+          type="button"
+        />
+      </div>
+    </LoadingContent>
   );
 }
 
 function CategoryCard({
-  id,
+  index,
   label,
-  icon,
-  form,
-  tooltipText,
+  Icon,
+  iconColor,
+  description,
+  update,
+  value,
 }: {
-  id: keyof CreateRulesOnboardingBody;
+  index: number;
   label: string;
-  icon: React.ReactNode;
-  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
-  tooltipText?: string;
+  Icon: React.ElementType;
+  iconColor: IconCircleColor;
+  description?: string;
+  update: (index: number, value: { action?: CategoryAction }) => void;
+  value?: CategoryAction;
 }) {
   const delayedActionsEnabled = useDelayedActionsEnabled();
 
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
-        {icon}
-        <div className="flex flex-1 items-center gap-2">
-          {label}
-          {tooltipText && (
-            <TooltipExplanation
-              text={tooltipText}
-              className="text-muted-foreground"
-            />
-          )}
+        <IconCircle size="sm" color={iconColor} Icon={Icon} />
+        <div>
+          <div className="font-medium">{label}</div>
+          <div className="text-sm text-muted-foreground">{description}</div>
         </div>
+
         <div className="ml-auto flex items-center gap-4">
-          <FormField
-            control={form.control}
-            name={id}
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                CreateRulesOnboardingBody,
-                keyof CreateRulesOnboardingBody
-              >;
-            }) => (
-              <FormItem>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange({
-                      ...(field.value ?? {}),
-                      action: value,
-                    });
-                  }}
-                  defaultValue={field.value.action}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="label">Label</SelectItem>
-                    <SelectItem value="label_archive">
-                      Label + skip inbox
-                    </SelectItem>
-                    {delayedActionsEnabled && (
-                      <SelectItem value="label_archive_delayed">
-                        Label + archive after a week
-                      </SelectItem>
-                    )}
-                    <SelectItem value="none">None</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
-          />
+          <Select
+            value={value}
+            onValueChange={(value) => {
+              update(index, {
+                action:
+                  value === "none" ? undefined : (value as CategoryAction),
+              });
+            }}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Select action" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="label">Label</SelectItem>
+              <SelectItem value="label_archive">Label + skip inbox</SelectItem>
+              {delayedActionsEnabled && (
+                <SelectItem value="label_archive_delayed">
+                  Label + archive after a week
+                </SelectItem>
+              )}
+              <SelectItem value="none">None</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </CardContent>
     </Card>
   );
+}
+
+function getRandomIcon() {
+  const icons = [
+    MailIcon,
+    InboxIcon,
+    PenIcon,
+    UserIcon,
+    AirplayIcon,
+    AxeIcon,
+    AtomIcon,
+    AwardIcon,
+    AudioWaveformIcon,
+    BlendIcon,
+  ];
+
+  const Icon = icons[Math.floor(Math.random() * icons.length)];
+  return Icon;
 }
