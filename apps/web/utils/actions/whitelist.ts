@@ -5,13 +5,13 @@ import { createFilter } from "@/utils/gmail/filter";
 import { GmailLabel } from "@/utils/gmail/label";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
-import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { isGmailProvider } from "@/utils/email/provider-types";
 
 export const whitelistInboxZeroAction = actionClient
   .metadata({ name: "whitelistInboxZero" })
   .action(async ({ ctx: { emailAccountId, provider } }) => {
     if (!env.WHITELIST_FROM) return;
-    if (isMicrosoftProvider(provider)) return;
+    if (!isGmailProvider(provider)) return;
 
     const gmail = await getGmailClientForEmail({ emailAccountId });
 

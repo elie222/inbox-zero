@@ -1,7 +1,7 @@
 export function isMicrosoftProvider(provider: string | null | undefined) {
-  return provider ? provider === "microsoft" : false;
+  return provider === "microsoft";
 }
 
 export function isGmailProvider(provider: string | null | undefined) {
-  return provider ? provider === "google" : false;
+  return provider === "google";
 }

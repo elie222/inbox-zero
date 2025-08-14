@@ -209,9 +209,9 @@ const createRuleTool = ({
                     webhookUrl: action.fields.webhookUrl ?? null,
                     cc: action.fields.cc ?? null,
                     bcc: action.fields.bcc ?? null,
-                    folderName: isMicrosoftProvider(provider)
-                      ? (action.fields.folderName ?? null)
-                      : undefined,
+                    ...(isMicrosoftProvider(provider) && {
+                      folderName: action.fields.folderName ?? null,
+                    }),
                   }
                 : null,
             })),
@@ -442,9 +442,9 @@ const updateRuleActionsTool = ({
           bcc: action.bcc,
           subject: action.subject,
           webhookUrl: action.url,
-          folderName: isMicrosoftProvider(provider)
-            ? action.folderName
-            : undefined,
+          ...(isMicrosoftProvider(provider) && {
+            folderName: action.folderName,
+          }),
         }),
       }));
 
