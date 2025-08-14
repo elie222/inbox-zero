@@ -59,7 +59,7 @@ export function CategoriesSetup() {
     categoryConfig.map((c) => ({
       name: c.key,
       description: "",
-      action: "label",
+      action: c.action,
     })),
   );
 
@@ -79,7 +79,6 @@ export function CategoriesSetup() {
   }, [suggestedLabels, isLoading]);
 
   const onSubmit = useCallback(async () => {
-    // Combine and filter categories
     const allCategories = [...suggestedCategories, ...basicCategories];
 
     // runs in background so we can move on to next step faster

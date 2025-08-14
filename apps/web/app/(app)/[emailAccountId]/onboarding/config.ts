@@ -1,3 +1,4 @@
+import type { CategoryAction } from "@/utils/actions/rule.validation";
 import {
   RocketIcon,
   BriefcaseIcon,
@@ -22,7 +23,7 @@ export const usersRolesInfo: Record<
   string,
   {
     icon: LucideIcon;
-    suggestedLabels?: { label: string; description: string }[];
+    suggestedLabels: { label: string; description: string }[];
   }
 > = {
   Founder: {
@@ -46,8 +47,8 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Executive: { icon: BriefcaseIcon },
-  "Small Business Owner": { icon: StoreIcon },
+  Executive: { icon: BriefcaseIcon, suggestedLabels: [] },
+  "Small Business Owner": { icon: StoreIcon, suggestedLabels: [] },
   "Software Engineer": {
     icon: CodeIcon,
     suggestedLabels: [
@@ -132,7 +133,7 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Marketing: { icon: MegaphoneIcon },
+  Marketing: { icon: MegaphoneIcon, suggestedLabels: [] },
   "Customer Support": {
     icon: HeadphonesIcon,
     suggestedLabels: [
@@ -196,8 +197,8 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Consultant: { icon: UsersIcon },
-  "E-commerce": { icon: ShoppingCartIcon },
+  Consultant: { icon: UsersIcon, suggestedLabels: [] },
+  "E-commerce": { icon: ShoppingCartIcon, suggestedLabels: [] },
   Student: {
     icon: GraduationCapIcon,
     suggestedLabels: [
@@ -219,6 +220,6 @@ export const usersRolesInfo: Record<
       },
     ],
   },
-  Individual: { icon: UserIcon },
-  Other: { icon: CircleHelpIcon },
+  Individual: { icon: UserIcon, suggestedLabels: [] },
+  Other: { icon: CircleHelpIcon, suggestedLabels: [] },
 };
