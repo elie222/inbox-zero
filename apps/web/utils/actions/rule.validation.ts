@@ -211,13 +211,13 @@ const categoryAction = z.enum([
 export type CategoryAction = z.infer<typeof categoryAction>;
 
 const categoryConfig = z.object({
-  action: categoryAction.optional(),
-  hasDigest: z.boolean().optional(),
+  action: categoryAction.nullish(),
+  hasDigest: z.boolean().nullish(),
 });
 
-export const createRulesOnboardingBody = z.object({
-  categories: z.array(categoryConfig.extend({ name: z.string() })),
-});
+export const createRulesOnboardingBody = z.array(
+  categoryConfig.extend({ name: z.string() }),
+);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;

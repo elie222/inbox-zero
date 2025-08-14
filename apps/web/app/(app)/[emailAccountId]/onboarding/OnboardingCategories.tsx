@@ -80,11 +80,8 @@ export function CategoriesSetup() {
     // Combine and filter categories
     const allCategories = [...suggestedCategories, ...basicCategories];
 
-    const data: CreateRulesOnboardingBody = {
-      categories: allCategories,
-    };
     // runs in background so we can move on to next step faster
-    createRulesOnboardingAction(emailAccountId, data);
+    createRulesOnboardingAction(emailAccountId, allCategories);
 
     router.push(prefixPath(emailAccountId, "/onboarding?step=4"));
   }, [emailAccountId, router, suggestedCategories, basicCategories]);

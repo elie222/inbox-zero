@@ -472,21 +472,16 @@ export const getRuleExamplesAction = actionClient
 export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { categories } }) => {
-    // newsletter,
-    //     coldEmail,
-    //     toReply,
-    //     marketing,
-    //     calendar,
-    //     receipt,
-    //     notification,
-    const newsletter = categories.find((c) => c.name === "newsletter");
-    const coldEmail = categories.find((c) => c.name === "coldEmail");
-    const toReply = categories.find((c) => c.name === "toReply");
-    const marketing = categories.find((c) => c.name === "marketing");
-    const calendar = categories.find((c) => c.name === "calendar");
-    const receipt = categories.find((c) => c.name === "receipt");
-    const notification = categories.find((c) => c.name === "notification");
+  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+    const newsletter = parsedInput.find((c) => c.name === RuleName.Newsletter);
+    const coldEmail = parsedInput.find((c) => c.name === RuleName.ColdEmail);
+    const toReply = parsedInput.find((c) => c.name === RuleName.ToReply);
+    const marketing = parsedInput.find((c) => c.name === RuleName.Marketing);
+    const calendar = parsedInput.find((c) => c.name === RuleName.Calendar);
+    const receipt = parsedInput.find((c) => c.name === RuleName.Receipt);
+    const notification = parsedInput.find(
+      (c) => c.name === RuleName.Notification,
+    );
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
@@ -497,7 +492,7 @@ export const createRulesOnboardingAction = actionClient
     const promises: Promise<any>[] = [];
 
     const isSet = (
-      value: string | undefined,
+      value: string | undefined | null,
     ): value is "label" | "label_archive" | "label_archive_delayed" =>
       value !== "none" && value !== undefined;
 
@@ -510,7 +505,7 @@ export const createRulesOnboardingAction = actionClient
             coldEmail.action === "label"
               ? ColdEmailSetting.LABEL
               : ColdEmailSetting.ARCHIVE_AND_LABEL,
-          coldEmailDigest: coldEmail.hasDigest,
+          coldEmailDigest: coldEmail.hasDigest ?? false,
         },
       });
       promises.push(promise);
@@ -522,7 +517,7 @@ export const createRulesOnboardingAction = actionClient
     if (toReply && isSet(toReply.action)) {
       const promise = enableReplyTracker({
         emailAccountId,
-        addDigest: toReply.hasDigest,
+        addDigest: toReply.hasDigest ?? false,
       }).then((res) => {
         if (res?.alreadyEnabled) return;
 
