@@ -37,7 +37,7 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
   - `sanity/`: Integration with Sanity CMS for blog and content management.
 - **Key Functionalities:**
   - User interface for all features (AI assistant, unsubscriber, analytics, settings).
-  - User authentication and session management (NextAuth.js).
+  - User authentication and session management (Better Auth).
   - API endpoints for interacting with Gmail API, AI models, and other services.
   - Server-side rendering and data fetching.
   - Integration with payment processing (Lemon Squeezy) and analytics (Tinybird, PostHog).
@@ -116,7 +116,7 @@ The Inbox Zero repository is structured as a monorepo, consisting of two main ap
 The application exposes the following API endpoints under `apps/web/app/api/`:
 
 - `/api/ai/*`: AI-related endpoints (categorization, summarization, autocomplete, models).
-- `/api/auth/*`: Authentication endpoints (NextAuth.js).
+- `/api/auth/*`: Authentication endpoints (Better Auth).
 - `/api/google/*`: Gmail API proxy endpoints (messages, threads, labels, drafts, contacts, webhook, watch).
 - `/api/lemon-squeezy/*`: Lemon Squeezy webhook and API integration endpoints.
 - `/api/resend/*`: Resend API integration endpoints (email sending, summary emails, all emails).

@@ -273,5 +273,5 @@ const move_folder: ActionFunction<any> = async ({
   userEmail,
   args,
 }) => {
-  await client.moveThreadToFolder(email.threadId, userEmail, args.folderName);
+  await client.moveThreadToFolder(email.threadId, userEmail, args.folderId);
 };

@@ -12,9 +12,11 @@ import { SafeError } from "@/utils/error";
 export async function enableReplyTracker({
   emailAccountId,
   addDigest,
+  provider,
 }: {
   emailAccountId: string;
   addDigest?: boolean;
+  provider: string;
 }) {
   const logger = createScopedLogger("reply-tracker/enable").with({
     emailAccountId,
@@ -90,7 +92,11 @@ export async function enableReplyTracker({
 
   // If not found, create a reply required rule
   if (!ruleId) {
-    const newRule = await createToReplyRule(emailAccountId, !!addDigest);
+    const newRule = await createToReplyRule(
+      emailAccountId,
+      !!addDigest,
+      provider,
+    );
 
     if (newRule && "error" in newRule) {
       logger.error("Error enabling Reply Zero", { error: newRule.error });
@@ -136,6 +142,7 @@ export async function enableReplyTracker({
 export async function createToReplyRule(
   emailAccountId: string,
   addDigest: boolean,
+  provider: string,
 ) {
   return await safeCreateRule({
     result: {
@@ -166,6 +173,7 @@ export async function createToReplyRule(
     systemType: SystemType.TO_REPLY,
     triggerType: "system_creation",
     shouldCreateIfDuplicate: false,
+    provider,
   });
 }
 

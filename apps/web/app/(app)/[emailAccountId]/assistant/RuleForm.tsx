@@ -68,6 +68,7 @@ import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import {
   Dialog,
   DialogContent,
@@ -89,6 +90,9 @@ import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import type { EmailLabel } from "@/providers/EmailProvider";
+import { FolderSelector } from "@/components/FolderSelector";
+import { useFolders } from "@/hooks/useFolders";
+import type { OutlookFolder } from "@/utils/outlook/folders";
 
 export function Rule({
   ruleId,
@@ -141,6 +145,7 @@ export function RuleForm({
                 setManually: !!action.content?.value,
               },
               folderName: action.folderName,
+              folderId: action.folderId,
             })),
           ],
         }
@@ -173,6 +178,7 @@ export function RuleForm({
     isLoading: categoriesLoading,
     error: categoriesError,
   } = useCategories();
+  const { folders, isLoading: foldersLoading } = useFolders();
   const router = useRouter();
 
   const posthog = usePostHog();
@@ -323,7 +329,7 @@ export function RuleForm({
     const options: { label: string; value: ActionType }[] = [
       { label: "Archive", value: ActionType.ARCHIVE },
       { label: "Label", value: ActionType.LABEL },
-      ...(provider === "microsoft"
+      ...(isMicrosoftProvider(provider)
         ? [{ label: "Move to folder", value: ActionType.MOVE_FOLDER }]
         : []),
       { label: "Draft reply", value: ActionType.DRAFT_EMAIL },
@@ -835,6 +841,8 @@ export function RuleForm({
                 emailAccountId={emailAccountId}
                 remove={remove}
                 typeOptions={typeOptions}
+                folders={folders}
+                foldersLoading={foldersLoading}
               />
             ) : (
               <ActionSummaryCard
@@ -974,6 +982,8 @@ function ActionCard({
   emailAccountId,
   remove,
   typeOptions,
+  folders,
+  foldersLoading,
 }: {
   action: CreateRuleBody["actions"][number];
   index: number;
@@ -988,6 +998,8 @@ function ActionCard({
   emailAccountId: string;
   remove: (index: number) => void;
   typeOptions: { label: string; value: ActionType }[];
+  folders: OutlookFolder[];
+  foldersLoading: boolean;
 }) {
   const fields = actionInputs[action.type].fields;
   const [expandedFields, setExpandedFields] = useState(false);
@@ -1027,13 +1039,21 @@ function ActionCard({
       return contentSetManually;
     }
 
+    if (field.name === "folderName" || field.name === "folderId") {
+      return false;
+    }
+
     // For other fields, allow variables
     return true;
   };
 
   // Check if we should show the variable pro tip
   const shouldShowProTip = fields.some((field) => {
-    // Get field value
+    if (field.name === "folderName" || field.name === "folderId") {
+      return false;
+    }
+
+    // Get field value for zodField objects
     const value = watch(`actions.${index}.${field.name}.value`);
     const isFieldVisible = !field.expandable || expandedFields || !!value;
 
@@ -1156,6 +1176,31 @@ function ActionCard({
                       registerProps={register(
                         `actions.${index}.${field.name}.value`,
                       )}
+                    />
+                  </div>
+                ) : field.name === "folderName" &&
+                  action.type === ActionType.MOVE_FOLDER ? (
+                  <div className="mt-2">
+                    <FolderSelector
+                      folders={folders}
+                      isLoading={foldersLoading}
+                      value={{
+                        name: watch(`actions.${index}.folderName.value`) || "",
+                        id: watch(`actions.${index}.folderId.value`) || "",
+                      }}
+                      onChangeValue={(folderData) => {
+                        if (folderData.name && folderData.id) {
+                          setValue(`actions.${index}.folderName`, {
+                            value: folderData.name,
+                          });
+                          setValue(`actions.${index}.folderId`, {
+                            value: folderData.id,
+                          });
+                        } else {
+                          setValue(`actions.${index}.folderName`, undefined);
+                          setValue(`actions.${index}.folderId`, undefined);
+                        }
+                      }}
                     />
                   </div>
                 ) : field.name === "content" &&

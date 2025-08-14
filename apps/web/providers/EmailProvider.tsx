@@ -4,6 +4,10 @@ import { createContext, useContext, useMemo } from "react";
 import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { OUTLOOK_COLOR_MAP } from "@/utils/outlook/label";
+import {
+  isGmailProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 export type EmailLabel = {
   id: string;
@@ -36,9 +40,9 @@ function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
     return undefined;
   }
 
-  if (provider === "google") {
+  if (isGmailProvider(provider)) {
     return label.color;
-  } else if (provider === "microsoft") {
+  } else if (isMicrosoftProvider(provider)) {
     const presetColor = label.color as string;
     const backgroundColor =
       OUTLOOK_COLOR_MAP[presetColor as keyof typeof OUTLOOK_COLOR_MAP] ||

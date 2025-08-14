@@ -27,7 +27,7 @@ Follow this standard structure for LLM-related functions:
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 import { chatCompletionObject } from "@/utils/llms";
-import type { UserEmailWithAI } from "@/utils/llms/types";
+import type { EmailAccountWithAI } from "@/utils/llms/types";
 
 export async function featureFunction(options: {
   inputData: InputType;

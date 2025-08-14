@@ -19,8 +19,8 @@ const logger = createScopedLogger("enableReplyTracker");
 
 export const enableReplyTrackerAction = actionClient
   .metadata({ name: "enableReplyTracker" })
-  .action(async ({ ctx: { emailAccountId } }) => {
-    await enableReplyTracker({ emailAccountId });
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    await enableReplyTracker({ emailAccountId, provider });
 
     revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
 
