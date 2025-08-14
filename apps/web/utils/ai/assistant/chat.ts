@@ -460,9 +460,9 @@ const updateRuleActionsTool = ({
             subject: action.fields?.subject ?? null,
             content: action.fields?.content ?? null,
             webhookUrl: action.fields?.webhookUrl ?? null,
-            folderName: isMicrosoftProvider(provider)
-              ? (action.fields?.folderName ?? null)
-              : undefined,
+            ...(isMicrosoftProvider(provider) && {
+              folderName: action.fields?.folderName ?? null,
+            }),
           },
           delayInMinutes: action.delayInMinutes ?? null,
         })),
