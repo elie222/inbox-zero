@@ -73,7 +73,7 @@ model ScheduledAction {
    const notBefore = getUnixTime(addMinutes(new Date(), delayInMinutes));
    
    const response = await qstash.publishJSON({
-     url: `${process.env.NEXTAUTH_URL}/api/scheduled-actions/execute`,
+     url: `${env.NEXT_PUBLIC_BASE_URL}/api/scheduled-actions/execute`,
      body: {
        scheduledActionId: scheduledAction.id,
      },
