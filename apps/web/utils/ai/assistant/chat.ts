@@ -16,6 +16,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -208,10 +209,9 @@ const createRuleTool = ({
                     webhookUrl: action.fields.webhookUrl ?? null,
                     cc: action.fields.cc ?? null,
                     bcc: action.fields.bcc ?? null,
-                    folderName:
-                      provider === "microsoft"
-                        ? (action.fields.folderName ?? null)
-                        : undefined,
+                    folderName: isMicrosoftProvider(provider)
+                      ? (action.fields.folderName ?? null)
+                      : undefined,
                   }
                 : null,
             })),
@@ -442,7 +442,9 @@ const updateRuleActionsTool = ({
           bcc: action.bcc,
           subject: action.subject,
           webhookUrl: action.url,
-          folderName: provider === "microsoft" ? action.folderName : undefined,
+          folderName: isMicrosoftProvider(provider)
+            ? action.folderName
+            : undefined,
         }),
       }));
 
@@ -458,10 +460,9 @@ const updateRuleActionsTool = ({
             subject: action.fields?.subject ?? null,
             content: action.fields?.content ?? null,
             webhookUrl: action.fields?.webhookUrl ?? null,
-            folderName:
-              provider === "microsoft"
-                ? (action.fields?.folderName ?? null)
-                : undefined,
+            folderName: isMicrosoftProvider(provider)
+              ? (action.fields?.folderName ?? null)
+              : undefined,
           },
           delayInMinutes: action.delayInMinutes ?? null,
         })),

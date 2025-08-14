@@ -9,72 +9,73 @@ export const FOLDER_SEPARATOR = " ⦙ ";
 export type OutlookFolder = {
   id: string;
   displayName: string;
-  parentFolderId?: string;
   childFolders?: OutlookFolder[];
 };
 
-export async function getOutlookFolders(
+export async function getOutlookRootFolders(
   client: OutlookClient,
-  expandLevels = 4, // This is fetching 6 levels deep
 ): Promise<OutlookFolder[]> {
-  const getFolders = async (path: string) => {
-    const fields = "id,displayName";
-    const response = await client
-      .getClient()
-      .api(path)
-      .select(fields)
-      .expand(
-        `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
-      )
-      .get();
+  const fields = "id,displayName";
+  const response = await client
+    .getClient()
+    .api("/me/mailFolders")
+    .select(fields)
+    .expand(
+      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+    )
+    .get();
 
-    return response.value;
-  };
+  return response.value;
+}
 
-  const folders = await getFolders("/me/mailFolders");
-  const processFolders = (
-    folderList: OutlookFolder[],
-    parentId?: string,
-  ): OutlookFolder[] => {
-    return folderList.map((folder) => ({
-      ...folder,
-      parentFolderId: parentId,
-      childFolders: folder.childFolders
-        ? processFolders(folder.childFolders, folder.id)
-        : undefined,
-    }));
-  };
+export async function getOutlookChildFolders(
+  client: OutlookClient,
+  folderId: string,
+): Promise<OutlookFolder[]> {
+  const fields = "id,displayName";
+  const response = await client
+    .getClient()
+    .api(`/me/mailFolders/${folderId}/childFolders`)
+    .select(fields)
+    .expand(
+      `childFolders($select=${fields};$expand=childFolders($select=${fields}))`,
+    )
+    .get();
 
-  const processedFolders = processFolders(folders);
-  for (let currentLevel = 0; currentLevel < expandLevels; currentLevel++) {
-    const fetchNested = async (folderList: OutlookFolder[]) => {
-      for (const folder of folderList) {
-        if (!folder.childFolders || folder.childFolders.length === 0) {
-          try {
-            const childFolders = await getFolders(
-              `/me/mailFolders/${folder.id}/childFolders`,
-            );
-            folder.childFolders = childFolders.map(
-              (childFolder: OutlookFolder) => ({
-                id: childFolder.id,
-                displayName: childFolder.displayName,
-                parentFolderId: folder.id,
-              }),
-            );
-          } catch (error) {
-            logger.warn("Failed to fetch deeper folders", {
-              folderId: folder.id,
-              error,
-            });
-          }
-        } else {
-          await fetchNested(folder.childFolders);
-        }
-      }
-    };
+  return response.value;
+}
 
-    await fetchNested(processedFolders);
+export async function getOutlookFolderTree(
+  client: OutlookClient,
+  expandLevels = 6,
+): Promise<OutlookFolder[]> {
+  const folders = await getOutlookRootFolders(client);
+
+  if (expandLevels <= 2) {
+    return folders;
   }
 
-  return processedFolders;
+  const remainingLevels = expandLevels - 2;
+  for (let currentLevel = 0; currentLevel < remainingLevels; currentLevel++) {
+    const folderQueue: OutlookFolder[] = [...folders];
+
+    while (folderQueue.length > 0) {
+      const folder = folderQueue.shift()!;
+      if (!folder.childFolders || folder.childFolders.length === 0) {
+        try {
+          folder.childFolders = await getOutlookChildFolders(client, folder.id);
+        } catch (error) {
+          logger.warn("Failed to fetch deeper folders", {
+            folderId: folder.id,
+            error,
+          });
+        }
+      }
+      if (folder.childFolders) {
+        folderQueue.push(...folder.childFolders);
+      }
+    }
+  }
+
+  return folders;
 }

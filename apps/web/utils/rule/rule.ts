@@ -13,6 +13,7 @@ import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { SafeError } from "@/utils/error";
 import { createRuleHistory } from "@/utils/rule/rule-history";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("rule");
 
@@ -376,7 +377,7 @@ function mapActionFields(
       subject: a.fields?.subject,
       content: a.fields?.content,
       url: a.fields?.webhookUrl,
-      ...(provider === "microsoft" && {
+      ...(isMicrosoftProvider(provider) && {
         folderName: a.fields?.folderName as string | null,
       }),
       delayInMinutes: a.delayInMinutes,
