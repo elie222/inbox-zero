@@ -89,6 +89,7 @@ ${
       examples: z.array(z.string()),
     }),
   });
+  logger.trace("Output", result.object);
 
   return result.object;
 }
