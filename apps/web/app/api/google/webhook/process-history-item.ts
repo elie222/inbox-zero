@@ -25,11 +25,17 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import { HistoryEventType } from "@/app/api/google/webhook/types";
+import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
 
 export async function processHistoryItem(
-  {
-    message,
-  }: gmail_v1.Schema$HistoryMessageAdded | gmail_v1.Schema$HistoryLabelAdded,
+  historyItem: {
+    type: HistoryEventType;
+    item:
+      | gmail_v1.Schema$HistoryMessageAdded
+      | gmail_v1.Schema$HistoryLabelAdded
+      | gmail_v1.Schema$HistoryLabelRemoved;
+  },
   {
     gmail,
     emailAccount,
@@ -39,8 +45,10 @@ export async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
-  const messageId = message?.id;
-  const threadId = message?.threadId;
+  const { type, item } = historyItem;
+  const messageId = item.message?.id;
+  const threadId = item.message?.threadId;
+
   const emailAccountId = emailAccount.id;
   const userEmail = emailAccount.email;
 
@@ -52,6 +60,23 @@ export async function processHistoryItem(
     threadId,
   };
 
+  const provider = await createEmailProvider({
+    emailAccountId,
+    provider: "google",
+  });
+
+  if (type === HistoryEventType.LABEL_REMOVED) {
+    logger.info("Processing label removed event for learning", loggerOptions);
+    return handleLabelRemovedEvent(item, {
+      gmail,
+      emailAccount,
+      provider,
+    });
+  } else if (type === HistoryEventType.LABEL_ADDED) {
+    logger.info("Processing label added event for learning", loggerOptions);
+    return;
+  }
+
   const isFree = await markMessageAsProcessing({ userEmail, messageId });
 
   if (!isFree) {
@@ -61,14 +86,9 @@ export async function processHistoryItem(
 
   logger.info("Getting message", loggerOptions);
 
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: "google",
-  });
-
   try {
     const [parsedMessage, hasExistingRule] = await Promise.all([
-      emailProvider.getMessage(messageId),
+      provider.getMessage(messageId),
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
@@ -95,11 +115,6 @@ export async function processHistoryItem(
     const isForAssistant = isAssistantEmail({
       userEmail,
       emailToCheck: parsedMessage.headers.to,
-    });
-
-    const provider = await createEmailProvider({
-      emailAccountId,
-      provider: "google",
     });
 
     if (isForAssistant) {

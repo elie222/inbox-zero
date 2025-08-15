@@ -8,7 +8,10 @@ import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
+import {
+  HistoryEventType,
+  type ProcessHistoryOptions,
+} from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
@@ -162,7 +165,7 @@ export async function processHistoryForUser(
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
-      historyTypes: ["messageAdded", "labelAdded"],
+      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
       maxResults: 500,
     });
 
@@ -232,26 +235,43 @@ async function processHistory(options: ProcessHistoryOptions) {
     const historyMessages = [
       ...(h.messagesAdded || []),
       ...(h.labelsAdded || []),
+      ...(h.labelsRemoved || []),
     ];
 
     if (!historyMessages.length) continue;
 
-    const inboxMessages = historyMessages.filter(isInboxOrSentMessage);
-    const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
+    const allEvents = [
+      ...(h.messagesAdded || [])
+        .filter(isInboxOrSentMessage)
+        .map((m) => ({ type: HistoryEventType.MESSAGE_ADDED, item: m })),
+      ...(h.labelsAdded || []).map((m) => ({
+        type: HistoryEventType.LABEL_ADDED,
+        item: m,
+      })),
+      ...(h.labelsRemoved || []).map((m) => ({
+        type: HistoryEventType.LABEL_REMOVED,
+        item: m,
+      })),
+    ];
 
-    for (const m of uniqueMessages) {
+    const uniqueEvents = uniqBy(
+      allEvents,
+      (e) => `${e.type}:${e.item.message?.id}`,
+    );
+
+    for (const event of uniqueEvents) {
       try {
-        await processHistoryItem(m, options);
+        await processHistoryItem(event, options);
       } catch (error) {
         captureException(
           error,
-          { extra: { userEmail, messageId: m.message?.id } },
+          { extra: { userEmail, messageId: event.item.message?.id } },
           userEmail,
         );
         logger.error("Error processing history item", {
           userEmail,
-          messageId: m.message?.id,
-          threadId: m.message?.threadId,
+          messageId: event.item.message?.id,
+          threadId: event.item.message?.threadId,
           error:
             error instanceof Error
               ? {

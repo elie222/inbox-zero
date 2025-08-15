@@ -3,7 +3,8 @@ import {
   shouldRunColdEmailBlocker,
   processHistoryItem,
 } from "./process-history-item";
-import { ColdEmailSetting } from "@prisma/client";
+import { HistoryEventType } from "./types";
+import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
@@ -16,6 +17,10 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import prisma from "@/utils/__mocks__/prisma";
+import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { createEmailProvider } from "@/utils/email/provider";
+import { inboxZeroLabels } from "@/utils/label";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -91,6 +96,26 @@ vi.mock("@/utils/email/provider", () => ({
   }),
 }));
 
+vi.mock("@/utils/gmail/label", async () => {
+  const actual = await vi.importActual("@/utils/gmail/label");
+  return {
+    ...actual,
+    getLabelById: vi.fn().mockImplementation(async ({ id }: { id: string }) => {
+      const labelMap: Record<string, { name: string }> = {
+        "label-1": { name: inboxZeroLabels.cold_email.name },
+        "label-2": { name: "Newsletter" },
+        "label-3": { name: "Marketing" },
+        "label-4": { name: "To Reply" },
+      };
+      return labelMap[id] || { name: "Unknown Label" };
+    }),
+  };
+});
+
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPatterns: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("processHistoryItem", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -99,9 +124,34 @@ describe("processHistoryItem", () => {
   const createHistoryItem = (
     messageId = "123",
     threadId = "thread-123",
-  ): gmail_v1.Schema$HistoryMessageAdded => ({
-    message: { id: messageId, threadId },
-  });
+    type: HistoryEventType = HistoryEventType.MESSAGE_ADDED,
+    labelIds?: string[],
+  ) => {
+    const baseItem = { message: { id: messageId, threadId } };
+
+    if (type === HistoryEventType.LABEL_REMOVED) {
+      return {
+        type,
+        item: {
+          ...baseItem,
+          labelIds: labelIds || [],
+        } as gmail_v1.Schema$HistoryLabelRemoved,
+      };
+    } else if (type === HistoryEventType.LABEL_ADDED) {
+      return {
+        type,
+        item: {
+          ...baseItem,
+          labelIds: labelIds || [],
+        } as gmail_v1.Schema$HistoryLabelAdded,
+      };
+    } else {
+      return {
+        type,
+        item: baseItem as gmail_v1.Schema$HistoryMessageAdded,
+      };
+    }
+  };
 
   const defaultOptions = {
     gmail: {} as any,
@@ -160,7 +210,6 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    const { createEmailProvider } = await import("@/utils/email/provider");
     vi.mocked(createEmailProvider).mockResolvedValueOnce({
       getMessage: vi.fn().mockResolvedValue({
         id: "123",
