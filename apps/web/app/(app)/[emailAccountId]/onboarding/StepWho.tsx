@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { SendIcon } from "lucide-react";
+import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { USER_ROLES } from "@/app/(landing)/welcome/survey";
+import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 import {
@@ -18,8 +19,9 @@ import {
 } from "@/utils/actions/onboarding.validation";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { prefixPath } from "@/utils/path";
+import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
+import { Button } from "@/components/ui/button";
 
 interface StepWhoProps {
   emailAccountId: string;
@@ -30,6 +32,7 @@ export function StepWho({
   initialRole,
   emailAccountId,
 }: StepWhoProps & { emailAccountId: string }) {
+  console.log("initialRole", initialRole);
   const router = useRouter();
   // const [isPending, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -101,99 +104,52 @@ export function StepWho({
         <form
           className="space-y-6 mt-4"
           onSubmit={form.handleSubmit(async (values) => {
-            // Use custom role if "Other" is selected
             const roleToSave =
               values.role === "Other" ? customRole : values.role;
 
-            await saveOnboardingAnswersAction({
+            const updateEmailAccountRolePromise = updateEmailAccountRoleAction(
+              emailAccountId,
+              {
+                role: roleToSave,
+              },
+            );
+
+            // may deprecate this in the future, but to keep consistency with old data we're storing this too
+            const saveOnboardingAnswersPromise = saveOnboardingAnswersAction({
               answers: { role: roleToSave },
             });
 
-            // startTransition(() => {
+            await Promise.all([
+              updateEmailAccountRolePromise,
+              saveOnboardingAnswersPromise,
+            ]);
+
             router.push(prefixPath(emailAccountId, "/onboarding?step=3"));
-            // });
           })}
         >
-          {/* <FormField
-            control={form.control}
-            name="role"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Your role</FormLabel>
-                <FormControl>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((r) => (
-                        <SelectItem key={r} value={r}>
-                          {r}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="about"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>About you</FormLabel>
-                <FormControl>
-                  <Textarea
-                    rows={4}
-                    placeholder="Tell us a little about your work…"
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          /> */}
-
-          {/* <ButtonList
-            items={
-              survey.questions[1].choices?.map((choice) => ({
-                id: choice,
-                name: choice,
-              })) || []
-            }
-            onSelect={(id) => {
-              form.setValue("role", id);
-            }}
-            // onSelect={(id) => {
-            //   onSelect(id);
-            //   setIsOpen(false);
-            // }}
-            emptyMessage=""
-            columns={2}
-                    /> */}
-
           <ScrollableFadeContainer
             ref={scrollContainerRef}
             className="grid gap-2 px-1 pt-6 pb-6"
             fadeFromClass="from-slate-50"
           >
-            {USER_ROLES.map((role) => {
+            {Object.entries(usersRolesInfo).map(([roleName, role]) => {
               const Icon = role.icon;
+              const description = USER_ROLES.find(
+                (r) => r.value === roleName,
+              )?.description;
+
               return (
                 <button
                   type="button"
-                  key={role.value}
+                  key={roleName}
                   className={cn(
                     "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all",
-                    watchedRole === role.value &&
+                    watchedRole === roleName &&
                       "border-blue-600 ring-2 ring-blue-100",
                   )}
                   onClick={() => {
-                    setValue("role", role.value);
-                    if (role.value !== "Other") {
+                    setValue("role", roleName);
+                    if (roleName !== "Other") {
                       setCustomRole("");
                     }
                   }}
@@ -203,9 +159,9 @@ export function StepWho({
                   </IconCircle>
 
                   <div>
-                    <div className="font-medium">{role.value}</div>
+                    <div className="font-medium">{roleName}</div>
                     <div className="text-sm text-muted-foreground">
-                      {role.description}
+                      {description}
                     </div>
                   </div>
                 </button>
@@ -243,9 +199,17 @@ export function StepWho({
               <ArrowRightIcon className="size-4 ml-2" />
             </Button> */}
 
-            <ContinueButton
-              href={prefixPath(emailAccountId, "/onboarding?step=3")}
-            />
+            <Button
+              type="submit"
+              size="sm"
+              variant="primaryBlue"
+              loading={form.formState.isSubmitting}
+              disabled={
+                !watchedRole || (watchedRole === "Other" && !customRole.trim())
+              }
+            >
+              Continue <ArrowRightIcon className="size-4 ml-2" />
+            </Button>
           </div>
         </form>
       </Form>

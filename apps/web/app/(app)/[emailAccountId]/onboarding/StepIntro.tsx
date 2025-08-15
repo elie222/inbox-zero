@@ -6,7 +6,7 @@ import { CardBasic } from "@/components/ui/card";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { prefixPath } from "@/utils/path";
 
 export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
@@ -45,7 +45,7 @@ export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
           />
         </div>
         <div className="flex justify-center mt-8">
-          <ContinueButton
+          <ContinueButtonLink
             href={prefixPath(emailAccountId, "/onboarding?step=2")}
           />
         </div>
@@ -66,7 +66,7 @@ function Benefit({
   image: string;
 }) {
   return (
-    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[50vh]">
+    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[400px]">
       <div className="flex items-center gap-4 col-span-2">
         <IconCircle>{index}</IconCircle>
         <div>

@@ -1,51 +1,5 @@
 // copy pasted from PostHog
-
-import {
-  RocketIcon,
-  BriefcaseIcon,
-  StoreIcon,
-  CodeIcon,
-  CalendarDaysIcon,
-  TrendingUpIcon,
-  PhoneIcon,
-  MegaphoneIcon,
-  HeadphonesIcon,
-  HomeIcon,
-  VideoIcon,
-  UsersIcon,
-  ShoppingCartIcon,
-  GraduationCapIcon,
-  UserIcon,
-  CircleHelpIcon,
-} from "lucide-react";
-import { USER_ROLES as USER_ROLES_DATA } from "@/utils/constants/user-roles";
-
-// Add icons to the plain user roles data for UI display
-export const USER_ROLES = USER_ROLES_DATA.map((role) => {
-  const iconMap: Record<string, any> = {
-    Founder: RocketIcon,
-    Executive: BriefcaseIcon,
-    "Small Business Owner": StoreIcon,
-    "Software Engineer": CodeIcon,
-    Assistant: CalendarDaysIcon,
-    Investor: TrendingUpIcon,
-    Sales: PhoneIcon,
-    Marketing: MegaphoneIcon,
-    "Customer Support": HeadphonesIcon,
-    Realtor: HomeIcon,
-    "Content Creator": VideoIcon,
-    Consultant: UsersIcon,
-    "E-commerce": ShoppingCartIcon,
-    Student: GraduationCapIcon,
-    Individual: UserIcon,
-    Other: CircleHelpIcon,
-  };
-
-  return {
-    ...role,
-    icon: iconMap[role.value],
-  };
-});
+import { USER_ROLES } from "@/utils/constants/user-roles";
 
 export const survey = {
   questions: [

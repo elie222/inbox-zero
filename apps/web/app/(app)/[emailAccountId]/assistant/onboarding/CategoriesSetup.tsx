@@ -4,18 +4,10 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { ControllerRenderProps } from "react-hook-form";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Form } from "@/components/ui/form";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import {
   createRulesOnboardingBody,
@@ -35,13 +27,18 @@ import {
 import { categoryConfig } from "@/utils/category-config";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
+import {
+  type IconCircleColor,
+  textVariants,
+} from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { cn } from "@/utils";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
 export function CategoriesSetup({
   defaultValues,
 }: {
-  defaultValues?: Partial<CreateRulesOnboardingBody>;
+  defaultValues: CreateRulesOnboardingBody;
 }) {
   const router = useRouter();
   const { emailAccountId } = useAccount();
@@ -50,29 +47,7 @@ export function CategoriesSetup({
 
   const form = useForm<CreateRulesOnboardingBody>({
     resolver: zodResolver(createRulesOnboardingBody),
-    defaultValues: {
-      toReply: {
-        action: defaultValues?.toReply?.action || "label",
-      },
-      newsletter: {
-        action: defaultValues?.newsletter?.action || "label",
-      },
-      marketing: {
-        action: defaultValues?.marketing?.action || "label_archive",
-      },
-      calendar: {
-        action: defaultValues?.calendar?.action || "label",
-      },
-      receipt: {
-        action: defaultValues?.receipt?.action || "label",
-      },
-      notification: {
-        action: defaultValues?.notification?.action || "label",
-      },
-      coldEmail: {
-        action: defaultValues?.coldEmail?.action || "label_archive",
-      },
-    },
+    defaultValues,
   });
 
   const onSubmit = useCallback(
@@ -119,10 +94,11 @@ export function CategoriesSetup({
           {categoryConfig.map((category) => (
             <CategoryCard
               key={category.key}
-              id={category.key}
+              id={category.key as keyof CreateRulesOnboardingBody}
               label={category.label}
               tooltipText={category.tooltipText}
-              icon={category.icon}
+              Icon={category.Icon}
+              iconColor={category.iconColor}
               form={form}
             />
           ))}
@@ -151,24 +127,26 @@ export function CategoriesSetup({
 }
 
 function CategoryCard({
-  id,
+  // id,
   label,
-  icon,
-  form,
+  Icon,
+  iconColor,
+  // form,
   tooltipText,
 }: {
   id: keyof CreateRulesOnboardingBody;
   label: string;
-  icon: React.ReactNode;
+  Icon: React.ElementType;
+  iconColor: IconCircleColor;
   form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
   tooltipText?: string;
 }) {
-  const delayedActionsEnabled = useDelayedActionsEnabled();
+  // const delayedActionsEnabled = useDelayedActionsEnabled();
 
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
-        {icon}
+        <Icon className={cn("size-5", textVariants({ color: iconColor }))} />
         <div className="flex flex-1 items-center gap-2">
           {label}
           {tooltipText && (
@@ -179,7 +157,7 @@ function CategoryCard({
           )}
         </div>
         <div className="ml-auto flex items-center gap-4">
-          <FormField
+          {/* <FormField
             control={form.control}
             name={id}
             render={({
@@ -220,7 +198,7 @@ function CategoryCard({
                 </Select>
               </FormItem>
             )}
-          />
+          /> */}
         </div>
       </CardContent>
     </Card>

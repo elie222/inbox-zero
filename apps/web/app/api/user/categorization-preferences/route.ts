@@ -11,6 +11,7 @@ import type {
   CategoryAction,
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
+import { RuleName } from "@/utils/rule/consts";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -47,7 +48,7 @@ async function getUserPreferences({
   emailAccountId,
 }: {
   emailAccountId: string;
-}): Promise<Partial<CreateRulesOnboardingBody> | null> {
+}): Promise<CreateRulesOnboardingBody> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -65,31 +66,53 @@ async function getUserPreferences({
       coldEmailDigest: true,
     },
   });
-  if (!emailAccount) return null;
+  if (!emailAccount) return [];
 
-  return {
-    toReply: getToReplySetting(SystemType.TO_REPLY, emailAccount.rules),
-    coldEmail: getColdEmailSetting(
-      emailAccount.coldEmailBlocker,
-      emailAccount.coldEmailDigest,
-    ),
-    newsletter: getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
-    marketing: getRuleSetting(SystemType.MARKETING, emailAccount.rules),
-    calendar: getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
-    receipt: getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
-    notification: getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
-  };
+  return [
+    {
+      name: RuleName.ToReply,
+      ...getToReplySetting(emailAccount.rules),
+    },
+    {
+      name: RuleName.ColdEmail,
+      ...getColdEmailSetting(
+        emailAccount.coldEmailBlocker,
+        emailAccount.coldEmailDigest,
+      ),
+    },
+    {
+      name: RuleName.Newsletter,
+      ...getRuleSetting(SystemType.NEWSLETTER, emailAccount.rules),
+    },
+    {
+      name: RuleName.Marketing,
+      ...getRuleSetting(SystemType.MARKETING, emailAccount.rules),
+    },
+    {
+      name: RuleName.Calendar,
+      ...getRuleSetting(SystemType.CALENDAR, emailAccount.rules),
+    },
+    {
+      name: RuleName.Receipt,
+      ...getRuleSetting(SystemType.RECEIPT, emailAccount.rules),
+    },
+    {
+      name: RuleName.Notification,
+      ...getRuleSetting(SystemType.NOTIFICATION, emailAccount.rules),
+    },
+  ];
 }
 
 function getToReplySetting(
-  systemType: SystemType,
   rules: UserPreferences["rules"],
 ): CategoryConfig | undefined {
   if (!rules.length) return undefined;
   const rule = rules.find((rule) =>
     rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
   );
-  const replyRules = rules.find((rule) => rule.systemType === systemType);
+  const replyRules = rules.find(
+    (rule) => rule.systemType === SystemType.TO_REPLY,
+  );
   const hasDigest = replyRules?.actions.some(
     (action) => action.type === ActionType.DIGEST,
   );

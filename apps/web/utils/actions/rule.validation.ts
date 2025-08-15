@@ -193,19 +193,14 @@ const categoryAction = z.enum([
 export type CategoryAction = z.infer<typeof categoryAction>;
 
 const categoryConfig = z.object({
-  action: categoryAction.optional(),
-  hasDigest: z.boolean().optional(),
+  action: categoryAction.nullish(),
+  hasDigest: z.boolean().nullish(),
+  name: z.string(),
+  description: z.string(),
 });
+export type CategoryConfig = z.infer<typeof categoryConfig>;
 
-export const createRulesOnboardingBody = z.object({
-  toReply: categoryConfig,
-  newsletter: categoryConfig,
-  marketing: categoryConfig,
-  calendar: categoryConfig,
-  receipt: categoryConfig,
-  coldEmail: categoryConfig,
-  notification: categoryConfig,
-});
+export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;
