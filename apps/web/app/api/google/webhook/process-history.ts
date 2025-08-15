@@ -162,7 +162,7 @@ export async function processHistoryForUser(
       // NOTE this can cause problems if we're way behind
       // NOTE this doesn't include startHistoryId in the results
       startHistoryId,
-      historyTypes: ["messageAdded", "labelAdded"],
+      historyTypes: ["messageAdded", "labelAdded", "labelRemoved"],
       maxResults: 500,
     });
 
@@ -232,12 +232,23 @@ async function processHistory(options: ProcessHistoryOptions) {
     const historyMessages = [
       ...(h.messagesAdded || []),
       ...(h.labelsAdded || []),
+      ...(h.labelsRemoved || []),
     ];
 
     if (!historyMessages.length) continue;
 
-    const inboxMessages = historyMessages.filter(isInboxOrSentMessage);
-    const uniqueMessages = uniqBy(inboxMessages, (m) => m.message?.id);
+    // For label events, we want to process them regardless of inbox status
+    const labelEvents = historyMessages.filter(
+      (m) => h.labelsAdded?.includes(m) || h.labelsRemoved?.includes(m),
+    );
+
+    // For message events, we filter to only inbox/sent messages
+    const messageEvents = historyMessages
+      .filter((m) => h.messagesAdded?.includes(m))
+      .filter(isInboxOrSentMessage);
+
+    const allEvents = [...labelEvents, ...messageEvents];
+    const uniqueMessages = uniqBy(allEvents, (m) => m.message?.id);
 
     for (const m of uniqueMessages) {
       try {

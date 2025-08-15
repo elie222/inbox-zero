@@ -16,6 +16,9 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { enqueueDigestItem } from "@/utils/digest/index";
+import prisma from "@/utils/__mocks__/prisma";
+import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import { createEmailProvider } from "@/utils/email/provider";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -91,6 +94,26 @@ vi.mock("@/utils/email/provider", () => ({
   }),
 }));
 
+vi.mock("@/utils/gmail/label", async () => {
+  const actual = await vi.importActual("@/utils/gmail/label");
+  return {
+    ...actual,
+    getLabelById: vi.fn().mockImplementation(async ({ id }: { id: string }) => {
+      const labelMap: Record<string, { name: string }> = {
+        "label-1": { name: "Inbox Zero/Cold Email" },
+        "label-2": { name: "Newsletter" },
+        "label-3": { name: "Marketing" },
+        "label-4": { name: "To Reply" },
+      };
+      return labelMap[id] || { name: "Unknown Label" };
+    }),
+  };
+});
+
+vi.mock("@/utils/rule/learned-patterns", () => ({
+  saveLearnedPatterns: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("processHistoryItem", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -160,7 +183,6 @@ describe("processHistoryItem", () => {
   });
 
   it("should skip if message is outbound", async () => {
-    const { createEmailProvider } = await import("@/utils/email/provider");
     vi.mocked(createEmailProvider).mockResolvedValueOnce({
       getMessage: vi.fn().mockResolvedValue({
         id: "123",
@@ -415,6 +437,138 @@ describe("processHistoryItem", () => {
     // Verify that further processing is still skipped for cold emails
     expect(categorizeSender).not.toHaveBeenCalled();
     expect(runRules).not.toHaveBeenCalled();
+  });
+
+  describe("label removal learning", () => {
+    const createLabelRemovedHistoryItem = (
+      messageId = "123",
+      threadId = "thread-123",
+      labelIds = ["label-1"],
+    ): gmail_v1.Schema$HistoryLabelRemoved => ({
+      message: { id: messageId, threadId },
+      labelIds,
+    });
+
+    it("should process Cold Email label removal and update ColdEmail status", async () => {
+      prisma.coldEmail.upsert.mockResolvedValue({} as any);
+
+      const options = {
+        ...defaultOptions,
+        emailAccount: getDefaultEmailAccount(),
+      };
+
+      await processHistoryItem(createLabelRemovedHistoryItem(), options);
+
+      expect(markMessageAsProcessing).not.toHaveBeenCalled();
+
+      expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
+        where: {
+          emailAccountId_fromEmail: {
+            emailAccountId: "email-account-id",
+            fromEmail: "sender@example.com",
+          },
+        },
+        update: {
+          status: "USER_REJECTED_COLD",
+        },
+        create: {
+          status: "USER_REJECTED_COLD",
+          fromEmail: "sender@example.com",
+          emailAccountId: "email-account-id",
+          messageId: "123",
+          threadId: "thread-123",
+        },
+      });
+
+      expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
+
+    it("should learn exclusion pattern when Newsletter label is removed", async () => {
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "executed-rule-123",
+        rule: {
+          id: "rule-123",
+          name: "Newsletter Rule",
+          systemType: "NEWSLETTER",
+          actions: [
+            { type: "LABEL", label: "Newsletter" },
+            { type: "ARCHIVE" },
+          ],
+        },
+      } as any);
+
+      const options = {
+        ...defaultOptions,
+        emailAccount: getDefaultEmailAccount(),
+      };
+
+      await processHistoryItem(
+        createLabelRemovedHistoryItem("123", "thread-123", ["label-2"]),
+        options,
+      );
+
+      expect(saveLearnedPatterns).toHaveBeenCalledWith({
+        emailAccountId: "email-account-id",
+        ruleName: "Newsletter Rule",
+        patterns: [
+          {
+            type: "FROM",
+            value: "sender@example.com",
+            exclude: true,
+          },
+        ],
+      });
+
+      expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
+
+    it("should skip learning when To Reply label is removed", async () => {
+      prisma.executedRule.findUnique.mockResolvedValue({
+        id: "executed-rule-123",
+        rule: {
+          id: "rule-123",
+          name: "To Reply Rule",
+          systemType: "TO_REPLY",
+          actions: [{ type: "LABEL", label: "To Reply" }],
+        },
+      } as any);
+
+      const options = {
+        ...defaultOptions,
+        emailAccount: getDefaultEmailAccount(),
+      };
+
+      await processHistoryItem(
+        createLabelRemovedHistoryItem("123", "thread-123", ["label-4"]),
+        options,
+      );
+
+      expect(saveLearnedPatterns).not.toHaveBeenCalled();
+
+      expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
+
+    it("should skip learning when no executed rule exists", async () => {
+      prisma.executedRule.findUnique.mockResolvedValue(null);
+
+      const options = {
+        ...defaultOptions,
+        emailAccount: getDefaultEmailAccount(),
+      };
+
+      await processHistoryItem(
+        createLabelRemovedHistoryItem("123", "thread-123", ["label-2"]),
+        options,
+      );
+
+      expect(saveLearnedPatterns).not.toHaveBeenCalled();
+
+      expect(runColdEmailBlockerWithProvider).not.toHaveBeenCalled();
+      expect(runRules).not.toHaveBeenCalled();
+    });
   });
 });
 
