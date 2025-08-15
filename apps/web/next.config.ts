@@ -294,6 +294,13 @@ const exportConfig = useSentry
   ? withSentryConfig(mdxConfig, { ...sentryOptions, ...sentryConfig })
   : mdxConfig;
 
+// NEXTAUTH_SECRET is deprecated but kept as an option to not break the build. At least one must be set.
+if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
+  throw new Error(
+    "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
+  );
+}
+
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",

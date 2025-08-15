@@ -22,12 +22,6 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 
 const logger = createScopedLogger("auth");
 
-if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
-  throw new Error(
-    "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
-  );
-}
-
 export const betterAuthConfig = betterAuth({
   advanced: {
     database: {
