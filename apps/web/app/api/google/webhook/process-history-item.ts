@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent } from "@/utils/mail";
-import { GmailLabel, getLabelById } from "@/utils/gmail/label";
+import { GmailLabel } from "@/utils/gmail/label";
 import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
@@ -11,7 +11,7 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
-import { ActionType, ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { internalDateToDate } from "@/utils/date";
 import { extractEmailAddress } from "@/utils/email";
@@ -25,13 +25,11 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { enqueueDigestItem } from "@/utils/digest/index";
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
-import type { EmailProvider } from "@/utils/email/types";
-import { inboxZeroLabels } from "@/utils/label";
-import { HistoryEventType } from "@/app/api/google/webhook/process-history";
+import { HistoryEventType } from "@/app/api/google/webhook/types";
+import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
 
 export async function processHistoryItem(
-  wrappedItem: {
+  historyItem: {
     type: HistoryEventType;
     item:
       | gmail_v1.Schema$HistoryMessageAdded
@@ -47,7 +45,7 @@ export async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
-  const { type, item } = wrappedItem;
+  const { type, item } = historyItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
 
@@ -76,7 +74,6 @@ export async function processHistoryItem(
     });
   } else if (type === HistoryEventType.LABEL_ADDED) {
     logger.info("Processing label added event for learning", loggerOptions);
-    // TODO: Implement handleLabelAddedEvent for learning from user-applied labels
     return;
   }
 
@@ -309,188 +306,4 @@ export function shouldRunColdEmailBlocker(
       coldEmailBlocker === ColdEmailSetting.LABEL) &&
     hasAiAccess
   );
-}
-
-async function handleLabelRemovedEvent(
-  message: gmail_v1.Schema$HistoryLabelRemoved,
-  {
-    gmail,
-    emailAccount,
-    provider,
-  }: {
-    gmail: gmail_v1.Gmail;
-    emailAccount: EmailAccountWithAI;
-    provider: EmailProvider;
-  },
-) {
-  const messageId = message.message?.id;
-  const threadId = message.message?.threadId;
-  const emailAccountId = emailAccount.id;
-  const userEmail = emailAccount.email;
-
-  if (!messageId || !threadId) {
-    logger.info("Skipping label removal - missing messageId or threadId", {
-      userEmail,
-      messageId,
-      threadId,
-    });
-    return;
-  }
-
-  const loggerOptions = {
-    email: userEmail,
-    messageId,
-    threadId,
-  };
-
-  logger.info("Processing label removal for learning", loggerOptions);
-
-  try {
-    const parsedMessage = await provider.getMessage(messageId);
-    const sender = extractEmailAddress(parsedMessage.headers.from);
-
-    // For label removal, we need to get the labelIds from the HistoryLabelRemoved object
-    const removedLabelIds = message.labelIds || [];
-    const removedLabels = await Promise.all(
-      removedLabelIds.map((labelId: string) =>
-        getLabelById({ gmail, id: labelId }),
-      ),
-    );
-    const removedLabelNames = removedLabels
-      .map((label: gmail_v1.Schema$Label) => label?.name)
-      .filter((label: string | null | undefined): label is string => !!label);
-
-    for (const labelName of removedLabelNames) {
-      await learnFromRemovedLabel({
-        labelName,
-        sender,
-        messageId,
-        threadId,
-        emailAccountId,
-      });
-    }
-  } catch (error) {
-    logger.error("Error processing label removal", { error, ...loggerOptions });
-  }
-}
-
-async function learnFromRemovedLabel({
-  labelName,
-  sender,
-  messageId,
-  threadId,
-  emailAccountId,
-}: {
-  labelName: string;
-  sender: string | null;
-  messageId: string;
-  threadId: string;
-  emailAccountId: string;
-}) {
-  const loggerOptions = {
-    emailAccountId,
-    messageId,
-    threadId,
-    labelName,
-    sender,
-  };
-
-  // Can't learn patterns without knowing who to exclude
-  if (!sender) {
-    logger.info("No sender found, skipping learning", loggerOptions);
-    return;
-  }
-
-  if (labelName === inboxZeroLabels.cold_email.name) {
-    logger.info("Processing Cold Email label removal", loggerOptions);
-
-    await prisma.coldEmail.upsert({
-      where: {
-        emailAccountId_fromEmail: {
-          emailAccountId,
-          fromEmail: sender,
-        },
-      },
-      update: {
-        status: ColdEmailStatus.USER_REJECTED_COLD,
-      },
-      create: {
-        status: ColdEmailStatus.USER_REJECTED_COLD,
-        fromEmail: sender,
-        emailAccountId,
-        messageId,
-        threadId,
-      },
-    });
-
-    return;
-  }
-
-  // Should not learn from labels that were not applied by our rules
-  // So there should be an executed rule for this message matching the label removed
-  const executedRule = await prisma.executedRule.findUnique({
-    where: {
-      unique_emailAccount_thread_message: {
-        emailAccountId,
-        threadId,
-        messageId,
-      },
-    },
-    include: {
-      rule: {
-        include: {
-          actions: true,
-        },
-      },
-    },
-  });
-
-  if (!executedRule || !executedRule.rule) {
-    logger.info(
-      "No executed rule found for message, skipping learning",
-      loggerOptions,
-    );
-    return;
-  }
-
-  const hasMatchingLabelAction = executedRule.rule.actions.some(
-    (action) => action.type === ActionType.LABEL && action.label === labelName,
-  );
-
-  // Label has been changed already
-  // TODO: Add some learning for labels not added by our rules
-  if (!hasMatchingLabelAction) {
-    logger.info(
-      "No matching LABEL action found for removed label, skipping learning",
-      loggerOptions,
-    );
-    return;
-  }
-
-  // Don't learn from To Reply rules
-  // TODO: Add some learning from To Reply rules
-  if (executedRule.rule.systemType === "TO_REPLY") {
-    logger.info("Skipping learning for To Reply rule", loggerOptions);
-    return;
-  }
-
-  logger.info("Saving learned exclusion pattern", loggerOptions);
-  try {
-    await saveLearnedPatterns({
-      emailAccountId,
-      ruleName: executedRule.rule.name,
-      patterns: [
-        {
-          type: "FROM",
-          value: sender,
-          exclude: true,
-        },
-      ],
-    });
-  } catch (error) {
-    logger.error("Failed to save learned exclusion pattern", {
-      error,
-      ...loggerOptions,
-    });
-  }
 }

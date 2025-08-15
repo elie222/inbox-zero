@@ -8,16 +8,13 @@ import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";
-import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
+import {
+  HistoryEventType,
+  type ProcessHistoryOptions,
+} from "@/app/api/google/webhook/types";
 import { processHistoryItem } from "@/app/api/google/webhook/process-history-item";
 import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
-
-export enum HistoryEventType {
-  MESSAGE_ADDED = "messageAdded",
-  LABEL_ADDED = "labelAdded",
-  LABEL_REMOVED = "labelRemoved",
-}
 
 export async function processHistoryForUser(
   decodedData: {
@@ -257,21 +254,24 @@ async function processHistory(options: ProcessHistoryOptions) {
       })),
     ];
 
-    const uniqueMessages = uniqBy(allEvents, (e) => e.item.message?.id);
+    const uniqueEvents = uniqBy(
+      allEvents,
+      (e) => `${e.type}:${e.item.message?.id}`,
+    );
 
-    for (const item of uniqueMessages) {
+    for (const event of uniqueEvents) {
       try {
-        await processHistoryItem(item, options);
+        await processHistoryItem(event, options);
       } catch (error) {
         captureException(
           error,
-          { extra: { userEmail, messageId: item.item.message?.id } },
+          { extra: { userEmail, messageId: event.item.message?.id } },
           userEmail,
         );
         logger.error("Error processing history item", {
           userEmail,
-          messageId: item.item.message?.id,
-          threadId: item.item.message?.threadId,
+          messageId: event.item.message?.id,
+          threadId: event.item.message?.threadId,
           error:
             error instanceof Error
               ? {
