@@ -62,7 +62,6 @@ export async function processHistoryItem(
     provider: "google",
   });
 
-  // No need for deduping here because the label removal is idempotent
   if ("labelIds" in item && item.labelIds && item.labelIds.length > 0) {
     logger.info("Processing label event for learning", loggerOptions);
     return handleLabelRemovedEvent(item, {
@@ -359,7 +358,6 @@ async function handleLabelRemovedEvent(
         messageId,
         threadId,
         emailAccountId,
-        gmail,
       });
     }
   } catch (error) {
@@ -373,14 +371,12 @@ async function learnFromRemovedLabel({
   messageId,
   threadId,
   emailAccountId,
-  gmail,
 }: {
   labelName: string;
   sender: string | null;
   messageId: string;
   threadId: string;
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
 }) {
   const loggerOptions = {
     emailAccountId,
@@ -418,27 +414,11 @@ async function learnFromRemovedLabel({
       },
     });
 
-    // Remove Cold Email label from current thread and re-add INBOX if needed
-    try {
-      const coldEmailLabel = await getLabelById({ gmail, id: "INBOX" });
-      if (coldEmailLabel?.id) {
-        await gmail.users.threads.modify({
-          userId: "me",
-          id: threadId,
-          requestBody: {
-            addLabelIds: ["INBOX"],
-          },
-        });
-      }
-    } catch (error) {
-      logger.warn("Could not re-add INBOX label", { error, ...loggerOptions });
-    }
-
     return;
   }
 
   // Should not learn from labels that were not applied by our rules
-  // So there should be an executed rule for this message
+  // So there should be an executed rule for this message matching the label removed
   const executedRule = await prisma.executedRule.findUnique({
     where: {
       unique_emailAccount_thread_message: {
@@ -469,6 +449,7 @@ async function learnFromRemovedLabel({
   );
 
   // Label has been changed already
+  // TODO: Add some learning for labels not added by our rules
   if (!hasMatchingLabelAction) {
     logger.info(
       "No matching LABEL action found for removed label, skipping learning",
@@ -478,6 +459,7 @@ async function learnFromRemovedLabel({
   }
 
   // Don't learn from To Reply rules
+  // TODO: Add some learning from To Reply rules
   if (executedRule.rule.systemType === "TO_REPLY") {
     logger.info("Skipping learning for To Reply rule", loggerOptions);
     return;

@@ -446,7 +446,8 @@ describe("processHistoryItem", () => {
       threadId = "thread-123",
       labelIds = ["label-1"],
     ): gmail_v1.Schema$HistoryLabelRemoved => ({
-      message: { id: messageId, threadId, labelIds },
+      message: { id: messageId, threadId },
+      labelIds,
     });
 
     it("should process Cold Email label removal and update ColdEmail status", async () => {
