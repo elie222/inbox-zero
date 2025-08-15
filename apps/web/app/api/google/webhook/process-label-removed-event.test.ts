@@ -135,50 +135,17 @@ describe("process-label-removed-event", () => {
       });
     });
 
-    it("should learn exclusion pattern when Newsletter label is removed", async () => {
-      prisma.executedRule.findUnique.mockResolvedValue({
-        id: "executed-rule-123",
-        rule: {
-          id: "rule-123",
-          name: "Newsletter Rule",
-          systemType: "NEWSLETTER",
-          actions: [
-            { type: "LABEL", label: "Newsletter" },
-            { type: "ARCHIVE" },
-          ],
-        },
-      } as any);
-
+    it("should skip learning when Newsletter label is removed (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-2",
       ]);
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions);
 
-      expect(saveLearnedPatterns).toHaveBeenCalledWith({
-        emailAccountId: "email-account-id",
-        ruleName: "Newsletter Rule",
-        patterns: [
-          {
-            type: "FROM",
-            value: "sender@example.com",
-            exclude: true,
-          },
-        ],
-      });
+      expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
 
-    it("should skip learning when To Reply label is removed", async () => {
-      prisma.executedRule.findUnique.mockResolvedValue({
-        id: "executed-rule-123",
-        rule: {
-          id: "rule-123",
-          name: "To Reply Rule",
-          systemType: "TO_REPLY",
-          actions: [{ type: "LABEL", label: "To Reply" }],
-        },
-      } as any);
-
+    it("should skip learning when To Reply label is removed (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-4",
       ]);
@@ -188,9 +155,7 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
 
-    it("should skip learning when no executed rule exists", async () => {
-      prisma.executedRule.findUnique.mockResolvedValue(null);
-
+    it("should skip learning when no executed rule exists (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-2",
       ]);
@@ -200,19 +165,7 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
 
-    it("should skip learning when no matching LABEL action is found", async () => {
-      prisma.executedRule.findUnique.mockResolvedValue({
-        id: "executed-rule-123",
-        rule: {
-          id: "rule-123",
-          name: "Newsletter Rule",
-          systemType: "NEWSLETTER",
-          actions: [
-            { type: "ARCHIVE" }, // No LABEL action
-          ],
-        },
-      } as any);
-
+    it("should skip learning when no matching LABEL action is found (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-2",
       ]);
@@ -222,34 +175,14 @@ describe("process-label-removed-event", () => {
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
 
-    it("should handle multiple label removals in a single event", async () => {
-      prisma.executedRule.findUnique.mockResolvedValue({
-        id: "executed-rule-123",
-        rule: {
-          id: "rule-123",
-          name: "Marketing Rule",
-          systemType: "MARKETING",
-          actions: [{ type: "LABEL", label: "Marketing" }],
-        },
-      } as any);
-
+    it("should handle multiple label removals in a single event (only Cold Email is supported)", async () => {
       const historyItem = createLabelRemovedHistoryItem("123", "thread-123", [
         "label-3",
       ]);
 
       await handleLabelRemovedEvent(historyItem.item, defaultOptions);
 
-      expect(saveLearnedPatterns).toHaveBeenCalledWith({
-        emailAccountId: "email-account-id",
-        ruleName: "Marketing Rule",
-        patterns: [
-          {
-            type: "FROM",
-            value: "sender@example.com",
-            exclude: true,
-          },
-        ],
-      });
+      expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
 
     it("should skip processing when messageId is missing", async () => {
