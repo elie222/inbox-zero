@@ -3,7 +3,7 @@ import {
   shouldRunColdEmailBlocker,
   processHistoryItem,
 } from "./process-history-item";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
@@ -19,6 +19,7 @@ import { enqueueDigestItem } from "@/utils/digest/index";
 import prisma from "@/utils/__mocks__/prisma";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { createEmailProvider } from "@/utils/email/provider";
+import { inboxZeroLabels } from "@/utils/label";
 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", () => ({
@@ -100,7 +101,7 @@ vi.mock("@/utils/gmail/label", async () => {
     ...actual,
     getLabelById: vi.fn().mockImplementation(async ({ id }: { id: string }) => {
       const labelMap: Record<string, { name: string }> = {
-        "label-1": { name: "Inbox Zero/Cold Email" },
+        "label-1": { name: inboxZeroLabels.cold_email.name },
         "label-2": { name: "Newsletter" },
         "label-3": { name: "Marketing" },
         "label-4": { name: "To Reply" },
@@ -445,8 +446,7 @@ describe("processHistoryItem", () => {
       threadId = "thread-123",
       labelIds = ["label-1"],
     ): gmail_v1.Schema$HistoryLabelRemoved => ({
-      message: { id: messageId, threadId },
-      labelIds,
+      message: { id: messageId, threadId, labelIds },
     });
 
     it("should process Cold Email label removal and update ColdEmail status", async () => {
@@ -469,10 +469,10 @@ describe("processHistoryItem", () => {
           },
         },
         update: {
-          status: "USER_REJECTED_COLD",
+          status: ColdEmailStatus.USER_REJECTED_COLD,
         },
         create: {
-          status: "USER_REJECTED_COLD",
+          status: ColdEmailStatus.USER_REJECTED_COLD,
           fromEmail: "sender@example.com",
           emailAccountId: "email-account-id",
           messageId: "123",

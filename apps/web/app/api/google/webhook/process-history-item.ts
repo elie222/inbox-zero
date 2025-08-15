@@ -11,7 +11,7 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
-import { ColdEmailSetting } from "@prisma/client";
+import { ActionType, ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { internalDateToDate } from "@/utils/date";
 import { extractEmailAddress } from "@/utils/email";
@@ -27,9 +27,10 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import type { EmailProvider } from "@/utils/email/types";
+import { inboxZeroLabels } from "@/utils/label";
 
 export async function processHistoryItem(
-  message:
+  item:
     | gmail_v1.Schema$HistoryMessageAdded
     | gmail_v1.Schema$HistoryLabelAdded
     | gmail_v1.Schema$HistoryLabelRemoved,
@@ -42,9 +43,8 @@ export async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
-  // All history types have a message property with id and threadId
-  const messageId = message.message?.id;
-  const threadId = message.message?.threadId;
+  const messageId = item.message?.id;
+  const threadId = item.message?.threadId;
 
   const emailAccountId = emailAccount.id;
   const userEmail = emailAccount.email;
@@ -63,13 +63,9 @@ export async function processHistoryItem(
   });
 
   // No need for deduping here because the label removal is idempotent
-  if (
-    "labelIds" in message &&
-    message.labelIds &&
-    message.labelIds.length > 0
-  ) {
+  if ("labelIds" in item && item.labelIds && item.labelIds.length > 0) {
     logger.info("Processing label event for learning", loggerOptions);
-    return handleLabelRemovedEvent(message, {
+    return handleLabelRemovedEvent(item, {
       gmail,
       emailAccount,
       emailProvider,
@@ -400,7 +396,7 @@ async function learnFromRemovedLabel({
     return;
   }
 
-  if (labelName === "Inbox Zero/Cold Email") {
+  if (labelName === inboxZeroLabels.cold_email.name) {
     logger.info("Processing Cold Email label removal", loggerOptions);
 
     await prisma.coldEmail.upsert({
@@ -411,10 +407,10 @@ async function learnFromRemovedLabel({
         },
       },
       update: {
-        status: "USER_REJECTED_COLD",
+        status: ColdEmailStatus.USER_REJECTED_COLD,
       },
       create: {
-        status: "USER_REJECTED_COLD",
+        status: ColdEmailStatus.USER_REJECTED_COLD,
         fromEmail: sender,
         emailAccountId,
         messageId,
@@ -469,7 +465,7 @@ async function learnFromRemovedLabel({
   }
 
   const hasMatchingLabelAction = executedRule.rule.actions.some(
-    (action) => action.type === "LABEL" && action.label === labelName,
+    (action) => action.type === ActionType.LABEL && action.label === labelName,
   );
 
   // Label has been changed already
