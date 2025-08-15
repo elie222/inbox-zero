@@ -13,6 +13,12 @@ import { processHistoryItem } from "@/app/api/google/webhook/process-history-ite
 import { logger } from "@/app/api/google/webhook/logger";
 import { getHistory } from "@/utils/gmail/history";
 
+export enum HistoryEventType {
+  MESSAGE_ADDED = "messageAdded",
+  LABEL_ADDED = "labelAdded",
+  LABEL_REMOVED = "labelRemoved",
+}
+
 export async function processHistoryForUser(
   decodedData: {
     emailAddress: string;
@@ -237,32 +243,35 @@ async function processHistory(options: ProcessHistoryOptions) {
 
     if (!historyMessages.length) continue;
 
-    // For label events, we want to process them regardless of inbox status
-    const labelEvents = historyMessages.filter(
-      (m) => h.labelsAdded?.includes(m) || h.labelsRemoved?.includes(m),
-    );
+    const allEvents = [
+      ...(h.messagesAdded || [])
+        .filter(isInboxOrSentMessage)
+        .map((m) => ({ type: HistoryEventType.MESSAGE_ADDED, item: m })),
+      ...(h.labelsAdded || []).map((m) => ({
+        type: HistoryEventType.LABEL_ADDED,
+        item: m,
+      })),
+      ...(h.labelsRemoved || []).map((m) => ({
+        type: HistoryEventType.LABEL_REMOVED,
+        item: m,
+      })),
+    ];
 
-    // For message events, we filter to only inbox/sent messages
-    const messageEvents = historyMessages
-      .filter((m) => h.messagesAdded?.includes(m))
-      .filter(isInboxOrSentMessage);
+    const uniqueMessages = uniqBy(allEvents, (e) => e.item.message?.id);
 
-    const allEvents = [...labelEvents, ...messageEvents];
-    const uniqueMessages = uniqBy(allEvents, (m) => m.message?.id);
-
-    for (const m of uniqueMessages) {
+    for (const item of uniqueMessages) {
       try {
-        await processHistoryItem(m, options);
+        await processHistoryItem(item, options);
       } catch (error) {
         captureException(
           error,
-          { extra: { userEmail, messageId: m.message?.id } },
+          { extra: { userEmail, messageId: item.item.message?.id } },
           userEmail,
         );
         logger.error("Error processing history item", {
           userEmail,
-          messageId: m.message?.id,
-          threadId: m.message?.threadId,
+          messageId: item.item.message?.id,
+          threadId: item.item.message?.threadId,
           error:
             error instanceof Error
               ? {

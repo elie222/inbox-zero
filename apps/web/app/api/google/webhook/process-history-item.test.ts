@@ -3,6 +3,7 @@ import {
   shouldRunColdEmailBlocker,
   processHistoryItem,
 } from "./process-history-item";
+import { HistoryEventType } from "./process-history";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
@@ -123,9 +124,34 @@ describe("processHistoryItem", () => {
   const createHistoryItem = (
     messageId = "123",
     threadId = "thread-123",
-  ): gmail_v1.Schema$HistoryMessageAdded => ({
-    message: { id: messageId, threadId },
-  });
+    type: HistoryEventType = HistoryEventType.MESSAGE_ADDED,
+    labelIds?: string[],
+  ) => {
+    const baseItem = { message: { id: messageId, threadId } };
+
+    if (type === HistoryEventType.LABEL_REMOVED) {
+      return {
+        type,
+        item: {
+          ...baseItem,
+          labelIds: labelIds || [],
+        } as gmail_v1.Schema$HistoryLabelRemoved,
+      };
+    } else if (type === HistoryEventType.LABEL_ADDED) {
+      return {
+        type,
+        item: {
+          ...baseItem,
+          labelIds: labelIds || [],
+        } as gmail_v1.Schema$HistoryLabelAdded,
+      };
+    } else {
+      return {
+        type,
+        item: baseItem as gmail_v1.Schema$HistoryMessageAdded,
+      };
+    }
+  };
 
   const defaultOptions = {
     gmail: {} as any,
@@ -445,9 +471,12 @@ describe("processHistoryItem", () => {
       messageId = "123",
       threadId = "thread-123",
       labelIds = ["label-1"],
-    ): gmail_v1.Schema$HistoryLabelRemoved => ({
-      message: { id: messageId, threadId },
-      labelIds,
+    ) => ({
+      type: HistoryEventType.LABEL_REMOVED,
+      item: {
+        message: { id: messageId, threadId },
+        labelIds,
+      } as gmail_v1.Schema$HistoryLabelRemoved,
     });
 
     it("should process Cold Email label removal and update ColdEmail status", async () => {

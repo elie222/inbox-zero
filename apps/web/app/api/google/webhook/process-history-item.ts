@@ -28,12 +28,16 @@ import { enqueueDigestItem } from "@/utils/digest/index";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import type { EmailProvider } from "@/utils/email/types";
 import { inboxZeroLabels } from "@/utils/label";
+import { HistoryEventType } from "@/app/api/google/webhook/process-history";
 
 export async function processHistoryItem(
-  item:
-    | gmail_v1.Schema$HistoryMessageAdded
-    | gmail_v1.Schema$HistoryLabelAdded
-    | gmail_v1.Schema$HistoryLabelRemoved,
+  wrappedItem: {
+    type: HistoryEventType;
+    item:
+      | gmail_v1.Schema$HistoryMessageAdded
+      | gmail_v1.Schema$HistoryLabelAdded
+      | gmail_v1.Schema$HistoryLabelRemoved;
+  },
   {
     gmail,
     emailAccount,
@@ -43,6 +47,7 @@ export async function processHistoryItem(
     rules,
   }: ProcessHistoryOptions,
 ) {
+  const { type, item } = wrappedItem;
   const messageId = item.message?.id;
   const threadId = item.message?.threadId;
 
@@ -62,13 +67,17 @@ export async function processHistoryItem(
     provider: "google",
   });
 
-  if ("labelIds" in item && item.labelIds && item.labelIds.length > 0) {
-    logger.info("Processing label event for learning", loggerOptions);
+  if (type === HistoryEventType.LABEL_REMOVED) {
+    logger.info("Processing label removed event for learning", loggerOptions);
     return handleLabelRemovedEvent(item, {
       gmail,
       emailAccount,
       emailProvider,
     });
+  } else if (type === HistoryEventType.LABEL_ADDED) {
+    logger.info("Processing label added event for learning", loggerOptions);
+    // TODO: Implement handleLabelAddedEvent for learning from user-applied labels
+    return;
   }
 
   const isFree = await markMessageAsProcessing({ userEmail, messageId });
