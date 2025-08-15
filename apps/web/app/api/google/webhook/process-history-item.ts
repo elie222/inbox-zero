@@ -62,7 +62,7 @@ export async function processHistoryItem(
     threadId,
   };
 
-  const emailProvider = await createEmailProvider({
+  const provider = await createEmailProvider({
     emailAccountId,
     provider: "google",
   });
@@ -72,7 +72,7 @@ export async function processHistoryItem(
     return handleLabelRemovedEvent(item, {
       gmail,
       emailAccount,
-      emailProvider,
+      provider,
     });
   } else if (type === HistoryEventType.LABEL_ADDED) {
     logger.info("Processing label added event for learning", loggerOptions);
@@ -91,7 +91,7 @@ export async function processHistoryItem(
 
   try {
     const [parsedMessage, hasExistingRule] = await Promise.all([
-      emailProvider.getMessage(messageId),
+      provider.getMessage(messageId),
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
@@ -126,7 +126,7 @@ export async function processHistoryItem(
         message: parsedMessage,
         emailAccountId,
         userEmail,
-        provider: emailProvider,
+        provider,
       });
     }
 
@@ -180,7 +180,7 @@ export async function processHistoryItem(
           threadId,
           date: internalDateToDate(parsedMessage.internalDate),
         },
-        provider: emailProvider,
+        provider,
         emailAccount,
         modelType: "default",
       });
@@ -220,7 +220,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        client: emailProvider,
+        client: provider,
         message: parsedMessage,
         rules,
         emailAccount,
@@ -316,11 +316,11 @@ async function handleLabelRemovedEvent(
   {
     gmail,
     emailAccount,
-    emailProvider,
+    provider,
   }: {
     gmail: gmail_v1.Gmail;
     emailAccount: EmailAccountWithAI;
-    emailProvider: EmailProvider;
+    provider: EmailProvider;
   },
 ) {
   const messageId = message.message?.id;
@@ -346,7 +346,7 @@ async function handleLabelRemovedEvent(
   logger.info("Processing label removal for learning", loggerOptions);
 
   try {
-    const parsedMessage = await emailProvider.getMessage(messageId);
+    const parsedMessage = await provider.getMessage(messageId);
     const sender = extractEmailAddress(parsedMessage.headers.from);
 
     // For label removal, we need to get the labelIds from the HistoryLabelRemoved object
