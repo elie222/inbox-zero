@@ -43,6 +43,7 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { cn } from "@/utils";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 // copy paste of old file
 export function CategoriesSetup() {
@@ -135,6 +136,7 @@ export function CategoriesSetup() {
                 iconColor={config.iconColor}
                 update={updateBasicCategory}
                 value={category.action}
+                useTooltip
               />
             );
           })}
@@ -157,6 +159,7 @@ export function CategoriesSetup() {
                     description={category.description}
                     update={updateSuggestedCategory}
                     value={category.action}
+                    useTooltip={false}
                   />
                 );
               })}
@@ -181,14 +184,16 @@ function CategoryCard({
   description,
   update,
   value,
+  useTooltip,
 }: {
   index: number;
   label: string;
   Icon: React.ElementType;
   iconColor: IconCircleColor;
-  description?: string;
+  description: string;
   update: (index: number, value: { action?: CategoryAction }) => void;
   value?: CategoryAction | null;
+  useTooltip: boolean;
 }) {
   const delayedActionsEnabled = useDelayedActionsEnabled();
 
@@ -197,8 +202,22 @@ function CategoryCard({
       <CardContent className="flex items-center gap-4 p-4">
         <IconCircle size="sm" color={iconColor} Icon={Icon} />
         <div>
-          <div className="font-medium">{label}</div>
-          <div className="text-sm text-muted-foreground">{description}</div>
+          {useTooltip ? (
+            <div className="flex flex-1 items-center gap-2">
+              {label}
+              {description && (
+                <TooltipExplanation
+                  text={description}
+                  className="text-muted-foreground"
+                />
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="font-medium">{label}</div>
+              <div className="text-sm text-muted-foreground">{description}</div>
+            </>
+          )}
         </div>
 
         <div className="ml-auto flex items-center gap-4">
@@ -235,7 +254,7 @@ function CustomCategoryCard() {
   return (
     <Card>
       <CardContent className="flex items-center gap-4 p-4">
-        <IconCircle size="sm" color="blue" Icon={PencilLineIcon} />
+        <IconCircle size="sm" color="purple" Icon={PencilLineIcon} />
 
         <div className="flex flex-1 items-center gap-2 font-medium">Custom</div>
         <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
