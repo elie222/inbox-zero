@@ -1,4 +1,8 @@
 import { messageVisibility } from "@/utils/gmail/constants";
+import {
+  AWAITING_REPLY_LABEL_NAME,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export const PARENT_LABEL = "Inbox Zero";
 
@@ -26,6 +30,11 @@ const LABEL_COLORS = [
 ] as const;
 
 export const inboxZeroLabels = {
+  cold_email: {
+    name: "Cold Email",
+    color: orange,
+    messageListVisibility: messageVisibility.hide,
+  },
   archived: {
     name: `${PARENT_LABEL}/Archived`,
     color: blue,
@@ -34,11 +43,6 @@ export const inboxZeroLabels = {
   marked_read: {
     name: `${PARENT_LABEL}/Read`,
     color: blue,
-    messageListVisibility: messageVisibility.hide,
-  },
-  cold_email: {
-    name: `${PARENT_LABEL}/Cold Email`,
-    color: orange,
     messageListVisibility: messageVisibility.hide,
   },
   unsubscribed: {
@@ -65,6 +69,29 @@ export const inboxZeroLabels = {
 
 export type InboxZeroLabel = keyof typeof inboxZeroLabels;
 
-export function getRandomLabelColor() {
+export function getLabelColor(name: string) {
+  switch (name) {
+    case NEEDS_REPLY_LABEL_NAME:
+      return blue;
+    case AWAITING_REPLY_LABEL_NAME:
+      return green;
+    case "Newsletter":
+      return cyan;
+    case "Marketing":
+      return purple;
+    case "Calendar":
+      return pink;
+    case "Receipt":
+      return red;
+    case "Notification":
+      return coral;
+    case "Cold Email":
+      return orange;
+    default:
+      return getRandomLabelColor();
+  }
+}
+
+function getRandomLabelColor() {
   return LABEL_COLORS[Math.floor(Math.random() * LABEL_COLORS.length)];
 }
