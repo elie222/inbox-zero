@@ -71,7 +71,7 @@ export async function handleLabelRemovedEvent(
       })
       .filter(
         (labelName: string | null | undefined): labelName is string =>
-          !labelName || !SYSTEM_LABELS.includes(labelName),
+          !!labelName && !SYSTEM_LABELS.includes(labelName),
       );
 
     for (const labelName of removedLabelNames) {
