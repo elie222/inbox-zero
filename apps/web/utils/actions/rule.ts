@@ -353,42 +353,48 @@ export const updateRuleSettingsAction = actionClient
 export const enableDraftRepliesAction = actionClient
   .metadata({ name: "enableDraftReplies" })
   .schema(enableDraftRepliesBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { enable } }) => {
-    let rule = await prisma.rule.findUnique({
-      where: {
-        emailAccountId_systemType: {
-          emailAccountId,
-          systemType: SystemType.TO_REPLY,
+  .action(
+    async ({ ctx: { emailAccountId, provider }, parsedInput: { enable } }) => {
+      let rule = await prisma.rule.findUnique({
+        where: {
+          emailAccountId_systemType: {
+            emailAccountId,
+            systemType: SystemType.TO_REPLY,
+          },
         },
-      },
-      include: { actions: true },
-    });
+        include: { actions: true },
+      });
 
-    if (!rule) {
-      const newRule = await createToReplyRule(emailAccountId, false);
+      if (!rule) {
+        const newRule = await createToReplyRule(
+          emailAccountId,
+          false,
+          provider,
+        );
 
-      if (!newRule) {
-        throw new SafeError("Failed to create To Reply rule");
+        if (!newRule) {
+          throw new SafeError("Failed to create To Reply rule");
+        }
+
+        rule = newRule;
       }
 
-      rule = newRule;
-    }
+      if (enable) {
+        await enableDraftReplies(rule);
+      } else {
+        await prisma.action.deleteMany({
+          where: {
+            ruleId: rule.id,
+            type: ActionType.DRAFT_EMAIL,
+          },
+        });
+      }
 
-    if (enable) {
-      await enableDraftReplies(rule);
-    } else {
-      await prisma.action.deleteMany({
-        where: {
-          ruleId: rule.id,
-          type: ActionType.DRAFT_EMAIL,
-        },
-      });
-    }
-
-    revalidatePath(prefixPath(emailAccountId, "/assistant"));
-    revalidatePath(prefixPath(emailAccountId, "/automation"));
-    revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
-  });
+      revalidatePath(prefixPath(emailAccountId, "/assistant"));
+      revalidatePath(prefixPath(emailAccountId, "/automation"));
+      revalidatePath(prefixPath(emailAccountId, "/reply-zero"));
+    },
+  );
 
 export const deleteRuleAction = actionClient
   .metadata({ name: "deleteRule" })
@@ -473,7 +479,7 @@ export const getRuleExamplesAction = actionClient
 export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
-  .action(async ({ ctx: { emailAccountId }, parsedInput }) => {
+  .action(async ({ ctx: { emailAccountId, provider }, parsedInput }) => {
     // TODO: not saving system cats
     const systemCategories: CategoryKey[] = [
       "toReply",
@@ -541,6 +547,7 @@ export const createRulesOnboardingAction = actionClient
       const promise = enableReplyTracker({
         emailAccountId,
         addDigest: toReply.hasDigest ?? false,
+        provider,
       }).then((res) => {
         if (res?.alreadyEnabled) return;
 
