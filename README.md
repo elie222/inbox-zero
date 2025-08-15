@@ -108,13 +108,13 @@ Set the environment variables in the newly created `.env`. You can see a list of
 
 The required environment variables:
 
-Secrets:
-
 - `AUTH_SECRET` -- can be any random string (try using `openssl rand -hex 32` for a quick secure random string)
 - `EMAIL_ENCRYPT_SECRET` -- Secret key for encrypting OAuth tokens (try using `openssl rand -hex 32` for a secure key)
 - `EMAIL_ENCRYPT_SALT` -- Salt for encrypting OAuth tokens (try using `openssl rand -hex 16` for a secure salt)
 
-Redis:
+
+- `NEXT_PUBLIC_BASE_URL` -- The URL where your app is hosted (e.g., `http://localhost:3000` for local development or `https://yourdomain.com` for production).
+- `INTERNAL_API_KEY` -- A secret key for internal API calls (try using `openssl rand -hex 32` for a secure key)
 
 - `UPSTASH_REDIS_URL` -- Redis URL from Upstash. (can be empty if you are using Docker Compose)
 - `UPSTASH_REDIS_TOKEN` -- Redis token from Upstash. (or specify your own random string if you are using Docker Compose)
