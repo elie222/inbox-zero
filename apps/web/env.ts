@@ -223,9 +223,3 @@ export const env = createEnv({
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
   },
 });
-
-if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
-  throw new Error(
-    "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
-  );
-}
