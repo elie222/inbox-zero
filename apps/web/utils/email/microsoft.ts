@@ -163,6 +163,7 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       ownerEmail,
       actionSource: "automation",
+      folderId: "archive",
     });
   }
 
@@ -175,6 +176,7 @@ export class OutlookProvider implements EmailProvider {
       threadId,
       ownerEmail,
       actionSource: "user",
+      folderId: "archive",
     });
   }
 
@@ -821,14 +823,14 @@ export class OutlookProvider implements EmailProvider {
   async moveThreadToFolder(
     threadId: string,
     ownerEmail: string,
-    folderName: string,
+    folderId: string,
   ): Promise<void> {
     await outlookArchiveThread({
       client: this.client,
       threadId,
       ownerEmail,
       actionSource: "automation",
-      folderName,
+      folderId,
     });
   }
 }

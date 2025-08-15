@@ -5,7 +5,7 @@ import {
   LogicalOperator,
 } from "@prisma/client";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
-import type { EmailProvider } from "@/utils/email/types";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const conditionSchema = z
   .object({
@@ -38,7 +38,7 @@ const actionSchema = (provider: string) =>
   z.object({
     type: z
       .enum(
-        provider === "microsoft"
+        isMicrosoftProvider(provider)
           ? (Object.values(ActionType) as [ActionType, ...ActionType[]])
           : (Object.values(ActionType).filter(
               (type) => type !== ActionType.MOVE_FOLDER,
@@ -82,7 +82,7 @@ const actionSchema = (provider: string) =>
           .nullish()
           .transform((v) => v ?? null)
           .describe("The webhook URL to call"),
-        ...(provider === "microsoft" && {
+        ...(isMicrosoftProvider(provider) && {
           folderName: z
             .string()
             .nullish()

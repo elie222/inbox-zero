@@ -1,7 +1,8 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
-import { getOrCreateFolderByName } from "./message";
+import { WELL_KNOWN_FOLDERS } from "./message";
+
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
 
 const logger = createScopedLogger("outlook/label");
@@ -234,16 +235,40 @@ export async function archiveThread({
   threadId,
   ownerEmail,
   actionSource,
-  folderName = "archive",
+  folderId = "archive",
 }: {
   client: OutlookClient;
   threadId: string;
   ownerEmail: string;
   actionSource: TinybirdEmailAction["actionSource"];
-  folderName?: string;
+  folderId?: string;
 }) {
-  // Get or create the destination folder (handles both well-known and custom folders)
-  const destinationFolderId = await getOrCreateFolderByName(client, folderName);
+  if (!folderId) {
+    logger.warn("No folderId provided, skipping archive operation", {
+      threadId,
+      ownerEmail,
+      actionSource,
+    });
+    return;
+  }
+
+  // Check if the destination folder exists (only for custom folders, well-known names can be trusted and used directly)
+  const wellKnownFolders = Object.keys(WELL_KNOWN_FOLDERS);
+  if (!wellKnownFolders.includes(folderId.toLowerCase())) {
+    try {
+      await client.getClient().api(`/me/mailFolders/${folderId}`).get();
+    } catch (error) {
+      logger.warn(
+        "Custom destination folder not found, skipping archive operation",
+        {
+          folderId,
+          threadId,
+          error,
+        },
+      );
+      return;
+    }
+  }
 
   try {
     // In Outlook, archiving is moving to a folder
@@ -262,10 +287,11 @@ export async function archiveThread({
             .getClient()
             .api(`/me/messages/${message.id}/move`)
             .post({
-              destinationId: destinationFolderId,
+              destinationId: folderId,
             });
         } catch (error) {
-          logger.warn(`Failed to move message to ${destinationFolderId}`, {
+          logger.warn("Failed to move message to folder", {
+            folderId,
             messageId: message.id,
             threadId,
             error: error instanceof Error ? error.message : error,
@@ -293,7 +319,8 @@ export async function archiveThread({
         logger.warn("Thread not found", { threadId, userEmail: ownerEmail });
         return { status: 404, message: "Thread not found" };
       }
-      logger.error(`Failed to move thread to ${folderName}`, {
+      logger.error("Failed to move thread to folder", {
+        folderId,
         threadId,
         error,
       });
@@ -301,7 +328,8 @@ export async function archiveThread({
     }
 
     if (publishResult.status === "rejected") {
-      logger.error(`Failed to publish action to move thread to ${folderName}`, {
+      logger.error("Failed to publish action to move thread to folder", {
+        folderId,
         threadId,
         error: publishResult.reason,
       });
@@ -338,11 +366,12 @@ export async function archiveThread({
                 .getClient()
                 .api(`/me/messages/${message.id}/move`)
                 .post({
-                  destinationId: destinationFolderId,
+                  destinationId: folderId,
                 });
             } catch (moveError) {
               // Log the error but don't fail the entire operation
-              logger.warn(`Failed to move message to ${folderName}`, {
+              logger.warn("Failed to move message to folder", {
+                folderId,
                 messageId: message.id,
                 threadId,
                 error:
@@ -357,7 +386,7 @@ export async function archiveThread({
       } else {
         // If no messages found, try treating threadId as a messageId
         await client.getClient().api(`/me/messages/${threadId}/move`).post({
-          destinationId: destinationFolderId,
+          destinationId: folderId,
         });
       }
 
@@ -370,19 +399,18 @@ export async function archiveThread({
           timestamp: Date.now(),
         });
       } catch (publishError) {
-        logger.error(
-          `Failed to publish action to move thread to ${folderName}`,
-          {
-            email: ownerEmail,
-            threadId,
-            error: publishError,
-          },
-        );
+        logger.error("Failed to publish action to move thread to folder", {
+          folderId,
+          email: ownerEmail,
+          threadId,
+          error: publishError,
+        });
       }
 
       return { status: 200 };
     } catch (directError) {
-      logger.error(`Failed to move thread to ${folderName}`, {
+      logger.error("Failed to move thread to folder", {
+        folderId,
         threadId,
         error: directError,
       });

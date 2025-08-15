@@ -89,6 +89,7 @@ export function useDraftReplies() {
                       url: null,
                       delayInMinutes: null,
                       folderName: null,
+                      folderId: null,
                       createdAt: new Date(),
                       updatedAt: new Date(),
                     },

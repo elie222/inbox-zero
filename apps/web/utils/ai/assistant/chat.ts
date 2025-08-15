@@ -16,6 +16,7 @@ import { posthogCaptureEvent } from "@/utils/posthog";
 import { chatCompletionStream } from "@/utils/llms";
 import { filterNullProperties } from "@/utils";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("ai/assistant/chat");
 
@@ -208,12 +209,15 @@ const createRuleTool = ({
                     webhookUrl: action.fields.webhookUrl ?? null,
                     cc: action.fields.cc ?? null,
                     bcc: action.fields.bcc ?? null,
-                    folderName: action.fields.folderName ?? null,
+                    ...(isMicrosoftProvider(provider) && {
+                      folderName: action.fields.folderName ?? null,
+                    }),
                   }
                 : null,
             })),
           },
           emailAccountId,
+          provider,
         });
 
         if ("error" in rule) {
@@ -269,9 +273,11 @@ export type UpdateRuleConditionSchema = z.infer<
 const updateRuleConditionsTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "updateRuleConditions",
@@ -353,9 +359,11 @@ export type UpdateRuleConditionsTool = InferUITool<
 const updateRuleActionsTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "updateRuleActions",
@@ -434,7 +442,9 @@ const updateRuleActionsTool = ({
           bcc: action.bcc,
           subject: action.subject,
           webhookUrl: action.url,
-          folderName: action.folderName,
+          ...(isMicrosoftProvider(provider) && {
+            folderName: action.folderName,
+          }),
         }),
       }));
 
@@ -450,10 +460,13 @@ const updateRuleActionsTool = ({
             subject: action.fields?.subject ?? null,
             content: action.fields?.content ?? null,
             webhookUrl: action.fields?.webhookUrl ?? null,
-            folderName: action.fields?.folderName ?? null,
+            ...(isMicrosoftProvider(provider) && {
+              folderName: action.fields?.folderName ?? null,
+            }),
           },
           delayInMinutes: action.delayInMinutes ?? null,
         })),
+        provider,
       });
 
       return {
@@ -472,9 +485,11 @@ export type UpdateRuleActionsTool = InferUITool<
 const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "updateLearnedPatterns",
@@ -576,9 +591,11 @@ export type UpdateLearnedPatternsTool = InferUITool<
 const updateAboutTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "updateAbout",
@@ -612,9 +629,11 @@ export type UpdateAboutTool = InferUITool<ReturnType<typeof updateAboutTool>>;
 const addToKnowledgeBaseTool = ({
   email,
   emailAccountId,
+  provider,
 }: {
   email: string;
   emailAccountId: string;
+  provider: string;
 }) =>
   tool({
     name: "addToKnowledgeBase",

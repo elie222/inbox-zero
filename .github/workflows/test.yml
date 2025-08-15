@@ -44,7 +44,7 @@ jobs:
         env:
           RUN_AI_TESTS: false
           DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
-          NEXTAUTH_SECRET: "secret"
+          AUTH_SECRET: "secret"
           GOOGLE_CLIENT_ID: "client_id"
           GOOGLE_CLIENT_SECRET: "client_secret"
           MICROSOFT_CLIENT_ID: "client_id"

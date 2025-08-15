@@ -26,6 +26,9 @@ export default async function DebugPage(props: {
             Rule History
           </Link>
         </Button>
+        <Button variant="outline" asChild>
+          <Link href={prefixPath(emailAccountId, "/debug/report")}>Report</Link>
+        </Button>
       </div>
     </div>
   );

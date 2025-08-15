@@ -134,6 +134,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
           bcc: null,
           url: null,
           folderName: null,
+          folderId: null,
           delayInMinutes: null,
         },
         showArchiveAction
@@ -151,6 +152,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               bcc: null,
               url: null,
               folderName: null,
+              folderId: null,
               delayInMinutes: null,
             }
           : null,
@@ -169,6 +171,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               bcc: null,
               url: null,
               folderName: null,
+              folderId: null,
               delayInMinutes: null,
             }
           : null,
