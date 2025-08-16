@@ -7,21 +7,47 @@ export type EmailActionStatsResponse = Awaited<
 >;
 
 async function getEmailActionStats({ userEmail }: { userEmail: string }) {
-  const result = (
-    await getEmailActionsByDay({ ownerEmail: userEmail })
-  ).data.map((d) => ({
-    date: d.date,
-    Archived: d.archive_count,
-    Deleted: d.delete_count,
-  }));
+  // Check if Tinybird is configured
+  if (!process.env.TINYBIRD_TOKEN) {
+    console.warn("Tinybird not configured - returning empty stats");
+    return { result: [] };
+  }
 
-  return { result };
+  try {
+    const result = (
+      await getEmailActionsByDay({ ownerEmail: userEmail })
+    ).data.map((d) => ({
+      date: d.date,
+      Archived: d.archive_count,
+      Deleted: d.delete_count,
+    }));
+
+    return { result };
+  } catch (error) {
+    console.warn("Tinybird API error, returning empty stats:", error);
+    return { result: [] };
+  }
 }
 
 export const GET = withEmailAccount(async (request) => {
-  const userEmail = request.auth.email;
+  try {
+    const userEmail = request.auth.email;
 
-  const result = await getEmailActionStats({ userEmail });
+    if (!userEmail) {
+      return NextResponse.json(
+        { error: "User email not found" },
+        { status: 400 }
+      );
+    }
 
-  return NextResponse.json(result);
+    const result = await getEmailActionStats({ userEmail });
+
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("Error fetching email action stats:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch email action stats" },
+      { status: 500 }
+    );
+  }
 });

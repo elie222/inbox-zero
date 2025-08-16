@@ -1,4 +1,4 @@
-import type { UIMessage, UIMessagePart } from "ai";
+import type { UIMessage } from "@ai-sdk/ui-utils";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
 import type {
   ChatMessage,
@@ -10,8 +10,8 @@ export function convertToUIMessages(chat: GetChatResponse): ChatMessage[] {
   return (
     chat?.messages.map((message) => ({
       id: message.id,
-      role: message.role as UIMessage<ChatMessage>["role"],
-      parts: message.parts as UIMessagePart<CustomUIDataTypes, ChatTools>[],
+      role: message.role as UIMessage["role"],
+      parts: message.parts,
       // metadata: {
       //   createdAt: formatISO(message.createdAt),
       // },

@@ -1,4 +1,4 @@
-import type { UIMessage } from "ai";
+import type { UIMessage } from "@ai-sdk/ui-utils";
 import type {
   AddToKnowledgeBaseTool,
   CreateRuleTool,

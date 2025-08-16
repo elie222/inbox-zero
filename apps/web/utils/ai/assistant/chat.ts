@@ -947,7 +947,12 @@ Examples:
   };
 
   const result = chatCompletionStream({
-    userAi: user.user,
+    userAi: {
+      ...user.user,
+      // Force use of a tool-compatible model for assistant chat
+      aiProvider: user.user.aiProvider,
+      aiModel: user.user.aiModel || "anthropic/claude-3.5-sonnet",
+    },
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",

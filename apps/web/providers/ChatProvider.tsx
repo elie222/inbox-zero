@@ -1,12 +1,15 @@
 "use client";
 
 import { useChat as useAiChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { parseAsString, useQueryState } from "nuqs";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
+  useMemo,
+  useRef,
   useState,
 } from "react";
 import { useSWRConfig } from "swr";
@@ -37,27 +40,35 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const [input, setInput] = useState<string>("");
   const [chatId, setChatId] = useQueryState("chatId", parseAsString);
-
   const { data } = useChatMessages(chatId);
 
   const setNewChat = useCallback(() => {
     setChatId(generateUUID());
   }, [setChatId]);
 
+  // Prepare initial messages for useChat - stable reference to prevent re-initialization
+  const initialMessages = useMemo(() => {
+    if (data && data.messages && data.messages.length > 0) {
+      return convertToUIMessages(data);
+    }
+    return [];
+  }, [data]);
+
   const chat = useAiChat<ChatMessage>({
     id: chatId ?? undefined,
-    api: "/api/chat",
-    headers: {
-      [EMAIL_ACCOUNT_HEADER]: emailAccountId,
-    },
-    experimental_prepareRequestBody: ({ id, messages, requestBody }) => ({
-      id,
-      message: messages.at(-1),
-      ...requestBody,
+    initialMessages,
+    transport: new DefaultChatTransport({
+      api: "/api/chat",
+      headers: {
+        [EMAIL_ACCOUNT_HEADER]: emailAccountId,
+      },
+      prepareSendMessagesRequest: ({ id, messages }) => ({
+        body: {
+          id,
+          message: messages.at(-1),
+        },
+      }),
     }),
-    // TODO: couldn't get this to work
-    // messages: initialMessages,
-    experimental_throttle: 100,
     generateId: generateUUID,
     onFinish: () => {
       mutate("/api/user/rules");
@@ -71,23 +82,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
-  useEffect(() => {
-    chat.setMessages(data ? convertToUIMessages(data) : []);
-  }, [chat.setMessages, data]);
-
   const handleSubmit = useCallback(() => {
-    chat.append({
-      role: "user",
-      parts: [
-        {
-          type: "text",
-          text: input,
-        },
-      ],
-    });
-
+    chat.sendMessage({ text: input });
     setInput("");
-  }, [chat.append, input]);
+  }, [chat.sendMessage, input]);
 
   return (
     <ChatContext.Provider

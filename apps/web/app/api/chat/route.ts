@@ -34,7 +34,12 @@ export const POST = withEmailAccount(async (request) => {
 
   const user = await getEmailAccountWithAi({ emailAccountId });
 
-  if (!user) return NextResponse.json({ error: "Not authenticated" });
+  if (!user) {
+    logger.error("User not found or AI not configured", { emailAccountId });
+    return NextResponse.json({ error: "Not authenticated" });
+  }
+
+  logger.info("Processing chat request", { emailAccountId, hasUser: !!user });
 
   const json = await request.json();
   const { data, error } = assistantInputSchema.safeParse(json);
