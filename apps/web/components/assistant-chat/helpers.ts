@@ -1,10 +1,6 @@
 import type { UIMessage } from "@ai-sdk/ui-utils";
 import type { GetChatResponse } from "@/app/api/chats/[chatId]/route";
-import type {
-  ChatMessage,
-  ChatTools,
-  CustomUIDataTypes,
-} from "@/components/assistant-chat/types";
+import type { ChatMessage } from "@/components/assistant-chat/types";
 
 export function convertToUIMessages(chat: GetChatResponse): ChatMessage[] {
   return (

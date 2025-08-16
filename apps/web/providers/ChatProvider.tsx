@@ -7,9 +7,7 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import { useSWRConfig } from "swr";
@@ -48,7 +46,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // Prepare initial messages for useChat - stable reference to prevent re-initialization
   const initialMessages = useMemo(() => {
-    if (data && data.messages && data.messages.length > 0) {
+    if (data?.messages && data.messages.length > 0) {
       return convertToUIMessages(data);
     }
     return [];
