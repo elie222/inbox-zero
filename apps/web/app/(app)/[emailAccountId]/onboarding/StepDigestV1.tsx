@@ -1,15 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import { prefixPath } from "@/utils/path";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
-import { Button } from "@/components/ui/button";
 
 export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
   return (
@@ -20,23 +19,17 @@ export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
         </IconCircle>
 
         <div className="text-center mt-4">
-          <PageHeading>Daily Digest</PageHeading>
+          <PageHeading>Which emails do you want in your digest?</PageHeading>
           <TypographyP className="mt-2 max-w-lg mx-auto">
             Get a beautiful daily email summarizing what happened in your inbox
             today. Read your inbox in 30 seconds instead of 30 minutes.
           </TypographyP>
         </div>
 
-        {/* <DigestItemsForm showSaveButton={false} /> */}
+        <DigestItemsForm showSaveButton={false} />
         <DigestScheduleForm showSaveButton={false} />
 
-        <div className="flex justify-center mt-8 gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={prefixPath(emailAccountId, "/onboarding?step=5")}>
-              Skip for now
-            </Link>
-          </Button>
-
+        <div className="flex justify-center mt-8">
           <ContinueButtonLink
             href={prefixPath(emailAccountId, "/onboarding?step=5")}
           />
