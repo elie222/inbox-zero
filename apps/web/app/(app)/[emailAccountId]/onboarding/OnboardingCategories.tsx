@@ -29,12 +29,13 @@ import type {
   CategoryAction,
   CategoryConfig,
 } from "@/utils/actions/rule.validation";
-import { prefixPath } from "@/utils/path";
 import { categoryConfig } from "@/utils/category-config";
-import { useAccount } from "@/providers/EmailAccountProvider";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import { usePersona } from "@/hooks/usePersona";
-import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import {
+  nextUrl,
+  usersRolesInfo,
+} from "@/app/(app)/[emailAccountId]/onboarding/config";
 import {
   IconCircle,
   type IconCircleColor,
@@ -46,9 +47,14 @@ import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 
 // copy paste of old file
-export function CategoriesSetup() {
+export function CategoriesSetup({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
   const router = useRouter();
-  const { emailAccountId } = useAccount();
   const { data, isLoading, error } = usePersona();
 
   // State for managing suggested and basic categories separately
@@ -86,8 +92,8 @@ export function CategoriesSetup() {
     // runs in background so we can move on to next step faster
     createRulesOnboardingAction(emailAccountId, allCategories);
 
-    router.push(prefixPath(emailAccountId, "/onboarding?step=4"));
-  }, [emailAccountId, router, suggestedCategories, basicCategories]);
+    router.push(nextUrl(emailAccountId, step));
+  }, [emailAccountId, router, suggestedCategories, basicCategories, step]);
 
   const updateSuggestedCategory = useCallback(
     (index: number, value: { action?: CategoryAction }) => {

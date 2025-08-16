@@ -9,7 +9,10 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/user";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import {
+  nextUrl,
+  usersRolesInfo,
+} from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
@@ -23,15 +26,15 @@ import { prefixPath } from "@/utils/path";
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { Button } from "@/components/ui/button";
 
-interface StepWhoProps {
-  emailAccountId: string;
-  initialRole?: string | null;
-}
-
 export function StepWho({
   initialRole,
   emailAccountId,
-}: StepWhoProps & { emailAccountId: string }) {
+  step,
+}: {
+  initialRole?: string | null;
+  emailAccountId: string;
+  step: number;
+}) {
   console.log("initialRole", initialRole);
   const router = useRouter();
   // const [isPending, startTransition] = useTransition();
@@ -124,7 +127,7 @@ export function StepWho({
               saveOnboardingAnswersPromise,
             ]);
 
-            router.push(prefixPath(emailAccountId, "/onboarding?step=3"));
+            router.push(nextUrl(emailAccountId, step));
           })}
         >
           <ScrollableFadeContainer

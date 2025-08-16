@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   ChartBarIcon,
@@ -14,7 +16,7 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
 const choices = [
   {
@@ -45,7 +47,14 @@ const choices = [
   },
 ];
 
-export function StepFeatures() {
+export function StepFeatures({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
+  const router = useRouter();
   const [selectedChoices, setSelectedChoices] = useState<Map<string, boolean>>(
     new Map(),
   );
@@ -90,7 +99,15 @@ export function StepFeatures() {
           ))}
         </div>
 
-        <Button type="submit" size="sm" variant="primaryBlue" className="mt-6">
+        <Button
+          type="button"
+          size="sm"
+          variant="primaryBlue"
+          className="mt-6"
+          onClick={() => {
+            router.push(nextUrl(emailAccountId, step));
+          }}
+        >
           Continue <ArrowRightIcon className="size-4 ml-2" />
         </Button>
       </div>

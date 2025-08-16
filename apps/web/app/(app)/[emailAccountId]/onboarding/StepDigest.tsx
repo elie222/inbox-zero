@@ -7,11 +7,17 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
-import { prefixPath } from "@/utils/path";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 import { Button } from "@/components/ui/button";
+import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
-export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
+export function StepDigest({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -32,14 +38,10 @@ export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
 
         <div className="flex justify-center mt-8 gap-2">
           <Button variant="outline" size="sm" asChild>
-            <Link href={prefixPath(emailAccountId, "/onboarding?step=5")}>
-              Skip for now
-            </Link>
+            <Link href={nextUrl(emailAccountId, step)}>Skip for now</Link>
           </Button>
 
-          <ContinueButtonLink
-            href={prefixPath(emailAccountId, "/onboarding?step=5")}
-          />
+          <ContinueButtonLink href={nextUrl(emailAccountId, step)} />
         </div>
       </OnboardingWrapper>
 

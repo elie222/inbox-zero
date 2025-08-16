@@ -7,7 +7,13 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { CategoriesSetup } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingCategories";
 
-export function StepLabels() {
+export function StepLabels({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
   return (
     <div className="relative">
       <div className="xl:pr-[50%]">
@@ -24,7 +30,7 @@ export function StepLabels() {
             </TypographyP>
           </div>
 
-          <CategoriesSetup />
+          <CategoriesSetup emailAccountId={emailAccountId} step={step} />
         </OnboardingWrapper>
       </div>
 

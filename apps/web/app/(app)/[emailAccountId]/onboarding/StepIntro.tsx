@@ -8,8 +8,15 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { prefixPath } from "@/utils/path";
+import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
-export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
+export function StepIntro({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
   return (
     <OnboardingWrapper>
       <IconCircle size="lg" className="mx-auto">
@@ -37,17 +44,21 @@ export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
             description="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
             image="/images/onboarding/draft.png"
           />
-          <Benefit
+          {/* <Benefit
             index={3}
             title="Daily digest"
             description="Get a beautiful daily email summarizing everything you need to read but don't need to respond to. Read your inbox in 30 seconds instead of 30 minutes."
             image="/images/onboarding/digest.png"
+          /> */}
+          <Benefit
+            index={3}
+            title="Bulk Unsubscriber"
+            description="See which emails you never read, and one-click unsubscribe and archive them."
+            image="/images/onboarding/bulk-unsubscribe.png"
           />
         </div>
         <div className="flex justify-center mt-8">
-          <ContinueButtonLink
-            href={prefixPath(emailAccountId, "/onboarding?step=2")}
-          />
+          <ContinueButtonLink href={nextUrl(emailAccountId, step)} />
         </div>
       </div>
     </OnboardingWrapper>

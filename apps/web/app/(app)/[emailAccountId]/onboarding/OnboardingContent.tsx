@@ -9,6 +9,7 @@ import { analyzePersonaAction } from "@/utils/actions/email-account";
 import { StepExtension } from "@/app/(app)/[emailAccountId]/onboarding/StepExtension";
 import { StepDigest } from "@/app/(app)/[emailAccountId]/onboarding/StepDigest";
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
+import { ONBOARDING_STEPS } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -20,8 +21,7 @@ export function OnboardingContent({
   step,
 }: OnboardingContentProps) {
   const { data, mutate } = usePersona();
-  const clampedStep = Math.min(Math.max(step, 1), 5);
-  // const clampedStep = step;
+  const clampedStep = Math.min(Math.max(step, 1), ONBOARDING_STEPS);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {
@@ -39,24 +39,25 @@ export function OnboardingContent({
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
   switch (clampedStep) {
-    case 0:
-      return <StepFeatures />;
     case 1:
-      return <StepIntro emailAccountId={emailAccountId} />;
+      return <StepIntro emailAccountId={emailAccountId} step={1} />;
     case 2:
+      return <StepFeatures emailAccountId={emailAccountId} step={2} />;
+    case 3:
       return (
         <StepWho
           initialRole={data?.role || data?.personaAnalysis?.persona}
           emailAccountId={emailAccountId}
+          step={3}
         />
       );
-    case 3:
-      return <StepLabels />;
     case 4:
-      return <StepDigest emailAccountId={emailAccountId} />;
+      return <StepLabels emailAccountId={emailAccountId} step={4} />;
     case 5:
-      return <StepExtension />;
+      return <StepDigest emailAccountId={emailAccountId} step={5} />;
+    case 6:
+      return <StepExtension emailAccountId={emailAccountId} step={6} />;
     default:
-      return <StepIntro emailAccountId={emailAccountId} />;
+      return <StepIntro emailAccountId={emailAccountId} step={1} />;
   }
 }

@@ -7,8 +7,15 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
+import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
-export function StepExtension() {
+export function StepExtension({
+  emailAccountId,
+  step,
+}: {
+  emailAccountId: string;
+  step: number;
+}) {
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -20,7 +27,7 @@ export function StepExtension() {
           <PageHeading>Install the Inbox Zero Tabs extension</PageHeading>
           <TypographyP className="mt-2 max-w-lg mx-auto">
             Add tabs to Gmail that show only <strong>unhandled emails</strong>{" "}
-            still in your inbox.
+            by label.
             <br />
             See only emails needing replies, or see only newsletters and archive
             all (or mark as read) in one click.
@@ -41,7 +48,7 @@ export function StepExtension() {
         </div>
 
         <div className="flex justify-center mt-8">
-          <ContinueButtonLink href="/welcome-upgrade" />
+          <ContinueButtonLink href={nextUrl(emailAccountId, step)} />
         </div>
       </OnboardingWrapper>
 
