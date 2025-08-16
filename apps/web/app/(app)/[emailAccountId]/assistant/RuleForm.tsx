@@ -68,6 +68,7 @@ import { Badge } from "@/components/Badge";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import {
   Dialog,
   DialogContent,
@@ -328,7 +329,7 @@ export function RuleForm({
     const options: { label: string; value: ActionType }[] = [
       { label: "Archive", value: ActionType.ARCHIVE },
       { label: "Label", value: ActionType.LABEL },
-      ...(provider === "microsoft"
+      ...(isMicrosoftProvider(provider)
         ? [{ label: "Move to folder", value: ActionType.MOVE_FOLDER }]
         : []),
       { label: "Draft reply", value: ActionType.DRAFT_EMAIL },

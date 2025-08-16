@@ -8,7 +8,7 @@
         "DATABASE_URL",
         "DIRECT_URL",
         "NEXTAUTH_SECRET",
-        "NEXTAUTH_URL",
+        "AUTH_SECRET",
 
         "GOOGLE_CLIENT_ID",
         "GOOGLE_CLIENT_SECRET",

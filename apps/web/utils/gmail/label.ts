@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import {
-  getRandomLabelColor,
+  getLabelColor,
   inboxZeroLabels,
   PARENT_LABEL,
   type InboxZeroLabel,
@@ -204,9 +204,10 @@ export async function createLabel({
         name,
         messageListVisibility,
         labelListVisibility,
-        color: color
-          ? { backgroundColor: color, textColor: "#000000" }
-          : { backgroundColor: getRandomLabelColor(), textColor: "#000000" },
+        color: {
+          backgroundColor: color || getLabelColor(name),
+          textColor: "#000000",
+        },
       },
     });
     return createdLabel.data;
