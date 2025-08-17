@@ -120,6 +120,7 @@ export const testColdEmailAction = actionClient
         where: { id: emailAccountId },
         include: {
           user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
+          account: { select: { provider: true } },
         },
       });
 
