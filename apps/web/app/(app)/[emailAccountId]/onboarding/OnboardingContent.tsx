@@ -19,13 +19,6 @@ import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { prefixPath } from "@/utils/path";
 
-const ONBOARDING_STEPS = 7;
-
-const nextUrl = (emailAccountId: string, step: number) => {
-  if (step >= ONBOARDING_STEPS) return "/welcome-upgrade";
-  return prefixPath(emailAccountId, `/onboarding?step=${step + 1}`);
-};
-
 interface OnboardingContentProps {
   emailAccountId: string;
   step: number;
@@ -35,8 +28,25 @@ export function OnboardingContent({
   emailAccountId,
   step,
 }: OnboardingContentProps) {
+  const steps = [
+    () => <StepIntro onNext={onNext} />,
+    () => <StepFeatures onNext={onNext} />,
+    () => (
+      <StepWho
+        initialRole={data?.role || data?.personaAnalysis?.persona}
+        emailAccountId={emailAccountId}
+        onNext={onNext}
+      />
+    ),
+    () => <StepLabels emailAccountId={emailAccountId} onNext={onNext} />,
+    () => <StepDraft emailAccountId={emailAccountId} onNext={onNext} />,
+    // <StepDigest onNext={onNext} />
+    () => <StepCustomRules onNext={onNext} />,
+    () => <StepExtension onNext={onCompleted} />,
+  ];
+
   const { data, mutate } = usePersona();
-  const clampedStep = Math.min(Math.max(step, 1), ONBOARDING_STEPS);
+  const clampedStep = Math.min(Math.max(step, 1), steps.length);
 
   const router = useRouter();
   const analytics = useOnboardingAnalytics("onboarding");
@@ -47,8 +57,14 @@ export function OnboardingContent({
 
   const onNext = useCallback(() => {
     analytics.onNext(clampedStep);
-    router.push(nextUrl(emailAccountId, clampedStep));
-  }, [router, emailAccountId, analytics, clampedStep]);
+    if (clampedStep < steps.length) {
+      router.push(
+        prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
+      );
+    } else {
+      router.push("/welcome-upgrade");
+    }
+  }, [router, emailAccountId, analytics, clampedStep, steps.length]);
 
   const onCompleted = useCallback(async () => {
     analytics.onComplete();
@@ -72,30 +88,7 @@ export function OnboardingContent({
     }
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
-  switch (clampedStep) {
-    case 1:
-      return <StepIntro onNext={onNext} />;
-    case 2:
-      return <StepFeatures onNext={onNext} />;
-    case 3:
-      return (
-        <StepWho
-          initialRole={data?.role || data?.personaAnalysis?.persona}
-          emailAccountId={emailAccountId}
-          onNext={onNext}
-        />
-      );
-    case 4:
-      return <StepLabels emailAccountId={emailAccountId} onNext={onNext} />;
-    case 5:
-      return <StepDraft emailAccountId={emailAccountId} onNext={onNext} />;
-    case 6:
-      return <StepCustomRules onNext={onNext} />;
-    // case 6:
-    //   return <StepDigest onNext={onNext} />;
-    case 7:
-      return <StepExtension onNext={onCompleted} />;
-    default:
-      return <StepIntro onNext={onNext} />;
-  }
+  const Step = steps[clampedStep - 1] || steps[0];
+
+  return Step ? <Step /> : null;
 }
