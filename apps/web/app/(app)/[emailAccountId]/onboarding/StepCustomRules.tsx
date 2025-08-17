@@ -40,7 +40,7 @@ export function StepCustomRules({ onNext }: { onNext: () => void }) {
       <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex px-10">
         <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200">
           <Image
-            src="/images/onboarding/custom-rules2.png"
+            src="/images/onboarding/custom-rules.png"
             alt="Draft replies"
             width={1200}
             height={800}
