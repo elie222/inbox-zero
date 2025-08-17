@@ -5,7 +5,11 @@ import { CheckIcon, PenIcon, XIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { Button } from "@/components/ui/button";
+import { useCallback } from "react";
+import { enableDraftRepliesAction } from "@/utils/actions/rule";
+import { toastError } from "@/components/Toast";
+import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { useRouter } from "next/navigation";
 
 export function StepDraft({
   emailAccountId,
@@ -14,6 +18,25 @@ export function StepDraft({
   emailAccountId: string;
   step: number;
 }) {
+  const router = useRouter();
+
+  const onSetDraftReplies = useCallback(
+    async (value: string) => {
+      const result = await enableDraftRepliesAction(emailAccountId, {
+        enable: value === "yes",
+      });
+
+      if (result?.serverError) {
+        toastError({
+          description: `There was an error: ${result.serverError || ""}`,
+        });
+      }
+
+      router.push(nextUrl(emailAccountId, step));
+    },
+    [router, emailAccountId, step],
+  );
+
   return (
     <div className="relative">
       <div className="xl:pr-[50%]">
@@ -36,13 +59,13 @@ export function StepDraft({
             <OnboardingButton
               text="Yes, please"
               icon={<CheckIcon className="size-4" />}
-              onClick={() => {}}
+              onClick={() => onSetDraftReplies("yes")}
             />
 
             <OnboardingButton
               text="No, thanks"
               icon={<XIcon className="size-4" />}
-              onClick={() => {}}
+              onClick={() => onSetDraftReplies("no")}
             />
           </div>
         </OnboardingWrapper>
@@ -51,7 +74,7 @@ export function StepDraft({
       <div className="fixed top-0 right-0 w-1/2 h-screen bg-white items-center justify-center hidden xl:flex px-10">
         <div className="rounded-2xl p-4 bg-slate-50 border border-slate-200">
           <Image
-            src="/images/onboarding/extension.png"
+            src="/images/onboarding/draft.png"
             alt="Draft replies"
             width={1200}
             height={800}
