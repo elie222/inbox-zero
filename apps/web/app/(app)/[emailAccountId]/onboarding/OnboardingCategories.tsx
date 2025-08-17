@@ -120,37 +120,35 @@ export function CategoriesSetup({
   const icons = useMemo(() => getRandomIcons(), []);
 
   return (
-    <LoadingContent
-      loading={isLoading}
-      error={error}
-      loadingComponent={<Skeleton className="w-full h-[1000px]" />}
-    >
-      <div>
-        <SectionHeader>BASIC LABELS</SectionHeader>
+    <div>
+      <SectionHeader>BASIC LABELS</SectionHeader>
 
-        <div className="grid grid-cols-1 gap-2">
-          {basicCategories.map((category, index) => {
-            const config = categoryConfig.find((c) => c.key === category.name);
-            if (!config) return null;
-            return (
-              <CategoryCard
-                key={config.label}
-                index={index}
-                label={config.label}
-                description={config.tooltipText}
-                Icon={config.Icon}
-                iconColor={config.iconColor}
-                update={updateBasicCategory}
-                value={category.action}
-                useTooltip
-              />
-            );
-          })}
+      <div className="grid grid-cols-1 gap-2">
+        {basicCategories.map((category, index) => {
+          const config = categoryConfig.find((c) => c.key === category.name);
+          if (!config) return null;
+          return (
+            <CategoryCard
+              key={config.label}
+              index={index}
+              label={config.label}
+              description={config.tooltipText}
+              Icon={config.Icon}
+              iconColor={config.iconColor}
+              update={updateBasicCategory}
+              value={category.action}
+              useTooltip
+            />
+          );
+        })}
+      </div>
 
-          {/* <CustomCategoryCard /> */}
-        </div>
-
-        {suggestedCategories.length > 0 && (
+      <LoadingContent
+        loading={isLoading}
+        error={error}
+        loadingComponent={<Skeleton className="w-full h-[500px] mt-6" />}
+      >
+        {suggestedCategories.length > 0 ? (
           <>
             <SectionHeader className="mt-8">SUGGESTED FOR YOU</SectionHeader>
             <div className="grid grid-cols-1 gap-2">
@@ -172,13 +170,17 @@ export function CategoriesSetup({
               <CustomCategoryCard />
             </div>
           </>
+        ) : (
+          <div className="mt-2">
+            <CustomCategoryCard />
+          </div>
         )}
+      </LoadingContent>
 
-        <div className="flex justify-center mt-8">
-          <ContinueButton type="submit" onClick={onSubmit} />
-        </div>
+      <div className="flex justify-center mt-8">
+        <ContinueButton type="submit" onClick={onSubmit} />
       </div>
-    </LoadingContent>
+    </div>
   );
 }
 
@@ -241,10 +243,10 @@ function CategoryCard({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="label">Label</SelectItem>
-              <SelectItem value="label_archive">Label + skip inbox</SelectItem>
+              <SelectItem value="label_archive">Label & skip inbox</SelectItem>
               {delayedActionsEnabled && (
                 <SelectItem value="label_archive_delayed">
-                  Label + archive after a week
+                  Label & archive after a week
                 </SelectItem>
               )}
               <SelectItem value="none">None</SelectItem>

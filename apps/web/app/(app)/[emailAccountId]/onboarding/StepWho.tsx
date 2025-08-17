@@ -7,7 +7,7 @@ import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
-import { saveOnboardingAnswersAction } from "@/utils/actions/user";
+import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import {
   nextUrl,
@@ -17,12 +17,11 @@ import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
 import {
-  stepWhoBody,
-  type StepWhoBody,
+  stepWhoSchema,
+  type StepWhoSchema,
 } from "@/utils/actions/onboarding.validation";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { prefixPath } from "@/utils/path";
 import { updateEmailAccountRoleAction } from "@/utils/actions/email-account";
 import { Button } from "@/components/ui/button";
 
@@ -46,8 +45,8 @@ export function StepWho({
     initialRole && !USER_ROLES.some((role) => role.value === initialRole);
   const defaultRole = isCustomRole ? "Other" : initialRole || "";
 
-  const form = useForm<StepWhoBody>({
-    resolver: zodResolver(stepWhoBody),
+  const form = useForm<StepWhoSchema>({
+    resolver: zodResolver(stepWhoSchema),
     defaultValues: { role: defaultRole },
   });
   const { watch, setValue } = form;
@@ -190,28 +189,17 @@ export function StepWho({
           )}
 
           <div className="flex justify-center">
-            {/* <Button
-              type="submit"
-              disabled={
-                isPending || (watchedRole === "Other" && !customRole.trim())
-              }
-              variant="primaryBlue"
-              size="sm"
-            >
-              {isPending ? "Saving…" : "Continue"}
-              <ArrowRightIcon className="size-4 ml-2" />
-            </Button> */}
-
             <Button
               type="submit"
               size="sm"
               variant="primaryBlue"
+              Icon={ArrowRightIcon}
               loading={form.formState.isSubmitting}
               disabled={
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())
               }
             >
-              Continue <ArrowRightIcon className="size-4 ml-2" />
+              Continue
             </Button>
           </div>
         </form>

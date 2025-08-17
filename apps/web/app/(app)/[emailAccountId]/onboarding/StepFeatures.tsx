@@ -17,33 +17,41 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
 import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { saveOnboardingFeaturesAction } from "@/utils/actions/onboarding";
+import { toastError } from "@/components/Toast";
 
+// `value` is the value that will be saved to the database
 const choices = [
   {
     label: "AI Personal Assistant",
     description: "Auto labelling, pre-drafted responses, and more.",
     icon: <SparklesIcon className="size-4" />,
+    value: "AI Personal Assistant",
   },
   {
     label: "Bulk Unsubscriber",
     description: "One-click unsubscribe and archive emails you never read",
     icon: <ClockIcon className="size-4" />,
+    value: "Bulk Unsubscriber",
   },
   {
     label: "Cold Email Blocker",
     description: "Block unsolicited sales emails and spam",
     icon: <ShieldCheckIcon className="size-4" />,
+    value: "Cold Email Blocker",
   },
   {
     label: "Reply Zero",
     description:
       "Never forget to reply. Never miss a follow up when others don't respond.",
     icon: <ReplyIcon className="size-4" />,
+    value: "Reply/Follow-up Tracker",
   },
   {
     label: "Email Analytics",
     description: "Analyze your email activity",
     icon: <ChartBarIcon className="size-4" />,
+    value: "Email Analytics",
   },
 ];
 
@@ -58,6 +66,7 @@ export function StepFeatures({
   const [selectedChoices, setSelectedChoices] = useState<Map<string, boolean>>(
     new Map(),
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   return (
     <OnboardingWrapper className="py-0">
@@ -75,15 +84,15 @@ export function StepFeatures({
           {choices.map((choice) => (
             <button
               type="button"
-              key={choice.label}
+              key={choice.value}
               className={cn(
                 "rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all min-h-24",
-                selectedChoices.get(choice.label) &&
+                selectedChoices.get(choice.value) &&
                   "border-blue-600 ring-2 ring-blue-100",
               )}
               onClick={() => {
                 setSelectedChoices((prev) =>
-                  new Map(prev).set(choice.label, !prev.get(choice.label)),
+                  new Map(prev).set(choice.value, !prev.get(choice.value)),
                 );
               }}
             >
@@ -104,11 +113,30 @@ export function StepFeatures({
           size="sm"
           variant="primaryBlue"
           className="mt-6"
-          onClick={() => {
-            router.push(nextUrl(emailAccountId, step));
+          loading={isSaving}
+          Icon={ArrowRightIcon}
+          onClick={async () => {
+            setIsSaving(true);
+
+            // Get all selected features (only the ones that are true)
+            const features = Array.from(selectedChoices.entries())
+              .filter(([_, isSelected]) => isSelected)
+              .map(([label, _]) => label);
+
+            try {
+              await saveOnboardingFeaturesAction({ features });
+              router.push(nextUrl(emailAccountId, step));
+            } catch (error) {
+              console.error("Failed to save features:", error);
+              toastError({
+                title: "Failed to save your preferences",
+                description: "Please try again.",
+              });
+              setIsSaving(false);
+            }
           }}
         >
-          Continue <ArrowRightIcon className="size-4 ml-2" />
+          Continue
         </Button>
       </div>
     </OnboardingWrapper>

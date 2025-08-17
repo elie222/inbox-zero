@@ -50,3 +50,12 @@ export function useTestimonialsVariant() {
     "control"
   );
 }
+
+export type OnboardingVariant = "control" | "new-onboarding";
+
+export function useOnboardingVariant() {
+  return (
+    (useFeatureFlagVariantKey("onboarding-flow") as OnboardingVariant) ||
+    "control"
+  );
+}

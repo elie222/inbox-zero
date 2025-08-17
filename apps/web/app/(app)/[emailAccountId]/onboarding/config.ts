@@ -19,7 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const ONBOARDING_STEPS = 6;
+export const ONBOARDING_STEPS = 5;
 
 export const nextUrl = (emailAccountId: string, step: number) => {
   if (step >= ONBOARDING_STEPS) return "/welcome-upgrade";

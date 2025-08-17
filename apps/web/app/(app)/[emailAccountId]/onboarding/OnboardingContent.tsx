@@ -53,10 +53,10 @@ export function OnboardingContent({
       );
     case 4:
       return <StepLabels emailAccountId={emailAccountId} step={4} />;
+    // case 5:
+    //   return <StepDigest emailAccountId={emailAccountId} step={5} />;
     case 5:
-      return <StepDigest emailAccountId={emailAccountId} step={5} />;
-    case 6:
-      return <StepExtension emailAccountId={emailAccountId} step={6} />;
+      return <StepExtension emailAccountId={emailAccountId} step={5} />;
     default:
       return <StepIntro emailAccountId={emailAccountId} step={1} />;
   }

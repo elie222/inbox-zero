@@ -4,10 +4,11 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { TypographyH3, TypographyP } from "@/components/Typography";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Form } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import {
   createRulesOnboardingBody,
@@ -32,6 +33,13 @@ import {
   textVariants,
 } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { cn } from "@/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -45,15 +53,29 @@ export function CategoriesSetup({
 
   const [showExampleDialog, setShowExampleDialog] = useState(false);
 
-  const form = useForm<CreateRulesOnboardingBody>({
-    resolver: zodResolver(createRulesOnboardingBody),
-    defaultValues,
+  // Map defaultValues to ensure all required fields are present
+  const initialCategories = categoryConfig.map((config) => {
+    const existingValue = defaultValues.find(
+      (val) => val.name === config.label,
+    );
+
+    return {
+      name: config.label,
+      description: existingValue?.description || "",
+      action: existingValue?.action || config.action,
+      hasDigest: existingValue?.hasDigest,
+    };
+  });
+
+  const form = useForm<{ categories: CreateRulesOnboardingBody }>({
+    resolver: zodResolver(z.object({ categories: createRulesOnboardingBody })),
+    defaultValues: { categories: initialCategories },
   });
 
   const onSubmit = useCallback(
-    async (data: CreateRulesOnboardingBody) => {
+    async (data: { categories: CreateRulesOnboardingBody }) => {
       // runs in background so we can move on to next step faster
-      createRulesOnboardingAction(emailAccountId, data);
+      createRulesOnboardingAction(emailAccountId, data.categories);
       router.push(prefixPath(emailAccountId, NEXT_URL));
     },
     [emailAccountId, router],
@@ -91,15 +113,16 @@ export function CategoriesSetup({
         />
 
         <div className="mt-4 grid grid-cols-1 gap-4">
-          {categoryConfig.map((category) => (
+          {categoryConfig.map((category, index) => (
             <CategoryCard
               key={category.key}
-              id={category.key as keyof CreateRulesOnboardingBody}
+              index={index}
               label={category.label}
               tooltipText={category.tooltipText}
               Icon={category.Icon}
               iconColor={category.iconColor}
               form={form}
+              categoryName={category.label}
             />
           ))}
         </div>
@@ -127,21 +150,23 @@ export function CategoriesSetup({
 }
 
 function CategoryCard({
-  // id,
+  index,
   label,
   Icon,
   iconColor,
-  // form,
+  form,
   tooltipText,
+  categoryName,
 }: {
-  id: keyof CreateRulesOnboardingBody;
+  index: number;
   label: string;
   Icon: React.ElementType;
   iconColor: IconCircleColor;
-  form: ReturnType<typeof useForm<CreateRulesOnboardingBody>>;
+  form: ReturnType<typeof useForm<{ categories: CreateRulesOnboardingBody }>>;
   tooltipText?: string;
+  categoryName: string;
 }) {
-  // const delayedActionsEnabled = useDelayedActionsEnabled();
+  const delayedActionsEnabled = useDelayedActionsEnabled();
 
   return (
     <Card>
@@ -157,26 +182,20 @@ function CategoryCard({
           )}
         </div>
         <div className="ml-auto flex items-center gap-4">
-          {/* <FormField
+          <FormField
             control={form.control}
-            name={id}
-            render={({
-              field,
-            }: {
-              field: ControllerRenderProps<
-                CreateRulesOnboardingBody,
-                keyof CreateRulesOnboardingBody
-              >;
-            }) => (
+            name={`categories.${index}`}
+            render={({ field }) => (
               <FormItem>
                 <Select
                   onValueChange={(value) => {
                     field.onChange({
-                      ...(field.value ?? {}),
-                      action: value,
+                      name: categoryName,
+                      description: "",
+                      action: value === "none" ? undefined : value,
                     });
                   }}
-                  defaultValue={field.value.action}
+                  value={field.value?.action || "none"}
                 >
                   <FormControl>
                     <SelectTrigger className="w-[180px]">
@@ -186,11 +205,11 @@ function CategoryCard({
                   <SelectContent>
                     <SelectItem value="label">Label</SelectItem>
                     <SelectItem value="label_archive">
-                      Label + skip inbox
+                      Label & skip inbox
                     </SelectItem>
                     {delayedActionsEnabled && (
                       <SelectItem value="label_archive_delayed">
-                        Label + archive after a week
+                        Label & archive after a week
                       </SelectItem>
                     )}
                     <SelectItem value="none">None</SelectItem>
@@ -198,7 +217,7 @@ function CategoryCard({
                 </Select>
               </FormItem>
             )}
-          /> */}
+          />
         </div>
       </CardContent>
     </Card>

@@ -12,7 +12,7 @@ import { env } from "@/env";
 import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
-} from "@/utils/actions/user";
+} from "@/utils/actions/onboarding";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
