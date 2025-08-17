@@ -5,7 +5,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { OUTLOOK_COLOR_MAP } from "@/utils/outlook/label";
 import {
-  isGmailProvider,
+  isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
 
@@ -40,7 +40,7 @@ function mapLabelColor(provider: string, label: any): EmailLabel["color"] {
     return undefined;
   }
 
-  if (isGmailProvider(provider)) {
+  if (isGoogleProvider(provider)) {
     return label.color;
   } else if (isMicrosoftProvider(provider)) {
     const presetColor = label.color as string;

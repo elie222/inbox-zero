@@ -18,6 +18,8 @@ import {
 import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { prefixPath } from "@/utils/path";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -28,6 +30,8 @@ export function OnboardingContent({
   emailAccountId,
   step,
 }: OnboardingContentProps) {
+  const { provider } = useAccount();
+
   const steps = [
     () => <StepIntro onNext={onNext} />,
     () => <StepFeatures onNext={onNext} />,
@@ -42,7 +46,10 @@ export function OnboardingContent({
     () => <StepDraft emailAccountId={emailAccountId} onNext={onNext} />,
     // <StepDigest onNext={onNext} />
     () => <StepCustomRules onNext={onNext} />,
-    () => <StepExtension onNext={onCompleted} />,
+    () =>
+      isGoogleProvider(provider) ? (
+        <StepExtension onNext={onCompleted} />
+      ) : null,
   ];
 
   const { data, mutate } = usePersona();
@@ -88,7 +95,7 @@ export function OnboardingContent({
     }
   }, [clampedStep, emailAccountId, data?.personaAnalysis, mutate]);
 
-  const Step = steps[clampedStep - 1] || steps[0];
+  const renderStep = steps[clampedStep - 1] || steps[0];
 
-  return Step ? <Step /> : null;
+  return renderStep ? renderStep() : null;
 }
