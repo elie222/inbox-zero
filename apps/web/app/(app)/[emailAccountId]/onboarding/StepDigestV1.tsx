@@ -4,13 +4,12 @@ import { MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { DigestItemsForm } from "@/app/(app)/[emailAccountId]/settings/DigestItemsForm";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
-import { prefixPath } from "@/utils/path";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 
-export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
+export function StepDigest({ onNext }: { onNext: () => void }) {
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -30,9 +29,7 @@ export function StepDigest({ emailAccountId }: { emailAccountId: string }) {
         <DigestScheduleForm showSaveButton={false} />
 
         <div className="flex justify-center mt-8">
-          <ContinueButtonLink
-            href={prefixPath(emailAccountId, "/onboarding?step=5")}
-          />
+          <ContinueButton onClick={onNext} />
         </div>
       </OnboardingWrapper>
 

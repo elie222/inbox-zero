@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { ArrowRightIcon, SendIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,10 +8,7 @@ import { Form } from "@/components/ui/form";
 import { Input } from "@/components/Input";
 import { saveOnboardingAnswersAction } from "@/utils/actions/onboarding";
 import { PageHeading, TypographyP } from "@/components/Typography";
-import {
-  nextUrl,
-  usersRolesInfo,
-} from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { USER_ROLES } from "@/utils/constants/user-roles";
 import { cn } from "@/utils";
 import { ScrollableFadeContainer } from "@/components/ScrollableFadeContainer";
@@ -28,15 +24,12 @@ import { Button } from "@/components/ui/button";
 export function StepWho({
   initialRole,
   emailAccountId,
-  step,
+  onNext,
 }: {
   initialRole?: string | null;
   emailAccountId: string;
-  step: number;
+  onNext: () => void;
 }) {
-  console.log("initialRole", initialRole);
-  const router = useRouter();
-  // const [isPending, startTransition] = useTransition();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [customRole, setCustomRole] = useState("");
 
@@ -126,7 +119,7 @@ export function StepWho({
               saveOnboardingAnswersPromise,
             ]);
 
-            router.push(nextUrl(emailAccountId, step));
+            onNext();
           })}
         >
           <ScrollableFadeContainer

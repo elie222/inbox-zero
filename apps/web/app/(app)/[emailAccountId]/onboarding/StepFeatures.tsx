@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import {
   ArrowRightIcon,
   ChartBarIcon,
@@ -16,7 +15,6 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { cn } from "@/utils";
 import { Button } from "@/components/ui/button";
-import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { saveOnboardingFeaturesAction } from "@/utils/actions/onboarding";
 import { toastError } from "@/components/Toast";
 
@@ -55,14 +53,7 @@ const choices = [
   },
 ];
 
-export function StepFeatures({
-  emailAccountId,
-  step,
-}: {
-  emailAccountId: string;
-  step: number;
-}) {
-  const router = useRouter();
+export function StepFeatures({ onNext }: { onNext: () => void }) {
   const [selectedChoices, setSelectedChoices] = useState<Map<string, boolean>>(
     new Map(),
   );
@@ -124,7 +115,7 @@ export function StepFeatures({
 
             try {
               await saveOnboardingFeaturesAction({ features });
-              router.push(nextUrl(emailAccountId, step));
+              onNext();
             } catch (error) {
               console.error("Failed to save features:", error);
               toastError({

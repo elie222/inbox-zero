@@ -1,23 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { DigestScheduleForm } from "@/app/(app)/[emailAccountId]/settings/DigestScheduleForm";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 import { Button } from "@/components/ui/button";
-import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
 
-export function StepDigest({
-  emailAccountId,
-  step,
-}: {
-  emailAccountId: string;
-  step: number;
-}) {
+export function StepDigest({ onNext }: { onNext: () => void }) {
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -37,11 +29,11 @@ export function StepDigest({
         <DigestScheduleForm showSaveButton={false} />
 
         <div className="flex justify-center mt-8 gap-2">
-          <Button variant="outline" size="sm" asChild>
-            <Link href={nextUrl(emailAccountId, step)}>Skip for now</Link>
+          <Button variant="outline" size="sm" onClick={onNext}>
+            Skip for now
           </Button>
 
-          <ContinueButtonLink href={nextUrl(emailAccountId, step)} />
+          <ContinueButton onClick={onNext} />
         </div>
       </OnboardingWrapper>
 

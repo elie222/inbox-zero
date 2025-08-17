@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChromeIcon, MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
@@ -7,20 +8,8 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
-import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
 
-export function StepExtension({
-  emailAccountId,
-  step,
-  onCompleted,
-}: {
-  emailAccountId: string;
-  step: number;
-  onCompleted: () => Promise<void>;
-}) {
-  const router = useRouter();
+export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
   const [isLoading, setIsLoading] = useState(false);
 
   return (
@@ -58,14 +47,9 @@ export function StepExtension({
           <ContinueButton
             onClick={async () => {
               setIsLoading(true);
-              try {
-                await onCompleted();
-              } catch (error) {
-                console.error(error);
-              } finally {
-                router.push(nextUrl(emailAccountId, step));
+              onNext().finally(() => {
                 setIsLoading(false);
-              }
+              });
             }}
             loading={isLoading}
           />

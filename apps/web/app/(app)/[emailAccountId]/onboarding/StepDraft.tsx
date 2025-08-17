@@ -8,18 +8,14 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { useCallback } from "react";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
-import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
-import { useRouter } from "next/navigation";
 
 export function StepDraft({
   emailAccountId,
-  step,
+  onNext,
 }: {
   emailAccountId: string;
-  step: number;
+  onNext: () => void;
 }) {
-  const router = useRouter();
-
   const onSetDraftReplies = useCallback(
     async (value: string) => {
       const result = await enableDraftRepliesAction(emailAccountId, {
@@ -32,9 +28,9 @@ export function StepDraft({
         });
       }
 
-      router.push(nextUrl(emailAccountId, step));
+      onNext();
     },
-    [router, emailAccountId, step],
+    [onNext, emailAccountId],
   );
 
   return (

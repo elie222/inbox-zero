@@ -9,10 +9,10 @@ import { CategoriesSetup } from "@/app/(app)/[emailAccountId]/onboarding/Onboard
 
 export function StepLabels({
   emailAccountId,
-  step,
+  onNext,
 }: {
   emailAccountId: string;
-  step: number;
+  onNext: () => void;
 }) {
   return (
     <div className="relative">
@@ -30,7 +30,7 @@ export function StepLabels({
             </TypographyP>
           </div>
 
-          <CategoriesSetup emailAccountId={emailAccountId} step={step} />
+          <CategoriesSetup emailAccountId={emailAccountId} onNext={onNext} />
         </OnboardingWrapper>
       </div>
 

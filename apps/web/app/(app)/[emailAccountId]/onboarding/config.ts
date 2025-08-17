@@ -19,13 +19,6 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export const ONBOARDING_STEPS = 7;
-
-export const nextUrl = (emailAccountId: string, step: number) => {
-  if (step >= ONBOARDING_STEPS) return "/welcome-upgrade";
-  return prefixPath(emailAccountId, `/onboarding?step=${step + 1}`);
-};
-
 export const usersRolesInfo: Record<
   string,
   {

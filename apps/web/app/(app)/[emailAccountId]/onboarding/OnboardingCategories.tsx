@@ -2,7 +2,6 @@
 
 import React, { useCallback, useEffect, useMemo } from "react";
 import shuffle from "lodash/shuffle";
-import { useRouter } from "next/navigation";
 import {
   AirplayIcon,
   AtomIcon,
@@ -32,10 +31,7 @@ import type {
 import { categoryConfig } from "@/utils/category-config";
 import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import { usePersona } from "@/hooks/usePersona";
-import {
-  nextUrl,
-  usersRolesInfo,
-} from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import {
   IconCircle,
   type IconCircleColor,
@@ -49,12 +45,11 @@ import { TooltipExplanation } from "@/components/TooltipExplanation";
 // copy paste of old file
 export function CategoriesSetup({
   emailAccountId,
-  step,
+  onNext,
 }: {
   emailAccountId: string;
-  step: number;
+  onNext: () => void;
 }) {
-  const router = useRouter();
   const { data, isLoading, error } = usePersona();
 
   // State for managing suggested and basic categories separately
@@ -94,8 +89,8 @@ export function CategoriesSetup({
     // runs in background so we can move on to next step faster
     createRulesOnboardingAction(emailAccountId, allCategories);
 
-    router.push(nextUrl(emailAccountId, step));
-  }, [emailAccountId, router, suggestedCategories, basicCategories, step]);
+    onNext();
+  }, [onNext, emailAccountId, suggestedCategories, basicCategories]);
 
   const updateSuggestedCategory = useCallback(
     (index: number, value: { action?: CategoryAction }) => {
