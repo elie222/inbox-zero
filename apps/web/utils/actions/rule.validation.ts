@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { SystemRule } from "@/utils/rule/consts";
 
 export const delayInMinutesSchema = z
   .number()
@@ -197,6 +198,7 @@ const categoryConfig = z.object({
   hasDigest: z.boolean().nullish(),
   name: z.string(),
   description: z.string(),
+  key: z.nativeEnum(SystemRule).nullable(),
 });
 export type CategoryConfig = z.infer<typeof categoryConfig>;
 

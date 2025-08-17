@@ -7,9 +7,9 @@ import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
 import { StepExtension } from "@/app/(app)/[emailAccountId]/onboarding/StepExtension";
-import { StepDigest } from "@/app/(app)/[emailAccountId]/onboarding/StepDigest";
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { ONBOARDING_STEPS } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -53,9 +53,11 @@ export function OnboardingContent({
       );
     case 4:
       return <StepLabels emailAccountId={emailAccountId} step={4} />;
+    case 5:
+      return <StepDraft emailAccountId={emailAccountId} step={5} />;
     // case 5:
     //   return <StepDigest emailAccountId={emailAccountId} step={5} />;
-    case 5:
+    case 6:
       return <StepExtension emailAccountId={emailAccountId} step={5} />;
     default:
       return <StepIntro emailAccountId={emailAccountId} step={1} />;

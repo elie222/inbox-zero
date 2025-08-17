@@ -1,5 +1,6 @@
 import type { IconCircleColor } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
+import { SystemRule } from "@/utils/rule/consts";
 import {
   MailIcon,
   NewspaperIcon,
@@ -11,7 +12,7 @@ import {
 } from "lucide-react";
 
 export const categoryConfig: {
-  key: string;
+  key: SystemRule;
   label: string;
   tooltipText: string;
   Icon: React.ElementType;
@@ -19,7 +20,7 @@ export const categoryConfig: {
   action: CategoryAction;
 }[] = [
   {
-    key: "toReply" as const,
+    key: SystemRule.ToReply,
     label: "To Reply",
     tooltipText:
       "Emails you need to reply to and those where you're awaiting a reply. The label will update automatically as the conversation progresses",
@@ -28,7 +29,7 @@ export const categoryConfig: {
     action: "label",
   },
   {
-    key: "newsletter" as const,
+    key: SystemRule.Newsletter,
     label: "Newsletter",
     tooltipText: "Newsletters, blogs, and publications",
     Icon: NewspaperIcon,
@@ -36,7 +37,7 @@ export const categoryConfig: {
     action: "label",
   },
   {
-    key: "marketing" as const,
+    key: SystemRule.Marketing,
     label: "Marketing",
     tooltipText: "Promotional emails about sales and offers",
     Icon: MegaphoneIcon,
@@ -44,7 +45,7 @@ export const categoryConfig: {
     action: "label_archive",
   },
   {
-    key: "calendar" as const,
+    key: SystemRule.Calendar,
     label: "Calendar",
     tooltipText: "Events, appointments, and reminders",
     Icon: CalendarIcon,
@@ -52,7 +53,7 @@ export const categoryConfig: {
     action: "label",
   },
   {
-    key: "receipt" as const,
+    key: SystemRule.Receipt,
     label: "Receipt",
     tooltipText: "Invoices, receipts, and payments",
     Icon: ReceiptIcon,
@@ -60,7 +61,7 @@ export const categoryConfig: {
     action: "label",
   },
   {
-    key: "notification" as const,
+    key: SystemRule.Notification,
     label: "Notification",
     tooltipText: "Alerts, status updates, and system messages",
     Icon: BellIcon,
@@ -68,7 +69,7 @@ export const categoryConfig: {
     action: "label",
   },
   {
-    key: "coldEmail" as const,
+    key: SystemRule.ColdEmail,
     label: "Cold Email",
     tooltipText:
       "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before",
@@ -77,5 +78,3 @@ export const categoryConfig: {
     action: "label_archive",
   },
 ];
-
-export type CategoryKey = (typeof categoryConfig)[number]["key"];

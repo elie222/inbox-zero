@@ -68,6 +68,7 @@ export function CategoriesSetup({
       name: c.key,
       description: "",
       action: c.action,
+      key: c.key,
     })),
   );
 
@@ -81,6 +82,7 @@ export function CategoriesSetup({
           name: s.label,
           description: s.description,
           action: undefined,
+          key: null,
         })),
       );
     }

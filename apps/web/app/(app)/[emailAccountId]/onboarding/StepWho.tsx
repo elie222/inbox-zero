@@ -193,13 +193,13 @@ export function StepWho({
               type="submit"
               size="sm"
               variant="primaryBlue"
-              Icon={ArrowRightIcon}
               loading={form.formState.isSubmitting}
               disabled={
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())
               }
             >
               Continue
+              <ArrowRightIcon className="size-4 ml-2" />
             </Button>
           </div>
         </form>

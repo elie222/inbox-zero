@@ -60,6 +60,7 @@ export function CategoriesSetup({
     );
 
     return {
+      key: config.key,
       name: config.label,
       description: existingValue?.description || "",
       action: existingValue?.action || config.action,

@@ -114,7 +114,6 @@ export function StepFeatures({
           variant="primaryBlue"
           className="mt-6"
           loading={isSaving}
-          Icon={ArrowRightIcon}
           onClick={async () => {
             setIsSaving(true);
 
@@ -137,6 +136,7 @@ export function StepFeatures({
           }}
         >
           Continue
+          <ArrowRightIcon className="size-4 ml-2" />
         </Button>
       </div>
     </OnboardingWrapper>

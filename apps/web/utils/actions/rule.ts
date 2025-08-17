@@ -11,6 +11,7 @@ import {
   enableDraftRepliesBody,
   deleteRuleBody,
   createRulesOnboardingBody,
+  type CategoryConfig,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -40,14 +41,13 @@ import {
 import { env } from "@/env";
 import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
-import { RuleName } from "@/utils/rule/consts";
+import { RuleName, SystemRule } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
-import type { CategoryKey } from "@/utils/category-config";
 
 const logger = createScopedLogger("actions/rule");
 
@@ -480,37 +480,24 @@ export const createRulesOnboardingAction = actionClient
   .metadata({ name: "createRulesOnboarding" })
   .schema(createRulesOnboardingBody)
   .action(async ({ ctx: { emailAccountId, provider }, parsedInput }) => {
-    // TODO: not saving system cats
-    const systemCategories: CategoryKey[] = [
-      "toReply",
-      "newsletter",
-      "marketing",
-      "calendar",
-      "receipt",
-      "notification",
-      "coldEmail",
-    ];
-
-    const systemCategoryMap: Record<CategoryKey, (typeof parsedInput)[0]> = {};
-    const customCategories: typeof parsedInput = [];
+    const systemCategoryMap: Record<SystemRule, CategoryConfig> = {};
+    const customCategories: CategoryConfig[] = [];
 
     for (const category of parsedInput) {
-      if (systemCategories.includes(category.name)) {
-        systemCategoryMap[category.name] = category;
+      if (category.key) {
+        systemCategoryMap[category.key] = category;
       } else {
         customCategories.push(category);
       }
     }
 
-    const {
-      newsletter,
-      coldEmail,
-      toReply,
-      marketing,
-      calendar,
-      receipt,
-      notification,
-    } = systemCategoryMap;
+    const newsletter = systemCategoryMap[SystemRule.Newsletter];
+    const coldEmail = systemCategoryMap[SystemRule.ColdEmail];
+    const toReply = systemCategoryMap[SystemRule.ToReply];
+    const marketing = systemCategoryMap[SystemRule.Marketing];
+    const calendar = systemCategoryMap[SystemRule.Calendar];
+    const receipt = systemCategoryMap[SystemRule.Receipt];
+    const notification = systemCategoryMap[SystemRule.Notification];
 
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
