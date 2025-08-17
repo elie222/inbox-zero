@@ -10,6 +10,7 @@ import { StepExtension } from "@/app/(app)/[emailAccountId]/onboarding/StepExten
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { ONBOARDING_STEPS } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
+import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -55,10 +56,12 @@ export function OnboardingContent({
       return <StepLabels emailAccountId={emailAccountId} step={4} />;
     case 5:
       return <StepDraft emailAccountId={emailAccountId} step={5} />;
-    // case 5:
-    //   return <StepDigest emailAccountId={emailAccountId} step={5} />;
     case 6:
-      return <StepExtension emailAccountId={emailAccountId} step={5} />;
+      return <StepCustomRules emailAccountId={emailAccountId} step={6} />;
+    // case 6:
+    //   return <StepDigest emailAccountId={emailAccountId} step={6} />;
+    case 7:
+      return <StepExtension emailAccountId={emailAccountId} step={7} />;
     default:
       return <StepIntro emailAccountId={emailAccountId} step={1} />;
   }
