@@ -13,8 +13,7 @@ import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
 } from "@/utils/actions/onboarding";
-import { WELCOME_PATH } from "@/utils/config";
-import { useOnboardingAnalytics } from "@/utils/analytics";
+import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -90,7 +89,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
         router.push("/welcome-upgrade");
       } else {
-        router.push(`${WELCOME_PATH}?${newSeachParams}`);
+        router.push(`/welcome?${newSeachParams}`);
       }
     },
     [

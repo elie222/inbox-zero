@@ -16,7 +16,7 @@ import {
   markOnboardingAsCompleted,
 } from "@/utils/cookies";
 import { completedOnboardingAction } from "@/utils/actions/onboarding";
-import { useOnboardingAnalytics } from "@/utils/analytics";
+import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { prefixPath } from "@/utils/path";
 
 const ONBOARDING_STEPS = 7;
