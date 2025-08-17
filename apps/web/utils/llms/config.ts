@@ -29,7 +29,7 @@ export const Model = {
   GEMINI_2_0_FLASH_LITE: "gemini-2.0-flash-lite",
   GEMINI_2_0_FLASH: "gemini-2.0-flash",
   GEMINI_2_0_FLASH_OPENROUTER: "google/gemini-2.0-flash",
-  GEMINI_2_5_PRO_OPENROUTER: "google/gemini-2.5",
+  GEMINI_2_5_PRO_OPENROUTER: "google/gemini-2.5-pro",
   GROQ_LLAMA_3_3_70B: "llama-3.3-70b-versatile",
   KIMI_K2_OPENROUTER: "moonshotai/kimi-k2",
   ...(supportsOllama ? { OLLAMA: env.NEXT_PUBLIC_OLLAMA_MODEL } : {}),

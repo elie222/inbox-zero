@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePostHog } from "posthog-js/react";
@@ -12,7 +12,8 @@ import { env } from "@/env";
 import {
   completedOnboardingAction,
   saveOnboardingAnswersAction,
-} from "@/utils/actions/user";
+} from "@/utils/actions/onboarding";
+import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -25,6 +26,12 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [showOtherInput, setShowOtherInput] = useState(false);
+
+  const analytics = useOnboardingAnalytics("welcome");
+
+  useEffect(() => {
+    analytics.onStart();
+  }, [analytics]);
 
   const {
     register,
@@ -44,9 +51,10 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
 
   const submitPosthog = useCallback(
     (responses: Properties) => {
+      analytics.onComplete();
       posthog.capture("survey sent", { ...responses, $survey_id: surveyId });
     },
-    [posthog],
+    [posthog, analytics],
   );
 
   const onSubmit: SubmitHandler<Inputs> = useCallback(
@@ -64,6 +72,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       const newSeachParams = new URLSearchParams(searchParams);
       newSeachParams.set("question", (questionIndex + 1).toString());
       newSeachParams.set(name, answer);
+
+      analytics.onNext(questionIndex + 1);
 
       const responses = getResponses(newSeachParams);
       await saveOnboardingAnswersAction({
@@ -90,6 +100,7 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
       submitPosthog,
       setValue,
       isFinalQuestion,
+      analytics,
     ],
   );
 

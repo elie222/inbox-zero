@@ -104,7 +104,7 @@ export const testColdEmailAction = actionClient
   .schema(coldEmailBlockerBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: {
         from,
         subject,
@@ -120,11 +120,7 @@ export const testColdEmailAction = actionClient
         where: { id: emailAccountId },
         include: {
           user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
-          account: {
-            select: {
-              provider: true,
-            },
-          },
+          account: { select: { provider: true } },
         },
       });
 
@@ -132,7 +128,7 @@ export const testColdEmailAction = actionClient
 
       const emailProvider = await createEmailProvider({
         emailAccountId,
-        provider: emailAccount.account?.provider,
+        provider,
       });
 
       const content = emailToContent({

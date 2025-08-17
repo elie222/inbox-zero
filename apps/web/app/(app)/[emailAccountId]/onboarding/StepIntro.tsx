@@ -7,9 +7,8 @@ import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
-import { prefixPath } from "@/utils/path";
 
-export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
+export function StepIntro({ onNext }: { onNext: () => void }) {
   return (
     <OnboardingWrapper>
       <IconCircle size="lg" className="mx-auto">
@@ -37,17 +36,21 @@ export function StepIntro({ emailAccountId }: { emailAccountId: string }) {
             description="When you check your inbox, every email needing a response will have a pre-drafted reply in your tone, ready for you to send."
             image="/images/onboarding/draft.png"
           />
-          <Benefit
+          {/* <Benefit
             index={3}
             title="Daily digest"
             description="Get a beautiful daily email summarizing everything you need to read but don't need to respond to. Read your inbox in 30 seconds instead of 30 minutes."
             image="/images/onboarding/digest.png"
+          /> */}
+          <Benefit
+            index={3}
+            title="Bulk Unsubscriber"
+            description="See which emails you never read, and one-click unsubscribe and archive them."
+            image="/images/onboarding/bulk-unsubscribe.png"
           />
         </div>
         <div className="flex justify-center mt-8">
-          <ContinueButton
-            href={prefixPath(emailAccountId, "/onboarding?step=2")}
-          />
+          <ContinueButton onClick={onNext} />
         </div>
       </div>
     </OnboardingWrapper>
@@ -66,7 +69,7 @@ function Benefit({
   image: string;
 }) {
   return (
-    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 h-[50vh]">
+    <CardBasic className="rounded-2xl shadow-none grid grid-cols-5 p-0 pl-4 pt-4 gap-8 max-h-[400px]">
       <div className="flex items-center gap-4 col-span-2">
         <IconCircle>{index}</IconCircle>
         <div>

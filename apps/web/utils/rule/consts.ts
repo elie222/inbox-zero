@@ -8,3 +8,14 @@ export const RuleName = {
   Notification: "Notification",
   ColdEmail: "Cold Email",
 };
+
+export const SystemRule = {
+  ToReply: "To Reply",
+  Newsletter: "Newsletter",
+  Marketing: "Marketing",
+  Calendar: "Calendar",
+  Receipt: "Receipt",
+  Notification: "Notification",
+  ColdEmail: "Cold Email",
+};
+export type SystemRule = (typeof SystemRule)[keyof typeof SystemRule];
