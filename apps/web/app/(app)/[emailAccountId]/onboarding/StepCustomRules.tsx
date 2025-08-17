@@ -16,19 +16,17 @@ export function StepCustomRules({ onNext }: { onNext: () => void }) {
             <NotepadTextIcon className="size-6" />
           </IconCircle>
 
-          <div className="text-center mt-4">
+          <div className="text-center mt-4 max-w-lg mx-auto">
             <PageHeading>Custom rules</PageHeading>
-            <TypographyP className="mt-2 max-w-lg mx-auto">
+            <TypographyP className="mt-2 text-left">
               We've set up the basics, but that's just the beginning. Your AI
               assistant can handle any email workflow you'd give to a human.
             </TypographyP>
-            <TypographyP className="mt-2 max-w-lg mx-auto text-left">
-              For example:
-              <ul className="list-disc list-inside space-y-1">
-                <li>Forward receipts to your accountant</li>
-                <li>Label newsletters and archive them after a week</li>
-              </ul>
-            </TypographyP>
+            <TypographyP className="mt-2 text-left">For example:</TypographyP>
+            <ul className="list-disc list-inside space-y-1 text-left leading-7 text-muted-foreground ">
+              <li>Forward receipts to your accountant</li>
+              <li>Label newsletters and archive them after a week</li>
+            </ul>
           </div>
 
           <div className="flex justify-center">
