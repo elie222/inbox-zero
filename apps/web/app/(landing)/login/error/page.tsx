@@ -10,6 +10,7 @@ import { env } from "@/env";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Loading } from "@/components/Loading";
+import { WELCOME_PATH } from "@/utils/config";
 
 export default function LogInErrorPage() {
   const { data, isLoading, error } = useUser();
@@ -19,12 +20,12 @@ export default function LogInErrorPage() {
   // This will redirect them out of this page to the app
   useEffect(() => {
     if (data?.id) {
-      router.push("/welcome");
+      router.push(WELCOME_PATH);
     }
   }, [data, router]);
 
   if (isLoading) return <Loading />;
-  // will redirect to /welcome if user is logged in
+  // will redirect to welcome if user is logged in
   if (data?.id) return <Loading />;
 
   return (
