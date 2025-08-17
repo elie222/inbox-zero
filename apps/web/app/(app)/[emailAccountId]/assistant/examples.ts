@@ -70,13 +70,9 @@ export const personas = {
     promptArray: [
       ...commonPrompts,
       `Label sponsorship inquiries as @[Sponsorship] and draft a reply as follows:
----
-Hey NAME,
-
-SENTENCE RELATED TO THEIR INQUIRY
-
-I've attached my media kit and pricing.
----`,
+> Hey NAME,
+>
+> I've attached my media kit and pricing`,
       "Label emails about affiliate programs as @[Affiliate] and archive them",
       "Label collaboration requests as @[Collab] and draft a reply asking about their audience size and engagement rates",
       "Label brand partnership emails as @[Brand Deal] and forward to manager@example.com",
