@@ -10,20 +10,11 @@ import prisma from "@/utils/prisma";
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
   .action(async ({ ctx: { userId } }) => {
-    await prisma.user.update({
+    await prisma.user.updateMany({
       where: { id: userId, completedOnboardingAt: null },
       data: { completedOnboardingAt: new Date() },
     });
   });
-
-// export const completedAppOnboardingAction = actionClientUser
-//   .metadata({ name: "completedAppOnboarding" })
-//   .action(async ({ ctx: { userId } }) => {
-//     await prisma.user.update({
-//       where: { id: userId, completedAppOnboardingAt: null },
-//       data: { completedAppOnboardingAt: new Date() },
-//     });
-//   });
 
 export const saveOnboardingAnswersAction = actionClientUser
   .metadata({ name: "saveOnboardingAnswers" })

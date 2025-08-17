@@ -4,18 +4,25 @@ import { ChromeIcon, MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButtonLink } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
+import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 import { nextUrl } from "@/app/(app)/[emailAccountId]/onboarding/config";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 export function StepExtension({
   emailAccountId,
   step,
+  onCompleted,
 }: {
   emailAccountId: string;
   step: number;
+  onCompleted: () => Promise<void>;
 }) {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <div className="grid xl:grid-cols-2">
       <OnboardingWrapper className="py-0">
@@ -48,7 +55,20 @@ export function StepExtension({
         </div>
 
         <div className="flex justify-center mt-8">
-          <ContinueButtonLink href={nextUrl(emailAccountId, step)} />
+          <ContinueButton
+            onClick={async () => {
+              setIsLoading(true);
+              try {
+                await onCompleted();
+              } catch (error) {
+                console.error(error);
+              } finally {
+                router.push(nextUrl(emailAccountId, step));
+                setIsLoading(false);
+              }
+            }}
+            loading={isLoading}
+          />
         </div>
       </OnboardingWrapper>
 

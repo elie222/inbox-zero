@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { StepWho } from "@/app/(app)/[emailAccountId]/onboarding/StepWho";
 import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
@@ -11,6 +11,11 @@ import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatur
 import { ONBOARDING_STEPS } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
+import {
+  ASSISTANT_ONBOARDING_COOKIE,
+  markOnboardingAsCompleted,
+} from "@/utils/cookies";
+import { completedOnboardingAction } from "@/utils/actions/onboarding";
 
 interface OnboardingContentProps {
   emailAccountId: string;
@@ -23,6 +28,11 @@ export function OnboardingContent({
 }: OnboardingContentProps) {
   const { data, mutate } = usePersona();
   const clampedStep = Math.min(Math.max(step, 1), ONBOARDING_STEPS);
+
+  const onCompleted = useCallback(async () => {
+    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+    await completedOnboardingAction();
+  }, []);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {
@@ -61,7 +71,13 @@ export function OnboardingContent({
     // case 6:
     //   return <StepDigest emailAccountId={emailAccountId} step={6} />;
     case 7:
-      return <StepExtension emailAccountId={emailAccountId} step={7} />;
+      return (
+        <StepExtension
+          emailAccountId={emailAccountId}
+          step={7}
+          onCompleted={onCompleted}
+        />
+      );
     default:
       return <StepIntro emailAccountId={emailAccountId} step={1} />;
   }
