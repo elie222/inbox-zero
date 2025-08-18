@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ChevronsUpDownIcon,
   BarChartIcon,
@@ -31,45 +30,40 @@ import { logOut } from "@/utils/user";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useTheme } from "next-themes";
 import { ProfileImage } from "@/components/ProfileImage";
+import { SidebarMenuButton } from "@/components/ui/sidebar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function NavUser() {
   const { data: session } = useSession();
   const { emailAccountId, emailAccount, provider } = useAccount();
-  const router = useRouter();
   const { theme, setTheme } = useTheme();
-
-  if (!session?.user) {
-    return (
-      <button
-        type="button"
-        onClick={() => router.push("/login")}
-        className="flex items-center px-3 py-2 text-sm font-medium text-foreground hover:bg-accent rounded-md"
-      >
-        Sign in
-      </button>
-    );
-  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className="-m-1.5 flex items-center p-1.5 focus:outline-none"
+        <SidebarMenuButton
+          size="lg"
+          className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
         >
-          <span className="sr-only">Open user menu</span>
-          <ProfileImage
-            image={emailAccount?.image || null}
-            label={emailAccount?.name || emailAccount?.email || ""}
-            size={32}
-          />
-          <span className="hidden lg:flex lg:items-center">
-            <ChevronsUpDownIcon
-              className="ml-2 h-5 w-5 text-muted-foreground"
-              aria-hidden="true"
+          <Avatar className="h-8 w-8 rounded-lg">
+            <AvatarImage
+              src={emailAccount?.image || ""}
+              alt={emailAccount?.name || emailAccount?.email}
             />
-          </span>
-        </button>
+            <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+          </Avatar>
+          {session?.user ? (
+            <>
+              <div className="grid flex-1 text-left text-sm leading-tight">
+                <span className="truncate font-medium">
+                  {emailAccount?.name || emailAccount?.email}
+                </span>
+                <span className="truncate text-xs">{emailAccount?.email}</span>
+              </div>
+              <ChevronsUpDownIcon className="ml-auto size-4" />
+            </>
+          ) : null}
+        </SidebarMenuButton>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         className="min-w-52 origin-top-right rounded-md"
@@ -88,7 +82,7 @@ export function NavUser() {
               <span className="truncate font-medium">
                 {emailAccount?.name || emailAccount?.email || "Account"}
               </span>
-              <span className="truncate text-xs">{session.user.email}</span>
+              <span className="truncate text-xs">{session?.user.email}</span>
             </div>
           </div>
         </DropdownMenuLabel>
