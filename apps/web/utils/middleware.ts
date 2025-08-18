@@ -233,7 +233,7 @@ async function emailProviderMiddleware(
       userId,
     });
     return NextResponse.json(
-      { error: "Failed to initialize email provider", isKnownError: true },
+      { error: "Failed to initialize email provider" },
       { status: 500 },
     );
   }

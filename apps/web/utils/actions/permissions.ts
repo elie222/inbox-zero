@@ -23,7 +23,8 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
       });
 
-      if (!accessToken) throw new SafeError("No access token");
+      if (!tokens.refreshToken || !accessToken)
+        return { hasRefreshToken: true, hasAllPermissions: false };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
@@ -42,7 +43,8 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
         error,
       });
-      throw new SafeError("Failed to check permissions");
+      // throw new SafeError("Failed to check permissions");
+      return { hasRefreshToken: false, hasAllPermissions: false };
     }
   });
 
