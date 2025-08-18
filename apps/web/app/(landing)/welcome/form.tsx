@@ -14,6 +14,7 @@ import {
   saveOnboardingAnswersAction,
 } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
+import { useSignUpEvent } from "@/hooks/useSignupEvent";
 
 const surveyId = env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID;
 
@@ -28,6 +29,8 @@ export const OnboardingForm = (props: { questionIndex: number }) => {
   const [showOtherInput, setShowOtherInput] = useState(false);
 
   const analytics = useOnboardingAnalytics("welcome");
+
+  useSignUpEvent();
 
   useEffect(() => {
     analytics.onStart();

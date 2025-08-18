@@ -1,7 +1,7 @@
 import { cookies } from "next/headers";
 import prisma from "@/utils/prisma";
 
-async function storeUtms(userId: string) {
+export async function storeUtms(userId: string) {
   const cookieStore = await cookies();
   const utmCampaign = cookieStore.get("utm_campaign");
   const utmMedium = cookieStore.get("utm_medium");
@@ -21,10 +21,4 @@ async function storeUtms(userId: string) {
     where: { id: userId },
     data: { utms },
   });
-}
-
-export async function UTMs({ userId }: { userId: string }) {
-  await storeUtms(userId);
-
-  return null;
 }

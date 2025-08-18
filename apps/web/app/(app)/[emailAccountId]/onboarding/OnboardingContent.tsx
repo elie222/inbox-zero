@@ -20,17 +20,16 @@ import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { useSignUpEvent } from "@/hooks/useSignupEvent";
 
 interface OnboardingContentProps {
-  emailAccountId: string;
   step: number;
 }
 
-export function OnboardingContent({
-  emailAccountId,
-  step,
-}: OnboardingContentProps) {
-  const { provider } = useAccount();
+export function OnboardingContent({ step }: OnboardingContentProps) {
+  const { provider, emailAccountId } = useAccount();
+
+  useSignUpEvent();
 
   const steps = [
     () => <StepIntro onNext={onNext} />,
