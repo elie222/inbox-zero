@@ -45,6 +45,8 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile.prod
+      args:
+        NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
     env_file:
       - ./apps/web/.env
     depends_on:
