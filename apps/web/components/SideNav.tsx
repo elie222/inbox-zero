@@ -42,6 +42,7 @@ import {
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { SetupProgressCard } from "@/components/SetupProgressCard";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -212,6 +213,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
+        {state.includes("left-sidebar") ? <SetupProgressCard /> : null}
+
         <SidebarGroupContent>
           {showMailNav ? (
             <MailNav path={path} />
