@@ -49,11 +49,11 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
+ENV NEXT_PUBLIC_BASE_URL="dummy_app_url_for_build"
 
 # Ensure prisma generate runs
 RUN pnpm --filter inbox-zero-ai exec -- next build
 
-# Expose port 3000
 EXPOSE 3000
 
 # Set the default command to start the production server
