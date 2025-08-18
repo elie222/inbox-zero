@@ -1,11 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { ChromeIcon, MailsIcon } from "lucide-react";
+import { ArrowRightIcon, ChromeIcon, MailsIcon } from "lucide-react";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
-import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
 
@@ -31,7 +30,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
         </div>
 
         <div className="flex justify-center mt-8">
-          <Button asChild size="sm">
+          <Button asChild size="sm" variant="primaryBlue">
             <a
               href="https://go.getinboxzero.com/extension"
               target="_blank"
@@ -44,7 +43,9 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
         </div>
 
         <div className="flex justify-center mt-8">
-          <ContinueButton
+          <Button
+            size="sm"
+            variant="outline"
             onClick={async () => {
               setIsLoading(true);
               onNext().finally(() => {
@@ -52,7 +53,9 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
               });
             }}
             loading={isLoading}
-          />
+          >
+            Skip for now <ArrowRightIcon className="size-4 ml-2" />
+          </Button>
         </div>
       </OnboardingWrapper>
 
