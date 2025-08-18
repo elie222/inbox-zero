@@ -213,7 +213,7 @@ function CategoryCard({
                         Label & archive after a week
                       </SelectItem>
                     )}
-                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="none">Do nothing</SelectItem>
                   </SelectContent>
                 </Select>
               </FormItem>

@@ -93,7 +93,7 @@ export default async function AutomationPage({
 
               <div className="flex items-center justify-between">
                 <PageHeading>Assistant</PageHeading>
-                <ExtraActions emailAccountId={emailAccountId} />
+                <ExtraActions />
               </div>
 
               <div className="border-b border-neutral-200 pt-2">
@@ -182,16 +182,9 @@ async function PendingTab({
   );
 }
 
-function ExtraActions({ emailAccountId }: { emailAccountId: string }) {
+function ExtraActions() {
   return (
     <div className="flex items-center gap-2">
-      <Button asChild variant="ghost" size="sm">
-        <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
-          <SlidersIcon className="mr-2 hidden size-4 md:block" />
-          View Setup
-        </Link>
-      </Button>
-
       <OnboardingModal
         title="Getting started with AI Personal Assistant"
         description={
