@@ -41,6 +41,7 @@ import {
   SidebarMenuItem,
   SidebarMenu,
   useSidebar,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { SetupProgressCard } from "@/components/SetupProgressCard";
 import { SideNavMenu } from "@/components/SideNavMenu";
@@ -54,6 +55,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { NavUser } from "@/components/NavUser";
 
 type NavItem = {
   name: string;
@@ -204,11 +206,16 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="gap-0 pb-0">
         {state.includes("left-sidebar") ? (
           <Link href="/setup">
-            <div className="flex items-center rounded-md p-3 text-foreground">
+            <div className="flex items-center rounded-md p-3 text-foreground justify-between">
               <Logo className="h-3.5" />
+              <SidebarTrigger name="left-sidebar" />
             </div>
           </Link>
-        ) : null}
+        ) : (
+          <div className="pb-2">
+            <SidebarTrigger name="left-sidebar" />
+          </div>
+        )}
         <AccountSwitcher />
       </SidebarHeader>
 
@@ -233,6 +240,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </ClientOnly>
 
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

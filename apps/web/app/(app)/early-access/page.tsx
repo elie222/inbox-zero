@@ -17,6 +17,21 @@ export default function RequestAccessPage() {
 
         <Card>
           <CardHeader>
+            <CardTitle>Sender Categories</CardTitle>
+            <CardDescription>
+              Sender Categories is a feature that allows you to categorize
+              emails by sender, and take bulk actions or apply rules to them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button asChild>
+              <Link href="/smart-categories">Sender Categories</Link>
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
             <CardTitle>Early Access</CardTitle>
             <CardDescription>
               Give us feedback on what features you want to see.
