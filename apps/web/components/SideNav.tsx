@@ -52,6 +52,7 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 type NavItem = {
   name: string;
@@ -68,26 +69,19 @@ export const useNavigation = () => {
   const { emailAccountId, provider } = useAccount();
 
   // Assistant category items
-  const assistantItems: NavItem[] = useMemo(
+  const navItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
-    ],
-    [emailAccountId],
-  );
-
-  // Clean category items
-  const cleanItems: NavItem[] = useMemo(
-    () => [
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(provider === "google"
+      ...(isGoogleProvider(provider)
         ? [
             {
               name: "Deep Clean",
@@ -105,19 +99,18 @@ export const useNavigation = () => {
     [emailAccountId, provider],
   );
 
-  const cleanItemsFiltered = useMemo(
+  const navItemsFiltered = useMemo(
     () =>
-      cleanItems.filter((item) => {
+      navItems.filter((item) => {
         if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
           return showCleaner;
         return true;
       }),
-    [showCleaner, emailAccountId, cleanItems],
+    [showCleaner, emailAccountId, navItems],
   );
 
   return {
-    assistantItems,
-    cleanItems: cleanItemsFiltered,
+    navItems: navItemsFiltered,
   };
 };
 
@@ -223,26 +216,10 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           {showMailNav ? (
             <MailNav path={path} />
           ) : (
-            <>
-              <SidebarGroup>
-                <SidebarGroupLabel>Assistant</SidebarGroupLabel>
-                <SideNavMenu
-                  items={navigation.assistantItems}
-                  activeHref={path}
-                />
-              </SidebarGroup>
-              {navigation.cleanItems.length > 0 && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>Tools</SidebarGroupLabel>
-                  <ClientOnly>
-                    <SideNavMenu
-                      items={navigation.cleanItems}
-                      activeHref={path}
-                    />
-                  </ClientOnly>
-                </SidebarGroup>
-              )}
-            </>
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SideNavMenu items={navigation.navItems} activeHref={path} />
+            </SidebarGroup>
           )}
         </SidebarGroupContent>
       </SidebarContent>

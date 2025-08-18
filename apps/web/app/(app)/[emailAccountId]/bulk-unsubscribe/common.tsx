@@ -52,6 +52,7 @@ import {
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function ActionCell<T extends Row>({
   item,
@@ -408,7 +409,7 @@ export function MoreDropdown<T extends Row>({
             <span>View stats</span>
           </DropdownMenuItem>
         )}
-        {provider === "google" && (
+        {isGoogleProvider(provider) && (
           <DropdownMenuItem asChild>
             <Link
               href={getGmailSearchUrl(item.name, userEmail)}

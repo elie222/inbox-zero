@@ -10,6 +10,7 @@ import { LoadingMiniSpinner } from "@/components/Loading";
 import { getGmailUrl } from "@/utils/url";
 import { onTrashThread } from "@/utils/actions/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function ActionButtons({
   threadId,
@@ -47,7 +48,7 @@ export function ActionButtons({
 
   const buttons = useMemo(
     () => [
-      ...(provider === "google"
+      ...(isGoogleProvider(provider)
         ? [
             {
               tooltip: "Open in Gmail",

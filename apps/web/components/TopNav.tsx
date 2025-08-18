@@ -27,6 +27,7 @@ import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
 import { logOut } from "@/utils/user";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function TopNav({ trigger }: { trigger: React.ReactNode }) {
   return (
@@ -53,7 +54,7 @@ function ProfileDropdown() {
       href: prefixPath(emailAccountId, "/usage"),
       icon: BarChartIcon,
     },
-    ...(provider === "google"
+    ...(isGoogleProvider(provider)
       ? [
           {
             name: "Mail (Beta)",

@@ -119,21 +119,7 @@ export function CommandK() {
           </CommandItem>
         </CommandGroup>
         <CommandGroup heading="Assistant">
-          {navigation.assistantItems.map((option) => (
-            <CommandItem
-              key={option.name}
-              onSelect={() => {
-                router.push(option.href);
-                setOpen(false);
-              }}
-            >
-              <option.icon className="mr-2 h-4 w-4" />
-              <span>{option.name}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        <CommandGroup heading="Clean">
-          {navigation.cleanItems.map((option) => (
+          {navigation.navItems.map((option) => (
             <CommandItem
               key={option.name}
               onSelect={() => {
