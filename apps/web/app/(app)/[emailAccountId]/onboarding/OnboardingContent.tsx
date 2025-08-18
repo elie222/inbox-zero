@@ -21,6 +21,7 @@ import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
+import { isDefined } from "@/utils/types";
 
 interface OnboardingContentProps {
   step: number;
@@ -45,11 +46,10 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     () => <StepDraft emailAccountId={emailAccountId} onNext={onNext} />,
     // <StepDigest onNext={onNext} />
     () => <StepCustomRules onNext={onNext} />,
-    () =>
-      isGoogleProvider(provider) ? (
-        <StepExtension onNext={onCompleted} />
-      ) : null,
-  ];
+    isGoogleProvider(provider)
+      ? () => <StepExtension onNext={onCompleted} />
+      : null,
+  ].filter(isDefined);
 
   const { data, mutate } = usePersona();
   const clampedStep = Math.min(Math.max(step, 1), steps.length);
