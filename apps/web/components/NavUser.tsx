@@ -3,15 +3,17 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  ChevronsUpDown,
-  BarChart,
-  Inbox,
-  Tag,
-  MessageCircleReply,
-  ShieldCheck,
-  Ribbon,
+  ChevronsUpDownIcon,
+  BarChartIcon,
+  InboxIcon,
+  MessageCircleReplyIcon,
+  ShieldCheckIcon,
+  RibbonIcon,
   LogOutIcon,
-  Palette,
+  PaletteIcon,
+  SettingsIcon,
+  BookIcon,
+  CrownIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -62,7 +64,7 @@ export function NavUser() {
             size={32}
           />
           <span className="hidden lg:flex lg:items-center">
-            <ChevronsUpDown
+            <ChevronsUpDownIcon
               className="ml-2 h-5 w-5 text-muted-foreground"
               aria-hidden="true"
             />
@@ -92,23 +94,33 @@ export function NavUser() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {/* Theme Toggle */}
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault();
-            setTheme(theme === "dark" ? "light" : "dark");
-          }}
-        >
-          <Palette className="mr-2 h-4 w-4" />
-          {theme === "dark" ? "Light mode" : "Dark mode"}
-        </DropdownMenuItem>
+        <DropdownMenuGroup>
+          <DropdownMenuItem asChild>
+            <Link href={prefixPath(emailAccountId, "/settings")}>
+              <SettingsIcon className="mr-2 h-4 w-4" />
+              Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="/premium">
+              <CrownIcon className="mr-2 h-4 w-4" />
+              Premium
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link href="https://docs.getinboxzero.com">
+              <BookIcon className="mr-2 h-4 w-4" />
+              Help Center
+            </Link>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+
         <DropdownMenuSeparator />
 
-        {/* Navigation Items */}
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href={prefixPath(emailAccountId, "/usage")}>
-              <BarChart className="mr-2 h-4 w-4" />
+              <BarChartIcon className="mr-2 h-4 w-4" />
               Usage
             </Link>
           </DropdownMenuItem>
@@ -117,19 +129,19 @@ export function NavUser() {
             <>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/mail")}>
-                  <Inbox className="mr-2 h-4 w-4" />
+                  <InboxIcon className="mr-2 h-4 w-4" />
                   Mail (Beta)
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/reply-zero")}>
-                  <MessageCircleReply className="mr-2 h-4 w-4" />
+                  <MessageCircleReplyIcon className="mr-2 h-4 w-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/cold-email-blocker")}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
+                  <ShieldCheckIcon className="mr-2 h-4 w-4" />
                   Cold Email Blocker
                 </Link>
               </DropdownMenuItem>
@@ -138,11 +150,22 @@ export function NavUser() {
 
           <DropdownMenuItem asChild>
             <Link href="/early-access">
-              <Ribbon className="mr-2 h-4 w-4" />
+              <RibbonIcon className="mr-2 h-4 w-4" />
               Early Access
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
+
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={(e) => {
+            e.preventDefault();
+            setTheme(theme === "dark" ? "light" : "dark");
+          }}
+        >
+          <PaletteIcon className="mr-2 h-4 w-4" />
+          {theme === "dark" ? "Light mode" : "Dark mode"}
+        </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logOut(window.location.origin)}>

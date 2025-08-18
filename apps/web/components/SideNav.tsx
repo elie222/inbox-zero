@@ -8,12 +8,9 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
-  BookIcon,
   BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CogIcon,
-  CrownIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,
@@ -117,17 +114,6 @@ export const useNavigation = () => {
   };
 };
 
-const bottomLinks: NavItem[] = [
-  {
-    name: "Help Center",
-    href: "https://docs.getinboxzero.com",
-    target: "_blank",
-    icon: BookIcon,
-  },
-  { name: "Premium", href: "/premium", icon: CrownIcon },
-  { name: "Settings", href: "/settings", icon: CogIcon },
-];
-
 const topMailLinks: NavItem[] = [
   {
     name: "Inbox",
@@ -193,9 +179,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
               href: "/automation",
               icon: ArrowLeftIcon,
             },
-            ...bottomLinks.filter((l) => !l.hideInMail),
           ]
-        : bottomLinks,
+        : [],
     [showMailNav],
   );
 
