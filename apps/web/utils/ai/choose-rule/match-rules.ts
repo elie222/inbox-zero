@@ -122,6 +122,15 @@ async function findPotentialMatchingRules({
           group,
         });
 
+        if (rule.systemType === SystemType.TO_REPLY) {
+          const filteredPotentialMatches = await filterToReplyPreset(
+            [rule],
+            message,
+            client,
+          );
+          return { potentialMatches: filteredPotentialMatches, matchReasons };
+        }
+
         return { match: rule, matchReasons };
       }
     }
@@ -364,7 +373,9 @@ async function matchesCategoryRule(
 }
 
 export async function filterToReplyPreset(
-  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
+  potentialMatches: (RuleWithActionsAndCategories & {
+    instructions: string | null | undefined;
+  })[],
   message: ParsedMessage,
   client: EmailProvider,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
