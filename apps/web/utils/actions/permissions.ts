@@ -27,7 +27,7 @@ export const checkPermissionsAction = actionClient
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
-        refreshToken: tokens.refreshToken ?? "",
+        refreshToken: tokens.refreshToken,
         emailAccountId,
       });
 
@@ -67,7 +67,7 @@ export const adminCheckPermissionsAction = adminActionClient
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
-        refreshToken: tokens.refreshToken ?? "",
+        refreshToken: tokens.refreshToken,
         emailAccountId,
       });
       if (error) throw new SafeError(error);

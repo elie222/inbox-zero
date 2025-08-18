@@ -78,7 +78,7 @@ export async function handleGmailPermissionsCheck({
   emailAccountId,
 }: {
   accessToken: string;
-  refreshToken: string;
+  refreshToken: string | null | undefined;
   emailAccountId: string;
 }) {
   const { hasAllPermissions, error, missingScopes } =
