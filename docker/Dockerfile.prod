@@ -31,6 +31,10 @@ RUN pnpm --filter inbox-zero-ai exec -- prisma generate
 # Set NODE_ENV for build and runtime
 ENV NODE_ENV=production
 
+# Accept build-time arguments for all NEXT_PUBLIC variables
+# Users can override any of these during build
+ARG NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+
 # Provide dummy build-time ENV VARS (Still needed for build)
 ENV DATABASE_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
 ENV DIRECT_URL="postgresql://dummy:dummy@dummy:5432/dummy?schema=public"
@@ -49,7 +53,9 @@ ENV REDIS_URL="redis://dummy:dummy@dummy:6379"
 ENV QSTASH_TOKEN="dummy_qstash_token_for_build"
 ENV QSTASH_CURRENT_SIGNING_KEY="dummy_qstash_curr_key_for_build"
 ENV QSTASH_NEXT_SIGNING_KEY="dummy_qstash_next_key_for_build"
-ENV NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+
+# Set NEXT_PUBLIC env vars from ARGs (users can override these)
+ENV NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}
 
 # Ensure prisma generate runs
 RUN pnpm --filter inbox-zero-ai exec -- next build
