@@ -50,7 +50,9 @@ export function NavUser() {
               src={emailAccount?.image || ""}
               alt={emailAccount?.name || emailAccount?.email}
             />
-            <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+            <AvatarFallback className="rounded-lg">
+              {emailAccount?.name?.charAt(0) || emailAccount?.email?.charAt(0)}
+            </AvatarFallback>
           </Avatar>
           {session?.user ? (
             <>
