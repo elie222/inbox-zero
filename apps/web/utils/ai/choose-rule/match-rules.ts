@@ -373,9 +373,7 @@ async function matchesCategoryRule(
 }
 
 export async function filterToReplyPreset(
-  potentialMatches: (RuleWithActionsAndCategories & {
-    instructions: string | null | undefined;
-  })[],
+  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
   message: ParsedMessage,
   client: EmailProvider,
 ): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
