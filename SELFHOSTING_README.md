@@ -271,7 +271,7 @@ docker compose run --rm migrate
 
 3) Start the app (and helper):
 ```
-docker compose up -d web serverless-redis-http
+docker compose up -d
 ```
 
 4) Point your browser to your domain (e.g., https://example.com).
