@@ -210,8 +210,8 @@ export function BulkUnsubscribe() {
     <PageWrapper>
       <PageHeading>Bulk Unsubscriber</PageHeading>
 
-      <div className="items-center justify-between md:flex mt-4">
-        <div className="flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
+      <div className="items-center justify-between flex mt-4 flex-wrap">
+        <div className="flex items-center justify-end gap-1">
           <div className="">
             <Toggle
               name="show-unhandled"
@@ -322,7 +322,7 @@ export function BulkUnsubscribe() {
         <BulkActions selected={selected} mutate={mutate} />
       ) : null}
 
-      <Card className="mt-0 md:mt-4">
+      <Card className="mt-2 md:mt-4">
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
             <Skeleton className="h-screen rounded" />
