@@ -11,14 +11,18 @@ import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function ActionSummaryCard({
   action,
   typeOptions,
+  provider,
 }: {
   action: CreateRuleBody["actions"][number];
   typeOptions: { label: string; value: ActionType }[];
+  provider: string;
 }) {
+  const terminology = getEmailTerminology(provider);
   const actionTypeLabel =
     typeOptions.find((opt) => opt.value === action.type)?.label || action.type;
 
@@ -29,9 +33,11 @@ export function ActionSummaryCard({
     case ActionType.LABEL: {
       const labelValue = action.label?.value || "";
       if (action.label?.ai) {
-        summaryContent = labelValue ? `AI Label: ${labelValue}` : "AI Label";
+        summaryContent = labelValue
+          ? `AI ${terminology.label.action}: ${labelValue}`
+          : `AI ${terminology.label.action}`;
       } else {
-        summaryContent = `Label as "${labelValue || "unset"}"`;
+        summaryContent = `${terminology.label.action} as "${labelValue || "unset"}"`;
       }
       break;
     }
@@ -170,8 +176,8 @@ export function ActionSummaryCard({
       break;
 
     case ActionType.TRACK_THREAD:
-      summaryContent = "Auto-update reply label";
-      tooltipText = `Our AI will automatically update the thread label to '${NEEDS_REPLY_LABEL_NAME}' or '${AWAITING_REPLY_LABEL_NAME}' based on whether you need to respond or are awaiting a response from the recipient.`;
+      summaryContent = `Auto-update reply ${terminology.label.singular}`;
+      tooltipText = `Our AI will automatically update the thread ${terminology.label.singular} to '${NEEDS_REPLY_LABEL_NAME}' or '${AWAITING_REPLY_LABEL_NAME}' based on whether you need to respond or are awaiting a response from the recipient.`;
       break;
 
     case ActionType.ARCHIVE:

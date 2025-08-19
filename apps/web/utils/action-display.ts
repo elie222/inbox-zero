@@ -29,7 +29,7 @@ export function getActionDisplay(
     case ActionType.CALL_WEBHOOK:
       return "Call Webhook";
     case ActionType.TRACK_THREAD:
-      return "Auto-update reply label";
+      return `Auto-update reply ${terminology.label.singular}`;
     case ActionType.MOVE_FOLDER:
       return action.folderName
         ? `Folder: ${action.folderName}`

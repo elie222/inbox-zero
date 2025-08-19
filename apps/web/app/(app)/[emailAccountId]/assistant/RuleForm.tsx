@@ -342,11 +342,14 @@ export function RuleForm({
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Digest", value: ActionType.DIGEST },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
+      {
+        label: `Auto-update reply ${terminology.label.singular}`,
+        value: ActionType.TRACK_THREAD,
+      },
     ];
 
     return options;
-  }, [provider, terminology.label.action]);
+  }, [provider, terminology.label.action, terminology.label.singular]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
@@ -851,6 +854,7 @@ export function RuleForm({
                 key={i}
                 action={action}
                 typeOptions={typeOptions}
+                provider={provider}
               />
             ),
           )}
