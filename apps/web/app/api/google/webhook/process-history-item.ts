@@ -26,7 +26,7 @@ import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { HistoryEventType } from "@/app/api/google/webhook/types";
-import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
+import { processLabelRemoval } from "@/app/api/google/webhook/process-label-removed-event";
 
 export async function processHistoryItem(
   historyItem: {
@@ -67,7 +67,7 @@ export async function processHistoryItem(
 
   if (type === HistoryEventType.LABEL_REMOVED) {
     logger.info("Processing label removed event for learning", loggerOptions);
-    return handleLabelRemovedEvent(item, {
+    return processLabelRemoval(item, {
       gmail,
       emailAccount,
       provider,

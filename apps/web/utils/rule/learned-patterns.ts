@@ -14,10 +14,12 @@ export async function saveLearnedPattern({
   emailAccountId,
   from,
   ruleName,
+  reasoning,
 }: {
   emailAccountId: string;
   from: string;
   ruleName: string;
+  reasoning?: string;
 }) {
   const rule = await prisma.rule.findUnique({
     where: {
@@ -62,6 +64,7 @@ export async function saveLearnedPattern({
       groupId,
       type: GroupItemType.FROM,
       value: from,
+      reasoning,
     },
   });
 }
@@ -81,6 +84,7 @@ export async function saveLearnedPatterns({
     type: GroupItemType;
     value: string;
     exclude?: boolean;
+    reasoning?: string;
   }>;
 }) {
   const rule = await prisma.rule.findUnique({
@@ -146,12 +150,14 @@ export async function saveLearnedPatterns({
         },
         update: {
           exclude: pattern.exclude || false,
+          reasoning: pattern.reasoning,
         },
         create: {
           groupId,
           type: pattern.type,
           value: pattern.value,
           exclude: pattern.exclude || false,
+          reasoning: pattern.reasoning,
         },
       });
     } catch (error) {
