@@ -1,6 +1,6 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus, SystemType } from "@prisma/client";
+import { ActionType, ColdEmailStatus, SystemType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -27,20 +27,56 @@ const SYSTEM_LABELS = [
   GmailLabel.UNREAD,
 ];
 
-export async function getRulesWithSystemTypes(emailAccountId: string) {
-  return await prisma.rule.findMany({
+export async function getSystemRuleLabels(
+  emailAccountId: string,
+): Promise<
+  Map<
+    string,
+    { labels: string[]; instructions: string | null; ruleName: string }
+  >
+> {
+  const actions = await prisma.action.findMany({
     where: {
-      emailAccountId,
-      systemType: {
-        not: null,
+      type: ActionType.LABEL,
+      rule: {
+        emailAccountId,
+        systemType: {
+          not: null,
+        },
       },
     },
     select: {
-      name: true,
-      instructions: true,
-      systemType: true,
+      label: true,
+      rule: {
+        select: {
+          name: true,
+          systemType: true,
+          instructions: true,
+        },
+      },
     },
   });
+
+  const systemTypeData = new Map<
+    string,
+    { labels: string[]; instructions: string | null; ruleName: string }
+  >();
+
+  for (const action of actions) {
+    if (action.label && action.rule?.systemType && action.rule?.name) {
+      const systemType = action.rule.systemType;
+      if (!systemTypeData.has(systemType)) {
+        systemTypeData.set(systemType, {
+          labels: [],
+          instructions: action.rule.instructions,
+          ruleName: action.rule.name,
+        });
+      }
+      systemTypeData.get(systemType)!.labels.push(action.label);
+    }
+  }
+
+  return systemTypeData;
 }
 
 export async function handleLabelRemovedEvent(
@@ -92,7 +128,6 @@ export async function processLabelRemoval(
 
   try {
     const parsedMessage = await provider.getMessage(messageId);
-    const sender = extractEmailAddress(parsedMessage.headers.from);
 
     const removedLabelIds = message.labelIds || [];
 
@@ -113,7 +148,6 @@ export async function processLabelRemoval(
     for (const labelName of removedLabelNames) {
       await analyseLabelRemoval({
         labelName,
-        sender,
         messageId,
         threadId,
         emailAccountId,
@@ -133,7 +167,6 @@ export async function processLabelRemoval(
 
 async function analyseLabelRemoval({
   labelName,
-  sender,
   messageId,
   threadId,
   emailAccountId,
@@ -141,13 +174,14 @@ async function analyseLabelRemoval({
   emailAccount,
 }: {
   labelName: string;
-  sender: string | null;
   messageId: string;
   threadId: string;
   emailAccountId: string;
   parsedMessage: ParsedMessage;
   emailAccount: EmailAccountWithAI;
 }) {
+  const sender = extractEmailAddress(parsedMessage.headers.from);
+
   // Can't learn patterns without knowing who to exclude
   if (!sender) {
     logger.info("No sender found, skipping learning", {
@@ -186,10 +220,25 @@ async function analyseLabelRemoval({
     return;
   }
 
-  const rules = await getRulesWithSystemTypes(emailAccountId);
-  const matchingRule = rules.find((rule) => rule.name === labelName);
+  const systemTypeData = await getSystemRuleLabels(emailAccountId);
+  let matchedRule: {
+    systemType: string;
+    instructions: string | null;
+    ruleName: string;
+  } | null = null;
 
-  if (!matchingRule) {
+  for (const [systemType, data] of systemTypeData) {
+    if (data.labels.includes(labelName)) {
+      matchedRule = {
+        systemType,
+        instructions: data.instructions,
+        ruleName: data.ruleName,
+      };
+      break;
+    }
+  }
+
+  if (!matchedRule) {
     logger.info(
       "No system rule found for label removal, skipping AI analysis",
       { emailAccountId, labelName },
@@ -200,17 +249,17 @@ async function analyseLabelRemoval({
   logger.info("Processing system rule label removal with AI analysis", {
     emailAccountId,
     labelName,
-    systemType: matchingRule.systemType,
+    systemType: matchedRule.systemType,
     messageId,
   });
 
   // Matching rule by SystemType and not by name
-  if (matchingRule.systemType === SystemType.NEWSLETTER) {
+  if (matchedRule.systemType === SystemType.NEWSLETTER) {
     try {
       const analysis = await aiAnalyzeLabelRemoval({
         label: {
-          name: matchingRule.name,
-          instructions: matchingRule.instructions,
+          name: labelName,
+          instructions: matchedRule.instructions,
         },
         email: getEmailForLLM(parsedMessage),
         emailAccount,
@@ -220,7 +269,7 @@ async function analyseLabelRemoval({
         analysis,
         emailAccountId,
         labelName,
-        ruleName: matchingRule.name,
+        ruleName: matchedRule.ruleName,
       });
     } catch (error) {
       logger.error("Error analyzing label removal with AI", {
@@ -232,7 +281,7 @@ async function analyseLabelRemoval({
     logger.info("System type not yet supported for AI analysis", {
       emailAccountId,
       labelName,
-      systemType: matchingRule.systemType,
+      systemType: matchedRule.systemType,
     });
   }
 }
