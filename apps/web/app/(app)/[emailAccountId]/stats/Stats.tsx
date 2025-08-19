@@ -65,9 +65,9 @@ export function Stats() {
   }, [onLoad]);
 
   return (
-    <PageWrapper className="pb-20">
+    <PageWrapper>
       <PageHeading>Analytics</PageHeading>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mt-2 sm:mt-0">
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
           <ActionBar
@@ -84,21 +84,20 @@ export function Stats() {
         </div>
       </div>
 
-      <div className="py-4">
+      <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
-      </div>
 
-      <EmailAnalytics dateRange={dateRange} refreshInterval={refreshInterval} />
+        <EmailAnalytics
+          dateRange={dateRange}
+          refreshInterval={refreshInterval}
+        />
 
-      <div className="mt-4">
         <DetailedStats
           dateRange={dateRange}
           period={period}
           refreshInterval={refreshInterval}
         />
-      </div>
 
-      <div className="mt-4">
         <CardBasic>
           <Title>
             How many emailers you've handled with Inbox Zero bulk unsubscribe
@@ -107,9 +106,7 @@ export function Stats() {
             <BulkUnsubscribeSummary />
           </div>
         </CardBasic>
-      </div>
 
-      <div className="mt-4">
         <EmailActionsAnalytics />
       </div>
 

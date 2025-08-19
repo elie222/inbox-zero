@@ -20,23 +20,19 @@ export function EmailActionsAnalytics() {
       loadingComponent={<Skeleton className="h-32 w-full rounded" />}
     >
       {data && (
-        <div>
-          <div className="mt-2">
-            <CardBasic>
-              <Title>
-                How many emails you've archived and deleted with Inbox Zero
-              </Title>
+        <CardBasic>
+          <Title>
+            How many emails you've archived and deleted with Inbox Zero
+          </Title>
 
-              <BarChart
-                className="mt-4 h-72"
-                data={data.result}
-                index="date"
-                categories={["Archived", "Deleted"]}
-                colors={["lime", "pink"]}
-              />
-            </CardBasic>
-          </div>
-        </div>
+          <BarChart
+            className="mt-4 h-72"
+            data={data.result}
+            index="date"
+            categories={["Archived", "Deleted"]}
+            colors={["lime", "pink"]}
+          />
+        </CardBasic>
       )}
     </LoadingContent>
   );
