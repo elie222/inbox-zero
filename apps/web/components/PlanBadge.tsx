@@ -9,14 +9,15 @@ import {
   type Rule,
 } from "@prisma/client";
 import { truncate } from "@/utils/string";
+import { getEmailTerminology } from "@/utils/terminology";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {
   rule: Rule | null;
   actionItems: ExecutedAction[];
 };
 
-export function PlanBadge(props: { plan?: Plan }) {
-  const { plan } = props;
+export function PlanBadge(props: { plan?: Plan; provider: string }) {
+  const { plan, provider } = props;
 
   // if (!plan) return <Badge color="gray">Not planned</Badge>;
   if (!plan) return null;
@@ -59,7 +60,7 @@ export function PlanBadge(props: { plan?: Plan }) {
                     color={getActionColor(action.type)}
                     className="whitespace-pre-wrap"
                   >
-                    {getActionMessage(action)}
+                    {getActionMessage(action, provider)}
                   </Badge>
                 </div>
               );
@@ -78,14 +79,28 @@ export function PlanBadge(props: { plan?: Plan }) {
   );
 }
 
-export function ActionBadge({ type }: { type: ActionType }) {
-  return <Badge color={getActionColor(type)}>{getActionLabel(type)}</Badge>;
+export function ActionBadge({
+  type,
+  provider,
+}: {
+  type: ActionType;
+  provider: string;
+}) {
+  return (
+    <Badge color={getActionColor(type)}>{getActionLabel(type, provider)}</Badge>
+  );
 }
 
-export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
+export function ActionBadgeExpanded({
+  action,
+  provider,
+}: {
+  action: ExecutedAction;
+  provider: string;
+}) {
   switch (action.type) {
     case ActionType.ARCHIVE:
-      return <ActionBadge type={ActionType.ARCHIVE} />;
+      return <ActionBadge type={ActionType.ARCHIVE} provider={provider} />;
     case ActionType.LABEL:
       return <Badge color="blue">Label: "{action.label}"</Badge>;
     case ActionType.REPLY:
@@ -117,13 +132,13 @@ export function ActionBadgeExpanded({ action }: { action: ExecutedAction }) {
         </div>
       );
     case ActionType.MARK_SPAM:
-      return <ActionBadge type={ActionType.MARK_SPAM} />;
+      return <ActionBadge type={ActionType.MARK_SPAM} provider={provider} />;
     case ActionType.CALL_WEBHOOK:
-      return <ActionBadge type={ActionType.CALL_WEBHOOK} />;
+      return <ActionBadge type={ActionType.CALL_WEBHOOK} provider={provider} />;
     case ActionType.MARK_READ:
-      return <ActionBadge type={ActionType.MARK_READ} />;
+      return <ActionBadge type={ActionType.MARK_READ} provider={provider} />;
     default:
-      return <ActionBadge type={action.type} />;
+      return <ActionBadge type={action.type} provider={provider} />;
   }
 }
 
@@ -135,10 +150,12 @@ function ActionContent({ action }: { action: ExecutedAction }) {
   );
 }
 
-function getActionLabel(type: ActionType) {
+function getActionLabel(type: ActionType, provider: string) {
+  const terminology = getEmailTerminology(provider);
+
   switch (type) {
     case ActionType.LABEL:
-      return "Label";
+      return terminology.label.singularCapitalized;
     case ActionType.ARCHIVE:
       return "Archive";
     case ActionType.FORWARD:
@@ -160,21 +177,24 @@ function getActionLabel(type: ActionType) {
   }
 }
 
-function getActionMessage(action: ExecutedAction): string {
+function getActionMessage(action: ExecutedAction, provider: string): string {
+  const terminology = getEmailTerminology(provider);
+
   switch (action.type) {
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: ignore
     case ActionType.LABEL:
-      if (action.label) return `Label: "${action.label}"`;
+      if (action.label)
+        return `${terminology.label.singularCapitalized}: "${action.label}"`;
     case ActionType.REPLY:
     case ActionType.SEND_EMAIL:
     // biome-ignore lint/suspicious/noFallthroughSwitchClause: ignore
     case ActionType.FORWARD:
       if (action.to)
-        return `${getActionLabel(action.type)} to ${action.to}${
+        return `${getActionLabel(action.type, provider)} to ${action.to}${
           action.content ? `:\n${action.content}` : ""
         }`;
     default:
-      return getActionLabel(action.type);
+      return getActionLabel(action.type, provider);
   }
 }
 

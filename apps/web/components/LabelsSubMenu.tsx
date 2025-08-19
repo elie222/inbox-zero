@@ -3,6 +3,8 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import type { EmailLabel } from "@/providers/EmailProvider";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function LabelsSubMenu({
   labels,
@@ -11,6 +13,9 @@ export function LabelsSubMenu({
   labels: EmailLabel[];
   onClick: (label: EmailLabel) => void;
 }) {
+  const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
+
   return (
     <DropdownMenuSubContent className="max-h-[415px] overflow-auto">
       {labels.length ? (
@@ -22,7 +27,9 @@ export function LabelsSubMenu({
           );
         })
       ) : (
-        <DropdownMenuItem>You don't have any labels yet.</DropdownMenuItem>
+        <DropdownMenuItem>
+          You don't have any {terminology.label.plural} yet.
+        </DropdownMenuItem>
       )}
     </DropdownMenuSubContent>
   );

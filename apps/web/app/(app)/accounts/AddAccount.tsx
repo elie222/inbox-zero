@@ -130,7 +130,7 @@ function AddEmailAccount({
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Add {name} Account</DialogTitle>
           <DialogDescription>
@@ -146,7 +146,7 @@ function AddEmailAccount({
             disabled={isMerging || isConnecting}
             onClick={onMerge}
           >
-            Yes
+            Yes, it's an existing Inbox Zero account
           </Button>
           <Button
             variant="outline"
@@ -155,7 +155,7 @@ function AddEmailAccount({
             disabled={isMerging || isConnecting}
             onClick={onConnect}
           >
-            No
+            No, it's a new account
           </Button>
         </DialogFooter>
       </DialogContent>
