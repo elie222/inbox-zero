@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   BookIcon,
   CrownIcon,
+  ChromeIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,6 +33,7 @@ import { useTheme } from "next-themes";
 import { ProfileImage } from "@/components/ProfileImage";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { EXTENSION_URL } from "@/utils/config";
 
 export function NavUser() {
   const { data: session } = useSession();
@@ -95,6 +97,16 @@ export function NavUser() {
             <Link href={prefixPath(emailAccountId, "/settings")}>
               <SettingsIcon className="mr-2 h-4 w-4" />
               Settings
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link
+              href={EXTENSION_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <ChromeIcon className="mr-2 h-4 w-4" />
+              Install extension
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>

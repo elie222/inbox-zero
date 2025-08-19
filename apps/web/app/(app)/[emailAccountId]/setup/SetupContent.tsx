@@ -8,12 +8,14 @@ import {
   BanIcon,
   BotIcon,
   type LucideIcon,
+  ChromeIcon,
 } from "lucide-react";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
 import { LoadingContent } from "@/components/LoadingContent";
+import { EXTENSION_URL } from "@/utils/config";
 
 function FeatureCard({
   emailAccountId,
@@ -107,6 +109,7 @@ const StepItem = ({
   timeEstimate,
   completed,
   actionText,
+  linkProps,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -116,11 +119,13 @@ const StepItem = ({
   timeEstimate: string;
   completed: boolean;
   actionText: string;
+  linkProps?: { target?: string; rel?: string };
 }) => {
   return (
     <Link
       className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
       href={href}
+      {...linkProps}
     >
       <div className="flex items-center justify-between p-4">
         <div className="flex max-w-lg items-center">
@@ -223,6 +228,18 @@ function Checklist({
         timeEstimate="30 seconds"
         completed={isReplyTrackerConfigured}
         actionText="View"
+      />
+
+      <StepItem
+        href={EXTENSION_URL}
+        linkProps={{ target: "_blank", rel: "noopener noreferrer" }}
+        icon={<ChromeIcon size={20} />}
+        iconBg="bg-orange-100 dark:bg-orange-900/50"
+        iconColor="text-orange-500 dark:text-orange-400"
+        title="Install the Inbox Zero Tabs extension"
+        timeEstimate="1 minute"
+        completed={false}
+        actionText="Install"
       />
     </Card>
   );

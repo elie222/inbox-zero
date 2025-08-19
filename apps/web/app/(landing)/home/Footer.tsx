@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { EXTENSION_URL } from "@/utils/config";
 
 const navigation = {
   main: [
     {
       name: "Inbox Zero Tabs (Chrome Extension)",
-      href: "https://go.getinboxzero.com/extension",
+      href: EXTENSION_URL,
       target: "_blank",
     },
     { name: "AI Email Assistant", href: "/ai-automation" },

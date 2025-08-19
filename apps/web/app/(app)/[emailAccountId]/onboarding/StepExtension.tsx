@@ -7,6 +7,7 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { Button } from "@/components/ui/button";
 import { OnboardingImagePreview } from "@/app/(app)/[emailAccountId]/onboarding/ImagePreview";
+import { EXTENSION_URL } from "@/utils/config";
 
 export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -31,11 +32,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
 
         <div className="flex justify-center mt-8">
           <Button asChild size="sm" variant="primaryBlue">
-            <a
-              href="https://go.getinboxzero.com/extension"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
+            <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
               <ChromeIcon className="size-4 mr-2" />
               Install Extension
             </a>
