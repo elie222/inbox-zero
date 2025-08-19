@@ -21,9 +21,10 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import {
-  examplePrompts,
-  personas,
+  getExamplePrompts,
+  getPersonas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import type { getPersonas as getPersonasType } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { convertLabelsToDisplay } from "@/utils/mention";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
@@ -39,7 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
 
 export function RulesPrompt() {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
@@ -51,6 +52,8 @@ export function RulesPrompt() {
   );
 
   const [persona, setPersona] = useState<string | null>(null);
+  const personas = getPersonas(provider);
+  const examplePrompts = getExamplePrompts(provider);
 
   const personaPrompt = persona
     ? personas[persona as keyof typeof personas]?.prompt
@@ -72,6 +75,8 @@ export function RulesPrompt() {
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
               showExamples
+              personas={personas}
+              examplePrompts={examplePrompts}
             />
             <AssistantOnboarding
               onComplete={() => {
@@ -85,6 +90,7 @@ export function RulesPrompt() {
         isOpen={isModalOpen}
         setIsOpen={setIsModalOpen}
         onSelect={setPersona}
+        personas={personas}
       />
     </>
   );
@@ -97,6 +103,8 @@ function RulesPromptForm({
   mutate,
   onOpenPersonaDialog,
   showExamples,
+  personas,
+  examplePrompts,
 }: {
   emailAccountId: string;
   rulesPrompt: string | null;
@@ -104,6 +112,8 @@ function RulesPromptForm({
   mutate: () => void;
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
+  personas: ReturnType<typeof getPersonasType>;
+  examplePrompts: string[];
 }) {
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
@@ -345,13 +355,24 @@ function RulesPromptForm({
           </div>
         </form>
 
-        {showExamples && <Examples onSelect={addExamplePrompt} />}
+        {showExamples && (
+          <Examples
+            onSelect={addExamplePrompt}
+            examplePrompts={examplePrompts}
+          />
+        )}
       </div>
     </div>
   );
 }
 
-function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
+function PureExamples({
+  onSelect,
+  examplePrompts,
+}: {
+  onSelect: (example: string) => void;
+  examplePrompts: string[];
+}) {
   return (
     <div>
       <SectionHeader className="text-xl">Examples</SectionHeader>

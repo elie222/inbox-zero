@@ -648,6 +648,7 @@ ${senderCategory || "No category"}
     for (const rule of createdRules.values()) {
       await updatePromptFileOnRuleCreated({
         emailAccountId: emailAccount.id,
+        provider: emailAccount.account.provider,
         rule,
       });
     }

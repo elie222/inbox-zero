@@ -56,7 +56,7 @@ export const createRuleAction = actionClient
   .schema(createRuleBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, provider },
       parsedInput: {
         name,
         automate,
@@ -133,7 +133,13 @@ export const createRuleAction = actionClient
           createRuleHistory({ rule, triggerType: "manual_creation" }),
         );
 
-        after(() => updatePromptFileOnRuleCreated({ emailAccountId, rule }));
+        after(() =>
+          updatePromptFileOnRuleCreated({
+            emailAccountId,
+            provider,
+            rule,
+          }),
+        );
 
         return { rule };
       } catch (error) {
