@@ -1,4 +1,3 @@
-import { prefixPath } from "@/utils/path";
 import {
   RocketIcon,
   BriefcaseIcon,

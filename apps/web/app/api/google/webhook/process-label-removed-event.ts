@@ -1,14 +1,13 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 
-import { ActionType, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailStatus } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { inboxZeroLabels } from "@/utils/label";
 import { GmailLabel } from "@/utils/gmail/label";
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 
 const SYSTEM_LABELS = [
   GmailLabel.INBOX,

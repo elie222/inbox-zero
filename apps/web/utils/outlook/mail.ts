@@ -63,7 +63,7 @@ export async function replyToEmail(
   message: EmailForAction,
   reply: string,
 ) {
-  const { text, html } = createReplyContent({
+  const { html } = createReplyContent({
     textContent: reply,
     message,
   });

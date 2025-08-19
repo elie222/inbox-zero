@@ -23,7 +23,7 @@ export async function upgradeToPremiumLemon(options: {
   lemonLicenseInstanceId?: string;
   emailAccountsAccess?: number;
 }) {
-  const { userId, ...data } = options;
+  const { userId: _userId, ...data } = options;
 
   const user = await prisma.user.findUnique({
     where: { id: options.userId },

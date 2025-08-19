@@ -19,7 +19,7 @@ export function SearchForm({
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
   } = useForm<MessageQuery>({
     resolver: zodResolver(messageQuerySchema),
     defaultValues: {

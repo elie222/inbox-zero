@@ -4,7 +4,7 @@ import {
   processHistoryItem,
 } from "./process-history-item";
 import { HistoryEventType } from "./types";
-import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
+import { ColdEmailSetting } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
@@ -17,8 +17,6 @@ import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import { enqueueDigestItem } from "@/utils/digest/index";
-import prisma from "@/utils/__mocks__/prisma";
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import { createEmailProvider } from "@/utils/email/provider";
 import { inboxZeroLabels } from "@/utils/label";
 

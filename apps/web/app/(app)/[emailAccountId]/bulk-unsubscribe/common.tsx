@@ -194,7 +194,13 @@ function UnsubscribeButton<T extends Row>({
           {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
         </span>
         <span className="block xl:hidden">
-          <Tooltip content={hasUnsubscribeLink ? "Unsubscribe" : "Block"}>
+          <Tooltip
+            content={
+              hasUnsubscribeLink
+                ? "Unsubscribe from emails from this sender"
+                : "This sender does not have an unsubscribe link, but we can still block all emails from this sender and automatically archive them for you."
+            }
+          >
             <MailMinusIcon className="size-4" />
           </Tooltip>
         </span>
