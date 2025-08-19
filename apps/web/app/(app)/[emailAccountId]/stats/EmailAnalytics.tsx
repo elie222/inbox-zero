@@ -41,7 +41,7 @@ export function EmailAnalytics(props: {
   const { expanded, extra } = useExpanded();
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3">
+    <div className="grid gap-2 sm:gap-4 sm:grid-cols-3">
       <LoadingContent
         loading={isLoading}
         error={error}
