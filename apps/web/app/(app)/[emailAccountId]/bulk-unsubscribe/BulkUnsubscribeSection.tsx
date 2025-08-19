@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
+import subDays from "date-fns/subDays";
 import { usePostHog } from "posthog-js/react";
 import { FilterIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
-import { Title } from "@tremor/react";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -43,18 +43,51 @@ import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/A
 import { ClientOnly } from "@/components/ClientOnly";
 import { Toggle } from "@/components/Toggle";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { PageHeading } from "@/components/Typography";
+import { useWindowSize } from "usehooks-ts";
+import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
+import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
+import { PageWrapper } from "@/components/PageWrapper";
+
+const selectOptions = [
+  { label: "Last week", value: "7" },
+  { label: "Last month", value: "30" },
+  { label: "Last 3 months", value: "90" },
+  { label: "Last year", value: "365" },
+  { label: "All", value: "0" },
+];
+const defaultSelected = selectOptions[2];
 
 type Newsletter = NewsletterStatsResponse["newsletters"][number];
 
-export function BulkUnsubscribeSection({
-  dateRange,
-  refreshInterval,
-  isMobile,
-}: {
-  dateRange?: DateRange | undefined;
-  refreshInterval: number;
-  isMobile: boolean;
-}) {
+export function BulkUnsubscribe() {
+  const windowSize = useWindowSize();
+  const isMobile = windowSize.width < 768;
+
+  const [dateDropdown, setDateDropdown] = useState<string>(
+    defaultSelected.label,
+  );
+
+  const onSetDateDropdown = useCallback(
+    (option: { label: string; value: string }) => {
+      const { label } = option;
+      setDateDropdown(label);
+    },
+    [],
+  );
+
+  const now = useMemo(() => new Date(), []);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: subDays(now, Number.parseInt(defaultSelected.value)),
+    to: now,
+  });
+
+  const { isLoading: isStatsLoaderLoading, onLoad } = useStatLoader();
+  const refreshInterval = isStatsLoaderLoading ? 5000 : 1_000_000;
+  useEffect(() => {
+    onLoad({ loadBefore: false, showToast: false });
+  }, [onLoad]);
+
   const { emailAccountId, userEmail } = useAccount();
 
   const [sortColumn, setSortColumn] = useState<
@@ -174,110 +207,122 @@ export function BulkUnsubscribeSection({
     !filters.approved;
 
   return (
-    <>
-      <Card className="mt-0 md:mt-4">
-        <div className="items-center justify-between px-2 pt-2 sm:px-4 md:flex">
-          {Array.from(selected.values()).filter(Boolean).length > 0 ? (
-            <BulkActions selected={selected} mutate={mutate} />
-          ) : (
-            <Title className="hidden md:block">Bulk Unsubscriber</Title>
-          )}
+    <PageWrapper>
+      <PageHeading>Bulk Unsubscriber</PageHeading>
 
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
-            <div className="mr-2">
-              <Toggle
-                name="show-unhandled"
-                label="Only unhandled"
-                enabled={onlyUnhandled}
-                onChange={() =>
-                  setFilters(
-                    onlyUnhandled
-                      ? {
-                          unhandled: true,
-                          autoArchived: true,
-                          unsubscribed: true,
-                          approved: true,
-                        }
-                      : {
-                          unhandled: true,
-                          autoArchived: false,
-                          unsubscribed: false,
-                          approved: false,
-                        },
-                  )
-                }
-              />
-            </div>
-
-            <div className="hidden md:block">
-              <ShortcutTooltip />
-            </div>
-
-            <SearchBar onSearch={setSearch} />
-
-            <DetailedStatsFilter
-              label="Filter"
-              icon={<FilterIcon className="mr-2 h-4 w-4" />}
-              keepOpenOnSelect
-              columns={[
-                {
-                  label: "All",
-                  separatorAfter: true,
-                  checked:
-                    filters.approved &&
-                    filters.autoArchived &&
-                    filters.unsubscribed &&
-                    filters.unhandled,
-                  setChecked: () =>
-                    setFilters({
-                      approved: true,
-                      autoArchived: true,
-                      unsubscribed: true,
-                      unhandled: true,
-                    }),
-                },
-                {
-                  label: "Unhandled",
-                  checked: filters.unhandled,
-                  setChecked: () =>
-                    setFilters({
-                      ...filters,
-                      unhandled: !filters.unhandled,
-                    }),
-                },
-                {
-                  label: "Unsubscribed",
-                  checked: filters.unsubscribed,
-                  setChecked: () =>
-                    setFilters({
-                      ...filters,
-                      unsubscribed: !filters.unsubscribed,
-                    }),
-                },
-                {
-                  label: "Skip Inbox",
-                  checked: filters.autoArchived,
-                  setChecked: () =>
-                    setFilters({
-                      ...filters,
-                      autoArchived: !filters.autoArchived,
-                    }),
-                },
-                {
-                  label: "Approved",
-                  checked: filters.approved,
-                  setChecked: () =>
-                    setFilters({ ...filters, approved: !filters.approved }),
-                },
-              ]}
+      <div className="items-center justify-between md:flex mt-4">
+        <div className="flex flex-wrap items-center justify-end gap-1 md:mt-0 lg:flex-nowrap">
+          <div className="">
+            <Toggle
+              name="show-unhandled"
+              label="Only unhandled"
+              enabled={onlyUnhandled}
+              onChange={() =>
+                setFilters(
+                  onlyUnhandled
+                    ? {
+                        unhandled: true,
+                        autoArchived: true,
+                        unsubscribed: true,
+                        approved: true,
+                      }
+                    : {
+                        unhandled: true,
+                        autoArchived: false,
+                        unsubscribed: false,
+                        approved: false,
+                      },
+                )
+              }
             />
           </div>
+
+          <div className="hidden md:block">
+            <ShortcutTooltip />
+          </div>
+
+          <SearchBar onSearch={setSearch} />
+
+          <DetailedStatsFilter
+            label="Filter"
+            icon={<FilterIcon className="mr-2 h-4 w-4" />}
+            keepOpenOnSelect
+            columns={[
+              {
+                label: "All",
+                separatorAfter: true,
+                checked:
+                  filters.approved &&
+                  filters.autoArchived &&
+                  filters.unsubscribed &&
+                  filters.unhandled,
+                setChecked: () =>
+                  setFilters({
+                    approved: true,
+                    autoArchived: true,
+                    unsubscribed: true,
+                    unhandled: true,
+                  }),
+              },
+              {
+                label: "Unhandled",
+                checked: filters.unhandled,
+                setChecked: () =>
+                  setFilters({
+                    ...filters,
+                    unhandled: !filters.unhandled,
+                  }),
+              },
+              {
+                label: "Unsubscribed",
+                checked: filters.unsubscribed,
+                setChecked: () =>
+                  setFilters({
+                    ...filters,
+                    unsubscribed: !filters.unsubscribed,
+                  }),
+              },
+              {
+                label: "Skip Inbox",
+                checked: filters.autoArchived,
+                setChecked: () =>
+                  setFilters({
+                    ...filters,
+                    autoArchived: !filters.autoArchived,
+                  }),
+              },
+              {
+                label: "Approved",
+                checked: filters.approved,
+                setChecked: () =>
+                  setFilters({ ...filters, approved: !filters.approved }),
+              },
+            ]}
+          />
         </div>
 
-        <ClientOnly>
-          <ArchiveProgress />
-        </ClientOnly>
+        <div className="flex flex-wrap gap-1">
+          <ActionBar
+            selectOptions={selectOptions}
+            dateDropdown={dateDropdown}
+            setDateDropdown={onSetDateDropdown}
+            dateRange={dateRange}
+            setDateRange={setDateRange}
+            isMobile={isMobile}
+          />
+          <LoadStatsButton />
+        </div>
+      </div>
 
+      <ClientOnly>
+        <ArchiveProgress />
+      </ClientOnly>
+
+      {Array.from(selected.values()).filter(Boolean).length > 0 ? (
+        <BulkActions selected={selected} mutate={mutate} />
+      ) : null}
+
+      <Card className="mt-0 md:mt-4">
         {isStatsLoading && !isLoading && !data?.newsletters.length ? (
           <div className="p-4">
             <Skeleton className="h-screen rounded" />
@@ -324,6 +369,6 @@ export function BulkUnsubscribeSection({
         refreshInterval={refreshInterval}
       />
       <PremiumModal />
-    </>
+    </PageWrapper>
   );
 }

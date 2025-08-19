@@ -1,8 +1,7 @@
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
-import { BulkUnsubscribe } from "./BulkUnsubscribe";
+import { BulkUnsubscribe } from "./BulkUnsubscribeSection";
 
 export default async function BulkUnsubscribePage() {
-  // await checkAndRedirectForUpgrade();
   return (
     <>
       <PermissionsCheck />

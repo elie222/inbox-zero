@@ -21,6 +21,7 @@ import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -86,53 +87,51 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="mx-4 mt-2">
-          <div className="w-screen-xl mx-auto max-w-screen-xl">
-            <div className="w-full">
-              <PremiumAlertWithData className="mb-2" />
+        <PageWrapper>
+          <div className="w-full">
+            <PremiumAlertWithData className="mb-2" />
 
-              <div className="flex items-center justify-between">
-                <PageHeading>Assistant</PageHeading>
-                <ExtraActions />
-              </div>
-
-              <div className="border-b border-neutral-200 pt-2">
-                <Suspense
-                  fallback={
-                    <TabSelect
-                      options={tabOptions(emailAccountId)}
-                      selected={tab ?? "rules"}
-                    />
-                  }
-                >
-                  <TabNavigation
-                    emailAccountId={emailAccountId}
-                    tab={tab}
-                    hasPendingRule={hasPendingRule}
-                  />
-                </Suspense>
-              </div>
-
-              <Tabs defaultValue="rules">
-                <TabsContent value="rules" className="mb-10">
-                  <RulesTab />
-                </TabsContent>
-                <TabsContent value="settings" className="mb-10">
-                  <SettingsTab />
-                </TabsContent>
-                <TabsContent value="test" className="mb-10">
-                  <Process />
-                </TabsContent>
-                <TabsContent value="history" className="mb-10">
-                  <History />
-                </TabsContent>
-                <Suspense>
-                  <PendingTab hasPendingRule={hasPendingRule} />
-                </Suspense>
-              </Tabs>
+            <div className="flex items-center justify-between">
+              <PageHeading>Assistant</PageHeading>
+              <ExtraActions />
             </div>
+
+            <div className="border-b border-neutral-200 pt-2">
+              <Suspense
+                fallback={
+                  <TabSelect
+                    options={tabOptions(emailAccountId)}
+                    selected={tab ?? "rules"}
+                  />
+                }
+              >
+                <TabNavigation
+                  emailAccountId={emailAccountId}
+                  tab={tab}
+                  hasPendingRule={hasPendingRule}
+                />
+              </Suspense>
+            </div>
+
+            <Tabs defaultValue="rules">
+              <TabsContent value="rules" className="mb-10">
+                <RulesTab />
+              </TabsContent>
+              <TabsContent value="settings" className="mb-10">
+                <SettingsTab />
+              </TabsContent>
+              <TabsContent value="test" className="mb-10">
+                <Process />
+              </TabsContent>
+              <TabsContent value="history" className="mb-10">
+                <History />
+              </TabsContent>
+              <Suspense>
+                <PendingTab hasPendingRule={hasPendingRule} />
+              </Suspense>
+            </Tabs>
           </div>
-        </div>
+        </PageWrapper>
       </Suspense>
     </EmailProvider>
   );
