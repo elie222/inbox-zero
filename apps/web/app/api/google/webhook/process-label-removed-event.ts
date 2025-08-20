@@ -246,15 +246,15 @@ async function analyseLabelRemoval({
     return;
   }
 
-  logger.info("Processing system rule label removal with AI analysis", {
-    emailAccountId,
-    labelName,
-    systemType: matchedRule.systemType,
-    messageId,
-  });
-
   // Matching rule by SystemType and not by name
   if (matchedRule.systemType === SystemType.NEWSLETTER) {
+    logger.info("Processing system rule label removal with AI analysis", {
+      emailAccountId,
+      labelName,
+      systemType: matchedRule.systemType,
+      messageId,
+    });
+
     try {
       const analysis = await aiAnalyzeLabelRemoval({
         label: {
