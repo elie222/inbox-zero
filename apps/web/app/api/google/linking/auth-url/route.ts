@@ -16,6 +16,7 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
   const url = googleAuth.generateAuthUrl({
     access_type: "offline",
     scope: [...new Set([...SCOPES, "openid", "email"])].join(" "),
+    prompt: "consent",
     state,
   });
 
