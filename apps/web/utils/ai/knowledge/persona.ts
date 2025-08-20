@@ -86,7 +86,7 @@ Return a JSON object with the analyzed persona information.`;
 
   const prompt = `The user's email address is: ${emailAccount.email}
 
-This is important: You are analyzing the persona of the person who SENT these emails (from: ${emailAccount.email}). Look at what they write about, how they communicate, and who they interact with to determine their professional role.
+This is important: You are analyzing the persona of ${emailAccount.email}. Look at what they write about, how they communicate, and who they interact with to determine their professional role.
 
 Here are the emails they've sent:
 <emails>

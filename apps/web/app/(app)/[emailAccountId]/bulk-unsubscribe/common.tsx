@@ -52,6 +52,7 @@ import {
 import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function ActionCell<T extends Row>({
   item,
@@ -193,7 +194,13 @@ function UnsubscribeButton<T extends Row>({
           {hasUnsubscribeLink ? "Unsubscribe" : "Block"}
         </span>
         <span className="block xl:hidden">
-          <Tooltip content={hasUnsubscribeLink ? "Unsubscribe" : "Block"}>
+          <Tooltip
+            content={
+              hasUnsubscribeLink
+                ? "Unsubscribe from emails from this sender"
+                : "This sender does not have an unsubscribe link, but we can still block all emails from this sender and automatically archive them for you."
+            }
+          >
             <MailMinusIcon className="size-4" />
           </Tooltip>
         </span>
@@ -408,7 +415,7 @@ export function MoreDropdown<T extends Row>({
             <span>View stats</span>
           </DropdownMenuItem>
         )}
-        {provider === "google" && (
+        {isGoogleProvider(provider) && (
           <DropdownMenuItem asChild>
             <Link
               href={getGmailSearchUrl(item.name, userEmail)}

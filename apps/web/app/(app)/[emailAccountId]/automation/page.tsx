@@ -1,8 +1,6 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { SlidersIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
@@ -13,7 +11,6 @@ import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck"
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
 import { prefixPath } from "@/utils/path";
-import { Button } from "@/components/ui/button";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
@@ -21,6 +18,7 @@ import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -86,53 +84,49 @@ export default async function AutomationPage({
       <Suspense>
         <PermissionsCheck />
 
-        <div className="mx-4 mt-2">
-          <div className="w-screen-xl mx-auto max-w-screen-xl">
-            <div className="w-full">
-              <PremiumAlertWithData className="mb-2" />
+        <PageWrapper>
+          <PremiumAlertWithData className="mb-2" />
 
-              <div className="flex items-center justify-between">
-                <PageHeading>Assistant</PageHeading>
-                <ExtraActions emailAccountId={emailAccountId} />
-              </div>
-
-              <div className="border-b border-neutral-200 pt-2">
-                <Suspense
-                  fallback={
-                    <TabSelect
-                      options={tabOptions(emailAccountId)}
-                      selected={tab ?? "rules"}
-                    />
-                  }
-                >
-                  <TabNavigation
-                    emailAccountId={emailAccountId}
-                    tab={tab}
-                    hasPendingRule={hasPendingRule}
-                  />
-                </Suspense>
-              </div>
-
-              <Tabs defaultValue="rules">
-                <TabsContent value="rules" className="mb-10">
-                  <RulesTab />
-                </TabsContent>
-                <TabsContent value="settings" className="mb-10">
-                  <SettingsTab />
-                </TabsContent>
-                <TabsContent value="test" className="mb-10">
-                  <Process />
-                </TabsContent>
-                <TabsContent value="history" className="mb-10">
-                  <History />
-                </TabsContent>
-                <Suspense>
-                  <PendingTab hasPendingRule={hasPendingRule} />
-                </Suspense>
-              </Tabs>
-            </div>
+          <div className="flex items-center justify-between">
+            <PageHeading>Assistant</PageHeading>
+            <ExtraActions />
           </div>
-        </div>
+
+          <div className="border-b border-neutral-200 pt-2">
+            <Suspense
+              fallback={
+                <TabSelect
+                  options={tabOptions(emailAccountId)}
+                  selected={tab ?? "rules"}
+                />
+              }
+            >
+              <TabNavigation
+                emailAccountId={emailAccountId}
+                tab={tab}
+                hasPendingRule={hasPendingRule}
+              />
+            </Suspense>
+          </div>
+
+          <Tabs defaultValue="rules">
+            <TabsContent value="rules" className="mb-10">
+              <RulesTab />
+            </TabsContent>
+            <TabsContent value="settings" className="mb-10">
+              <SettingsTab />
+            </TabsContent>
+            <TabsContent value="test" className="mb-10">
+              <Process />
+            </TabsContent>
+            <TabsContent value="history" className="mb-10">
+              <History />
+            </TabsContent>
+            <Suspense>
+              <PendingTab hasPendingRule={hasPendingRule} />
+            </Suspense>
+          </Tabs>
+        </PageWrapper>
       </Suspense>
     </EmailProvider>
   );
@@ -182,16 +176,9 @@ async function PendingTab({
   );
 }
 
-function ExtraActions({ emailAccountId }: { emailAccountId: string }) {
+function ExtraActions() {
   return (
     <div className="flex items-center gap-2">
-      <Button asChild variant="ghost" size="sm">
-        <Link href={prefixPath(emailAccountId, "/assistant/onboarding")}>
-          <SlidersIcon className="mr-2 hidden size-4 md:block" />
-          View Setup
-        </Link>
-      </Button>
-
       <OnboardingModal
         title="Getting started with AI Personal Assistant"
         description={

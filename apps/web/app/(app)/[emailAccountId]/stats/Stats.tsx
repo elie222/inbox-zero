@@ -15,7 +15,8 @@ import { EmailActionsAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailA
 import { BulkUnsubscribeSummary } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSummary";
 import { CardBasic } from "@/components/ui/card";
 import { Title } from "@tremor/react";
-import { TopBar } from "@/components/TopBar";
+import { PageHeading } from "@/components/Typography";
+import { PageWrapper } from "@/components/PageWrapper";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -64,8 +65,9 @@ export function Stats() {
   }, [onLoad]);
 
   return (
-    <div className="pb-20">
-      <TopBar sticky>
+    <PageWrapper>
+      <PageHeading>Analytics</PageHeading>
+      <div className="flex items-center justify-between mt-2 sm:mt-0">
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
           <ActionBar
@@ -80,28 +82,22 @@ export function Stats() {
           />
           <LoadStatsButton />
         </div>
-      </TopBar>
-
-      <div className="px-4 py-4">
-        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
       </div>
 
-      <div className="px-4">
+      <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
+        <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
+
         <EmailAnalytics
           dateRange={dateRange}
           refreshInterval={refreshInterval}
         />
-      </div>
 
-      <div className="mx-4 mt-4">
         <DetailedStats
           dateRange={dateRange}
           period={period}
           refreshInterval={refreshInterval}
         />
-      </div>
 
-      <div className="mt-4 px-4">
         <CardBasic>
           <Title>
             How many emailers you've handled with Inbox Zero bulk unsubscribe
@@ -110,13 +106,11 @@ export function Stats() {
             <BulkUnsubscribeSummary />
           </div>
         </CardBasic>
-      </div>
 
-      <div className="mt-4 px-4">
         <EmailActionsAnalytics />
       </div>
 
       <StatsOnboarding />
-    </div>
+    </PageWrapper>
   );
 }

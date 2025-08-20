@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { WELCOME_PATH } from "@/utils/config";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -27,7 +28,7 @@ export function LoginForm() {
     await signIn.social({
       provider: "google",
       errorCallbackURL: "/login/error",
-      callbackURL: next && next.length > 0 ? next : "/welcome",
+      callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
       ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });
     setLoadingGoogle(false);
@@ -38,7 +39,7 @@ export function LoginForm() {
     await signIn.social({
       provider: "microsoft",
       errorCallbackURL: "/login/error",
-      callbackURL: next && next.length > 0 ? next : "/welcome",
+      callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
       ...(error === "RequiresReconsent" ? { consent: true } : {}),
     });
     setLoadingMicrosoft(false);

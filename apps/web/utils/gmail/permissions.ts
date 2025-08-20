@@ -1,4 +1,8 @@
 import { SCOPES } from "@/utils/gmail/scopes";
+import {
+  getAccessTokenFromClient,
+  getGmailClientWithRefresh,
+} from "@/utils/gmail/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 
@@ -70,17 +74,42 @@ async function checkGmailPermissions({
 
 export async function handleGmailPermissionsCheck({
   accessToken,
+  refreshToken,
   emailAccountId,
 }: {
   accessToken: string;
+  refreshToken: string | null | undefined;
   emailAccountId: string;
 }) {
   const { hasAllPermissions, error, missingScopes } =
     await checkGmailPermissions({ accessToken, emailAccountId });
 
   if (error === "invalid_token") {
+    // attempt to refresh the token one last time using only the refresh token
+    if (refreshToken) {
+      try {
+        const gmailClient = await getGmailClientWithRefresh({
+          accessToken: null,
+          refreshToken,
+          // force refresh even if existing expiry suggests it's valid
+          expiresAt: null,
+          emailAccountId,
+        });
+
+        // re-check permissions with the new access token
+        const newAccessToken = getAccessTokenFromClient(gmailClient);
+        return await checkGmailPermissions({
+          accessToken: newAccessToken,
+          emailAccountId,
+        });
+      } catch (_) {
+        // getGmailClientWithRefresh, getAccessTokenFromClient will throw if access token is invalid
+        // Refresh failed, fall through to cleanup
+      }
+    }
+
+    // Clean up invalid Gmail tokens (either no refresh token or refresh failed)
     logger.info("Cleaning up invalid Gmail tokens", { emailAccountId });
-    // Clean up invalid tokens
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
     });

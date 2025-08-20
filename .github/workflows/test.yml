@@ -53,3 +53,4 @@ jobs:
           EMAIL_ENCRYPT_SECRET: "secret"
           EMAIL_ENCRYPT_SALT: "salt"
           INTERNAL_API_KEY: "secret"
+          NEXT_PUBLIC_BASE_URL: "http://localhost:3000"

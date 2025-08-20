@@ -1,14 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { TopNav } from "@/components/TopNav";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
-import {
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
 
@@ -34,10 +29,7 @@ export function SideNavWithTopNav({
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
       <SideNav name="left-sidebar" />
-      <SidebarInset className="overflow-hidden bg-background">
-        <TopNav
-          trigger={<SidebarTrigger name="left-sidebar" className="sm:-ml-4" />}
-        />
+      <SidebarInset className="overflow-hidden bg-background pt-9">
         <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}
         <div

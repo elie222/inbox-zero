@@ -8,12 +8,9 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
-  BookIcon,
   BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  CogIcon,
-  CrownIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,
@@ -41,7 +38,9 @@ import {
   SidebarMenuItem,
   SidebarMenu,
   useSidebar,
+  SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { SetupProgressCard } from "@/components/SetupProgressCard";
 import { SideNavMenu } from "@/components/SideNavMenu";
 import { CommandShortcut } from "@/components/ui/command";
 import { useSplitLabels } from "@/hooks/useLabels";
@@ -52,6 +51,8 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
+import { isGoogleProvider } from "@/utils/email/provider-types";
+import { NavUser } from "@/components/NavUser";
 
 type NavItem = {
   name: string;
@@ -68,26 +69,19 @@ export const useNavigation = () => {
   const { emailAccountId, provider } = useAccount();
 
   // Assistant category items
-  const assistantItems: NavItem[] = useMemo(
+  const navItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
         href: prefixPath(emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
-    ],
-    [emailAccountId],
-  );
-
-  // Clean category items
-  const cleanItems: NavItem[] = useMemo(
-    () => [
       {
         name: "Bulk Unsubscribe",
         href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
-      ...(provider === "google"
+      ...(isGoogleProvider(provider)
         ? [
             {
               name: "Deep Clean",
@@ -105,32 +99,20 @@ export const useNavigation = () => {
     [emailAccountId, provider],
   );
 
-  const cleanItemsFiltered = useMemo(
+  const navItemsFiltered = useMemo(
     () =>
-      cleanItems.filter((item) => {
+      navItems.filter((item) => {
         if (item.href === `/${emailAccountId}/clean` || item.href === "/clean")
           return showCleaner;
         return true;
       }),
-    [showCleaner, emailAccountId, cleanItems],
+    [showCleaner, emailAccountId, navItems],
   );
 
   return {
-    assistantItems,
-    cleanItems: cleanItemsFiltered,
+    navItems: navItemsFiltered,
   };
 };
-
-const bottomLinks: NavItem[] = [
-  {
-    name: "Help Center",
-    href: "https://docs.getinboxzero.com",
-    target: "_blank",
-    icon: BookIcon,
-  },
-  { name: "Premium", href: "/premium", icon: CrownIcon },
-  { name: "Settings", href: "/settings", icon: CogIcon },
-];
 
 const topMailLinks: NavItem[] = [
   {
@@ -197,9 +179,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
               href: "/automation",
               icon: ArrowLeftIcon,
             },
-            ...bottomLinks.filter((l) => !l.hideInMail),
           ]
-        : bottomLinks,
+        : [],
     [showMailNav],
   );
 
@@ -209,40 +190,31 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader className="gap-0 pb-0">
         {state.includes("left-sidebar") ? (
-          <Link href="/setup">
-            <div className="flex items-center rounded-md p-3 text-foreground">
+          <div className="flex items-center rounded-md pl-2 pr-0.5 py-3 text-foreground justify-between">
+            <Link href="/setup">
               <Logo className="h-3.5" />
-            </div>
-          </Link>
-        ) : null}
+            </Link>
+            <SidebarTrigger name="left-sidebar" />
+          </div>
+        ) : (
+          <div className="pb-2">
+            <SidebarTrigger name="left-sidebar" />
+          </div>
+        )}
         <AccountSwitcher />
       </SidebarHeader>
 
       <SidebarContent>
+        {state.includes("left-sidebar") ? <SetupProgressCard /> : null}
+
         <SidebarGroupContent>
           {showMailNav ? (
             <MailNav path={path} />
           ) : (
-            <>
-              <SidebarGroup>
-                <SidebarGroupLabel>Assistant</SidebarGroupLabel>
-                <SideNavMenu
-                  items={navigation.assistantItems}
-                  activeHref={path}
-                />
-              </SidebarGroup>
-              {navigation.cleanItems.length > 0 && (
-                <SidebarGroup>
-                  <SidebarGroupLabel>Tools</SidebarGroupLabel>
-                  <ClientOnly>
-                    <SideNavMenu
-                      items={navigation.cleanItems}
-                      activeHref={path}
-                    />
-                  </ClientOnly>
-                </SidebarGroup>
-              )}
-            </>
+            <SidebarGroup>
+              <SidebarGroupLabel>Platform</SidebarGroupLabel>
+              <SideNavMenu items={navigation.navItems} activeHref={path} />
+            </SidebarGroup>
           )}
         </SidebarGroupContent>
       </SidebarContent>
@@ -253,6 +225,8 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </ClientOnly>
 
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
+
+        <NavUser />
       </SidebarFooter>
     </Sidebar>
   );

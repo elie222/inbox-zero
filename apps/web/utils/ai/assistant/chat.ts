@@ -273,11 +273,9 @@ export type UpdateRuleConditionSchema = z.infer<
 const updateRuleConditionsTool = ({
   email,
   emailAccountId,
-  provider,
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
 }) =>
   tool({
     name: "updateRuleConditions",
@@ -485,11 +483,9 @@ export type UpdateRuleActionsTool = InferUITool<
 const updateLearnedPatternsTool = ({
   email,
   emailAccountId,
-  provider,
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
 }) =>
   tool({
     name: "updateLearnedPatterns",
@@ -591,11 +587,9 @@ export type UpdateLearnedPatternsTool = InferUITool<
 const updateAboutTool = ({
   email,
   emailAccountId,
-  provider,
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
 }) =>
   tool({
     name: "updateAbout",
@@ -629,11 +623,9 @@ export type UpdateAboutTool = InferUITool<ReturnType<typeof updateAboutTool>>;
 const addToKnowledgeBaseTool = ({
   email,
   emailAccountId,
-  provider,
 }: {
   email: string;
   emailAccountId: string;
-  provider: string;
 }) =>
   tool({
     name: "addToKnowledgeBase",

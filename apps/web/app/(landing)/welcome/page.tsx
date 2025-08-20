@@ -1,15 +1,13 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { auth } from "@/utils/auth";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
+import { PageHeading, TypographyP } from "@/components/Typography";
+import { CardBasic } from "@/components/ui/card";
+import { auth } from "@/utils/auth";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { PageHeading, TypographyP } from "@/components/Typography";
-import { UTMs } from "@/app/(landing)/welcome/utms";
-import { SignUpEvent } from "@/app/(landing)/welcome/sign-up-event";
-import { CardBasic } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -65,13 +63,6 @@ export default async function WelcomePage(props: {
           </div>
         </div>
       </CardBasic>
-      {!user.utms && (
-        <Suspense>
-          <UTMs userId={session.user.id} />
-        </Suspense>
-      )}
-      {/* {!user.completedOnboardingAt && <SignUpEvent />} */}
-      <SignUpEvent />
     </div>
   );
 }

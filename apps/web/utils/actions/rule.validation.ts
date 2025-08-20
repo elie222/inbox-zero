@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
+import { SystemRule } from "@/utils/rule/consts";
 
 export const delayInMinutesSchema = z
   .number()
@@ -193,19 +194,19 @@ const categoryAction = z.enum([
 export type CategoryAction = z.infer<typeof categoryAction>;
 
 const categoryConfig = z.object({
-  action: categoryAction.optional(),
-  hasDigest: z.boolean().optional(),
+  action: categoryAction.nullish(),
+  hasDigest: z.boolean().nullish(),
+  name: z
+    .string()
+    .trim()
+    .min(1, "Please enter a name")
+    .max(40, "Please keep names under 40 characters"),
+  description: z.string(),
+  key: z.nativeEnum(SystemRule).nullable(),
 });
+export type CategoryConfig = z.infer<typeof categoryConfig>;
 
-export const createRulesOnboardingBody = z.object({
-  toReply: categoryConfig,
-  newsletter: categoryConfig,
-  marketing: categoryConfig,
-  calendar: categoryConfig,
-  receipt: categoryConfig,
-  coldEmail: categoryConfig,
-  notification: categoryConfig,
-});
+export const createRulesOnboardingBody = z.array(categoryConfig);
 export type CreateRulesOnboardingBody = z.infer<
   typeof createRulesOnboardingBody
 >;

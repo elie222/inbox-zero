@@ -15,7 +15,7 @@ export default function ThankYouPage() {
               Your premium purchase was successful. Thank you for supporting us!
             </TypographyP>
           </div>
-          <Button className="mt-4" size="xl" link={{ href: "/welcome" }}>
+          <Button className="mt-4" size="xl" link={{ href: "/setup" }}>
             Continue
           </Button>
         </CardBasic>

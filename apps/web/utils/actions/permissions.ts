@@ -23,12 +23,15 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
       });
 
-      if (!accessToken) throw new SafeError("No access token");
+      if (!tokens.refreshToken || !accessToken)
+        return { hasRefreshToken: true, hasAllPermissions: false };
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
+        refreshToken: tokens.refreshToken,
         emailAccountId,
       });
+
       if (error) throw new SafeError(error);
 
       if (!hasAllPermissions) return { hasAllPermissions: false };
@@ -42,7 +45,8 @@ export const checkPermissionsAction = actionClient
         emailAccountId,
         error,
       });
-      throw new SafeError("Failed to check permissions");
+      // throw new SafeError("Failed to check permissions");
+      return { hasRefreshToken: false, hasAllPermissions: false };
     }
   });
 
@@ -58,13 +62,14 @@ export const adminCheckPermissionsAction = adminActionClient
       if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;
 
-      const { accessToken } = await getGmailAndAccessTokenForEmail({
+      const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
         emailAccountId,
       });
       if (!accessToken) throw new SafeError("No Gmail access token");
 
       const { hasAllPermissions, error } = await handleGmailPermissionsCheck({
         accessToken,
+        refreshToken: tokens.refreshToken,
         emailAccountId,
       });
       if (error) throw new SafeError(error);

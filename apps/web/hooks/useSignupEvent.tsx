@@ -1,8 +1,6 @@
-"use client";
-
 import { useEffect } from "react";
 
-export const SignUpEvent = () => {
+export const useSignUpEvent = () => {
   useEffect(() => {
     fetch("/api/user/complete-registration", {
       method: "POST",
@@ -14,6 +12,4 @@ export const SignUpEvent = () => {
       console.error("Failed to complete registration:", error);
     });
   }, []);
-
-  return null;
 };

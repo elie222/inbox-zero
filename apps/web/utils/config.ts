@@ -19,3 +19,7 @@ export const ConditionType = {
 
 export type ConditionType = (typeof ConditionType)[keyof typeof ConditionType];
 export type CoreConditionType = Exclude<ConditionType, "GROUP" | "PRESET">;
+
+export const WELCOME_PATH = "/welcome-redirect";
+
+export const EXTENSION_URL = "https://go.getinboxzero.com/extension";

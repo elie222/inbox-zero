@@ -18,6 +18,7 @@ import {
   NEEDS_REPLY_LABEL_NAME,
   AWAITING_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function EmailMessageCell({
   sender,
@@ -99,7 +100,7 @@ export function EmailMessageCell({
         >
           <ExternalLinkIcon className="h-4 w-4" />
         </Link>
-        {!hideViewEmailButton && provider === "google" && (
+        {!hideViewEmailButton && isGoogleProvider(provider) && (
           <ViewEmailButton
             threadId={threadId}
             messageId={messageId}
