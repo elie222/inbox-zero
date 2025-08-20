@@ -71,3 +71,17 @@ export const analyzePersonaAction = actionClient
 
     return personaAnalysis;
   });
+
+const updateReferralSignatureSchema = z.object({ enabled: z.boolean() });
+
+export const updateReferralSignatureAction = actionClient
+  .metadata({ name: "updateReferralSignature" })
+  .schema(updateReferralSignatureSchema)
+  .action(async ({ ctx, parsedInput }) => {
+    await prisma.emailAccount.update({
+      where: { id: ctx.emailAccountId },
+      data: { includeReferralSignature: parsedInput.enabled },
+    });
+
+    return { success: true };
+  });
