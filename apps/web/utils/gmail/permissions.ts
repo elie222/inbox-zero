@@ -102,28 +102,60 @@ export async function handleGmailPermissionsCheck({
           accessToken: newAccessToken,
           emailAccountId,
         });
-      } catch (_) {
-        // getGmailClientWithRefresh, getAccessTokenFromClient will throw if access token is invalid
-        // Refresh failed, fall through to cleanup
+      } catch (refreshError) {
+        // Log the specific error for debugging
+        logger.warn("Failed to refresh Gmail token", {
+          emailAccountId,
+          error:
+            refreshError instanceof Error
+              ? refreshError.message
+              : String(refreshError),
+          isInvalidGrant:
+            refreshError instanceof Error &&
+            refreshError.message.includes("invalid_grant"),
+        });
+
+        // Only clear tokens if it's truly an invalid_grant error
+        if (
+          refreshError instanceof Error &&
+          refreshError.message.includes("invalid_grant")
+        ) {
+          // This means the refresh token is actually invalid
+          // Fall through to cleanup
+        } else {
+          // For other errors (network, temporary), don't clear tokens
+          return {
+            hasAllPermissions: false,
+            error: "Temporary error checking permissions. Please try again.",
+            missingScopes,
+          };
+        }
       }
     }
 
-    // Clean up invalid Gmail tokens (either no refresh token or refresh failed)
-    logger.info("Cleaning up invalid Gmail tokens", { emailAccountId });
+    // Only clear tokens if refresh truly failed
+    logger.error("Gmail token refresh failed - user needs to re-authenticate", {
+      emailAccountId,
+      hasRefreshToken: !!refreshToken,
+    });
+
     const emailAccount = await prisma.emailAccount.findUnique({
       where: { id: emailAccountId },
     });
     if (!emailAccount)
       return { hasAllPermissions: false, error: "Email account not found" };
 
+    // DON'T clear the refresh token! Only clear access token and expiry
+    // The refresh token might still be valid, just temporarily failing
     await prisma.account.update({
       where: { id: emailAccount.accountId },
       data: {
         access_token: null,
-        refresh_token: null,
         expires_at: null,
+        // DO NOT CLEAR refresh_token here - it might still be valid!
       },
     });
+
     return {
       hasAllPermissions: false,
       error: "Gmail access expired. Please reconnect your account.",

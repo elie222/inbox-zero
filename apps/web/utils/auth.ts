@@ -88,7 +88,7 @@ export const betterAuthConfig = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
-      prompt: "select_account+consent",
+      prompt: "consent", // Force consent to ensure refresh token
       disableIdTokenSignIn: true,
     },
     microsoft: {
@@ -323,6 +323,42 @@ async function handleLinkAccount(account: Account) {
     },
   });
 
+  // Critical: Check if refresh token is missing
+  if (!account.refreshToken) {
+    logger.error(
+      "[linkAccount] CRITICAL: No refresh token received from OAuth provider",
+      {
+        accountId: account.id,
+        userId: account.userId,
+        provider: account.providerId,
+        hint: "User may need to revoke app permissions and re-authenticate",
+      },
+    );
+
+    // Check if there's an existing account with a refresh token
+    const existingAccount = await prisma.account.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider: account.providerId,
+          providerAccountId: account.accountId,
+        },
+      },
+      select: { refresh_token: true },
+    });
+
+    if (existingAccount?.refresh_token) {
+      logger.info(
+        "[linkAccount] Found existing refresh token in database, will preserve it",
+      );
+      // Don't update the refresh token if we don't have a new one
+      account.refreshToken = existingAccount.refresh_token;
+    } else {
+      logger.error(
+        "[linkAccount] No existing refresh token found either - user must re-authenticate",
+      );
+    }
+  }
+
   try {
     if (!account.accessToken) {
       logger.error(
@@ -446,11 +482,43 @@ export async function saveTokens({
 )) {
   const refreshToken = tokens.refresh_token ?? accountRefreshToken;
 
-  if (!refreshToken) {
-    logger.error("Attempted to save null refresh token", { providerAccountId });
-    captureException("Cannot save null refresh token", {
-      extra: { providerAccountId },
+  // Don't save if we're about to null out an existing refresh token
+  if (!refreshToken && !tokens.refresh_token) {
+    logger.warn("Skipping token save - would null out refresh token", {
+      providerAccountId,
+      emailAccountId,
+      hasAccessToken: !!tokens.access_token,
     });
+
+    // Still update access token and expiry if provided
+    if (tokens.access_token) {
+      const data: any = {
+        access_token: tokens.access_token,
+        expires_at: tokens.expires_at
+          ? new Date(tokens.expires_at * 1000)
+          : null,
+      };
+
+      if (emailAccountId) {
+        if (data.access_token)
+          data.access_token = encryptToken(data.access_token) || undefined;
+
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { account: { update: data } },
+        });
+      } else if (providerAccountId) {
+        await prisma.account.update({
+          where: {
+            provider_providerAccountId: {
+              provider,
+              providerAccountId,
+            },
+          },
+          data,
+        });
+      }
+    }
     return;
   }
 
