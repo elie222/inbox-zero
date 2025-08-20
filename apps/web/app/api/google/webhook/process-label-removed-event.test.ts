@@ -66,7 +66,7 @@ describe("process-label-removed-event", () => {
   const mockGmail = {
     users: {
       labels: {
-        list: vi.fn().mockImplementation((params) => {
+        list: vi.fn().mockImplementation((_params) => {
           return Promise.resolve({
             data: {
               labels: [

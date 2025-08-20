@@ -2,7 +2,6 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import {
   aiAnalyzeLabelRemoval,
   LabelRemovalAction,
-  type LabelRemovalAnalysis,
 } from "@/utils/ai/label-analysis/analyze-label-removal";
 import { GroupItemType } from "@prisma/client";
 
