@@ -19,6 +19,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function BasicToolInfo({ text }: { text: string }) {
   return (
@@ -194,11 +195,13 @@ export function UpdatedRuleActions({
   ruleId,
   originalActions,
   updatedActions,
+  provider,
 }: {
   args: UpdateRuleActionsTool["input"];
   ruleId: string;
   originalActions?: UpdateRuleActionsTool["output"]["originalActions"];
   updatedActions?: UpdateRuleActionsTool["output"]["updatedActions"];
+  provider: string;
 }) {
   const [showChanges, setShowChanges] = useState(false);
 
@@ -216,7 +219,10 @@ export function UpdatedRuleActions({
     return actions
       .map((action) => {
         const parts = [`Type: ${action.type}`];
-        if (action.fields?.label) parts.push(`Label: ${action.fields.label}`);
+        if (action.fields?.label)
+          parts.push(
+            `${getEmailTerminology(provider).label.action}: ${action.fields.label}`,
+          );
         if (action.fields?.content)
           parts.push(`Content: ${action.fields.content}`);
         if (action.fields?.to) parts.push(`To: ${action.fields.to}`);

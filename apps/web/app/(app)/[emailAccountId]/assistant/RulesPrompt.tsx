@@ -23,8 +23,8 @@ import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/Assi
 import {
   getExamplePrompts,
   getPersonas,
+  type Personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import type { getPersonas as getPersonasType } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { convertLabelsToDisplay } from "@/utils/mention";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
@@ -112,7 +112,7 @@ function RulesPromptForm({
   mutate: () => void;
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
-  personas: ReturnType<typeof getPersonasType>;
+  personas: Personas;
   examplePrompts: string[];
 }) {
   const { userLabels, isLoading: isLoadingLabels } = useLabels();

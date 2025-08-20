@@ -102,7 +102,11 @@ export function ActionBadgeExpanded({
     case ActionType.ARCHIVE:
       return <ActionBadge type={ActionType.ARCHIVE} provider={provider} />;
     case ActionType.LABEL:
-      return <Badge color="blue">Label: "{action.label}"</Badge>;
+      return (
+        <Badge color="blue">
+          {getEmailTerminology(provider).label.action}: "{action.label}"
+        </Badge>
+      );
     case ActionType.REPLY:
       return (
         <div>
