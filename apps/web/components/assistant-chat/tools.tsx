@@ -195,14 +195,13 @@ export function UpdatedRuleActions({
   ruleId,
   originalActions,
   updatedActions,
-  provider,
 }: {
   args: UpdateRuleActionsTool["input"];
   ruleId: string;
   originalActions?: UpdateRuleActionsTool["output"]["originalActions"];
   updatedActions?: UpdateRuleActionsTool["output"]["updatedActions"];
-  provider: string;
 }) {
+  const { provider } = useAccount();
   const [showChanges, setShowChanges] = useState(false);
 
   // Check if actions have changed by comparing serialized versions
