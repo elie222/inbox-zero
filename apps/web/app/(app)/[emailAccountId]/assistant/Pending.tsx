@@ -69,7 +69,7 @@ function PendingTable({
   totalPages: number;
   mutate: () => void;
 }) {
-  const { emailAccountId, userEmail } = useAccount();
+  const { emailAccountId, userEmail, provider } = useAccount();
   const { selected, isAllSelected, onToggleSelect, onToggleSelectAll } =
     useToggleSelect(pending);
 
@@ -191,7 +191,10 @@ function PendingTable({
                 />
               </TableCell>
               <TableCell>
-                <ActionItemsCell actionItems={p.actionItems} />
+                <ActionItemsCell
+                  actionItems={p.actionItems}
+                  provider={provider}
+                />
               </TableCell>
               <TableCell>
                 <ExecuteButtons id={p.id} message={p.message} mutate={mutate} />
