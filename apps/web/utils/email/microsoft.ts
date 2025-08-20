@@ -1,37 +1,37 @@
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
 import {
-  getMessage as getOutlookMessage,
-  getMessages as getOutlookMessages,
-  queryBatchMessages as getOutlookBatchMessages,
+  getMessage,
+  getMessages,
+  queryBatchMessages,
   getFolderIds,
 } from "@/utils/outlook/message";
 import {
-  getLabels as getOutlookLabels,
-  createLabel as createOutlookLabel,
-  getOrCreateInboxZeroLabel as getOrCreateOutlookInboxZeroLabel,
+  getLabels,
+  createLabel,
+  getOrCreateInboxZeroLabel,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 import {
-  draftEmail as outlookDraftEmail,
-  forwardEmail as outlookForwardEmail,
-  replyToEmail as outlookReplyToEmail,
-  sendEmailWithPlainText as outlookSendEmailWithPlainText,
+  draftEmail,
+  forwardEmail,
+  replyToEmail,
+  sendEmailWithPlainText,
 } from "@/utils/outlook/mail";
 import {
-  archiveThread as outlookArchiveThread,
-  getOrCreateLabel as outlookGetOrCreateLabel,
-  labelMessage as outlookLabelMessage,
-  markReadThread as outlookMarkReadThread,
+  archiveThread,
+  getOrCreateLabel,
+  labelMessage,
+  markReadThread,
 } from "@/utils/outlook/label";
-import { trashThread as outlookTrashThread } from "@/utils/outlook/trash";
-import { markSpam as outlookMarkSpam } from "@/utils/outlook/spam";
+import { trashThread } from "@/utils/outlook/trash";
+import { markSpam } from "@/utils/outlook/spam";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import { createScopedLogger } from "@/utils/logger";
 import {
-  getThreadMessages as getOutlookThreadMessages,
-  getThreadsFromSenderWithSubject as getOutlookThreadsFromSenderWithSubject,
+  getThreadMessages,
+  getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
 import { getOrCreateLabels as getOutlookOrCreateLabels } from "@/utils/outlook/label";
@@ -39,17 +39,14 @@ import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import { getDraft, deleteDraft } from "@/utils/outlook/draft";
 import {
-  getDraft as getOutlookDraft,
-  deleteDraft as deleteOutlookDraft,
-} from "@/utils/outlook/draft";
-import {
-  getFiltersList as getOutlookFiltersList,
-  createFilter as createOutlookFilter,
-  deleteFilter as deleteOutlookFilter,
-  createAutoArchiveFilter as createOutlookAutoArchiveFilter,
+  getFiltersList,
+  createFilter,
+  deleteFilter,
+  createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
-import { processHistoryForUser as processOutlookHistory } from "@/app/api/outlook/webhook/process-history";
+import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { watchOutlook, unwatchOutlook } from "@/utils/outlook/watch";
 import type {
   EmailProvider,
@@ -97,7 +94,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getLabels(): Promise<EmailLabel[]> {
-    const labels = await getOutlookLabels(this.client);
+    const labels = await getLabels(this.client);
     return labels.map((label) => ({
       id: label.id || "",
       name: label.displayName || "",
@@ -111,7 +108,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getMessage(messageId: string): Promise<ParsedMessage> {
-    return getOutlookMessage(messageId, this.client);
+    return getMessage(messageId, this.client);
   }
 
   async getMessages(query?: string, maxResults = 50): Promise<ParsedMessage[]> {
@@ -120,7 +117,7 @@ export class OutlookProvider implements EmailProvider {
     const pageSize = 20; // Outlook API limit
 
     while (allMessages.length < maxResults) {
-      const response = await getOutlookBatchMessages(this.client, {
+      const response = await queryBatchMessages(this.client, {
         query,
         maxResults: Math.min(pageSize, maxResults - allMessages.length),
         pageToken,
@@ -149,7 +146,7 @@ export class OutlookProvider implements EmailProvider {
       return [];
     }
 
-    const response = await getOutlookBatchMessages(this.client, {
+    const response = await queryBatchMessages(this.client, {
       maxResults,
       folderId: sentItemsFolderId,
     });
@@ -158,7 +155,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
-    await outlookArchiveThread({
+    await archiveThread({
       client: this.client,
       threadId,
       ownerEmail,
@@ -171,7 +168,7 @@ export class OutlookProvider implements EmailProvider {
     threadId: string,
     ownerEmail: string,
   ): Promise<void> {
-    await outlookArchiveThread({
+    await archiveThread({
       client: this.client,
       threadId,
       ownerEmail,
@@ -185,7 +182,7 @@ export class OutlookProvider implements EmailProvider {
     ownerEmail: string,
     actionSource: "user" | "automation",
   ): Promise<void> {
-    await outlookTrashThread({
+    await trashThread({
       client: this.client,
       threadId,
       ownerEmail,
@@ -194,11 +191,11 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async labelMessage(messageId: string, labelName: string): Promise<void> {
-    const label = await outlookGetOrCreateLabel({
+    const label = await getOrCreateLabel({
       client: this.client,
       name: labelName,
     });
-    await outlookLabelMessage({
+    await labelMessage({
       client: this.client,
       messageId,
       categories: [label.displayName || ""],
@@ -206,11 +203,11 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
-    return getOutlookDraft(draftId, this.client);
+    return getDraft(draftId, this.client);
   }
 
   async deleteDraft(draftId: string): Promise<void> {
-    await deleteOutlookDraft(this.client, draftId);
+    await deleteDraft(this.client, draftId);
   }
 
   async draftEmail(
@@ -221,7 +218,7 @@ export class OutlookProvider implements EmailProvider {
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
-        outlookDraftEmail(this.client, email, args),
+        draftEmail(this.client, email, args),
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
@@ -230,13 +227,13 @@ export class OutlookProvider implements EmailProvider {
       ]);
       return { draftId: result.id };
     } else {
-      const result = await outlookDraftEmail(this.client, email, args);
+      const result = await draftEmail(this.client, email, args);
       return { draftId: result.id };
     }
   }
 
   async replyToEmail(email: ParsedMessage, content: string): Promise<void> {
-    await outlookReplyToEmail(this.client, email, content);
+    await replyToEmail(this.client, email, content);
   }
 
   async sendEmail(args: {
@@ -246,22 +243,22 @@ export class OutlookProvider implements EmailProvider {
     subject: string;
     messageText: string;
   }): Promise<void> {
-    await outlookSendEmailWithPlainText(this.client, args);
+    await sendEmailWithPlainText(this.client, args);
   }
 
   async forwardEmail(
     email: ParsedMessage,
     args: { to: string; cc?: string; bcc?: string; content?: string },
   ): Promise<void> {
-    await outlookForwardEmail(this.client, { messageId: email.id, ...args });
+    await forwardEmail(this.client, { messageId: email.id, ...args });
   }
 
   async markSpam(threadId: string): Promise<void> {
-    await outlookMarkSpam(this.client, threadId);
+    await markSpam(this.client, threadId);
   }
 
   async markRead(threadId: string): Promise<void> {
-    await outlookMarkReadThread({
+    await markReadThread({
       client: this.client,
       threadId,
       read: true,
@@ -269,7 +266,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
-    return getOutlookThreadMessages(threadId, this.client);
+    return getThreadMessages(threadId, this.client);
   }
 
   async getPreviousConversationMessages(
@@ -284,7 +281,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
-    const label = await createOutlookLabel({
+    const label = await createLabel({
       client: this.client,
       name,
     });
@@ -297,7 +294,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getOrCreateInboxZeroLabel(key: InboxZeroLabel): Promise<EmailLabel> {
-    const label = await getOrCreateOutlookInboxZeroLabel({
+    const label = await getOrCreateInboxZeroLabel({
       client: this.client,
       key,
     });
@@ -321,7 +318,7 @@ export class OutlookProvider implements EmailProvider {
 
   async getFiltersList(): Promise<EmailFilter[]> {
     try {
-      const response = await getOutlookFiltersList({ client: this.client });
+      const response = await getFiltersList({ client: this.client });
 
       const mappedFilters = (response.value || []).map(
         (filter: {
@@ -357,14 +354,14 @@ export class OutlookProvider implements EmailProvider {
     addLabelIds?: string[];
     removeLabelIds?: string[];
   }): Promise<any> {
-    return createOutlookFilter({ client: this.client, ...options });
+    return createFilter({ client: this.client, ...options });
   }
 
   async createAutoArchiveFilter(options: {
     from: string;
     labelName?: string;
   }): Promise<any> {
-    return createOutlookAutoArchiveFilter({
+    return createAutoArchiveFilter({
       client: this.client,
       from: options.from,
       labelName: options.labelName,
@@ -372,7 +369,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async deleteFilter(id: string): Promise<any> {
-    return deleteOutlookFilter({ client: this.client, id });
+    return deleteFilter({ client: this.client, id });
   }
 
   async getMessagesWithPagination(options: {
@@ -412,7 +409,7 @@ export class OutlookProvider implements EmailProvider {
       throw new Error("Could not find inbox folder ID");
     }
 
-    const response = await getOutlookBatchMessages(this.client, {
+    const response = await queryBatchMessages(this.client, {
       query: query.trim() || undefined,
       maxResults: options.maxResults || 20,
       pageToken: options.pageToken,
@@ -438,7 +435,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async markReadThread(threadId: string, read: boolean): Promise<void> {
-    await outlookMarkReadThread({
+    await markReadThread({
       client: this.client,
       threadId,
       read,
@@ -447,7 +444,7 @@ export class OutlookProvider implements EmailProvider {
   async checkIfReplySent(senderEmail: string): Promise<boolean> {
     try {
       const query = `from:me to:${senderEmail}`;
-      const response = await getOutlookMessages(this.client, {
+      const response = await getMessages(this.client, {
         query,
         maxResults: 1,
       });
@@ -475,7 +472,7 @@ export class OutlookProvider implements EmailProvider {
       });
 
       // Fetch up to the threshold number of messages
-      const response = await getOutlookMessages(this.client, {
+      const response = await getMessages(this.client, {
         query,
         maxResults: threshold,
       });
@@ -731,7 +728,7 @@ export class OutlookProvider implements EmailProvider {
     sender: string,
     limit: number,
   ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-    return getOutlookThreadsFromSenderWithSubject(this.client, sender, limit);
+    return getThreadsFromSenderWithSubject(this.client, sender, limit);
   }
 
   async getAwaitingReplyLabel(): Promise<string> {
@@ -775,7 +772,7 @@ export class OutlookProvider implements EmailProvider {
       );
     }
 
-    await processOutlookHistory({
+    await processHistoryForUser({
       subscriptionId: options.subscriptionId,
       resourceData: options.resourceData || {
         id: options.historyId?.toString() || "0",
@@ -825,7 +822,7 @@ export class OutlookProvider implements EmailProvider {
     ownerEmail: string,
     folderId: string,
   ): Promise<void> {
-    await outlookArchiveThread({
+    await archiveThread({
       client: this.client,
       threadId,
       ownerEmail,
