@@ -376,3 +376,61 @@ apps/web/
 ├── hooks/useExamples.ts                   # SWR hook
 └── components/ExampleForm.tsx             # Form component
 ```
+
+## Critical Issues & Fixes
+
+### OAuth Refresh Token Persistence Issue (FIXED)
+
+#### Problem
+Refresh tokens were being incorrectly cleared from the database after ~1 hour when access tokens expired, causing authentication failures and forcing users to repeatedly re-authenticate.
+
+#### Root Cause
+The `handleGmailPermissionsCheck` function in `/utils/gmail/permissions.ts` was incorrectly wiping ALL tokens (including refresh_token) on ANY refresh error, including temporary network issues or rate limiting.
+
+#### Symptoms
+- "Failed to initialize email provider" error with "No refresh token" message
+- Users redirected to /welcome or login screens repeatedly
+- Refresh tokens showing as NULL in database after initial authentication worked
+
+#### Fix Applied
+1. **Modified gmail/permissions.ts**:
+   - Only clear `access_token` and `expires_at` on refresh failure
+   - NEVER clear `refresh_token` unless it's truly invalid (invalid_grant error)
+   - Distinguish between temporary errors (network, rate limit) and permanent auth failures
+   - For temporary errors, return without clearing any tokens
+
+2. **Improved auth.ts**:
+   - Changed OAuth prompt from `select_account+consent` to `consent` to force refresh token generation
+   - Added logic to check for and preserve existing refresh tokens when new auth doesn't provide one
+   - Modified `saveTokens` to prevent overwriting existing refresh tokens with null values
+   - Added comprehensive logging to track token lifecycle
+
+3. **Database Checks**:
+   ```sql
+   -- Check refresh token status
+   SELECT "providerAccountId", 
+          CASE WHEN refresh_token IS NULL THEN 'NULL' 
+               WHEN refresh_token = '' THEN 'EMPTY' 
+               ELSE 'EXISTS' END as refresh_token_status,
+          expires_at 
+   FROM "Account" 
+   WHERE "providerAccountId" = 'YOUR_ACCOUNT_ID';
+   ```
+
+#### Testing
+Monitor refresh token persistence with the test script:
+```bash
+node /home/jason/services/inbox-zero/test-token-refresh.js
+```
+
+#### Force Re-Authentication
+If a user's refresh token is already NULL:
+1. Navigate to `/force-relink` in browser
+2. Click re-authentication button
+3. This forces Google to provide a new refresh token
+
+#### Important Notes
+- Google doesn't always return refresh tokens for users who have previously authorized the app
+- The fix ensures existing refresh tokens are never unnecessarily cleared
+- Only `invalid_grant` errors (truly invalid refresh tokens) will clear the refresh token
+- Temporary errors (network, rate limiting) preserve all tokens for retry
