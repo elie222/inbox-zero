@@ -9,15 +9,7 @@ import { createGenerateObject } from "@/utils/llms";
 export const schema = z.object({
   type: z.enum(["structured", "unstructured"]).describe("Type of content"),
   content: z
-    .union([
-      z.array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-        }),
-      ),
-      z.string(),
-    ])
+    .string()
     .describe("The content - either structured entries or summary text"),
 });
 
@@ -31,7 +23,7 @@ export async function aiSummarizeEmailForDigest({
   messageToSummarize,
 }: {
   ruleName: string;
-  emailAccount: EmailAccountWithAI;
+  emailAccount: EmailAccountWithAI & { user: { name: string | null } };
   messageToSummarize: EmailForLLM;
 }): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
@@ -41,33 +33,46 @@ export async function aiSummarizeEmailForDigest({
 
   const system = `You are an AI assistant that processes emails for inclusion in a daily digest.
 
+I will provide you with:
+- A user's name and some context about them.
+- The email category
+- The email content
+
 Your task is to:
 1. **Classify** the email as either "structured" or "unstructured".
 2. **Summarize** the content accordingly using the provided schema.
 
 **Classification rules:**
 - Use "structured" if the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar.
-- Use "unstructured" if the email is a narrative, update, announcement, or message without discrete fields.
+- Use "unstructured" if the email is a narrative, update, announcement, or a message that is not a direct response to the user.
+- If the email is a direct message to the user, summarize it as if you are talking directly to them, keeping the correct person (e.g., first person, second person, third person, etc.).
 - If the email is spam, promotional, or irrelevant, return "null".
 
 **Content rules for structured classification:**
+- If the email is classified as "structured", summarize the content using a bulleted list with the format: "- Key: Value".
 - Only include human-relevant and human-readable information.
 - Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
 
 **Formatting rules:**
-- Follow the schema provided separately (do not describe or return the schema).
 - Do not include HTML, markdown, or explanations.
-- Return only the final result in JSON format (or "null").
+- Return only the final result.
+- For structured emails, return the bulleted list.
+- For unstructured emails, return the summarized text.
+- For spam, promotional, or irrelevant emails, return "null".
 
-Now, classify and summarize the following email:
+Now, classify and summarize the following email,
 `;
 
   const prompt = `
-<email_content>
-${stringifyEmailSimple(userMessageForPrompt)}
-</email_content>
+<email>
+  <content>${stringifyEmailSimple(userMessageForPrompt)}</content>
+  <category>${ruleName}</category>
+</email>
 
-Use this category as context to help interpret the email: ${ruleName}.`;
+<user>
+  <about>${emailAccount.about}</about>
+  <name>${emailAccount.user.name}</name>
+</user>`;
 
   logger.info("Summarizing email for digest");
 
@@ -86,19 +91,6 @@ Use this category as context to help interpret the email: ${ruleName}.`;
       prompt,
       schema,
     });
-
-    // Temporary logging to check the summarization output
-    if (aiResponse.object.type === "unstructured") {
-      logger.info("Summarized email as summary", {
-        length: aiResponse.object.content.length,
-      });
-    } else if (aiResponse.object.type === "structured") {
-      logger.info("Summarized email as entries", {
-        length: aiResponse.object.content.length,
-      });
-    } else {
-      logger.info("Content not worth summarizing");
-    }
 
     return aiResponse.object;
   } catch (error) {

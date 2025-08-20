@@ -14,63 +14,60 @@ import {
   Text,
 } from "@react-email/components";
 
-type DigestEntry = {
-  label: string;
-  value: string;
-};
-
-type DigestContent = {
-  type: "structured" | "unstructured";
-  content: DigestEntry[] | string;
-};
-
 type DigestItem = {
   from: string;
   subject: string;
-  content?: DigestContent | null | undefined;
+  content?: string | null | undefined;
 };
 
 const colorClasses = {
   blue: {
     bg: "bg-blue-50",
     text: "text-blue-800",
-    border: "border-blue-200",
+    border:
+      "border-l-blue-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-blue-100",
   },
   green: {
     bg: "bg-green-50",
     text: "text-green-800",
-    border: "border-green-200",
+    border:
+      "border-l-green-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-green-100",
   },
   purple: {
     bg: "bg-purple-50",
     text: "text-purple-800",
-    border: "border-purple-200",
+    border:
+      "border-l-purple-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-purple-100",
   },
   amber: {
     bg: "bg-amber-50",
     text: "text-amber-800",
-    border: "border-amber-200",
+    border:
+      "border-l-amber-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-amber-100",
   },
   gray: {
     bg: "bg-gray-50",
     text: "text-gray-800",
-    border: "border-gray-200",
+    border:
+      "border-l-gray-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-gray-100",
   },
   pink: {
     bg: "bg-pink-50",
     text: "text-pink-800",
-    border: "border-pink-200",
+    border:
+      "border-l-pink-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-pink-100",
   },
   red: {
     bg: "bg-red-50",
     text: "text-red-800",
-    border: "border-red-200",
+    border:
+      "border-l-red-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
     bgAccent: "bg-red-100",
   },
 } as const;
@@ -273,6 +270,36 @@ export default function DigestEmail(props: DigestEmailProps) {
     return null;
   }
 
+  const renderEmailContent = (item: DigestItem) => {
+    if (item.content) {
+      // Split content by newlines and render each line separately
+      const lines = item.content.split("\n").filter((line) => line.trim());
+
+      // If there are multiple lines, render as bullet points
+      if (lines.length > 1) {
+        return (
+          <div>
+            <ul className="m-0 pl-[20px]">
+              {lines.map((line, index) => (
+                <li key={index} className="text-[14px] text-gray-800 mb-[1px]">
+                  {line.trim()}
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      } else {
+        // Single line content
+        return (
+          <Text className="text-[14px] text-gray-800 mt-[4px] mb-0 leading-[1.5]">
+            {item.content}
+          </Text>
+        );
+      }
+    }
+    return null;
+  };
+
   const CategorySection = ({
     categoryKey,
     items,
@@ -286,62 +313,37 @@ export default function DigestEmail(props: DigestEmailProps) {
       colorClasses[category.color as keyof typeof colorClasses] ||
       colorClasses.gray;
     return (
-      <Section className="mb-[20px]" id={category.href.slice(1)}>
-        <div className={`${colors.bg} rounded-[6px] p-[12px]`}>
-          <Heading
-            className={`text-[16px] font-bold ${colors.text} mt-[0px] mb-[12px]`}
-          >
-            {category.emoji} {category.name} ({items.length})
-          </Heading>
+      <Section className="mb-[40px]" id={category.href.slice(1)}>
+        <div className="mb-[20px]">
+          <div className="flex items-center mb-[20px]">
+            <Heading className="text-[20px] font-bold text-gray-900 mt-0 mb-0 mr-[12px]">
+              {category.emoji} {category.name}
+            </Heading>
+            <div
+              className={`${colors.bgAccent} text-[12px] font-medium px-[8px] py-[4px] rounded-[12px]`}
+            >
+              {items.length} emails
+            </div>
+          </div>
 
           {items.map((item, index) => (
             <div
               key={index}
-              className={`mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] ${colors.border}`}
+              className={`mb-[12px] p-[20px] border-l-[4px] border-t-[1px] border-r-[1px] border-b-[1px] border-solid ${colors.border} bg-[#fdfefe] rounded-[8px]`}
             >
-              <Text className="text-[14px] font-bold text-gray-800 m-0">
-                {item.subject}
-              </Text>
-              <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
-                {item.from}
-              </Text>
-              {item.content?.type === "structured" &&
-              Array.isArray(item.content.content) ? (
-                <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
-                  {item.content.content.map(
-                    (entry: DigestEntry, idx: number) => (
-                      <Row key={idx} className="mb-0 p-0">
-                        <Column>
-                          <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
-                            {entry.label}
-                          </Text>
-                        </Column>
-                        <Column align="right">
-                          <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
-                            {entry.value}
-                          </Text>
-                        </Column>
-                      </Row>
-                    ),
-                  )}
-                </Section>
-              ) : item.content?.type === "unstructured" ? (
-                typeof item.content.content === "string" ? (
-                  item.content.content
-                    .split("\n")
-                    .filter((line) => line.trim())
-                    .map((line, idx) => (
-                      <Text
-                        key={idx}
-                        className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]"
-                      >
-                        {line}
-                      </Text>
-                    ))
-                ) : (
-                  item.content.content.toString()
-                )
-              ) : null}
+              {/* Email Header */}
+              <div className="mb-[12px]">
+                <Text className="text-[16px] font-bold text-gray-900 mt-0 mb-0">
+                  {item.subject}
+                </Text>
+                <Text className="text-[14px] text-gray-700 mt-[2px] mb-0">
+                  From:{" "}
+                  <span className="font-medium text-gray-800">{item.from}</span>
+                </Text>
+              </div>
+
+              {/* Email Content */}
+              {renderEmailContent(item)}
             </div>
           ))}
         </div>
@@ -421,242 +423,133 @@ DigestEmail.PreviewProps = {
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
-      content: {
-        type: "unstructured",
-        content:
-          "• Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\n• Stripe raises $6.5B at $50B valuation as fintech consolidation continues\n• Tesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
-      },
+      content:
+        "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\nStripe raises $6.5B at $50B valuation as fintech consolidation continues\nTesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
     },
     {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
-      content: {
-        type: "unstructured",
-        content:
-          "• Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\n• Supreme Court rules 6-3 on landmark digital privacy case affecting tech giants\n• NASA's Artemis mission discovers water ice deposits in lunar south pole crater",
-      },
+      content:
+        "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\nSupreme Court rules 6-3 on landmark digital privacy case affecting tech giants\nNASA's Artemis mission discovers water ice deposits in lunar south pole crater",
     },
     {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
-      content: {
-        type: "unstructured",
-        content:
-          "• Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\n• ScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\n• Cursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
-      },
+      content:
+        "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\nScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\nCursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
     },
   ],
   receipt: [
     {
       from: "Amazon",
       subject: "Order #112-3456789-0123456",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Amazon" },
-          { label: "Amount", value: "$42.99" },
-          { label: "Date", value: "9:15 AM" },
-        ],
-      },
+      content: "Merchant: Amazon\nAmount: $42.99\nDate: 9:15 AM",
     },
     {
       from: "Uber Eats",
       subject: "Order #EAT-123456789",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Uber Eats" },
-          { label: "Amount", value: "$23.45" },
-          { label: "Date", value: "1:20 PM" },
-        ],
-      },
+      content: "Merchant: Uber Eats\nAmount: $23.45\nDate: 1:20 PM",
     },
     {
       from: "Netflix",
       subject: "Monthly subscription",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Netflix" },
-          { label: "Amount", value: "$15.99" },
-          { label: "Date", value: "4:30 AM" },
-        ],
-      },
+      content: "Merchant: Netflix\nAmount: $15.99\nDate: 4:30 AM",
     },
   ],
   marketing: [
     {
       from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
-      content: {
-        type: "unstructured",
-        content: "Upgrade your music experience with this exclusive deal",
-      },
+      content: "Upgrade your music experience with this exclusive deal",
     },
     {
       from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
-      content: {
-        type: "unstructured",
-        content: "Be the first to shop our latest styles before they sell out",
-      },
+      content: "Be the first to shop our latest styles before they sell out",
     },
     {
       from: "Airbnb",
       subject: "Weekend getaway ideas near you",
-      content: {
-        type: "unstructured",
-        content:
-          "Discover unique stays within a 2-hour drive from your location",
-      },
+      content: "Discover unique stays within a 2-hour drive from your location",
     },
   ],
   calendar: [
     {
       from: "Sarah Johnson",
       subject: "Team Weekly Sync",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Team Weekly Sync" },
-          {
-            label: "Date",
-            value: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
-          },
-        ],
-      },
+      content:
+        "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
     },
     {
       from: "Michael Chen",
       subject: "Quarterly Review",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Quarterly Review" },
-          {
-            label: "Date",
-            value: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
-          },
-        ],
-      },
+      content:
+        "Title: Quarterly Review\nDate: Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
     },
     {
       from: "Personal Calendar",
       subject: "Dentist Appointment",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Dentist Appointment" },
-          {
-            label: "Date",
-            value: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
-          },
-        ],
-      },
+      content:
+        "Title: Dentist Appointment\nDate: Monday, May 29, 9:30 AM • Downtown Dental Clinic",
     },
   ],
   coldEmail: [
     {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
-      content: {
-        type: "unstructured",
-        content: "Growth Solutions Inc.",
-      },
+      content: "Growth Solutions Inc.",
     },
     {
       from: "Jennifer Lee",
       subject: "Request for a quick call this week",
-      content: {
-        type: "unstructured",
-        content: "Venture Capital Partners",
-      },
+      content: "Venture Capital Partners",
     },
     {
       from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
-      content: {
-        type: "unstructured",
-        content: "Enterprise Tech Solutions",
-      },
+      content: "Enterprise Tech Solutions",
     },
   ],
   notification: [
     {
       from: "LinkedIn",
       subject: "Profile Views",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Profile Views" },
-          {
-            label: "Date",
-            value: "5 people viewed your profile this week • 11:00 AM",
-          },
-        ],
-      },
+      content:
+        "Title: Profile Views\nDate: 5 people viewed your profile this week • 11:00 AM",
     },
     {
       from: "Slack",
       subject: "Unread Messages",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Unread Messages" },
-          {
-            label: "Date",
-            value: "3 unread messages in #general channel • 2:45 PM",
-          },
-        ],
-      },
+      content:
+        "Title: Unread Messages\nDate: 3 unread messages in #general channel • 2:45 PM",
     },
     {
       from: "GitHub",
       subject: "Pull Request Update",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Pull Request Update" },
-          { label: "Date", value: "Pull request #123 was approved • 5:30 PM" },
-        ],
-      },
+      content:
+        "Title: Pull Request Update\nDate: Pull request #123 was approved • 5:30 PM",
     },
     {
       from: "Twitter",
       subject: "New Followers",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "New Followers" },
-          { label: "Date", value: "You have 7 new followers • 6:15 PM" },
-        ],
-      },
+      content: "Title: New Followers\nDate: You have 7 new followers • 6:15 PM",
     },
   ],
   toReply: [
     {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
-      content: {
-        type: "unstructured",
-        content: "Received: Yesterday, 4:30 PM • Due: Today",
-      },
+      content: "Received: Yesterday, 4:30 PM • Due: Today",
     },
     {
       from: "Client XYZ",
       subject: "Questions about the latest deliverable",
-      content: {
-        type: "unstructured",
-        content: "Received: Monday, 10:15 AM • Due: Tomorrow",
-      },
+      content: "Received: Monday, 10:15 AM • Due: Tomorrow",
     },
     {
       from: "HR Department",
       subject: "Annual review scheduling",
-      content: {
-        type: "unstructured",
-        content: "Received: Tuesday, 9:00 AM • Due: Friday",
-      },
+      content: "Received: Tuesday, 9:00 AM • Due: Friday",
     },
   ],
   // --- Custom categories for testing ---
@@ -664,78 +557,45 @@ DigestEmail.PreviewProps = {
     {
       from: "Expedia",
       subject: "Your flight to Paris is booked!",
-      content: {
-        type: "unstructured",
-        content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
-      },
+      content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
     },
     {
       from: "Airbnb",
       subject: "Upcoming stay in Montmartre",
-      content: {
-        type: "unstructured",
-        content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
-      },
+      content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
     },
   ],
   funnyStuff: [
     {
       from: "The Onion",
       subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
-      content: {
-        type: "unstructured",
-        content:
-          "Local man questions reality after seeing three people in cheese hats.",
-      },
+      content:
+        "Local man questions reality after seeing three people in cheese hats.",
     },
     {
       from: "Reddit",
       subject: "Top meme of the day",
-      content: {
-        type: "unstructured",
-        content: "A cat wearing sunglasses and riding a Roomba.",
-      },
+      content: "A cat wearing sunglasses and riding a Roomba.",
     },
   ],
   orders: [
     {
       from: "Shopify",
       subject: "Order #SHOP-2024-001",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Order ID", value: "SHOP-2024-001" },
-          { label: "Total", value: "$89.99" },
-          { label: "Status", value: "Shipped" },
-          { label: "Tracking", value: "1Z999AA1234567890" },
-        ],
-      },
+      content:
+        "Order ID: SHOP-2024-001\nTotal: $89.99\nStatus: Shipped\nTracking: 1Z999AA1234567890",
     },
     {
       from: "Etsy",
       subject: "Your handmade jewelry order",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Seller", value: "HandmadeCrafts" },
-          { label: "Item", value: "Sterling Silver Necklace" },
-          { label: "Price", value: "$45.00" },
-          { label: "Estimated Delivery", value: "March 15-20" },
-        ],
-      },
+      content:
+        "Seller: HandmadeCrafts\nItem: Sterling Silver Necklace\nPrice: $45.00\nEstimated Delivery: March 15-20",
     },
     {
       from: "Amazon",
       subject: "Order #114-1234567-8901234",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Order Number", value: "114-1234567-8901234" },
-          { label: "Items", value: "3 items" },
-          { label: "Total", value: "$156.78" },
-          { label: "Delivery", value: "Tomorrow by 8 PM" },
-        ],
-      },
+      content:
+        "Order Number: 114-1234567-8901234\nItems: 3 items\nTotal: $156.78\nDelivery: Tomorrow by 8 PM",
     },
   ],
 };
