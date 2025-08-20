@@ -81,17 +81,19 @@ export async function handleGmailPermissionsCheck({
   refreshToken: string | null | undefined;
   emailAccountId: string;
 }) {
-  const { hasAllPermissions, error, missingScopes } =
-    await checkGmailPermissions({ accessToken, emailAccountId });
+  const permissionsBeforeRefresh = await checkGmailPermissions({
+    accessToken,
+    emailAccountId,
+  });
 
   if (
-    error &&
+    permissionsBeforeRefresh.error &&
     [
       "invalid_token",
       "invalid_grant",
       "invalid_scope",
       "access_denied",
-    ].includes(error)
+    ].includes(permissionsBeforeRefresh.error)
   ) {
     // attempt to refresh the token one last time using only the refresh token
     if (refreshToken) {
@@ -105,17 +107,20 @@ export async function handleGmailPermissionsCheck({
         });
 
         // re-check permissions with the new access token
-        const newAccessToken = getAccessTokenFromClient(gmailClient);
-        const { hasAllPermissions, error, missingScopes } =
-          await checkGmailPermissions({
-            accessToken: newAccessToken,
-            emailAccountId,
-          });
+        const accessToken = getAccessTokenFromClient(gmailClient);
+        const permissionsAfterRefresh = await checkGmailPermissions({
+          accessToken,
+          emailAccountId,
+        });
 
-        if (error === "invalid_grant") {
+        if (
+          permissionsAfterRefresh.error &&
+          permissionsAfterRefresh.error === "invalid_grant"
+        ) {
           logger.info("Cleaning up invalid Gmail tokens", { emailAccountId });
           const emailAccount = await prisma.emailAccount.findUnique({
             where: { id: emailAccountId },
+            select: { accountId: true },
           });
           if (!emailAccount)
             return {
@@ -135,20 +140,20 @@ export async function handleGmailPermissionsCheck({
           return {
             hasAllPermissions: false,
             error: "Gmail access expired. Please reconnect your account.",
-            missingScopes,
+            missingScopes: permissionsBeforeRefresh.missingScopes,
           };
         }
 
-        return { hasAllPermissions, error, missingScopes };
+        return permissionsAfterRefresh;
       } catch (_) {
         return {
           hasAllPermissions: false,
           error: "Gmail access expired. Please reconnect your account.",
-          missingScopes,
+          missingScopes: permissionsBeforeRefresh.missingScopes,
         };
       }
     }
   }
 
-  return { hasAllPermissions, error, missingScopes };
+  return permissionsBeforeRefresh;
 }
