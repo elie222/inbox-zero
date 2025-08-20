@@ -2,16 +2,18 @@
 
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { ButtonList } from "@/components/ButtonList";
-import { personas } from "@/app/(app)/[emailAccountId]/assistant/examples";
+import type { Personas } from "./examples";
 
 export function PersonaDialog({
   isOpen,
   setIsOpen,
   onSelect,
+  personas,
 }: {
   isOpen: boolean;
   setIsOpen: (open: boolean) => void;
   onSelect: (persona: string) => void;
+  personas: Personas;
 }) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>

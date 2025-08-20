@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { notFound } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import { auth } from "@/utils/auth";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export default async function RuleHistoryPage(props: {
   params: Promise<{ emailAccountId: string; ruleId: string }>;
@@ -26,6 +27,15 @@ export default async function RuleHistoryPage(props: {
       emailAccount: {
         id: emailAccountId,
         userId: session.user.id,
+      },
+    },
+    select: {
+      id: true,
+      name: true,
+      emailAccount: {
+        select: {
+          account: { select: { provider: true } },
+        },
       },
     },
   });
@@ -183,7 +193,14 @@ export default async function RuleHistoryPage(props: {
                                 {action.type}
                               </Badge>
                               {action.label && (
-                                <span>Label: {action.label}</span>
+                                <span>
+                                  {
+                                    getEmailTerminology(
+                                      rule.emailAccount.account.provider,
+                                    ).label.action
+                                  }
+                                  : {action.label}
+                                </span>
                               )}
                               {action.subject && (
                                 <span>Subject: {action.subject}</span>

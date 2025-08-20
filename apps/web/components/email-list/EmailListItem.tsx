@@ -26,6 +26,7 @@ export const EmailListItem = forwardRef(
   (
     props: {
       userEmail: string;
+      provider: string;
       thread: Thread;
       opened: boolean;
       selected: boolean;
@@ -44,7 +45,7 @@ export const EmailListItem = forwardRef(
     },
     ref: ForwardedRef<HTMLLIElement>,
   ) => {
-    const { thread, splitView, onSelected } = props;
+    const { provider, thread, splitView, onSelected } = props;
 
     const lastMessage = thread.messages?.[thread.messages.length - 1];
 
@@ -177,7 +178,7 @@ export const EmailListItem = forwardRef(
                     {thread.category?.category ? (
                       <CategoryBadge category={thread.category.category} />
                     ) : null}
-                    <PlanBadge plan={thread.plan} />
+                    <PlanBadge plan={thread.plan} provider={provider} />
 
                     <PlanActions
                       thread={thread}

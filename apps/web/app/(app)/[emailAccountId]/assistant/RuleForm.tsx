@@ -69,6 +69,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { useRule } from "@/hooks/useRule";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { getEmailTerminology } from "@/utils/terminology";
 import {
   Dialog,
   DialogContent,
@@ -324,11 +325,12 @@ export function RuleForm({
   }, [errors, watch]);
 
   const conditionalOperator = watch("conditionalOperator");
+  const terminology = getEmailTerminology(provider);
 
   const typeOptions = useMemo(() => {
     const options: { label: string; value: ActionType }[] = [
       { label: "Archive", value: ActionType.ARCHIVE },
-      { label: "Label", value: ActionType.LABEL },
+      { label: terminology.label.action, value: ActionType.LABEL },
       ...(isMicrosoftProvider(provider)
         ? [{ label: "Move to folder", value: ActionType.MOVE_FOLDER }]
         : []),
@@ -340,11 +342,14 @@ export function RuleForm({
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Digest", value: ActionType.DIGEST },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      { label: "Auto-update reply label", value: ActionType.TRACK_THREAD },
+      {
+        label: `Auto-update reply ${terminology.label.singular}`,
+        value: ActionType.TRACK_THREAD,
+      },
     ];
 
     return options;
-  }, [provider]);
+  }, [provider, terminology.label.action, terminology.label.singular]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
@@ -849,6 +854,7 @@ export function RuleForm({
                 key={i}
                 action={action}
                 typeOptions={typeOptions}
+                provider={provider}
               />
             ),
           )}
@@ -870,7 +876,7 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="flex items-center justify-end space-x-2">
+        <div className="flex items-center justify-end space-x-2 mt-4">
           <TooltipExplanation
             size="md"
             side="left"

@@ -148,13 +148,15 @@ export function RuleCell({
 
 export function ActionItemsCell({
   actionItems,
+  provider,
 }: {
   actionItems: PendingExecutedRules["executedRules"][number]["actionItems"];
+  provider: string;
 }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1">
       {actionItems.map((item) => (
-        <ActionBadgeExpanded key={item.id} action={item} />
+        <ActionBadgeExpanded key={item.id} action={item} provider={provider} />
       ))}
     </div>
   );

@@ -16,8 +16,14 @@ export async function generatePromptOnUpdateRule({
   currentRule: RuleWithRelations;
   updatedRule: RuleWithRelations;
 }): Promise<string> {
-  const currentRulePrompt = createPromptFromRule(currentRule);
-  const updatedRulePrompt = createPromptFromRule(updatedRule);
+  const currentRulePrompt = createPromptFromRule(
+    currentRule,
+    emailAccount.account.provider,
+  );
+  const updatedRulePrompt = createPromptFromRule(
+    updatedRule,
+    emailAccount.account.provider,
+  );
 
   if (!existingPrompt) return "";
   if (!updatedRulePrompt) return "";

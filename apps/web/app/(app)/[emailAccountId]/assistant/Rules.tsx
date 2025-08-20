@@ -68,7 +68,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
   const onCreateRule = () => ruleDialog.open();
 
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
@@ -275,7 +275,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                         </TableCell>
                       )}
                       <TableCell>
-                        <ActionBadges actions={rule.actions} />
+                        <ActionBadges
+                          actions={rule.actions}
+                          provider={provider}
+                        />
                       </TableCell>
                       {/* {size === "md" && (
                         <TableCell>
@@ -465,6 +468,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
 export function ActionBadges({
   actions,
+  provider,
 }: {
   actions: {
     id: string;
@@ -472,6 +476,7 @@ export function ActionBadges({
     label?: string | null;
     folderName?: string | null;
   }[];
+  provider: string;
 }) {
   return (
     <div className="flex gap-2">
@@ -485,7 +490,7 @@ export function ActionBadges({
             color={getActionColor(action.type)}
             className="w-fit text-nowrap"
           >
-            {getActionDisplay(action)}
+            {getActionDisplay(action, provider)}
           </Badge>
         );
       })}

@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { getEmailTerminology } from "@/utils/terminology";
 import {
   AlertCircleIcon,
   ArchiveIcon,
@@ -236,6 +237,8 @@ function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
+  const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
 
   // Transform user labels into NavItems
   const labelNavItems = useMemo(() => {
@@ -292,13 +295,15 @@ function MailNav({ path }: { path: string }) {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Labels</SidebarGroupLabel>
+        <SidebarGroupLabel>
+          {terminology.label.pluralCapitalized}
+        </SidebarGroupLabel>
         <LoadingContent loading={isLoading}>
           {visibleLabels.length > 0 ? (
             <SideNavMenu items={labelNavItems} activeHref={path} />
           ) : (
             <div className="px-3 py-2 text-xs text-muted-foreground">
-              No labels
+              No {terminology.label.plural}
             </div>
           )}
 

@@ -6,13 +6,14 @@ import { PlanBadge, getActionColor } from "@/components/PlanBadge";
 import { getActionFields } from "@/utils/action-item";
 
 export function PlanExplanation(props: {
+  provider: string;
   thread: Thread;
   executingPlan: boolean;
   rejectingPlan: boolean;
   executePlan: (thread: Thread) => Promise<void>;
   rejectPlan: (thread: Thread) => Promise<void>;
 }) {
-  const { thread } = props;
+  const { provider, thread } = props;
   if (!thread) return null;
   const { plan } = thread;
   if (!plan?.rule) return null;
@@ -21,7 +22,7 @@ export function PlanExplanation(props: {
     <div className="max-h-48 overflow-auto border-b border-b-muted bg-gradient-to-r from-purple-50 via-blue-50 to-green-50 p-4 text-primary">
       <div className="flex">
         <div className="flex-shrink-0">
-          <PlanBadge plan={plan} />
+          <PlanBadge plan={plan} provider={provider} />
         </div>
         <div className="ml-2">{plan.rule?.instructions}</div>
       </div>

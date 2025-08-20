@@ -19,6 +19,7 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 import { ExpandableText } from "@/components/ExpandableText";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function BasicToolInfo({ text }: { text: string }) {
   return (
@@ -200,6 +201,7 @@ export function UpdatedRuleActions({
   originalActions?: UpdateRuleActionsTool["output"]["originalActions"];
   updatedActions?: UpdateRuleActionsTool["output"]["updatedActions"];
 }) {
+  const { provider } = useAccount();
   const [showChanges, setShowChanges] = useState(false);
 
   // Check if actions have changed by comparing serialized versions
@@ -216,7 +218,10 @@ export function UpdatedRuleActions({
     return actions
       .map((action) => {
         const parts = [`Type: ${action.type}`];
-        if (action.fields?.label) parts.push(`Label: ${action.fields.label}`);
+        if (action.fields?.label)
+          parts.push(
+            `${getEmailTerminology(provider).label.action}: ${action.fields.label}`,
+          );
         if (action.fields?.content)
           parts.push(`Content: ${action.fields.content}`);
         if (action.fields?.to) parts.push(`To: ${action.fields.to}`);

@@ -16,6 +16,8 @@ import { prefixPath } from "@/utils/path";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
 import { LoadingContent } from "@/components/LoadingContent";
 import { EXTENSION_URL } from "@/utils/config";
+import { isGoogleProvider } from "@/utils/email/provider-types";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 function FeatureCard({
   emailAccountId,
@@ -163,6 +165,7 @@ const StepItem = ({
 
 function Checklist({
   emailAccountId,
+  provider,
   completedCount,
   totalSteps,
   progressPercentage,
@@ -171,6 +174,7 @@ function Checklist({
   isAiAssistantConfigured,
 }: {
   emailAccountId: string;
+  provider: string;
   completedCount: number;
   totalSteps: number;
   progressPercentage: number;
@@ -230,22 +234,25 @@ function Checklist({
         actionText="View"
       />
 
-      <StepItem
-        href={EXTENSION_URL}
-        linkProps={{ target: "_blank", rel: "noopener noreferrer" }}
-        icon={<ChromeIcon size={20} />}
-        iconBg="bg-orange-100 dark:bg-orange-900/50"
-        iconColor="text-orange-500 dark:text-orange-400"
-        title="Install the Inbox Zero Tabs extension"
-        timeEstimate="1 minute"
-        completed={false}
-        actionText="Install"
-      />
+      {isGoogleProvider(provider) && (
+        <StepItem
+          href={EXTENSION_URL}
+          linkProps={{ target: "_blank", rel: "noopener noreferrer" }}
+          icon={<ChromeIcon size={20} />}
+          iconBg="bg-orange-100 dark:bg-orange-900/50"
+          iconColor="text-orange-500 dark:text-orange-400"
+          title="Install the Inbox Zero Tabs extension"
+          timeEstimate="1 minute"
+          completed={false}
+          actionText="Install"
+        />
+      )}
     </Card>
   );
 }
 
-export function SetupContent({ emailAccountId }: { emailAccountId: string }) {
+export function SetupContent() {
+  const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error } = useSetupProgress();
 
   return (
@@ -253,6 +260,7 @@ export function SetupContent({ emailAccountId }: { emailAccountId: string }) {
       {data && (
         <SetupPageContent
           emailAccountId={emailAccountId}
+          provider={provider}
           isReplyTrackerConfigured={data.steps.replyTracker}
           isAiAssistantConfigured={data.steps.aiAssistant}
           isBulkUnsubscribeConfigured={data.steps.bulkUnsubscribe}
@@ -267,6 +275,7 @@ export function SetupContent({ emailAccountId }: { emailAccountId: string }) {
 
 function SetupPageContent({
   emailAccountId,
+  provider,
   isReplyTrackerConfigured,
   isBulkUnsubscribeConfigured,
   isAiAssistantConfigured,
@@ -275,6 +284,7 @@ function SetupPageContent({
   isSetupComplete,
 }: {
   emailAccountId: string;
+  provider: string;
   isReplyTrackerConfigured: boolean;
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
@@ -300,6 +310,7 @@ function SetupPageContent({
       ) : (
         <Checklist
           emailAccountId={emailAccountId}
+          provider={provider}
           isReplyTrackerConfigured={isReplyTrackerConfigured}
           isBulkUnsubscribeConfigured={isBulkUnsubscribeConfigured}
           isAiAssistantConfigured={isAiAssistantConfigured}

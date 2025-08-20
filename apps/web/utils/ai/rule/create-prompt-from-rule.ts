@@ -6,6 +6,7 @@ import {
   type Prisma,
 } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
+import { getEmailTerminology } from "@/utils/terminology";
 
 const logger = createScopedLogger("ai/rule/create-prompt-from-rule");
 
@@ -25,7 +26,11 @@ export type RuleWithRelations = Rule & {
     | null;
 };
 
-export function createPromptFromRule(rule: RuleWithRelations): string {
+export function createPromptFromRule(
+  rule: RuleWithRelations,
+  provider: string,
+): string {
+  const terminology = getEmailTerminology(provider);
   const conditions: string[] = [];
   const actions: string[] = [];
 
@@ -55,7 +60,10 @@ export function createPromptFromRule(rule: RuleWithRelations): string {
         actions.push("archive");
         break;
       case ActionType.LABEL:
-        if (action.label) actions.push(`label as "${action.label}"`);
+        if (action.label)
+          actions.push(
+            `${terminology.label.action.toLowerCase()} as "${action.label}"`,
+          );
         break;
       case ActionType.REPLY:
         if (action.content) {
