@@ -13,11 +13,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Copy, Share2, Users, Trophy, GiftIcon } from "lucide-react";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetReferralStatsResponse } from "@/app/api/referrals/stats/route";
-import { env } from "@/env";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import type { GetReferralCodeResponse } from "@/app/api/referrals/code/route";
 import { ErrorDisplay } from "@/components/ErrorDisplay";
+import { generateReferralLink } from "@/utils/referral/referral-link";
 
 export function ReferralDialog() {
   return (
@@ -236,8 +236,4 @@ function ReferralDashboardSkeleton() {
       </div>
     </div>
   );
-}
-
-function generateReferralLink(code: string): string {
-  return `${env.NEXT_PUBLIC_BASE_URL}/?ref=${encodeURIComponent(code)}`;
 }
