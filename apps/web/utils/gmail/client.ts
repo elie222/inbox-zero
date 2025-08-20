@@ -63,8 +63,29 @@ export const getGmailClientWithRefresh = async ({
   const auth = getAuth({ accessToken, refreshToken });
   const g = gmail({ version: "v1", auth });
 
-  const expiryDate = expiresAt ? expiresAt : null;
-  if (expiryDate && expiryDate > Date.now()) return g;
+  // expiresAt is already in milliseconds (from .getTime())
+  // Add buffer of 5 minutes (300000ms) to refresh token before it actually expires
+  const now = Date.now();
+  const shouldRefresh = !expiresAt || expiresAt <= now + 300_000;
+
+  if (!shouldRefresh) {
+    logger.info("Token still valid, skipping refresh", {
+      emailAccountId,
+      expiresAt,
+      now,
+      minutesRemaining: expiresAt
+        ? Math.floor((expiresAt - now) / 60_000)
+        : null,
+    });
+    return g;
+  }
+
+  logger.info("Token expired or expiring soon, refreshing", {
+    emailAccountId,
+    expiresAt,
+    now,
+    expired: expiresAt ? expiresAt <= now : true,
+  });
 
   // may throw `invalid_grant` error
   try {
@@ -91,12 +112,26 @@ export const getGmailClientWithRefresh = async ({
       error instanceof Error && error.message.includes("invalid_grant");
 
     if (isInvalidGrantError) {
-      logger.warn("Error refreshing Gmail access token", {
+      const errorData = (error as any).response?.data;
+      logger.error("Gmail refresh token invalid or revoked", {
         emailAccountId,
         error: error.message,
-        errorDescription: (error as any).response?.data?.error_description,
+        errorDescription: errorData?.error_description,
+        errorDetails: errorData,
+        hint: "User needs to re-authenticate with Google",
       });
+
+      // Throw a more user-friendly error
+      throw new SafeError(
+        "Your Google account connection has expired. Please reconnect your account in settings.",
+        401,
+      );
     }
+
+    logger.error("Unexpected error refreshing Gmail access token", {
+      emailAccountId,
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     throw error;
   }

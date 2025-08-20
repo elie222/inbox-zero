@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
+import { SCOPES } from "@/utils/gmail/scopes";
 
 export type GetAuthLinkUrlResponse = { url: string };
 
@@ -14,8 +15,9 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
 
   const url = googleAuth.generateAuthUrl({
     access_type: "offline",
-    scope: "openid email",
+    scope: SCOPES.join(" "),
     state,
+    prompt: "consent", // Force consent screen to ensure refresh token is returned
   });
 
   return { url, state };

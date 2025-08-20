@@ -1,5 +1,58 @@
 # CLAUDE.md - Development Guidelines
 
+## Local Deployment
+
+### Docker Compose Setup
+
+The application is deployed locally using Docker Compose with the following services:
+- **PostgreSQL** database (port 5432)
+- **Redis** cache (port 6380) 
+- **Serverless Redis HTTP** proxy (port 8079)
+- **Web** application (port 3000)
+- **Cron** service for scheduled tasks
+
+### Quick Commands
+
+```bash
+# Start/restart using the helper script (recommended)
+./run-docker.sh
+
+# Build from source and restart
+docker compose build web
+sudo systemctl restart inbox-zero
+
+# Check service status
+sudo systemctl status inbox-zero
+
+# View logs
+sudo journalctl -u inbox-zero -f
+
+# Stop service
+sudo systemctl stop inbox-zero
+```
+
+### SystemD Service
+
+The application runs as a systemd service (`/etc/systemd/system/inbox-zero.service`):
+- Auto-starts on boot
+- Restarts on failure
+- Working directory: `/home/jason/services/inbox-zero`
+- Runs: `docker compose up --remove-orphans`
+
+### Helper Script: run-docker.sh
+
+The `run-docker.sh` script:
+1. Sources environment variables from `apps/web/.env`
+2. Runs `docker compose up -d` (or passes through custom arguments)
+3. Provides environment validation
+
+### Docker Configuration
+
+- **docker-compose.yml**: Main compose configuration
+- **docker/Dockerfile.prod**: Production Dockerfile
+- Web service can use pre-built image (`ghcr.io/elie222/inbox-zero:latest`) or build from source
+- Environment variables loaded from `apps/web/.env`
+
 ## Build & Test Commands
 
 - Development: `pnpm dev`

@@ -28,7 +28,7 @@ export function AssistantTabs() {
         <TabsToolbar className="shrink-0 border-none pb-0 shadow-none">
           <div className="w-full overflow-x-auto">
             <TabsList>
-              {/* <TabsTrigger value="prompt">Prompt</TabsTrigger> */}
+              <TabsTrigger value="prompt">Prompt</TabsTrigger>
               <TabsTrigger value="rules">Rules</TabsTrigger>
               <TabsTrigger value="test">Test</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>

@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { useRef, useEffect, useCallback, memo } from "react";
+import { useRef, useEffect, useCallback, memo, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocalStorage, useWindowSize } from "usehooks-ts";
 import type { UseChatHelpers } from "@ai-sdk/react";
@@ -40,6 +40,17 @@ function PureMultimodalInput({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
+
+  const wordCount = useMemo(() => {
+    return input
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+  }, [input]);
+
+  const WORD_LIMIT = 3000;
+  const isOverLimit = wordCount > WORD_LIMIT;
+  const isNearLimit = wordCount > WORD_LIMIT * 0.8; // Warning at 80% of limit
 
   const adjustHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -120,7 +131,7 @@ function PureMultimodalInput({
         value={input}
         onChange={handleInput}
         className={cn(
-          "max-h-[calc(75dvh)] min-h-[24px] resize-none overflow-hidden rounded-2xl bg-muted pb-10 !text-base dark:border-zinc-700",
+          "max-h-[calc(75dvh)] min-h-[24px] resize-y overflow-auto rounded-2xl bg-muted pb-10 !text-base dark:border-zinc-700",
           className,
         )}
         rows={2}
@@ -142,12 +153,32 @@ function PureMultimodalInput({
         }}
       />
 
-      <div className="absolute bottom-0 right-0 flex w-fit flex-row justify-end p-2">
-        {status === "submitted" ? (
-          <StopButton stop={stop} setMessages={setMessages} />
-        ) : (
-          <SendButton input={input} submitForm={submitForm} />
-        )}
+      <div className="absolute bottom-0 left-0 right-0 flex flex-row justify-between items-center p-2">
+        <div className="flex items-center text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "transition-colors",
+              isOverLimit
+                ? "text-red-500"
+                : isNearLimit
+                  ? "text-yellow-500"
+                  : "text-muted-foreground",
+            )}
+          >
+            {wordCount}/{WORD_LIMIT} words
+          </span>
+        </div>
+        <div className="flex w-fit flex-row justify-end">
+          {status === "submitted" ? (
+            <StopButton stop={stop} setMessages={setMessages} />
+          ) : (
+            <SendButton
+              input={input}
+              submitForm={submitForm}
+              disabled={isOverLimit}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -191,9 +222,11 @@ const StopButton = memo(PureStopButton);
 function PureSendButton({
   submitForm,
   input,
+  disabled = false,
 }: {
   submitForm: () => void;
   input: string;
+  disabled?: boolean;
 }) {
   return (
     <Button
@@ -203,7 +236,7 @@ function PureSendButton({
         event.preventDefault();
         submitForm();
       }}
-      disabled={input.length === 0}
+      disabled={input.length === 0 || disabled}
     >
       <ArrowUpIcon size={14} />
     </Button>
@@ -212,5 +245,6 @@ function PureSendButton({
 
 const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   if (prevProps.input !== nextProps.input) return false;
+  if (prevProps.disabled !== nextProps.disabled) return false;
   return true;
 });

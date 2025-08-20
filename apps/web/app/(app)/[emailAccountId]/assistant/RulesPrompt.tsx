@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState, memo, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { HelpCircleIcon, SparklesIcon, UserPenIcon } from "lucide-react";
+import {
+  HelpCircleIcon,
+  SparklesIcon,
+  UserPenIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import useSWR from "swr";
@@ -10,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   saveRulesPromptAction,
   generateRulesPromptAction,
+  generatePromptFromRulesAction,
 } from "@/utils/actions/ai-rule";
 import {
   SimpleRichTextEditor,
@@ -332,6 +338,54 @@ function RulesPromptForm({
                 >
                   <SparklesIcon className="mr-2 size-4" />
                   Give me ideas
+                </Button>
+              </Tooltip>
+
+              <Tooltip content="Generate prompt from your current active rules. This will replace the current prompt with a version that reflects your configured rules.">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting || isGenerating}
+                  onClick={async () => {
+                    if (isSubmitting || isGenerating) return;
+                    toast.promise(
+                      async () => {
+                        setIsGenerating(true);
+                        const result = await generatePromptFromRulesAction(
+                          emailAccountId,
+                          {},
+                        );
+
+                        if (result?.serverError) {
+                          setIsGenerating(false);
+                          throw new Error(result.serverError);
+                        }
+
+                        if (result?.data?.rulesPrompt) {
+                          editorRef.current?.setContent(
+                            result?.data?.rulesPrompt || "",
+                          );
+                        } else {
+                          toast.error("No active rules found");
+                        }
+
+                        setIsGenerating(false);
+
+                        return result;
+                      },
+                      {
+                        loading: "Syncing with rules...",
+                        success: "Prompt synced with active rules!",
+                        error: (err) => {
+                          return `Error syncing with rules: ${err.message}`;
+                        },
+                      },
+                    );
+                  }}
+                  loading={isGenerating}
+                >
+                  <RefreshCwIcon className="mr-2 size-4" />
+                  Sync with Rules
                 </Button>
               </Tooltip>
             </div>

@@ -34,6 +34,15 @@ export default async function WelcomePage(props: {
 
   if (!user) redirect("/login");
 
+  // Debug logging
+  console.log("[welcome] User check:", {
+    userId: session.user.id,
+    completedOnboardingAt: user.completedOnboardingAt,
+    force: searchParams.force,
+    shouldRedirect: !searchParams.force && user.completedOnboardingAt,
+    redirectTo: env.NEXT_PUBLIC_APP_HOME_PATH,
+  });
+
   if (!searchParams.force && user.completedOnboardingAt)
     redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 

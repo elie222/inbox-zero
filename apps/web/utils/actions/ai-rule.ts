@@ -580,3 +580,52 @@ export const setRuleEnabledAction = actionClient
       });
     },
   );
+
+/**
+ * Generates a prompt from all active rules.
+ * This function takes all enabled rules and converts them back to a readable prompt format.
+ */
+export const generatePromptFromRulesAction = actionClient
+  .metadata({ name: "generatePromptFromRules" })
+  .schema(z.object({}))
+  .action(async ({ ctx: { emailAccountId } }) => {
+    const rules = await prisma.rule.findMany({
+      where: {
+        emailAccountId,
+        enabled: true,
+      },
+      include: {
+        actions: true,
+        categoryFilters: true,
+        group: {
+          select: {
+            id: true,
+            name: true,
+            items: {
+              select: {
+                id: true,
+                type: true,
+                value: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    if (rules.length === 0) {
+      return { rulesPrompt: "" };
+    }
+
+    const { createPromptFromRule } = await import(
+      "@/utils/ai/rule/create-prompt-from-rule"
+    );
+
+    const promptLines = rules.map((rule) => {
+      const prompt = createPromptFromRule(rule);
+      return `* ${prompt}`;
+    });
+
+    return { rulesPrompt: promptLines.join("\n\n") };
+  });

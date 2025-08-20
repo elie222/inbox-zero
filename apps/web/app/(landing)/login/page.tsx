@@ -7,6 +7,7 @@ import { auth } from "@/utils/auth";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
+import prisma from "@/utils/prisma";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -23,7 +24,21 @@ export default async function AuthenticationPage(props: {
     if (searchParams?.next) {
       redirect(searchParams?.next);
     } else {
-      redirect("/welcome");
+      // Check if user has completed onboarding
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { completedOnboardingAt: true },
+      });
+
+      // If onboarding is complete or survey is not configured, go to home
+      if (
+        user?.completedOnboardingAt ||
+        !env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID
+      ) {
+        redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
+      } else {
+        redirect("/welcome");
+      }
     }
   }
 

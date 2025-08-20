@@ -310,6 +310,19 @@ async function handleLinkAccount(account: Account) {
   let primaryName: string | null | undefined;
   let primaryPhotoUrl: string | null | undefined;
 
+  // Debug log to see what account data we're receiving
+  logger.info("[linkAccount] Account data received", {
+    accountId: account.id,
+    userId: account.userId,
+    provider: account.providerId,
+    hasAccessToken: !!account.accessToken,
+    hasRefreshToken: !!account.refreshToken,
+    tokenLengths: {
+      accessToken: account.accessToken?.length,
+      refreshToken: account.refreshToken?.length,
+    },
+  });
+
   try {
     if (!account.accessToken) {
       logger.error(
@@ -377,10 +390,23 @@ async function handleLinkAccount(account: Account) {
       captureException(error, { extra: { userId: account.userId } });
     });
 
+    // Check if tokens were actually saved to database
+    const savedAccount = await prisma.account.findUnique({
+      where: { id: account.id },
+      select: {
+        access_token: true,
+        refresh_token: true,
+      },
+    });
+
     logger.info("[linkAccount] Successfully linked account", {
       email: user.email,
       userId: account.userId,
       accountId: account.id,
+      tokensInDb: {
+        hasAccessToken: !!savedAccount?.access_token,
+        hasRefreshToken: !!savedAccount?.refresh_token,
+      },
     });
   } catch (error) {
     logger.error("[linkAccount] Error during linking process:", {

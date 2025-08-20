@@ -22,6 +22,7 @@ interface SimpleRichTextEditorProps {
 export interface SimpleRichTextEditorRef {
   appendText: (text: string) => void;
   getMarkdown: () => string;
+  setContent: (content: string) => void;
 }
 
 export const SimpleRichTextEditor = forwardRef<
@@ -131,6 +132,11 @@ export const SimpleRichTextEditor = forwardRef<
         },
         getMarkdown: () => {
           return editor?.storage.markdown.getMarkdown() || "";
+        },
+        setContent: (content: string) => {
+          if (editor) {
+            editor.commands.setContent(content);
+          }
         },
       }),
       [editor],

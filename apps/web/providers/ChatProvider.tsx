@@ -9,6 +9,7 @@ import {
   useContext,
   useMemo,
   useState,
+  useEffect,
 } from "react";
 import { useSWRConfig } from "swr";
 import { toastError } from "@/components/Toast";
@@ -68,8 +69,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       }),
     }),
     generateId: generateUUID,
+    keepLastMessageOnError: true,
     onFinish: () => {
       mutate("/api/user/rules");
+      // Force refresh the chat messages after completion
+      mutate(chatId ? `/api/chats/${chatId}` : null);
     },
     onError: (error) => {
       console.error(error);
@@ -79,6 +83,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       });
     },
   });
+
+  // Sync initialMessages with chat.messages when data changes
+  useEffect(() => {
+    if (initialMessages.length > 0 && chat.messages.length === 0) {
+      // Only set messages if the chat is empty but we have initial messages
+      chat.setMessages(initialMessages);
+    }
+  }, [initialMessages, chat.messages.length, chat.setMessages]);
 
   const handleSubmit = useCallback(() => {
     chat.sendMessage({ text: input });
