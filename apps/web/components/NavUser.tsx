@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSession } from "@/utils/auth-client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { logOut } from "@/utils/user";
@@ -36,7 +35,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 
 export function NavUser() {
-  const { data: session } = useSession();
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
 
@@ -56,13 +54,13 @@ export function NavUser() {
               {emailAccount?.name?.charAt(0) || emailAccount?.email?.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          {session?.user ? (
+          {emailAccount ? (
             <>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {emailAccount?.name || emailAccount?.email}
+                  {emailAccount.name || emailAccount.email}
                 </span>
-                <span className="truncate text-xs">{emailAccount?.email}</span>
+                <span className="truncate text-xs">{emailAccount.email}</span>
               </div>
               <ChevronsUpDownIcon className="ml-auto size-4" />
             </>
@@ -86,7 +84,9 @@ export function NavUser() {
               <span className="truncate font-medium">
                 {emailAccount?.name || emailAccount?.email || "Account"}
               </span>
-              <span className="truncate text-xs">{session?.user.email}</span>
+              <span className="truncate text-xs">
+                {emailAccount?.email || "Account"}
+              </span>
             </div>
           </div>
         </DropdownMenuLabel>
