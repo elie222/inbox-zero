@@ -59,35 +59,40 @@ export async function aiAnalyzeLabelRemoval({
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
 }): Promise<LabelRemovalAnalysis> {
-  const system = `You are an **email organization expert** analyzing why a user removed a specific label from an email.  
+  const system = `You are an **email organization expert** analyzing why a user removed a specific label from an email.
 
-Your task is to understand the user's behavior and **recommend the best action for future email processing — but only if you are highly confident in the pattern you detect**.  
-If critical context (label name, sender, or message subject/body) is missing, always choose **No Action**.
-Always include a detailed reasoning for your decision.
+Your task is to understand the user's behavior and recommend the best action for future email processing. 
+Your recommendation should be **final and definitive**, but only if you are highly confident in the pattern you detect.
+You must be able to account for user mistakes. If the action appears to be a one-time correction or a manual override of a system error, 
+this should be a core consideration in your reasoning.
+If critical context (label name, sender, or message subject/body) is missing, or the reason for removal is ambiguous, the correct response is always **No Action**.
 
 ---
 
-## Decision Framework
-- **No Action**
-  - Default when confidence is low or context is missing or removal is temporary/situational.
-  - Examples: "To Do" removed after completion, "Follow Up" removed after handling.  
+### **Decision Framework**
 
-- **Exclude Pattern**  
-  - Choose when the user consistently does **not** want emails from this sender/pattern to get this label.  
-  - Create a hard exclusion rule.  
+Based on the email data provided, choose one of the following actions. Your reasoning must be short but detailed, 
+focusing on the key data points that led to your decision.
 
-- **Not Include**  
-  - Choose when the pattern is **unreliable** for this label.  
-  - Mark it as not to be auto-included, but don't exclude entirely.  
+* **No Action:** Default when confidence is low or context is missing. Use this if the removal is temporary or situational, 
+such as a "To Do" label being removed after completion, a "Follow Up" label being removed after handling, or a user correcting an initial misclassification.
 
+* **Exclude Pattern:** Choose when the user consistently does **not** want emails from this sender or with this pattern to receive this label. 
+Create a hard exclusion rule based on a clear and recurring pattern of user behavior.
 
-## Context to Consider
-- Label name and its typical purpose
-- Instructions for the label removed
-- Sender information (email, domain)  
-- Message content and subject  
-- Timing of the removal  
-- User's overall email organization patterns`;
+* **Not Include:** Choose when the pattern for the label is **unreliable**. Mark it as not to be auto-included for this specific pattern, 
+but do not create a hard exclusion rule. This allows the system to learn and improve without completely ignoring the pattern in other contexts.
+
+---
+
+### **Context to Consider**
+
+* Label name and its typical purpose
+* Instructions for the label removed
+* Sender information (email, domain)
+* Message content and subject
+* Timing of the removal
+* User's overall email organization patterns`;
 
   const prompt = `### Context of why the label was added initially
 
