@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { HistoryIcon, Loader2, PlusIcon } from "lucide-react";
-import { MultimodalInput } from "@/components/assistant-chat/multimodal-input";
 import { Messages } from "./messages";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,18 +16,41 @@ import { ExamplesDialog } from "@/components/assistant-chat/examples-dialog";
 import { Tooltip } from "@/components/Tooltip";
 import { useChat } from "@/providers/ChatProvider";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import {
+  PromptInput,
+  PromptInputTextarea,
+  PromptInputSubmit,
+} from "@/components/ai-elements/prompt-input";
+import { useLocalStorage } from "usehooks-ts";
 
 const MAX_MESSAGES = 20;
 
 export function Chat() {
   const { chat, chatId, input, setInput, handleSubmit, setNewChat } = useChat();
   const { messages, status, stop, regenerate, setMessages } = chat;
+  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
+    "input",
+    "",
+  );
 
   useEffect(() => {
     if (!chatId) {
       setNewChat();
     }
   }, [chatId, setNewChat]);
+
+  // Sync input with localStorage
+  useEffect(() => {
+    setLocalStorageInput(input);
+  }, [input, setLocalStorageInput]);
+
+  // Load from localStorage on mount
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Only run on mount
+  useEffect(() => {
+    if (localStorageInput) {
+      setInput(localStorageInput);
+    }
+  }, []);
 
   return (
     <div className="flex h-full min-w-0 flex-col bg-background">
@@ -58,21 +80,43 @@ export function Chat() {
         isArtifactVisible={false}
       />
 
-      <form className="mx-auto flex w-full gap-2 bg-background px-4 pb-4 md:max-w-3xl md:pb-6">
-        <MultimodalInput
-          // chatId={chatId}
-          input={input}
-          setInput={setInput}
-          handleSubmit={handleSubmit}
-          status={status}
-          stop={stop}
-          // attachments={attachments}
-          // setAttachments={setAttachments}
-          // messages={messages}
-          setMessages={setMessages}
-          // append={append}
-        />
-      </form>
+      <div className="mx-auto w-full px-4 pb-4 md:max-w-3xl md:pb-6">
+        <PromptInput
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (input.trim() && status === "ready") {
+              handleSubmit();
+              setLocalStorageInput("");
+            }
+          }}
+          className="relative"
+        >
+          <PromptInputTextarea
+            value={input}
+            placeholder="Send a message..."
+            onChange={(e) => setInput(e.currentTarget.value)}
+            className="pr-12"
+          />
+          <PromptInputSubmit
+            status={
+              status === "streaming"
+                ? "streaming"
+                : status === "submitted"
+                  ? "submitted"
+                  : "ready"
+            }
+            disabled={!input.trim() || status !== "ready"}
+            className="absolute bottom-1 right-1"
+            onClick={(e) => {
+              if (status === "streaming") {
+                e.preventDefault();
+                stop();
+                setMessages((messages) => messages);
+              }
+            }}
+          />
+        </PromptInput>
+      </div>
     </div>
   );
 }

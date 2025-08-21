@@ -23,9 +23,9 @@ import { getEmailTerminology } from "@/utils/terminology";
 
 export function BasicToolInfo({ text }: { text: string }) {
   return (
-    <Card className="p-2">
+    <ToolCard>
       <div className="text-sm">{text}</div>
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -42,7 +42,7 @@ export function CreatedRuleToolCard({
   ].filter(Boolean);
 
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader
         title={
           <>
@@ -97,7 +97,7 @@ export function CreatedRuleToolCard({
           ))}
         </div>
       </div>
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -132,7 +132,7 @@ export function UpdatedRuleConditions({
     originalConditions.aiInstructions !== updatedConditions.aiInstructions;
 
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader
         title={<>Updated Conditions</>}
         actions={
@@ -186,7 +186,7 @@ export function UpdatedRuleConditions({
           updatedText={updatedConditions?.aiInstructions || undefined}
         />
       )}
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -239,7 +239,7 @@ export function UpdatedRuleActions({
   };
 
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader
         title={<>Updated Actions</>}
         actions={
@@ -278,7 +278,7 @@ export function UpdatedRuleActions({
           updatedText={formatActions(updatedActions || [])}
         />
       )}
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -290,7 +290,7 @@ export function UpdatedLearnedPatterns({
   ruleId: string;
 }) {
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader
         title={<>Updated Learned Patterns</>}
         actions={<RuleActions ruleId={ruleId} />}
@@ -334,16 +334,16 @@ export function UpdatedLearnedPatterns({
           );
         })}
       </div>
-    </Card>
+    </ToolCard>
   );
 }
 
 export function UpdateAbout({ args }: { args: UpdateAboutTool["input"] }) {
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader title={<>Updated About Information</>} />
       <div className="rounded-md bg-muted p-3 text-sm">{args.about}</div>
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -355,7 +355,7 @@ export function AddToKnowledgeBase({
   const [_, setTab] = useQueryState("tab");
 
   return (
-    <Card className="space-y-3 p-4">
+    <ToolCard>
       <ToolCardHeader
         title={<>Added to Knowledge Base</>}
         actions={
@@ -368,7 +368,7 @@ export function AddToKnowledgeBase({
         <div className="font-medium">{args.title}</div>
         <ExpandableText text={args.content} />
       </div>
-    </Card>
+    </ToolCard>
   );
 }
 
@@ -378,7 +378,7 @@ function RuleActions({ ruleId }: { ruleId: string }) {
 
   return (
     <>
-      {/* Don't use tooltips as they force scroll to bottom. Real fix is to adjust useScrollToBottom hook to not do that */}
+      {/* Don't use tooltips as they force scroll to bottom */}
       <div className="flex items-center gap-1">
         <Button
           variant="ghost"
@@ -424,6 +424,10 @@ function RuleActions({ ruleId }: { ruleId: string }) {
       />
     </>
   );
+}
+
+function ToolCard({ children }: { children: React.ReactNode }) {
+  return <Card className="mb-4 space-y-3 p-4">{children}</Card>;
 }
 
 function ToolCardHeader({
