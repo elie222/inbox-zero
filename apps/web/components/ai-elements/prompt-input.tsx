@@ -8,7 +8,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/utils";
 import type { ChatStatus } from "ai";
 import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
@@ -18,6 +17,7 @@ import type {
   KeyboardEventHandler,
 } from "react";
 import { Children } from "react";
+import TextareaAutosize from "react-textarea-autosize";
 
 export type PromptInputProps = HTMLAttributes<HTMLFormElement>;
 
@@ -31,7 +31,9 @@ export const PromptInput = ({ className, ...props }: PromptInputProps) => (
   />
 );
 
-export type PromptInputTextareaProps = ComponentProps<typeof Textarea> & {
+export type PromptInputTextareaProps = ComponentProps<
+  typeof TextareaAutosize
+> & {
   minHeight?: number;
   maxHeight?: number;
 };
@@ -66,10 +68,10 @@ export const PromptInputTextarea = ({
   };
 
   return (
-    <Textarea
+    <TextareaAutosize
       className={cn(
         "w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0",
-        "field-sizing-content max-h-[6lh] bg-transparent dark:bg-transparent",
+        "bg-transparent dark:bg-transparent",
         "focus-visible:ring-0",
         className,
       )}
@@ -79,6 +81,8 @@ export const PromptInputTextarea = ({
       }}
       onKeyDown={handleKeyDown}
       placeholder={placeholder}
+      minRows={2}
+      maxRows={15}
       {...props}
     />
   );
