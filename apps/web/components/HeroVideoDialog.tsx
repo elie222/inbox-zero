@@ -34,14 +34,20 @@ export default function HeroVideoDialog({
   return (
     <Dialog>
       <div className={cn("relative", className)}>
-        <DialogTrigger asChild onClick={handleOpenVideo}>
-          <div className="group relative cursor-pointer">
+        <DialogTrigger asChild>
+          <button
+            type="button"
+            onClick={handleOpenVideo}
+            aria-label="Play video"
+            className="group relative cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 rounded-xl"
+          >
             <div className="relative -m-2 rounded-xl bg-gray-900/5 p-2 ring-1 ring-inset ring-gray-900/10 lg:-m-4 lg:rounded-2xl lg:p-4">
               <Image
                 src={thumbnailSrc}
                 alt={thumbnailAlt}
                 width={2432}
                 height={1442}
+                priority
                 className="rounded-md shadow ring-1 ring-gray-900/10 transition-all duration-200 ease-out group-hover:brightness-[0.9]"
               />
             </div>
@@ -58,7 +64,7 @@ export default function HeroVideoDialog({
                 </div>
               </div>
             </div>
-          </div>
+          </button>
         </DialogTrigger>
         <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
           <DialogTitle className="sr-only">Video player</DialogTitle>
