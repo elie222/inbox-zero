@@ -30,7 +30,7 @@ function PureMessages({
 }: MessagesProps) {
   return (
     <Conversation className="flex min-w-0 flex-1">
-      <ConversationContent className="flex flex-col gap-6 pt-0">
+      <ConversationContent className="flex flex-col gap-6 pt-0 h-full">
         {messages.length === 0 && <Overview setInput={setInput} />}
 
         {messages.map((message, index) => (
