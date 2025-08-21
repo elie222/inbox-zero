@@ -64,7 +64,8 @@ export function EmailAccountProvider({
         provider: emailAccount?.account?.provider ?? "",
       }}
     >
-      {children}
+      {/* Don't render children if we have an emailAccountId but still loading */}
+      {emailAccountId && isLoading ? null : children}
     </EmailAccountContext.Provider>
   );
 }
