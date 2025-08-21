@@ -53,7 +53,7 @@ export function Chat() {
   }, []);
 
   return (
-    <div className="flex h-full min-w-0 flex-col bg-background">
+    <div className="flex h-full min-w-0 flex-col bg-gradient-to-t from-blue-100 from-0% via-blue-100/30 via-10% to-transparent to-25% dark:bg-background">
       <div className="flex items-center justify-between px-2 pt-2">
         <div>
           <SidebarTrigger name="chat-sidebar" />
