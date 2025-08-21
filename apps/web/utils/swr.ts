@@ -4,11 +4,9 @@ import { useAccount } from "@/providers/EmailAccountProvider";
 
 // Makes sure that we have an email account id before fetching
 // Otherwise the backend will return an error
-export function useSWRWithEmailAccount<Data = any, Error = any>() {
+export function useSWRWithEmailAccount<Data = any, Error = any>(url: string) {
   const { emailAccountId } = useAccount();
-  return useSWR<Data, Error>(
-    emailAccountId ? "/api/user/setup-progress" : null,
-  );
+  return useSWR<Data, Error>(emailAccountId ? url : null);
 }
 
 type NormalizedError = { error: string };
