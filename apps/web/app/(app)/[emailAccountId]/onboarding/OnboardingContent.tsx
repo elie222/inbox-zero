@@ -7,7 +7,6 @@ import { StepIntro } from "@/app/(app)/[emailAccountId]/onboarding/StepIntro";
 import { StepLabels } from "@/app/(app)/[emailAccountId]/onboarding/StepLabels";
 import { usePersona } from "@/hooks/usePersona";
 import { analyzePersonaAction } from "@/utils/actions/email-account";
-import { StepExtension } from "@/app/(app)/[emailAccountId]/onboarding/StepExtension";
 import { StepFeatures } from "@/app/(app)/[emailAccountId]/onboarding/StepFeatures";
 import { StepDraft } from "@/app/(app)/[emailAccountId]/onboarding/StepDraft";
 import { StepCustomRules } from "@/app/(app)/[emailAccountId]/onboarding/StepCustomRules";
@@ -19,7 +18,6 @@ import { completedOnboardingAction } from "@/utils/actions/onboarding";
 import { useOnboardingAnalytics } from "@/hooks/useAnalytics";
 import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { isGoogleProvider } from "@/utils/email/provider-types";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
 
@@ -28,7 +26,7 @@ interface OnboardingContentProps {
 }
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
-  const { provider, emailAccountId } = useAccount();
+  const { emailAccountId } = useAccount();
 
   useSignUpEvent();
 
@@ -46,9 +44,6 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     () => <StepDraft emailAccountId={emailAccountId} onNext={onNext} />,
     // <StepDigest onNext={onNext} />
     () => <StepCustomRules onNext={onNext} />,
-    isGoogleProvider(provider)
-      ? () => <StepExtension onNext={onCompleted} />
-      : null,
   ].filter(isDefined);
 
   const { data, mutate } = usePersona();
@@ -61,23 +56,19 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
     analytics.onStart();
   }, [analytics]);
 
-  const onNext = useCallback(() => {
+  const onNext = useCallback(async () => {
     analytics.onNext(clampedStep);
     if (clampedStep < steps.length) {
       router.push(
         prefixPath(emailAccountId, `/onboarding?step=${clampedStep + 1}`),
       );
     } else {
+      analytics.onComplete();
+      markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
+      await completedOnboardingAction();
       router.push("/welcome-upgrade");
     }
   }, [router, emailAccountId, analytics, clampedStep, steps.length]);
-
-  const onCompleted = useCallback(async () => {
-    analytics.onComplete();
-    markOnboardingAsCompleted(ASSISTANT_ONBOARDING_COOKIE);
-    await completedOnboardingAction();
-    onNext();
-  }, [onNext, analytics]);
 
   // Trigger persona analysis on mount (first step only)
   useEffect(() => {
