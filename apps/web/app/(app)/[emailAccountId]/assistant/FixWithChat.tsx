@@ -135,12 +135,16 @@ export function FixWithChat({
                   label="Why should this rule have been applied? (optional)"
                 />
                 <Textarea
+                  id="explanation"
+                  name="explanation"
                   className="mt-1"
                   rows={2}
                   value={explanation}
                   onChange={(e) => setExplanation(e.target.value)}
+                  aria-describedby="explanation-help"
+                  autoFocus
                 />
-                <p className="mt-1 text-xs text-gray-500">
+                <p id="explanation-help" className="mt-1 text-xs text-gray-500">
                   Providing an explanation helps the AI understand your intent
                   better
                 </p>

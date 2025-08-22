@@ -483,15 +483,15 @@ function CollapsibleDiff({
     <div className="overflow-hidden">
       <div className="space-y-2">
         <div className="text-xs font-medium text-muted-foreground">{title}</div>
-        <div className="rounded-md border bg-muted/30 p-3 font-mono text-sm">
+        <div className="rounded-md border bg-muted/30 p-3 font-mono text-sm overflow-auto max-h-96">
           {originalText && (
-            <div className="mb-2 rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200">
+            <div className="mb-2 rounded bg-red-50 px-2 py-1 text-red-800 dark:bg-red-950/30 dark:text-red-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
               <span className="mr-2 text-red-500">-</span>
               {originalText}
             </div>
           )}
           {updatedText && (
-            <div className="rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200">
+            <div className="rounded bg-green-50 px-2 py-1 text-green-800 dark:bg-green-950/30 dark:text-green-200 whitespace-pre-wrap break-words overflow-auto max-h-48">
               <span className="mr-2 text-green-500">+</span>
               {updatedText}
             </div>
