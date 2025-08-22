@@ -43,10 +43,20 @@ export function PostHogIdentify() {
   useEffect(() => {
     // Set super properties that will be included with all events
     posthog.register({
-      $email_account_id: emailAccount?.id,
-      $email_account_email: emailAccount?.email,
-      $email_account_provider: emailAccount?.account?.provider,
+      email_account_id: emailAccount?.id,
+      email_account_email: emailAccount?.email,
+      email_account_provider: emailAccount?.account?.provider,
     });
+
+    // Most users only use one email account, and it's helpful to have the provider on the person property
+    if (emailAccount) {
+      posthog.setPersonProperties(
+        {},
+        {
+          default_email_account_provider: emailAccount?.account?.provider,
+        },
+      );
+    }
   }, [emailAccount]);
 
   return null;
