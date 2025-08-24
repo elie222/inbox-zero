@@ -17,6 +17,18 @@ const PageHeading = forwardRef<
 ));
 PageHeading.displayName = "PageHeading";
 
+const PageSubHeading = forwardRef<
+  HTMLHeadingElement,
+  React.HTMLAttributes<HTMLHeadingElement>
+>(({ className, ...props }, ref) => (
+  <h1
+    ref={ref}
+    className={cn("text-muted-foreground text-sm", className)}
+    {...props}
+  />
+));
+PageSubHeading.displayName = "PageSubHeading";
+
 const SectionHeader = forwardRef<
   HTMLHeadingElement,
   React.HTMLAttributes<HTMLHeadingElement>
@@ -108,6 +120,7 @@ TextLink.displayName = "TextLink";
 
 export {
   PageHeading,
+  PageSubHeading,
   SectionHeader,
   TypographyH3,
   TypographyH4,

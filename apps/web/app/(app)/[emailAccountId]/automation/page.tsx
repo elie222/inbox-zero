@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { PlayIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
-import { OnboardingModal } from "@/components/OnboardingModal";
+import { OnboardingDialogContent } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
@@ -14,11 +15,13 @@ import { prefixPath } from "@/utils/path";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
-import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
 import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -88,8 +91,15 @@ export default async function AutomationPage({
           <PremiumAlertWithData className="mb-2" />
 
           <div className="flex items-center justify-between">
-            <PageHeading>Assistant</PageHeading>
-            <ExtraActions />
+            <div>
+              <PageHeader
+                title="AI Assistant"
+                description="Personalized AI to help you manage emails faster."
+                extra={<WatchVideo />}
+              />
+            </div>
+
+            <AIChatButton />
           </div>
 
           <div className="border-b border-neutral-200 pt-2">
@@ -176,10 +186,16 @@ async function PendingTab({
   );
 }
 
-function ExtraActions() {
+function WatchVideo() {
   return (
-    <div className="flex items-center gap-2">
-      <OnboardingModal
+    <Dialog>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="xs" className="ml-2">
+          <PlayIcon className="mr-2 size-3" />
+          Watch Video
+        </Button>
+      </DialogTrigger>
+      <OnboardingDialogContent
         title="Getting started with AI Personal Assistant"
         description={
           <>
@@ -188,10 +204,7 @@ function ExtraActions() {
           </>
         }
         videoId="SoeNDVr7ve4"
-        buttonProps={{ size: "sm", variant: "ghost" }}
       />
-
-      <AIChatButton />
-    </div>
+    </Dialog>
   );
 }
