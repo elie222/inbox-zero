@@ -104,8 +104,6 @@ function RulesPromptForm({
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
 
-    const data = { rulesPrompt: markdown };
-
     setIsSubmitting(true);
 
     const saveRulesPromise = async (data: SaveRulesPromptBody) => {
@@ -132,7 +130,7 @@ function RulesPromptForm({
     }
     setResult(undefined);
 
-    toast.promise(() => saveRulesPromise(data), {
+    toast.promise(() => saveRulesPromise({ rulesPrompt: markdown }), {
       loading: "Saving rules... This may take a while to process...",
       success: (result) => {
         const {
