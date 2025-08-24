@@ -14,27 +14,41 @@ export async function withGmailRetry<T>(
   return pRetry(operation, {
     retries: maxRetries,
     onFailedAttempt: async (error) => {
-      const originalError = error.cause as any;
-      const errorMessage = originalError?.message || error.message || "";
+      // Normalized error metadata across common googleapis/gaxios shapes
+      const err: any = error;
+      const cause = err?.cause ?? err;
+      const status =
+        cause?.status ?? cause?.code ?? cause?.response?.status ?? undefined;
+      const reason =
+        cause?.errors?.[0]?.reason ??
+        cause?.response?.data?.error?.errors?.[0]?.reason ??
+        undefined;
+      const errorMessage = String(cause?.message ?? err?.message ?? "");
 
-      // Check for various Gmail rate limit error patterns
+      // Broad rate-limit detection: 429, 403 + known reasons, or well-known messages
       const isRateLimitError =
-        originalError?.status === 429 ||
-        originalError?.errors?.[0]?.reason === "rateLimitExceeded" ||
-        errorMessage.includes("User-rate limit exceeded") ||
-        errorMessage.includes("rate limit exceeded");
+        status === 429 ||
+        (status === 403 &&
+          [
+            "rateLimitExceeded",
+            "userRateLimitExceeded",
+            "quotaExceeded",
+          ].includes(String(reason))) ||
+        /(^|[\s-])rate limit exceeded/i.test(errorMessage) ||
+        /quota exceeded/i.test(errorMessage);
 
       if (!isRateLimitError) {
         logger.error("Non-rate limit error encountered, not retrying", {
           errorMessage,
-          status: originalError?.status,
-          reason: originalError?.errors?.[0]?.reason,
+          status,
+          reason,
         });
         throw error;
       }
 
-      // Parse retry time from error message
+      // Parse retry time from error message or headers
       const retryTime = parseRetryTime(errorMessage);
+      const retryAfterHeader = cause?.response?.headers?.["retry-after"];
       let delayMs = 0;
 
       if (retryTime) {
@@ -46,10 +60,33 @@ export async function withGmailRetry<T>(
           attemptNumber: error.attemptNumber,
           maxRetries,
         });
-      } else {
-        // Fallback to exponential backoff if no retry time specified
+      } else if (retryAfterHeader) {
+        // Handle Retry-After header (can be seconds or HTTP-date)
+        const retryAfterSeconds = Number.parseInt(retryAfterHeader, 10);
+        if (!Number.isNaN(retryAfterSeconds)) {
+          delayMs = retryAfterSeconds * 1000;
+        } else {
+          // Try parsing as HTTP-date
+          const retryDate = new Date(retryAfterHeader);
+          if (!Number.isNaN(retryDate.getTime())) {
+            delayMs = Math.max(0, retryDate.getTime() - Date.now());
+          }
+        }
+
+        if (delayMs > 0) {
+          logger.warn("Gmail rate limit hit. Using Retry-After header", {
+            retryAfterHeader,
+            delaySeconds: Math.ceil(delayMs / 1000),
+            attemptNumber: error.attemptNumber,
+            maxRetries,
+          });
+        }
+      }
+
+      if (!delayMs || delayMs <= 0) {
+        // Fallback to fixed delay if no retry time specified
         delayMs = 30_000;
-        logger.warn("Gmail rate limit hit. Retrying with exponential backoff", {
+        logger.warn("Gmail rate limit hit. Using fallback delay", {
           delaySeconds: Math.ceil(delayMs / 1000),
           attemptNumber: error.attemptNumber,
           maxRetries,
@@ -72,9 +109,13 @@ function parseRetryTime(errorMessage: string): Date | null {
   const retryMatch = errorMessage.match(/Retry after (.+?)(\s|$)/);
   if (retryMatch?.[1]) {
     try {
-      return new Date(retryMatch[1]);
+      const retryDate = new Date(retryMatch[1]);
+      // Validate the date is valid (not NaN)
+      if (!Number.isNaN(retryDate.getTime())) {
+        return retryDate;
+      }
     } catch {
-      return null;
+      // Invalid date format
     }
   }
   return null;
