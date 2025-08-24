@@ -58,33 +58,52 @@ export function OnboardingModalDialog({
   description: React.ReactNode;
   videoId: string;
 }) {
+  return (
+    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <OnboardingDialogContent
+        title={title}
+        description={description}
+        videoId={videoId}
+      />
+    </Dialog>
+  );
+}
+
+export function OnboardingDialogContent({
+  title,
+  description,
+  videoId,
+}: {
+  title: string;
+  description: React.ReactNode;
+  videoId: string;
+}) {
   const { width } = useWindowSize();
 
   const videoWidth = Math.min(width * 0.75, 1200);
   const videoHeight = videoWidth * (675 / 1200);
 
   return (
-    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-      <DialogContent className="min-w-[350px] sm:min-w-[600px] md:min-w-[750px] lg:min-w-[880px] xl:min-w-[1280px]">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+    <DialogContent className="min-w-[350px] sm:min-w-[600px] md:min-w-[750px] lg:min-w-[880px] xl:min-w-[1280px]">
+      <DialogHeader>
+        <DialogTitle>{title}</DialogTitle>
+        <DialogDescription>{description}</DialogDescription>
+      </DialogHeader>
 
-        <YouTubeVideo
-          videoId={videoId}
-          iframeClassName="mx-auto"
-          opts={{
-            height: `${videoHeight}`,
-            width: `${videoWidth}`,
-            playerVars: {
-              // https://developers.google.com/youtube/player_parameters
-              autoplay: 1,
-            },
-          }}
-        />
-      </DialogContent>
-    </Dialog>
+      <YouTubeVideo
+        videoId={videoId}
+        title={`Onboarding video - ${title}`}
+        iframeClassName="mx-auto"
+        opts={{
+          height: `${videoHeight}`,
+          width: `${videoWidth}`,
+          playerVars: {
+            // https://developers.google.com/youtube/player_parameters
+            autoplay: 1,
+          },
+        }}
+      />
+    </DialogContent>
   );
 }
 
