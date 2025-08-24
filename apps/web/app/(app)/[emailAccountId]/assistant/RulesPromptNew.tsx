@@ -6,12 +6,12 @@ import { ListIcon, PlusIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
+import { createRulesAction } from "@/utils/actions/ai-rule";
+import type { CreateRulesBody } from "@/utils/actions/rule.validation";
 import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
 } from "@/components/editor/SimpleRichTextEditor";
-import type { SaveRulesPromptBody } from "@/utils/actions/rule.validation";
 import { LoadingContent } from "@/components/LoadingContent";
 import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
@@ -82,11 +82,7 @@ function RulesPromptForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [result, setResult] = useState<{
-    createdRules: number;
-    editedRules: number;
-    removedRules: number;
-  }>();
+  const [result, setResult] = useState<{ createdRules: number }>();
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
@@ -106,9 +102,9 @@ function RulesPromptForm({
 
     setIsSubmitting(true);
 
-    const saveRulesPromise = async (data: SaveRulesPromptBody) => {
+    const saveRulesPromise = async (data: CreateRulesBody) => {
       setIsSubmitting(true);
-      const result = await saveRulesPromptAction(emailAccountId, data);
+      const result = await createRulesAction(emailAccountId, data);
 
       if (result?.serverError) {
         setIsSubmitting(false);
@@ -130,21 +126,13 @@ function RulesPromptForm({
     }
     setResult(undefined);
 
-    toast.promise(() => saveRulesPromise({ rulesPrompt: markdown }), {
+    toast.promise(() => saveRulesPromise({ prompt: markdown }), {
       loading: "Saving rules... This may take a while to process...",
       success: (result) => {
-        const {
-          createdRules = 0,
-          editedRules = 0,
-          removedRules = 0,
-        } = result?.data || {};
-        setResult({ createdRules, editedRules, removedRules });
+        const { createdRules = 0 } = result?.data || {};
+        setResult({ createdRules });
 
-        const message = [
-          createdRules ? `${createdRules} rules created.` : "",
-          editedRules ? `${editedRules} rules edited.` : "",
-          removedRules ? `${removedRules} rules removed.` : "",
-        ]
+        const message = [createdRules ? `${createdRules} rules created.` : ""]
           .filter(Boolean)
           .join(" ");
 
@@ -169,7 +157,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result}
+        result={result as any}
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog
