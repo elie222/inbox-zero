@@ -148,7 +148,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result as any}
+        result={result}
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog
