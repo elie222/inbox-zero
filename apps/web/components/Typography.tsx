@@ -18,10 +18,10 @@ const PageHeading = forwardRef<
 PageHeading.displayName = "PageHeading";
 
 const PageSubHeading = forwardRef<
-  HTMLHeadingElement,
-  React.HTMLAttributes<HTMLHeadingElement>
+  HTMLParagraphElement,
+  React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <h1
+  <p
     ref={ref}
     className={cn("text-muted-foreground text-sm", className)}
     {...props}

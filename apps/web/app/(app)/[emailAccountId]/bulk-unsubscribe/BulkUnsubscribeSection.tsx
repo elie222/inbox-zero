@@ -221,6 +221,7 @@ export function BulkUnsubscribe() {
               <TextLink
                 href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber"
                 target="_blank"
+                rel="noopener noreferrer"
               >
                 help center
               </TextLink>

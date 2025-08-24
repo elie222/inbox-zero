@@ -92,6 +92,7 @@ export function OnboardingDialogContent({
 
       <YouTubeVideo
         videoId={videoId}
+        title={`Onboarding video - ${title}`}
         iframeClassName="mx-auto"
         opts={{
           height: `${videoHeight}`,
