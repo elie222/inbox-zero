@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { HelpCircleIcon, SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,19 +25,16 @@ import {
   getPersonas,
   type Personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import { convertLabelsToDisplay } from "@/utils/mention";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
-import { SectionHeader } from "@/components/Typography";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
-import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
+import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -364,72 +361,4 @@ function RulesPromptForm({
       </div>
     </div>
   );
-}
-
-function PureExamples({
-  onSelect,
-  examplePrompts,
-}: {
-  onSelect: (example: string) => void;
-  examplePrompts: string[];
-}) {
-  return (
-    <div>
-      <SectionHeader className="text-xl">Examples</SectionHeader>
-
-      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
-        <div className="grid grid-cols-1 gap-2">
-          {examplePrompts.map((example) => {
-            const { color } = getActionType(example);
-
-            return (
-              <Button
-                key={example}
-                variant="outline"
-                onClick={() => onSelect(example)}
-                className="h-auto w-full justify-start text-wrap py-2 text-left"
-              >
-                <div className="flex w-full items-start gap-2">
-                  <div
-                    className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
-                  />
-                  <span className="flex-1">
-                    {convertLabelsToDisplay(example)}
-                  </span>
-                </div>
-              </Button>
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
-
-const Examples = memo(PureExamples);
-
-function getActionType(example: string): {
-  type: string;
-  color: string;
-} {
-  const lowerExample = example.toLowerCase();
-  const color = getActionTypeColor(example);
-
-  if (lowerExample.includes("forward")) {
-    return { type: "forward", color };
-  }
-  if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
-    return { type: "reply", color };
-  }
-  if (lowerExample.includes("archive")) {
-    return { type: "archive", color };
-  }
-  if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
-    return { type: "mark", color };
-  }
-  if (lowerExample.includes("label")) {
-    return { type: "label", color };
-  }
-
-  return { type: "other", color };
 }

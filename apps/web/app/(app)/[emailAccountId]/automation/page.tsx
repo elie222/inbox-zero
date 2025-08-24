@@ -1,13 +1,11 @@
 import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { PlayIcon } from "lucide-react";
 import prisma from "@/utils/prisma";
 import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
-import { OnboardingDialogContent } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
@@ -16,12 +14,10 @@ import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
 import { TabSelect } from "@/components/TabSelect";
-import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
+import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger } from "@/components/ui/dialog";
 
 export const maxDuration = 300; // Applies to the actions
 
