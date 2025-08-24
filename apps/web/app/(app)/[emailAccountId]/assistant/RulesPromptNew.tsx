@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { ListIcon, PlusIcon, UserPenIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createRulesAction } from "@/utils/actions/ai-rule";
-import type { CreateRulesBody } from "@/utils/actions/rule.validation";
 import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
@@ -18,7 +16,6 @@ import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDia
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
@@ -27,6 +24,8 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
 import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
+import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
+import type { CreateRuleResult } from "@/utils/rule/types";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -79,6 +78,8 @@ function RulesPromptForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [result, setResult] = useState<{ createdRules: number }>();
+  const [createdRules, setCreatedRules] = useState<CreateRuleResult[]>([]);
+  const [showCreatedRulesModal, setShowCreatedRulesModal] = useState(false);
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
@@ -87,8 +88,6 @@ function RulesPromptForm({
   const ruleDialog = useDialogState();
 
   const [isExamplesOpen, setIsExamplesOpen] = useState(false);
-
-  const router = useRouter();
 
   const editorRef = useRef<SimpleRichTextEditorRef>(null);
 
@@ -111,10 +110,6 @@ function RulesPromptForm({
           throw new Error(result.serverError);
         }
 
-        if (viewedProcessingPromptFileDialog) {
-          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
-        }
-
         mutate();
         setIsSubmitting(false);
 
@@ -123,16 +118,17 @@ function RulesPromptForm({
       {
         loading: "Creating rules...",
         success: (result) => {
-          const { createdRules = 0 } = result?.data || {};
-          setResult({ createdRules });
-          return `${createdRules} rules created!`;
+          const { rules = [] } = result?.data || {};
+          setCreatedRules(rules);
+
+          return `${rules.length} rules created!`;
         },
         error: (err) => {
           return `Error creating rules: ${err.message}`;
         },
       },
     );
-  }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
+  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -279,6 +275,12 @@ function RulesPromptForm({
           ruleDialog.close();
         }}
         editMode={false}
+      />
+
+      <CreatedRulesModal
+        open={showCreatedRulesModal}
+        onOpenChange={setShowCreatedRulesModal}
+        rules={createdRules}
       />
     </div>
   );

@@ -34,6 +34,7 @@ import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
+import type { CreateRuleResult } from "@/utils/rule/types";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -556,25 +557,32 @@ export const createRulesAction = actionClient
       count: addedRules?.length || 0,
     });
 
-    // add new rules
+    const createdRules: CreateRuleResult[] = [];
+
     for (const rule of addedRules || []) {
       logger.info("Creating rule", { emailAccountId, ruleName: rule.name });
 
-      await safeCreateRule({
+      const createdRule = await safeCreateRule({
         result: rule,
         emailAccountId,
         categoryNames: rule.condition.categories?.categoryFilters || [],
         shouldCreateIfDuplicate: false,
         provider: emailAccount.account.provider,
       });
+
+      if (createdRule) {
+        createdRules.push(createdRule);
+      }
     }
 
     logger.info("Completed", {
       emailAccountId,
-      createdRules: addedRules?.length || 0,
+      createdRules: createdRules.length,
     });
 
-    return { createdRules: addedRules?.length || 0 };
+    return {
+      rules: createdRules,
+    };
   });
 
 /**
