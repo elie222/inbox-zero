@@ -64,13 +64,19 @@ const colorClasses = {
   },
 } as const;
 
+type NormalizedCategoryData = {
+  count: number;
+  senders: string[];
+  items: DigestItem[];
+};
+
 export type DigestEmailProps = {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
   ruleNames?: Record<string, string>;
   [key: string]:
-    | { count: number; senders: string[]; items: DigestItem[] }
+    | NormalizedCategoryData
     | DigestItem[]
     | undefined
     | string
@@ -97,9 +103,17 @@ export default function DigestEmail(props: DigestEmailProps) {
     toReply: "red",
   };
 
-  const normalizeCategoryData = (key: string, data: any) => {
+  const normalizeCategoryData = (
+    _key: string,
+    data:
+      | DigestItem[]
+      | NormalizedCategoryData
+      | string
+      | Date
+      | Record<string, string>
+      | undefined,
+  ): NormalizedCategoryData | null => {
     if (Array.isArray(data)) {
-      // Old format: DigestItem[]
       const items = data;
       const senders = Array.from(new Set(items.map((item) => item.from))).slice(
         0,
@@ -113,12 +127,15 @@ export default function DigestEmail(props: DigestEmailProps) {
     } else if (
       data &&
       typeof data === "object" &&
+      !Array.isArray(data) &&
       "count" in data &&
       "senders" in data &&
-      "items" in data
+      "items" in data &&
+      typeof data.count === "number" &&
+      Array.isArray(data.senders) &&
+      Array.isArray(data.items)
     ) {
-      // New format: already normalized
-      return data;
+      return data as NormalizedCategoryData;
     }
     return null;
   };
@@ -168,7 +185,7 @@ export default function DigestEmail(props: DigestEmailProps) {
     categoryData,
   }: {
     categoryKey: string;
-    categoryData: { count: number; senders: string[]; items: DigestItem[] };
+    categoryData: NormalizedCategoryData;
   }) => {
     const colors = colorClasses[categoryColors[categoryKey] || "gray"];
 
