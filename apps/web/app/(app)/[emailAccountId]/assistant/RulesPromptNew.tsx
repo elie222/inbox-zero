@@ -231,10 +231,10 @@ function RulesPromptForm({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setIsExamplesOpen(true)}
+                onClick={() => setIsExamplesOpen((show) => !show)}
               >
                 <ListIcon className="mr-2 size-4" />
-                Show examples
+                {isExamplesOpen ? "Hide examples" : "Show examples"}
               </Button>
 
               {/* <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
