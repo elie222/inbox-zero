@@ -82,7 +82,7 @@ function RulesPromptForm({
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
-  ] = useLocalStorage("viewedProcessingPromptFileDialog2", false);
+  ] = useLocalStorage("viewedProcessingPromptFileDialog3", false);
 
   const ruleDialog = useDialogState();
 
@@ -97,42 +97,41 @@ function RulesPromptForm({
     if (typeof markdown !== "string") return;
 
     setIsSubmitting(true);
-
-    const saveRulesPromise = async (data: CreateRulesBody) => {
-      setIsSubmitting(true);
-      const result = await createRulesAction(emailAccountId, data);
-
-      if (result?.serverError) {
-        setIsSubmitting(false);
-        throw new Error(result.serverError);
-      }
-
-      if (viewedProcessingPromptFileDialog) {
-        router.push(prefixPath(emailAccountId, "/automation?tab=test"));
-      }
-
-      mutate();
-      setIsSubmitting(false);
-
-      return result;
-    };
-
-    if (!viewedProcessingPromptFileDialog) {
-      setIsDialogOpen(true);
-    }
+    if (!viewedProcessingPromptFileDialog) setIsDialogOpen(true);
     setResult(undefined);
 
-    toast.promise(() => saveRulesPromise({ prompt: markdown }), {
-      loading: "Creating rules...",
-      success: (result) => {
-        const { createdRules = 0 } = result?.data || {};
-        setResult({ createdRules });
-        return `${createdRules} rules created!`;
+    toast.promise(
+      async () => {
+        const result = await createRulesAction(emailAccountId, {
+          prompt: markdown,
+        });
+
+        if (result?.serverError) {
+          setIsSubmitting(false);
+          throw new Error(result.serverError);
+        }
+
+        if (viewedProcessingPromptFileDialog) {
+          router.push(prefixPath(emailAccountId, "/automation?tab=test"));
+        }
+
+        mutate();
+        setIsSubmitting(false);
+
+        return result;
       },
-      error: (err) => {
-        return `Error creating rules: ${err.message}`;
+      {
+        loading: "Creating rules...",
+        success: (result) => {
+          const { createdRules = 0 } = result?.data || {};
+          setResult({ createdRules });
+          return `${createdRules} rules created!`;
+        },
+        error: (err) => {
+          return `Error creating rules: ${err.message}`;
+        },
       },
-    });
+    );
   }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
 
   useEffect(() => {
