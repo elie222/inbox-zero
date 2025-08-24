@@ -190,7 +190,7 @@ function WatchVideo() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="xs" className="ml-2">
+        <Button variant="outline" size="xs" className="ml-3">
           <PlayIcon className="mr-2 size-3" />
           Watch Video
         </Button>

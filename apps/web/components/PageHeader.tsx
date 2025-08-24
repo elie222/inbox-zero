@@ -12,10 +12,10 @@ export function PageHeader({
   return (
     <div>
       <PageHeading>{title}</PageHeading>
-      <PageSubHeading className="mt-1 flex items-center">
-        {description}
+      <div className="flex items-center mt-1">
+        <PageSubHeading>{description}</PageSubHeading>
         {extra}
-      </PageSubHeading>
+      </div>
     </div>
   );
 }
