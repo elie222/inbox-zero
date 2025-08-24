@@ -214,12 +214,7 @@ function RulesPromptForm({
             </LoadingContent>
 
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="submit"
-                size="sm"
-                disabled={isSubmitting}
-                loading={isSubmitting}
-              >
+              <Button type="submit" size="sm" loading={isSubmitting}>
                 Create rules
               </Button>
 

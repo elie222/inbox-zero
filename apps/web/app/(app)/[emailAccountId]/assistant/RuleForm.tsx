@@ -919,7 +919,6 @@ export function RuleForm({
           {rule.id && (
             <Button
               variant="outline"
-              disabled={isSubmitting}
               loading={isSubmitting}
               onClick={async () => {
                 const yes = confirm(
@@ -952,19 +951,11 @@ export function RuleForm({
             </Button>
           )}
           {rule.id ? (
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
+            <Button type="submit" loading={isSubmitting}>
               Save
             </Button>
           ) : (
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
+            <Button type="submit" loading={isSubmitting}>
               Create
             </Button>
           )}
