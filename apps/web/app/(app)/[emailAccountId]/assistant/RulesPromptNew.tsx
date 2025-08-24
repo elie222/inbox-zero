@@ -26,6 +26,7 @@ import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
 import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -42,12 +43,6 @@ export function RulesPrompt() {
     ? personas[persona as keyof typeof personas]?.prompt
     : undefined;
 
-  // <AssistantOnboarding
-  //   onComplete={() => {
-  //     if (!data.rulesPrompt) onOpenPersonaDialog();
-  //   }}
-  // />
-
   return (
     <>
       <RulesPromptForm
@@ -62,6 +57,7 @@ export function RulesPrompt() {
         onSelect={setPersona}
         personas={personas}
       />
+      <AssistantOnboarding />
     </>
   );
 }
