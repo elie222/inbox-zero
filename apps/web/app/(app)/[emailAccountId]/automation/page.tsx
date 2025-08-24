@@ -95,7 +95,12 @@ export default async function AutomationPage({
               <PageHeader
                 title="AI Assistant"
                 description="Personalized AI to help you manage emails faster."
-                extra={<WatchVideo />}
+                video={{
+                  title: "Getting started with AI Personal Assistant",
+                  description:
+                    "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
+                  videoId: "SoeNDVr7ve4",
+                }}
               />
             </div>
 
@@ -183,28 +188,5 @@ async function PendingTab({
     <TabsContent value="pending" className="mb-10">
       <Pending />
     </TabsContent>
-  );
-}
-
-function WatchVideo() {
-  return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="xs" className="ml-3">
-          <PlayIcon className="mr-2 size-3" />
-          Watch Video
-        </Button>
-      </DialogTrigger>
-      <OnboardingDialogContent
-        title="Getting started with AI Personal Assistant"
-        description={
-          <>
-            Learn how to use the AI Personal Assistant to automatically label,
-            archive, and more.
-          </>
-        }
-        videoId="SoeNDVr7ve4"
-      />
-    </Dialog>
   );
 }

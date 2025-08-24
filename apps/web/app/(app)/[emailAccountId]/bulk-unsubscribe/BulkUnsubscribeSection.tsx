@@ -43,11 +43,12 @@ import { ArchiveProgress } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/A
 import { ClientOnly } from "@/components/ClientOnly";
 import { Toggle } from "@/components/Toggle";
 import { useAccount } from "@/providers/EmailAccountProvider";
-import { PageHeading } from "@/components/Typography";
 import { useWindowSize } from "usehooks-ts";
 import { ActionBar } from "@/app/(app)/[emailAccountId]/stats/ActionBar";
 import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsButton";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { TextLink } from "@/components/Typography";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -208,7 +209,27 @@ export function BulkUnsubscribe() {
 
   return (
     <PageWrapper>
-      <PageHeading>Bulk Unsubscriber</PageHeading>
+      <PageHeader
+        title="Bulk Unsubscriber"
+        description="Unsubscribe from and archive emails you don't want to receive."
+        video={{
+          title: "Getting started with Bulk Unsubscribe",
+          description: (
+            <>
+              Learn how to quickly bulk unsubscribe from and archive unwanted
+              emails. You can read more in our{" "}
+              <TextLink
+                href="https://docs.getinboxzero.com/essentials/bulk-email-unsubscriber"
+                target="_blank"
+              >
+                help center
+              </TextLink>
+              .
+            </>
+          ),
+          videoId: "T1rnooV4OYc",
+        }}
+      />
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
         <div className="flex items-center justify-end gap-1">
