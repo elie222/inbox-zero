@@ -2,10 +2,9 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { HelpCircleIcon, SparklesIcon, UserPenIcon } from "lucide-react";
+import { PlusIcon, SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import {
   saveRulesPromptAction,
@@ -16,32 +15,24 @@ import {
   type SimpleRichTextEditorRef,
 } from "@/components/editor/SimpleRichTextEditor";
 import type { SaveRulesPromptBody } from "@/utils/actions/rule.validation";
-import type { RulesPromptResponse } from "@/app/api/user/rules/prompt/route";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
-import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
-import {
-  getExamplePrompts,
-  getPersonas,
-  type Personas,
-} from "@/app/(app)/[emailAccountId]/assistant/examples";
+import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
-import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
+import { useDialogState } from "@/hooks/useDialogState";
+import { useRules } from "@/hooks/useRules";
+import { ExampleList } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/example-list";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
-  const { data, isLoading, error, mutate } = useSWR<
-    RulesPromptResponse,
-    { error: string }
-  >("/api/user/rules/prompt");
   const { isModalOpen, setIsModalOpen } = useModal();
   const onOpenPersonaDialog = useCallback(
     () => setIsModalOpen(true),
@@ -50,39 +41,24 @@ export function RulesPrompt() {
 
   const [persona, setPersona] = useState<string | null>(null);
   const personas = getPersonas(provider);
-  const examplePrompts = getExamplePrompts(provider);
 
   const personaPrompt = persona
     ? personas[persona as keyof typeof personas]?.prompt
     : undefined;
 
+  // <AssistantOnboarding
+  //   onComplete={() => {
+  //     if (!data.rulesPrompt) onOpenPersonaDialog();
+  //   }}
+  // />
+
   return (
     <>
-      <LoadingContent
-        loading={isLoading}
-        error={error}
-        loadingComponent={<Skeleton className="h-[60vh] w-full" />}
-      >
-        {data && (
-          <div className="mt-4">
-            <RulesPromptForm
-              emailAccountId={emailAccountId}
-              rulesPrompt={data.rulesPrompt}
-              personaPrompt={personaPrompt}
-              mutate={mutate}
-              onOpenPersonaDialog={onOpenPersonaDialog}
-              showExamples
-              personas={personas}
-              examplePrompts={examplePrompts}
-            />
-            <AssistantOnboarding
-              onComplete={() => {
-                if (!data.rulesPrompt) onOpenPersonaDialog();
-              }}
-            />
-          </div>
-        )}
-      </LoadingContent>
+      <RulesPromptForm
+        emailAccountId={emailAccountId}
+        personaPrompt={personaPrompt}
+        onOpenPersonaDialog={onOpenPersonaDialog}
+      />
       <PersonaDialog
         isOpen={isModalOpen}
         setIsOpen={setIsModalOpen}
@@ -95,23 +71,14 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
-  rulesPrompt,
   personaPrompt,
-  mutate,
   onOpenPersonaDialog,
-  showExamples,
-  personas,
-  examplePrompts,
 }: {
   emailAccountId: string;
-  rulesPrompt: string | null;
   personaPrompt?: string;
-  mutate: () => void;
   onOpenPersonaDialog: () => void;
-  showExamples?: boolean;
-  personas: Personas;
-  examplePrompts: string[];
 }) {
+  const { mutate } = useRules();
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,6 +93,8 @@ function RulesPromptForm({
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
+
+  const ruleDialog = useDialogState();
 
   const router = useRouter();
 
@@ -194,10 +163,6 @@ function RulesPromptForm({
     editorRef.current?.appendText(personaPrompt);
   }, [personaPrompt]);
 
-  const addExamplePrompt = useCallback((example: string) => {
-    editorRef.current?.appendText(`\n* ${example.trim()}`);
-  }, []);
-
   return (
     <div>
       <ProcessingPromptFileDialog
@@ -209,87 +174,52 @@ function RulesPromptForm({
         }
       />
 
-      <div
-        className={cn(showExamples && "grid grid-cols-1 gap-4 sm:grid-cols-3")}
-      >
+      <div className="grid md:grid-cols-3 gap-4">
         <form
+          className="col-span-2"
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit();
           }}
-          className={showExamples ? "sm:col-span-2" : ""}
         >
           <div className="flex items-center justify-between">
-            <Label className="font-cal text-xl leading-7">
-              How your assistant should handle incoming emails
-            </Label>
+            <Label className="font-cal text-xl leading-7">Add new rules</Label>
 
-            <Tooltip
-              contentComponent={
-                <div className="space-y-1">
-                  <div className="font-medium">Formatting options:</div>
-                  <div className="text-sm space-y-1">
-                    <div>
-                      <span className="font-mono font-bold text-blue-400">
-                        *
-                      </span>{" "}
-                      for bullet points
-                    </div>
-                    <div>
-                      <span className="font-mono font-bold text-blue-400">
-                        @label
-                      </span>{" "}
-                      for labels
-                    </div>
-                    <div>
-                      <span className="font-mono font-bold text-blue-400">
-                        &gt; text
-                      </span>{" "}
-                      for quotes
-                    </div>
-                  </div>
-                </div>
-              }
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => ruleDialog.open()}
+              Icon={PlusIcon}
             >
-              <HelpCircleIcon className="h-5 w-5 cursor-pointer text-muted-foreground hover:text-foreground" />
-            </Tooltip>
+              Add rule manually
+            </Button>
           </div>
 
-          <div className="mt-1.5 space-y-4">
+          <div className="mt-1.5 space-y-2">
             <LoadingContent
               loading={isLoadingLabels}
-              loadingComponent={<Skeleton className="min-h-[600px] w-full" />}
+              loadingComponent={<Skeleton className="min-h-[70px] w-full" />}
             >
               <SimpleRichTextEditor
                 ref={editorRef}
-                defaultValue={rulesPrompt || undefined}
-                minHeight={600}
+                defaultValue={undefined}
+                minHeight={70}
                 userLabels={userLabels}
-                onClearContents={() => {
-                  toast.info(
-                    "Note: Deleting text will delete rules. Add new rules at the end to keep your existing rules.",
-                  );
-                }}
-                placeholder={`Here's an example of what your prompt might look like:
-
-* ${personas.other.promptArray[0]}
-* ${personas.other.promptArray[1]}
-* If someone asks about pricing, reply with:
-> Hi NAME!
-> I'm currently offering a 10% discount. Let me know if you're interested!`}
+                placeholder={"Write your rules here..."}
               />
             </LoadingContent>
 
             <div className="flex flex-wrap gap-2">
               <Button
                 type="submit"
+                size="sm"
                 disabled={isSubmitting || isGenerating}
                 loading={isSubmitting}
               >
-                Save
+                Create rules
               </Button>
 
-              <Button variant="outline" onClick={onOpenPersonaDialog}>
+              <Button variant="outline" size="sm" onClick={onOpenPersonaDialog}>
                 <UserPenIcon className="mr-2 size-4" />
                 Choose persona
               </Button>
@@ -298,6 +228,7 @@ function RulesPromptForm({
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
                   disabled={isSubmitting || isGenerating}
                   onClick={async () => {
                     if (isSubmitting || isGenerating) return;
@@ -345,13 +276,23 @@ function RulesPromptForm({
           </div>
         </form>
 
-        {showExamples && (
-          <Examples
+        <div>
+          {/* <ExamplesList
             onSelect={addExamplePrompt}
             examplePrompts={examplePrompts}
-          />
-        )}
+          /> */}
+        </div>
       </div>
+
+      <RuleDialog
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.close}
+        onSuccess={() => {
+          mutate();
+          ruleDialog.close();
+        }}
+        editMode={false}
+      />
     </div>
   );
 }

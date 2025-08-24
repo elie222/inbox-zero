@@ -60,7 +60,13 @@ import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
-export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
+export function Rules({
+  size = "md",
+  showAddRuleButton = true,
+}: {
+  size?: "sm" | "md";
+  showAddRuleButton?: boolean;
+}) {
   const { data, isLoading, error, mutate } = useRules();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
@@ -216,9 +222,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <div className="flex justify-end">
-                      <AddRuleButton onClick={onCreateRule} />
-                    </div>
+                    {showAddRuleButton && (
+                      <div className="flex justify-end">
+                        <AddRuleButton onClick={onCreateRule} />
+                      </div>
+                    )}
                   </TableHead>
                 </TableRow>
               </TableHeader>
