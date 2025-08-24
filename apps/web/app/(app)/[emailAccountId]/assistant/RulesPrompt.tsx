@@ -50,7 +50,6 @@ export function RulesPrompt() {
 
   const [persona, setPersona] = useState<string | null>(null);
   const personas = getPersonas(provider);
-  const examplePrompts = getExamplePrompts(provider);
 
   const personaPrompt = persona
     ? personas[persona as keyof typeof personas]?.prompt
@@ -67,13 +66,13 @@ export function RulesPrompt() {
           <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
+              provider={provider}
               rulesPrompt={data.rulesPrompt}
               personaPrompt={personaPrompt}
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
               showExamples
               personas={personas}
-              examplePrompts={examplePrompts}
             />
             <AssistantOnboarding
               onComplete={() => {
@@ -95,22 +94,22 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
+  provider,
   rulesPrompt,
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
   showExamples,
   personas,
-  examplePrompts,
 }: {
   emailAccountId: string;
+  provider: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
   personas: Personas;
-  examplePrompts: string[];
 }) {
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
@@ -346,10 +345,7 @@ function RulesPromptForm({
         </form>
 
         {showExamples && (
-          <Examples
-            onSelect={addExamplePrompt}
-            examplePrompts={examplePrompts}
-          />
+          <Examples onSelect={addExamplePrompt} provider={provider} />
         )}
       </div>
     </div>

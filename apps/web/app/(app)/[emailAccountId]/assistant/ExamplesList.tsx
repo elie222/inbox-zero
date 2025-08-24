@@ -4,19 +4,24 @@ import { SectionHeader } from "@/components/Typography";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { Button } from "@/components/ui/button";
+import { getExamplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
 
 function PureExamples({
   onSelect,
-  examplePrompts,
+  provider,
+  className = "mt-1.5 sm:h-[60vh] sm:max-h-[60vh]",
 }: {
   onSelect: (example: string) => void;
-  examplePrompts: string[];
+  provider: string;
+  className?: string;
 }) {
+  const examplePrompts = getExamplePrompts(provider);
+
   return (
     <div>
       <SectionHeader className="text-xl">Examples</SectionHeader>
 
-      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
+      <ScrollArea className={className}>
         <div className="grid grid-cols-1 gap-2">
           {examplePrompts.map((example) => {
             const { color } = getActionType(example);

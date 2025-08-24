@@ -2,21 +2,17 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { PlusIcon, SparklesIcon, UserPenIcon } from "lucide-react";
+import { ListIcon, PlusIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import {
-  saveRulesPromptAction,
-  generateRulesPromptAction,
-} from "@/utils/actions/ai-rule";
+import { saveRulesPromptAction } from "@/utils/actions/ai-rule";
 import {
   SimpleRichTextEditor,
   type SimpleRichTextEditorRef,
 } from "@/components/editor/SimpleRichTextEditor";
 import type { SaveRulesPromptBody } from "@/utils/actions/rule.validation";
 import { LoadingContent } from "@/components/LoadingContent";
-import { Tooltip } from "@/components/Tooltip";
 import { getPersonas } from "@/app/(app)/[emailAccountId]/assistant/examples";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
@@ -29,7 +25,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
-import { ExampleList } from "@/app/(app)/[emailAccountId]/assistant/rule/[ruleId]/examples/example-list";
+import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -56,6 +52,7 @@ export function RulesPrompt() {
     <>
       <RulesPromptForm
         emailAccountId={emailAccountId}
+        provider={provider}
         personaPrompt={personaPrompt}
         onOpenPersonaDialog={onOpenPersonaDialog}
       />
@@ -71,10 +68,12 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
+  provider,
   personaPrompt,
   onOpenPersonaDialog,
 }: {
   emailAccountId: string;
+  provider: string;
   personaPrompt?: string;
   onOpenPersonaDialog: () => void;
 }) {
@@ -82,7 +81,6 @@ function RulesPromptForm({
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [result, setResult] = useState<{
     createdRules: number;
@@ -95,6 +93,8 @@ function RulesPromptForm({
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
   const ruleDialog = useDialogState();
+
+  const [isExamplesOpen, setIsExamplesOpen] = useState(false);
 
   const router = useRouter();
 
@@ -163,6 +163,10 @@ function RulesPromptForm({
     editorRef.current?.appendText(personaPrompt);
   }, [personaPrompt]);
 
+  const addExamplePrompt = useCallback((example: string) => {
+    editorRef.current?.appendText(`\n* ${example.trim()}`);
+  }, []);
+
   return (
     <div>
       <ProcessingPromptFileDialog
@@ -213,7 +217,7 @@ function RulesPromptForm({
               <Button
                 type="submit"
                 size="sm"
-                disabled={isSubmitting || isGenerating}
+                disabled={isSubmitting}
                 loading={isSubmitting}
               >
                 Create rules
@@ -224,7 +228,16 @@ function RulesPromptForm({
                 Choose persona
               </Button>
 
-              <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsExamplesOpen(true)}
+              >
+                <ListIcon className="mr-2 size-4" />
+                Show examples
+              </Button>
+
+              {/* <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
                 <Button
                   type="button"
                   variant="outline"
@@ -271,16 +284,19 @@ function RulesPromptForm({
                   <SparklesIcon className="mr-2 size-4" />
                   Give me ideas
                 </Button>
-              </Tooltip>
+              </Tooltip> */}
             </div>
           </div>
         </form>
 
         <div>
-          {/* <ExamplesList
-            onSelect={addExamplePrompt}
-            examplePrompts={examplePrompts}
-          /> */}
+          {isExamplesOpen && (
+            <Examples
+              onSelect={addExamplePrompt}
+              provider={provider}
+              className="mt-1.5 sm:h-[20vh] sm:max-h-[20vh]"
+            />
+          )}
         </div>
       </div>
 
