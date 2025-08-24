@@ -1,6 +1,5 @@
 import {
   Body,
-  Column,
   Container,
   Head,
   Heading,
@@ -8,11 +7,11 @@ import {
   Html,
   Img,
   Link,
-  Row,
   Section,
   Tailwind,
   Text,
 } from "@react-email/components";
+import pluralize from "pluralize";
 
 type DigestItem = {
   from: string;
@@ -24,50 +23,43 @@ const colorClasses = {
   blue: {
     bg: "bg-blue-50",
     text: "text-blue-800",
-    border:
-      "border-l-blue-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-blue-400",
     bgAccent: "bg-blue-100",
   },
   green: {
     bg: "bg-green-50",
     text: "text-green-800",
-    border:
-      "border-l-green-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-green-400",
     bgAccent: "bg-green-100",
   },
   purple: {
     bg: "bg-purple-50",
     text: "text-purple-800",
-    border:
-      "border-l-purple-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-purple-400",
     bgAccent: "bg-purple-100",
   },
   amber: {
     bg: "bg-amber-50",
     text: "text-amber-800",
-    border:
-      "border-l-amber-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-amber-400",
     bgAccent: "bg-amber-100",
   },
   gray: {
     bg: "bg-gray-50",
     text: "text-gray-800",
-    border:
-      "border-l-gray-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-gray-400",
     bgAccent: "bg-gray-100",
   },
   pink: {
     bg: "bg-pink-50",
     text: "text-pink-800",
-    border:
-      "border-l-pink-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-pink-400",
     bgAccent: "bg-pink-100",
   },
   red: {
     bg: "bg-red-50",
     text: "text-red-800",
-    border:
-      "border-l-red-400 border-t-gray-200 border-r-gray-200 border-b-gray-200",
+    leftBorder: "border-l-red-400",
     bgAccent: "bg-red-100",
   },
 } as const;
@@ -78,6 +70,7 @@ export type DigestEmailProps = {
   date?: Date;
   ruleNames?: Record<string, string>;
   [key: string]:
+    | { count: number; senders: string[]; items: DigestItem[] }
     | DigestItem[]
     | undefined
     | string
@@ -94,177 +87,47 @@ export default function DigestEmail(props: DigestEmailProps) {
     ...digestData
   } = props;
 
-  const availableCategories = {
-    newsletter: {
-      name: "Newsletter",
-      emoji: "📰",
-      color: "blue",
-      href: "#newsletters",
-    },
-    receipt: {
-      name: "Receipt",
-      emoji: "🧾",
-      color: "green",
-      href: "#receipts",
-    },
-    marketing: {
-      name: "Marketing",
-      emoji: "🔊",
-      color: "purple",
-      href: "#marketing",
-    },
-    calendar: {
-      name: "Calendar",
-      emoji: "📅",
-      color: "amber",
-      href: "#calendar",
-    },
-    coldEmail: {
-      name: "Cold Email",
-      emoji: "🧊",
-      color: "gray",
-      href: "#cold-emails",
-    },
-    notification: {
-      name: "Notification",
-      emoji: "🔔",
-      color: "pink",
-      href: "#notifications",
-    },
-    toReply: {
-      name: "To Reply",
-      emoji: "⏰",
-      color: "red",
-      href: "#to-reply",
-    },
+  const categoryColors: Record<string, keyof typeof colorClasses> = {
+    newsletter: "blue",
+    receipt: "green",
+    marketing: "purple",
+    calendar: "amber",
+    coldEmail: "gray",
+    notification: "pink",
+    toReply: "red",
   };
 
-  const getCategoryInfo = (key: string) => {
-    const displayName = ruleNames?.[key] || key;
-    if (key in availableCategories) {
-      const categoryInfo =
-        availableCategories[key as keyof typeof availableCategories];
-      return {
-        ...categoryInfo,
-        name: displayName,
-      };
-    }
-
-    // Fallback for unknown categories
-    return {
-      name: displayName,
-      emoji: "📂",
-      color: "gray",
-      href: `#${key}`,
-    };
-  };
-
-  const getCategoriesWithItemsCount = () => {
-    return Object.keys(digestData).filter(
-      (key) =>
-        Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-    ).length;
-  };
-
-  /**
-   * Renders a grid of categories with a count of the number of emails in each category.
-   * This is needed because we have a total of 7 categories that can be displayed varying from 2 to 7.
-   * The grid is rendered differently depending on the number of categories.
-   *
-   * 2 categories: single row
-   * 3-4 categories: 2x2 grid
-   * 5-7 categories: 2x2 grid + bottom row
-   *
-   * @returns Renders a grid of categories with a count of the number of emails in each category.
-   */
-  const renderCategoryGrid = () => {
-    // Get all present categories in digestData
-    const categories = Object.keys(digestData)
-      .filter(
-        (key) =>
-          Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-      )
-      .map((key) => {
-        const items = digestData[key] as DigestItem[];
-        const info = getCategoryInfo(key);
-        return {
-          key,
-          ...info,
-          count: items.length,
-        };
-      });
-
-    const categoryCount = categories.length;
-    if (categoryCount === 0) return null;
-
-    // For all cases: ensure max 2 items per row
-    const rows = [];
-    const totalRows = Math.ceil(categoryCount / 2);
-
-    for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
-      const startIndex = rowIndex * 2;
-      const endIndex = Math.min(startIndex + 2, categoryCount);
-      const isLastRow = rowIndex === totalRows - 1;
-      const itemsInThisRow = endIndex - startIndex;
-
-      rows.push(
-        <Row key={rowIndex} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
-          {categories.slice(startIndex, endIndex).map((category, index) => (
-            <Column
-              key={category.key}
-              className={`w-[50%] ${
-                itemsInThisRow === 1
-                  ? ""
-                  : index === 0
-                    ? "pr-[4px]"
-                    : "pl-[4px]"
-              }`}
-            >
-              <Link href={category.href} className="no-underline">
-                <div
-                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px]`}
-                >
-                  <Row>
-                    <Column
-                      style={{ textAlign: "left", verticalAlign: "middle" }}
-                    >
-                      <Text
-                        className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                      >
-                        {category.emoji} {category.name}
-                      </Text>
-                    </Column>
-                    <Column
-                      style={{ textAlign: "right", verticalAlign: "middle" }}
-                    >
-                      <div
-                        className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
-                        style={{ display: "inline-block" }}
-                      >
-                        <Text
-                          className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                        >
-                          {category.count}
-                        </Text>
-                      </div>
-                    </Column>
-                  </Row>
-                </div>
-              </Link>
-            </Column>
-          ))}
-        </Row>,
+  const normalizeCategoryData = (key: string, data: any) => {
+    if (Array.isArray(data)) {
+      // Old format: DigestItem[]
+      const items = data;
+      const senders = Array.from(new Set(items.map((item) => item.from))).slice(
+        0,
+        5,
       );
+      return {
+        count: items.length,
+        senders,
+        items,
+      };
+    } else if (
+      data &&
+      typeof data === "object" &&
+      "count" in data &&
+      "senders" in data &&
+      "items" in data
+    ) {
+      // New format: already normalized
+      return data;
     }
-
-    return rows;
+    return null;
   };
 
-  // Return early if no digest items are found
-  const hasItems = Object.keys(digestData).some(
-    (key) =>
-      Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-  );
+  // Return early if no digest data is found
+  const hasItems = Object.keys(digestData).some((key) => {
+    const categoryData = normalizeCategoryData(key, digestData[key]);
+    return categoryData && categoryData.count > 0;
+  });
 
   if (!hasItems) {
     return null;
@@ -302,53 +165,104 @@ export default function DigestEmail(props: DigestEmailProps) {
 
   const CategorySection = ({
     categoryKey,
-    items,
+    categoryData,
   }: {
     categoryKey: string;
-    items: DigestItem[];
+    categoryData: { count: number; senders: string[]; items: DigestItem[] };
   }) => {
-    if (items.length === 0) return null;
-    const category = getCategoryInfo(categoryKey);
-    const colors =
-      colorClasses[category.color as keyof typeof colorClasses] ||
-      colorClasses.gray;
-    return (
-      <Section className="mb-[40px]" id={category.href.slice(1)}>
-        <div className="mb-[20px]">
-          <div className="flex items-center mb-[20px]">
-            <Heading className="text-[20px] font-bold text-gray-900 mt-0 mb-0 mr-[12px]">
-              {category.emoji} {category.name}
-            </Heading>
-            <div
-              className={`${colors.bgAccent} text-[12px] font-medium px-[8px] py-[4px] rounded-[12px]`}
-            >
-              {items.length} emails
-            </div>
-          </div>
+    const colors = colorClasses[categoryColors[categoryKey] || "gray"];
 
-          {items.map((item, index) => (
-            <div
-              key={index}
-              className={`mb-[12px] p-[20px] border-l-[4px] border-t-[1px] border-r-[1px] border-b-[1px] border-solid ${colors.border} bg-[#fdfefe] rounded-[8px]`}
-            >
-              {/* Email Header */}
-              <div className="mb-[12px]">
-                <Text className="text-[16px] font-bold text-gray-900 mt-0 mb-0">
-                  {item.subject}
-                </Text>
-                <Text className="text-[14px] text-gray-700 mt-[2px] mb-0">
-                  From:{" "}
-                  <span className="font-medium text-gray-800">{item.from}</span>
+    if (categoryData.items.length > 0) {
+      return (
+        <Section className="mb-[8px]" id={categoryKey}>
+          <div className="mb-[8px]">
+            <div className="text-left mb-[8px]">
+              <div className="px-4 py-3">
+                <Text className="text-[16px] text-gray-700 mt-0 mb-0">
+                  {categoryData.count}{" "}
+                  <span className={`${colors.text} font-semibold`}>
+                    {categoryData.count > 1
+                      ? pluralize(
+                          (
+                            ruleNames?.[categoryKey] || categoryKey
+                          ).toLowerCase(),
+                        )
+                      : (ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                  </span>
+                  {" from "}
+                  {categoryData.senders.map((sender, index) => {
+                    if (index === 0) {
+                      return sender;
+                    } else {
+                      return `, ${sender}`;
+                    }
+                  })}
+                  {categoryData.count > 5 && " and more"}
                 </Text>
               </div>
-
-              {/* Email Content */}
-              {renderEmailContent(item)}
             </div>
-          ))}
+
+            <div
+              className={`border-l-[4px] border-t border-r border-b border-solid border-gray-200 ${colors.leftBorder} bg-[#fdfefe] rounded-[8px] overflow-hidden`}
+            >
+              {categoryData.items.map((item, index) => (
+                <div key={index}>
+                  <div className="p-[20px]">
+                    {/* Email Header */}
+                    <div className="mb-[12px]">
+                      <Text className="text-[16px] font-bold text-gray-900 mt-0 mb-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[14px] text-gray-700 mt-[2px] mb-0">
+                        From:{" "}
+                        <span className="font-medium text-gray-800">
+                          {item.from}
+                        </span>
+                      </Text>
+                    </div>
+
+                    {/* Email Content */}
+                    {renderEmailContent(item)}
+                  </div>
+
+                  {/* Separator line - don't show after the last item */}
+                  {index < categoryData.items.length - 1 && (
+                    <Hr className="border-solid border-gray-200 my-0 mx-[20px]" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
+      );
+    } else {
+      // Categories with no highlights - much more compact
+      return (
+        <div className="mb-[4px]" id={categoryKey}>
+          <div className="px-4 py-2">
+            <Text className="text-[16px] text-gray-700 mt-0 mb-0">
+              {categoryData.count}{" "}
+              <span className={`${colors.text} font-semibold`}>
+                {categoryData.count > 1
+                  ? pluralize(
+                      (ruleNames?.[categoryKey] || categoryKey).toLowerCase(),
+                    )
+                  : (ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+              </span>
+              {" from "}
+              {categoryData.senders.map((sender, index) => {
+                if (index === 0) {
+                  return sender;
+                } else {
+                  return `, ${sender}`;
+                }
+              })}
+              {categoryData.count > 5 && " and more"}
+            </Text>
+          </div>
         </div>
-      </Section>
-    );
+      );
+    }
   };
 
   return (
@@ -382,19 +296,21 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {getCategoriesWithItemsCount() > 1 && (
-              <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
-            )}
-            {Object.keys(digestData).map((categoryKey) =>
-              Array.isArray(digestData[categoryKey]) &&
-              digestData[categoryKey]?.length > 0 ? (
+            {Object.keys(digestData).map((categoryKey) => {
+              const categoryData = normalizeCategoryData(
+                categoryKey,
+                digestData[categoryKey],
+              );
+              if (!categoryData) return null;
+
+              return (
                 <CategorySection
                   key={categoryKey}
                   categoryKey={categoryKey}
-                  items={digestData[categoryKey] as DigestItem[]}
+                  categoryData={categoryData}
                 />
-              ) : null,
-            )}
+              );
+            })}
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
           </Container>
@@ -438,22 +354,94 @@ DigestEmail.PreviewProps = {
       content:
         "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\nScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\nCursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
     },
+    {
+      from: "TechCrunch",
+      subject: "Startup funding roundup: Q1 2024",
+      content:
+        "AI startups raised $12B in Q1, up 45% from last year\nFintech sector sees consolidation with 3 major acquisitions\nEnterprise SaaS continues strong growth trajectory",
+    },
+    {
+      from: "The Verge",
+      subject: "CES 2024: The best gadgets and announcements",
+      content:
+        "Samsung unveils transparent MicroLED displays\nLG's rollable OLED TV gets 8K upgrade\nSony's new VR headset challenges Meta's dominance",
+    },
+    {
+      from: "Ars Technica",
+      subject: "SpaceX Starship achieves orbital milestone",
+      content:
+        "Successful launch and landing of Starship prototype\nNext test flight scheduled for next month\nNASA partnership for lunar missions confirmed",
+    },
+    {
+      from: "Wired",
+      subject: "The future of quantum computing",
+      content:
+        "IBM reaches 1,000+ qubit milestone\nGoogle's quantum supremacy claims verified\nNew algorithms show promise for cryptography",
+    },
+    {
+      from: "MIT Technology Review",
+      subject: "Climate tech innovations to watch",
+      content:
+        "Direct air capture technology breakthrough\nGreen hydrogen production costs drop 60%\nCarbon-neutral cement alternatives emerge",
+    },
   ],
   receipt: [
     {
       from: "Amazon",
-      subject: "Order #112-3456789-0123456",
-      content: "Merchant: Amazon\nAmount: $42.99\nDate: 9:15 AM",
+      subject: "Order #123-4567890-1234567",
+      content: "Your order has been delivered to your doorstep.",
     },
     {
       from: "Uber Eats",
-      subject: "Order #EAT-123456789",
-      content: "Merchant: Uber Eats\nAmount: $23.45\nDate: 1:20 PM",
+      subject: "Your food is on the way!",
+      content:
+        "Estimated delivery: 15-20 minutes\nDriver: John D.\nOrder total: $24.50",
     },
     {
       from: "Netflix",
-      subject: "Monthly subscription",
-      content: "Merchant: Netflix\nAmount: $15.99\nDate: 4:30 AM",
+      subject: "Payment received for Netflix subscription",
+      content: "Amount: $15.99\nNext billing date: March 15, 2024",
+    },
+    {
+      from: "Spotify",
+      subject: "Premium subscription renewed",
+      content:
+        "Your Spotify Premium subscription has been renewed for $9.99/month.",
+    },
+    {
+      from: "Apple",
+      subject: "iCloud storage payment",
+      content: "iCloud+ 50GB plan renewed for $0.99/month.",
+    },
+    {
+      from: "Starbucks",
+      subject: "Receipt for your purchase",
+      content:
+        "Location: Downtown Store\nItems: 2x Venti Lattes, 1x Croissant\nTotal: $18.75\nPayment: Apple Pay",
+    },
+    {
+      from: "Target",
+      subject: "Order confirmation #TGT-789456",
+      content:
+        "Order total: $67.89\nItems: 5 items\nEstimated delivery: Tomorrow\nTracking: UPS 1Z999AA1234567890",
+    },
+    {
+      from: "DoorDash",
+      subject: "Your delivery is complete",
+      content:
+        "Restaurant: Thai Palace\nOrder: Pad Thai, Spring Rolls, Thai Iced Tea\nTotal: $32.45\nTip: $5.00",
+    },
+    {
+      from: "Walmart",
+      subject: "Online order shipped",
+      content:
+        "Order #WM-456789\nItems: 3 items\nTotal: $89.99\nCarrier: FedEx\nTracking: 123456789012",
+    },
+    {
+      from: "Costco",
+      subject: "Monthly membership renewal",
+      content:
+        "Executive Membership renewed\nAnnual fee: $120.00\nNext renewal: March 15, 2025\nBenefits: 2% cashback, travel discounts",
     },
   ],
   marketing: [
@@ -513,26 +501,29 @@ DigestEmail.PreviewProps = {
   notification: [
     {
       from: "LinkedIn",
-      subject: "Profile Views",
-      content:
-        "Title: Profile Views\nDate: 5 people viewed your profile this week • 11:00 AM",
+      subject: "New connection request from Sarah M.",
+      content: "Sarah M. wants to connect with you on LinkedIn.",
     },
     {
       from: "Slack",
-      subject: "Unread Messages",
-      content:
-        "Title: Unread Messages\nDate: 3 unread messages in #general channel • 2:45 PM",
+      subject: "New message in #general",
+      content: "Alex: Can someone help me with the deployment?",
     },
     {
       from: "GitHub",
-      subject: "Pull Request Update",
+      subject: "Pull request #1234 needs your review",
       content:
-        "Title: Pull Request Update\nDate: Pull request #123 was approved • 5:30 PM",
+        "Repository: myapp\nBranch: feature/new-feature\nFiles changed: 15",
     },
     {
       from: "Twitter",
-      subject: "New Followers",
-      content: "Title: New Followers\nDate: You have 7 new followers • 6:15 PM",
+      subject: "New follower: @techguru",
+      content: "You have a new follower on Twitter.",
+    },
+    {
+      from: "Discord",
+      subject: "New message in #development",
+      content: "Mike: The new API endpoint is working great!",
     },
   ],
   toReply: [
@@ -568,7 +559,7 @@ DigestEmail.PreviewProps = {
   funnyStuff: [
     {
       from: "The Onion",
-      subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
+      subject: "Area Man Unsure If He's Living In Simulation Or Just Milwaukee",
       content:
         "Local man questions reality after seeing three people in cheese hats.",
     },
@@ -613,14 +604,17 @@ function Footer({
         You're receiving this email because you enabled digest emails in your
         Inbox Zero settings.
       </Text>
-      <Text className="m-0">
+      <div className="flex justify-center items-center gap-[16px] mt-[8px]">
         <Link
           href={`${baseUrl}/api/unsubscribe?token=${unsubscribeToken}`}
           className="text-gray-500 underline"
         >
           Unsubscribe
         </Link>
-      </Text>
+        <Link href={`${baseUrl}/settings`} className="text-gray-500 underline">
+          Customize what you receive
+        </Link>
+      </div>
     </Section>
   );
 }

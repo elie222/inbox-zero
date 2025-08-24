@@ -45,7 +45,8 @@ Your task is to:
 **Classification rules:**
 - Use "structured" if the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar.
 - Use "unstructured" if the email is a narrative, update, announcement, or a message that is not a direct response to the user.
-- If the email is a direct message to the user, summarize it as if you are talking directly to them, keeping the correct person (e.g., first person, second person, third person, etc.).
+- If the email is a direct message to the user, summarize it in the second person (as if talking directly to the user) using phrasing such as: “You have received…”, 	“X wants you to review…”, “You are invited…”, etc.
+- If second person phrasing is not possible or natural (e.g., for announcements, newsletters, or general updates), summarize in a clear neutral third-person style.
 - If the email is spam, promotional, or irrelevant, return "null".
 
 **Content rules for structured classification:**
@@ -60,8 +61,7 @@ Your task is to:
 - For unstructured emails, return the summarized text.
 - For spam, promotional, or irrelevant emails, return "null".
 
-Now, classify and summarize the following email,
-`;
+Now, classify and summarize the following email:`;
 
   const prompt = `
 <email>
