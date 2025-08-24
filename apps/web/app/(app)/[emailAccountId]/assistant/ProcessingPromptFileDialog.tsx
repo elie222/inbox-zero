@@ -61,7 +61,7 @@ export function ProcessingPromptFileDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         {currentStep === 0 && <IntroStep next={next} />}
         {currentStep === 1 && <Step1 back={back} next={next} />}
         {currentStep === 2 && <Step2 back={back} next={next} />}
@@ -98,9 +98,9 @@ function StepNavigation({ back, next }: StepProps) {
 function Step({ back, next, title, children }: StepContentProps) {
   return (
     <>
-      <DialogHeader className="flex flex-col items-center justify-center">
+      <DialogHeader className="flex flex-col justify-center mx-auto">
         <DialogTitle>{title}</DialogTitle>
-        <DialogDescription className="max-w-md space-y-1.5 text-left">
+        <DialogDescription className="max-w-lg space-y-1.5 text-left">
           {children}
         </DialogDescription>
       </DialogHeader>
@@ -116,10 +116,8 @@ function IntroStep({ next }: StepProps) {
     <>
       <DialogHeader className="flex flex-col items-center justify-center">
         <Loading />
-        <DialogTitle>Processing...</DialogTitle>
+        <DialogTitle>Creating rules...</DialogTitle>
         <DialogDescription className="text-center">
-          This will take a minute.
-          <br />
           In the meantime, get to know your AI assistant better!
         </DialogDescription>
       </DialogHeader>
@@ -143,8 +141,8 @@ function Step1({ back, next }: StepProps) {
       <Image
         src="/images/assistant/rules.png"
         alt="Analyzing prompt file"
-        width={500}
-        height={300}
+        width={800}
+        height={600}
         className="rounded-lg shadow"
       />
     </Step>
@@ -272,7 +270,7 @@ function FinalStepReady({
         </Button>
         <Button asChild onClick={next}>
           <Link href={prefixPath(emailAccountId, "/automation?tab=test")}>
-            Try them out!
+            Try it out!
           </Link>
         </Button>
       </div>

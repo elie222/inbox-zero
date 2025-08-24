@@ -82,7 +82,7 @@ function RulesPromptForm({
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
-  ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
+  ] = useLocalStorage("viewedProcessingPromptFileDialog2", false);
 
   const ruleDialog = useDialogState();
 
@@ -123,19 +123,14 @@ function RulesPromptForm({
     setResult(undefined);
 
     toast.promise(() => saveRulesPromise({ prompt: markdown }), {
-      loading: "Saving rules... This may take a while to process...",
+      loading: "Creating rules...",
       success: (result) => {
         const { createdRules = 0 } = result?.data || {};
         setResult({ createdRules });
-
-        const message = [createdRules ? `${createdRules} rules created.` : ""]
-          .filter(Boolean)
-          .join(" ");
-
-        return `Rules saved successfully! ${message}`;
+        return `${createdRules} rules created!`;
       },
       error: (err) => {
-        return `Error saving rules: ${err.message}`;
+        return `Error creating rules: ${err.message}`;
       },
     });
   }, [mutate, router, viewedProcessingPromptFileDialog, emailAccountId]);
