@@ -2,8 +2,8 @@ import { z } from "zod";
 import { createGenerateObject } from "@/utils/llms";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import {
+  type CreateOrUpdateRuleSchemaWithCategories,
   createRuleSchema,
-  type CreateRuleSchemaWithCategories,
   getCreateRuleSchemaWithCategories,
 } from "@/utils/ai/rule/create-rule-schema";
 import { createScopedLogger } from "@/utils/logger";
@@ -12,24 +12,40 @@ import { getModel } from "@/utils/llms/model";
 
 const logger = createScopedLogger("ai-prompt-to-rules");
 
-export async function aiPromptToRules({
+const updateRuleSchema = (provider: string) =>
+  createRuleSchema(provider).extend({
+    ruleId: z.string().optional(),
+  });
+
+export async function aiPromptToRulesOld({
   emailAccount,
   promptFile,
+  isEditing,
   availableCategories,
 }: {
   emailAccount: EmailAccountWithAI;
   promptFile: string;
+  isEditing: boolean;
   availableCategories?: string[];
-}): Promise<CreateRuleSchemaWithCategories[]> {
+}): Promise<CreateOrUpdateRuleSchemaWithCategories[]> {
   function getSchema() {
     if (availableCategories?.length) {
-      return getCreateRuleSchemaWithCategories(
+      const createRuleSchemaWithCategories = getCreateRuleSchemaWithCategories(
         availableCategories as [string, ...string[]],
         emailAccount.account.provider,
       );
-    }
+      const updateRuleSchemaWithCategories =
+        createRuleSchemaWithCategories.extend({
+          ruleId: z.string().optional(),
+        });
 
-    return createRuleSchema(emailAccount.account.provider);
+      return isEditing
+        ? updateRuleSchemaWithCategories
+        : createRuleSchemaWithCategories;
+    }
+    return isEditing
+      ? updateRuleSchema(emailAccount.account.provider)
+      : createRuleSchema(emailAccount.account.provider);
   }
 
   const system = getSystemPrompt({
@@ -74,7 +90,7 @@ function getSystemPrompt({
 }: {
   hasSmartCategories: boolean;
 }) {
-  return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt and convert it into rules.
+  return `You are an AI assistant that converts email management rules into a structured format. Parse the given prompt file and conver them into rules.
 
 IMPORTANT: If a user provides a snippet, use that full snippet in the rule. Don't include placeholders unless it's clear one is needed.
 
