@@ -66,8 +66,7 @@ describe("process-label-removed-event", () => {
   const mockGmail = {
     users: {
       labels: {
-        list: vi.fn().mockImplementation((params) => {
-          console.log("Mock gmail.users.labels.list called with:", params);
+        list: vi.fn().mockImplementation((_params) => {
           return Promise.resolve({
             data: {
               labels: [
@@ -106,14 +105,7 @@ describe("process-label-removed-event", () => {
 
       const historyItem = createLabelRemovedHistoryItem();
 
-      console.log("Test data:", JSON.stringify(historyItem.item, null, 2));
-
-      try {
-        await handleLabelRemovedEvent(historyItem.item, defaultOptions);
-      } catch (error) {
-        console.error("Function error:", error);
-        throw error;
-      }
+      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
 
       expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
         where: {
