@@ -95,6 +95,7 @@ import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
 import { useFolders } from "@/hooks/useFolders";
 import type { OutlookFolder } from "@/utils/outlook/folders";
+import { cn } from "@/utils";
 
 export function Rule({
   ruleId,
@@ -494,8 +495,8 @@ export function RuleForm({
                     onClick={() => removeCondition(index)}
                     ariaLabel="Remove condition"
                   />
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <div className="sm:col-span-1">
+                  <CardLayout>
+                    <CardLayoutLeft>
                       <FormField
                         control={control}
                         name={`conditions.${index}.type`}
@@ -568,9 +569,9 @@ export function RuleForm({
                           </FormItem>
                         )}
                       />
-                    </div>
+                    </CardLayoutLeft>
 
-                    <div className="space-y-4 sm:col-span-2">
+                    <CardLayoutRight>
                       {watch(`conditions.${index}.type`) ===
                         ConditionType.AI && (
                         <Input
@@ -768,8 +769,8 @@ export function RuleForm({
                           </LoadingContent>
                         </>
                       )}
-                    </div>
-                  </div>
+                    </CardLayoutRight>
+                  </CardLayout>
                 </CardBasic>
               ) : (
                 <ConditionSummaryCard
@@ -1084,8 +1085,8 @@ function ActionCard({
   return (
     <CardBasic className="relative">
       <RemoveButton onClick={() => remove(index)} ariaLabel="Remove action" />
-      <div className="grid gap-2 sm:grid-cols-3">
-        <div className="sm:col-span-1">
+      <CardLayout>
+        <CardLayoutLeft>
           <FormField
             control={control}
             name={`actions.${index}.type`}
@@ -1108,8 +1109,8 @@ function ActionCard({
               </FormItem>
             )}
           />
-        </div>
-        <div className="space-y-4 sm:col-span-2">
+        </CardLayoutLeft>
+        <CardLayoutRight>
           {fields.map((field) => {
             const isAiGenerated = !!action[field.name]?.ai;
             const value = watch(`actions.${index}.${field.name}.value`) || "";
@@ -1123,7 +1124,7 @@ function ActionCard({
             if (!showField) return null;
 
             return (
-              <div
+              <CardLayoutRight
                 key={field.name}
                 className={field.expandable && !value ? "opacity-80" : ""}
               >
@@ -1185,7 +1186,7 @@ function ActionCard({
                 ) : field.name === "content" &&
                   action.type === ActionType.DRAFT_EMAIL &&
                   !setManually ? (
-                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 py-4">
+                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
                     <div className="max-w-sm text-center text-sm text-muted-foreground">
                       Our AI will generate a reply using your knowledge base and
                       previous conversations with the sender
@@ -1292,7 +1293,7 @@ function ActionCard({
                     }
                   />
                 )}
-              </div>
+              </CardLayoutRight>
             );
           })}
 
@@ -1341,7 +1342,7 @@ function ActionCard({
           )}
 
           {hasExpandableFields && (
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex">
               <Button
                 size="xs"
                 variant="ghost"
@@ -1362,9 +1363,31 @@ function ActionCard({
               </Button>
             </div>
           )}
-        </div>
-      </div>
+        </CardLayoutRight>
+      </CardLayout>
     </CardBasic>
+  );
+}
+
+function CardLayout({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col sm:flex-row gap-4">{children}</div>;
+}
+
+function CardLayoutLeft({ children }: { children: React.ReactNode }) {
+  return <div className="w-[200px]">{children}</div>;
+}
+
+function CardLayoutRight({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
+      {children}
+    </div>
   );
 }
 

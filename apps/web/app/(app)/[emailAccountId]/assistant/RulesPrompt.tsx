@@ -21,7 +21,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import {
-  getExamplePrompts,
   getPersonas,
   type Personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
