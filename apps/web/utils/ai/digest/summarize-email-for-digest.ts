@@ -7,7 +7,6 @@ import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
 export const schema = z.object({
-  type: z.enum(["structured", "unstructured"]).describe("Type of content"),
   content: z
     .string()
     .describe("The content - either structured entries or summary text"),
@@ -47,7 +46,7 @@ Your task is to:
 - Use "unstructured" if the email is a narrative, update, announcement, or a message that is not a direct response to the user.
 - If the email is a direct message to the user, summarize it in the second person (as if talking directly to the user) using phrasing such as: “You have received…”, 	“X wants you to review…”, “You are invited…”, etc.
 - If second person phrasing is not possible or natural (e.g., for announcements, newsletters, or general updates), summarize in a clear neutral third-person style.
-- If the email is spam, promotional, or irrelevant, return "null".
+- If the email is spam, promotional, or irrelevant, return an empty string.
 
 **Content rules for structured classification:**
 - If the email is classified as "structured", summarize the content using a bulleted list with the format: "- Key: Value".
@@ -59,13 +58,13 @@ Your task is to:
 - Return only the final result.
 - For structured emails, return the bulleted list.
 - For unstructured emails, return the summarized text.
-- For spam, promotional, or irrelevant emails, return "null".
+- For spam, promotional, or irrelevant emails, return an empty string.
 
 Now, classify and summarize the following email:`;
 
   const prompt = `
 <email>
-  <content>${stringifyEmailSimple(userMessageForPrompt)}</content>
+  <email_content>${stringifyEmailSimple(userMessageForPrompt)}</email_content>
   <category>${ruleName}</category>
 </email>
 

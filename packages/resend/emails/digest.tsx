@@ -11,12 +11,17 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
-import pluralize from "pluralize";
 
 type DigestItem = {
   from: string;
   subject: string;
-  content?: string | null | undefined;
+  content?:
+    | {
+        type: string;
+        content: string;
+      }
+    | null
+    | undefined;
 };
 
 const colorClasses = {
@@ -75,6 +80,7 @@ export type DigestEmailProps = {
   unsubscribeToken: string;
   date?: Date;
   ruleNames?: Record<string, string>;
+  emailAccountId: string;
   [key: string]:
     | NormalizedCategoryData
     | DigestItem[]
@@ -85,11 +91,87 @@ export type DigestEmailProps = {
     | undefined;
 };
 
+export const generateDigestSubject = (props: DigestEmailProps): string => {
+  const { ruleNames, ...digestData } = props;
+
+  const categoriesWithCounts: Array<{ name: string; count: number }> = [];
+
+  Object.keys(digestData).forEach((key) => {
+    const categoryData = normalizeCategoryData(key, digestData[key]);
+    if (categoryData && categoryData.count > 0) {
+      const displayName = ruleNames?.[key] || key;
+      categoriesWithCounts.push({
+        name: displayName,
+        count: categoryData.count,
+      });
+    }
+  });
+
+  const topCategories = categoriesWithCounts
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  if (topCategories.length === 0) {
+    return "Your email digest";
+  }
+
+  if (topCategories.length === 1) {
+    const { name, count } = topCategories[0];
+    return `Summary of ${count} ${name.toLowerCase()} email${count === 1 ? "" : "s"}`;
+  }
+
+  if (topCategories.length === 2) {
+    const [first, second] = topCategories;
+    return `Summary of ${first.count} ${first.name.toLowerCase()} and ${second.count} ${second.name.toLowerCase()} emails`;
+  }
+
+  const [first, second, third] = topCategories;
+  return `Summary of ${first.count} ${first.name.toLowerCase()}, ${second.count} ${second.name.toLowerCase()} and ${third.count} ${third.name.toLowerCase()} emails`;
+};
+
+const normalizeCategoryData = (
+  _key: string,
+  data:
+    | DigestItem[]
+    | NormalizedCategoryData
+    | string
+    | Date
+    | Record<string, string>
+    | undefined,
+): NormalizedCategoryData | null => {
+  if (Array.isArray(data)) {
+    const items = data;
+    const senders = Array.from(new Set(items.map((item) => item.from))).slice(
+      0,
+      5,
+    );
+    return {
+      count: items.length,
+      senders,
+      items,
+    };
+  } else if (
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "count" in data &&
+    "senders" in data &&
+    "items" in data &&
+    typeof data.count === "number" &&
+    Array.isArray(data.senders) &&
+    Array.isArray(data.items)
+  ) {
+    return data as NormalizedCategoryData;
+  }
+  return null;
+};
+
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
     unsubscribeToken,
     ruleNames,
+    emailAccountId,
     ...digestData
   } = props;
 
@@ -103,43 +185,6 @@ export default function DigestEmail(props: DigestEmailProps) {
     toReply: "red",
   };
 
-  const normalizeCategoryData = (
-    _key: string,
-    data:
-      | DigestItem[]
-      | NormalizedCategoryData
-      | string
-      | Date
-      | Record<string, string>
-      | undefined,
-  ): NormalizedCategoryData | null => {
-    if (Array.isArray(data)) {
-      const items = data;
-      const senders = Array.from(new Set(items.map((item) => item.from))).slice(
-        0,
-        5,
-      );
-      return {
-        count: items.length,
-        senders,
-        items,
-      };
-    } else if (
-      data &&
-      typeof data === "object" &&
-      !Array.isArray(data) &&
-      "count" in data &&
-      "senders" in data &&
-      "items" in data &&
-      typeof data.count === "number" &&
-      Array.isArray(data.senders) &&
-      Array.isArray(data.items)
-    ) {
-      return data as NormalizedCategoryData;
-    }
-    return null;
-  };
-
   // Return early if no digest data is found
   const hasItems = Object.keys(digestData).some((key) => {
     const categoryData = normalizeCategoryData(key, digestData[key]);
@@ -151,33 +196,34 @@ export default function DigestEmail(props: DigestEmailProps) {
   }
 
   const renderEmailContent = (item: DigestItem) => {
-    if (item.content) {
-      // Split content by newlines and render each line separately
-      const lines = item.content.split("\n").filter((line) => line.trim());
+    if (!item.content?.content) return null;
 
-      // If there are multiple lines, render as bullet points
-      if (lines.length > 1) {
-        return (
-          <div>
-            <ul className="m-0 pl-[20px]">
-              {lines.map((line, index) => (
-                <li key={index} className="text-[14px] text-gray-800 mb-[1px]">
-                  {line.trim()}
-                </li>
-              ))}
-            </ul>
-          </div>
-        );
-      } else {
-        // Single line content
-        return (
-          <Text className="text-[14px] text-gray-800 mt-[4px] mb-0 leading-[1.5]">
-            {item.content}
-          </Text>
-        );
-      }
+    const contentText = item.content.content;
+
+    // Split content by newlines and render each line separately
+    const lines = contentText.split("\n").filter((line: string) => line.trim());
+
+    // If there are multiple lines, render as bullet points
+    if (lines.length > 1) {
+      return (
+        <div>
+          <ul className="m-0 pl-[20px]">
+            {lines.map((line: string, index: number) => (
+              <li key={index} className="text-[14px] text-gray-800 mb-[1px]">
+                {line.trim()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    } else {
+      // Single line content
+      return (
+        <Text className="text-[14px] text-gray-800 mt-[4px] mb-0 leading-[1.5]">
+          {contentText}
+        </Text>
+      );
     }
-    return null;
   };
 
   const CategorySection = ({
@@ -198,13 +244,7 @@ export default function DigestEmail(props: DigestEmailProps) {
                 <Text className="text-[16px] text-gray-700 mt-0 mb-0">
                   {categoryData.count}{" "}
                   <span className={`${colors.text} font-semibold`}>
-                    {categoryData.count > 1
-                      ? pluralize(
-                          (
-                            ruleNames?.[categoryKey] || categoryKey
-                          ).toLowerCase(),
-                        )
-                      : (ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                    {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
                   </span>
                   {" from "}
                   {categoryData.senders.map((sender, index) => {
@@ -260,11 +300,7 @@ export default function DigestEmail(props: DigestEmailProps) {
             <Text className="text-[16px] text-gray-700 mt-0 mb-0">
               {categoryData.count}{" "}
               <span className={`${colors.text} font-semibold`}>
-                {categoryData.count > 1
-                  ? pluralize(
-                      (ruleNames?.[categoryKey] || categoryKey).toLowerCase(),
-                    )
-                  : (ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
               </span>
               {" from "}
               {categoryData.senders.map((sender, index) => {
@@ -329,7 +365,11 @@ export default function DigestEmail(props: DigestEmailProps) {
               );
             })}
             <Hr className="border-solid border-gray-200 my-[24px]" />
-            <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
+            <Footer
+              baseUrl={baseUrl}
+              unsubscribeToken={unsubscribeToken}
+              emailAccountId={emailAccountId}
+            />
           </Container>
         </Body>
       </Tailwind>
@@ -611,9 +651,11 @@ DigestEmail.PreviewProps = {
 function Footer({
   baseUrl,
   unsubscribeToken,
+  emailAccountId,
 }: {
   baseUrl: string;
   unsubscribeToken: string;
+  emailAccountId: string;
 }) {
   return (
     <Section className="mt-8 text-center text-sm text-gray-500">
@@ -621,14 +663,17 @@ function Footer({
         You're receiving this email because you enabled digest emails in your
         Inbox Zero settings.
       </Text>
-      <div className="flex justify-center items-center gap-[16px] mt-[8px]">
+      <div className="mt-[8px]">
         <Link
           href={`${baseUrl}/api/unsubscribe?token=${unsubscribeToken}`}
-          className="text-gray-500 underline"
+          className="text-gray-500 underline mr-[16px]"
         >
           Unsubscribe
         </Link>
-        <Link href={`${baseUrl}/settings`} className="text-gray-500 underline">
+        <Link
+          href={`${baseUrl}/${emailAccountId}/automation?tab=settings`}
+          className="text-gray-500 underline"
+        >
           Customize what you receive
         </Link>
       </div>
