@@ -9,6 +9,7 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
+  BookIcon,
   BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -224,6 +225,13 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <ClientOnly>
           <ReferralDialog />
         </ClientOnly>
+
+        <SidebarMenuButton asChild>
+          <Link href="https://docs.getinboxzero.com" target="_blank">
+            <BookIcon className="size-4" />
+            <span className="font-semibold">Help Center</span>
+          </Link>
+        </SidebarMenuButton>
 
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
