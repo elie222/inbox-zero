@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -10,9 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/Loading";
-import { pluralize } from "@/utils/string";
-import { prefixPath } from "@/utils/path";
-import { useAccount } from "@/providers/EmailAccountProvider";
+import type { CreateRuleResult } from "@/utils/rule/types";
+import { CreatedRulesContent } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 
 type StepProps = {
   back?: () => void;
@@ -22,12 +20,6 @@ type StepProps = {
 type StepContentProps = StepProps & {
   title: string;
   children: React.ReactNode;
-};
-
-type ResultProps = {
-  createdRules: number;
-  editedRules?: number;
-  removedRules?: number;
 };
 
 const STEPS = 5;
@@ -40,7 +32,7 @@ export function ProcessingPromptFileDialog({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  result?: ResultProps;
+  result: CreateRuleResult[] | null;
   setViewedProcessingPromptFileDialog: (viewed: boolean) => void;
 }) {
   const [currentStep, setCurrentStep] = useState(0);
@@ -69,11 +61,13 @@ export function ProcessingPromptFileDialog({
         {currentStep === 4 && <Step4 back={back} next={next} />}
         {currentStep >= STEPS &&
           (result ? (
-            <FinalStepReady
-              back={back}
-              next={() => onOpenChange(false)}
-              result={result}
-            />
+            // <FinalStepReady
+            //   back={back}
+            //   next={() => onOpenChange(false)}
+            //   result={result}
+            // />
+
+            <CreatedRulesContent rules={result} onOpenChange={onOpenChange} />
           ) : (
             <FinalStepWaiting back={back} />
           ))}
@@ -219,61 +213,61 @@ function FinalStepWaiting({ back }: StepProps) {
   );
 }
 
-function FinalStepReady({
-  back,
-  next,
-  result,
-}: StepProps & {
-  result: ResultProps;
-}) {
-  const { emailAccountId } = useAccount();
+// function FinalStepReady({
+//   back,
+//   next,
+//   result,
+// }: StepProps & {
+//   result: ResultProps;
+// }) {
+//   const { emailAccountId } = useAccount();
 
-  function getDescription() {
-    let message = "";
+//   function getDescription() {
+//     let message = "";
 
-    if (result.createdRules > 0) {
-      message += `We've created ${result.createdRules} ${pluralize(
-        result.createdRules,
-        "rule",
-      )} for you.`;
-    }
+//     if (result.createdRules > 0) {
+//       message += `We've created ${result.createdRules} ${pluralize(
+//         result.createdRules,
+//         "rule",
+//       )} for you.`;
+//     }
 
-    if (result.editedRules && result.editedRules > 0) {
-      message += ` We edited ${result.editedRules} ${pluralize(
-        result.editedRules,
-        "rule",
-      )}.`;
-    }
+//     if (result.editedRules && result.editedRules > 0) {
+//       message += ` We edited ${result.editedRules} ${pluralize(
+//         result.editedRules,
+//         "rule",
+//       )}.`;
+//     }
 
-    if (result.removedRules && result.removedRules > 0) {
-      message += ` We removed ${result.removedRules} ${pluralize(
-        result.removedRules,
-        "rule",
-      )}.`;
-    }
+//     if (result.removedRules && result.removedRules > 0) {
+//       message += ` We removed ${result.removedRules} ${pluralize(
+//         result.removedRules,
+//         "rule",
+//       )}.`;
+//     }
 
-    return message;
-  }
+//     return message;
+//   }
 
-  return (
-    <>
-      <DialogHeader className="flex flex-col items-center justify-center">
-        <DialogTitle>All done!</DialogTitle>
-        <DialogDescription className="text-center">
-          {getDescription()}
-        </DialogDescription>
-      </DialogHeader>
+//   return (
+//     <>
+//       <DialogHeader className="flex flex-col items-center justify-center">
+//         <DialogTitle>All done!</DialogTitle>
+//         <DialogDescription className="text-center">
+//           {getDescription()}
+//         </DialogDescription>
+//       </DialogHeader>
 
-      <div className="flex justify-center gap-2">
-        <Button variant="outline" onClick={back}>
-          Back
-        </Button>
-        <Button asChild onClick={next}>
-          <Link href={prefixPath(emailAccountId, "/automation?tab=test")}>
-            Try it out!
-          </Link>
-        </Button>
-      </div>
-    </>
-  );
-}
+//       <div className="flex justify-center gap-2">
+//         <Button variant="outline" onClick={back}>
+//           Back
+//         </Button>
+//         <Button asChild onClick={next}>
+//           <Link href={prefixPath(emailAccountId, "/automation?tab=test")}>
+//             Try it out!
+//           </Link>
+//         </Button>
+//       </div>
+//     </>
+//   );
+// }

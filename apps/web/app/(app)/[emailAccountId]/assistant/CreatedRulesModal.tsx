@@ -28,7 +28,23 @@ export function CreatedRulesModal({
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  rules: CreateRuleResult[] | null;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <CreatedRulesContent rules={rules || []} onOpenChange={onOpenChange} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function CreatedRulesContent({
+  rules,
+  onOpenChange,
+}: {
   rules: CreateRuleResult[];
+  onOpenChange: (open: boolean) => void;
 }) {
   const { emailAccountId, provider } = useAccount();
   const ruleDialog = useDialogState<{ ruleId: string }>();
@@ -41,63 +57,59 @@ export function CreatedRulesModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="size-5 text-green-600" />
-              Rules Created Successfully!
-            </DialogTitle>
-            <DialogDescription>
-              {rules.length === 1
-                ? "Your rule has been created. You can now test it or view the details below."
-                : `${rules.length} rules have been created. You can now test them or view the details below.`}
-            </DialogDescription>
-          </DialogHeader>
+      <div className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CheckCircle2 className="size-5 text-green-600" />
+            Rules Created Successfully!
+          </DialogTitle>
+          <DialogDescription>
+            {rules.length === 1
+              ? "Your rule has been created. You can now test it or view the details below."
+              : `${rules.length} rules have been created. You can now test them or view the details below.`}
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="overflow-y-auto flex-1">
-            <div className="space-y-2">
-              {rules.map((rule) => (
-                <Card
-                  key={rule.id}
-                  className="p-4 hover:shadow-md transition-shadow cursor-pointer"
-                  onClick={() => ruleDialog.open({ ruleId: rule.id })}
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-medium text-base">{rule.name}</h4>
-                      {!rule.automate && (
-                        <Badge color="yellow">Requires Approval</Badge>
-                      )}
-                    </div>
-
-                    <div className="text-sm">
-                      <span className="font-medium">Condition:</span>{" "}
-                      {conditionsToString(rule)}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Actions:</span>
-                      <ActionBadges
-                        actions={rule.actions}
-                        provider={provider}
-                      />
-                    </div>
+        <div className="overflow-y-auto flex-1">
+          <div className="space-y-2">
+            {rules.map((rule) => (
+              <Card
+                key={rule.id}
+                role="button"
+                tabIndex={0}
+                className="p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => ruleDialog.open({ ruleId: rule.id })}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium text-base">{rule.name}</h4>
+                    {!rule.automate && (
+                      <Badge color="yellow">Requires Approval</Badge>
+                    )}
                   </div>
-                </Card>
-              ))}
-            </div>
+
+                  <div className="text-sm">
+                    <span className="font-medium">Condition:</span>{" "}
+                    {conditionsToString(rule)}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Actions:</span>
+                    <ActionBadges actions={rule.actions} provider={provider} />
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
+        </div>
 
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            <Button onClick={handleTestRules}>Test Rules</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
+        <DialogFooter className="flex gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Close
+          </Button>
+          <Button onClick={handleTestRules}>Test Rules</Button>
+        </DialogFooter>
+      </div>
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}

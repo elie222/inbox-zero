@@ -199,7 +199,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result}
+        result={[]} // TODO: if we revert back to this component we need to fix this
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog

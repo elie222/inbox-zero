@@ -78,13 +78,14 @@ function RulesPromptForm({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [result, setResult] = useState<{ createdRules: number }>();
-  const [createdRules, setCreatedRules] = useState<CreateRuleResult[]>([]);
+  const [createdRules, setCreatedRules] = useState<CreateRuleResult[] | null>(
+    null,
+  );
   const [showCreatedRulesModal, setShowCreatedRulesModal] = useState(false);
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
-  ] = useLocalStorage("viewedProcessingPromptFileDialog3", false);
+  ] = useLocalStorage("viewedProcessingPromptFileDialogxx2", false);
 
   const ruleDialog = useDialogState();
 
@@ -104,7 +105,7 @@ function RulesPromptForm({
 
     setIsSubmitting(true);
     if (!viewedProcessingPromptFileDialog) setIsDialogOpen(true);
-    setResult(undefined);
+    setCreatedRules(null);
 
     toast.promise(
       async () => {
@@ -126,6 +127,10 @@ function RulesPromptForm({
           const { rules = [] } = result?.data || {};
           setCreatedRules(rules);
 
+          if (!isDialogOpen) {
+            setShowCreatedRulesModal(true);
+          }
+
           return `${rules.length} rules created!`;
         },
         error: (err) => {
@@ -133,7 +138,7 @@ function RulesPromptForm({
         },
       },
     );
-  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId]);
+  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId, isDialogOpen]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -148,7 +153,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result}
+        result={createdRules}
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog
