@@ -89,7 +89,8 @@ function RulesPromptForm({
 
   const ruleDialog = useDialogState();
 
-  const [isExamplesOpen, setIsExamplesOpen] = useState(false);
+  // const [isExamplesOpen, setIsExamplesOpen] = useState(false);
+  const isExamplesOpen = true;
 
   const editorRef = useRef<SimpleRichTextEditorRef>(null);
 
@@ -127,10 +128,6 @@ function RulesPromptForm({
           const { rules = [] } = result?.data || {};
           setCreatedRules(rules);
 
-          if (!isProcessingDialogOpen) {
-            setShowCreatedRulesModal(true);
-          }
-
           return `${rules.length} rules created!`;
         },
         error: (err) => {
@@ -138,12 +135,13 @@ function RulesPromptForm({
         },
       },
     );
-  }, [
-    mutate,
-    viewedProcessingPromptFileDialog,
-    emailAccountId,
-    isProcessingDialogOpen,
-  ]);
+  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId]);
+
+  useEffect(() => {
+    if (createdRules && createdRules.length > 0 && !isProcessingDialogOpen) {
+      setShowCreatedRulesModal(true);
+    }
+  }, [createdRules, isProcessingDialogOpen]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -180,12 +178,12 @@ function RulesPromptForm({
           <div className="mt-1.5 space-y-2">
             <LoadingContent
               loading={isLoadingLabels}
-              loadingComponent={<Skeleton className="min-h-[70px] w-full" />}
+              loadingComponent={<Skeleton className="min-h-[220px] w-full" />}
             >
               <SimpleRichTextEditor
                 ref={editorRef}
                 defaultValue={undefined}
-                minHeight={70}
+                minHeight={220}
                 userLabels={userLabels}
                 placeholder={`* Label urgent emails as "Urgent"
 * Forward receipts to jane@accounting.com`}
@@ -202,14 +200,14 @@ function RulesPromptForm({
                 Choose persona
               </Button>
 
-              <Button
+              {/* <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setIsExamplesOpen((show) => !show)}
               >
                 <ListIcon className="mr-2 size-4" />
                 {isExamplesOpen ? "Hide examples" : "Show examples"}
-              </Button>
+              </Button> */}
 
               {/* <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
                 <Button
@@ -295,7 +293,14 @@ function RulesPromptForm({
 
       <CreatedRulesModal
         open={showCreatedRulesModal}
-        onOpenChange={setShowCreatedRulesModal}
+        onOpenChange={(open) => {
+          setShowCreatedRulesModal(open);
+
+          // Clear results when modal closes to prevent re-showing
+          if (!open) {
+            setCreatedRules(null);
+          }
+        }}
         rules={createdRules}
       />
     </div>
