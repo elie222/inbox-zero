@@ -489,7 +489,11 @@ export function RuleForm({
                 </div>
               )}
               {isConditionsEditMode ? (
-                <CardBasic>
+                <CardBasic className="relative">
+                  <RemoveButton
+                    onClick={() => removeCondition(index)}
+                    ariaLabel="Remove condition"
+                  />
                   <div className="grid gap-2 sm:grid-cols-3">
                     <div className="sm:col-span-1">
                       <FormField
@@ -766,15 +770,6 @@ export function RuleForm({
                       )}
                     </div>
                   </div>
-
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="mt-2"
-                    onClick={() => removeCondition(index)}
-                  >
-                    Remove
-                  </Button>
                 </CardBasic>
               ) : (
                 <ConditionSummaryCard
@@ -894,7 +889,7 @@ export function RuleForm({
 
             <TooltipExplanation
               size="md"
-              side="left"
+              side="right"
               text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
             />
           </div>
@@ -1087,7 +1082,8 @@ function ActionCard({
   });
 
   return (
-    <CardBasic>
+    <CardBasic className="relative">
+      <RemoveButton onClick={() => remove(index)} ariaLabel="Remove action" />
       <div className="grid gap-2 sm:grid-cols-3">
         <div className="sm:col-span-1">
           <FormField
@@ -1112,15 +1108,6 @@ function ActionCard({
               </FormItem>
             )}
           />
-
-          <Button
-            size="xs"
-            variant="ghost"
-            className="mt-2"
-            onClick={() => remove(index)}
-          >
-            Remove
-          </Button>
         </div>
         <div className="space-y-4 sm:col-span-2">
           {fields.map((field) => {
@@ -1140,29 +1127,8 @@ function ActionCard({
                 key={field.name}
                 className={field.expandable && !value ? "opacity-80" : ""}
               >
-                <div className="flex items-center justify-between">
+                <div>
                   <Label name={field.name} label={field.label} />
-                  {field.name === "label" && (
-                    <div className="flex items-center space-x-2">
-                      <TooltipExplanation
-                        side="left"
-                        text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
-                      />
-                      <Toggle
-                        name={`actions.${index}.${field.name}.ai`}
-                        label="AI generated"
-                        enabled={isAiGenerated || false}
-                        onChange={(enabled: boolean) => {
-                          setValue(
-                            `actions.${index}.${field.name}`,
-                            enabled
-                              ? { value: "", ai: true }
-                              : { value: "", ai: false },
-                          );
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
 
                 {field.name === "label" && !isAiGenerated ? (
@@ -1269,6 +1235,29 @@ function ActionCard({
                       registerProps={register(
                         `actions.${index}.${field.name}.value`,
                       )}
+                    />
+                  </div>
+                )}
+
+                {field.name === "label" && (
+                  <div className="flex items-center space-x-2 mt-4">
+                    <Toggle
+                      name={`actions.${index}.${field.name}.ai`}
+                      labelRight="AI generated"
+                      enabled={isAiGenerated || false}
+                      onChange={(enabled: boolean) => {
+                        setValue(
+                          `actions.${index}.${field.name}`,
+                          enabled
+                            ? { value: "", ai: true }
+                            : { value: "", ai: false },
+                        );
+                      }}
+                    />
+
+                    <TooltipExplanation
+                      side="right"
+                      text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
                     />
                   </div>
                 )}
@@ -1458,7 +1447,7 @@ export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
   return (
     <TooltipExplanation
       size={size}
-      side="left"
+      side="right"
       text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
     />
   );
@@ -1617,4 +1606,24 @@ function convertToMinutes(value: string, unit: string) {
     default:
       return numValue;
   }
+}
+
+function RemoveButton({
+  onClick,
+  ariaLabel,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="absolute top-2 right-2 size-8"
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      <TrashIcon className="size-4" />
+    </Button>
+  );
 }
