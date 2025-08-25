@@ -266,7 +266,7 @@ function RulesPromptForm({
             <Examples
               onSelect={addExamplePrompt}
               provider={provider}
-              className="mt-1.5 sm:h-[20vh] sm:max-h-[20vh]"
+              className="mt-1.5 sm:h-[260px] sm:max-h-[260px]"
             />
           )}
         </div>
