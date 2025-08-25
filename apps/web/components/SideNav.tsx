@@ -3,11 +3,13 @@
 import { useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
+import { getEmailTerminology } from "@/utils/terminology";
 import {
   AlertCircleIcon,
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
+  BookIcon,
   BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -224,6 +226,13 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <ReferralDialog />
         </ClientOnly>
 
+        <SidebarMenuButton asChild>
+          <Link href="https://docs.getinboxzero.com" target="_blank">
+            <BookIcon className="size-4" />
+            <span className="font-semibold">Help Center</span>
+          </Link>
+        </SidebarMenuButton>
+
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 
         <NavUser />
@@ -236,6 +245,8 @@ function MailNav({ path }: { path: string }) {
   const { onOpen } = useComposeModal();
   const [showHiddenLabels, setShowHiddenLabels] = useState(false);
   const { visibleLabels, hiddenLabels, isLoading } = useSplitLabels();
+  const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
 
   // Transform user labels into NavItems
   const labelNavItems = useMemo(() => {
@@ -292,13 +303,15 @@ function MailNav({ path }: { path: string }) {
       </SidebarGroup>
 
       <SidebarGroup>
-        <SidebarGroupLabel>Labels</SidebarGroupLabel>
+        <SidebarGroupLabel>
+          {terminology.label.pluralCapitalized}
+        </SidebarGroupLabel>
         <LoadingContent loading={isLoading}>
           {visibleLabels.length > 0 ? (
             <SideNavMenu items={labelNavItems} activeHref={path} />
           ) : (
             <div className="px-3 py-2 text-xs text-muted-foreground">
-              No labels
+              No {terminology.label.plural}
             </div>
           )}
 

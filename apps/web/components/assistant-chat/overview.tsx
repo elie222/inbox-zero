@@ -1,8 +1,7 @@
-import { motion } from "framer-motion";
-import { MessageIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { MessageText, TypographyH3 } from "@/components/Typography";
 import { ExamplesDialog } from "./examples-dialog";
+import { MessageCircleIcon } from "lucide-react";
 
 export const Overview = ({
   setInput,
@@ -10,17 +9,10 @@ export const Overview = ({
   setInput: (input: string) => void;
 }) => {
   return (
-    <motion.div
-      key="overview"
-      className="mx-auto flex h-full max-w-3xl items-center justify-center"
-      initial={{ opacity: 0, scale: 0.98 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.98 }}
-      transition={{ delay: 0.5 }}
-    >
+    <div className="mx-auto flex h-full max-w-3xl items-center justify-center">
       <div className="flex max-w-xl flex-col rounded-xl p-6 text-center leading-relaxed">
         <p className="flex flex-row items-center justify-center gap-4">
-          <MessageIcon size={32} />
+          <MessageCircleIcon size={32} />
         </p>
 
         <TypographyH3 className="mt-8">
@@ -37,6 +29,6 @@ export const Overview = ({
           </ExamplesDialog>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };

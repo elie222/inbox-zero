@@ -24,7 +24,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSession } from "@/utils/auth-client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { logOut } from "@/utils/user";
@@ -36,7 +35,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 
 export function NavUser() {
-  const { data: session } = useSession();
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
 
@@ -56,13 +54,13 @@ export function NavUser() {
               {emailAccount?.name?.charAt(0) || emailAccount?.email?.charAt(0)}
             </AvatarFallback>
           </Avatar>
-          {session?.user ? (
+          {emailAccount ? (
             <>
               <div className="grid flex-1 text-left text-sm leading-tight">
                 <span className="truncate font-medium">
-                  {emailAccount?.name || emailAccount?.email}
+                  {emailAccount.name || emailAccount.email}
                 </span>
-                <span className="truncate text-xs">{emailAccount?.email}</span>
+                <span className="truncate text-xs">{emailAccount.email}</span>
               </div>
               <ChevronsUpDownIcon className="ml-auto size-4" />
             </>
@@ -86,7 +84,9 @@ export function NavUser() {
               <span className="truncate font-medium">
                 {emailAccount?.name || emailAccount?.email || "Account"}
               </span>
-              <span className="truncate text-xs">{session?.user.email}</span>
+              <span className="truncate text-xs">
+                {emailAccount?.email || "Account"}
+              </span>
             </div>
           </div>
         </DropdownMenuLabel>
@@ -95,7 +95,7 @@ export function NavUser() {
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href={prefixPath(emailAccountId, "/settings")}>
-              <SettingsIcon className="mr-2 h-4 w-4" />
+              <SettingsIcon className="mr-2 size-4" />
               Settings
             </Link>
           </DropdownMenuItem>
@@ -105,20 +105,14 @@ export function NavUser() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              <ChromeIcon className="mr-2 h-4 w-4" />
+              <ChromeIcon className="mr-2 size-4" />
               Install extension
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href="/premium">
-              <CrownIcon className="mr-2 h-4 w-4" />
+              <CrownIcon className="mr-2 size-4" />
               Premium
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="https://docs.getinboxzero.com">
-              <BookIcon className="mr-2 h-4 w-4" />
-              Help Center
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -128,7 +122,7 @@ export function NavUser() {
         <DropdownMenuGroup>
           <DropdownMenuItem asChild>
             <Link href={prefixPath(emailAccountId, "/usage")}>
-              <BarChartIcon className="mr-2 h-4 w-4" />
+              <BarChartIcon className="mr-2 size-4" />
               Usage
             </Link>
           </DropdownMenuItem>
@@ -137,19 +131,19 @@ export function NavUser() {
             <>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/mail")}>
-                  <InboxIcon className="mr-2 h-4 w-4" />
+                  <InboxIcon className="mr-2 size-4" />
                   Mail (Beta)
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/reply-zero")}>
-                  <MessageCircleReplyIcon className="mr-2 h-4 w-4" />
+                  <MessageCircleReplyIcon className="mr-2 size-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/cold-email-blocker")}>
-                  <ShieldCheckIcon className="mr-2 h-4 w-4" />
+                  <ShieldCheckIcon className="mr-2 size-4" />
                   Cold Email Blocker
                 </Link>
               </DropdownMenuItem>
@@ -158,7 +152,7 @@ export function NavUser() {
 
           <DropdownMenuItem asChild>
             <Link href="/early-access">
-              <RibbonIcon className="mr-2 h-4 w-4" />
+              <RibbonIcon className="mr-2 size-4" />
               Early Access
             </Link>
           </DropdownMenuItem>
@@ -171,13 +165,13 @@ export function NavUser() {
             setTheme(theme === "dark" ? "light" : "dark");
           }}
         >
-          <PaletteIcon className="mr-2 h-4 w-4" />
+          <PaletteIcon className="mr-2 size-4" />
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logOut(window.location.origin)}>
-          <LogOutIcon className="mr-2 h-4 w-4" />
+          <LogOutIcon className="mr-2 size-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

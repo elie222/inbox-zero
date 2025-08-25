@@ -134,8 +134,9 @@ async function trackEvent(customerId: string, event: Stripe.Event) {
   });
 
   return trackStripeEvent(user?.users[0]?.email ?? "Unknown", {
+    ...event.data.object,
     id: event.id,
     type: event.type,
-    object: event.data.object,
+    object: event.data.object, // for legacy
   });
 }

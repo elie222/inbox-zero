@@ -12,6 +12,8 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { aiExtractFromEmailHistory } from "@/utils/ai/knowledge/extract-from-email-history";
 import type { EmailProvider } from "@/utils/email/types";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
+import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
+import { generateReferralLink } from "@/utils/referral/referral-link";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -74,6 +76,21 @@ export async function fetchMessagesAndGenerateDraft(
 
   if (typeof result !== "string") {
     throw new Error("Draft result is not a string");
+  }
+
+  const emailAccountWithIncludeReferralSignature =
+    await prisma.emailAccount.findUnique({
+      where: { id: emailAccount.id },
+      select: { includeReferralSignature: true },
+    });
+
+  if (emailAccountWithIncludeReferralSignature?.includeReferralSignature) {
+    const referralSignature = await getOrCreateReferralCode(
+      emailAccount.userId,
+    );
+    const referralLink = generateReferralLink(referralSignature.code);
+    const htmlSignature = `Drafted by <a href="${referralLink}">Inbox Zero</a>.`;
+    return `${result}\n\n${htmlSignature}`;
   }
 
   return result;

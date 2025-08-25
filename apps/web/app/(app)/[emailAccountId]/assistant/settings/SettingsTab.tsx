@@ -2,6 +2,7 @@ import { AboutSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/Ab
 import { DigestSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DigestSetting";
 import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftReplies";
 import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting";
+import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
 
 export function SettingsTab() {
   return (
@@ -10,6 +11,7 @@ export function SettingsTab() {
       <DraftKnowledgeSetting />
       <AboutSetting />
       <DigestSetting />
+      <ReferralSignatureSetting />
     </div>
   );
 }

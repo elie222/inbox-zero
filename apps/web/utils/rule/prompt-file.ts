@@ -7,12 +7,14 @@ import prisma from "@/utils/prisma";
 
 export async function updatePromptFileOnRuleCreated({
   emailAccountId,
+  provider,
   rule,
 }: {
   emailAccountId: string;
+  provider: string;
   rule: RuleWithRelations;
 }) {
-  const prompt = createPromptFromRule(rule);
+  const prompt = createPromptFromRule(rule, provider);
   await appendRulePrompt({ emailAccountId, rulePrompt: prompt });
 }
 

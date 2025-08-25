@@ -10,7 +10,7 @@ export default async function SetupPage(props: {
 
   return (
     <>
-      <SetupContent emailAccountId={emailAccountId} />
+      <SetupContent />
       <LoadStats loadBefore showToast={false} />
     </>
   );

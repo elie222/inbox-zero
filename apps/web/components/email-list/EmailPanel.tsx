@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { PlanExplanation } from "@/components/email-list/PlanExplanation";
 import { useIsInAiQueue } from "@/store/ai-queue";
 import { EmailThread } from "@/components/email-list/EmailThread";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailPanel({
   row,
@@ -30,6 +31,7 @@ export function EmailPanel({
   rejectPlan: (thread: Thread) => Promise<void>;
   refetch: () => void;
 }) {
+  const { provider } = useAccount();
   const isPlanning = useIsInAiQueue(row.id);
 
   const lastMessage = row.messages?.[row.messages.length - 1];
@@ -74,6 +76,7 @@ export function EmailPanel({
         {plan?.rule && (
           <PlanExplanation
             thread={row}
+            provider={provider}
             executePlan={executePlan}
             rejectPlan={rejectPlan}
             executingPlan={executingPlan}

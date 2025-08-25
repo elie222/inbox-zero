@@ -6,6 +6,7 @@ import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useSession } from "@/utils/auth-client";
 import { usePathname, useSearchParams } from "next/navigation";
 import { env } from "@/env";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 // based on: https://posthog.com/docs/libraries/next-js
 
@@ -30,6 +31,7 @@ export function PostHogPageview() {
 
 export function PostHogIdentify() {
   const { data: session } = useSession();
+  const { emailAccount } = useAccount();
 
   useEffect(() => {
     if (session?.user.email)
@@ -37,6 +39,25 @@ export function PostHogIdentify() {
         email: session.user.email,
       });
   }, [session?.user.email]);
+
+  useEffect(() => {
+    // Set super properties that will be included with all events
+    posthog.register({
+      email_account_id: emailAccount?.id,
+      email_account_email: emailAccount?.email,
+      email_account_provider: emailAccount?.account?.provider,
+    });
+
+    // Most users only use one email account, and it's helpful to have the provider on the person property
+    if (emailAccount) {
+      posthog.setPersonProperties(
+        {},
+        {
+          default_email_account_provider: emailAccount?.account?.provider,
+        },
+      );
+    }
+  }, [emailAccount]);
 
   return null;
 }

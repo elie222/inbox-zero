@@ -11,6 +11,7 @@ import {
   ToggleRightIcon,
   ToggleLeftIcon,
   InfoIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -57,18 +58,28 @@ import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
+import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
-export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
+export function Rules({
+  size = "md",
+  showAddRuleButton = true,
+}: {
+  size?: "sm" | "md";
+  showAddRuleButton?: boolean;
+}) {
   const { data, isLoading, error, mutate } = useRules();
+  const { setOpen } = useSidebar();
+  const { setInput } = useChat();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
 
   const onCreateRule = () => ruleDialog.open();
 
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
@@ -216,9 +227,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <div className="flex justify-end">
-                      <AddRuleButton onClick={onCreateRule} />
-                    </div>
+                    {showAddRuleButton && (
+                      <div className="flex justify-end">
+                        <AddRuleButton onClick={onCreateRule} />
+                      </div>
+                    )}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -275,7 +288,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                         </TableCell>
                       )}
                       <TableCell>
-                        <ActionBadges actions={rule.actions} />
+                        <ActionBadges
+                          actions={rule.actions}
+                          provider={provider}
+                        />
                       </TableCell>
                       {/* {size === "md" && (
                         <TableCell>
@@ -328,8 +344,21 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                               }}
                             >
                               <PenIcon className="mr-2 size-4" />
-                              Edit
+                              Edit manually
                             </DropdownMenuItem>
+                            {!isColdEmailBlocker && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInput(
+                                    `I'd like to edit the "${rule.name}" rule:\n`,
+                                  );
+                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                }}
+                              >
+                                <SparklesIcon className="mr-2 size-4" />
+                                Edit via AI
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem asChild>
                               <Link
                                 href={
@@ -465,6 +494,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
 
 export function ActionBadges({
   actions,
+  provider,
 }: {
   actions: {
     id: string;
@@ -472,6 +502,7 @@ export function ActionBadges({
     label?: string | null;
     folderName?: string | null;
   }[];
+  provider: string;
 }) {
   return (
     <div className="flex gap-2">
@@ -485,7 +516,7 @@ export function ActionBadges({
             color={getActionColor(action.type)}
             className="w-fit text-nowrap"
           >
-            {getActionDisplay(action)}
+            {getActionDisplay(action, provider)}
           </Badge>
         );
       })}

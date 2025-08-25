@@ -7,6 +7,7 @@ import { auth } from "@/utils/auth";
 import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
+import { WELCOME_PATH } from "@/utils/config";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -23,7 +24,7 @@ export default async function AuthenticationPage(props: {
     if (searchParams?.next) {
       redirect(searchParams?.next);
     } else {
-      redirect("/welcome");
+      redirect(WELCOME_PATH);
     }
   }
 

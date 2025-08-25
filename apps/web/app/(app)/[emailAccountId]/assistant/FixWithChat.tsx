@@ -1,4 +1,5 @@
 import { MessageCircleIcon } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { ParsedMessage } from "@/utils/types";
 import type { RunRulesResult } from "@/utils/ai/choose-rule/run-rules";
@@ -21,6 +22,8 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { ProcessResultDisplay } from "@/app/(app)/[emailAccountId]/assistant/ProcessResultDisplay";
 import { NONE_RULE_ID } from "@/app/(app)/[emailAccountId]/assistant/consts";
 import { useSidebar } from "@/components/ui/sidebar";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 
 export function FixWithChat({
   setInput,
@@ -34,14 +37,64 @@ export function FixWithChat({
   const { data, isLoading, error } = useRules();
   const { emailAccountId } = useAccount();
   const { isModalOpen, setIsModalOpen } = useModal();
+  const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
+  const [explanation, setExplanation] = useState("");
+  const [showExplanation, setShowExplanation] = useState(false);
   // const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   // const router = useRouter();
   // const [currentTab] = useQueryState("tab");
 
   const { setOpen } = useSidebar();
 
+  const handleRuleSelect = (ruleId: string | null) => {
+    setSelectedRuleId(ruleId);
+    setShowExplanation(true);
+  };
+
+  const handleSubmit = () => {
+    if (!selectedRuleId) return;
+
+    let input: string;
+    if (selectedRuleId === NEW_RULE_ID) {
+      input = getFixMessage({
+        message,
+        result,
+        expectedRuleName: NEW_RULE_ID,
+        explanation,
+      });
+    } else {
+      const expectedRule = data?.find((rule) => rule.id === selectedRuleId);
+
+      input = getFixMessage({
+        message,
+        result,
+        expectedRuleName: expectedRule?.name ?? null,
+        explanation,
+      });
+    }
+
+    setInput(input);
+    setOpen((arr) => [...arr, "chat-sidebar"]);
+    setIsModalOpen(false);
+
+    // Reset state
+    setSelectedRuleId(null);
+    setExplanation("");
+    setShowExplanation(false);
+  };
+
+  const handleClose = (open: boolean) => {
+    setIsModalOpen(open);
+    if (!open) {
+      // Reset state when closing
+      setSelectedRuleId(null);
+      setExplanation("");
+      setShowExplanation(false);
+    }
+  };
+
   return (
-    <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+    <Dialog open={isModalOpen} onOpenChange={handleClose}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <MessageCircleIcon className="mr-2 size-4" />
@@ -55,53 +108,63 @@ export function FixWithChat({
         </DialogHeader>
 
         <LoadingContent loading={isLoading} error={error}>
-          {data && (
+          {data && !showExplanation ? (
             <RuleMismatch
               emailAccountId={emailAccountId}
               result={result}
               rules={data}
-              onSelectExpectedRuleId={(expectedRuleId) => {
-                let input: string;
-
-                if (expectedRuleId === NEW_RULE_ID) {
-                  input = getFixMessage({
-                    message,
-                    result,
-                    expectedRuleName: NEW_RULE_ID,
-                  });
-                } else {
-                  const expectedRule = data.find(
-                    (rule) => rule.id === expectedRuleId,
-                  );
-
-                  input = getFixMessage({
-                    message,
-                    result,
-                    expectedRuleName: expectedRule?.name ?? null,
-                  });
-                }
-
-                setInput(input);
-                setOpen(["chat-sidebar"]);
-                // } else {
-                //   // redirect to the assistant page
-                //   const searchParams = new URLSearchParams();
-                //   searchParams.set("input", input);
-                //   if (currentTab) searchParams.set("tab", currentTab);
-
-                //   router.push(
-                //     createAssistantUrl({
-                //       input,
-                //       tab: currentTab || undefined,
-                //       path: `/assistant${searchParams.toString()}`,
-                //     }),
-                //   );
-                // }
-
-                setIsModalOpen(false);
-              }}
+              onSelectExpectedRuleId={handleRuleSelect}
             />
-          )}
+          ) : data && showExplanation ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Selected rule:</span>
+                <Badge variant="secondary">
+                  {selectedRuleId === NEW_RULE_ID
+                    ? "✨ New rule"
+                    : selectedRuleId === NONE_RULE_ID
+                      ? "❌ None"
+                      : data.find((r) => r.id === selectedRuleId)?.name ||
+                        "Unknown"}
+                </Badge>
+              </div>
+
+              <div>
+                <Label
+                  name="explanation"
+                  label="Why should this rule have been applied? (optional)"
+                />
+                <Textarea
+                  id="explanation"
+                  name="explanation"
+                  className="mt-1"
+                  rows={2}
+                  value={explanation}
+                  onChange={(e) => setExplanation(e.target.value)}
+                  aria-describedby="explanation-help"
+                  autoFocus
+                />
+                <p id="explanation-help" className="mt-1 text-xs text-gray-500">
+                  Providing an explanation helps the AI understand your intent
+                  better
+                </p>
+              </div>
+
+              <div className="flex justify-between gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowExplanation(false);
+                    setSelectedRuleId(null);
+                    setExplanation("");
+                  }}
+                >
+                  Back
+                </Button>
+                <Button onClick={handleSubmit}>Next</Button>
+              </div>
+            </div>
+          ) : null}
         </LoadingContent>
       </DialogContent>
     </Dialog>
@@ -112,10 +175,12 @@ function getFixMessage({
   message,
   result,
   expectedRuleName,
+  explanation,
 }: {
   message: ParsedMessage;
   result: RunRulesResult | null;
   expectedRuleName: string | null;
+  explanation?: string;
 }) {
   // Truncate content if it's too long
   // TODO: HTML text / text plain
@@ -143,8 +208,7 @@ ${
     : expectedRuleName
       ? `The rule that should have been applied was: "${expectedRuleName}"`
       : "Instead, no rule should have been applied."
-}
-`.trim();
+}${explanation ? `\n\nExplanation: ${explanation}` : ""}`.trim();
 }
 
 function RuleMismatch({

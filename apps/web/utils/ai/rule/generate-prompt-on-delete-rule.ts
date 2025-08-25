@@ -20,7 +20,10 @@ export async function generatePromptOnDeleteRule({
   existingPrompt: string;
   deletedRule: RuleWithRelations;
 }): Promise<string> {
-  const deletedRulePrompt = createPromptFromRule(deletedRule);
+  const deletedRulePrompt = createPromptFromRule(
+    deletedRule,
+    emailAccount.account.provider,
+  );
 
   if (!existingPrompt) return "";
   if (!deletedRulePrompt) return "";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, memo, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { HelpCircleIcon, SparklesIcon, UserPenIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -21,25 +21,23 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import {
-  examplePrompts,
-  personas,
+  getPersonas,
+  type Personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
-import { convertLabelsToDisplay } from "@/utils/mention";
 import { PersonaDialog } from "@/app/(app)/[emailAccountId]/assistant/PersonaDialog";
 import { useModal } from "@/hooks/useModal";
 import { ProcessingPromptFileDialog } from "@/app/(app)/[emailAccountId]/assistant/ProcessingPromptFileDialog";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { Label } from "@/components/ui/label";
-import { SectionHeader } from "@/components/Typography";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/utils";
-import { getActionTypeColor } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
+import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { toastError } from "@/components/Toast";
 
 export function RulesPrompt() {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
   const { data, isLoading, error, mutate } = useSWR<
     RulesPromptResponse,
     { error: string }
@@ -51,6 +49,7 @@ export function RulesPrompt() {
   );
 
   const [persona, setPersona] = useState<string | null>(null);
+  const personas = getPersonas(provider);
 
   const personaPrompt = persona
     ? personas[persona as keyof typeof personas]?.prompt
@@ -67,11 +66,13 @@ export function RulesPrompt() {
           <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
+              provider={provider}
               rulesPrompt={data.rulesPrompt}
               personaPrompt={personaPrompt}
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
               showExamples
+              personas={personas}
             />
             <AssistantOnboarding
               onComplete={() => {
@@ -85,6 +86,7 @@ export function RulesPrompt() {
         isOpen={isModalOpen}
         setIsOpen={setIsModalOpen}
         onSelect={setPersona}
+        personas={personas}
       />
     </>
   );
@@ -92,18 +94,22 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
+  provider,
   rulesPrompt,
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
   showExamples,
+  personas,
 }: {
   emailAccountId: string;
+  provider: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
+  personas: Personas;
 }) {
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
@@ -127,8 +133,6 @@ function RulesPromptForm({
   const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
-
-    const data = { rulesPrompt: markdown };
 
     setIsSubmitting(true);
 
@@ -156,7 +160,7 @@ function RulesPromptForm({
     }
     setResult(undefined);
 
-    toast.promise(() => saveRulesPromise(data), {
+    toast.promise(() => saveRulesPromise({ rulesPrompt: markdown }), {
       loading: "Saving rules... This may take a while to process...",
       success: (result) => {
         const {
@@ -195,7 +199,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result}
+        result={[]} // TODO: if we revert back to this component we need to fix this
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog
@@ -312,7 +316,9 @@ function RulesPromptForm({
                             `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
-                          toast.error("Error generating prompt");
+                          toastError({
+                            description: "Error generating prompt",
+                          });
                         }
 
                         setIsGenerating(false);
@@ -335,80 +341,13 @@ function RulesPromptForm({
                 </Button>
               </Tooltip>
             </div>
-
-            {/* {showClearWarning && (
-              <Notice>
-                <strong>Note:</strong> Deleting text will delete rules. Add new
-                rules at the end to keep your existing rules.
-              </Notice>
-            )} */}
           </div>
         </form>
 
-        {showExamples && <Examples onSelect={addExamplePrompt} />}
+        {showExamples && (
+          <Examples onSelect={addExamplePrompt} provider={provider} />
+        )}
       </div>
     </div>
   );
-}
-
-function PureExamples({ onSelect }: { onSelect: (example: string) => void }) {
-  return (
-    <div>
-      <SectionHeader className="text-xl">Examples</SectionHeader>
-
-      <ScrollArea className="mt-1.5 sm:h-[60vh] sm:max-h-[60vh]">
-        <div className="grid grid-cols-1 gap-2">
-          {examplePrompts.map((example) => {
-            const { color } = getActionType(example);
-
-            return (
-              <Button
-                key={example}
-                variant="outline"
-                onClick={() => onSelect(example)}
-                className="h-auto w-full justify-start text-wrap py-2 text-left"
-              >
-                <div className="flex w-full items-start gap-2">
-                  <div
-                    className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
-                  />
-                  <span className="flex-1">
-                    {convertLabelsToDisplay(example)}
-                  </span>
-                </div>
-              </Button>
-            );
-          })}
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
-
-const Examples = memo(PureExamples);
-
-function getActionType(example: string): {
-  type: string;
-  color: string;
-} {
-  const lowerExample = example.toLowerCase();
-  const color = getActionTypeColor(example);
-
-  if (lowerExample.includes("forward")) {
-    return { type: "forward", color };
-  }
-  if (lowerExample.includes("draft") || lowerExample.includes("reply")) {
-    return { type: "reply", color };
-  }
-  if (lowerExample.includes("archive")) {
-    return { type: "archive", color };
-  }
-  if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
-    return { type: "mark", color };
-  }
-  if (lowerExample.includes("label")) {
-    return { type: "label", color };
-  }
-
-  return { type: "other", color };
 }

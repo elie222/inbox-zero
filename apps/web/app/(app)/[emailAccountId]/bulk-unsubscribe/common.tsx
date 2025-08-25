@@ -53,6 +53,7 @@ import { LabelsSubMenu } from "@/components/LabelsSubMenu";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function ActionCell<T extends Row>({
   item,
@@ -226,6 +227,8 @@ function AutoArchiveButton<T extends Row>({
   labels: EmailLabel[];
   emailAccountId: string;
 }) {
+  const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
   const {
     autoArchiveLoading,
     onAutoArchive,
@@ -306,7 +309,9 @@ function AutoArchiveButton<T extends Row>({
             </>
           )}
 
-          <DropdownMenuLabel>Skip Inbox and Label</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            Skip Inbox and {terminology.label.singularCapitalized}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {labels.map((label) => {
             return (
@@ -323,8 +328,9 @@ function AutoArchiveButton<T extends Row>({
           })}
           {!labels.length && (
             <DropdownMenuItem>
-              You do not have any labels. Create one in Gmail first to auto
-              label emails.
+              You do not have any {terminology.label.plural}. Create one in your
+              email client first to auto
+              {terminology.label.singular} emails.
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -389,6 +395,7 @@ export function MoreDropdown<T extends Row>({
   posthog: PostHog;
 }) {
   const { provider } = useAccount();
+  const terminology = getEmailTerminology(provider);
   const { archiveAllLoading, onArchiveAll } = useArchiveAll({
     item,
     posthog,
@@ -440,7 +447,7 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <TagIcon className="mr-2 size-4" />
-            <span>Label future emails</span>
+            <span>{terminology.label.singularCapitalized} future emails</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <LabelsSubMenu

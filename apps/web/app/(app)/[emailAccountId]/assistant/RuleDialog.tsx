@@ -38,10 +38,8 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className={ruleId ? "sr-only" : ""}>
-            {ruleId ? "Edit Rule" : "Create Rule"}
-          </DialogTitle>
+        <DialogHeader className={ruleId ? "sr-only" : ""}>
+          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
         </DialogHeader>
         <div>
           {ruleId ? (
@@ -53,6 +51,7 @@ export function RuleDialog({
                   onSuccess={handleSuccess}
                   isDialog={true}
                   mutate={mutate}
+                  onCancel={onClose}
                 />
               )}
             </LoadingContent>
@@ -70,6 +69,7 @@ export function RuleDialog({
               alwaysEditMode={true}
               onSuccess={handleSuccess}
               isDialog={true}
+              onCancel={onClose}
             />
           )}
         </div>

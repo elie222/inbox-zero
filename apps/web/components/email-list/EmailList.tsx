@@ -178,7 +178,7 @@ export function EmailList({
   isLoadingMore?: boolean;
   handleLoadMore?: () => void;
 }) {
-  const { emailAccountId, userEmail } = useAccount();
+  const { emailAccountId, userEmail, provider } = useAccount();
 
   // if right panel is open
   const [openThreadId, setOpenThreadId] = useQueryState("thread-id");
@@ -477,6 +477,7 @@ export function EmailList({
                       }
                     }}
                     userEmail={userEmail}
+                    provider={provider}
                     thread={thread}
                     opened={openThreadId === thread.id}
                     closePanel={closePanel}
