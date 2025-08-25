@@ -21,6 +21,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
+  TrashIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -123,12 +124,14 @@ export function RuleForm({
   onSuccess,
   isDialog = false,
   mutate,
+  onCancel,
 }: {
   rule: CreateRuleBody & { id?: string };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
   mutate?: (data?: any, options?: any) => void;
+  onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
 
@@ -876,50 +879,54 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="flex items-center justify-end space-x-2 mt-4">
-          <TooltipExplanation
-            size="md"
-            side="left"
-            text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
-          />
+        <div className="space-y-4 mt-8">
+          <TypographyH3 className="text-xl">Settings</TypographyH3>
 
-          <Toggle
-            name="automate"
-            label="Automate"
-            enabled={watch("automate") || false}
-            onChange={(enabled) => {
-              setValue("automate", enabled);
-            }}
-          />
-        </div>
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="automate"
+              labelRight="Automate"
+              enabled={watch("automate") || false}
+              onChange={(enabled) => {
+                setValue("automate", enabled);
+              }}
+            />
 
-        <div className="mt-4 flex items-center justify-end space-x-2">
-          <ThreadsExplanation size="md" />
-
-          <Toggle
-            name="runOnThreads"
-            label="Apply to threads"
-            enabled={watch("runOnThreads") || false}
-            onChange={(enabled) => {
-              setValue("runOnThreads", enabled);
-            }}
-          />
-        </div>
-
-        {!!rule.id && (
-          <div className="mt-4 flex justify-end">
-            <LearnedPatternsDialog
-              ruleId={rule.id}
-              groupId={rule.groupId || null}
+            <TooltipExplanation
+              size="md"
+              side="left"
+              text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
             />
           </div>
-        )}
 
-        <div className="flex justify-end space-x-2 py-6">
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="runOnThreads"
+              labelRight="Apply to threads"
+              enabled={watch("runOnThreads") || false}
+              onChange={(enabled) => {
+                setValue("runOnThreads", enabled);
+              }}
+            />
+
+            <ThreadsExplanation size="md" />
+          </div>
+
+          {!!rule.id && (
+            <div className="flex">
+              <LearnedPatternsDialog
+                ruleId={rule.id}
+                groupId={rule.groupId || null}
+              />
+            </div>
+          )}
+
           {rule.id && (
             <Button
+              size="sm"
               variant="outline"
               loading={isSubmitting}
+              Icon={TrashIcon}
               onClick={async () => {
                 const yes = confirm(
                   "Are you sure you want to delete this rule?",
@@ -950,6 +957,15 @@ export function RuleForm({
               Delete
             </Button>
           )}
+        </div>
+
+        <div className="flex justify-end space-x-2 pt-6">
+          {onCancel && (
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+
           {rule.id ? (
             <Button type="submit" loading={isSubmitting}>
               Save

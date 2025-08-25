@@ -53,6 +53,7 @@ export function RuleDialog({
                   onSuccess={handleSuccess}
                   isDialog={true}
                   mutate={mutate}
+                  onCancel={onClose}
                 />
               )}
             </LoadingContent>
@@ -70,6 +71,7 @@ export function RuleDialog({
               alwaysEditMode={true}
               onSuccess={handleSuccess}
               isDialog={true}
+              onCancel={onClose}
             />
           )}
         </div>

@@ -54,7 +54,7 @@ export function LearnedPatternsDialog({
     <Dialog>
       <DialogTrigger asChild>
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={async () => {
             if (!ruleId) return;
