@@ -55,7 +55,6 @@ Your task is to:
 
 **Formatting rules:**
 - Do not include HTML, markdown, or explanations.
-- Return only the final result.
 - For structured emails, return the bulleted list.
 - For unstructured emails, return the summarized text.
 - For spam, promotional, or irrelevant emails, return an empty string.
