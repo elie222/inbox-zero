@@ -6,10 +6,7 @@ import prisma from "@/utils/prisma";
 import { RuleName } from "@/utils/rule/consts";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import {
-  getEmailAccountWithAi,
-  getEmailAccountWithAiAndName,
-} from "@/utils/user/get";
+import { getEmailAccountWithAiAndName } from "@/utils/user/get";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
