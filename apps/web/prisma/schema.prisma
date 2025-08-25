@@ -504,6 +504,7 @@ model GroupItem {
   type      GroupItemType
   value     String // eg "@gmail.com", "matt@gmail.com", "Receipt from"
   exclude   Boolean       @default(false) // Whether this pattern should be excluded rather than included
+  reasoning String?       // Reasoning for why this pattern was learned if added by AI
 
   @@unique([groupId, type, value])
 }

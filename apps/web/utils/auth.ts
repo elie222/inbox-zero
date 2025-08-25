@@ -41,8 +41,6 @@ export const betterAuthConfig = betterAuth({
       }
     },
   },
-  baseURL: env.NEXT_PUBLIC_BASE_URL,
-  trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
     enabled: false,
