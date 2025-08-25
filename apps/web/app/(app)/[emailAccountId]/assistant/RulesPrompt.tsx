@@ -21,7 +21,6 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { Tooltip } from "@/components/Tooltip";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import {
-  getExamplePrompts,
   getPersonas,
   type Personas,
 } from "@/app/(app)/[emailAccountId]/assistant/examples";
@@ -35,6 +34,7 @@ import { cn } from "@/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
 import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { toastError } from "@/components/Toast";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -50,7 +50,6 @@ export function RulesPrompt() {
 
   const [persona, setPersona] = useState<string | null>(null);
   const personas = getPersonas(provider);
-  const examplePrompts = getExamplePrompts(provider);
 
   const personaPrompt = persona
     ? personas[persona as keyof typeof personas]?.prompt
@@ -67,13 +66,13 @@ export function RulesPrompt() {
           <div className="mt-4">
             <RulesPromptForm
               emailAccountId={emailAccountId}
+              provider={provider}
               rulesPrompt={data.rulesPrompt}
               personaPrompt={personaPrompt}
               mutate={mutate}
               onOpenPersonaDialog={onOpenPersonaDialog}
               showExamples
               personas={personas}
-              examplePrompts={examplePrompts}
             />
             <AssistantOnboarding
               onComplete={() => {
@@ -95,22 +94,22 @@ export function RulesPrompt() {
 
 function RulesPromptForm({
   emailAccountId,
+  provider,
   rulesPrompt,
   personaPrompt,
   mutate,
   onOpenPersonaDialog,
   showExamples,
   personas,
-  examplePrompts,
 }: {
   emailAccountId: string;
+  provider: string;
   rulesPrompt: string | null;
   personaPrompt?: string;
   mutate: () => void;
   onOpenPersonaDialog: () => void;
   showExamples?: boolean;
   personas: Personas;
-  examplePrompts: string[];
 }) {
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
@@ -134,8 +133,6 @@ function RulesPromptForm({
   const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
-
-    const data = { rulesPrompt: markdown };
 
     setIsSubmitting(true);
 
@@ -163,7 +160,7 @@ function RulesPromptForm({
     }
     setResult(undefined);
 
-    toast.promise(() => saveRulesPromise(data), {
+    toast.promise(() => saveRulesPromise({ rulesPrompt: markdown }), {
       loading: "Saving rules... This may take a while to process...",
       success: (result) => {
         const {
@@ -202,7 +199,7 @@ function RulesPromptForm({
     <div>
       <ProcessingPromptFileDialog
         open={isDialogOpen}
-        result={result}
+        result={[]} // TODO: if we revert back to this component we need to fix this
         onOpenChange={setIsDialogOpen}
         setViewedProcessingPromptFileDialog={
           setViewedProcessingPromptFileDialog
@@ -319,7 +316,9 @@ function RulesPromptForm({
                             `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
-                          toast.error("Error generating prompt");
+                          toastError({
+                            description: "Error generating prompt",
+                          });
                         }
 
                         setIsGenerating(false);
@@ -342,21 +341,11 @@ function RulesPromptForm({
                 </Button>
               </Tooltip>
             </div>
-
-            {/* {showClearWarning && (
-              <Notice>
-                <strong>Note:</strong> Deleting text will delete rules. Add new
-                rules at the end to keep your existing rules.
-              </Notice>
-            )} */}
           </div>
         </form>
 
         {showExamples && (
-          <Examples
-            onSelect={addExamplePrompt}
-            examplePrompts={examplePrompts}
-          />
+          <Examples onSelect={addExamplePrompt} provider={provider} />
         )}
       </div>
     </div>

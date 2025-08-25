@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
+import { aiPromptToRulesOld as aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules-old";
 import { createRuleSchema } from "@/utils/ai/rule/create-rule-schema";
 import { ActionType } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
@@ -100,7 +100,9 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
 
     // Validate each rule against the schema
     for (const rule of result) {
-      expect(() => createRuleSchema.parse(rule)).not.toThrow();
+      expect(() =>
+        createRuleSchema(emailAccount.account.provider).parse(rule),
+      ).not.toThrow();
     }
   }, 15_000);
 

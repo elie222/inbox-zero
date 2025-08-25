@@ -11,6 +11,7 @@ import {
   ToggleRightIcon,
   ToggleLeftIcon,
   InfoIcon,
+  SparklesIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -57,11 +58,21 @@ import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
+import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
-export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
+export function Rules({
+  size = "md",
+  showAddRuleButton = true,
+}: {
+  size?: "sm" | "md";
+  showAddRuleButton?: boolean;
+}) {
   const { data, isLoading, error, mutate } = useRules();
+  const { setOpen } = useSidebar();
+  const { setInput } = useChat();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
@@ -216,9 +227,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <div className="flex justify-end">
-                      <AddRuleButton onClick={onCreateRule} />
-                    </div>
+                    {showAddRuleButton && (
+                      <div className="flex justify-end">
+                        <AddRuleButton onClick={onCreateRule} />
+                      </div>
+                    )}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -331,8 +344,21 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                               }}
                             >
                               <PenIcon className="mr-2 size-4" />
-                              Edit
+                              Edit manually
                             </DropdownMenuItem>
+                            {!isColdEmailBlocker && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInput(
+                                    `I'd like to edit the "${rule.name}" rule:\n`,
+                                  );
+                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                }}
+                              >
+                                <SparklesIcon className="mr-2 size-4" />
+                                Edit via AI
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem asChild>
                               <Link
                                 href={

@@ -16,7 +16,10 @@ import {
   runRulesBody,
   testAiCustomContentBody,
 } from "@/utils/actions/ai-rule.validation";
-import { saveRulesPromptBody } from "@/utils/actions/rule.validation";
+import {
+  createRulesBody,
+  saveRulesPromptBody,
+} from "@/utils/actions/rule.validation";
 import { aiPromptToRules } from "@/utils/ai/rule/prompt-to-rules";
 import { aiDiffRules } from "@/utils/ai/rule/diff-rules";
 import { aiFindExistingRules } from "@/utils/ai/rule/find-existing-rules";
@@ -30,6 +33,8 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import { aiPromptToRulesOld } from "@/utils/ai/rule/prompt-to-rules-old";
+import type { CreateRuleResult } from "@/utils/rule/types";
 
 const logger = createScopedLogger("ai-rule");
 
@@ -340,7 +345,7 @@ export const saveRulesPromptAction = actionClient
 
       if (diff.addedRules.length) {
         logger.info("Processing added rules", { emailAccountId });
-        addedRules = await aiPromptToRules({
+        addedRules = await aiPromptToRulesOld({
           emailAccount,
           promptFile: diff.addedRules.join("\n\n"),
           isEditing: false,
@@ -419,7 +424,7 @@ export const saveRulesPromptAction = actionClient
 
       // edit rules
       if (existingRules.editedRules.length > 0) {
-        const editedRules = await aiPromptToRules({
+        const editedRules = await aiPromptToRulesOld({
           emailAccount,
           promptFile: existingRules.editedRules
             .map(
@@ -463,7 +468,7 @@ export const saveRulesPromptAction = actionClient
       }
     } else {
       logger.info("Processing new rules prompt with AI", { emailAccountId });
-      addedRules = await aiPromptToRules({
+      addedRules = await aiPromptToRulesOld({
         emailAccount,
         promptFile: rulesPrompt,
         isEditing: false,
@@ -477,11 +482,7 @@ export const saveRulesPromptAction = actionClient
 
     // add new rules
     for (const rule of addedRules || []) {
-      logger.info("Creating rule", {
-        emailAccountId,
-        promptRule: rule.name,
-        ruleId: rule.ruleId,
-      });
+      logger.info("Creating rule", { emailAccountId, ruleName: rule.name });
 
       await safeCreateRule({
         result: rule,
@@ -509,6 +510,78 @@ export const saveRulesPromptAction = actionClient
       createdRules: addedRules?.length || 0,
       editedRules: editRulesCount,
       removedRules: removeRulesCount,
+    };
+  });
+
+export const createRulesAction = actionClient
+  .metadata({ name: "createRules" })
+  .schema(createRulesBody)
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { prompt } }) => {
+    const emailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: {
+        id: true,
+        email: true,
+        userId: true,
+        about: true,
+        rulesPrompt: true,
+        categories: { select: { id: true, name: true } },
+        user: {
+          select: {
+            aiProvider: true,
+            aiModel: true,
+            aiApiKey: true,
+          },
+        },
+        account: {
+          select: {
+            provider: true,
+          },
+        },
+      },
+    });
+
+    if (!emailAccount) {
+      logger.error("Email account not found");
+      throw new SafeError("Email account not found");
+    }
+
+    const addedRules = await aiPromptToRules({
+      emailAccount,
+      promptFile: prompt,
+      availableCategories: emailAccount.categories.map((c) => c.name),
+    });
+
+    logger.info("Rules to be added", {
+      emailAccountId,
+      count: addedRules?.length || 0,
+    });
+
+    const createdRules: CreateRuleResult[] = [];
+
+    for (const rule of addedRules || []) {
+      logger.info("Creating rule", { emailAccountId, ruleName: rule.name });
+
+      const createdRule = await safeCreateRule({
+        result: rule,
+        emailAccountId,
+        categoryNames: rule.condition.categories?.categoryFilters || [],
+        shouldCreateIfDuplicate: false,
+        provider: emailAccount.account.provider,
+      });
+
+      if (createdRule) {
+        createdRules.push(createdRule);
+      }
+    }
+
+    logger.info("Completed", {
+      emailAccountId,
+      createdRules: createdRules.length,
+    });
+
+    return {
+      rules: createdRules,
     };
   });
 

@@ -74,7 +74,7 @@ export function FixWithChat({
     }
 
     setInput(input);
-    setOpen(["chat-sidebar"]);
+    setOpen((arr) => [...arr, "chat-sidebar"]);
     setIsModalOpen(false);
 
     // Reset state

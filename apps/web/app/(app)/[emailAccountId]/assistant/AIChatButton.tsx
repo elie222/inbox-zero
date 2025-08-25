@@ -11,7 +11,7 @@ export function AIChatButton() {
     <Button
       size="sm"
       variant="outline"
-      onClick={() => setOpen(["chat-sidebar"])}
+      onClick={() => setOpen((arr) => [...arr, "chat-sidebar"])}
     >
       <MessageCircleIcon className="mr-2 size-4" />
       AI Chat
