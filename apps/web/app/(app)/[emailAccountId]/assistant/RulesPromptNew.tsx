@@ -77,7 +77,7 @@ function RulesPromptForm({
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isProcessingDialogOpen, setIsProcessingDialogOpen] = useState(false);
   const [createdRules, setCreatedRules] = useState<CreateRuleResult[] | null>(
     null,
   );
@@ -85,7 +85,7 @@ function RulesPromptForm({
   const [
     viewedProcessingPromptFileDialog,
     setViewedProcessingPromptFileDialog,
-  ] = useLocalStorage("viewedProcessingPromptFileDialogxx2", false);
+  ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
   const ruleDialog = useDialogState();
 
@@ -104,7 +104,7 @@ function RulesPromptForm({
     }
 
     setIsSubmitting(true);
-    if (!viewedProcessingPromptFileDialog) setIsDialogOpen(true);
+    if (!viewedProcessingPromptFileDialog) setIsProcessingDialogOpen(true);
     setCreatedRules(null);
 
     toast.promise(
@@ -127,7 +127,7 @@ function RulesPromptForm({
           const { rules = [] } = result?.data || {};
           setCreatedRules(rules);
 
-          if (!isDialogOpen) {
+          if (!isProcessingDialogOpen) {
             setShowCreatedRulesModal(true);
           }
 
@@ -138,7 +138,12 @@ function RulesPromptForm({
         },
       },
     );
-  }, [mutate, viewedProcessingPromptFileDialog, emailAccountId, isDialogOpen]);
+  }, [
+    mutate,
+    viewedProcessingPromptFileDialog,
+    emailAccountId,
+    isProcessingDialogOpen,
+  ]);
 
   useEffect(() => {
     if (!personaPrompt) return;
@@ -151,15 +156,6 @@ function RulesPromptForm({
 
   return (
     <div>
-      <ProcessingPromptFileDialog
-        open={isDialogOpen}
-        result={createdRules}
-        onOpenChange={setIsDialogOpen}
-        setViewedProcessingPromptFileDialog={
-          setViewedProcessingPromptFileDialog
-        }
-      />
-
       <div className="grid md:grid-cols-3 gap-4">
         <form
           className="col-span-2"
@@ -286,6 +282,15 @@ function RulesPromptForm({
           ruleDialog.close();
         }}
         editMode={false}
+      />
+
+      <ProcessingPromptFileDialog
+        open={isProcessingDialogOpen}
+        result={createdRules}
+        onOpenChange={setIsProcessingDialogOpen}
+        setViewedProcessingPromptFileDialog={
+          setViewedProcessingPromptFileDialog
+        }
       />
 
       <CreatedRulesModal
