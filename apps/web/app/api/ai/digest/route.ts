@@ -167,9 +167,7 @@ export const POST = withError(
 
       logger.with({ emailAccountId, messageId: message.id });
 
-      const emailAccount = await getEmailAccountWithAi({
-        emailAccountId,
-      });
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) {
         throw new Error("Email account not found");
       }
