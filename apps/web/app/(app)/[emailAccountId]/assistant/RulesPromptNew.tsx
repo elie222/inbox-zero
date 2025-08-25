@@ -167,7 +167,7 @@ function RulesPromptForm({
               onClick={() => ruleDialog.open()}
               Icon={PlusIcon}
             >
-              Add rule manually
+              Add manually
             </Button>
           </div>
 
@@ -181,7 +181,8 @@ function RulesPromptForm({
                 defaultValue={undefined}
                 minHeight={70}
                 userLabels={userLabels}
-                placeholder={"Write your rules here..."}
+                placeholder={`* Label urgent emails as "Urgent"
+* Forward receipts to jane@accounting.com`}
               />
             </LoadingContent>
 
