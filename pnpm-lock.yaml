@@ -623,9 +623,6 @@ importers:
       nanoid:
         specifier: 5.1.5
         version: 5.1.5
-      pluralize:
-        specifier: ^8.0.0
-        version: 8.0.0
       react:
         specifier: 19.1.0
         version: 19.1.0
@@ -642,9 +639,6 @@ importers:
       '@types/node':
         specifier: 22.15.29
         version: 22.15.29
-      '@types/pluralize':
-        specifier: ^0.0.33
-        version: 0.0.33
       '@types/react':
         specifier: 19.0.10
         version: 19.0.10
@@ -4782,9 +4776,6 @@ packages:
 
   '@types/pg@8.6.1':
     resolution: {integrity: sha512-1Kc4oAGzAl7uqUStZCDvaLFqZrW9qWSjXOmBfdgyBP5La7Us6Mg4GBvRlSoaZMhQF/zSj1C8CtKMBkoiT8eL8w==}
-
-  '@types/pluralize@0.0.33':
-    resolution: {integrity: sha512-JOqsl+ZoCpP4e8TDke9W79FDcSgPAR0l6pixx2JHkhnRjvShyYiAYw2LVsnA7K08Y6DeOnaU6ujmENO4os/cYg==}
 
   '@types/react-dom@19.0.4':
     resolution: {integrity: sha512-4fSQ8vWFkg+TGhePfUzVmat3eC14TXYSsiiDSLI0dVLsrm9gZFABjPy/Qu6TKgl1tq1Bu1yDsuQgY3A3DOjCcg==}
@@ -15782,8 +15773,6 @@ snapshots:
       '@types/node': 22.15.29
       pg-protocol: 1.10.3
       pg-types: 2.2.0
-
-  '@types/pluralize@0.0.33': {}
 
   '@types/react-dom@19.0.4(@types/react@19.0.10)':
     dependencies:

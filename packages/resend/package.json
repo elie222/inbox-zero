@@ -9,7 +9,6 @@
     "@react-email/components": "0.0.41",
     "@react-email/render": "1.1.2",
     "nanoid": "5.1.5",
-    "pluralize": "^8.0.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-email": "4.0.15",
@@ -17,7 +16,6 @@
   },
   "devDependencies": {
     "@types/node": "22.15.29",
-    "@types/pluralize": "^0.0.33",
     "@types/react": "19.1.6",
     "@types/react-dom": "19.1.5",
     "prettier": "3.5.3",

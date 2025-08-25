@@ -65,7 +65,7 @@ Now, classify and summarize the following email:`;
   const prompt = `
 <email>
   <email_content>${stringifyEmailSimple(userMessageForPrompt)}</email_content>
-  <category>${ruleName}</category>
+  <email_category>${ruleName}</email_category>
 </email>
 
 <user>
