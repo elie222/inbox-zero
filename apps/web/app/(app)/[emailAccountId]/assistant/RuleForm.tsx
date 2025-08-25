@@ -1130,139 +1130,142 @@ function ActionCard({
               >
                 <div>
                   <Label name={field.name} label={field.label} />
-                </div>
 
-                {field.name === "label" && !isAiGenerated ? (
-                  <div className="mt-2">
-                    <LabelCombobox
-                      userLabels={userLabels}
-                      isLoading={isLoading}
-                      mutate={mutate}
-                      value={value}
-                      onChangeValue={(newValue: string) => {
-                        setValue(
-                          `actions.${index}.${field.name}.value`,
-                          newValue,
-                        );
-                      }}
-                      emailAccountId={emailAccountId}
-                    />
-                  </div>
-                ) : field.name === "label" && isAiGenerated ? (
-                  <div className="mt-2">
-                    <Input
-                      type="text"
-                      name={`actions.${index}.${field.name}.value`}
-                      registerProps={register(
-                        `actions.${index}.${field.name}.value`,
-                      )}
-                    />
-                  </div>
-                ) : field.name === "folderName" &&
-                  action.type === ActionType.MOVE_FOLDER ? (
-                  <div className="mt-2">
-                    <FolderSelector
-                      folders={folders}
-                      isLoading={foldersLoading}
-                      value={{
-                        name: watch(`actions.${index}.folderName.value`) || "",
-                        id: watch(`actions.${index}.folderId.value`) || "",
-                      }}
-                      onChangeValue={(folderData) => {
-                        if (folderData.name && folderData.id) {
-                          setValue(`actions.${index}.folderName`, {
-                            value: folderData.name,
-                          });
-                          setValue(`actions.${index}.folderId`, {
-                            value: folderData.id,
-                          });
-                        } else {
-                          setValue(`actions.${index}.folderName`, undefined);
-                          setValue(`actions.${index}.folderId`, undefined);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : field.name === "content" &&
-                  action.type === ActionType.DRAFT_EMAIL &&
-                  !setManually ? (
-                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
-                    <div className="max-w-sm text-center text-sm text-muted-foreground">
-                      Our AI will generate a reply using your knowledge base and
-                      previous conversations with the sender
+                  {field.name === "label" && !isAiGenerated ? (
+                    <div className="mt-2">
+                      <LabelCombobox
+                        userLabels={userLabels}
+                        isLoading={isLoading}
+                        mutate={mutate}
+                        value={value}
+                        onChangeValue={(newValue: string) => {
+                          setValue(
+                            `actions.${index}.${field.name}.value`,
+                            newValue,
+                          );
+                        }}
+                        emailAccountId={emailAccountId}
+                      />
                     </div>
+                  ) : field.name === "label" && isAiGenerated ? (
+                    <div className="mt-2">
+                      <Input
+                        type="text"
+                        name={`actions.${index}.${field.name}.value`}
+                        registerProps={register(
+                          `actions.${index}.${field.name}.value`,
+                        )}
+                      />
+                    </div>
+                  ) : field.name === "folderName" &&
+                    action.type === ActionType.MOVE_FOLDER ? (
+                    <div className="mt-2">
+                      <FolderSelector
+                        folders={folders}
+                        isLoading={foldersLoading}
+                        value={{
+                          name:
+                            watch(`actions.${index}.folderName.value`) || "",
+                          id: watch(`actions.${index}.folderId.value`) || "",
+                        }}
+                        onChangeValue={(folderData) => {
+                          if (folderData.name && folderData.id) {
+                            setValue(`actions.${index}.folderName`, {
+                              value: folderData.name,
+                            });
+                            setValue(`actions.${index}.folderId`, {
+                              value: folderData.id,
+                            });
+                          } else {
+                            setValue(`actions.${index}.folderName`, undefined);
+                            setValue(`actions.${index}.folderId`, undefined);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : field.name === "content" &&
+                    action.type === ActionType.DRAFT_EMAIL &&
+                    !setManually ? (
+                    <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
+                      <div className="max-w-sm text-center text-sm text-muted-foreground">
+                        Our AI will generate a reply using your knowledge base
+                        and previous conversations with the sender
+                      </div>
 
-                    <Button
-                      variant="link"
-                      size="xs"
-                      onClick={() => {
-                        setValue(`actions.${index}.content.setManually`, true);
-                      }}
-                    >
-                      Set manually
-                    </Button>
-                  </div>
-                ) : field.textArea ? (
-                  <div className="mt-2">
-                    <TextareaAutosize
-                      className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                      minRows={3}
-                      rows={3}
-                      {...register(`actions.${index}.${field.name}.value`)}
-                    />
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={() => {
+                          setValue(
+                            `actions.${index}.content.setManually`,
+                            true,
+                          );
+                        }}
+                      >
+                        Set manually
+                      </Button>
+                    </div>
+                  ) : field.textArea ? (
+                    <div className="mt-2">
+                      <TextareaAutosize
+                        className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                        minRows={3}
+                        rows={3}
+                        {...register(`actions.${index}.${field.name}.value`)}
+                      />
 
-                    {field.name === "content" &&
-                      action.type === ActionType.DRAFT_EMAIL &&
-                      setManually && (
-                        <Button
-                          variant="link"
-                          size="xs"
-                          onClick={() => {
-                            setValue(
-                              `actions.${index}.content.setManually`,
-                              false,
-                            );
-                          }}
-                        >
-                          Auto draft
-                        </Button>
-                      )}
-                  </div>
-                ) : (
-                  <div className="mt-2">
-                    <Input
-                      type="text"
-                      name={`actions.${index}.${field.name}.value`}
-                      registerProps={register(
-                        `actions.${index}.${field.name}.value`,
-                      )}
-                    />
-                  </div>
-                )}
+                      {field.name === "content" &&
+                        action.type === ActionType.DRAFT_EMAIL &&
+                        setManually && (
+                          <Button
+                            variant="link"
+                            size="xs"
+                            onClick={() => {
+                              setValue(
+                                `actions.${index}.content.setManually`,
+                                false,
+                              );
+                            }}
+                          >
+                            Auto draft
+                          </Button>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <Input
+                        type="text"
+                        name={`actions.${index}.${field.name}.value`}
+                        registerProps={register(
+                          `actions.${index}.${field.name}.value`,
+                        )}
+                      />
+                    </div>
+                  )}
 
-                {field.name === "label" && (
-                  <div className="flex items-center space-x-2 mt-4">
-                    <Toggle
-                      name={`actions.${index}.${field.name}.ai`}
-                      labelRight="AI generated"
-                      enabled={isAiGenerated || false}
-                      onChange={(enabled: boolean) => {
-                        setValue(
-                          `actions.${index}.${field.name}`,
-                          enabled
-                            ? { value: "", ai: true }
-                            : { value: "", ai: false },
-                        );
-                      }}
-                    />
+                  {field.name === "label" && (
+                    <div className="flex items-center space-x-2 mt-4">
+                      <Toggle
+                        name={`actions.${index}.${field.name}.ai`}
+                        labelRight="AI generated"
+                        enabled={isAiGenerated || false}
+                        onChange={(enabled: boolean) => {
+                          setValue(
+                            `actions.${index}.${field.name}`,
+                            enabled
+                              ? { value: "", ai: true }
+                              : { value: "", ai: false },
+                          );
+                        }}
+                      />
 
-                    <TooltipExplanation
-                      side="right"
-                      text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
-                    />
-                  </div>
-                )}
-
+                      <TooltipExplanation
+                        side="right"
+                        text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
+                      />
+                    </div>
+                  )}
+                </div>
                 {hasVariables(value) &&
                   canFieldUseVariables(field, isAiGenerated) && (
                     <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
