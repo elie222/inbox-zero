@@ -26,6 +26,7 @@ import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 import type { CreateRuleResult } from "@/utils/rule/types";
+import { toastError } from "@/components/Toast";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -94,6 +95,12 @@ function RulesPromptForm({
   const onSubmit = useCallback(async () => {
     const markdown = editorRef.current?.getMarkdown();
     if (typeof markdown !== "string") return;
+    if (markdown.trim() === "") {
+      toastError({
+        description: "Please enter a prompt to create rules",
+      });
+      return;
+    }
 
     setIsSubmitting(true);
     if (!viewedProcessingPromptFileDialog) setIsDialogOpen(true);
@@ -103,15 +110,13 @@ function RulesPromptForm({
       async () => {
         const result = await createRulesAction(emailAccountId, {
           prompt: markdown,
+        }).finally(() => {
+          setIsSubmitting(false);
         });
 
-        if (result?.serverError) {
-          setIsSubmitting(false);
-          throw new Error(result.serverError);
-        }
+        if (result?.serverError) throw new Error(result.serverError);
 
         mutate();
-        setIsSubmitting(false);
 
         return result;
       },
@@ -231,7 +236,7 @@ function RulesPromptForm({
                             `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
-                          toast.error("Error generating prompt");
+                          toastError("Error generating prompt");
                         }
 
                         setIsGenerating(false);

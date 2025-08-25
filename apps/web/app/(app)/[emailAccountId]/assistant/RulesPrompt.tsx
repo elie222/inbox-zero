@@ -34,6 +34,7 @@ import { cn } from "@/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLabels } from "@/hooks/useLabels";
 import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { toastError } from "@/components/Toast";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -315,7 +316,9 @@ function RulesPromptForm({
                             `\n${result?.data?.rulesPrompt || ""}`,
                           );
                         } else {
-                          toast.error("Error generating prompt");
+                          toastError({
+                            description: "Error generating prompt",
+                          });
                         }
 
                         setIsGenerating(false);
