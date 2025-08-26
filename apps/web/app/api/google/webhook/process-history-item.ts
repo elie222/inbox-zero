@@ -68,7 +68,6 @@ export async function processHistoryItem(
   if (type === HistoryEventType.LABEL_REMOVED) {
     logger.info("Processing label removed event for learning", loggerOptions);
     return handleLabelRemovedEvent(item, {
-      gmail,
       emailAccount,
       provider,
     });
