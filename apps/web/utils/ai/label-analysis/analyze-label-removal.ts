@@ -106,8 +106,6 @@ but do not create a hard exclusion rule. This allows the system to learn and imp
 ${stringifyEmail(email, 1000)}
 </email>`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
@@ -122,8 +120,6 @@ ${stringifyEmail(email, 1000)}
     prompt,
     schema,
   });
-
-  logger.trace("Output", aiResponse.object);
 
   return aiResponse.object;
 }
