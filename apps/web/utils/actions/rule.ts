@@ -75,7 +75,6 @@ function getCategoryActionDescription(categoryAction: CategoryAction): string {
 
 async function getActionsFromCategoryAction(
   emailAccountId: string,
-  provider: string,
   rule: Rule,
   categoryAction: CategoryAction,
   label: string,
@@ -665,7 +664,6 @@ export const createRulesOnboardingAction = actionClient
         const promise = (async () => {
           const actions = await getActionsFromCategoryAction(
             emailAccountId,
-            provider,
             existingRule,
             categoryAction,
             label,
@@ -699,7 +697,6 @@ export const createRulesOnboardingAction = actionClient
         const promise = (async () => {
           const actions = await getActionsFromCategoryAction(
             emailAccountId,
-            provider,
             { name } as Rule, // Mock rule object for create operation
             categoryAction,
             label,
