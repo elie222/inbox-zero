@@ -185,7 +185,6 @@ export function StepWho({
             <Button
               type="submit"
               size="sm"
-              variant="primaryBlue"
               loading={form.formState.isSubmitting}
               disabled={
                 !watchedRole || (watchedRole === "Other" && !customRole.trim())

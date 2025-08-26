@@ -102,7 +102,6 @@ export function StepFeatures({ onNext }: { onNext: () => void }) {
         <Button
           type="button"
           size="sm"
-          variant="primaryBlue"
           className="mt-6"
           loading={isSaving}
           onClick={async () => {
