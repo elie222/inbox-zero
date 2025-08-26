@@ -159,7 +159,7 @@ function getActionLabel(type: ActionType, provider: string) {
 
   switch (type) {
     case ActionType.LABEL:
-      return terminology.label.singularCapitalized;
+      return terminology.label.action;
     case ActionType.ARCHIVE:
       return "Archive";
     case ActionType.FORWARD:
