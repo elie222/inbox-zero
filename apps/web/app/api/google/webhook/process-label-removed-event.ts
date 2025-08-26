@@ -79,29 +79,12 @@ export async function getSystemRuleLabels(
   return systemTypeData;
 }
 
-export async function handleLabelRemovedEvent(
-  message: gmail_v1.Schema$HistoryLabelRemoved,
-  {
-    gmail,
-    emailAccount,
-    provider,
-  }: {
-    gmail: gmail_v1.Gmail;
-    emailAccount: EmailAccountWithAI;
-    provider: EmailProvider;
-  },
-) {
-  return processLabelRemoval(message, { gmail, emailAccount, provider });
-}
-
 export async function processLabelRemoval(
   message: gmail_v1.Schema$HistoryLabelRemoved,
   {
-    gmail,
     emailAccount,
     provider,
   }: {
-    gmail: gmail_v1.Gmail;
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
   },
@@ -131,13 +114,11 @@ export async function processLabelRemoval(
 
     const removedLabelIds = message.labelIds || [];
 
-    const labels = await gmail.users.labels.list({ userId: "me" });
+    const labels = await provider.getLabels();
 
     const removedLabelNames = removedLabelIds
       .map((labelId: string) => {
-        const label = labels.data.labels?.find(
-          (l: gmail_v1.Schema$Label) => l.id === labelId,
-        );
+        const label = labels.find((l) => l.id === labelId);
         return label?.name;
       })
       .filter(

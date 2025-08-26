@@ -70,7 +70,7 @@ export function Hero(props: {
             </HeroText>
             <HeroSubtitle>
               {props.subtitle ||
-                "Cut your email time in half. Inbox Zero intelligently automates responses, organizes your inbox, and helps you reach inbox zero in record time. For Gmail and Outlook."}
+                "Cut your email time in half. Inbox Zero organizes your inbox, drafts responses, and helps you reach inbox zero fast. For Gmail and Outlook."}
             </HeroSubtitle>
             <CTAComponent />
           </div>

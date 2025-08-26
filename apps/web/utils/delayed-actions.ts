@@ -7,8 +7,6 @@ const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [
   ActionType.REPLY,
   ActionType.SEND_EMAIL,
   ActionType.FORWARD,
-  ActionType.DRAFT_EMAIL,
-  ActionType.CALL_WEBHOOK,
   ActionType.MARK_READ,
   ActionType.MOVE_FOLDER,
 ];

@@ -92,9 +92,7 @@ export default function Components() {
             <ShadButton variant="green">ShadButton Green</ShadButton>
             <ShadButton variant="red">ShadButton Red</ShadButton>
             <ShadButton variant="blue">ShadButton Blue</ShadButton>
-            <ShadButton variant="primaryBlue">
-              ShadButton Primary Blue
-            </ShadButton>
+            <ShadButton>ShadButton Primary Blue</ShadButton>
           </div>
           <div className="flex flex-wrap gap-2">
             <ShadButton size="xs">ShadButton XS</ShadButton>
