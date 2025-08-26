@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { signUpEvent } from "@/utils/gtm";
 
 export const useSignUpEvent = () => {
   useEffect(() => {
@@ -11,5 +12,9 @@ export const useSignUpEvent = () => {
     }).catch((error) => {
       console.error("Failed to complete registration:", error);
     });
+  }, []);
+
+  useEffect(() => {
+    signUpEvent();
   }, []);
 };
