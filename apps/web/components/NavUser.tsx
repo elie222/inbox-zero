@@ -11,7 +11,6 @@ import {
   LogOutIcon,
   PaletteIcon,
   SettingsIcon,
-  BookIcon,
   CrownIcon,
   ChromeIcon,
 } from "lucide-react";
