@@ -1,10 +1,8 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import { ActionType } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { calculateSimilarity } from "@/utils/similarity-score";
-import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import { formatError } from "@/utils/error";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -16,11 +14,11 @@ const logger = createScopedLogger("draft-tracking");
 export async function trackSentDraftStatus({
   emailAccountId,
   message,
-  gmail,
+  provider,
 }: {
   emailAccountId: string;
   message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
 }) {
   const { threadId, id: sentMessageId, textPlain: sentTextPlain } = message;
 
@@ -67,7 +65,7 @@ export async function trackSentDraftStatus({
     return;
   }
 
-  const draftExists = await getDraft(executedAction.draftId, gmail);
+  const draftExists = await provider.getDraft(executedAction.draftId);
 
   if (draftExists) {
     logger.info("Original AI draft still exists, sent message was different.", {
@@ -248,11 +246,11 @@ export async function trackSentDraftStatusWithProvider({
 export async function cleanupThreadAIDrafts({
   threadId,
   emailAccountId,
-  gmail,
+  provider,
 }: {
   threadId: string;
   emailAccountId: string;
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
 }) {
   const loggerOptions = { emailAccountId, threadId };
   logger.info("Starting cleanup of old AI drafts for thread", loggerOptions);
@@ -295,7 +293,7 @@ export async function cleanupThreadAIDrafts({
         draftId: action.draftId,
       };
       try {
-        const draftDetails = await getDraft(action.draftId, gmail);
+        const draftDetails = await provider.getDraft(action.draftId);
 
         if (draftDetails?.textPlain) {
           // Draft exists, check if modified
@@ -318,7 +316,7 @@ export async function cleanupThreadAIDrafts({
               actionLoggerOptions,
             );
             await Promise.all([
-              deleteDraft(gmail, action.draftId),
+              provider.deleteDraft(action.draftId),
               // Mark as not sent (cleaned up because ignored/superseded)
               prisma.executedAction.update({
                 where: { id: action.id },

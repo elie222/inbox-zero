@@ -58,8 +58,14 @@ export interface EmailProvider {
     actionSource: "user" | "automation",
   ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
+  labelMessageById(
+    messageId: string,
+    label: { id?: string; name: string } | { id: string; name?: string },
+  ): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
   getAwaitingReplyLabel(): Promise<string>;
+  removeAwaitingReplyLabel(threadId: string): Promise<void>;
+  removeNeedsReplyLabel(threadId: string): Promise<void>;
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },

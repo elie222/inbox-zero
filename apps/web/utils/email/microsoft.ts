@@ -10,6 +10,7 @@ import {
   getLabels,
   createLabel,
   getOrCreateInboxZeroLabel,
+  getLabelById,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
@@ -24,6 +25,7 @@ import {
   getOrCreateLabel,
   labelMessage,
   markReadThread,
+  removeThreadLabel,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
@@ -202,6 +204,24 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
+  async labelMessageById(
+    messageId: string,
+    label: { id?: string; name: string } | { id: string; name?: string },
+  ): Promise<void> {
+    const name = label.name;
+
+    if (!name) {
+      logger.warn("Label name is required", { label });
+      return;
+    }
+
+    await labelMessage({
+      client: this.client,
+      messageId,
+      categories: [name],
+    });
+  }
+
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
     return getDraft(draftId, this.client);
   }
@@ -275,9 +295,33 @@ export class OutlookProvider implements EmailProvider {
     return this.getThreadMessages(messageIds[0]);
   }
 
-  async removeThreadLabel(_threadId: string, _labelId: string): Promise<void> {
-    // For Outlook, we don't need to do anything with labels at this point
-    return Promise.resolve();
+  async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
+    // TODO: this can be more efficient by using the label name directly
+    // Get the label to convert ID to name (Outlook uses names)
+    const label = await getLabelById({ client: this.client, id: labelId });
+    const categoryName = label.displayName || "";
+
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName,
+    });
+  }
+
+  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: AWAITING_REPLY_LABEL_NAME,
+    });
+  }
+
+  async removeNeedsReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: NEEDS_REPLY_LABEL_NAME,
+    });
   }
 
   async createLabel(name: string): Promise<EmailLabel> {

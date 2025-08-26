@@ -1,25 +1,22 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
-import { getThreadMessages } from "@/utils/gmail/thread";
 import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { getReplyTrackingLabels } from "@/utils/reply-tracker/label";
-import { labelMessage, removeThreadLabel } from "@/utils/gmail/label";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
+import { AWAITING_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 
 export async function handleOutboundReply({
   emailAccount,
   message,
-  gmail,
+  provider,
 }: {
   emailAccount: EmailAccountWithAI;
   message: ParsedMessage;
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
 }) {
   const logger = createScopedLogger("reply-tracker/outbound").with({
     email: emailAccount.email,
@@ -39,19 +36,13 @@ export async function handleOutboundReply({
   logger.info("Checking outbound reply");
 
   // 2. Get necessary labels
-  const { awaitingReplyLabelId, needsReplyLabelId } =
-    await getReplyTrackingLabels(gmail);
+  const { awaitingReplyLabelId } = await provider.getReplyTrackingLabels();
 
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
-  await resolveReplyTrackers(
-    gmail,
-    emailAccount.userId,
-    message.threadId,
-    needsReplyLabelId,
-  );
+  await resolveReplyTrackers(provider, emailAccount.userId, message.threadId);
 
   // 4. Get thread context
-  const threadMessages = await getThreadMessages(message.threadId, gmail);
+  const threadMessages = await provider.getThreadMessages(message.threadId);
   if (!threadMessages?.length) {
     logger.error("No thread messages found, cannot proceed.");
     return;
@@ -85,7 +76,7 @@ export async function handleOutboundReply({
   if (aiResult.needsReply) {
     logger.info("Needs reply. Creating reply tracker outbound");
     await createReplyTrackerOutbound({
-      gmail,
+      provider,
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
@@ -126,15 +117,13 @@ export async function handleOutboundReplyWithProvider({
   logger.info("Checking outbound reply");
 
   // 2. Get necessary labels
-  const { awaitingReplyLabelId, needsReplyLabelId } =
-    await provider.getReplyTrackingLabels();
+  const { awaitingReplyLabelId } = await provider.getReplyTrackingLabels();
 
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackersWithProvider(
     provider,
     emailAccount.userId,
     message.threadId,
-    needsReplyLabelId,
   );
 
   // 4. Get thread context
@@ -186,7 +175,7 @@ export async function handleOutboundReplyWithProvider({
 }
 
 async function createReplyTrackerOutbound({
-  gmail,
+  provider,
   emailAccountId,
   threadId,
   messageId,
@@ -194,7 +183,7 @@ async function createReplyTrackerOutbound({
   sentAt,
   logger,
 }: {
-  gmail: gmail_v1.Gmail;
+  provider: EmailProvider;
   emailAccountId: string;
   threadId: string;
   messageId: string;
@@ -222,10 +211,9 @@ async function createReplyTrackerOutbound({
     },
   });
 
-  const labelPromise = labelMessage({
-    gmail,
-    messageId,
-    addLabelIds: [awaitingReplyLabelId],
+  const labelPromise = provider.labelMessageById(messageId, {
+    id: awaitingReplyLabelId,
+    name: AWAITING_REPLY_LABEL_NAME,
   });
 
   const [upsertResult, labelResult] = await Promise.allSettled([
@@ -307,10 +295,9 @@ async function createReplyTrackerOutboundWithProvider({
 }
 
 async function resolveReplyTrackers(
-  gmail: gmail_v1.Gmail,
+  provider: EmailProvider,
   emailAccountId: string,
   threadId: string,
-  needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
@@ -324,17 +311,15 @@ async function resolveReplyTrackers(
     },
   });
 
-  const labelPromise = removeThreadLabel(gmail, threadId, needsReplyLabelId);
+  const labelPromise = provider.removeNeedsReplyLabel(threadId);
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }
 
-// New function that works with EmailProvider
 async function resolveReplyTrackersWithProvider(
   provider: EmailProvider,
   emailAccountId: string,
   threadId: string,
-  needsReplyLabelId: string,
 ) {
   const updateDbPromise = prisma.threadTracker.updateMany({
     where: {
@@ -348,10 +333,7 @@ async function resolveReplyTrackersWithProvider(
     },
   });
 
-  // For Outlook, if needsReplyLabelId is empty, we'll skip label removal
-  const labelPromise = needsReplyLabelId
-    ? provider.removeThreadLabel(threadId, needsReplyLabelId)
-    : Promise.resolve();
+  const labelPromise = provider.removeNeedsReplyLabel(threadId);
 
   await Promise.allSettled([updateDbPromise, labelPromise]);
 }

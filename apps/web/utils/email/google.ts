@@ -13,6 +13,8 @@ import {
   createLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
+  getNeedsReplyLabel,
+  getAwaitingReplyLabel,
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
@@ -46,10 +48,7 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import {
-  getAwaitingReplyLabel as getGmailAwaitingReplyLabel,
-  getReplyTrackingLabels,
-} from "@/utils/reply-tracker/label";
+import { getReplyTrackingLabels } from "@/utils/gmail/label";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import {
   getFiltersList,
@@ -211,6 +210,24 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  async labelMessageById(
+    messageId: string,
+    label: { id?: string; name: string } | { id: string; name?: string },
+  ): Promise<void> {
+    const labelId = label.id;
+
+    if (!labelId) {
+      logger.warn("Label ID is required", { label });
+      return;
+    }
+
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [labelId],
+    });
+  }
+
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
     return getDraft(draftId, this.client);
   }
@@ -292,7 +309,21 @@ export class GmailProvider implements EmailProvider {
   }
 
   async getAwaitingReplyLabel(): Promise<string> {
-    return getGmailAwaitingReplyLabel(this.client);
+    return getAwaitingReplyLabel(this.client);
+  }
+
+  async getNeedsReplyLabel(): Promise<string> {
+    return getNeedsReplyLabel(this.client);
+  }
+
+  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
+    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
+    await removeThreadLabel(this.client, threadId, awaitingReplyLabelId);
+  }
+
+  async removeNeedsReplyLabel(threadId: string): Promise<void> {
+    const needsReplyLabelId = await this.getNeedsReplyLabel();
+    await removeThreadLabel(this.client, threadId, needsReplyLabelId);
   }
 
   async createLabel(name: string): Promise<EmailLabel> {

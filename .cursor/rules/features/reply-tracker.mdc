@@ -22,4 +22,10 @@ When enabling the reply tracker, we create a rule for the user that has the foll
 
 We'll draft a reply for the user automatically if DRAFT_EMAIL is set. The draft will be generated using the email history for this sender as well as the Knowledge base. See `.cursor/rules/features/knowledge.mdc` for more on the Knowledge Base feature.
 
-Enabling `User.outboundReplyTracking` means that when a user sends an email, we'll run an LLM over the email and check if it needs a reply. If it does we'll mark it as Awaiting Reply.
+Typically rules apply to emails as they come in. Rules have no impact afterwards. So to remove a label from a thread later we use the `TRACK_THREAD` action. This action is in charge of removing the Awaiting Reply or To Reply label. Note, adding labels is handled in the usual manner or with `outboundReplyTracking`.
+
+Enabling `EmailAccount.outboundReplyTracking` means that when a user sends an email, we'll run an LLM over the email and check if it needs a reply. If it does we'll mark it as "Awaiting Reply".
+
+Some relevant files:
+- apps/web/utils/reply-tracker/outbound.ts
+- apps/web/utils/reply-tracker/inbound.ts

@@ -24,6 +24,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 import { enqueueDigestItem } from "@/utils/digest/index";
 import { HistoryEventType } from "@/app/api/google/webhook/types";
 import { handleLabelRemovedEvent } from "@/app/api/google/webhook/process-label-removed-event";
@@ -139,7 +140,7 @@ export async function processHistoryItem(
     const isOutbound = parsedMessage.labelIds?.includes(GmailLabel.SENT);
 
     if (isOutbound) {
-      await handleOutbound(emailAccount, parsedMessage, gmail);
+      await handleOutbound(emailAccount, parsedMessage, provider);
       return;
     }
 
@@ -241,7 +242,7 @@ export async function processHistoryItem(
 async function handleOutbound(
   emailAccount: EmailAccountWithAI,
   message: ParsedMessage,
-  gmail: gmail_v1.Gmail,
+  provider: EmailProvider,
 ) {
   const loggerOptions = {
     email: emailAccount.email,
@@ -257,9 +258,13 @@ async function handleOutbound(
     trackSentDraftStatus({
       emailAccountId: emailAccount.id,
       message,
-      gmail,
+      provider,
     }),
-    handleOutboundReply({ emailAccount, message, gmail }),
+    handleOutboundReply({
+      emailAccount,
+      message,
+      provider,
+    }),
   ]);
 
   if (trackingResult.status === "rejected") {
@@ -282,7 +287,7 @@ async function handleOutbound(
     await cleanupThreadAIDrafts({
       threadId: message.threadId,
       emailAccountId: emailAccount.id,
-      gmail,
+      provider,
     });
   } catch (cleanupError) {
     logger.error("Error during thread draft cleanup", {
