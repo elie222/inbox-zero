@@ -109,7 +109,7 @@ export default function Pricing(props: PricingProps) {
 
             {userPremiumTier && (
               <>
-                <Button variant="primaryBlue" className="ml-2" asChild>
+                <Button className="ml-2" asChild>
                   <Link href={env.NEXT_PUBLIC_APP_HOME_PATH}>
                     <SparklesIcon className="mr-2 h-4 w-4" />
                     Go to app
@@ -128,7 +128,7 @@ export default function Pricing(props: PricingProps) {
                     icon={null}
                     button={
                       <div className="ml-4 whitespace-nowrap">
-                        <Button variant="primaryBlue" asChild>
+                        <Button asChild>
                           {/* <Link href="/settings#manage-users">Add users</Link> */}
                           <Link href="/accounts">Add users</Link>
                         </Button>

@@ -31,7 +31,7 @@ export function StepExtension({ onNext }: { onNext: () => Promise<void> }) {
         </div>
 
         <div className="flex justify-center mt-8">
-          <Button asChild size="sm" variant="primaryBlue">
+          <Button asChild size="sm">
             <a href={EXTENSION_URL} target="_blank" rel="noopener noreferrer">
               <ChromeIcon className="size-4 mr-2" />
               Install Extension
