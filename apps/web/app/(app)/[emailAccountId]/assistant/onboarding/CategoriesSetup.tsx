@@ -13,6 +13,7 @@ import { createRulesOnboardingAction } from "@/utils/actions/rule";
 import {
   createRulesOnboardingBody,
   type CreateRulesOnboardingBody,
+  type CategoryAction,
 } from "@/utils/actions/rule.validation";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import {
@@ -49,12 +50,24 @@ export function CategoriesSetup({
   defaultValues: CreateRulesOnboardingBody;
 }) {
   const router = useRouter();
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   const [showExampleDialog, setShowExampleDialog] = useState(false);
 
-  // Map defaultValues to ensure all required fields are present
-  const initialCategories = categoryConfig.map((config) => {
+  const normalizeAction = (
+    action: CategoryAction | null | undefined,
+  ): CategoryAction | null | undefined => {
+    if (!action) return action;
+    // Remapping Google archive variants to move-folder variants (if they exist in the db already)
+    if (provider === "microsoft") {
+      if (action === "label_archive") return "label_move_folder";
+      if (action === "label_archive_delayed")
+        return "label_move_folder_delayed";
+    }
+    return action;
+  };
+
+  const initialCategories = categoryConfig(provider).map((config) => {
     const existingValue = defaultValues.find(
       (val) => val.name === config.label,
     );
@@ -63,7 +76,7 @@ export function CategoriesSetup({
       key: config.key,
       name: config.label,
       description: existingValue?.description || "",
-      action: existingValue?.action || config.action,
+      action: normalizeAction(existingValue?.action || config.action),
       hasDigest: existingValue?.hasDigest,
     };
   });
@@ -114,7 +127,7 @@ export function CategoriesSetup({
         />
 
         <div className="mt-4 grid grid-cols-1 gap-4">
-          {categoryConfig.map((category, index) => (
+          {categoryConfig(provider).map((category, index) => (
             <CategoryCard
               key={category.key}
               index={index}
@@ -124,6 +137,7 @@ export function CategoriesSetup({
               iconColor={category.iconColor}
               form={form}
               categoryName={category.label}
+              provider={provider}
             />
           ))}
         </div>
@@ -158,6 +172,7 @@ function CategoryCard({
   form,
   tooltipText,
   categoryName,
+  provider,
 }: {
   index: number;
   label: string;
@@ -166,6 +181,7 @@ function CategoryCard({
   form: ReturnType<typeof useForm<{ categories: CreateRulesOnboardingBody }>>;
   tooltipText?: string;
   categoryName: string;
+  provider: string;
 }) {
   const delayedActionsEnabled = useDelayedActionsEnabled();
 
@@ -186,38 +202,60 @@ function CategoryCard({
           <FormField
             control={form.control}
             name={`categories.${index}`}
-            render={({ field }) => (
-              <FormItem>
-                <Select
-                  onValueChange={(value) => {
-                    field.onChange({
-                      name: categoryName,
-                      description: "",
-                      action: value === "none" ? undefined : value,
-                    });
-                  }}
-                  value={field.value?.action || "none"}
-                >
-                  <FormControl>
-                    <SelectTrigger className="w-[180px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="label">Label</SelectItem>
-                    <SelectItem value="label_archive">
-                      Label & skip inbox
-                    </SelectItem>
-                    {delayedActionsEnabled && (
-                      <SelectItem value="label_archive_delayed">
-                        Label & archive after a week
-                      </SelectItem>
-                    )}
-                    <SelectItem value="none">Do nothing</SelectItem>
-                  </SelectContent>
-                </Select>
-              </FormItem>
-            )}
+            render={({ field }) => {
+              return (
+                <FormItem>
+                  <Select
+                    onValueChange={(value) => {
+                      const nextAction = value === "none" ? undefined : value;
+                      const current = field.value || {};
+                      field.onChange({
+                        ...current,
+                        name: categoryName,
+                        description: current.description ?? "",
+                        action: nextAction,
+                      });
+                    }}
+                    value={field.value?.action || "none"}
+                  >
+                    <FormControl>
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {provider === "microsoft" && (
+                        <>
+                          <SelectItem value="label">Categorise</SelectItem>
+                          <SelectItem value="label_move_folder">
+                            Move to folder
+                          </SelectItem>
+                          {delayedActionsEnabled && (
+                            <SelectItem value="label_move_folder_delayed">
+                              Move to folder after a week
+                            </SelectItem>
+                          )}
+                        </>
+                      )}
+                      {provider === "google" && (
+                        <>
+                          <SelectItem value="label">Label</SelectItem>
+                          <SelectItem value="label_archive">
+                            Label & skip inbox
+                          </SelectItem>
+                          {delayedActionsEnabled && (
+                            <SelectItem value="label_archive_delayed">
+                              Label & archive after a week
+                            </SelectItem>
+                          )}
+                        </>
+                      )}
+                      <SelectItem value="none">Do nothing</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              );
+            }}
           />
         </div>
       </CardContent>

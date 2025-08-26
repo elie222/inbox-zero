@@ -12,6 +12,7 @@ import {
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
+  type CategoryAction,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -21,7 +22,9 @@ import {
   ActionType,
   ColdEmailSetting,
   LogicalOperator,
+  type Rule,
   SystemType,
+  type Prisma,
 } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
@@ -43,13 +46,69 @@ import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName, SystemRule } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
+import {
+  getGmailClientForEmail,
+  getOutlookClientForEmail,
+} from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 
 const logger = createScopedLogger("actions/rule");
+
+/**
+ * Maps a category action to its corresponding action array for rule creation
+ */
+async function getActionsFromCategoryAction(
+  emailAccountId: string,
+  rule: Rule,
+  categoryAction: CategoryAction,
+  label: string,
+  hasDigest: boolean,
+): Promise<Prisma.ActionCreateManyRuleInput[]> {
+  const actions: Prisma.ActionCreateManyRuleInput[] = [
+    { type: ActionType.LABEL, label },
+  ];
+
+  switch (categoryAction) {
+    case "label_archive":
+    case "label_archive_delayed": {
+      actions.push({
+        type: ActionType.ARCHIVE,
+        delayInMinutes:
+          categoryAction === "label_archive_delayed"
+            ? ONE_WEEK_MINUTES
+            : undefined,
+      });
+      break;
+    }
+    case "label_move_folder":
+    case "label_move_folder_delayed": {
+      const outlook = await getOutlookClientForEmail({ emailAccountId });
+      const folderId = await getOrCreateOutlookFolderIdByName(
+        outlook,
+        rule.name,
+      );
+      actions.push({
+        type: ActionType.MOVE_FOLDER,
+        folderId,
+        delayInMinutes:
+          categoryAction === "label_move_folder_delayed"
+            ? ONE_WEEK_MINUTES
+            : undefined,
+      });
+      break;
+    }
+  }
+
+  if (hasDigest) {
+    actions.push({ type: ActionType.DIGEST });
+  }
+
+  return actions;
+}
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -592,20 +651,13 @@ export const createRulesOnboardingAction = actionClient
               actions: {
                 deleteMany: {},
                 createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : categoryAction === "label_archive_delayed"
-                        ? [
-                            {
-                              type: ActionType.ARCHIVE,
-                              delayInMinutes: ONE_WEEK_MINUTES,
-                            },
-                          ]
-                        : []),
-                    ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
-                  ],
+                  data: await getActionsFromCategoryAction(
+                    emailAccountId,
+                    existingRule,
+                    categoryAction,
+                    label,
+                    hasDigest,
+                  ),
                 },
               },
             },
@@ -631,20 +683,13 @@ export const createRulesOnboardingAction = actionClient
               runOnThreads,
               actions: {
                 createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : categoryAction === "label_archive_delayed"
-                        ? [
-                            {
-                              type: ActionType.ARCHIVE,
-                              delayInMinutes: ONE_WEEK_MINUTES,
-                            },
-                          ]
-                        : []),
-                    ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
-                  ],
+                  data: await getActionsFromCategoryAction(
+                    emailAccountId,
+                    { name } as Rule, // Mock rule object for create operation
+                    categoryAction,
+                    label,
+                    hasDigest,
+                  ),
                 },
               },
             },
@@ -663,7 +708,11 @@ export const createRulesOnboardingAction = actionClient
               ? " and archive them"
               : categoryAction === "label_archive_delayed"
                 ? " and archive them after a week"
-                : ""
+                : (categoryAction as string) === "label_move_folder"
+                  ? " and move them to a folder"
+                  : (categoryAction as string) === "label_move_folder_delayed"
+                    ? " and move them to a folder after a week"
+                    : ""
           }.`,
         );
       }

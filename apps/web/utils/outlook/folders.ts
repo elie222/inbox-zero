@@ -79,3 +79,23 @@ export async function getOutlookFolderTree(
 
   return folders;
 }
+
+export async function getOrCreateOutlookFolderIdByName(
+  client: OutlookClient,
+  folderName: string,
+): Promise<string> {
+  const folders = await getOutlookRootFolders(client);
+  const existingFolder = folders.find(
+    (folder) => folder.displayName === folderName,
+  );
+
+  if (existingFolder) {
+    return existingFolder.id;
+  }
+
+  const response = await client.getClient().api("/me/mailFolders").post({
+    displayName: folderName,
+  });
+
+  return response.id;
+}

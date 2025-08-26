@@ -7,7 +7,13 @@ import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingWrapper";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 
-export function StepCustomRules({ onNext }: { onNext: () => void }) {
+export function StepCustomRules({
+  provider,
+  onNext,
+}: {
+  provider: string;
+  onNext: () => void;
+}) {
   return (
     <div className="relative">
       <div className="xl:pr-[50%]">
