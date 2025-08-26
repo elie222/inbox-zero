@@ -64,9 +64,9 @@ function getCategoryActionDescription(categoryAction: CategoryAction): string {
       return " and archive them";
     case "label_archive_delayed":
       return " and archive them after a week";
-    case "label_move_folder":
+    case "move_folder":
       return " and move them to a folder";
-    case "label_move_folder_delayed":
+    case "move_folder_delayed":
       return " and move them to a folder after a week";
     default:
       return "";
@@ -80,38 +80,41 @@ async function getActionsFromCategoryAction(
   label: string,
   hasDigest: boolean,
 ): Promise<Prisma.ActionCreateManyRuleInput[]> {
-  const actions: Prisma.ActionCreateManyRuleInput[] = [
-    { type: ActionType.LABEL, label },
-  ];
+  let actions: Prisma.ActionCreateManyRuleInput[] = [];
 
   switch (categoryAction) {
     case "label_archive":
     case "label_archive_delayed": {
-      actions.push({
-        type: ActionType.ARCHIVE,
-        delayInMinutes:
-          categoryAction === "label_archive_delayed"
-            ? ONE_WEEK_MINUTES
-            : undefined,
-      });
+      actions = [
+        { type: ActionType.LABEL, label },
+        {
+          type: ActionType.ARCHIVE,
+          delayInMinutes:
+            categoryAction === "label_archive_delayed"
+              ? ONE_WEEK_MINUTES
+              : undefined,
+        },
+      ];
       break;
     }
-    case "label_move_folder":
-    case "label_move_folder_delayed": {
+    case "move_folder":
+    case "move_folder_delayed": {
       const outlook = await getOutlookClientForEmail({ emailAccountId });
       const folderId = await getOrCreateOutlookFolderIdByName(
         outlook,
         rule.name,
       );
-      actions.push({
-        type: ActionType.MOVE_FOLDER,
-        folderId,
-        folderName: rule.name,
-        delayInMinutes:
-          categoryAction === "label_move_folder_delayed"
-            ? ONE_WEEK_MINUTES
-            : undefined,
-      });
+      actions = [
+        {
+          type: ActionType.MOVE_FOLDER,
+          folderId,
+          folderName: rule.name,
+          delayInMinutes:
+            categoryAction === "move_folder_delayed"
+              ? ONE_WEEK_MINUTES
+              : undefined,
+        },
+      ];
       break;
     }
   }
@@ -645,8 +648,8 @@ export const createRulesOnboardingAction = actionClient
         | "label"
         | "label_archive"
         | "label_archive_delayed"
-        | "label_move_folder"
-        | "label_move_folder_delayed",
+        | "move_folder"
+        | "move_folder_delayed",
       label: string,
       systemType: SystemType | null,
       emailAccountId: string,

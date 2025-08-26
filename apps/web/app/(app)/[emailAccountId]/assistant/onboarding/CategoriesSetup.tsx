@@ -41,6 +41,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const NEXT_URL = "/assistant/onboarding/draft-replies";
 
@@ -59,10 +63,9 @@ export function CategoriesSetup({
   ): CategoryAction | null | undefined => {
     if (!action) return action;
     // Remapping Google archive variants to move-folder variants (if they exist in the db already)
-    if (provider === "microsoft") {
-      if (action === "label_archive") return "label_move_folder";
-      if (action === "label_archive_delayed")
-        return "label_move_folder_delayed";
+    if (isMicrosoftProvider(provider)) {
+      if (action === "label_archive") return "move_folder";
+      if (action === "label_archive_delayed") return "move_folder_delayed";
     }
     return action;
   };
@@ -224,20 +227,20 @@ function CategoryCard({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {provider === "microsoft" && (
+                      {isMicrosoftProvider(provider) && (
                         <>
                           <SelectItem value="label">Categorise</SelectItem>
-                          <SelectItem value="label_move_folder">
+                          <SelectItem value="move_folder">
                             Move to folder
                           </SelectItem>
                           {delayedActionsEnabled && (
-                            <SelectItem value="label_move_folder_delayed">
+                            <SelectItem value="move_folder_delayed">
                               Move to folder after a week
                             </SelectItem>
                           )}
                         </>
                       )}
-                      {provider === "google" && (
+                      {isGoogleProvider(provider) && (
                         <>
                           <SelectItem value="label">Label</SelectItem>
                           <SelectItem value="label_archive">

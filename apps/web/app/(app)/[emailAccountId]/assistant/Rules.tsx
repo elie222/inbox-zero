@@ -60,6 +60,7 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -151,10 +152,9 @@ export function Rules({
         showArchiveAction
           ? {
               id: "cold-email-blocker-archive",
-              type:
-                provider === "microsoft"
-                  ? ActionType.MOVE_FOLDER
-                  : ActionType.ARCHIVE,
+              type: isMicrosoftProvider(provider)
+                ? ActionType.MOVE_FOLDER
+                : ActionType.ARCHIVE,
               label: null,
               createdAt: new Date(),
               updatedAt: new Date(),

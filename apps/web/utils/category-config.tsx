@@ -1,5 +1,6 @@
 import type { IconCircleColor } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
 import type { CategoryAction } from "@/utils/actions/rule.validation";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 import { SystemRule } from "@/utils/rule/consts";
 import {
   MailIcon,
@@ -44,7 +45,7 @@ export const categoryConfig = (
     tooltipText: "Promotional emails about sales and offers",
     Icon: MegaphoneIcon,
     iconColor: "green",
-    action: provider === "microsoft" ? "label_move_folder" : "label_archive",
+    action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",
   },
   {
     key: SystemRule.Calendar,
@@ -77,6 +78,6 @@ export const categoryConfig = (
       "Unsolicited sales pitches and cold emails. We'll never block someone that's emailed you before",
     Icon: UsersIcon,
     iconColor: "indigo",
-    action: provider === "microsoft" ? "label_move_folder" : "label_archive",
+    action: isMicrosoftProvider(provider) ? "move_folder" : "label_archive",
   },
 ];

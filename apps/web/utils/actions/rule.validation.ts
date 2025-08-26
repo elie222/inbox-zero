@@ -193,8 +193,8 @@ const categoryAction = z.enum([
   "label",
   "label_archive",
   "label_archive_delayed",
-  "label_move_folder",
-  "label_move_folder_delayed",
+  "move_folder",
+  "move_folder_delayed",
   "none",
 ]);
 export type CategoryAction = z.infer<typeof categoryAction>;

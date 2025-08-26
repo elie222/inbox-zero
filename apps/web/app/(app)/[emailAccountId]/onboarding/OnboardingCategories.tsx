@@ -41,6 +41,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 // copy paste of old file
 export function CategoriesSetup({
@@ -247,20 +251,18 @@ function CategoryCard({
               <SelectValue placeholder="Select action" />
             </SelectTrigger>
             <SelectContent>
-              {provider === "microsoft" && (
+              {isMicrosoftProvider(provider) && (
                 <>
                   <SelectItem value="label">Categorise</SelectItem>
-                  <SelectItem value="label_move_folder">
-                    Move to folder
-                  </SelectItem>
+                  <SelectItem value="move_folder">Move to folder</SelectItem>
                   {delayedActionsEnabled && (
-                    <SelectItem value="label_move_folder_delayed">
+                    <SelectItem value="move_folder_delayed">
                       Move to folder after a week
                     </SelectItem>
                   )}
                 </>
               )}
-              {provider === "google" && (
+              {isGoogleProvider(provider) && (
                 <>
                   <SelectItem value="label">Label</SelectItem>
                   <SelectItem value="label_archive">

@@ -12,6 +12,7 @@ import type {
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
 import { RuleName, SystemRule } from "@/utils/rule/consts";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -153,7 +154,7 @@ function getRuleSetting(
   if (!rule) return undefined;
 
   if (rule.actions.some((action) => action.type === ActionType.MOVE_FOLDER))
-    return { action: "label_move_folder", hasDigest };
+    return { action: "move_folder", hasDigest };
   if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
     return { action: "label_archive", hasDigest };
   if (rule.actions.some((action) => action.type === ActionType.LABEL))
@@ -171,8 +172,8 @@ function getColdEmailSetting(
   switch (setting) {
     case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL:
     case ColdEmailSetting.ARCHIVE_AND_LABEL:
-      if (provider === "microsoft")
-        return { action: "label_move_folder", hasDigest };
+      if (isMicrosoftProvider(provider))
+        return { action: "move_folder", hasDigest };
       return { action: "label_archive", hasDigest };
     case ColdEmailSetting.LABEL:
       return { action: "label", hasDigest };
