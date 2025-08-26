@@ -11,7 +11,6 @@ import { toastError } from "@/components/Toast";
 
 export function StepDraft({
   emailAccountId,
-  provider,
   onNext,
 }: {
   emailAccountId: string;

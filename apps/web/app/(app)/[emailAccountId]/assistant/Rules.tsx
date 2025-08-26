@@ -206,7 +206,7 @@ export function Rules({
       promptText: null,
     };
     return [...(baseRules || []), coldEmailBlockerRule];
-  }, [baseRules, emailAccountData, emailAccountId]);
+  }, [baseRules, emailAccountData, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;
 

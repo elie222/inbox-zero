@@ -8,7 +8,6 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 
 export function StepCustomRules({
-  provider,
   onNext,
 }: {
   provider: string;

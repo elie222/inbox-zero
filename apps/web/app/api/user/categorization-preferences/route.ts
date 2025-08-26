@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withEmailAccount, withEmailProvider } from "@/utils/middleware";
+import { withEmailProvider } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import {
   ActionType,
