@@ -11,9 +11,11 @@ import { toastError } from "@/components/Toast";
 
 export function StepDraft({
   emailAccountId,
+  provider,
   onNext,
 }: {
   emailAccountId: string;
+  provider: string;
   onNext: () => void;
 }) {
   const onSetDraftReplies = useCallback(
