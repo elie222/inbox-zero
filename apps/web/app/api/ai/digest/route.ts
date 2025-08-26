@@ -6,7 +6,7 @@ import prisma from "@/utils/prisma";
 import { RuleName } from "@/utils/rule/consts";
 import { getRuleNameByExecutedAction } from "@/utils/actions/rule";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import { getEmailAccountWithAiAndName } from "@/utils/user/get";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 import type { DigestEmailSummarySchema } from "@/app/api/resend/digest/validation";
 import { withError } from "@/utils/middleware";
 import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
@@ -167,9 +167,7 @@ export const POST = withError(
 
       logger.with({ emailAccountId, messageId: message.id });
 
-      const emailAccount = await getEmailAccountWithAiAndName({
-        emailAccountId,
-      });
+      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
       if (!emailAccount) {
         throw new Error("Email account not found");
       }
@@ -184,7 +182,7 @@ export const POST = withError(
         },
       });
 
-      if (!summary?.content) {
+      if (!summary) {
         logger.info("Skipping digest item because it is not worth summarizing");
         return new NextResponse("OK", { status: 200 });
       }

@@ -58,9 +58,21 @@ import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 
 const logger = createScopedLogger("actions/rule");
 
-/**
- * Maps a category action to its corresponding action array for rule creation
- */
+function getCategoryActionDescription(categoryAction: CategoryAction): string {
+  switch (categoryAction) {
+    case "label_archive":
+      return " and archive them";
+    case "label_archive_delayed":
+      return " and archive them after a week";
+    case "label_move_folder":
+      return " and move them to a folder";
+    case "label_move_folder_delayed":
+      return " and move them to a folder after a week";
+    default:
+      return "";
+  }
+}
+
 async function getActionsFromCategoryAction(
   emailAccountId: string,
   rule: Rule,
@@ -629,7 +641,12 @@ export const createRulesOnboardingAction = actionClient
       instructions: string,
       promptFileInstructions: string,
       runOnThreads: boolean,
-      categoryAction: "label" | "label_archive" | "label_archive_delayed",
+      categoryAction:
+        | "label"
+        | "label_archive"
+        | "label_archive_delayed"
+        | "label_move_folder"
+        | "label_move_folder_delayed",
       label: string,
       systemType: SystemType | null,
       emailAccountId: string,
@@ -704,17 +721,7 @@ export const createRulesOnboardingAction = actionClient
         promises.push(promise);
 
         rules.push(
-          `${promptFileInstructions}${
-            categoryAction === "label_archive"
-              ? " and archive them"
-              : categoryAction === "label_archive_delayed"
-                ? " and archive them after a week"
-                : (categoryAction as string) === "label_move_folder"
-                  ? " and move them to a folder"
-                  : (categoryAction as string) === "label_move_folder_delayed"
-                    ? " and move them to a folder after a week"
-                    : ""
-          }.`,
+          `${promptFileInstructions}${getCategoryActionDescription(categoryAction)}.`,
         );
       }
     }

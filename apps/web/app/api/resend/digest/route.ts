@@ -226,7 +226,6 @@ async function sendEmail({
         date: new Date(),
         ruleNames: Object.fromEntries(ruleNameMap),
         ...executedRulesByRule,
-        emailAccountId,
       },
     });
 

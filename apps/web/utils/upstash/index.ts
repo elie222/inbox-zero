@@ -1,13 +1,13 @@
 import { Client, type FlowControl, type HeadersInit } from "@upstash/qstash";
 import { env } from "@/env";
+import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import { sleep } from "@/utils/sleep";
 import { createScopedLogger } from "@/utils/logger";
-import { buildUpstashRequestHeaders } from "@/utils/upstash/signature";
 
 const logger = createScopedLogger("upstash");
 
 function getQstashClient() {
-  if (!env.QSTASH_TOKEN || env.NODE_ENV === "development") return null;
+  if (!env.QSTASH_TOKEN) return null;
   return new Client({ token: env.QSTASH_TOKEN });
 }
 
@@ -74,28 +74,22 @@ export async function publishToQstashQueue<T>({
     return await queue.enqueueJSON({ url, body, headers });
   }
 
-  return fallbackPublishToQstash<T>(url, body, headers);
+  return fallbackPublishToQstash<T>(url, body);
 }
 
-async function fallbackPublishToQstash<T>(
-  url: string,
-  body: T,
-  headers?: HeadersInit,
-) {
+async function fallbackPublishToQstash<T>(url: string, body: T) {
   // Fallback to fetch if Qstash client is not found
   logger.warn("Qstash client not found");
 
-  const baseHeaders = buildUpstashRequestHeaders({
-    baseHeaders: headers,
-    endpointUrl: url,
-    requestBody: body,
-  });
-  await fetch(`${url}`, {
+  // Don't await. Run in background
+  fetch(`${url}/simple`, {
     method: "POST",
-    headers: baseHeaders,
+    headers: {
+      "Content-Type": "application/json",
+      [INTERNAL_API_KEY_HEADER]: env.INTERNAL_API_KEY,
+    },
     body: JSON.stringify(body),
   });
-
   // Wait for 100ms to ensure the request is sent
   await sleep(100);
 }

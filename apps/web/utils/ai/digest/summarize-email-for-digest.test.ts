@@ -10,31 +10,23 @@ vi.mock("server-only", () => ({}));
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
-const createTestEmailAccount = (): EmailAccountWithAI & {
-  user: { name: string | null };
-} => ({
-  id: "email-account-id",
-  userId: "user1",
-  email: "user@test.com",
-  about: null,
-  account: {
-    provider: "gmail",
-  },
-  user: {
-    name: "Test User",
-    aiModel: "gpt-4",
-    aiProvider: "openai",
-    aiApiKey: process.env.OPENAI_API_KEY || null,
-  },
-});
-
 describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   test("summarizes email with structured data", async () => {
-    const emailAccount = createTestEmailAccount();
+    const emailAccount: EmailAccountWithAI = {
+      id: "email-account-id",
+      userId: "user1",
+      email: "user@test.com",
+      about: null,
+      user: {
+        aiModel: "gpt-4",
+        aiProvider: "openai",
+        aiApiKey: process.env.OPENAI_API_KEY || null,
+      },
+    };
 
     const messageToSummarize: EmailForLLM = {
       id: "email-id",
@@ -65,7 +57,17 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
   }, 15_000);
 
   test("summarizes email with unstructured content", async () => {
-    const emailAccount = createTestEmailAccount();
+    const emailAccount: EmailAccountWithAI = {
+      id: "email-account-id",
+      userId: "user1",
+      email: "user@test.com",
+      about: null,
+      user: {
+        aiModel: "gpt-4",
+        aiProvider: "openai",
+        aiApiKey: process.env.OPENAI_API_KEY || null,
+      },
+    };
 
     const messageToSummarize: EmailForLLM = {
       id: "email-id",
@@ -91,7 +93,17 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
   }, 15_000);
 
   test("handles empty email content", async () => {
-    const emailAccount = createTestEmailAccount();
+    const emailAccount: EmailAccountWithAI = {
+      id: "email-account-id",
+      userId: "user1",
+      email: "user@test.com",
+      about: null,
+      user: {
+        aiModel: "gpt-4",
+        aiProvider: "openai",
+        aiApiKey: process.env.OPENAI_API_KEY || null,
+      },
+    };
 
     const messageToSummarize: EmailForLLM = {
       id: "email-id",
@@ -117,7 +129,17 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
   }, 15_000);
 
   test("handles null message", async () => {
-    const emailAccount = createTestEmailAccount();
+    const emailAccount: EmailAccountWithAI = {
+      id: "email-account-id",
+      userId: "user1",
+      email: "user@test.com",
+      about: null,
+      user: {
+        aiModel: "gpt-4",
+        aiProvider: "openai",
+        aiApiKey: process.env.OPENAI_API_KEY || null,
+      },
+    };
 
     const result = await aiSummarizeEmailForDigest({
       ruleName: "other",
@@ -129,7 +151,17 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
   }, 15_000);
 
   test("ensures consistent output format", async () => {
-    const emailAccount = createTestEmailAccount();
+    const emailAccount: EmailAccountWithAI = {
+      id: "email-account-id",
+      userId: "user1",
+      email: "user@test.com",
+      about: null,
+      user: {
+        aiModel: "gpt-4",
+        aiProvider: "openai",
+        aiApiKey: process.env.OPENAI_API_KEY || null,
+      },
+    };
 
     const messageToSummarize: EmailForLLM = {
       id: "email-id",
