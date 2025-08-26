@@ -100,7 +100,9 @@ export default async function AutomationPage({
               />
             </div>
 
-            <AIChatButton />
+            <div className="ml-4">
+              <AIChatButton />
+            </div>
           </div>
 
           <div className="border-b border-neutral-200 pt-2">
