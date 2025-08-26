@@ -3,11 +3,8 @@ import { createGenerateObject } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
-import { createScopedLogger } from "@/utils/logger";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { GroupItemType } from "@prisma/client";
-
-const logger = createScopedLogger("ai-label-removal-analysis");
 
 export const LabelRemovalAction = {
   NO_ACTION: "no_action",
