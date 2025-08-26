@@ -73,6 +73,12 @@ describe("process-label-removed-event", () => {
         from: "sender@example.com",
       },
     }),
+    getLabels: vi.fn().mockResolvedValue([
+      { id: "label-1", name: inboxZeroLabels.cold_email.name, type: "user" },
+      { id: "label-2", name: "Newsletter", type: "user" },
+      { id: "label-3", name: "Marketing", type: "user" },
+      { id: "label-4", name: "To Reply", type: "user" },
+    ]),
   } as any;
 
   const defaultOptions = {
