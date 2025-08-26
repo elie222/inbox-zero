@@ -954,7 +954,6 @@ export function RuleForm({
             <Button
               size="sm"
               variant="outline"
-              loading={isSubmitting}
               Icon={TrashIcon}
               onClick={async () => {
                 const yes = confirm(
