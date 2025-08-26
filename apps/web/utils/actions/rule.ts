@@ -80,21 +80,20 @@ async function getActionsFromCategoryAction(
   label: string,
   hasDigest: boolean,
 ): Promise<Prisma.ActionCreateManyRuleInput[]> {
-  let actions: Prisma.ActionCreateManyRuleInput[] = [];
+  let actions: Prisma.ActionCreateManyRuleInput[] = [
+    { type: ActionType.LABEL, label },
+  ];
 
   switch (categoryAction) {
     case "label_archive":
     case "label_archive_delayed": {
-      actions = [
-        { type: ActionType.LABEL, label },
-        {
-          type: ActionType.ARCHIVE,
-          delayInMinutes:
-            categoryAction === "label_archive_delayed"
-              ? ONE_WEEK_MINUTES
-              : undefined,
-        },
-      ];
+      actions.push({
+        type: ActionType.ARCHIVE,
+        delayInMinutes:
+          categoryAction === "label_archive_delayed"
+            ? ONE_WEEK_MINUTES
+            : undefined,
+      });
       break;
     }
     case "move_folder":
