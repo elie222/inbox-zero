@@ -14,6 +14,8 @@ import type { EmailForLLM } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";
 import { getModel, type ModelType } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
+import { getOutlookClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("ai-cold-email");
 
@@ -307,6 +309,21 @@ export async function blockColdEmailWithProvider(options: {
 
     // For archiving and marking as read, we'll need to implement these in the provider
     if (shouldArchive) {
+      if (provider.name === "microsoft") {
+        const outlook = await getOutlookClientForEmail({
+          emailAccountId: emailAccount.id,
+        });
+        // TODO: move ta const or allow the user to set the folder
+        const folderId = await getOrCreateOutlookFolderIdByName(
+          outlook,
+          "Cold Emails",
+        );
+        await provider.moveThreadToFolder(
+          email.threadId,
+          emailAccount.email,
+          folderId,
+        );
+      }
       await provider.archiveThread(email.threadId, emailAccount.email);
     }
 

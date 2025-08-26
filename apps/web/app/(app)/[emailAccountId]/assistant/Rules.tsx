@@ -151,7 +151,10 @@ export function Rules({
         showArchiveAction
           ? {
               id: "cold-email-blocker-archive",
-              type: ActionType.ARCHIVE,
+              type:
+                provider === "microsoft"
+                  ? ActionType.MOVE_FOLDER
+                  : ActionType.ARCHIVE,
               label: null,
               createdAt: new Date(),
               updatedAt: new Date(),

@@ -249,13 +249,12 @@ function CategoryCard({
               {provider === "microsoft" && (
                 <>
                   <SelectItem value="label">Categorise</SelectItem>
-                  <SelectItem value="move_to_folder">Move to folder</SelectItem>
-                  <SelectItem value="label_archive">
-                    Categorise & archive
+                  <SelectItem value="label_move_folder">
+                    Move to folder
                   </SelectItem>
                   {delayedActionsEnabled && (
-                    <SelectItem value="label_archive_delayed">
-                      Categorise & archive after a week
+                    <SelectItem value="label_move_folder_delayed">
+                      Move to folder after a week
                     </SelectItem>
                   )}
                 </>

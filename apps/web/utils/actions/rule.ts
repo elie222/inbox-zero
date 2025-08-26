@@ -94,6 +94,7 @@ async function getActionsFromCategoryAction(
       actions.push({
         type: ActionType.MOVE_FOLDER,
         folderId,
+        folderName: rule.name,
         delayInMinutes:
           categoryAction === "label_move_folder_delayed"
             ? ONE_WEEK_MINUTES
