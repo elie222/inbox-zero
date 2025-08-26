@@ -116,7 +116,7 @@ function RulesPromptForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [result, setResult] = useState<{
+  const [_result, setResult] = useState<{
     createdRules: number;
     editedRules: number;
     removedRules: number;

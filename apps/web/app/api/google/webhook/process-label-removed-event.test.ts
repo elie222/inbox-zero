@@ -63,25 +63,6 @@ describe("process-label-removed-event", () => {
     } as gmail_v1.Schema$HistoryLabelRemoved,
   });
 
-  const mockGmail = {
-    users: {
-      labels: {
-        list: vi.fn().mockImplementation((params) => {
-          console.log("Mock gmail.users.labels.list called with:", params);
-          return Promise.resolve({
-            data: {
-              labels: [
-                { id: "label-1", name: inboxZeroLabels.cold_email.name },
-                { id: "label-2", name: "Newsletter" },
-                { id: "label-3", name: "Marketing" },
-                { id: "label-4", name: "To Reply" },
-              ],
-            },
-          });
-        }),
-      },
-    },
-  } as any;
   const mockEmailAccount = {
     id: "email-account-id",
     email: "user@test.com",
@@ -92,10 +73,15 @@ describe("process-label-removed-event", () => {
         from: "sender@example.com",
       },
     }),
+    getLabels: vi.fn().mockResolvedValue([
+      { id: "label-1", name: inboxZeroLabels.cold_email.name, type: "user" },
+      { id: "label-2", name: "Newsletter", type: "user" },
+      { id: "label-3", name: "Marketing", type: "user" },
+      { id: "label-4", name: "To Reply", type: "user" },
+    ]),
   } as any;
 
   const defaultOptions = {
-    gmail: mockGmail,
     emailAccount: mockEmailAccount,
     provider: mockProvider,
   };

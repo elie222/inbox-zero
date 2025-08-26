@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, useRef } from "react";
 import { useLocalStorage } from "usehooks-ts";
-import { ListIcon, PlusIcon, UserPenIcon } from "lucide-react";
+import { PlusIcon, UserPenIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { createRulesAction } from "@/utils/actions/ai-rule";

@@ -23,11 +23,9 @@ const SYSTEM_LABELS = [
 export async function handleLabelRemovedEvent(
   message: gmail_v1.Schema$HistoryLabelRemoved,
   {
-    gmail,
     emailAccount,
     provider,
   }: {
-    gmail: gmail_v1.Gmail;
     emailAccount: EmailAccountWithAI;
     provider: EmailProvider;
   },
@@ -53,27 +51,43 @@ export async function handleLabelRemovedEvent(
 
   logger.info("Processing label removal for learning", loggerOptions);
 
+  let sender: string | null = null;
+
   try {
     const parsedMessage = await provider.getMessage(messageId);
-    const sender = extractEmailAddress(parsedMessage.headers.from);
+    sender = extractEmailAddress(parsedMessage.headers.from);
+  } catch (error) {
+    logger.error("Error getting sender for label removal", {
+      error,
+      ...loggerOptions,
+    });
+  }
 
-    const removedLabelIds = message.labelIds || [];
+  const removedLabelIds = message.labelIds || [];
 
-    const labels = await gmail.users.labels.list({ userId: "me" });
+  const labels = await provider.getLabels();
 
-    const removedLabelNames = removedLabelIds
-      .map((labelId: string) => {
-        const label = labels.data.labels?.find(
-          (l: gmail_v1.Schema$Label) => l.id === labelId,
-        );
-        return label?.name;
-      })
-      .filter(
-        (labelName: string | null | undefined): labelName is string =>
-          !!labelName && !SYSTEM_LABELS.includes(labelName),
-      );
+  for (const labelId of removedLabelIds) {
+    const label = labels?.find((l) => l.id === labelId);
+    const labelName = label?.name;
 
-    for (const labelName of removedLabelNames) {
+    if (!labelName) {
+      logger.info("Skipping label removal - missing label name", {
+        labelId,
+        ...loggerOptions,
+      });
+      continue;
+    }
+
+    if (SYSTEM_LABELS.includes(labelName)) {
+      logger.info("Skipping system label removal", {
+        labelName,
+        ...loggerOptions,
+      });
+      continue;
+    }
+
+    try {
       await learnFromRemovedLabel({
         labelName,
         sender,
@@ -81,9 +95,14 @@ export async function handleLabelRemovedEvent(
         threadId,
         emailAccountId,
       });
+    } catch (error) {
+      logger.error("Error learning from label removal", {
+        error,
+        labelName,
+        removedLabelIds,
+        ...loggerOptions,
+      });
     }
-  } catch (error) {
-    logger.error("Error processing label removal", { error, ...loggerOptions });
   }
 }
 
