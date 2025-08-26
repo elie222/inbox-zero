@@ -16,6 +16,7 @@ import {
   pricingAdditonalEmail,
   type Tier,
   tiers,
+  enterpriseTier,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -183,6 +184,10 @@ export default function Pricing(props: PricingProps) {
             );
           })}
         </Layout>
+
+        <div className="mx-auto mt-8 max-w-4xl">
+          <EnterpriseCard />
+        </div>
       </div>
     </LoadingContent>
   );
@@ -466,6 +471,48 @@ function Badge({ children }: { children: React.ReactNode }) {
     <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
       {children}
     </span>
+  );
+}
+
+function EnterpriseCard() {
+  return (
+    <div className="rounded-3xl bg-white p-6 ring-1 ring-gray-200">
+      <div className="flex flex-col items-center justify-between gap-4 lg:flex-row">
+        <div className="flex-1 text-center lg:text-left">
+          <div className="flex items-center justify-center gap-x-4 lg:justify-start">
+            <h3 className="font-cal text-lg leading-8 text-gray-900">
+              {enterpriseTier.name}
+            </h3>
+            {/* <Badge>Custom pricing</Badge> */}
+          </div>
+          <p className="mt-2 text-sm leading-6 text-gray-600">
+            {enterpriseTier.description}
+          </p>
+        </div>
+
+        <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-600 lg:mt-0 lg:flex-1">
+          {enterpriseTier.features.map((feature) => (
+            <li key={feature.text} className="flex gap-x-3">
+              <CheckIcon
+                className="h-5 w-4 flex-none text-blue-600"
+                aria-hidden="true"
+              />
+              <span>{feature.text}</span>
+            </li>
+          ))}
+        </ul>
+
+        <div className="mt-4 lg:mt-0">
+          <Link
+            href={enterpriseTier.ctaLink || "#"}
+            target="_blank"
+            className="block rounded-md bg-blue-600 px-6 py-2.5 text-center text-sm font-semibold leading-6 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+          >
+            {enterpriseTier.cta}
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 
