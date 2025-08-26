@@ -166,6 +166,7 @@ export function CategoriesSetup({
                     update={updateSuggestedCategory}
                     value={category.action}
                     useTooltip={false}
+                    provider={provider}
                   />
                 );
               })}

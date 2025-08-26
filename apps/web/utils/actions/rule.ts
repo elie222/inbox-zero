@@ -75,6 +75,7 @@ function getCategoryActionDescription(categoryAction: CategoryAction): string {
 
 async function getActionsFromCategoryAction(
   emailAccountId: string,
+  provider: string,
   rule: Rule,
   categoryAction: CategoryAction,
   label: string,
@@ -661,63 +662,71 @@ export const createRulesOnboardingAction = actionClient
         : null;
 
       if (existingRule) {
-        const promise = prisma.rule
-          .update({
-            where: { id: existingRule.id },
-            data: {
-              instructions,
-              actions: {
-                deleteMany: {},
-                createMany: {
-                  data: await getActionsFromCategoryAction(
-                    emailAccountId,
-                    existingRule,
-                    categoryAction,
-                    label,
-                    hasDigest,
-                  ),
+        const promise = (async () => {
+          const actions = await getActionsFromCategoryAction(
+            emailAccountId,
+            provider,
+            existingRule,
+            categoryAction,
+            label,
+            hasDigest,
+          );
+
+          return (
+            prisma.rule
+              .update({
+                where: { id: existingRule.id },
+                data: {
+                  instructions,
+                  actions: {
+                    deleteMany: {},
+                    createMany: { data: actions },
+                  },
                 },
-              },
-            },
-          })
-          // NOTE: doesn't update without this line
-          .then(() => {})
-          .catch((error) => {
-            logger.error("Error updating rule", { error });
-            throw error;
-          });
+              })
+              // NOTE: doesn't update without this line
+              .then(() => {})
+              .catch((error) => {
+                logger.error("Error updating rule", { error });
+                throw error;
+              })
+          );
+        })();
         promises.push(promise);
 
         // TODO: prompt file update
       } else {
-        const promise = prisma.rule
-          .create({
-            data: {
-              emailAccountId,
-              name,
-              instructions,
-              systemType: systemType ?? undefined,
-              automate: true,
-              runOnThreads,
-              actions: {
-                createMany: {
-                  data: await getActionsFromCategoryAction(
-                    emailAccountId,
-                    { name } as Rule, // Mock rule object for create operation
-                    categoryAction,
-                    label,
-                    hasDigest,
-                  ),
+        const promise = (async () => {
+          const actions = await getActionsFromCategoryAction(
+            emailAccountId,
+            provider,
+            { name } as Rule, // Mock rule object for create operation
+            categoryAction,
+            label,
+            hasDigest,
+          );
+
+          return prisma.rule
+            .create({
+              data: {
+                emailAccountId,
+                name,
+                instructions,
+                systemType: systemType ?? undefined,
+                automate: true,
+                runOnThreads,
+                actions: {
+                  createMany: { data: actions },
                 },
               },
-            },
-          })
-          .then(() => {})
-          .catch((error) => {
-            if (isDuplicateError(error, "name")) return;
-            logger.error("Error creating rule", { error });
-            throw error;
-          });
+            })
+            .then(() => {})
+            .catch((error) => {
+              if (isDuplicateError(error, "name")) return;
+              logger.error("Error creating rule", { error });
+              throw error;
+            });
+        })();
         promises.push(promise);
 
         rules.push(

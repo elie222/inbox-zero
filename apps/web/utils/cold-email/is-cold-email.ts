@@ -313,7 +313,7 @@ export async function blockColdEmailWithProvider(options: {
         const outlook = await getOutlookClientForEmail({
           emailAccountId: emailAccount.id,
         });
-        // TODO: move ta const or allow the user to set the folder
+        // TODO: move "Cold Emails"toa const or allow the user to set the folder
         const folderId = await getOrCreateOutlookFolderIdByName(
           outlook,
           "Cold Emails",
@@ -323,8 +323,9 @@ export async function blockColdEmailWithProvider(options: {
           emailAccount.email,
           folderId,
         );
+      } else {
+        await provider.archiveThread(email.threadId, emailAccount.email);
       }
-      await provider.archiveThread(email.threadId, emailAccount.email);
     }
 
     if (shouldMarkRead) {
