@@ -21,6 +21,8 @@ export function AwaitingReplySetting() {
 
   const handleToggle = useCallback(
     async (enable: boolean) => {
+      if (!emailAccountData) return null;
+
       // Optimistically update the UI
       mutate(
         emailAccountData
@@ -28,8 +30,6 @@ export function AwaitingReplySetting() {
           : undefined,
         false,
       );
-
-      if (!emailAccountData) return;
 
       try {
         await updateAwaitingReplyTrackingAction(emailAccountData.id, {

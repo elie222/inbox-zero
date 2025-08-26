@@ -27,11 +27,11 @@ describe("scheduler", () => {
       expect(canActionBeDelayed(ActionType.REPLY)).toBe(true);
       expect(canActionBeDelayed(ActionType.SEND_EMAIL)).toBe(true);
       expect(canActionBeDelayed(ActionType.FORWARD)).toBe(true);
-      expect(canActionBeDelayed(ActionType.DRAFT_EMAIL)).toBe(true);
-      expect(canActionBeDelayed(ActionType.CALL_WEBHOOK)).toBe(true);
     });
 
     it("should return false for unsupported actions", () => {
+      expect(canActionBeDelayed(ActionType.CALL_WEBHOOK)).toBe(false);
+      expect(canActionBeDelayed(ActionType.DRAFT_EMAIL)).toBe(false);
       expect(canActionBeDelayed(ActionType.MARK_SPAM)).toBe(false);
       expect(canActionBeDelayed(ActionType.TRACK_THREAD)).toBe(false);
       expect(canActionBeDelayed(ActionType.DIGEST)).toBe(false);
