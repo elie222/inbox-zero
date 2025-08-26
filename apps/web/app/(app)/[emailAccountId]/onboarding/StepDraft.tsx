@@ -14,6 +14,7 @@ export function StepDraft({
   onNext,
 }: {
   emailAccountId: string;
+  provider: string;
   onNext: () => void;
 }) {
   const onSetDraftReplies = useCallback(

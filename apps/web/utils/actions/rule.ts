@@ -12,6 +12,7 @@ import {
   deleteRuleBody,
   createRulesOnboardingBody,
   type CategoryConfig,
+  type CategoryAction,
 } from "@/utils/actions/rule.validation";
 import prisma from "@/utils/prisma";
 import { isDuplicateError, isNotFoundError } from "@/utils/prisma-helpers";
@@ -21,7 +22,9 @@ import {
   ActionType,
   ColdEmailSetting,
   LogicalOperator,
+  type Rule,
   SystemType,
+  type Prisma,
 } from "@prisma/client";
 import {
   updatePromptFileOnRuleUpdated,
@@ -43,13 +46,84 @@ import { INTERNAL_API_KEY_HEADER } from "@/utils/internal-api";
 import type { ProcessPreviousBody } from "@/app/api/reply-tracker/process-previous/route";
 import { RuleName, SystemRule } from "@/utils/rule/consts";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
+import {
+  getGmailClientForEmail,
+  getOutlookClientForEmail,
+} from "@/utils/account";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { prefixPath } from "@/utils/path";
 import { createRuleHistory } from "@/utils/rule/rule-history";
 import { ONE_WEEK_MINUTES } from "@/utils/date";
+import { getOrCreateOutlookFolderIdByName } from "@/utils/outlook/folders";
 
 const logger = createScopedLogger("actions/rule");
+
+function getCategoryActionDescription(categoryAction: CategoryAction): string {
+  switch (categoryAction) {
+    case "label_archive":
+      return " and archive them";
+    case "label_archive_delayed":
+      return " and archive them after a week";
+    case "move_folder":
+      return " and move them to a folder";
+    case "move_folder_delayed":
+      return " and move them to a folder after a week";
+    default:
+      return "";
+  }
+}
+
+async function getActionsFromCategoryAction(
+  emailAccountId: string,
+  rule: Rule,
+  categoryAction: CategoryAction,
+  label: string,
+  hasDigest: boolean,
+): Promise<Prisma.ActionCreateManyRuleInput[]> {
+  let actions: Prisma.ActionCreateManyRuleInput[] = [
+    { type: ActionType.LABEL, label },
+  ];
+
+  switch (categoryAction) {
+    case "label_archive":
+    case "label_archive_delayed": {
+      actions.push({
+        type: ActionType.ARCHIVE,
+        delayInMinutes:
+          categoryAction === "label_archive_delayed"
+            ? ONE_WEEK_MINUTES
+            : undefined,
+      });
+      break;
+    }
+    case "move_folder":
+    case "move_folder_delayed": {
+      const outlook = await getOutlookClientForEmail({ emailAccountId });
+      const folderId = await getOrCreateOutlookFolderIdByName(
+        outlook,
+        rule.name,
+      );
+      actions = [
+        {
+          type: ActionType.MOVE_FOLDER,
+          folderId,
+          folderName: rule.name,
+          delayInMinutes:
+            categoryAction === "move_folder_delayed"
+              ? ONE_WEEK_MINUTES
+              : undefined,
+        },
+      ];
+      break;
+    }
+  }
+
+  if (hasDigest) {
+    actions.push({ type: ActionType.DIGEST });
+  }
+
+  return actions;
+}
 
 export const createRuleAction = actionClient
   .metadata({ name: "createRule" })
@@ -569,7 +643,12 @@ export const createRulesOnboardingAction = actionClient
       instructions: string,
       promptFileInstructions: string,
       runOnThreads: boolean,
-      categoryAction: "label" | "label_archive" | "label_archive_delayed",
+      categoryAction:
+        | "label"
+        | "label_archive"
+        | "label_archive_delayed"
+        | "move_folder"
+        | "move_folder_delayed",
       label: string,
       systemType: SystemType | null,
       emailAccountId: string,
@@ -584,87 +663,73 @@ export const createRulesOnboardingAction = actionClient
         : null;
 
       if (existingRule) {
-        const promise = prisma.rule
-          .update({
-            where: { id: existingRule.id },
-            data: {
-              instructions,
-              actions: {
-                deleteMany: {},
-                createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : categoryAction === "label_archive_delayed"
-                        ? [
-                            {
-                              type: ActionType.ARCHIVE,
-                              delayInMinutes: ONE_WEEK_MINUTES,
-                            },
-                          ]
-                        : []),
-                    ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
-                  ],
+        const promise = (async () => {
+          const actions = await getActionsFromCategoryAction(
+            emailAccountId,
+            existingRule,
+            categoryAction,
+            label,
+            hasDigest,
+          );
+
+          return (
+            prisma.rule
+              .update({
+                where: { id: existingRule.id },
+                data: {
+                  instructions,
+                  actions: {
+                    deleteMany: {},
+                    createMany: { data: actions },
+                  },
                 },
-              },
-            },
-          })
-          // NOTE: doesn't update without this line
-          .then(() => {})
-          .catch((error) => {
-            logger.error("Error updating rule", { error });
-            throw error;
-          });
+              })
+              // NOTE: doesn't update without this line
+              .then(() => {})
+              .catch((error) => {
+                logger.error("Error updating rule", { error });
+                throw error;
+              })
+          );
+        })();
         promises.push(promise);
 
         // TODO: prompt file update
       } else {
-        const promise = prisma.rule
-          .create({
-            data: {
-              emailAccountId,
-              name,
-              instructions,
-              systemType: systemType ?? undefined,
-              automate: true,
-              runOnThreads,
-              actions: {
-                createMany: {
-                  data: [
-                    { type: ActionType.LABEL, label },
-                    ...(categoryAction === "label_archive"
-                      ? [{ type: ActionType.ARCHIVE }]
-                      : categoryAction === "label_archive_delayed"
-                        ? [
-                            {
-                              type: ActionType.ARCHIVE,
-                              delayInMinutes: ONE_WEEK_MINUTES,
-                            },
-                          ]
-                        : []),
-                    ...(hasDigest ? [{ type: ActionType.DIGEST }] : []),
-                  ],
+        const promise = (async () => {
+          const actions = await getActionsFromCategoryAction(
+            emailAccountId,
+            { name } as Rule, // Mock rule object for create operation
+            categoryAction,
+            label,
+            hasDigest,
+          );
+
+          return prisma.rule
+            .create({
+              data: {
+                emailAccountId,
+                name,
+                instructions,
+                systemType: systemType ?? undefined,
+                automate: true,
+                runOnThreads,
+                actions: {
+                  createMany: { data: actions },
                 },
               },
-            },
-          })
-          .then(() => {})
-          .catch((error) => {
-            if (isDuplicateError(error, "name")) return;
-            logger.error("Error creating rule", { error });
-            throw error;
-          });
+            })
+            .then(() => {})
+            .catch((error) => {
+              if (isDuplicateError(error, "name")) return;
+              logger.error("Error creating rule", { error });
+              throw error;
+            });
+        })();
         promises.push(promise);
 
         rules.push(
-          `${promptFileInstructions}${
-            categoryAction === "label_archive"
-              ? " and archive them"
-              : categoryAction === "label_archive_delayed"
-                ? " and archive them after a week"
-                : ""
-          }.`,
+          `${promptFileInstructions}${getCategoryActionDescription(categoryAction)}.`,
         );
       }
     }

@@ -60,6 +60,10 @@ import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
 import { useChat } from "@/providers/ChatProvider";
 import { useSidebar } from "@/components/ui/sidebar";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
@@ -131,27 +135,31 @@ export function Rules({
       enabled: true,
       runOnThreads: false,
       actions: [
-        {
-          id: "cold-email-blocker-label",
-          type: ActionType.LABEL,
-          label: inboxZeroLabels.cold_email.name.split("/")[1],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
-          to: null,
-          subject: null,
-          content: null,
-          cc: null,
-          bcc: null,
-          url: null,
-          folderName: null,
-          folderId: null,
-          delayInMinutes: null,
-        },
+        isGoogleProvider(provider)
+          ? {
+              id: "cold-email-blocker-label",
+              type: ActionType.LABEL,
+              label: inboxZeroLabels.cold_email.name.split("/")[1],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              url: null,
+              folderName: null,
+              folderId: null,
+              delayInMinutes: null,
+            }
+          : null,
         showArchiveAction
           ? {
               id: "cold-email-blocker-archive",
-              type: ActionType.ARCHIVE,
+              type: isMicrosoftProvider(provider)
+                ? ActionType.MOVE_FOLDER
+                : ActionType.ARCHIVE,
               label: null,
               createdAt: new Date(),
               updatedAt: new Date(),
@@ -203,7 +211,7 @@ export function Rules({
       promptText: null,
     };
     return [...(baseRules || []), coldEmailBlockerRule];
-  }, [baseRules, emailAccountData, emailAccountId]);
+  }, [baseRules, emailAccountData, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;
 
