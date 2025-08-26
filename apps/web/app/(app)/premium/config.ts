@@ -259,30 +259,31 @@ const businessPlusTier: Tier = {
   mostPopular: true,
 };
 
-// const enterpriseTier: Tier = {
-//   name: "Enterprise",
-//   tiers: {
-//     monthly: PremiumTier.COPILOT_MONTHLY,
-//     annually: PremiumTier.COPILOT_MONTHLY,
-//   },
-//   price: { monthly: 0, annually: 0 },
-//   priceAdditional: { monthly: 0, annually: 0 },
-//   discount: { monthly: 0, annually: 0 },
-//   description: "On premise deployment",
-//   features: [
-//     {
-//       text: "25+ accounts",
-//     },
-//     {
-//       text: "On premise deployment",
-//     },
-//     { text: "Setup assistance" },
-//     { text: "Dedicated account manager" },
-//   ],
-//   cta: "Book a call",
-//   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
-//   mostPopular: false,
-// };
+const enterpriseTier: Tier = {
+  name: "Enterprise",
+  tiers: {
+    monthly: PremiumTier.COPILOT_MONTHLY,
+    annually: PremiumTier.COPILOT_MONTHLY,
+  },
+  price: { monthly: 0, annually: 0 },
+  priceAdditional: { monthly: 0, annually: 0 },
+  discount: { monthly: 0, annually: 0 },
+  description: "Custom solutions for large organizations",
+  features: [
+    {
+      text: "Everything in Business, plus:",
+    },
+    {
+      text: "Unlimited accounts & on-premise deployment",
+    },
+    {
+      text: "Advanced security, SLA & dedicated support",
+    },
+  ],
+  cta: "Speak to sales",
+  ctaLink: "/sales",
+  mostPopular: false,
+};
 
 export function getLemonSubscriptionTier({
   variantId,
@@ -295,3 +296,4 @@ export function getLemonSubscriptionTier({
 }
 
 export const tiers: Tier[] = [businessTier, businessPlusTier];
+export { enterpriseTier };

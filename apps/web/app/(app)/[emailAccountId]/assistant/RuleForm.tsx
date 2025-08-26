@@ -141,17 +141,22 @@ export function RuleForm({
     defaultValues: rule
       ? {
           ...rule,
+          digest: rule.actions.some(
+            (action) => action.type === ActionType.DIGEST,
+          ),
           actions: [
-            ...rule.actions.map((action) => ({
-              ...action,
-              delayInMinutes: action.delayInMinutes,
-              content: {
-                ...action.content,
-                setManually: !!action.content?.value,
-              },
-              folderName: action.folderName,
-              folderId: action.folderId,
-            })),
+            ...rule.actions
+              .filter((action) => action.type !== ActionType.DIGEST)
+              .map((action) => ({
+                ...action,
+                delayInMinutes: action.delayInMinutes,
+                content: {
+                  ...action.content,
+                  setManually: !!action.content?.value,
+                },
+                folderName: action.folderName,
+                folderId: action.folderId,
+              })),
           ],
         }
       : undefined,
@@ -213,6 +218,12 @@ export function RuleForm({
         }
       }
 
+      // Add DIGEST action if digest is enabled
+      const actionsToSubmit = [...data.actions];
+      if (data.digest) {
+        actionsToSubmit.push({ type: ActionType.DIGEST });
+      }
+
       if (data.id) {
         if (mutate) {
           // mutate delayInMinutes optimistically to keep the UI consistent
@@ -231,6 +242,7 @@ export function RuleForm({
 
         const res = await updateRuleAction(emailAccountId, {
           ...data,
+          actions: actionsToSubmit,
           id: data.id,
         });
 
@@ -249,9 +261,10 @@ export function RuleForm({
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: data.actions.map((action) => action.type),
+            actions: actionsToSubmit.map((action) => action.type),
             automate: data.automate,
             runOnThreads: data.runOnThreads,
+            digest: data.digest,
           });
           if (isDialog && onSuccess) {
             onSuccess();
@@ -260,7 +273,10 @@ export function RuleForm({
           }
         }
       } else {
-        const res = await createRuleAction(emailAccountId, data);
+        const res = await createRuleAction(emailAccountId, {
+          ...data,
+          actions: actionsToSubmit,
+        });
 
         if (res?.serverError) {
           console.error(res);
@@ -273,9 +289,10 @@ export function RuleForm({
           toastSuccess({ description: "Created!" });
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: data.actions.map((action) => action.type),
+            actions: actionsToSubmit.map((action) => action.type),
             automate: data.automate,
             runOnThreads: data.runOnThreads,
+            digest: data.digest,
           });
           if (isDialog && onSuccess) {
             onSuccess();
@@ -344,7 +361,6 @@ export function RuleForm({
       { label: "Forward", value: ActionType.FORWARD },
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
-      { label: "Digest", value: ActionType.DIGEST },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
       {
         label: `Auto-update reply ${terminology.label.singular}`,
@@ -908,6 +924,23 @@ export function RuleForm({
             <ThreadsExplanation size="md" />
           </div>
 
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="digest"
+              labelRight="Include in daily digest"
+              enabled={watch("digest") || false}
+              onChange={(enabled) => {
+                setValue("digest", enabled);
+              }}
+            />
+
+            <TooltipExplanation
+              size="md"
+              side="right"
+              text="When enabled you will receive a summary of the emails that match this rule in your digest email."
+            />
+          </div>
+
           {!!rule.id && (
             <div className="flex">
               <LearnedPatternsDialog
@@ -921,7 +954,6 @@ export function RuleForm({
             <Button
               size="sm"
               variant="outline"
-              loading={isSubmitting}
               Icon={TrashIcon}
               onClick={async () => {
                 const yes = confirm(
@@ -1303,26 +1335,12 @@ function ActionCard({
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
           {shouldShowProTip && <VariableProTip />}
           {actionCanBeDelayed && (
-            <div className="mt-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  {delayEnabled && (
-                    <DelayInputControls
-                      index={index}
-                      delayInMinutes={delayValue}
-                      setValue={setValue}
-                    />
-                  )}
-                </div>
-
+            <div className="">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <TooltipExplanation
-                    text="Schedule this action to execute after a delay from when the email was received. For example, archive an email a week after receiving it."
-                    side="right"
-                  />
                   <Toggle
                     name={`actions.${index}.delayEnabled`}
-                    label="Delay"
+                    labelRight="Delay"
                     enabled={delayEnabled}
                     onChange={(enabled: boolean) => {
                       const newValue = enabled ? 60 : null;
@@ -1331,7 +1349,19 @@ function ActionCard({
                       });
                     }}
                   />
+                  <TooltipExplanation
+                    text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
+                    side="right"
+                  />
                 </div>
+
+                {delayEnabled && (
+                  <DelayInputControls
+                    index={index}
+                    delayInMinutes={delayValue}
+                    setValue={setValue}
+                  />
+                )}
               </div>
 
               {errors?.actions?.[index]?.delayInMinutes && (
@@ -1568,36 +1598,33 @@ function DelayInputControls({
   };
 
   return (
-    <div className="space-y-2">
-      <Label label="Delay" name={`delay-${index}`} />
-      <div className="flex items-center space-x-2">
-        <Input
-          name={`delay-${index}`}
-          type="text"
-          placeholder="0"
-          className="w-20"
-          registerProps={{
-            value: delayConfig.displayValue,
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = e.target.value.replace(/[^0-9]/g, "");
-              delayConfig.handleValueChange(value, delayConfig.unit);
-            },
-          }}
-        />
-        <Select
-          value={delayConfig.unit}
-          onValueChange={delayConfig.handleUnitChange}
-        >
-          <SelectTrigger className="w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="minutes">Minutes</SelectItem>
-            <SelectItem value="hours">Hours</SelectItem>
-            <SelectItem value="days">Days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex items-center space-x-2">
+      <Input
+        name={`delay-${index}`}
+        type="text"
+        placeholder="0"
+        className="w-20"
+        registerProps={{
+          value: delayConfig.displayValue,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.value.replace(/[^0-9]/g, "");
+            delayConfig.handleValueChange(value, delayConfig.unit);
+          },
+        }}
+      />
+      <Select
+        value={delayConfig.unit}
+        onValueChange={delayConfig.handleUnitChange}
+      >
+        <SelectTrigger className="w-24">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="minutes">Minutes</SelectItem>
+          <SelectItem value="hours">Hours</SelectItem>
+          <SelectItem value="days">Days</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

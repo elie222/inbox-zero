@@ -1,5 +1,6 @@
 "use server";
 
+import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
 import {
   saveAiSettingsBody,
@@ -75,6 +76,17 @@ export const updateDigestScheduleAction = actionClient
       update,
     });
 
+    return { success: true };
+  });
+
+export const updateAwaitingReplyTrackingAction = actionClient
+  .metadata({ name: "updateAwaitingReplyTracking" })
+  .schema(z.object({ enabled: z.boolean() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    await prisma.emailAccount.update({
+      where: { id: emailAccountId },
+      data: { outboundReplyTracking: enabled },
+    });
     return { success: true };
   });
 

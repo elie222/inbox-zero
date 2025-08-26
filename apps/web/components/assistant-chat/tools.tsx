@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useQueryState } from "nuqs";
 import type {
   UpdateAboutTool,
