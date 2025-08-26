@@ -3,10 +3,7 @@ import { nanoid } from "nanoid";
 import { resend } from "./client";
 import type { ReactElement } from "react";
 import SummaryEmail, { type SummaryEmailProps } from "../emails/summary";
-import DigestEmail, {
-  type DigestEmailProps,
-  generateDigestSubject,
-} from "../emails/digest";
+import DigestEmail, { type DigestEmailProps } from "../emails/digest";
 
 const sendEmail = async ({
   from,
@@ -125,7 +122,7 @@ export const sendDigestEmail = async ({
   sendEmail({
     from,
     to,
-    subject: generateDigestSubject(emailProps),
+    subject: "Your email digest",
     react: <DigestEmail {...emailProps} />,
     test,
     unsubscribeToken: emailProps.unsubscribeToken,
