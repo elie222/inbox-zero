@@ -380,6 +380,7 @@ export default function DigestEmail(props: DigestEmailProps) {
 DigestEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   unsubscribeToken: "123",
+  emailAccountId: "123",
   ruleNames: {
     newsletter: "Newsletter",
     receipt: "Receipt",
@@ -396,208 +397,279 @@ DigestEmail.PreviewProps = {
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
-      content:
-        "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\nStripe raises $6.5B at $50B valuation as fintech consolidation continues\nTesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
+      content: {
+        content:
+          "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\nStripe raises $6.5B at $50B valuation as fintech consolidation continues\nTesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
+      },
     },
     {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
-      content:
-        "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\nSupreme Court rules 6-3 on landmark digital privacy case affecting tech giants\nNASA's Artemis mission discovers water ice deposits in lunar south pole crater",
+      content: {
+        content:
+          "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\nSupreme Court rules 6-3 on landmark digital privacy case affecting tech giants\nNASA's Artemis mission discovers water ice deposits in lunar south pole crater",
+      },
     },
     {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
-      content:
-        "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\nScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\nCursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
+      content: {
+        content:
+          "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\nScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\nCursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
+      },
     },
     {
       from: "TechCrunch",
       subject: "Startup funding roundup: Q1 2024",
-      content:
-        "AI startups raised $12B in Q1, up 45% from last year\nFintech sector sees consolidation with 3 major acquisitions\nEnterprise SaaS continues strong growth trajectory",
+      content: {
+        content:
+          "AI startups raised $12B in Q1, up 45% from last year\nFintech sector sees consolidation with 3 major acquisitions\nEnterprise SaaS continues strong growth trajectory",
+      },
     },
     {
       from: "The Verge",
       subject: "CES 2024: The best gadgets and announcements",
-      content:
-        "Samsung unveils transparent MicroLED displays\nLG's rollable OLED TV gets 8K upgrade\nSony's new VR headset challenges Meta's dominance",
+      content: {
+        content:
+          "Samsung unveils transparent MicroLED displays\nLG's rollable OLED TV gets 8K upgrade\nSony's new VR headset challenges Meta's dominance",
+      },
     },
     {
       from: "Ars Technica",
       subject: "SpaceX Starship achieves orbital milestone",
-      content:
-        "Successful launch and landing of Starship prototype\nNext test flight scheduled for next month\nNASA partnership for lunar missions confirmed",
+      content: {
+        content:
+          "Successful launch and landing of Starship prototype\nNext test flight scheduled for next month\nNASA partnership for lunar missions confirmed",
+      },
     },
     {
       from: "Wired",
       subject: "The future of quantum computing",
-      content:
-        "IBM reaches 1,000+ qubit milestone\nGoogle's quantum supremacy claims verified\nNew algorithms show promise for cryptography",
+      content: {
+        content:
+          "IBM reaches 1,000+ qubit milestone\nGoogle's quantum supremacy claims verified\nNew algorithms show promise for cryptography",
+      },
     },
     {
       from: "MIT Technology Review",
       subject: "Climate tech innovations to watch",
-      content:
-        "Direct air capture technology breakthrough\nGreen hydrogen production costs drop 60%\nCarbon-neutral cement alternatives emerge",
+      content: {
+        content:
+          "Direct air capture technology breakthrough\nGreen hydrogen production costs drop 60%\nCarbon-neutral cement alternatives emerge",
+      },
     },
   ],
   receipt: [
     {
       from: "Amazon",
       subject: "Order #123-4567890-1234567",
-      content: "Your order has been delivered to your doorstep.",
+      content: {
+        content: "Your order has been delivered to your doorstep.",
+      },
     },
     {
       from: "Uber Eats",
       subject: "Your food is on the way!",
-      content:
-        "Estimated delivery: 15-20 minutes\nDriver: John D.\nOrder total: $24.50",
+      content: {
+        content:
+          "Estimated delivery: 15-20 minutes\nDriver: John D.\nOrder total: $24.50",
+      },
     },
     {
       from: "Netflix",
       subject: "Payment received for Netflix subscription",
-      content: "Amount: $15.99\nNext billing date: March 15, 2024",
+      content: {
+        content: "Amount: $15.99\nNext billing date: March 15, 2024",
+      },
     },
     {
       from: "Spotify",
       subject: "Premium subscription renewed",
-      content:
-        "Your Spotify Premium subscription has been renewed for $9.99/month.",
+      content: {
+        content:
+          "Your Spotify Premium subscription has been renewed for $9.99/month.",
+      },
     },
     {
       from: "Apple",
       subject: "iCloud storage payment",
-      content: "iCloud+ 50GB plan renewed for $0.99/month.",
+      content: {
+        content: "iCloud+ 50GB plan renewed for $0.99/month.",
+      },
     },
     {
       from: "Starbucks",
       subject: "Receipt for your purchase",
-      content:
-        "Location: Downtown Store\nItems: 2x Venti Lattes, 1x Croissant\nTotal: $18.75\nPayment: Apple Pay",
+      content: {
+        content:
+          "Location: Downtown Store\nItems: 2x Venti Lattes, 1x Croissant\nTotal: $18.75\nPayment: Apple Pay",
+      },
     },
     {
       from: "Target",
       subject: "Order confirmation #TGT-789456",
-      content:
-        "Order total: $67.89\nItems: 5 items\nEstimated delivery: Tomorrow\nTracking: UPS 1Z999AA1234567890",
+      content: {
+        content:
+          "Order total: $67.89\nItems: 5 items\nEstimated delivery: Tomorrow\nTracking: UPS 1Z999AA1234567890",
+      },
     },
     {
       from: "DoorDash",
       subject: "Your delivery is complete",
-      content:
-        "Restaurant: Thai Palace\nOrder: Pad Thai, Spring Rolls, Thai Iced Tea\nTotal: $32.45\nTip: $5.00",
+      content: {
+        content:
+          "Restaurant: Thai Palace\nOrder: Pad Thai, Spring Rolls, Thai Iced Tea\nTotal: $32.45\nTip: $5.00",
+      },
     },
     {
       from: "Walmart",
       subject: "Online order shipped",
-      content:
-        "Order #WM-456789\nItems: 3 items\nTotal: $89.99\nCarrier: FedEx\nTracking: 123456789012",
+      content: {
+        content:
+          "Order #WM-456789\nItems: 3 items\nTotal: $89.99\nCarrier: FedEx\nTracking: 123456789012",
+      },
     },
     {
       from: "Costco",
       subject: "Monthly membership renewal",
-      content:
-        "Executive Membership renewed\nAnnual fee: $120.00\nNext renewal: March 15, 2025\nBenefits: 2% cashback, travel discounts",
+      content: {
+        content:
+          "Executive Membership renewed\nAnnual fee: $120.00\nNext renewal: March 15, 2025\nBenefits: 2% cashback, travel discounts",
+      },
     },
   ],
   marketing: [
     {
       from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
-      content: "Upgrade your music experience with this exclusive deal",
+      content: {
+        content: "Upgrade your music experience with this exclusive deal",
+      },
     },
     {
       from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
-      content: "Be the first to shop our latest styles before they sell out",
+      content: {
+        content: "Be the first to shop our latest styles before they sell out",
+      },
     },
     {
       from: "Airbnb",
       subject: "Weekend getaway ideas near you",
-      content: "Discover unique stays within a 2-hour drive from your location",
+      content: {
+        content:
+          "Discover unique stays within a 2-hour drive from your location",
+      },
     },
   ],
   calendar: [
     {
       from: "Sarah Johnson",
       subject: "Team Weekly Sync",
-      content:
-        "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
+      content: {
+        content:
+          "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
+      },
     },
     {
       from: "Michael Chen",
       subject: "Quarterly Review",
-      content:
-        "Title: Quarterly Review\nDate: Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
+      content: {
+        content:
+          "Title: Quarterly Review\nDate: Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
+      },
     },
     {
       from: "Personal Calendar",
       subject: "Dentist Appointment",
-      content:
-        "Title: Dentist Appointment\nDate: Monday, May 29, 9:30 AM • Downtown Dental Clinic",
+      content: {
+        content:
+          "Title: Dentist Appointment\nDate: Monday, May 29, 9:30 AM • Downtown Dental Clinic",
+      },
     },
   ],
   coldEmail: [
     {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
-      content: "Growth Solutions Inc.",
+      content: {
+        content: "Growth Solutions Inc.",
+      },
     },
     {
       from: "Jennifer Lee",
       subject: "Request for a quick call this week",
-      content: "Venture Capital Partners",
+      content: {
+        content: "Venture Capital Partners",
+      },
     },
     {
       from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
-      content: "Enterprise Tech Solutions",
+      content: {
+        content: "Enterprise Tech Solutions",
+      },
     },
   ],
   notification: [
     {
       from: "LinkedIn",
       subject: "New connection request from Sarah M.",
-      content: "Sarah M. wants to connect with you on LinkedIn.",
+      content: {
+        content: "Sarah M. wants to connect with you on LinkedIn.",
+      },
     },
     {
       from: "Slack",
       subject: "New message in #general",
-      content: "Alex: Can someone help me with the deployment?",
+      content: {
+        content: "Alex: Can someone help me with the deployment?",
+      },
     },
     {
       from: "GitHub",
       subject: "Pull request #1234 needs your review",
-      content:
-        "Repository: myapp\nBranch: feature/new-feature\nFiles changed: 15",
+      content: {
+        content:
+          "Repository: myapp\nBranch: feature/new-feature\nFiles changed: 15",
+      },
     },
     {
       from: "Twitter",
       subject: "New follower: @techguru",
-      content: "You have a new follower on Twitter.",
+      content: {
+        content: "You have a new follower on Twitter.",
+      },
     },
     {
       from: "Discord",
       subject: "New message in #development",
-      content: "Mike: The new API endpoint is working great!",
+      content: {
+        content: "Mike: The new API endpoint is working great!",
+      },
     },
   ],
   toReply: [
     {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
-      content: "Received: Yesterday, 4:30 PM • Due: Today",
+      content: {
+        content: "Received: Yesterday, 4:30 PM • Due: Today",
+      },
     },
     {
       from: "Client XYZ",
       subject: "Questions about the latest deliverable",
-      content: "Received: Monday, 10:15 AM • Due: Tomorrow",
+      content: {
+        content: "Received: Monday, 10:15 AM • Due: Tomorrow",
+      },
     },
     {
       from: "HR Department",
       subject: "Annual review scheduling",
-      content: "Received: Tuesday, 9:00 AM • Due: Friday",
+      content: {
+        content: "Received: Tuesday, 9:00 AM • Due: Friday",
+      },
     },
   ],
   // --- Custom categories for testing ---
@@ -605,45 +677,59 @@ DigestEmail.PreviewProps = {
     {
       from: "Expedia",
       subject: "Your flight to Paris is booked!",
-      content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
+      content: {
+        content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
+      },
     },
     {
       from: "Airbnb",
       subject: "Upcoming stay in Montmartre",
-      content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
+      content: {
+        content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
+      },
     },
   ],
   funnyStuff: [
     {
       from: "The Onion",
       subject: "Area Man Unsure If He's Living In Simulation Or Just Milwaukee",
-      content:
-        "Local man questions reality after seeing three people in cheese hats.",
+      content: {
+        content:
+          "Local man questions reality after seeing three people in cheese hats.",
+      },
     },
     {
       from: "Reddit",
       subject: "Top meme of the day",
-      content: "A cat wearing sunglasses and riding a Roomba.",
+      content: {
+        content: "A cat wearing sunglasses and riding a Roomba.",
+      },
     },
   ],
   orders: [
     {
       from: "Shopify",
       subject: "Order #SHOP-2024-001",
-      content:
-        "Order ID: SHOP-2024-001\nTotal: $89.99\nStatus: Shipped\nTracking: 1Z999AA1234567890",
+      content: {
+        content:
+          "Order ID: SHOP-2024-001\nTotal: $89.99\nStatus: Shipped\nTracking: 1Z999AA1234567890",
+      },
     },
     {
       from: "Etsy",
       subject: "Your handmade jewelry order",
-      content:
-        "Seller: HandmadeCrafts\nItem: Sterling Silver Necklace\nPrice: $45.00\nEstimated Delivery: March 15-20",
+      content: {
+        content:
+          "Seller: HandmadeCrafts\nItem: Sterling Silver Necklace\nPrice: $45.00\nEstimated Delivery: March 15-20",
+      },
     },
     {
       from: "Amazon",
       subject: "Order #114-1234567-8901234",
-      content:
-        "Order Number: 114-1234567-8901234\nItems: 3 items\nTotal: $156.78\nDelivery: Tomorrow by 8 PM",
+      content: {
+        content:
+          "Order Number: 114-1234567-8901234\nItems: 3 items\nTotal: $156.78\nDelivery: Tomorrow by 8 PM",
+      },
     },
   ],
 };
