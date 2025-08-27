@@ -16,89 +16,94 @@ export type LabelRemovalAction =
   (typeof LabelRemovalAction)[keyof typeof LabelRemovalAction];
 
 const schema = z.object({
-  action: z
-    .nativeEnum(LabelRemovalAction)
-    .describe("The recommended action based on the label removal analysis"),
-  reasoning: z
-    .string()
-    .describe(
-      "Detailed explanation of why this action was chosen, including context about the user's behavior",
-    ),
-  patternType: z
-    .nativeEnum(GroupItemType)
-    .optional()
-    .describe("Type of pattern to learn from this removal (if applicable)"),
-  patternValue: z
-    .string()
-    .optional()
-    .describe(
-      "Specific value for the pattern (e.g., email address, domain, subject keyword)",
-    ),
-  exclude: z
-    .boolean()
-    .optional()
-    .describe(
-      "Whether this pattern should be excluded (true) or just not included (false)",
-    ),
+  patterns: z
+    .array(
+      z.object({
+        reasoning: z
+          .string()
+          .describe(
+            "A short human-readable explanation of why this learned pattern is important to learn",
+          ),
+        type: z
+          .nativeEnum(GroupItemType)
+          .describe(
+            "The pattern type which can be FROM (sender/domain), SUBJECT (sender/domain/subject keyword), or BODY (content)",
+          ),
+        value: z
+          .string()
+          .describe(
+            "The specific value for the learned pattern (e.g., email address, domain, subject keyword)",
+          ),
+        exclude: z
+          .boolean()
+          .describe(
+            "Whether this learned pattern should be excluded (true) or just not included (false)",
+          ),
+      }),
+    )
+    .nullish()
+    .describe("Array of patterns to learn from this label removal"),
 });
 
 export type LabelRemovalAnalysis = z.infer<typeof schema>;
 
 export async function aiAnalyzeLabelRemoval({
-  label: { name, instructions },
+  matchedRules,
   email,
   emailAccount,
 }: {
-  label: {
-    name: string;
+  matchedRules: {
+    systemType: string;
     instructions: string | null;
-  };
+    ruleName: string;
+  }[];
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
 }): Promise<LabelRemovalAnalysis> {
-  const system = `You are an **email organization expert** analyzing why a user removed a specific label from an email.
+  const system = `You are an assistant that manages learned patterns in Inbox Zero.  
+You cannot act directly on the inbox; only can propose learned patterns or no action.
 
-Your task is to understand the user's behavior and recommend the best action for future email processing. 
-Your recommendation should be **final and definitive**, but only if you are highly confident in the pattern you detect.
-You must be able to account for user mistakes. If the action appears to be a one-time correction or a manual override of a system error, 
-this should be a core consideration in your reasoning.
-If critical context (label name, sender, or message subject/body) is missing, or the reason for removal is ambiguous, the correct response is always **No Action**.
+What are Learned Patterns?
+- Automatically discovered email patterns that consistently trigger the same action.  
+- They tie directly to rules:
+  - Include → always apply the rule  
+  - Exclude → always skip the rule  
+- They override rule logic when repeated behavior is observed.  
+- They reduce repeated AI processing for the same senders, subjects, or bodies.
 
----
+What are Rules?
+- A rule consists of a **condition** and a set of **actions**.  
+- Conditions can be static (FROM, TO, SUBJECT) or AI instructions.  
+- Actions include applying/removing labels, archiving, forwarding, replying, or skipping emails.  
+- Learned patterns complement rules by automatically adjusting behavior based on repeated user actions or corrections.
 
-### **Decision Framework**
+In this context, we focus only on label removals, which is an action taken by the user and can result from:
+1. AI miscategorization → The removed label was incorrectly applied by the AI.
+2. One-off action → The removed label represents a temporary or situational tag (e.g., "To Do" or "To Reply") and should not generate a learned pattern.
 
-Based on the email data provided, choose one of the following actions. Your reasoning must be short but detailed, 
-focusing on the key data points that led to your decision.
+Guidelines
+- Only propose a learned pattern if you are highly confident that the removal reflects a repeated behavior.
+Do not generate an exclude pattern if the AI correctly categorized the email; only create excludes when a label was wrongly applied and removed by the user.  
+- Use the labels removed and any instructions for adding them in the first place as context to determine the appropriate action and whether a learned pattern should be generated.
+`;
 
-* **No Action:** Default when confidence is low or context is missing. Use this if the removal is temporary or situational, 
-such as a "To Do" label being removed after completion, a "Follow Up" label being removed after handling, or a user correcting an initial misclassification.
+  const prompt = `Context the AI used to add the labels
 
-* **Exclude Pattern:** Choose when the user consistently does **not** want emails from this sender or with this pattern to receive this label. 
-Create a hard exclusion rule based on a clear and recurring pattern of user behavior.
+<labels>
+  ${matchedRules
+    .map(({ systemType, instructions, ruleName }, index) =>
+      [
+        `<label_${index}>`,
+        `<label_system_type>${systemType}</label_system_type>`,
+        `<label_name>${ruleName}</label_name>`,
+        `<instructions_for_adding_label>${instructions || "No instructions provided"}</instructions_for_adding_label>`,
+        `</label_${index}>`,
+      ].join("\n"),
+    )
+    .join("\n")}
+</labels>
 
-* **Not Include:** Choose when the pattern for the label is **unreliable**. Mark it as not to be auto-included for this specific pattern, 
-but do not create a hard exclusion rule. This allows the system to learn and improve without completely ignoring the pattern in other contexts.
-
----
-
-### **Context to Consider**
-
-* Label name and its typical purpose
-* Instructions for the label removed
-* Sender information (email, domain)
-* Message content and subject
-* Timing of the removal
-* User's overall email organization patterns`;
-
-  const prompt = `### Context of why the label was added initially
-
-<label>
-  <label_name>${name}</label_name>
-  <instructions_for_adding_label>${instructions || "No instructions provided"}</instructions_for_adding_label>
-</label>
-
-### Message Content
+Content of the email that has the label removed
 <email>
 ${stringifyEmail(email, 1000)}
 </email>`;

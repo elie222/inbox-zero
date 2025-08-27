@@ -10,7 +10,7 @@ import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { inboxZeroLabels } from "@/utils/label";
 import { GmailLabel } from "@/utils/gmail/label";
 import { aiAnalyzeLabelRemoval } from "@/utils/ai/label-analysis/analyze-label-removal";
-import { LabelRemovalAction } from "@/utils/ai/label-analysis/analyze-label-removal";
+
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
 import type { LabelRemovalAnalysis } from "@/utils/ai/label-analysis/analyze-label-removal";
 
@@ -126,16 +126,14 @@ export async function processLabelRemoval(
           !!labelName && !SYSTEM_LABELS.includes(labelName),
       );
 
-    for (const labelName of removedLabelNames) {
-      await analyseLabelRemoval({
-        labelName,
-        messageId,
-        threadId,
-        emailAccountId,
-        parsedMessage,
-        emailAccount,
-      });
-    }
+    await analyseLabelRemoval({
+      labelNames: removedLabelNames,
+      messageId,
+      threadId,
+      emailAccountId,
+      parsedMessage,
+      emailAccount,
+    });
   } catch (error) {
     logger.error("Error processing label removal", {
       error,
@@ -147,14 +145,14 @@ export async function processLabelRemoval(
 }
 
 async function analyseLabelRemoval({
-  labelName,
+  labelNames,
   messageId,
   threadId,
   emailAccountId,
   parsedMessage,
   emailAccount,
 }: {
-  labelName: string;
+  labelNames: string[];
   messageId: string;
   threadId: string;
   emailAccountId: string;
@@ -168,12 +166,12 @@ async function analyseLabelRemoval({
     logger.info("No sender found, skipping learning", {
       emailAccountId,
       messageId,
-      labelName,
+      labelNames,
     });
     return;
   }
 
-  if (labelName === inboxZeroLabels.cold_email.name) {
+  if (labelNames.includes(inboxZeroLabels.cold_email.name)) {
     logger.info("Processing Cold Email label removal", {
       emailAccountId,
       messageId,
@@ -202,46 +200,49 @@ async function analyseLabelRemoval({
   }
 
   const systemTypeData = await getSystemRuleLabels(emailAccountId);
-  let matchedRule: {
+  const matchedRules: {
     systemType: string;
     instructions: string | null;
     ruleName: string;
-  } | null = null;
+  }[] = [];
 
+  // Only match rules created by the system
   for (const [systemType, data] of systemTypeData) {
-    if (data.labels.includes(labelName)) {
-      matchedRule = {
-        systemType,
-        instructions: data.instructions,
-        ruleName: data.ruleName,
-      };
-      break;
+    for (const labelName of labelNames) {
+      if (data.labels.includes(labelName)) {
+        matchedRules.push({
+          systemType,
+          instructions: data.instructions,
+          ruleName: data.ruleName,
+        });
+        break;
+      }
     }
   }
 
-  if (!matchedRule) {
+  if (matchedRules.length === 0) {
     logger.info(
-      "No system rule found for label removal, skipping AI analysis",
-      { emailAccountId, labelName },
+      "No system rules found for label removal, skipping AI analysis",
+      { emailAccountId, labelNames },
     );
     return;
   }
 
   // Matching rule by SystemType and not by name
-  if (matchedRule.systemType === SystemType.NEWSLETTER) {
+  if (
+    matchedRules.find(
+      (matchedRule) => matchedRule.systemType === SystemType.NEWSLETTER,
+    )
+  ) {
     logger.info("Processing system rule label removal with AI analysis", {
       emailAccountId,
-      labelName,
-      systemType: matchedRule.systemType,
+      labelNames,
       messageId,
     });
 
     try {
       const analysis = await aiAnalyzeLabelRemoval({
-        label: {
-          name: labelName,
-          instructions: matchedRule.instructions,
-        },
+        matchedRules,
         email: getEmailForLLM(parsedMessage),
         emailAccount,
       });
@@ -249,8 +250,8 @@ async function analyseLabelRemoval({
       await processLabelRemovalAnalysis({
         analysis,
         emailAccountId,
-        labelName,
-        ruleName: matchedRule.ruleName,
+        labelNames,
+        matchedRules,
       });
     } catch (error) {
       logger.error("Error analyzing label removal with AI", {
@@ -261,8 +262,7 @@ async function analyseLabelRemoval({
   } else {
     logger.info("System type not yet supported for AI analysis", {
       emailAccountId,
-      labelName,
-      systemType: matchedRule.systemType,
+      labelNames,
     });
   }
 }
@@ -270,52 +270,48 @@ async function analyseLabelRemoval({
 export async function processLabelRemovalAnalysis({
   analysis,
   emailAccountId,
-  labelName,
-  ruleName,
+  labelNames,
+  matchedRules,
 }: {
   analysis: LabelRemovalAnalysis;
   emailAccountId: string;
-  labelName: string;
-  ruleName: string;
+  labelNames: string[];
+  matchedRules: {
+    systemType: string;
+    instructions: string | null;
+    ruleName: string;
+  }[];
 }): Promise<void> {
-  switch (analysis.action) {
-    case LabelRemovalAction.EXCLUDE_PATTERN:
-    case LabelRemovalAction.NOT_INCLUDE:
-      if (analysis.patternType && analysis.patternValue) {
-        const excludeValue =
-          analysis.exclude ??
-          analysis.action === LabelRemovalAction.EXCLUDE_PATTERN;
+  if (analysis.patterns && analysis.patterns.length > 0) {
+    const patternsToSave = analysis.patterns.map((pattern) => {
+      return {
+        type: pattern.type,
+        value: pattern.value,
+        exclude: pattern.exclude,
+        reasoning: pattern.reasoning,
+      };
+    });
 
-        logger.info("Adding learned pattern to rule", {
-          emailAccountId,
-          ruleName,
-          action: analysis.action,
-          patternType: analysis.patternType,
-          patternValue: analysis.patternValue,
-          exclude: excludeValue,
-        });
-
-        await saveLearnedPatterns({
-          emailAccountId,
-          ruleName,
-          patterns: [
-            {
-              type: analysis.patternType,
-              value: analysis.patternValue,
-              exclude: excludeValue,
-              reasoning: analysis.reasoning,
-            },
-          ],
-        });
-      }
-      break;
-
-    case LabelRemovalAction.NO_ACTION:
-      logger.info("No learned pattern inferred for this label removal", {
+    // Apply patterns to all matched rules
+    // More than one rule can match only if the same label is used for multiple system rules
+    for (const rule of matchedRules) {
+      logger.info("Adding learned patterns to rule", {
         emailAccountId,
-        labelName,
-        ruleName,
+        ruleName: rule.ruleName,
+        patternCount: patternsToSave.length,
       });
-      break;
+
+      await saveLearnedPatterns({
+        emailAccountId,
+        ruleName: rule.ruleName,
+        patterns: patternsToSave,
+      });
+    }
+  } else {
+    logger.info("No learned pattern inferred for this label removal", {
+      emailAccountId,
+      labelNames: labelNames.join(", "),
+      ruleNames: matchedRules.map((r) => r.ruleName).join(", "),
+    });
   }
 }
