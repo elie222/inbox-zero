@@ -60,8 +60,9 @@ export async function aiAnalyzeLabelRemoval({
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
 }): Promise<LabelRemovalAnalysis> {
-  const system = `You are an assistant that manages learned patterns in Inbox Zero.  
-You cannot act directly on the inbox; only can propose learned patterns or no action.
+  const system = `You are an email expert who manages learned patterns for a user's inbox.  
+You cannot act directly on the inbox; you can only propose learned patterns or suggest no action.  
+Your goal is to help the user manage their emails and labels more effectively and to analyze label removals to identify potential learned patterns.
 
 What are Learned Patterns?
 - Automatically discovered email patterns that consistently trigger the same action.  
@@ -83,7 +84,7 @@ In this context, we focus only on label removals, which is an action taken by th
 
 Guidelines
 - Only propose a learned pattern if you are highly confident that the removal reflects a repeated behavior.
-Do not generate an exclude pattern if the AI correctly categorized the email; only create excludes when a label was wrongly applied and removed by the user.  
+- Do not generate an exclude pattern if the AI correctly categorized the email; only create excludes when a label was wrongly applied and removed by the user.  
 - Use the labels removed and any instructions for adding them in the first place as context to determine the appropriate action and whether a learned pattern should be generated.
 `;
 
