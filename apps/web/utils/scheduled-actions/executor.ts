@@ -112,6 +112,7 @@ async function validateEmailState(
       headers: message.headers,
       textPlain: message.textPlain || "",
       textHtml: message.textHtml || "",
+      snippet: message.snippet || "",
       attachments: message.attachments || [],
       internalDate: message.internalDate,
     };
