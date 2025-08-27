@@ -6,9 +6,7 @@ import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
-import { WebhookDocumentationDialog } from "@/components/WebhookDocumentation";
-import { Button } from "@/components/ui/button";
-import { BookOpenIcon } from "lucide-react";
+import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 
 export function WebhookSection() {
   const { data, isLoading, error, mutate } = useUser();
@@ -17,7 +15,7 @@ export function WebhookSection() {
     <FormSection>
       <FormSectionLeft
         title="Webhooks (Developers)"
-        description="API webhook secret for request verification. Include this in the X-Webhook-Secret header when setting up webhook endpoints."
+        description="API webhook secret for request verification. Include this in the X-Webhook-Secret header when setting up webhook endpoints. View payload structure to see what data is sent."
       />
 
       <div className="col-span-2">
@@ -34,13 +32,7 @@ export function WebhookSection() {
                     hasSecret={!!data.webhookSecret}
                     mutate={mutate}
                   />
-                  
-                  <WebhookDocumentationDialog>
-                    <Button variant="outline" size="sm">
-                      <BookOpenIcon className="h-4 w-4 mr-2" />
-                      View Documentation
-                    </Button>
-                  </WebhookDocumentationDialog>
+                  <WebhookDocumentationLink />
                 </div>
               </div>
             )}
