@@ -64,7 +64,7 @@ export async function getEmailAccountWithAiAndName({
   emailAccountId,
 }: {
   emailAccountId: string;
-}): Promise<(EmailAccountWithAI & { user: { name: string | null } }) | null> {
+}): Promise<(EmailAccountWithAI & { name: string | null }) | null> {
   return prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -72,9 +72,9 @@ export async function getEmailAccountWithAiAndName({
       userId: true,
       email: true,
       about: true,
+      name: true,
       user: {
         select: {
-          name: true,
           aiProvider: true,
           aiModel: true,
           aiApiKey: true,

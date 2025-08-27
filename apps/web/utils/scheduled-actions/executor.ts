@@ -180,6 +180,7 @@ async function executeDelayedAction({
     headers: emailMessage.headers,
     textPlain: emailMessage.textPlain,
     textHtml: emailMessage.textHtml,
+    snippet: emailMessage.snippet,
     attachments: emailMessage.attachments,
     internalDate: emailMessage.internalDate,
   };

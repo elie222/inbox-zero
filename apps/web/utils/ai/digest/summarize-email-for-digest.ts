@@ -22,7 +22,7 @@ export async function aiSummarizeEmailForDigest({
   messageToSummarize,
 }: {
   ruleName: string;
-  emailAccount: EmailAccountWithAI & { user: { name: string | null } };
+  emailAccount: EmailAccountWithAI & { name: string | null };
   messageToSummarize: EmailForLLM;
 }): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
@@ -69,7 +69,7 @@ Now, classify and summarize the following email:`;
 
 <user>
   <about>${emailAccount.about}</about>
-  <name>${emailAccount.user.name}</name>
+  <name>${emailAccount.name}</name>
 </user>`;
 
   logger.info("Summarizing email for digest");
