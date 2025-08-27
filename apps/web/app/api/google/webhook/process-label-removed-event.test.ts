@@ -1,7 +1,7 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import { ColdEmailStatus } from "@prisma/client";
 import { HistoryEventType } from "./types";
-import { handleLabelRemovedEvent } from "./process-label-removed-event";
+import { processLabelRemoval } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { inboxZeroLabels } from "@/utils/label";
 import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
@@ -105,13 +105,13 @@ describe("process-label-removed-event", () => {
     provider: mockProvider,
   };
 
-  describe("handleLabelRemovedEvent", () => {
+  describe("processLabelRemoval", () => {
     it("should process Cold Email label removal and update ColdEmail status", async () => {
       prisma.coldEmail.upsert.mockResolvedValue({} as any);
 
       const historyItem = createLabelRemovedHistoryItem();
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(prisma.coldEmail.upsert).toHaveBeenCalledWith({
         where: {
@@ -138,7 +138,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -148,7 +148,7 @@ describe("process-label-removed-event", () => {
         "label-4",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -158,7 +158,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -168,7 +168,7 @@ describe("process-label-removed-event", () => {
         "label-2",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -178,7 +178,7 @@ describe("process-label-removed-event", () => {
         "label-3",
       ]);
 
-      await handleLabelRemovedEvent(historyItem.item, defaultOptions);
+      await processLabelRemoval(historyItem.item, defaultOptions);
 
       expect(saveLearnedPatterns).not.toHaveBeenCalled();
     });
@@ -189,7 +189,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await processLabelRemoval(historyItem, defaultOptions);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });
@@ -200,7 +200,7 @@ describe("process-label-removed-event", () => {
         labelIds: ["label-1"],
       } as gmail_v1.Schema$HistoryLabelRemoved;
 
-      await handleLabelRemovedEvent(historyItem, defaultOptions);
+      await processLabelRemoval(historyItem, defaultOptions);
 
       expect(prisma.coldEmail.upsert).not.toHaveBeenCalled();
     });
