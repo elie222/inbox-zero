@@ -6,6 +6,9 @@ import { CopyInput } from "@/components/CopyInput";
 import { RegenerateSecretButton } from "@/app/(app)/[emailAccountId]/settings/WebhookGenerate";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
+import { WebhookDocumentationDialog } from "@/components/WebhookDocumentation";
+import { Button } from "@/components/ui/button";
+import { BookOpenIcon } from "lucide-react";
 
 export function WebhookSection() {
   const { data, isLoading, error, mutate } = useUser();
@@ -26,10 +29,19 @@ export function WebhookSection() {
                   <CopyInput value={data.webhookSecret} />
                 )}
 
-                <RegenerateSecretButton
-                  hasSecret={!!data.webhookSecret}
-                  mutate={mutate}
-                />
+                <div className="flex items-center gap-3">
+                  <RegenerateSecretButton
+                    hasSecret={!!data.webhookSecret}
+                    mutate={mutate}
+                  />
+                  
+                  <WebhookDocumentationDialog>
+                    <Button variant="outline" size="sm">
+                      <BookOpenIcon className="h-4 w-4 mr-2" />
+                      View Documentation
+                    </Button>
+                  </WebhookDocumentationDialog>
+                </div>
               </div>
             )}
           </LoadingContent>

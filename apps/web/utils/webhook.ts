@@ -5,7 +5,7 @@ import type { ExecutedRule } from "@prisma/client";
 
 const logger = createScopedLogger("webhook");
 
-type WebhookPayload = {
+export type WebhookPayload = {
   email: {
     threadId: string;
     messageId: string;

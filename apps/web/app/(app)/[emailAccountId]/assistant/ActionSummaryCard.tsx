@@ -173,6 +173,9 @@ export function ActionSummaryCard({
 
     case ActionType.CALL_WEBHOOK:
       summaryContent = `Call webhook: ${action.url?.value || "unset"}`;
+      tooltipText = action.url?.value 
+        ? "Sends email details and rule execution data to your webhook endpoint when this rule is triggered."
+        : "Configure a webhook URL to receive email details and rule execution data when this rule is triggered.";
       break;
 
     case ActionType.TRACK_THREAD:

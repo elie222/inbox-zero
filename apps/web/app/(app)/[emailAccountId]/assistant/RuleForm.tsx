@@ -96,6 +96,7 @@ import { FolderSelector } from "@/components/FolderSelector";
 import { useFolders } from "@/hooks/useFolders";
 import type { OutlookFolder } from "@/utils/outlook/folders";
 import { cn } from "@/utils";
+import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 
 export function Rule({
   ruleId,
@@ -1271,7 +1272,17 @@ function ActionCard({
                         registerProps={register(
                           `actions.${index}.${field.name}.value`,
                         )}
+                        placeholder={
+                          field.name === "url" && action.type === ActionType.CALL_WEBHOOK
+                            ? "https://your-domain.com/webhook"
+                            : undefined
+                        }
                       />
+                      {field.name === "url" && action.type === ActionType.CALL_WEBHOOK && (
+                        <div className="mt-2">
+                          <WebhookDocumentationLink />
+                        </div>
+                      )}
                     </div>
                   )}
 
