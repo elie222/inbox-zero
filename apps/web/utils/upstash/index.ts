@@ -19,9 +19,7 @@ export async function publishToQstash<T>(
   const client = getQstashClient();
   const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}${path}`;
 
-  console.log("About to publish to Qstash", { url, body, flowControl });
   if (client) {
-    console.log("Publishing to Qstash", { url, body, flowControl });
     return client.publishJSON({
       url,
       body,
