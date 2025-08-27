@@ -11,17 +11,17 @@ vi.mock("server-only", () => ({}));
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
 const createTestEmailAccount = (): EmailAccountWithAI & {
-  user: { name: string | null };
+  name: string | null;
 } => ({
   id: "email-account-id",
   userId: "user1",
   email: "user@test.com",
   about: null,
+  name: "Test User",
   account: {
     provider: "gmail",
   },
   user: {
-    name: "Test User",
     aiModel: "gpt-4",
     aiProvider: "openai",
     aiApiKey: process.env.OPENAI_API_KEY || null,
