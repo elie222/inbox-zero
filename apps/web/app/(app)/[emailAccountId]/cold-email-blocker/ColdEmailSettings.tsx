@@ -18,6 +18,7 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 export function ColdEmailSettings() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -51,7 +52,7 @@ export function ColdEmailForm({
   buttonText?: string;
   onSuccess?: () => void;
 }) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   const {
     control,
@@ -100,18 +101,28 @@ export function ColdEmailForm({
     () => [
       {
         value: ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL,
-        label: "Archive, Mark Read & Label",
-        description: "Archive cold emails, mark them as read, and label them",
+        label: isMicrosoftProvider(provider)
+          ? "Move to Folder & Mark Read"
+          : "Archive, Mark Read & Label",
+        description: isMicrosoftProvider(provider)
+          ? "Move cold emails to a folder and mark them as read"
+          : "Archive cold emails, mark them as read, and label them",
       },
       {
         value: ColdEmailSetting.ARCHIVE_AND_LABEL,
-        label: "Archive & Label",
-        description: "Archive cold emails and label them",
+        label: isMicrosoftProvider(provider)
+          ? "Move to Folder"
+          : "Archive & Label",
+        description: isMicrosoftProvider(provider)
+          ? "Move cold emails to a folder"
+          : "Archive cold emails and label them",
       },
       {
         value: ColdEmailSetting.LABEL,
-        label: "Label Only",
-        description: "Label cold emails, but keep them in my inbox",
+        label: isMicrosoftProvider(provider) ? "Categorize only" : "Label Only",
+        description: isMicrosoftProvider(provider)
+          ? "Categorize cold emails, but keep them in my inbox"
+          : "Label cold emails, but keep them in my inbox",
       },
       {
         value: ColdEmailSetting.DISABLED,
