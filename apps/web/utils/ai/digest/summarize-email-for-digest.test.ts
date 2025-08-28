@@ -6,7 +6,7 @@ import type { EmailForLLM } from "@/utils/types";
 
 // Type for the email account with name property as expected by the function
 type EmailAccountForDigest = EmailAccountWithAI & {
-  user: { name: string | null };
+  name: string | null;
 };
 
 // Run with: pnpm test-ai TEST
@@ -22,11 +22,11 @@ function getEmailAccount(overrides = {}): EmailAccountForDigest {
     userId: "user1",
     email: "user@test.com",
     about: "Software engineer working on email automation",
+    name: "Test User",
     account: {
       provider: "gmail",
     },
     user: {
-      name: "Test User",
       aiModel: "gpt-4",
       aiProvider: "openai",
       aiApiKey: process.env.OPENAI_API_KEY || null,
