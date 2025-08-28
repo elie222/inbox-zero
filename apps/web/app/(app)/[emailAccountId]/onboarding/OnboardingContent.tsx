@@ -26,7 +26,7 @@ interface OnboardingContentProps {
 }
 
 export function OnboardingContent({ step }: OnboardingContentProps) {
-  const { emailAccountId } = useAccount();
+  const { emailAccountId, provider } = useAccount();
 
   useSignUpEvent();
 
@@ -40,10 +40,22 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         onNext={onNext}
       />
     ),
-    () => <StepLabels emailAccountId={emailAccountId} onNext={onNext} />,
-    () => <StepDraft emailAccountId={emailAccountId} onNext={onNext} />,
+    () => (
+      <StepLabels
+        provider={provider}
+        emailAccountId={emailAccountId}
+        onNext={onNext}
+      />
+    ),
+    () => (
+      <StepDraft
+        provider={provider}
+        emailAccountId={emailAccountId}
+        onNext={onNext}
+      />
+    ),
     // <StepDigest onNext={onNext} />
-    () => <StepCustomRules onNext={onNext} />,
+    () => <StepCustomRules provider={provider} onNext={onNext} />,
   ].filter(isDefined);
 
   const { data, mutate } = usePersona();

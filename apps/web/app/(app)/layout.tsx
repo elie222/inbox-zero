@@ -71,12 +71,7 @@ export default async function AppLayout({
         <QueueInitializer />
         <AssessUser />
         <SentryIdentify email={session.user.email} />
-        {/* <Suspense>
-          <CrispWithNoSSR email={session.user.email} />
-        </Suspense> */}
       </ErrorBoundary>
     </AppProviders>
   );
 }
-
-// const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));

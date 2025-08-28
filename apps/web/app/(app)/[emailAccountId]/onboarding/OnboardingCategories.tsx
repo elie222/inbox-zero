@@ -41,13 +41,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ContinueButton } from "@/app/(app)/[emailAccountId]/onboarding/ContinueButton";
 import { cn } from "@/utils";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 // copy paste of old file
 export function CategoriesSetup({
   emailAccountId,
+  provider,
   onNext,
 }: {
   emailAccountId: string;
+  provider: string;
   onNext: () => void;
 }) {
   const { data, isLoading, error } = usePersona();
@@ -59,7 +65,7 @@ export function CategoriesSetup({
   const [basicCategories, setBasicCategories] = React.useState<
     CategoryConfig[]
   >(
-    categoryConfig.map((c) => ({
+    categoryConfig(provider).map((c) => ({
       name: c.key,
       description: "",
       action: c.action,
@@ -122,7 +128,9 @@ export function CategoriesSetup({
 
       <div className="grid grid-cols-1 gap-2">
         {basicCategories.map((category, index) => {
-          const config = categoryConfig.find((c) => c.key === category.name);
+          const config = categoryConfig(provider).find(
+            (c) => c.key === category.name,
+          );
           if (!config) return null;
           return (
             <CategoryCard
@@ -135,6 +143,7 @@ export function CategoriesSetup({
               update={updateBasicCategory}
               value={category.action}
               useTooltip
+              provider={provider}
             />
           );
         })}
@@ -161,6 +170,7 @@ export function CategoriesSetup({
                     update={updateSuggestedCategory}
                     value={category.action}
                     useTooltip={false}
+                    provider={provider}
                   />
                 );
               })}
@@ -190,6 +200,7 @@ function CategoryCard({
   update,
   value,
   useTooltip,
+  provider,
 }: {
   index: number;
   label: string;
@@ -199,6 +210,7 @@ function CategoryCard({
   update: (index: number, value: { action?: CategoryAction }) => void;
   value?: CategoryAction | null;
   useTooltip: boolean;
+  provider: string;
 }) {
   const delayedActionsEnabled = useDelayedActionsEnabled();
 
@@ -239,12 +251,29 @@ function CategoryCard({
               <SelectValue placeholder="Select action" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="label">Label</SelectItem>
-              <SelectItem value="label_archive">Label & skip inbox</SelectItem>
-              {delayedActionsEnabled && (
-                <SelectItem value="label_archive_delayed">
-                  Label & archive after a week
-                </SelectItem>
+              {isMicrosoftProvider(provider) && (
+                <>
+                  <SelectItem value="label">Categorise</SelectItem>
+                  <SelectItem value="move_folder">Move to folder</SelectItem>
+                  {delayedActionsEnabled && (
+                    <SelectItem value="move_folder_delayed">
+                      Move to folder after a week
+                    </SelectItem>
+                  )}
+                </>
+              )}
+              {isGoogleProvider(provider) && (
+                <>
+                  <SelectItem value="label">Label</SelectItem>
+                  <SelectItem value="label_archive">
+                    Label & skip inbox
+                  </SelectItem>
+                  {delayedActionsEnabled && (
+                    <SelectItem value="label_archive_delayed">
+                      Label & archive after a week
+                    </SelectItem>
+                  )}
+                </>
               )}
               <SelectItem value="none">Do nothing</SelectItem>
             </SelectContent>
