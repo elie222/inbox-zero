@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { actionClient } from "@/utils/actions/safe-action";
+import { NEEDS_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 import {
   saveAiSettingsBody,
   saveEmailUpdateSettingsBody,
@@ -87,6 +88,53 @@ export const updateAwaitingReplyTrackingAction = actionClient
       where: { id: emailAccountId },
       data: { outboundReplyTracking: enabled },
     });
+    return { success: true };
+  });
+
+export const toggleToReplyTrackingAction = actionClient
+  .metadata({ name: "toggleToReplyTracking" })
+  .schema(z.object({ enabled: z.boolean() }))
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
+    // Find all rules with "To Reply" label
+    const toReplyRules = await prisma.rule.findMany({
+      where: {
+        emailAccountId,
+        actions: {
+          some: {
+            type: ActionType.LABEL,
+            label: NEEDS_REPLY_LABEL_NAME,
+          },
+        },
+      },
+      include: {
+        actions: true,
+      },
+    });
+
+    for (const rule of toReplyRules) {
+      const hasTrackThread = rule.actions.some(
+        (action) => action.type === ActionType.TRACK_THREAD,
+      );
+
+      if (enabled && !hasTrackThread) {
+        // Add TRACK_THREAD action
+        await prisma.action.create({
+          data: {
+            type: ActionType.TRACK_THREAD,
+            ruleId: rule.id,
+          },
+        });
+      } else if (!enabled && hasTrackThread) {
+        // Remove TRACK_THREAD action
+        await prisma.action.deleteMany({
+          where: {
+            ruleId: rule.id,
+            type: ActionType.TRACK_THREAD,
+          },
+        });
+      }
+    }
+
     return { success: true };
   });
 

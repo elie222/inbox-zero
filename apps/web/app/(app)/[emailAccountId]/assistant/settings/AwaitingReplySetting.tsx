@@ -57,7 +57,7 @@ export function AwaitingReplySetting() {
 
   return (
     <SettingCard
-      title="Label awaiting reply"
+      title={`Label "${AWAITING_REPLY_LABEL_NAME}"`}
       description={`Our AI detects when your sent emails need a response and labels them '${AWAITING_REPLY_LABEL_NAME}', and removes the '${NEEDS_REPLY_LABEL_NAME}' label.`}
       right={
         <LoadingContent
