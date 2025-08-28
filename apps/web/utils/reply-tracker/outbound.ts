@@ -7,7 +7,6 @@ import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { internalDateToDate } from "@/utils/date";
 import type { EmailProvider } from "@/utils/email/types";
-import { AWAITING_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
 
 export async function handleOutboundReply({
   emailAccount,
@@ -117,7 +116,7 @@ export async function handleOutboundReplyWithProvider({
   logger.info("Checking outbound reply");
 
   // 2. Get necessary labels
-  const { awaitingReplyLabelId } = await provider.getReplyTrackingLabels();
+  const awaitingReplyLabelId = await provider.getAwaitingReplyLabel();
 
   // 3. Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackersWithProvider(
@@ -211,10 +210,10 @@ async function createReplyTrackerOutbound({
     },
   });
 
-  const labelPromise = provider.labelMessageById(messageId, {
-    id: awaitingReplyLabelId,
-    name: AWAITING_REPLY_LABEL_NAME,
-  });
+  const labelPromise = provider.labelAwaitingReply(
+    messageId,
+    awaitingReplyLabelId,
+  );
 
   const [upsertResult, labelResult] = await Promise.allSettled([
     upsertPromise,

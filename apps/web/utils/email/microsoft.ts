@@ -204,24 +204,6 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async labelMessageById(
-    messageId: string,
-    label: { id?: string; name: string } | { id: string; name?: string },
-  ): Promise<void> {
-    const name = label.name;
-
-    if (!name) {
-      logger.warn("Label name is required", { label });
-      return;
-    }
-
-    await labelMessage({
-      client: this.client,
-      messageId,
-      categories: [name],
-    });
-  }
-
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
     return getDraft(draftId, this.client);
   }
@@ -305,22 +287,6 @@ export class OutlookProvider implements EmailProvider {
       client: this.client,
       threadId,
       categoryName,
-    });
-  }
-
-  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
-    await removeThreadLabel({
-      client: this.client,
-      threadId,
-      categoryName: AWAITING_REPLY_LABEL_NAME,
-    });
-  }
-
-  async removeNeedsReplyLabel(threadId: string): Promise<void> {
-    await removeThreadLabel({
-      client: this.client,
-      threadId,
-      categoryName: NEEDS_REPLY_LABEL_NAME,
     });
   }
 
@@ -775,15 +741,6 @@ export class OutlookProvider implements EmailProvider {
     return getThreadsFromSenderWithSubject(this.client, sender, limit);
   }
 
-  async getAwaitingReplyLabel(): Promise<string> {
-    const [awaitingReplyLabel] = await getOutlookOrCreateLabels({
-      client: this.client,
-      names: [AWAITING_REPLY_LABEL_NAME],
-    });
-
-    return awaitingReplyLabel.id || "";
-  }
-
   async getReplyTrackingLabels(): Promise<{
     awaitingReplyLabelId: string;
     needsReplyLabelId: string;
@@ -798,6 +755,56 @@ export class OutlookProvider implements EmailProvider {
       awaitingReplyLabelId: awaitingReplyLabel.id || "",
       needsReplyLabelId: needsReplyLabel.id || "",
     };
+  }
+
+  async getNeedsReplyLabel(): Promise<string> {
+    const [needsReplyLabel] = await getOutlookOrCreateLabels({
+      client: this.client,
+      names: [NEEDS_REPLY_LABEL_NAME],
+    });
+
+    return needsReplyLabel.id || "";
+  }
+
+  async getAwaitingReplyLabel(): Promise<string> {
+    const [awaitingReplyLabel] = await getOutlookOrCreateLabels({
+      client: this.client,
+      names: [AWAITING_REPLY_LABEL_NAME],
+    });
+
+    return awaitingReplyLabel.id || "";
+  }
+
+  async labelNeedsReply(messageId: string, _labelId: string): Promise<void> {
+    await labelMessage({
+      client: this.client,
+      messageId,
+      categories: [NEEDS_REPLY_LABEL_NAME],
+    });
+  }
+
+  async labelAwaitingReply(messageId: string, _labelId: string): Promise<void> {
+    await labelMessage({
+      client: this.client,
+      messageId,
+      categories: [AWAITING_REPLY_LABEL_NAME],
+    });
+  }
+
+  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: AWAITING_REPLY_LABEL_NAME,
+    });
+  }
+
+  async removeNeedsReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: NEEDS_REPLY_LABEL_NAME,
+    });
   }
 
   async processHistory(options: {

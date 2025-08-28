@@ -210,24 +210,6 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
-  async labelMessageById(
-    messageId: string,
-    label: { id?: string; name: string } | { id: string; name?: string },
-  ): Promise<void> {
-    const labelId = label.id;
-
-    if (!labelId) {
-      logger.warn("Label ID is required", { label });
-      return;
-    }
-
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [labelId],
-    });
-  }
-
   async getDraft(draftId: string): Promise<ParsedMessage | null> {
     return getDraft(draftId, this.client);
   }
@@ -646,6 +628,22 @@ export class GmailProvider implements EmailProvider {
     needsReplyLabelId: string;
   }> {
     return getReplyTrackingLabels(this.client);
+  }
+
+  async labelAwaitingReply(messageId: string, labelId: string): Promise<void> {
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [labelId],
+    });
+  }
+
+  async labelNeedsReply(messageId: string, labelId: string): Promise<void> {
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [labelId],
+    });
   }
 
   async processHistory(options: {
