@@ -130,7 +130,7 @@ export function ColdEmailForm({
         description: "Disable cold email blocker",
       },
     ],
-    [],
+    [provider],
   );
 
   return (
