@@ -179,3 +179,64 @@ export async function saveLearnedPatterns({
 
   return { success: true };
 }
+
+/**
+ * Removes a learned pattern for a rule
+ */
+export async function removeLearnedPattern({
+  emailAccountId,
+  ruleName,
+  pattern,
+}: {
+  emailAccountId: string;
+  ruleName: string;
+  pattern: {
+    type: GroupItemType;
+    value: string;
+  };
+}) {
+  const rule = await prisma.rule.findUnique({
+    where: {
+      name_emailAccountId: {
+        name: ruleName,
+        emailAccountId,
+      },
+    },
+    select: { id: true, groupId: true },
+  });
+
+  if (!rule || !rule.groupId) {
+    logger.error("Rule or group not found", { emailAccountId, rule });
+    return { error: "Rule or group not found" };
+  }
+
+  try {
+    const deletedItem = await prisma.groupItem.delete({
+      where: {
+        groupId_type_value: {
+          groupId: rule.groupId,
+          type: pattern.type,
+          value: pattern.value,
+        },
+      },
+    });
+
+    logger.info("Successfully removed learned pattern", {
+      emailAccountId,
+      ruleName,
+      patternType: pattern.type,
+      patternValue: pattern.value,
+    });
+
+    return { success: true, deletedItem };
+  } catch (error) {
+    logger.error("Error removing learned pattern", {
+      error,
+      emailAccountId,
+      ruleName,
+      patternType: pattern.type,
+      patternValue: pattern.value,
+    });
+    return { error: "Failed to remove pattern" };
+  }
+}

@@ -1,6 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ActionType, ColdEmailStatus, SystemType } from "@prisma/client";
+import { ActionType, ColdEmailStatus } from "@prisma/client";
+import type { GroupItem } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -11,7 +12,10 @@ import { inboxZeroLabels } from "@/utils/label";
 import { GmailLabel } from "@/utils/gmail/label";
 import { aiAnalyzeLabelRemoval } from "@/utils/ai/label-analysis/analyze-label-removal";
 
-import { saveLearnedPatterns } from "@/utils/rule/learned-patterns";
+import {
+  saveLearnedPatterns,
+  removeLearnedPattern,
+} from "@/utils/rule/learned-patterns";
 import type { LabelRemovalAnalysis } from "@/utils/ai/label-analysis/analyze-label-removal";
 
 const logger = createScopedLogger("webhook-label-removal");
@@ -26,6 +30,69 @@ const SYSTEM_LABELS = [
   GmailLabel.STARRED,
   GmailLabel.UNREAD,
 ];
+
+async function findMatchingRuleWithLearnPatterns(
+  emailAccountId: string,
+  labelNames: string[],
+): Promise<{
+  systemType: string;
+  instructions: string | null;
+  ruleName: string;
+  labelName: string;
+  learnedPatterns: Pick<
+    GroupItem,
+    "type" | "value" | "exclude" | "reasoning"
+  >[];
+} | null> {
+  const systemTypeData = await getSystemRuleLabels(emailAccountId);
+
+  for (const [systemType, data] of systemTypeData) {
+    for (const labelName of labelNames) {
+      if (data.labels.includes(labelName)) {
+        const learnedPatterns = await getLearnedPatternsForRule(
+          emailAccountId,
+          data.ruleName,
+        );
+        return {
+          systemType,
+          instructions: data.instructions,
+          ruleName: data.ruleName,
+          labelName,
+          learnedPatterns,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+async function getLearnedPatternsForRule(
+  emailAccountId: string,
+  ruleName: string,
+): Promise<Pick<GroupItem, "type" | "value" | "exclude" | "reasoning">[]> {
+  const rule = await prisma.rule.findFirst({
+    where: {
+      emailAccountId,
+      name: ruleName,
+    },
+    select: {
+      group: {
+        select: {
+          items: {
+            select: {
+              type: true,
+              value: true,
+              exclude: true,
+              reasoning: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return rule?.group?.items || [];
+}
 
 export async function getSystemRuleLabels(
   emailAccountId: string,
@@ -199,70 +266,40 @@ async function analyseLabelRemoval({
     return;
   }
 
-  const systemTypeData = await getSystemRuleLabels(emailAccountId);
-  const matchedRules: {
-    systemType: string;
-    instructions: string | null;
-    ruleName: string;
-  }[] = [];
+  const matchedRule = await findMatchingRuleWithLearnPatterns(
+    emailAccountId,
+    labelNames,
+  );
 
-  // Only match rules created by the system
-  for (const [systemType, data] of systemTypeData) {
-    for (const labelName of labelNames) {
-      if (data.labels.includes(labelName)) {
-        matchedRules.push({
-          systemType,
-          instructions: data.instructions,
-          ruleName: data.ruleName,
-        });
-        break;
-      }
-    }
-  }
-
-  if (matchedRules.length === 0) {
+  if (!matchedRule) {
     logger.info(
       "No system rules found for label removal, skipping AI analysis",
-      { emailAccountId, labelNames },
+      { emailAccountId, matchedRule },
     );
     return;
   }
 
-  // Matching rule by SystemType and not by name
-  if (
-    matchedRules.find(
-      (matchedRule) => matchedRule.systemType === SystemType.NEWSLETTER,
-    )
-  ) {
-    logger.info("Processing system rule label removal with AI analysis", {
-      emailAccountId,
-      labelNames,
-      messageId,
+  logger.info("Processing system rule label removal with AI analysis", {
+    emailAccountId,
+    messageId,
+  });
+
+  try {
+    const analysis = await aiAnalyzeLabelRemoval({
+      matchedRule,
+      email: getEmailForLLM(parsedMessage),
+      emailAccount,
     });
 
-    try {
-      const analysis = await aiAnalyzeLabelRemoval({
-        matchedRules,
-        email: getEmailForLLM(parsedMessage),
-        emailAccount,
-      });
-
-      await processLabelRemovalAnalysis({
-        analysis,
-        emailAccountId,
-        labelNames,
-        matchedRules,
-      });
-    } catch (error) {
-      logger.error("Error analyzing label removal with AI", {
-        emailAccountId,
-        error,
-      });
-    }
-  } else {
-    logger.info("System type not yet supported for AI analysis", {
+    await processLabelRemovalAnalysis({
+      analysis,
       emailAccountId,
-      labelNames,
+      matchedRule,
+    });
+  } catch (error) {
+    logger.error("Error analyzing label removal with AI", {
+      emailAccountId,
+      error,
     });
   }
 }
@@ -270,48 +307,79 @@ async function analyseLabelRemoval({
 export async function processLabelRemovalAnalysis({
   analysis,
   emailAccountId,
-  labelNames,
-  matchedRules,
+  matchedRule,
 }: {
   analysis: LabelRemovalAnalysis;
   emailAccountId: string;
-  labelNames: string[];
-  matchedRules: {
+  matchedRule: {
     systemType: string;
     instructions: string | null;
     ruleName: string;
-  }[];
+    labelName: string;
+  };
 }): Promise<void> {
-  if (analysis.patterns && analysis.patterns.length > 0) {
-    const patternsToSave = analysis.patterns.map((pattern) => {
-      return {
-        type: pattern.type,
-        value: pattern.value,
-        exclude: pattern.exclude,
-        reasoning: pattern.reasoning,
-      };
+  if (analysis.action === "NO_ACTION") {
+    logger.info("No action needed for this label removal", {
+      emailAccountId,
+      matchedRule,
+    });
+    return;
+  }
+
+  if (analysis.action === "REMOVE" && analysis.pattern) {
+    logger.info("Removing learned pattern from rule", {
+      emailAccountId,
+      ruleName: matchedRule.ruleName,
+      patternType: analysis.pattern.type,
+      patternValue: analysis.pattern.value,
     });
 
-    // Apply patterns to all matched rules
-    // More than one rule can match only if the same label is used for multiple system rules
-    for (const rule of matchedRules) {
-      logger.info("Adding learned patterns to rule", {
-        emailAccountId,
-        ruleName: rule.ruleName,
-        patternCount: patternsToSave.length,
-      });
+    const result = await removeLearnedPattern({
+      emailAccountId,
+      ruleName: matchedRule.ruleName,
+      pattern: {
+        type: analysis.pattern.type,
+        value: analysis.pattern.value,
+      },
+    });
 
-      await saveLearnedPatterns({
+    if (result.error) {
+      logger.error("Failed to remove learned pattern", {
         emailAccountId,
-        ruleName: rule.ruleName,
-        patterns: patternsToSave,
+        ruleName: matchedRule.ruleName,
+        error: result.error,
+      });
+    } else {
+      logger.info("Successfully removed learned pattern", {
+        emailAccountId,
+        ruleName: matchedRule.ruleName,
+        patternType: analysis.pattern.type,
+        patternValue: analysis.pattern.value,
       });
     }
-  } else {
-    logger.info("No learned pattern inferred for this label removal", {
+    return;
+  }
+
+  if (analysis.action === "EXCLUDE" && analysis.pattern) {
+    const patternToSave = {
+      type: analysis.pattern.type,
+      value: analysis.pattern.value,
+      exclude: analysis.pattern.exclude,
+      reasoning: analysis.pattern.reasoning,
+    };
+
+    logger.info("Adding learned pattern to rule", {
       emailAccountId,
-      labelNames: labelNames.join(", "),
-      ruleNames: matchedRules.map((r) => r.ruleName).join(", "),
+      ruleName: matchedRule.ruleName,
+      patternType: patternToSave.type,
+      patternValue: patternToSave.value,
+      exclude: patternToSave.exclude,
+    });
+
+    await saveLearnedPatterns({
+      emailAccountId,
+      ruleName: matchedRule.ruleName,
+      patterns: [patternToSave],
     });
   }
 }

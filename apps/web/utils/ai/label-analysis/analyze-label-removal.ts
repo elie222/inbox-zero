@@ -4,112 +4,116 @@ import { getModel } from "@/utils/llms/model";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import { stringifyEmail } from "@/utils/stringify-email";
-import { GroupItemType } from "@prisma/client";
-
-export const LabelRemovalAction = {
-  NO_ACTION: "no_action",
-  EXCLUDE_PATTERN: "exclude_pattern",
-  NOT_INCLUDE: "not_include",
-} as const;
-
-export type LabelRemovalAction =
-  (typeof LabelRemovalAction)[keyof typeof LabelRemovalAction];
+import { type GroupItem, GroupItemType } from "@prisma/client";
 
 const schema = z.object({
-  patterns: z
-    .array(
-      z.object({
-        reasoning: z
-          .string()
-          .describe(
-            "A short human-readable explanation of why this learned pattern is important to learn",
-          ),
-        type: z
-          .nativeEnum(GroupItemType)
-          .describe(
-            "The pattern type which can be FROM (sender/domain), SUBJECT (sender/domain/subject keyword), or BODY (content)",
-          ),
-        value: z
-          .string()
-          .describe(
-            "The specific value for the learned pattern (e.g., email address, domain, subject keyword)",
-          ),
-        exclude: z
-          .boolean()
-          .describe(
-            "Whether this learned pattern should be excluded (true) or just not included (false)",
-          ),
-      }),
-    )
+  action: z
+    .enum(["EXCLUDE", "REMOVE", "NO_ACTION"])
+    .describe(
+      "The action to take, EXCLUDE to add an exclude learned pattern, REMOVE to remove an existing pattern, NO_ACTION if nothing should be done",
+    ),
+  pattern: z
+    .object({
+      reasoning: z
+        .string()
+        .describe(
+          "A short human-readable explanation of why this learned pattern is important to learn",
+        ),
+      type: z
+        .nativeEnum(GroupItemType)
+        .describe(
+          "The pattern type which can be FROM (sender/domain), SUBJECT (sender/domain/subject keyword), or BODY (content)",
+        ),
+      value: z
+        .string()
+        .describe(
+          "The specific value for the learned pattern (e.g., email address, domain, subject keyword)",
+        ),
+      exclude: z
+        .boolean()
+        .describe(
+          "Whether this learned pattern should be excluded (true) or just not included (false)",
+        ),
+    })
     .nullish()
-    .describe("Array of patterns to learn from this label removal"),
+    .describe(
+      "The pattern to learn from or remove based on this label removal",
+    ),
 });
 
 export type LabelRemovalAnalysis = z.infer<typeof schema>;
 
 export async function aiAnalyzeLabelRemoval({
-  matchedRules,
+  matchedRule,
   email,
   emailAccount,
 }: {
-  matchedRules: {
+  matchedRule: {
     systemType: string;
     instructions: string | null;
-    ruleName: string;
-  }[];
+    labelName: string;
+    learnedPatterns: Pick<
+      GroupItem,
+      "type" | "value" | "exclude" | "reasoning"
+    >[];
+  };
   email: EmailForLLM;
   emailAccount: EmailAccountWithAI;
 }): Promise<LabelRemovalAnalysis> {
-  const system = `You are an email expert who manages learned patterns for a user's inbox.  
-You cannot act directly on the inbox; you can only propose learned patterns or suggest no action.  
-Your goal is to help the user manage their emails and labels more effectively and to analyze label removals to identify potential learned patterns.
-
-What are Learned Patterns?
-- Automatically discovered email patterns that consistently trigger the same action.  
-- They tie directly to rules:
-  - Include → always apply the rule  
-  - Exclude → always skip the rule  
-- They override rule logic when repeated behavior is observed.  
-- They reduce repeated AI processing for the same senders, subjects, or bodies.
+  const system = `You are an email expert managing a user's inbox. Focus only on label removals.
 
 What are Rules?
-- A rule consists of a **condition** and a set of **actions**.  
-- Conditions can be static (FROM, TO, SUBJECT) or AI instructions.  
-- Actions include applying/removing labels, archiving, forwarding, replying, or skipping emails.  
-- Learned patterns complement rules by automatically adjusting behavior based on repeated user actions or corrections.
+- Define conditions (static or AI) and actions (labels, archive, forward, etc.).
 
-In this context, we focus only on label removals, which is an action taken by the user and can result from:
-1. AI miscategorization → The removed label was incorrectly applied by the AI.
-2. One-off action → The removed label represents a temporary or situational tag (e.g., "To Do" or "To Reply") and should not generate a learned pattern.
+What are Learned Patterns?
+- Discovered from repeated user behavior.  
+- Can *include* (always apply) or *exclude* (always skip).  
+- Override rules when consistent patterns emerge.  
 
-Guidelines
-- Only propose a learned pattern if you are highly confident that the removal reflects a repeated behavior.
-- Do not generate an exclude pattern if the AI correctly categorized the email; only create excludes when a label was wrongly applied and removed by the user.  
-- Use the labels removed and any instructions for adding them in the first place as context to determine the appropriate action and whether a learned pattern should be generated.
+Given:  
+- The email
+- The rule and learned patterns that matched
+- The label removed by the user
+
+Decide if a learned pattern adjustment is needed:  
+1. If match came from a learned pattern → should it be removed or converted to EXCLUDE?  
+2. If match came from an AI instruction → should an EXCLUDE pattern be added?  
+3. If match came from a static condition → do nothing.  
+
+Gyu
+- When in doubt, choose NO_ACTION. It's better to do nothing than to make incorrect assumptions.
+- Only create EXCLUDE patterns when you're confident the user doesn't want this type of email labeled this way.
+- If the email was correctly classified but the user removed the label, this could be a mistake or temporary preference - use NO_ACTION.
+- Only use EXCLUDE when there's clear evidence the initial classification was wrong.
+- Use REMOVE only when you're certain an existing learned pattern should be deleted.
+
+- Always provide reasoning.
+- Not every label removal requires a new pattern.
+- Err on the side of caution - prefer NO_ACTION over potentially incorrect pattern learning.
 `;
 
-  const prompt = `Context the AI used to add the labels
+  const prompt = `The rule:
 
-<labels>
-  ${matchedRules
-    .map(({ systemType, instructions, ruleName }, index) =>
-      [
-        `<label_${index}>`,
-        `<label_system_type>${systemType}</label_system_type>`,
-        `<label_name>${ruleName}</label_name>`,
-        `<instructions_for_adding_label>${instructions || "No instructions provided"}</instructions_for_adding_label>`,
-        `</label_${index}>`,
-      ].join("\n"),
-    )
-    .join("\n")}
-</labels>
+<rule>
+  <system_type>${matchedRule.systemType}</system_type>
+  <label>${matchedRule.labelName}</label>
+  <instructions>${matchedRule.instructions || "No instructions provided"}</instructions>
+  <learned_patterns>
+    ${matchedRule.learnedPatterns.map((pattern) => `<pattern_type>${pattern.type}</pattern_type><pattern_value>${pattern.value}</pattern_value><pattern_exclude>${pattern.exclude}</pattern_exclude><pattern_reasoning>${pattern.reasoning || "User provided"}</pattern_reasoning>`).join("\n")}
+  </learned_patterns>
+</rule>
 
-Content of the email that has the label removed
+The email:
 <email>
 ${stringifyEmail(email, 1000)}
-</email>`;
+</email>
 
-  const modelOptions = getModel(emailAccount.user, "economy");
+The label:
+<label>
+${matchedRule.labelName}
+</label>`;
+
+  const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,

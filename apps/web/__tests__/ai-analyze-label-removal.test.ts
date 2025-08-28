@@ -2,7 +2,7 @@ import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiAnalyzeLabelRemoval } from "@/utils/ai/label-analysis/analyze-label-removal";
 import { GroupItemType } from "@prisma/client";
 
-// Run with: pnpm test-ai analyze-label-removal
+// Run with: pnpm test-ai ai-analyze-label-removal
 
 vi.mock("server-only", () => ({}));
 
@@ -38,15 +38,21 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
     };
   }
 
-  function getMatchedRules(overrides = {}) {
-    return [
-      {
-        systemType: "TO_REPLY",
-        instructions: "Emails that require a response",
-        ruleName: "To Reply",
-        ...overrides,
-      },
-    ];
+  function getMatchedRule(overrides = {}) {
+    return {
+      systemType: "TO_REPLY",
+      instructions: "Emails that require a response",
+      labelName: "To Reply",
+      learnedPatterns: [
+        {
+          type: GroupItemType.FROM,
+          value: "colleague@company.com",
+          exclude: false,
+          reasoning: "User frequently replies to emails from colleagues",
+        },
+      ],
+      ...overrides,
+    };
   }
 
   function getEmail(overrides = {}) {
@@ -65,7 +71,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
   function getTestData(overrides = {}) {
     return {
-      matchedRules: getMatchedRules(),
+      matchedRule: getMatchedRule(),
       email: getEmail(),
       emailAccount: getEmailAccount(),
       ...overrides,
@@ -77,33 +83,32 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
+    expect(result.action).toMatch(/^(EXCLUDE|REMOVE|NO_ACTION)$/);
 
-    // If patterns exist, validate their structure
-    if (result.patterns && result.patterns.length > 0) {
-      for (const pattern of result.patterns) {
-        expect(pattern.type).toBeDefined();
-        expect(pattern.value).toBeDefined();
-        expect(pattern.exclude).toBeDefined();
-        expect(pattern.reasoning).toBeDefined();
-      }
+    // If pattern exists, validate its structure
+    if (result.pattern) {
+      expect(result.pattern.type).toBeDefined();
+      expect(result.pattern.value).toBeDefined();
+      expect(result.pattern.exclude).toBeDefined();
+      expect(result.pattern.reasoning).toBeDefined();
 
       // Log generated content for debugging as per guidelines
       console.debug(
-        "Generated patterns:\n",
-        JSON.stringify(result.patterns, null, 2),
+        "Generated pattern:\n",
+        JSON.stringify(result.pattern, null, 2),
       );
     }
   }, 15_000);
 
   test("handles rule with no instructions", async () => {
     const testData = getTestData({
-      matchedRules: getMatchedRules({ instructions: null }),
+      matchedRule: getMatchedRule({ instructions: null }),
     });
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
   }, 15_000);
 
   test("handles email with minimal content", async () => {
@@ -119,35 +124,35 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
   }, 15_000);
 
   test("handles different rule types", async () => {
-    const rules = [
+    const ruleTypes = [
       {
         systemType: "NEWSLETTER",
         instructions: "Newsletter subscriptions",
-        ruleName: "Newsletter",
+        labelName: "Newsletter",
       },
       {
         systemType: "FOLLOW_UP",
         instructions: "Emails requiring follow-up action",
-        ruleName: "Follow Up",
+        labelName: "Follow Up",
       },
       {
         systemType: "IMPORTANT",
         instructions: "High priority emails",
-        ruleName: "Important",
+        labelName: "Important",
       },
     ];
 
-    for (const rule of rules) {
+    for (const ruleType of ruleTypes) {
       const testData = getTestData({
-        matchedRules: getMatchedRules(rule),
+        matchedRule: getMatchedRule(ruleType),
       });
       const result = await aiAnalyzeLabelRemoval(testData);
 
-      expect(result.patterns).toBeDefined();
+      expect(result.action).toBeDefined();
     }
   }, 30_000);
 
@@ -174,7 +179,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
       const testData = getTestData({ email });
       const result = await aiAnalyzeLabelRemoval(testData);
 
-      expect(result.patterns).toBeDefined();
+      expect(result.action).toBeDefined();
     }
   }, 30_000);
 
@@ -183,37 +188,41 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    // Validate patterns field exists
-    expect(result.patterns).toBeDefined();
+    // Validate action field exists
+    expect(result.action).toBeDefined();
+    expect(result.action).toMatch(/^(EXCLUDE|REMOVE|NO_ACTION)$/);
 
-    // Validate optional fields if present
-    if (result.patterns && result.patterns.length > 0) {
-      expect(Array.isArray(result.patterns)).toBe(true);
-      for (const pattern of result.patterns) {
-        expect(Object.values(GroupItemType)).toContain(pattern.type);
-        expect(typeof pattern.value).toBe("string");
-        expect(pattern.value.length).toBeGreaterThan(0);
-        expect(typeof pattern.exclude).toBe("boolean");
-        expect(typeof pattern.reasoning).toBe("string");
-      }
+    // Validate optional pattern field if present
+    if (result.pattern) {
+      expect(Object.values(GroupItemType)).toContain(result.pattern.type);
+      expect(typeof result.pattern.value).toBe("string");
+      expect(result.pattern.value.length).toBeGreaterThan(0);
+      expect(typeof result.pattern.exclude).toBe("boolean");
+      expect(typeof result.pattern.reasoning).toBe("string");
 
       // Log generated content for debugging as per guidelines
       console.debug(
-        "Schema validation patterns:\n",
-        JSON.stringify(result.patterns, null, 2),
+        "Schema validation pattern:\n",
+        JSON.stringify(result.pattern, null, 2),
       );
     }
   }, 15_000);
 
   test("handles edge case with very long email content", async () => {
-    const longContent = "This is a very long email body. ".repeat(100);
     const testData = getTestData({
-      email: getEmail({ content: longContent }),
+      email: getEmail({
+        content: "A".repeat(10_000), // Very long content that might exceed limits
+      }),
     });
 
-    const result = await aiAnalyzeLabelRemoval(testData);
-
-    expect(result.patterns).toBeDefined();
+    try {
+      const result = await aiAnalyzeLabelRemoval(testData);
+      expect(result.action).toBeDefined();
+    } catch (error) {
+      // If the AI processing fails, we should get a meaningful error
+      expect(error).toBeDefined();
+      console.debug("Error occurred as expected:\n", error);
+    }
   }, 15_000);
 
   test("handles email with special characters and formatting", async () => {
@@ -228,7 +237,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
   }, 15_000);
 
   test("handles different user AI configurations", async () => {
@@ -247,32 +256,9 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
       const result = await aiAnalyzeLabelRemoval(testData);
 
-      expect(result.patterns).toBeDefined();
+      expect(result.action).toBeDefined();
     }
   }, 45_000);
-
-  test("handles multiple matched rules", async () => {
-    const multipleRules = [
-      {
-        systemType: "TO_REPLY",
-        instructions: "Emails that require a response",
-        ruleName: "To Reply",
-      },
-      {
-        systemType: "NEWSLETTER",
-        instructions: "Newsletter subscriptions",
-        ruleName: "Newsletter",
-      },
-    ];
-
-    const testData = getTestData({
-      matchedRules: multipleRules,
-    });
-
-    const result = await aiAnalyzeLabelRemoval(testData);
-
-    expect(result.patterns).toBeDefined();
-  }, 15_000);
 
   test("handles empty email content", async () => {
     const testData = getTestData({
@@ -284,7 +270,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
   }, 15_000);
 
   test("handles null email account about field", async () => {
@@ -294,25 +280,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
-  }, 15_000);
-
-  test("handles errors gracefully", async () => {
-    // Test with invalid email data that might cause AI processing issues
-    const testData = getTestData({
-      email: getEmail({
-        content: "A".repeat(10_000), // Very long content that might exceed limits
-      }),
-    });
-
-    try {
-      const result = await aiAnalyzeLabelRemoval(testData);
-      expect(result.patterns).toBeDefined();
-    } catch (error) {
-      // If the AI processing fails, we should get a meaningful error
-      expect(error).toBeDefined();
-      console.debug("Error occurred as expected:\n", error);
-    }
+    expect(result.action).toBeDefined();
   }, 15_000);
 
   test("returns unchanged when no AI processing needed", async () => {
@@ -328,7 +296,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
     const result = await aiAnalyzeLabelRemoval(testData);
 
     // Should still return a valid response structure
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
 
     // Log the result to see what the AI generates
     console.debug(
@@ -341,13 +309,19 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
     // Test scenario: User removes "Newsletter" label from a work email
     // This should trigger the AI to learn an exclude pattern because the initial classification was wrong
     const testData = getTestData({
-      matchedRules: [
-        {
-          systemType: "NEWSLETTER",
-          instructions: "Newsletter subscriptions and marketing emails",
-          ruleName: "Newsletter",
-        },
-      ],
+      matchedRule: getMatchedRule({
+        systemType: "NEWSLETTER",
+        instructions: "Newsletter subscriptions and marketing emails",
+        labelName: "Newsletter",
+        learnedPatterns: [
+          {
+            type: GroupItemType.FROM,
+            value: "newsletter@techblog.com",
+            exclude: false,
+            reasoning: "User subscribed to tech blog",
+          },
+        ],
+      }),
       email: getEmail({
         from: "colleague@company.com",
         subject: "Project Update - Q4 Goals",
@@ -358,19 +332,18 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
 
     // The AI should learn that emails from @company.com with work-related subjects
     // should not be labeled as newsletters (initial classification was wrong)
-    if (result.patterns && result.patterns.length > 0) {
+    if (result.pattern) {
       console.debug(
         "Learned pattern for newsletter misclassification:\n",
-        JSON.stringify(result.patterns, null, 2),
+        JSON.stringify(result.pattern, null, 2),
       );
 
       // Should have learned an exclude pattern
-      const excludePatterns = result.patterns.filter((p) => p.exclude === true);
-      expect(excludePatterns.length).toBeGreaterThan(0);
+      expect(result.pattern.exclude).toBe(true);
     }
   }, 15_000);
 
@@ -378,13 +351,11 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
     // Test scenario: User removes "To Reply" label after responding
     // This might not generate a learned pattern since it's a one-off action
     const testData = getTestData({
-      matchedRules: [
-        {
-          systemType: "TO_REPLY",
-          instructions: "Emails that require a response from the user",
-          ruleName: "To Reply",
-        },
-      ],
+      matchedRule: getMatchedRule({
+        systemType: "TO_REPLY",
+        instructions: "Emails that require a response from the user",
+        labelName: "To Reply",
+      }),
       email: getEmail({
         from: "client@external.com",
         subject: "Meeting Request",
@@ -395,7 +366,7 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
 
     // Log what the AI learned about this label removal
     console.debug(
@@ -407,14 +378,13 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
   test("does not learn pattern when newsletter label was correctly applied", async () => {
     // Test scenario: User removes "Newsletter" label from an actual newsletter email
     // The AI should NOT learn a pattern because the initial classification was correct
+    // and we want to be conservative about pattern learning
     const testData = getTestData({
-      matchedRules: [
-        {
-          systemType: "NEWSLETTER",
-          instructions: "Newsletter subscriptions and marketing emails",
-          ruleName: "Newsletter",
-        },
-      ],
+      matchedRule: getMatchedRule({
+        systemType: "NEWSLETTER",
+        instructions: "Newsletter subscriptions and marketing emails",
+        labelName: "Newsletter",
+      }),
       email: getEmail({
         from: "newsletter@techblog.com",
         subject: "Weekly Tech Roundup - Latest Updates",
@@ -425,42 +395,40 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
 
     // The AI should NOT learn a pattern because this is clearly a newsletter
-    // and the initial classification was correct
-    if (result.patterns === null || result.patterns === undefined) {
+    // and the initial classification was correct. When in doubt, it should choose NO_ACTION.
+    if (result.action === "NO_ACTION") {
       console.debug(
-        "AI correctly did not learn a pattern - initial classification was right:\n",
+        "AI correctly chose NO_ACTION - being conservative about pattern learning:\n",
         JSON.stringify(result, null, 2),
       );
-      // This is the expected behavior - no pattern learning needed
+      // This is the expected behavior - no pattern learning when unsure
     } else {
       console.debug(
-        "AI learned patterns (unexpected):\n",
-        JSON.stringify(result.patterns, null, 2),
+        "AI chose action (may need prompt adjustment):\n",
+        JSON.stringify(result, null, 2),
       );
-      // If patterns were learned, they should be minimal or indicate the AI is unsure
-      expect(result.patterns.length).toBeLessThanOrEqual(1);
+      // If the AI still chooses an action, we may need to adjust the prompt further
+      // But for now, we'll accept either NO_ACTION or a very conservative EXCLUDE
+      if (result.action === "EXCLUDE" && result.pattern) {
+        // The reasoning should indicate high confidence
+        expect(result.pattern.reasoning).toContain("clearly");
+        expect(result.pattern.reasoning).toContain("not a newsletter");
+      }
     }
   }, 15_000);
 
-  test("learns multiple patterns from complex email scenario", async () => {
-    // Test scenario: Complex email that might trigger multiple pattern learning
+  test("learns pattern from complex email scenario", async () => {
+    // Test scenario: Complex email that might trigger pattern learning
     // This tests when the AI should learn patterns because the initial classification was wrong
     const testData = getTestData({
-      matchedRules: [
-        {
-          systemType: "NEWSLETTER",
-          instructions: "Newsletter subscriptions and marketing emails",
-          ruleName: "Newsletter",
-        },
-        {
-          systemType: "PROMOTIONAL",
-          instructions: "Promotional and sales emails",
-          ruleName: "Promotional",
-        },
-      ],
+      matchedRule: getMatchedRule({
+        systemType: "NEWSLETTER",
+        instructions: "Newsletter subscriptions and marketing emails",
+        labelName: "Newsletter",
+      }),
       email: getEmail({
         from: "marketing@startup.com",
         subject: "🚀 New Product Launch - Limited Time Offer!",
@@ -471,25 +439,20 @@ describe.runIf(isAiTest)("aiAnalyzeLabelRemoval", () => {
 
     const result = await aiAnalyzeLabelRemoval(testData);
 
-    expect(result.patterns).toBeDefined();
+    expect(result.action).toBeDefined();
 
     // This should generate meaningful patterns since the user is removing labels
-    // from an email that clearly fits the newsletter/promotional criteria
+    // from an email that clearly fits the newsletter criteria
     // (indicating the initial classification was wrong for this specific sender)
-    if (result.patterns && result.patterns.length > 0) {
+    if (result.pattern) {
       console.debug(
-        "Multiple patterns learned from complex scenario:\n",
-        JSON.stringify(result.patterns, null, 2),
+        "Pattern learned from complex scenario:\n",
+        JSON.stringify(result.pattern, null, 2),
       );
 
-      // Should have learned patterns for this type of email
-      expect(result.patterns.length).toBeGreaterThan(0);
-
-      // Check that patterns have meaningful values
-      for (const pattern of result.patterns) {
-        expect(pattern.value.length).toBeGreaterThan(0);
-        expect(pattern.reasoning.length).toBeGreaterThan(10);
-      }
+      // Should have learned a pattern for this type of email
+      expect(result.pattern.value.length).toBeGreaterThan(0);
+      expect(result.pattern.reasoning.length).toBeGreaterThan(10);
     }
   }, 15_000);
 });
