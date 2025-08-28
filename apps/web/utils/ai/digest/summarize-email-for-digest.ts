@@ -7,18 +7,7 @@ import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
 export const schema = z.object({
-  type: z.enum(["structured", "unstructured"]).describe("Type of content"),
-  content: z
-    .union([
-      z.array(
-        z.object({
-          label: z.string(),
-          value: z.string(),
-        }),
-      ),
-      z.string(),
-    ])
-    .describe("The content - either structured entries or summary text"),
+  content: z.string().describe("The content of the summary text"),
 });
 
 const logger = createScopedLogger("summarize-digest-email");
@@ -31,7 +20,7 @@ export async function aiSummarizeEmailForDigest({
   messageToSummarize,
 }: {
   ruleName: string;
-  emailAccount: EmailAccountWithAI;
+  emailAccount: EmailAccountWithAI & { name: string | null };
   messageToSummarize: EmailForLLM;
 }): Promise<AISummarizeResult | null> {
   // If messageToSummarize somehow is null/undefined, default to null.
@@ -40,34 +29,32 @@ export async function aiSummarizeEmailForDigest({
   const userMessageForPrompt = messageToSummarize;
 
   const system = `You are an AI assistant that processes emails for inclusion in a daily digest.
+Your task is to summarize the content accordingly using the provided schema.
 
-Your task is to:
-1. **Classify** the email as either "structured" or "unstructured".
-2. **Summarize** the content accordingly using the provided schema.
+I will provide you with:
+- A user's name and some context about them.
+- The email category
+- The email content
 
-**Classification rules:**
-- Use "structured" if the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar.
-- Use "unstructured" if the email is a narrative, update, announcement, or message without discrete fields.
+Guidelines for summarizing the email:
 - If the email is spam, promotional, or irrelevant, return "null".
-
-**Content rules for structured classification:**
+- If the email contains extractable fields such as order details, totals, dates, IDs, payment info, or similar, summarize the content using a list with the format: "Key: Value" separated by newlines.
 - Only include human-relevant and human-readable information.
 - Exclude opaque technical identifiers like account IDs, payment IDs, tracking tokens, or long alphanumeric strings that aren't meaningful to users.
-
-**Formatting rules:**
-- Follow the schema provided separately (do not describe or return the schema).
-- Do not include HTML, markdown, or explanations.
-- Return only the final result in JSON format (or "null").
-
-Now, classify and summarize the following email:
+- If the email is a direct message to the user, summarize it in the second person (as if talking directly to the user) using phrasing such as: "You have received…", "X wants you to review…", "You are invited…", etc.
+- If second person phrasing is not possible or natural (e.g., for announcements, newsletters, or general updates), summarize in a clear neutral third-person style.
 `;
 
   const prompt = `
-<email_content>
-${stringifyEmailSimple(userMessageForPrompt)}
-</email_content>
+<email>
+  <content>${stringifyEmailSimple(userMessageForPrompt)}</content>
+  <category>${ruleName}</category>
+</email>
 
-Use this category as context to help interpret the email: ${ruleName}.`;
+<user>
+  <about>${emailAccount.about}</about>
+  <name>${emailAccount.name}</name>
+</user>`;
 
   logger.info("Summarizing email for digest");
 
@@ -86,19 +73,6 @@ Use this category as context to help interpret the email: ${ruleName}.`;
       prompt,
       schema,
     });
-
-    // Temporary logging to check the summarization output
-    if (aiResponse.object.type === "unstructured") {
-      logger.info("Summarized email as summary", {
-        length: aiResponse.object.content.length,
-      });
-    } else if (aiResponse.object.type === "structured") {
-      logger.info("Summarized email as entries", {
-        length: aiResponse.object.content.length,
-      });
-    } else {
-      logger.info("Content not worth summarizing");
-    }
 
     return aiResponse.object;
   } catch (error) {

@@ -1,6 +1,5 @@
 import {
   Body,
-  Column,
   Container,
   Head,
   Heading,
@@ -8,79 +7,76 @@ import {
   Html,
   Img,
   Link,
-  Row,
   Section,
   Tailwind,
   Text,
 } from "@react-email/components";
 
-type DigestEntry = {
-  label: string;
-  value: string;
-};
-
-type DigestContent = {
-  type: "structured" | "unstructured";
-  content: DigestEntry[] | string;
-};
-
 type DigestItem = {
   from: string;
   subject: string;
-  content?: DigestContent | null | undefined;
+  content: string;
 };
 
 const colorClasses = {
   blue: {
     bg: "bg-blue-50",
     text: "text-blue-800",
-    border: "border-blue-200",
+    leftBorder: "border-l-blue-400",
     bgAccent: "bg-blue-100",
   },
   green: {
     bg: "bg-green-50",
     text: "text-green-800",
-    border: "border-green-200",
+    leftBorder: "border-l-green-400",
     bgAccent: "bg-green-100",
   },
   purple: {
     bg: "bg-purple-50",
     text: "text-purple-800",
-    border: "border-purple-200",
+    leftBorder: "border-l-purple-400",
     bgAccent: "bg-purple-100",
   },
   amber: {
     bg: "bg-amber-50",
     text: "text-amber-800",
-    border: "border-amber-200",
+    leftBorder: "border-l-amber-400",
     bgAccent: "bg-amber-100",
   },
   gray: {
     bg: "bg-gray-50",
     text: "text-gray-800",
-    border: "border-gray-200",
+    leftBorder: "border-l-gray-400",
     bgAccent: "bg-gray-100",
   },
   pink: {
     bg: "bg-pink-50",
     text: "text-pink-800",
-    border: "border-pink-200",
+    leftBorder: "border-l-pink-400",
     bgAccent: "bg-pink-100",
   },
   red: {
     bg: "bg-red-50",
     text: "text-red-800",
-    border: "border-red-200",
+    leftBorder: "border-l-red-400",
     bgAccent: "bg-red-100",
   },
 } as const;
+
+type NormalizedCategoryData = {
+  count: number;
+  senders: string[];
+  items: DigestItem[];
+};
 
 export type DigestEmailProps = {
   baseUrl: string;
   unsubscribeToken: string;
   date?: Date;
   ruleNames?: Record<string, string>;
+  emailAccountId: string;
   [key: string]:
+    | NormalizedCategoryData
     | DigestItem[]
     | undefined
     | string
@@ -89,264 +85,231 @@ export type DigestEmailProps = {
     | undefined;
 };
 
+export const generateDigestSubject = (props: DigestEmailProps): string => {
+  const { ruleNames, ...digestData } = props;
+
+  const categoriesWithCounts: Array<{ name: string; count: number }> = [];
+
+  Object.keys(digestData).forEach((key) => {
+    const categoryData = normalizeCategoryData(key, digestData[key]);
+    if (categoryData && categoryData.count > 0) {
+      const displayName = ruleNames?.[key] || key;
+      categoriesWithCounts.push({
+        name: displayName,
+        count: categoryData.count,
+      });
+    }
+  });
+
+  const topCategories = categoriesWithCounts
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 3);
+
+  if (topCategories.length === 0) {
+    return "Your email digest";
+  }
+
+  if (topCategories.length === 1) {
+    const { name, count } = topCategories[0];
+    return `Summary of ${count} ${name.toLowerCase()} email${count === 1 ? "" : "s"}`;
+  }
+
+  if (topCategories.length === 2) {
+    const [first, second] = topCategories;
+    return `Summary of ${first.count} ${first.name.toLowerCase()} and ${second.count} ${second.name.toLowerCase()} emails`;
+  }
+
+  const [first, second, third] = topCategories;
+  return `Summary of ${first.count} ${first.name.toLowerCase()}, ${second.count} ${second.name.toLowerCase()} and ${third.count} ${third.name.toLowerCase()} emails`;
+};
+
+const normalizeCategoryData = (
+  _key: string,
+  data:
+    | DigestItem[]
+    | NormalizedCategoryData
+    | string
+    | Date
+    | Record<string, string>
+    | undefined,
+): NormalizedCategoryData | null => {
+  if (Array.isArray(data)) {
+    const items = data;
+    const senders = Array.from(new Set(items.map((item) => item.from))).slice(
+      0,
+      5,
+    );
+    return {
+      count: items.length,
+      senders,
+      items,
+    };
+  } else if (
+    data &&
+    typeof data === "object" &&
+    !Array.isArray(data) &&
+    "count" in data &&
+    "senders" in data &&
+    "items" in data &&
+    typeof data.count === "number" &&
+    Array.isArray(data.senders) &&
+    Array.isArray(data.items)
+  ) {
+    return data as NormalizedCategoryData;
+  }
+  return null;
+};
+
 export default function DigestEmail(props: DigestEmailProps) {
   const {
     baseUrl = "https://www.getinboxzero.com",
     unsubscribeToken,
     ruleNames,
+    emailAccountId,
     ...digestData
   } = props;
 
-  const availableCategories = {
-    newsletter: {
-      name: "Newsletter",
-      emoji: "📰",
-      color: "blue",
-      href: "#newsletters",
-    },
-    receipt: {
-      name: "Receipt",
-      emoji: "🧾",
-      color: "green",
-      href: "#receipts",
-    },
-    marketing: {
-      name: "Marketing",
-      emoji: "🔊",
-      color: "purple",
-      href: "#marketing",
-    },
-    calendar: {
-      name: "Calendar",
-      emoji: "📅",
-      color: "amber",
-      href: "#calendar",
-    },
-    coldEmail: {
-      name: "Cold Email",
-      emoji: "🧊",
-      color: "gray",
-      href: "#cold-emails",
-    },
-    notification: {
-      name: "Notification",
-      emoji: "🔔",
-      color: "pink",
-      href: "#notifications",
-    },
-    toReply: {
-      name: "To Reply",
-      emoji: "⏰",
-      color: "red",
-      href: "#to-reply",
-    },
+  const categoryColors: Record<string, keyof typeof colorClasses> = {
+    newsletter: "blue",
+    receipt: "green",
+    marketing: "purple",
+    calendar: "amber",
+    coldEmail: "gray",
+    notification: "pink",
+    toReply: "red",
   };
 
-  const getCategoryInfo = (key: string) => {
-    const displayName = ruleNames?.[key] || key;
-    if (key in availableCategories) {
-      const categoryInfo =
-        availableCategories[key as keyof typeof availableCategories];
-      return {
-        ...categoryInfo,
-        name: displayName,
-      };
-    }
-
-    // Fallback for unknown categories
-    return {
-      name: displayName,
-      emoji: "📂",
-      color: "gray",
-      href: `#${key}`,
-    };
-  };
-
-  const getCategoriesWithItemsCount = () => {
-    return Object.keys(digestData).filter(
-      (key) =>
-        Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-    ).length;
-  };
-
-  /**
-   * Renders a grid of categories with a count of the number of emails in each category.
-   * This is needed because we have a total of 7 categories that can be displayed varying from 2 to 7.
-   * The grid is rendered differently depending on the number of categories.
-   *
-   * 2 categories: single row
-   * 3-4 categories: 2x2 grid
-   * 5-7 categories: 2x2 grid + bottom row
-   *
-   * @returns Renders a grid of categories with a count of the number of emails in each category.
-   */
-  const renderCategoryGrid = () => {
-    // Get all present categories in digestData
-    const categories = Object.keys(digestData)
-      .filter(
-        (key) =>
-          Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-      )
-      .map((key) => {
-        const items = digestData[key] as DigestItem[];
-        const info = getCategoryInfo(key);
-        return {
-          key,
-          ...info,
-          count: items.length,
-        };
-      });
-
-    const categoryCount = categories.length;
-    if (categoryCount === 0) return null;
-
-    // For all cases: ensure max 2 items per row
-    const rows = [];
-    const totalRows = Math.ceil(categoryCount / 2);
-
-    for (let rowIndex = 0; rowIndex < totalRows; rowIndex++) {
-      const startIndex = rowIndex * 2;
-      const endIndex = Math.min(startIndex + 2, categoryCount);
-      const isLastRow = rowIndex === totalRows - 1;
-      const itemsInThisRow = endIndex - startIndex;
-
-      rows.push(
-        <Row key={rowIndex} className={isLastRow ? "mb-[0px]" : "mb-[6px]"}>
-          {categories.slice(startIndex, endIndex).map((category, index) => (
-            <Column
-              key={category.key}
-              className={`w-[50%] ${
-                itemsInThisRow === 1
-                  ? ""
-                  : index === 0
-                    ? "pr-[4px]"
-                    : "pl-[4px]"
-              }`}
-            >
-              <Link href={category.href} className="no-underline">
-                <div
-                  className={`${colorClasses[category.color as keyof typeof colorClasses].bg} p-[8px] rounded-[4px]`}
-                >
-                  <Row>
-                    <Column
-                      style={{ textAlign: "left", verticalAlign: "middle" }}
-                    >
-                      <Text
-                        className={`text-[13px] font-medium ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                      >
-                        {category.emoji} {category.name}
-                      </Text>
-                    </Column>
-                    <Column
-                      style={{ textAlign: "right", verticalAlign: "middle" }}
-                    >
-                      <div
-                        className={`${colorClasses[category.color as keyof typeof colorClasses].bgAccent} px-[8px] py-[2px] rounded-[12px]`}
-                        style={{ display: "inline-block" }}
-                      >
-                        <Text
-                          className={`text-[12px] font-bold ${colorClasses[category.color as keyof typeof colorClasses].text} m-0`}
-                        >
-                          {category.count}
-                        </Text>
-                      </div>
-                    </Column>
-                  </Row>
-                </div>
-              </Link>
-            </Column>
-          ))}
-        </Row>,
-      );
-    }
-
-    return rows;
-  };
-
-  // Return early if no digest items are found
-  const hasItems = Object.keys(digestData).some(
-    (key) =>
-      Array.isArray(digestData[key]) && (digestData[key]?.length ?? 0) > 0,
-  );
+  // Return early if no digest data is found
+  const hasItems = Object.keys(digestData).some((key) => {
+    const categoryData = normalizeCategoryData(key, digestData[key]);
+    return categoryData && categoryData.count > 0;
+  });
 
   if (!hasItems) {
     return null;
   }
 
+  const renderEmailContent = (item: DigestItem) => {
+    if (!item.content) return null;
+
+    const contentText = item.content;
+
+    // Split content by newlines and render each line separately
+    const lines = contentText.split("\n").filter((line: string) => line.trim());
+
+    // If there are multiple lines, render as bullet points
+    if (lines.length > 1) {
+      return (
+        <div>
+          <ul className="m-0 pl-[20px]">
+            {lines.map((line: string, index: number) => (
+              <li key={index} className="text-[14px] text-gray-800 mb-[1px]">
+                {line.trim()}
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
+    } else {
+      // Single line content
+      return (
+        <Text className="text-[14px] text-gray-800 mt-[4px] mb-0 leading-[1.5]">
+          {contentText}
+        </Text>
+      );
+    }
+  };
+
   const CategorySection = ({
     categoryKey,
-    items,
+    categoryData,
   }: {
     categoryKey: string;
-    items: DigestItem[];
+    categoryData: NormalizedCategoryData;
   }) => {
-    if (items.length === 0) return null;
-    const category = getCategoryInfo(categoryKey);
-    const colors =
-      colorClasses[category.color as keyof typeof colorClasses] ||
-      colorClasses.gray;
-    return (
-      <Section className="mb-[20px]" id={category.href.slice(1)}>
-        <div className={`${colors.bg} rounded-[6px] p-[12px]`}>
-          <Heading
-            className={`text-[16px] font-bold ${colors.text} mt-[0px] mb-[12px]`}
-          >
-            {category.emoji} {category.name} ({items.length})
-          </Heading>
+    const colors = colorClasses[categoryColors[categoryKey] || "gray"];
 
-          {items.map((item, index) => (
-            <div
-              key={index}
-              className={`mb-[8px] bg-white rounded-[6px] p-[10px] border-solid border-[1px] ${colors.border}`}
-            >
-              <Text className="text-[14px] font-bold text-gray-800 m-0">
-                {item.subject}
-              </Text>
-              <Text className="text-[12px] text-gray-800 mt-[1px] mb-[10px] leading-[15px]">
-                {item.from}
-              </Text>
-              {item.content?.type === "structured" &&
-              Array.isArray(item.content.content) ? (
-                <Section className="mt-3 rounded-lg bg-white/50 p-0 text-left">
-                  {item.content.content.map(
-                    (entry: DigestEntry, idx: number) => (
-                      <Row key={idx} className="mb-0 p-0">
-                        <Column>
-                          <Text className="m-0 text-gray-800 text-[14px] leading-[21px]">
-                            {entry.label}
-                          </Text>
-                        </Column>
-                        <Column align="right">
-                          <Text className="m-0 font-semibold text-gray-700 text-[14px] leading-[21px]">
-                            {entry.value}
-                          </Text>
-                        </Column>
-                      </Row>
-                    ),
-                  )}
-                </Section>
-              ) : item.content?.type === "unstructured" ? (
-                typeof item.content.content === "string" ? (
-                  item.content.content
-                    .split("\n")
-                    .filter((line) => line.trim())
-                    .map((line, idx) => (
-                      <Text
-                        key={idx}
-                        className="text-[14px] text-gray-500 mt-[2px] m-0 leading-[21px]"
-                      >
-                        {line}
-                      </Text>
-                    ))
-                ) : (
-                  item.content.content.toString()
-                )
-              ) : null}
+    if (categoryData.items.length > 0) {
+      return (
+        <Section className="mb-[8px]" id={categoryKey}>
+          <div className="mb-[8px]">
+            <div className="text-left mb-[8px]">
+              <div className="px-4 py-3">
+                <Text className="text-[16px] text-gray-700 mt-0 mb-0">
+                  {categoryData.count}{" "}
+                  <span className={`${colors.text} font-semibold`}>
+                    {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+                  </span>
+                  {" from "}
+                  {categoryData.senders.map((sender, index) => {
+                    if (index === 0) {
+                      return sender;
+                    } else {
+                      return `, ${sender}`;
+                    }
+                  })}
+                  {categoryData.count > 5 && " and more"}
+                </Text>
+              </div>
             </div>
-          ))}
+
+            <div
+              className={`border-l-[4px] border-t border-r border-b border-solid border-gray-200 ${colors.leftBorder} bg-[#fdfefe] rounded-[8px] overflow-hidden`}
+            >
+              {categoryData.items.map((item, index) => (
+                <div key={index}>
+                  <div className="p-[20px]">
+                    {/* Email Header */}
+                    <div className="mb-[12px]">
+                      <Text className="text-[16px] font-bold text-gray-900 mt-0 mb-0">
+                        {item.subject}
+                      </Text>
+                      <Text className="text-[14px] text-gray-700 mt-[2px] mb-0">
+                        From:{" "}
+                        <span className="font-medium text-gray-800">
+                          {item.from}
+                        </span>
+                      </Text>
+                    </div>
+
+                    {/* Email Content */}
+                    {renderEmailContent(item)}
+                  </div>
+
+                  {/* Separator line - don't show after the last item */}
+                  {index < categoryData.items.length - 1 && (
+                    <Hr className="border-solid border-gray-200 my-0 mx-[20px]" />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Section>
+      );
+    } else {
+      // Categories with no highlights - much more compact
+      return (
+        <div className="mb-[4px]" id={categoryKey}>
+          <div className="px-4 py-2">
+            <Text className="text-[16px] text-gray-700 mt-0 mb-0">
+              {categoryData.count}{" "}
+              <span className={`${colors.text} font-semibold`}>
+                {(ruleNames?.[categoryKey] || categoryKey).toLowerCase()}
+              </span>
+              {" from "}
+              {categoryData.senders.map((sender, index) => {
+                if (index === 0) {
+                  return sender;
+                } else {
+                  return `, ${sender}`;
+                }
+              })}
+              {categoryData.count > 5 && " and more"}
+            </Text>
+          </div>
         </div>
-      </Section>
-    );
+      );
+    }
   };
 
   return (
@@ -380,21 +343,27 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {getCategoriesWithItemsCount() > 1 && (
-              <Section className="mb-[24px]">{renderCategoryGrid()}</Section>
-            )}
-            {Object.keys(digestData).map((categoryKey) =>
-              Array.isArray(digestData[categoryKey]) &&
-              digestData[categoryKey]?.length > 0 ? (
+            {Object.keys(digestData).map((categoryKey) => {
+              const categoryData = normalizeCategoryData(
+                categoryKey,
+                digestData[categoryKey],
+              );
+              if (!categoryData) return null;
+
+              return (
                 <CategorySection
                   key={categoryKey}
                   categoryKey={categoryKey}
-                  items={digestData[categoryKey] as DigestItem[]}
+                  categoryData={categoryData}
                 />
-              ) : null,
-            )}
+              );
+            })}
             <Hr className="border-solid border-gray-200 my-[24px]" />
-            <Footer baseUrl={baseUrl} unsubscribeToken={unsubscribeToken} />
+            <Footer
+              baseUrl={baseUrl}
+              unsubscribeToken={unsubscribeToken}
+              emailAccountId={emailAccountId}
+            />
           </Container>
         </Body>
       </Tailwind>
@@ -405,6 +374,7 @@ export default function DigestEmail(props: DigestEmailProps) {
 DigestEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   unsubscribeToken: "123",
+  emailAccountId: "123",
   ruleNames: {
     newsletter: "Newsletter",
     receipt: "Receipt",
@@ -421,242 +391,201 @@ DigestEmail.PreviewProps = {
     {
       from: "Morning Brew",
       subject: "🔥 Today's top business stories",
-      content: {
-        type: "unstructured",
-        content:
-          "• Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag\n• Stripe raises $6.5B at $50B valuation as fintech consolidation continues\n• Tesla's Cybertruck production hits 1,000 units per week milestone ahead of schedule",
-      },
+      content:
+        "Apple unveils Vision Pro 2 with 40% lighter design and $2,499 price tag",
     },
     {
       from: "The New York Times",
       subject: "Breaking News: Latest developments",
-      content: {
-        type: "unstructured",
-        content:
-          "• Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%\n• Supreme Court rules 6-3 on landmark digital privacy case affecting tech giants\n• NASA's Artemis mission discovers water ice deposits in lunar south pole crater",
-      },
+      content:
+        "Fed signals potential rate cuts as inflation shows signs of cooling to 3.2%",
     },
     {
       from: "Product Hunt Daily",
       subject: "🚀 Today's hottest tech products",
-      content: {
-        type: "unstructured",
-        content:
-          "• Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)\n• ScreenFloat: Mac app that keeps any window floating above all others (523 upvotes)\n• Cursor AI Editor hits #1 with new composer feature for multi-file editing (1,204 upvotes)",
-      },
+      content:
+        "Claude Projects: Anthropic's new workspace for organizing AI conversations (847 upvotes)",
+    },
+    {
+      from: "TechCrunch",
+      subject: "Startup funding roundup: Q1 2024",
+      content: "AI startups raised $12B in Q1, up 45% from last year",
+    },
+    {
+      from: "The Verge",
+      subject: "CES 2024: The best gadgets and announcements",
+      content: "Samsung unveils transparent MicroLED displays",
+    },
+    {
+      from: "Ars Technica",
+      subject: "SpaceX Starship achieves orbital milestone",
+      content: "Successful launch and landing of Starship prototype",
+    },
+    {
+      from: "Wired",
+      subject: "The future of quantum computing",
+      content: "IBM reaches 1,000+ qubit milestone",
+    },
+    {
+      from: "MIT Technology Review",
+      subject: "Climate tech innovations to watch",
+      content: "Direct air capture technology breakthrough",
     },
   ],
   receipt: [
     {
       from: "Amazon",
-      subject: "Order #112-3456789-0123456",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Amazon" },
-          { label: "Amount", value: "$42.99" },
-          { label: "Date", value: "9:15 AM" },
-        ],
-      },
+      subject: "Order #123-4567890-1234567",
+      content: "Your order has been delivered to your doorstep.",
     },
     {
       from: "Uber Eats",
-      subject: "Order #EAT-123456789",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Uber Eats" },
-          { label: "Amount", value: "$23.45" },
-          { label: "Date", value: "1:20 PM" },
-        ],
-      },
+      subject: "Your food is on the way!",
+      content: "Estimated delivery: 15-20 minutes",
     },
     {
       from: "Netflix",
-      subject: "Monthly subscription",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Merchant", value: "Netflix" },
-          { label: "Amount", value: "$15.99" },
-          { label: "Date", value: "4:30 AM" },
-        ],
-      },
+      subject: "Payment received for Netflix subscription",
+      content: "Amount: $15.99\nNext billing date: March 15, 2024",
+    },
+    {
+      from: "Spotify",
+      subject: "Premium subscription renewed",
+      content:
+        "Your Spotify Premium subscription has been renewed for $9.99/month.",
+    },
+    {
+      from: "Apple",
+      subject: "iCloud storage payment",
+      content: "iCloud+ 50GB plan renewed for $0.99/month.",
+    },
+    {
+      from: "Starbucks",
+      subject: "Receipt for your purchase",
+      content: "Location: Downtown Store, Total: $18.75",
+    },
+    {
+      from: "Target",
+      subject: "Order confirmation #TGT-789456",
+      content:
+        "Order total: $67.89\nItems: 5 items\nEstimated delivery: Tomorrow\nTracking: UPS 1Z999AA1234567890",
+    },
+    {
+      from: "DoorDash",
+      subject: "Your delivery is complete",
+      content:
+        "Restaurant: Thai Palace\nOrder: Pad Thai, Spring Rolls, Thai Iced Tea\nTotal: $32.45\nTip: $5.00",
+    },
+    {
+      from: "Walmart",
+      subject: "Online order shipped",
+      content:
+        "Order #WM-456789\nItems: 3 items\nTotal: $89.99\nCarrier: FedEx\nTracking: 123456789012",
+    },
+    {
+      from: "Costco",
+      subject: "Monthly membership renewal",
+      content:
+        "Executive Membership renewed\nAnnual fee: $120.00\nNext renewal: March 15, 2025\nBenefits: 2% cashback, travel discounts",
     },
   ],
   marketing: [
     {
       from: "Spotify",
       subject: "Limited offer: 3 months premium for $0.99",
-      content: {
-        type: "unstructured",
-        content: "Upgrade your music experience with this exclusive deal",
-      },
+      content: "Upgrade your music experience with this exclusive deal",
     },
     {
       from: "Nike",
       subject: "JUST IN: New Summer Collection 🔥",
-      content: {
-        type: "unstructured",
-        content: "Be the first to shop our latest styles before they sell out",
-      },
+      content: "Be the first to shop our latest styles before they sell out",
     },
     {
       from: "Airbnb",
       subject: "Weekend getaway ideas near you",
-      content: {
-        type: "unstructured",
-        content:
-          "Discover unique stays within a 2-hour drive from your location",
-      },
+      content: "Discover unique stays within a 2-hour drive from your location",
     },
   ],
   calendar: [
     {
       from: "Sarah Johnson",
       subject: "Team Weekly Sync",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Team Weekly Sync" },
-          {
-            label: "Date",
-            value: "Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
-          },
-        ],
-      },
+      content:
+        "Title: Team Weekly Sync\nDate: Tomorrow, 10:00 AM - 11:00 AM • Meeting Room 3 / Zoom",
     },
     {
       from: "Michael Chen",
       subject: "Quarterly Review",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Quarterly Review" },
-          {
-            label: "Date",
-            value: "Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
-          },
-        ],
-      },
+      content:
+        "Title: Quarterly Review\nDate: Friday, May 26, 2:00 PM - 4:00 PM • Conference Room A",
     },
     {
       from: "Personal Calendar",
       subject: "Dentist Appointment",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Dentist Appointment" },
-          {
-            label: "Date",
-            value: "Monday, May 29, 9:30 AM • Downtown Dental Clinic",
-          },
-        ],
-      },
+      content:
+        "Title: Dentist Appointment\nDate: Monday, May 29, 9:30 AM • Downtown Dental Clinic",
     },
   ],
   coldEmail: [
     {
       from: "David Williams",
       subject: "Partnership opportunity for your business",
-      content: {
-        type: "unstructured",
-        content: "Growth Solutions Inc.",
-      },
+      content: "Growth Solutions Inc.",
     },
     {
       from: "Jennifer Lee",
       subject: "Request for a quick call this week",
-      content: {
-        type: "unstructured",
-        content: "Venture Capital Partners",
-      },
+      content: "Venture Capital Partners",
     },
     {
       from: "Robert Taylor",
       subject: "Introducing our new B2B solution",
-      content: {
-        type: "unstructured",
-        content: "Enterprise Tech Solutions",
-      },
+      content: "Enterprise Tech Solutions",
     },
   ],
   notification: [
     {
       from: "LinkedIn",
-      subject: "Profile Views",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Profile Views" },
-          {
-            label: "Date",
-            value: "5 people viewed your profile this week • 11:00 AM",
-          },
-        ],
-      },
+      subject: "New connection request from Sarah M.",
+      content: "Sarah M. wants to connect with you on LinkedIn.",
     },
     {
       from: "Slack",
-      subject: "Unread Messages",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Unread Messages" },
-          {
-            label: "Date",
-            value: "3 unread messages in #general channel • 2:45 PM",
-          },
-        ],
-      },
+      subject: "New message in #general",
+      content: "Alex: Can someone help me with the deployment?",
     },
     {
       from: "GitHub",
-      subject: "Pull Request Update",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "Pull Request Update" },
-          { label: "Date", value: "Pull request #123 was approved • 5:30 PM" },
-        ],
-      },
+      subject: "Pull request #1234 needs your review",
+      content:
+        "Repository: myapp\nBranch: feature/new-feature\nFiles changed: 15",
     },
     {
       from: "Twitter",
-      subject: "New Followers",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Title", value: "New Followers" },
-          { label: "Date", value: "You have 7 new followers • 6:15 PM" },
-        ],
-      },
+      subject: "New follower: @techguru",
+      content: "You have a new follower on Twitter.",
+    },
+    {
+      from: "Discord",
+      subject: "New message in #development",
+      content: "Mike: The new API endpoint is working great!",
     },
   ],
   toReply: [
     {
       from: "John Smith",
       subject: "Re: Project proposal feedback",
-      content: {
-        type: "unstructured",
-        content: "Received: Yesterday, 4:30 PM • Due: Today",
-      },
+      content: "Received: Yesterday, 4:30 PM • Due: Today",
     },
     {
       from: "Client XYZ",
       subject: "Questions about the latest deliverable",
-      content: {
-        type: "unstructured",
-        content: "Received: Monday, 10:15 AM • Due: Tomorrow",
-      },
+      content: "Received: Monday, 10:15 AM • Due: Tomorrow",
     },
     {
       from: "HR Department",
       subject: "Annual review scheduling",
-      content: {
-        type: "unstructured",
-        content: "Received: Tuesday, 9:00 AM • Due: Friday",
-      },
+      content: "Received: Tuesday, 9:00 AM • Due: Friday",
     },
   ],
   // --- Custom categories for testing ---
@@ -664,78 +593,45 @@ DigestEmail.PreviewProps = {
     {
       from: "Expedia",
       subject: "Your flight to Paris is booked!",
-      content: {
-        type: "unstructured",
-        content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
-      },
+      content: "Flight departs July 10th at 7:00 PM. Confirmation #ABC123.",
     },
     {
       from: "Airbnb",
       subject: "Upcoming stay in Montmartre",
-      content: {
-        type: "unstructured",
-        content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
-      },
+      content: "Check-in: July 11th, Check-out: July 18th. Host: Marie.",
     },
   ],
   funnyStuff: [
     {
       from: "The Onion",
-      subject: "Area Man Unsure If He’s Living In Simulation Or Just Milwaukee",
-      content: {
-        type: "unstructured",
-        content:
-          "Local man questions reality after seeing three people in cheese hats.",
-      },
+      subject: "Area Man Unsure If He's Living In Simulation Or Just Milwaukee",
+      content:
+        "Local man questions reality after seeing three people in cheese hats.",
     },
     {
       from: "Reddit",
       subject: "Top meme of the day",
-      content: {
-        type: "unstructured",
-        content: "A cat wearing sunglasses and riding a Roomba.",
-      },
+      content: "A cat wearing sunglasses and riding a Roomba.",
     },
   ],
   orders: [
     {
       from: "Shopify",
       subject: "Order #SHOP-2024-001",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Order ID", value: "SHOP-2024-001" },
-          { label: "Total", value: "$89.99" },
-          { label: "Status", value: "Shipped" },
-          { label: "Tracking", value: "1Z999AA1234567890" },
-        ],
-      },
+      content:
+        "Order ID: SHOP-2024-001\nTotal: $89.99\nStatus: Shipped\nTracking: 1Z999AA1234567890",
     },
     {
       from: "Etsy",
       subject: "Your handmade jewelry order",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Seller", value: "HandmadeCrafts" },
-          { label: "Item", value: "Sterling Silver Necklace" },
-          { label: "Price", value: "$45.00" },
-          { label: "Estimated Delivery", value: "March 15-20" },
-        ],
-      },
+      content:
+        "Seller: HandmadeCrafts\nItem: Sterling Silver Necklace\nPrice: $45.00\nEstimated Delivery: March 15-20",
     },
     {
       from: "Amazon",
       subject: "Order #114-1234567-8901234",
-      content: {
-        type: "structured",
-        content: [
-          { label: "Order Number", value: "114-1234567-8901234" },
-          { label: "Items", value: "3 items" },
-          { label: "Total", value: "$156.78" },
-          { label: "Delivery", value: "Tomorrow by 8 PM" },
-        ],
-      },
+      content:
+        "Order Number: 114-1234567-8901234\nItems: 3 items\nTotal: $156.78\nDelivery: Tomorrow by 8 PM",
     },
   ],
 };
@@ -743,9 +639,11 @@ DigestEmail.PreviewProps = {
 function Footer({
   baseUrl,
   unsubscribeToken,
+  emailAccountId,
 }: {
   baseUrl: string;
   unsubscribeToken: string;
+  emailAccountId: string;
 }) {
   return (
     <Section className="mt-8 text-center text-sm text-gray-500">
@@ -753,14 +651,20 @@ function Footer({
         You're receiving this email because you enabled digest emails in your
         Inbox Zero settings.
       </Text>
-      <Text className="m-0">
+      <div className="mt-[8px]">
         <Link
           href={`${baseUrl}/api/unsubscribe?token=${unsubscribeToken}`}
-          className="text-gray-500 underline"
+          className="text-gray-500 underline mr-[16px]"
         >
           Unsubscribe
         </Link>
-      </Text>
+        <Link
+          href={`${baseUrl}/${emailAccountId}/automation?tab=settings`}
+          className="text-gray-500 underline"
+        >
+          Customize what you receive
+        </Link>
+      </div>
     </Section>
   );
 }

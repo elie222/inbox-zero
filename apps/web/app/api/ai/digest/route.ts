@@ -167,7 +167,9 @@ export const POST = withError(
 
       logger.with({ emailAccountId, messageId: message.id });
 
-      const emailAccount = await getEmailAccountWithAi({ emailAccountId });
+      const emailAccount = await getEmailAccountWithAi({
+        emailAccountId,
+      });
       if (!emailAccount) {
         throw new Error("Email account not found");
       }
@@ -182,7 +184,7 @@ export const POST = withError(
         },
       });
 
-      if (!summary) {
+      if (!summary?.content) {
         logger.info("Skipping digest item because it is not worth summarizing");
         return new NextResponse("OK", { status: 200 });
       }
