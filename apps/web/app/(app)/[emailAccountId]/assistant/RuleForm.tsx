@@ -1272,17 +1272,14 @@ function ActionCard({
                         registerProps={register(
                           `actions.${index}.${field.name}.value`,
                         )}
-                        placeholder={
-                          field.name === "url" && action.type === ActionType.CALL_WEBHOOK
-                            ? "https://your-domain.com/webhook"
-                            : undefined
-                        }
+                        placeholder={field.placeholder}
                       />
-                      {field.name === "url" && action.type === ActionType.CALL_WEBHOOK && (
-                        <div className="mt-2">
-                          <WebhookDocumentationLink />
-                        </div>
-                      )}
+                      {field.name === "url" &&
+                        action.type === ActionType.CALL_WEBHOOK && (
+                          <div className="mt-2">
+                            <WebhookDocumentationLink />
+                          </div>
+                        )}
                     </div>
                   )}
 

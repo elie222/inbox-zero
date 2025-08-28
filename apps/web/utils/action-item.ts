@@ -22,6 +22,7 @@ export const actionInputs: Record<
       label: string;
       textArea?: boolean;
       expandable?: boolean;
+      placeholder?: string;
     }[];
   }
 > = {
@@ -139,6 +140,7 @@ export const actionInputs: Record<
       {
         name: "url",
         label: "URL",
+        placeholder: "https://example.com/webhook",
       },
     ],
   },
