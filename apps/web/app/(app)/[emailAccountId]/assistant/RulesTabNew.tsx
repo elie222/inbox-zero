@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function RulesTab() {
   return (
-    <div>
+    <div className="mt-8">
       <RulesPrompt />
 
       <Tabs defaultValue="list" searchParam="format">
