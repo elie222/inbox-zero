@@ -37,3 +37,11 @@ Users control this via one unified setting:
 - `apps/web/utils/reply-tracker/outbound.ts` - handles sent emails
 - `apps/web/utils/reply-tracker/inbound.ts` - handles received emails  
 - `apps/web/utils/ai/actions.ts` - executes TRACK_THREAD action
+
+## Future Improvements
+The current implementation works but has some architectural complexity that could be cleaned up:
+- TRACK_THREAD action is hidden from users but managed via settings
+- Two separate systems (outbound tracking + TRACK_THREAD actions) that need to stay in sync
+- Hard-coded label names ("To Reply", "Awaiting Reply") - users can't customize these
+- Could potentially be simplified to a more unified label-based approach in the future
+- May want to support todos

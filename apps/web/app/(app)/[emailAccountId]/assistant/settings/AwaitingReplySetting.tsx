@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
 import {
   updateAwaitingReplyTrackingAction,
@@ -16,8 +16,11 @@ import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
 } from "@/utils/reply-tracker/consts";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { getEmailTerminology } from "@/utils/terminology";
 
 export function AwaitingReplySetting() {
+  const { provider, isLoading: accountLoading } = useAccount();
   const {
     data: emailAccountData,
     isLoading,
@@ -27,6 +30,7 @@ export function AwaitingReplySetting() {
   const { mutate: mutateRules } = useRules();
 
   const enabled = emailAccountData?.outboundReplyTracking ?? false;
+  const terminology = getEmailTerminology(provider);
 
   const handleToggle = useCallback(
     async (enable: boolean) => {
@@ -89,8 +93,12 @@ export function AwaitingReplySetting() {
 
   return (
     <SettingCard
-      title={`Label "${AWAITING_REPLY_LABEL_NAME}"`}
-      description={`Adds '${AWAITING_REPLY_LABEL_NAME}' label to sent emails needing responses. Removes '${NEEDS_REPLY_LABEL_NAME}' when you reply and '${AWAITING_REPLY_LABEL_NAME}' when they reply.`}
+      title="Reply tracking"
+      description={
+        accountLoading
+          ? "Loading..."
+          : `Adds '${AWAITING_REPLY_LABEL_NAME}' ${terminology.label.singular} to sent emails needing responses. Removes '${NEEDS_REPLY_LABEL_NAME}' when you reply and '${AWAITING_REPLY_LABEL_NAME}' when they reply.`
+      }
       right={
         <LoadingContent
           loading={isLoading}
