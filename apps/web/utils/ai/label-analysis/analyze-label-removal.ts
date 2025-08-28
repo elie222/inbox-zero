@@ -80,16 +80,12 @@ Decide if a learned pattern adjustment is needed:
 2. If match came from an AI instruction → should an EXCLUDE pattern be added?  
 3. If match came from a static condition → do nothing.  
 
-Gyu
-- When in doubt, choose NO_ACTION. It's better to do nothing than to make incorrect assumptions.
-- Only create EXCLUDE patterns when you're confident the user doesn't want this type of email labeled this way.
-- If the email was correctly classified but the user removed the label, this could be a mistake or temporary preference - use NO_ACTION.
-- Only use EXCLUDE when there's clear evidence the initial classification was wrong.
-- Use REMOVE only when you're certain an existing learned pattern should be deleted.
-
+Guidelines
+- Prefer NO_ACTIONif label removal seems like a mistake or if unsure about pattern inference.  
+- Use EXCLUDE only with clear evidence the label is unwanted.
+- Use REMOVE only when certain a learned pattern is wrong.
 - Always provide reasoning.
 - Not every label removal requires a new pattern.
-- Err on the side of caution - prefer NO_ACTION over potentially incorrect pattern learning.
 `;
 
   const prompt = `The rule:
