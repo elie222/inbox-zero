@@ -638,19 +638,30 @@ export class GmailProvider implements EmailProvider {
     return getReplyTrackingLabels(this.client);
   }
 
-  async labelAwaitingReply(messageId: string, labelId: string): Promise<void> {
-    await labelMessage({
-      gmail: this.client,
-      messageId,
-      addLabelIds: [labelId],
-    });
-  }
+  // async labelNeedsReply(messageId: string): Promise<void> {
+  //   const needsReplyLabelId = await this.getNeedsReplyLabel();
+  //   if (!needsReplyLabelId) {
+  //     logger.warn("No needs reply label found");
+  //     return;
+  //   }
 
-  async labelNeedsReply(messageId: string, labelId: string): Promise<void> {
+  //   await labelMessage({
+  //     gmail: this.client,
+  //     messageId,
+  //     addLabelIds: [needsReplyLabelId],
+  //   });
+  // }
+
+  async labelAwaitingReply(messageId: string): Promise<void> {
+    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
+    if (!awaitingReplyLabelId) {
+      logger.warn("No awaiting reply label found");
+      return;
+    }
     await labelMessage({
       gmail: this.client,
       messageId,
-      addLabelIds: [labelId],
+      addLabelIds: [awaitingReplyLabelId],
     });
   }
 

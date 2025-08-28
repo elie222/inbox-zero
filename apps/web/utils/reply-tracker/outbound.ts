@@ -66,18 +66,11 @@ export async function handleOutboundReply({
   if (aiResult.needsReply) {
     logger.info("Needs reply. Creating reply tracker outbound");
 
-    const awaitingReplyLabelId = await provider.getAwaitingReplyLabel();
-    if (!awaitingReplyLabelId) {
-      logger.warn("No awaiting reply label found");
-      return;
-    }
-
     await createReplyTrackerOutbound({
       provider,
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
       messageId: message.id,
-      awaitingReplyLabelId,
       sentAt: internalDateToDate(message.internalDate),
       logger,
     });
@@ -91,7 +84,6 @@ async function createReplyTrackerOutbound({
   emailAccountId,
   threadId,
   messageId,
-  awaitingReplyLabelId,
   sentAt,
   logger,
 }: {
@@ -99,7 +91,6 @@ async function createReplyTrackerOutbound({
   emailAccountId: string;
   threadId: string;
   messageId: string;
-  awaitingReplyLabelId: string;
   sentAt: Date;
   logger: Logger;
 }) {
@@ -123,10 +114,7 @@ async function createReplyTrackerOutbound({
     },
   });
 
-  const labelPromise = provider.labelAwaitingReply(
-    messageId,
-    awaitingReplyLabelId,
-  );
+  const labelPromise = provider.labelAwaitingReply(messageId);
 
   const [upsertResult, labelResult] = await Promise.allSettled([
     upsertPromise,

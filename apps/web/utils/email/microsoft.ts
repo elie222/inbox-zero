@@ -36,7 +36,7 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
-import { getOrCreateLabels as getOutlookOrCreateLabels } from "@/utils/outlook/label";
+import { getOrCreateLabels } from "@/utils/outlook/label";
 import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
@@ -745,11 +745,10 @@ export class OutlookProvider implements EmailProvider {
     awaitingReplyLabelId: string;
     needsReplyLabelId: string;
   }> {
-    const [awaitingReplyLabel, needsReplyLabel] =
-      await getOutlookOrCreateLabels({
-        client: this.client,
-        names: [AWAITING_REPLY_LABEL_NAME, NEEDS_REPLY_LABEL_NAME],
-      });
+    const [awaitingReplyLabel, needsReplyLabel] = await getOrCreateLabels({
+      client: this.client,
+      names: [AWAITING_REPLY_LABEL_NAME, NEEDS_REPLY_LABEL_NAME],
+    });
 
     return {
       awaitingReplyLabelId: awaitingReplyLabel.id || "",
@@ -758,7 +757,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getNeedsReplyLabel(): Promise<string> {
-    const [needsReplyLabel] = await getOutlookOrCreateLabels({
+    const [needsReplyLabel] = await getOrCreateLabels({
       client: this.client,
       names: [NEEDS_REPLY_LABEL_NAME],
     });
@@ -767,7 +766,7 @@ export class OutlookProvider implements EmailProvider {
   }
 
   async getAwaitingReplyLabel(): Promise<string> {
-    const [awaitingReplyLabel] = await getOutlookOrCreateLabels({
+    const [awaitingReplyLabel] = await getOrCreateLabels({
       client: this.client,
       names: [AWAITING_REPLY_LABEL_NAME],
     });
@@ -775,15 +774,15 @@ export class OutlookProvider implements EmailProvider {
     return awaitingReplyLabel.id || "";
   }
 
-  async labelNeedsReply(messageId: string, _labelId: string): Promise<void> {
-    await labelMessage({
-      client: this.client,
-      messageId,
-      categories: [NEEDS_REPLY_LABEL_NAME],
-    });
-  }
+  // async labelNeedsReply(messageId: string): Promise<void> {
+  //   await labelMessage({
+  //     client: this.client,
+  //     messageId,
+  //     categories: [NEEDS_REPLY_LABEL_NAME],
+  //   });
+  // }
 
-  async labelAwaitingReply(messageId: string, _labelId: string): Promise<void> {
+  async labelAwaitingReply(messageId: string): Promise<void> {
     await labelMessage({
       client: this.client,
       messageId,

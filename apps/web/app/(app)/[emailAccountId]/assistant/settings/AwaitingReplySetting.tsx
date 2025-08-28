@@ -8,7 +8,10 @@ import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingCard } from "@/components/SettingCard";
-import { AWAITING_REPLY_LABEL_NAME } from "@/utils/reply-tracker/consts";
+import {
+  AWAITING_REPLY_LABEL_NAME,
+  NEEDS_REPLY_LABEL_NAME,
+} from "@/utils/reply-tracker/consts";
 
 export function AwaitingReplySetting() {
   const {
@@ -55,7 +58,7 @@ export function AwaitingReplySetting() {
   return (
     <SettingCard
       title="Label awaiting reply"
-      description={`Our AI detects when your sent emails need a response and labels them '${AWAITING_REPLY_LABEL_NAME}'.`}
+      description={`Our AI detects when your sent emails need a response and labels them '${AWAITING_REPLY_LABEL_NAME}', and removes the '${NEEDS_REPLY_LABEL_NAME}' label.`}
       right={
         <LoadingContent
           loading={isLoading}
