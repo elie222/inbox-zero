@@ -230,6 +230,7 @@ export async function labelThread({
   );
 }
 
+// Doesn't use pagination. But this function not really used anyway. Can add in the future of needed.
 export async function removeThreadLabel({
   client,
   threadId,

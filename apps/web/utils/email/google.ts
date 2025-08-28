@@ -48,7 +48,6 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { getReplyTrackingLabels } from "@/utils/gmail/label";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import {
   getFiltersList,
@@ -290,11 +289,11 @@ export class GmailProvider implements EmailProvider {
     await removeThreadLabel(this.client, threadId, labelId);
   }
 
-  async getAwaitingReplyLabel(): Promise<string> {
+  async getAwaitingReplyLabel(): Promise<string | null> {
     return getAwaitingReplyLabel(this.client);
   }
 
-  async getNeedsReplyLabel(): Promise<string> {
+  async getNeedsReplyLabel(): Promise<string | null> {
     return getNeedsReplyLabel(this.client);
   }
 
@@ -630,27 +629,6 @@ export class GmailProvider implements EmailProvider {
       limit,
     );
   }
-
-  async getReplyTrackingLabels(): Promise<{
-    awaitingReplyLabelId: string;
-    needsReplyLabelId: string;
-  }> {
-    return getReplyTrackingLabels(this.client);
-  }
-
-  // async labelNeedsReply(messageId: string): Promise<void> {
-  //   const needsReplyLabelId = await this.getNeedsReplyLabel();
-  //   if (!needsReplyLabelId) {
-  //     logger.warn("No needs reply label found");
-  //     return;
-  //   }
-
-  //   await labelMessage({
-  //     gmail: this.client,
-  //     messageId,
-  //     addLabelIds: [needsReplyLabelId],
-  //   });
-  // }
 
   async labelAwaitingReply(messageId: string): Promise<void> {
     const awaitingReplyLabelId = await this.getAwaitingReplyLabel();

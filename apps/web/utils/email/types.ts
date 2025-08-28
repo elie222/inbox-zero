@@ -59,14 +59,9 @@ export interface EmailProvider {
   ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
-  getReplyTrackingLabels(): Promise<{
-    awaitingReplyLabelId: string;
-    needsReplyLabelId: string;
-  }>;
   getNeedsReplyLabel(): Promise<string | null>;
   getAwaitingReplyLabel(): Promise<string | null>;
   labelAwaitingReply(messageId: string): Promise<void>;
-  // labelNeedsReply(messageId: string): Promise<void>;
   removeAwaitingReplyLabel(threadId: string): Promise<void>;
   removeNeedsReplyLabel(threadId: string): Promise<void>;
   draftEmail(

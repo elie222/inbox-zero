@@ -362,7 +362,7 @@ export async function getOrCreateInboxZeroLabel({
 
 export async function getAwaitingReplyLabel(
   gmail: gmail_v1.Gmail,
-): Promise<string> {
+): Promise<string | null> {
   const [awaitingReplyLabel] = await getOrCreateLabels({
     gmail,
     names: [AWAITING_REPLY_LABEL_NAME],
@@ -372,25 +372,10 @@ export async function getAwaitingReplyLabel(
 
 export async function getNeedsReplyLabel(
   gmail: gmail_v1.Gmail,
-): Promise<string> {
+): Promise<string | null> {
   const [toReplyLabel] = await getOrCreateLabels({
     gmail,
     names: [NEEDS_REPLY_LABEL_NAME],
   });
   return toReplyLabel.id || "";
-}
-
-export async function getReplyTrackingLabels(gmail: gmail_v1.Gmail): Promise<{
-  awaitingReplyLabelId: string;
-  needsReplyLabelId: string;
-}> {
-  const [awaitingReplyLabel, needsReplyLabel] = await getOrCreateLabels({
-    gmail,
-    names: [AWAITING_REPLY_LABEL_NAME, NEEDS_REPLY_LABEL_NAME],
-  });
-
-  return {
-    awaitingReplyLabelId: awaitingReplyLabel.id || "",
-    needsReplyLabelId: needsReplyLabel.id || "",
-  };
 }
