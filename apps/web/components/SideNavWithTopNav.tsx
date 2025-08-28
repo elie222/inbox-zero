@@ -1,5 +1,7 @@
 "use client";
 
+import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
@@ -11,6 +13,8 @@ import {
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
 import { cn } from "@/utils";
+
+const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
 
 function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
@@ -33,6 +37,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
           <NavBottom />
         </div>
       </SidebarInset>
+      <Suspense>
+        <CrispWithNoSSR />
+      </Suspense>
     </div>
   );
 }
