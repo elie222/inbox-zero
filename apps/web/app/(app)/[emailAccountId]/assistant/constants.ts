@@ -81,7 +81,7 @@ export function getActionTypeColor(example: string): string {
   if (lowerExample.includes("mark")) {
     return ACTION_TYPE_COLORS[ActionType.MARK_READ];
   }
-  if (lowerExample.includes("label")) {
+  if (lowerExample.includes("label") || lowerExample.includes("categorize")) {
     return ACTION_TYPE_COLORS[ActionType.LABEL];
   }
   if (lowerExample.includes("digest")) {
