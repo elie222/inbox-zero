@@ -7,7 +7,7 @@ import { categorizeSenderWithProvider } from "@/utils/categorize/senders/categor
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { handleOutboundReplyWithProvider } from "@/utils/reply-tracker/outbound";
+import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type {
   ProcessHistoryOptions,
   OutlookResourceData,
@@ -16,8 +16,8 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import {
-  trackSentDraftStatusWithProvider,
-  cleanupThreadAIDraftsWithProvider,
+  trackSentDraftStatus,
+  cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
@@ -297,15 +297,15 @@ async function handleOutbound(
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
-    trackSentDraftStatusWithProvider({
+    trackSentDraftStatus({
       emailAccountId: emailAccount.id,
       message: parsedMessage,
-      provider: provider,
+      provider,
     }),
-    handleOutboundReplyWithProvider({
+    handleOutboundReply({
       emailAccount,
       message: parsedMessage,
-      provider: provider,
+      provider,
     }),
   ]);
 
@@ -326,7 +326,7 @@ async function handleOutbound(
   // Run cleanup for any other old/unmodified drafts in the thread
   // Must happen after previous steps
   try {
-    await cleanupThreadAIDraftsWithProvider({
+    await cleanupThreadAIDrafts({
       threadId: conversationId || messageId,
       emailAccountId: emailAccount.id,
       provider: provider,
