@@ -2,10 +2,7 @@
 
 import { useCallback } from "react";
 import { Toggle } from "@/components/Toggle";
-import {
-  updateAwaitingReplyTrackingAction,
-  toggleToReplyTrackingAction,
-} from "@/utils/actions/settings";
+import { updateReplyTrackingAction } from "@/utils/actions/settings";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useRules } from "@/hooks/useRules";
@@ -44,42 +41,14 @@ export function AwaitingReplySetting() {
         false,
       );
 
-      // Update both outbound tracking and TRACK_THREAD actions
-      const [outboundResult, trackThreadResult] = await Promise.allSettled([
-        updateAwaitingReplyTrackingAction(emailAccountData.id, {
-          enabled: enable,
-        }),
-        toggleToReplyTrackingAction(emailAccountData.id, { enabled: enable }),
-      ]);
+      const result = await updateReplyTrackingAction(emailAccountData.id, {
+        enabled: enable,
+      });
 
-      // Check for errors
-      if (outboundResult.status === "rejected") {
+      if (result?.serverError) {
         mutate(); // Revert optimistic update
-        toastError({
-          description: `Failed to update outbound tracking: ${outboundResult.reason}`,
-        });
+        toastError({ description: result.serverError });
         return;
-      }
-
-      if (outboundResult.value?.serverError) {
-        mutate(); // Revert optimistic update
-        toastError({ description: outboundResult.value.serverError });
-        return;
-      }
-
-      if (trackThreadResult.status === "rejected") {
-        toastError({
-          description: `Failed to update thread tracking: ${trackThreadResult.reason}`,
-        });
-        // Don't return - outbound tracking still worked
-      }
-
-      if (
-        trackThreadResult.status === "fulfilled" &&
-        trackThreadResult.value?.serverError
-      ) {
-        toastError({ description: trackThreadResult.value.serverError });
-        // Don't return - outbound tracking still worked
       }
 
       toastSuccess({

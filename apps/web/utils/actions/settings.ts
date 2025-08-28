@@ -80,22 +80,11 @@ export const updateDigestScheduleAction = actionClient
     return { success: true };
   });
 
-export const updateAwaitingReplyTrackingAction = actionClient
-  .metadata({ name: "updateAwaitingReplyTracking" })
+export const updateReplyTrackingAction = actionClient
+  .metadata({ name: "updateReplyTracking" })
   .schema(z.object({ enabled: z.boolean() }))
   .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    await prisma.emailAccount.update({
-      where: { id: emailAccountId },
-      data: { outboundReplyTracking: enabled },
-    });
-    return { success: true };
-  });
-
-export const toggleToReplyTrackingAction = actionClient
-  .metadata({ name: "toggleToReplyTracking" })
-  .schema(z.object({ enabled: z.boolean() }))
-  .action(async ({ ctx: { emailAccountId }, parsedInput: { enabled } }) => {
-    // Find all rules with "To Reply" label
+    // Find all rules with "To Reply" label first
     const toReplyRules = await prisma.rule.findMany({
       where: {
         emailAccountId,
@@ -111,29 +100,45 @@ export const toggleToReplyTrackingAction = actionClient
       },
     });
 
-    for (const rule of toReplyRules) {
-      const hasTrackThread = rule.actions.some(
-        (action) => action.type === ActionType.TRACK_THREAD,
-      );
+    // Prepare the operations
+    const rulesToAddTrackThread = toReplyRules.filter(
+      (rule) =>
+        enabled &&
+        !rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
+    );
 
-      if (enabled && !hasTrackThread) {
-        // Add TRACK_THREAD action
-        await prisma.action.create({
+    const rulesToRemoveTrackThread = toReplyRules.filter(
+      (rule) =>
+        !enabled &&
+        rule.actions.some((action) => action.type === ActionType.TRACK_THREAD),
+    );
+
+    // Execute all updates atomically
+    await prisma.$transaction([
+      // Update email account setting
+      prisma.emailAccount.update({
+        where: { id: emailAccountId },
+        data: { outboundReplyTracking: enabled },
+      }),
+      // Add TRACK_THREAD actions
+      ...rulesToAddTrackThread.map((rule) =>
+        prisma.action.create({
           data: {
             type: ActionType.TRACK_THREAD,
             ruleId: rule.id,
           },
-        });
-      } else if (!enabled && hasTrackThread) {
-        // Remove TRACK_THREAD action
-        await prisma.action.deleteMany({
+        }),
+      ),
+      // Remove TRACK_THREAD actions
+      ...rulesToRemoveTrackThread.map((rule) =>
+        prisma.action.deleteMany({
           where: {
             ruleId: rule.id,
             type: ActionType.TRACK_THREAD,
           },
-        });
-      }
-    }
+        }),
+      ),
+    ]);
 
     return { success: true };
   });
