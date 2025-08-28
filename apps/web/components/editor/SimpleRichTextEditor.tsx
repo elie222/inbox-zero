@@ -17,6 +17,7 @@ interface SimpleRichTextEditorProps {
   minHeight?: number;
   userLabels?: EmailLabel[];
   onClearContents?: () => void;
+  editable?: boolean;
 }
 
 export interface SimpleRichTextEditorRef {
@@ -36,10 +37,12 @@ export const SimpleRichTextEditor = forwardRef<
       minHeight = 300,
       userLabels,
       onClearContents,
+      editable = true,
     },
     ref,
   ) => {
     const editor = useEditor({
+      editable,
       extensions: [
         StarterKit.configure({
           italic: false,
@@ -141,7 +144,9 @@ export const SimpleRichTextEditor = forwardRef<
         <div
           className={cn(
             "rounded-md border border-input bg-background",
-            "focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
+            editable &&
+              "focus-within:border-ring focus-within:ring-1 focus-within:ring-ring",
+            !editable && "bg-muted/30 cursor-not-allowed",
           )}
           style={{ minHeight }}
         >

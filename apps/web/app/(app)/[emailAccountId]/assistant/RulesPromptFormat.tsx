@@ -13,6 +13,7 @@ import { useRules } from "@/hooks/useRules";
 import { toastError } from "@/components/Toast";
 import { ruleToText } from "@/utils/rule/rule-to-text";
 import { MessageText } from "@/components/Typography";
+import { Notice } from "@/components/Notice";
 
 export function RulesPromptFormat() {
   const { data: rules, isLoading: isLoadingRules } = useRules();
@@ -55,11 +56,17 @@ export function RulesPromptFormat() {
         loading={isLoadingLabels || isLoadingRules}
         loadingComponent={<Skeleton className="min-h-[220px] w-full" />}
       >
+        <Notice variant="info" className="mb-2">
+          Editing in 'Prompt' view is currently disabled. Edit using AI Chat or
+          'List' view instead.
+        </Notice>
+
         <SimpleRichTextEditor
           ref={editorRef}
           defaultValue={rulesText}
           minHeight={220}
           userLabels={userLabels}
+          editable={false}
         />
       </LoadingContent>
 
@@ -69,7 +76,7 @@ export function RulesPromptFormat() {
         </Button>
 
         <MessageText className="pl-2">
-          Saving in 'Prompt' view is currently disabled. Edit using AI chat or
+          Editing in 'Prompt' view is currently disabled. Edit using AI chat or
           'List' view instead.
         </MessageText>
       </div>
