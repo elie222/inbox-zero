@@ -212,6 +212,17 @@ async function sendEmail({
       return acc;
     }, {} as Digest);
 
+    if (Object.keys(executedRulesByRule).length === 0) {
+      logger.info(
+        "No executed rules found, skipping digest email",
+        loggerOptions,
+      );
+      return {
+        success: true,
+        message: "No executed rules found, skipping digest email",
+      };
+    }
+
     const token = await createUnsubscribeToken({ emailAccountId });
 
     logger.info("Sending digest email", loggerOptions);
@@ -226,6 +237,7 @@ async function sendEmail({
         date: new Date(),
         ruleNames: Object.fromEntries(ruleNameMap),
         ...executedRulesByRule,
+        emailAccountId,
       },
     });
 

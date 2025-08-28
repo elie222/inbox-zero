@@ -8,6 +8,7 @@ export type EmailForAction = Pick<
   | "headers"
   | "textPlain"
   | "textHtml"
+  | "snippet"
   | "attachments"
   | "internalDate"
 >;
