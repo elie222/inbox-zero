@@ -300,11 +300,19 @@ export class GmailProvider implements EmailProvider {
 
   async removeAwaitingReplyLabel(threadId: string): Promise<void> {
     const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
+    if (!awaitingReplyLabelId) {
+      logger.warn("No awaiting reply label found");
+      return;
+    }
     await removeThreadLabel(this.client, threadId, awaitingReplyLabelId);
   }
 
   async removeNeedsReplyLabel(threadId: string): Promise<void> {
     const needsReplyLabelId = await this.getNeedsReplyLabel();
+    if (!needsReplyLabelId) {
+      logger.warn("No needs reply label found");
+      return;
+    }
     await removeThreadLabel(this.client, threadId, needsReplyLabelId);
   }
 

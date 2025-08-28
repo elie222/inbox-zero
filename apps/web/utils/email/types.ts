@@ -63,8 +63,8 @@ export interface EmailProvider {
     awaitingReplyLabelId: string;
     needsReplyLabelId: string;
   }>;
-  getNeedsReplyLabel(): Promise<string>;
-  getAwaitingReplyLabel(): Promise<string>;
+  getNeedsReplyLabel(): Promise<string | null>;
+  getAwaitingReplyLabel(): Promise<string | null>;
   labelAwaitingReply(messageId: string, labelId: string): Promise<void>;
   labelNeedsReply(messageId: string, labelId: string): Promise<void>;
   removeAwaitingReplyLabel(threadId: string): Promise<void>;

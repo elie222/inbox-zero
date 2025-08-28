@@ -40,7 +40,6 @@ export async function processHistoryItem(
   {
     gmail,
     emailAccount,
-    accessToken,
     hasAutomationRules,
     hasAiAccess,
     rules,

@@ -23,7 +23,6 @@ export async function handleOutboundReply({
     threadId: message.threadId,
   });
 
-  // 1. Check if feature enabled
   const isEnabled = await isOutboundTrackingEnabled({
     email: emailAccount.email,
   });
@@ -34,20 +33,15 @@ export async function handleOutboundReply({
 
   logger.info("Checking outbound reply");
 
-  // 2. Get necessary labels
-  const { awaitingReplyLabelId } = await provider.getReplyTrackingLabels();
-
-  // 3. Resolve existing NEEDS_REPLY trackers for this thread
+  // Resolve existing NEEDS_REPLY trackers for this thread
   await resolveReplyTrackers(provider, emailAccount.userId, message.threadId);
 
-  // 4. Get thread context
   const threadMessages = await provider.getThreadMessages(message.threadId);
   if (!threadMessages?.length) {
     logger.error("No thread messages found, cannot proceed.");
     return;
   }
 
-  // 5. Check if this message is the latest
   const { isLatest, sortedMessages } = isMessageLatestInThread(
     message,
     threadMessages,
@@ -60,20 +54,24 @@ export async function handleOutboundReply({
     return; // Stop processing if not the latest
   }
 
-  // 6. Prepare data for AI
   const { messageToSendForLLM, threadContextMessagesForLLM } =
     prepareDataForAICheck(message, sortedMessages);
 
-  // 7. Perform AI check
   const aiResult = await aiCheckIfNeedsReply({
     emailAccount,
     messageToSend: messageToSendForLLM,
     threadContextMessages: threadContextMessagesForLLM,
   });
 
-  // 8. If yes, create a tracker
   if (aiResult.needsReply) {
     logger.info("Needs reply. Creating reply tracker outbound");
+
+    const awaitingReplyLabelId = await provider.getAwaitingReplyLabel();
+    if (!awaitingReplyLabelId) {
+      logger.warn("No awaiting reply label found");
+      return;
+    }
+
     await createReplyTrackerOutbound({
       provider,
       emailAccountId: emailAccount.id,
