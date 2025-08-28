@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { emailToContent } from "@/utils/mail";
 import { GmailLabel } from "@/utils/gmail/label";
-import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/google/webhook/block-unsubscribed-emails";
 import { categorizeSender } from "@/utils/categorize/senders/categorize";
@@ -167,7 +167,7 @@ export async function processHistoryItem(
 
       const content = emailToContent(parsedMessage);
 
-      const response = await runColdEmailBlockerWithProvider({
+      const response = await runColdEmailBlocker({
         email: {
           from: parsedMessage.headers.from,
           to: "",
@@ -209,7 +209,7 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, emailAccount, gmail, accessToken);
+        await categorizeSender(sender, emailAccount, provider);
       }
     }
 

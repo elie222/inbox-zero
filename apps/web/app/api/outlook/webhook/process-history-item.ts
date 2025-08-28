@@ -1,9 +1,9 @@
 import type { Message } from "@microsoft/microsoft-graph-types";
 import prisma from "@/utils/prisma";
-import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/outlook/webhook/block-unsubscribed-emails";
-import { categorizeSenderWithProvider } from "@/utils/categorize/senders/categorize";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
@@ -171,7 +171,7 @@ export async function processHistoryItem(
 
       const content = message.body?.content || "";
 
-      const response = await runColdEmailBlockerWithProvider({
+      const response = await runColdEmailBlocker({
         email: {
           from,
           to: to.join(","),
@@ -205,7 +205,7 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSenderWithProvider(sender, emailAccount, emailProvider);
+        await categorizeSender(sender, emailAccount, emailProvider);
       }
     }
 
