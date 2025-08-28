@@ -71,7 +71,7 @@ function getActionType(example: string): {
   if (lowerExample.includes("spam") || lowerExample.includes("mark")) {
     return { type: "mark", color };
   }
-  if (lowerExample.includes("label")) {
+  if (lowerExample.includes("label") || lowerExample.includes("categorize")) {
     return { type: "label", color };
   }
 
