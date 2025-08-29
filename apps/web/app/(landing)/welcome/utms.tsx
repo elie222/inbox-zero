@@ -5,14 +5,19 @@ import { createScopedLogger } from "@/utils/logger";
 const logger = createScopedLogger("utms");
 
 export async function fetchUserAndStoreUtms(userId: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { utms: true },
-  });
+  const user = await prisma.user
+    .findUnique({
+      where: { id: userId },
+      select: { utms: true },
+    })
+    .catch((error) => {
+      logger.error("Failed to fetch user", { error, userId });
+      return null;
+    });
 
   if (user && !user.utms) {
     await storeUtms(userId).catch((error) => {
-      logger.error("Failed to store utms", { error });
+      logger.error("Failed to store utms", { error, userId });
     });
   }
 }
