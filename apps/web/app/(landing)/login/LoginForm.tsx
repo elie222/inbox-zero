@@ -25,32 +25,9 @@ export function LoginForm() {
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [loadingOkta, setLoadingOkta] = useState(false);
 
-  useEffect(() => {
-    const initializeOkta = async () => {
-      await sso.register({
-        providerId: "okta",
-        issuer: "https://integrator-9554919.okta.com",
-        domain: "getinboxzero.com",
-        oidcConfig: {
-          clientId: env.OKTA_CLIENT_ID || "",
-          clientSecret: env.OKTA_CLIENT_SECRET || "",
-          discoveryEndpoint:
-            "https://integrator-9554919.okta.com/.well-known/openid-configuration",
-          scopes: ["openid", "profile", "email"],
-          pkce: true,
-        },
-        mapping: {
-          id: "sub",
-          email: "email",
-          emailVerified: "email_verified",
-          name: "name",
-          image: "picture",
-        },
-      });
-    };
-
-    initializeOkta();
-  }, []);
+  // Note: SSO provider registration requires authentication
+  // It will be handled after the user signs in through another method
+  // (Google, Microsoft, or email/password)
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -74,13 +51,53 @@ export function LoginForm() {
     setLoadingMicrosoft(false);
   };
 
+  // Register Okta SSO provider on component mount
+  useEffect(() => {
+    const registerOktaProvider = async () => {
+      try {
+        console.log("Registering Okta SSO provider...");
+        await sso.register({
+          providerId: "okta",
+          issuer: "https://integrator-9554919.okta.com",
+          domain: "getinboxzero.com",
+          oidcConfig: {
+            clientId: env.NEXT_PUBLIC_OKTA_CLIENT_ID || "",
+            clientSecret: env.NEXT_PUBLIC_OKTA_CLIENT_SECRET || "",
+            authorizationEndpoint:
+              "https://integrator-9554919.okta.com/oauth2/v1/authorize",
+            tokenEndpoint:
+              "https://integrator-9554919.okta.com/oauth2/v1/token",
+            jwksEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/keys",
+            discoveryEndpoint:
+              "https://integrator-9554919.okta.com/.well-known/openid-configuration",
+            scopes: ["openid", "email", "profile"],
+            pkce: true,
+          },
+          mapping: {
+            id: "sub",
+            email: "email",
+            emailVerified: "email_verified",
+            name: "name",
+            image: "picture",
+          },
+        });
+        console.log("Okta SSO provider registered successfully");
+      } catch (error) {
+        console.error("Failed to register Okta SSO provider:", error);
+      }
+    };
+
+    registerOktaProvider();
+  }, []);
+
   const handleOktaSignIn = async () => {
     setLoadingOkta(true);
     try {
-      await signIn.sso({
+      const res = await signIn.sso({
         providerId: "okta",
         callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
       });
+      console.log("SSO sign-in response:", res);
     } catch (error) {
       console.error("Okta sign-in failed:", error);
     } finally {

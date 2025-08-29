@@ -88,7 +88,7 @@ export const betterAuthConfig = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
-      prompt: "select_account+consent",
+      prompt: "select_account consent",
       disableIdTokenSignIn: true,
     },
     microsoft: {
@@ -98,6 +98,18 @@ export const betterAuthConfig = betterAuth({
       tenantId: "common",
       prompt: "consent",
       disableIdTokenSignIn: true,
+    },
+    okta: {
+      clientId: env.OKTA_CLIENT_ID || "",
+      clientSecret: env.OKTA_CLIENT_SECRET || "",
+      issuer: "https://integrator-9554919.okta.com",
+      authorizationEndpoint:
+        "https://integrator-9554919.okta.com/oauth2/v1/authorize",
+      tokenEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/token",
+      userinfoEndpoint:
+        "https://integrator-9554919.okta.com/oauth2/v1/userinfo",
+      jwksEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/keys",
+      scope: ["openid", "email", "profile"],
     },
   },
   events: {

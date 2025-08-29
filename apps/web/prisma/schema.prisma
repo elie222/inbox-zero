@@ -157,6 +157,7 @@ model ssoProvider {
   domain         String
   oidcConfig     String?    
   samlConfig     String?
+  mapping        String?  // Add mapping field for OIDC/SAML field mappings
   userId         String?
   providerId     String   @unique
   organizationId String?
