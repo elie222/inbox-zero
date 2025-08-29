@@ -11,7 +11,9 @@ export async function watchEmails({
 }: {
   emailAccountId: string;
   provider: EmailProvider;
-}) {
+}): Promise<
+  { success: true; expirationDate: Date } | { success: false; error: string }
+> {
   logger.info("Watching emails", {
     emailAccountId,
     providerName: provider.name,
@@ -21,27 +23,41 @@ export async function watchEmails({
     const result = await provider.watchEmails();
 
     if (result) {
+      logger.info("Watching emails", {
+        emailAccountId,
+        providerName: provider.name,
+        expirationDate: result.expirationDate,
+        subscriptionId: result.subscriptionId,
+      });
+
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
           watchEmailsExpirationDate: result.expirationDate,
-          watchEmailsSubscriptionId:
-            provider.name === "microsoft" ? result.subscriptionId : null,
+          watchEmailsSubscriptionId: result.subscriptionId,
         },
       });
 
-      return result.expirationDate;
+      return { success: true, expirationDate: result.expirationDate };
+    } else {
+      const errorMessage = "Provider returned no result for watch setup";
+      logger.error("Error watching inbox", {
+        emailAccountId,
+        providerName: provider.name,
+        error: errorMessage,
+      });
+      return { success: false, error: errorMessage };
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("Error watching inbox", {
       emailAccountId,
       providerName: provider.name,
       error,
     });
     captureException(error);
+    return { success: false, error: errorMessage };
   }
-
-  return null;
 }
 
 export async function unwatchEmails({

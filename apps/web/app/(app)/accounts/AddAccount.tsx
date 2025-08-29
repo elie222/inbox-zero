@@ -45,6 +45,14 @@ export function AddAccount() {
       },
     );
 
+    if (!response.ok) {
+      toastError({
+        title: "Error initiating Microsoft link",
+        description: "Please try again or contact support",
+      });
+      return;
+    }
+
     const data: GetOutlookAuthLinkUrlResponse = await response.json();
 
     window.location.href = data.url;
