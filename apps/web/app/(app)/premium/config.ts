@@ -23,7 +23,7 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_MONTHLY]: 16,
   [PremiumTier.PRO_ANNUALLY]: 10,
   [PremiumTier.BUSINESS_MONTHLY]: 20,
-  [PremiumTier.BUSINESS_ANNUALLY]: 16,
+  [PremiumTier.BUSINESS_ANNUALLY]: 18,
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
@@ -81,7 +81,10 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
-    oldPriceIds: ["price_1RfSoxKGf8mwZWHngHcug4YM"],
+    oldPriceIds: [
+      "price_1RMSnIKGf8mwZWHnymtuW2s0",
+      "price_1RfSoxKGf8mwZWHngHcug4YM",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,

@@ -164,7 +164,7 @@ export default function Pricing(props: PricingProps) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 20%</Badge>
+            <Badge>Save up to 16%</Badge>
           </div>
         </div>
 
