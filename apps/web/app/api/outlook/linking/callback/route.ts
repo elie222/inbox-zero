@@ -131,20 +131,17 @@ export const GET = withError(async (request: NextRequest) => {
             targetUserId,
           },
         );
-        // Compute expires_at from tokens
+
         let expiresAt: Date | null = null;
         if (tokens.expires_at) {
-          // If expires_at is provided (absolute timestamp)
           expiresAt = new Date(tokens.expires_at * 1000);
         } else if (tokens.expires_in) {
-          // If expires_in is provided (seconds from now)
           const expiresInSeconds =
             typeof tokens.expires_in === "string"
               ? Number.parseInt(tokens.expires_in, 10)
               : tokens.expires_in;
           expiresAt = new Date(Date.now() + expiresInSeconds * 1000);
         }
-        // If neither exists, expiresAt remains null
 
         const newAccount = await prisma.account.create({
           data: {
