@@ -1,11 +1,9 @@
-import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 import { aiCategorizeSenders } from "@/utils/ai/categorize-sender/ai-categorize-senders";
 import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
-import { getThreadsFromSenderWithSubject } from "@/utils/gmail/thread";
 import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -17,52 +15,6 @@ import type { EmailProvider } from "@/utils/email/types";
 const logger = createScopedLogger("categorize/senders");
 
 export async function categorizeSender(
-  senderAddress: string,
-  emailAccount: EmailAccountWithAI,
-  gmail: gmail_v1.Gmail,
-  accessToken: string,
-  userCategories?: Pick<Category, "id" | "name" | "description">[],
-) {
-  const categories =
-    userCategories ||
-    (await getUserCategories({ emailAccountId: emailAccount.id }));
-  if (categories.length === 0) return { categoryId: undefined };
-
-  const previousEmails = await getThreadsFromSenderWithSubject(
-    gmail,
-    accessToken,
-    senderAddress,
-    3,
-  );
-
-  const aiResult = await aiCategorizeSender({
-    emailAccount,
-    sender: senderAddress,
-    previousEmails,
-    categories,
-  });
-
-  if (aiResult) {
-    const { newsletter } = await updateSenderCategory({
-      sender: senderAddress,
-      categories,
-      categoryName: aiResult.category,
-      emailAccountId: emailAccount.id,
-    });
-
-    return { categoryId: newsletter.categoryId };
-  }
-
-  logger.error("No AI result for sender", {
-    userEmail: emailAccount.email,
-    senderAddress,
-  });
-
-  return { categoryId: undefined };
-}
-
-// New function that works with EmailProvider
-export async function categorizeSenderWithProvider(
   senderAddress: string,
   emailAccount: EmailAccountWithAI,
   provider: EmailProvider,

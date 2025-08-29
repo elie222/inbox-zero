@@ -1,22 +1,20 @@
 name: Claude Code Review
 
 on:
-  pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+  pull_request_review_comment:
+    types: [created]
+  workflow_dispatch:  # Manual trigger from GitHub UI
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
+    # Only run when manually triggered or when trusted users mention @claude in PR review comments
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
     
     runs-on: ubuntu-latest
     permissions:
@@ -40,16 +38,16 @@ jobs:
           # Optional: Specify model (defaults to Claude Sonnet 4, uncomment for Claude Opus 4.1)
           # model: "claude-opus-4-1-20250805"
 
-          # Direct prompt for automated review (no @claude mention needed)
-          direct_prompt: |
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
-            
-            Be constructive and helpful in your feedback.
+          # Remove direct_prompt since we're using @claude mentions
+          # direct_prompt: |
+          #   Please review this pull request and provide feedback on:
+          #   - Code quality and best practices
+          #   - Potential bugs or issues
+          #   - Performance considerations
+          #   - Security concerns
+          #   - Test coverage
+          #   
+          #   Be constructive and helpful in your feedback.
 
           # Optional: Use sticky comments to make Claude reuse the same comment on subsequent pushes to the same PR
           # use_sticky_comment: true

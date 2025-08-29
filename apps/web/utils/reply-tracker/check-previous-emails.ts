@@ -84,23 +84,22 @@ export async function processPreviousSentEmails({
     }
 
     try {
+      const provider = await createEmailProvider({
+        emailAccountId: emailAccount.id,
+        provider: "google",
+      });
+
       if (latestMessage.labelIds?.includes(GmailLabel.SENT)) {
         // outbound
         logger.info("Processing outbound reply", loggerOptions);
         await handleOutboundReply({
           emailAccount,
           message: latestMessage,
-          gmail,
+          provider,
         });
       } else {
         // inbound
         logger.info("Processing inbound reply", loggerOptions);
-
-        const provider = await createEmailProvider({
-          emailAccountId: emailAccount.id,
-          provider: "google",
-        });
-
         await handleInboundReply({
           emailAccount,
           message: latestMessage,

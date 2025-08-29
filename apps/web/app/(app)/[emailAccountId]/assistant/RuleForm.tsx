@@ -147,7 +147,11 @@ export function RuleForm({
           ),
           actions: [
             ...rule.actions
-              .filter((action) => action.type !== ActionType.DIGEST)
+              .filter(
+                (action) =>
+                  action.type !== ActionType.DIGEST &&
+                  action.type !== ActionType.TRACK_THREAD,
+              )
               .map((action) => ({
                 ...action,
                 delayInMinutes: action.delayInMinutes,
@@ -363,14 +367,10 @@ export function RuleForm({
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      {
-        label: `Auto-update reply ${terminology.label.singular}`,
-        value: ActionType.TRACK_THREAD,
-      },
     ];
 
     return options;
-  }, [provider, terminology.label.action, terminology.label.singular]);
+  }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =

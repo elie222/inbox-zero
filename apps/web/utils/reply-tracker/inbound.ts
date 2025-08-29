@@ -43,10 +43,7 @@ export async function coordinateReplyProcess({
     sentAt,
   });
 
-  const labelsPromise = client.removeThreadLabel(
-    threadId,
-    await client.getAwaitingReplyLabel(),
-  );
+  const labelsPromise = client.removeAwaitingReplyLabel(threadId);
 
   const [dbResult, labelsResult] = await Promise.allSettled([
     dbPromise,

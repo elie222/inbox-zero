@@ -129,10 +129,10 @@ const StepItem = ({
       href={href}
       {...linkProps}
     >
-      <div className="flex items-center justify-between p-4">
+      <div className="flex items-center justify-between gap-8 p-4">
         <div className="flex max-w-lg items-center">
           <div
-            className={`h-10 w-10 ${iconBg} mr-3 flex flex-shrink-0 items-center justify-center rounded-full`}
+            className={`size-10 ${iconBg} mr-3 flex flex-shrink-0 items-center justify-center rounded-full`}
           >
             <div className={iconColor}>{icon}</div>
           </div>
@@ -146,7 +146,7 @@ const StepItem = ({
 
         <div className="flex items-center">
           {completed ? (
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
+            <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
               <CheckIcon
                 size={14}
                 className="text-green-600 dark:text-green-400"
@@ -188,7 +188,7 @@ function Checklist({
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-foreground">Complete your setup</h2>
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground hidden sm:block">
               {completedCount} of {totalSteps} completed
             </span>
             <div className="h-2 w-32 overflow-hidden rounded-full bg-muted">

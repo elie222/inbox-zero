@@ -10,6 +10,7 @@ import {
   getLabels,
   createLabel,
   getOrCreateInboxZeroLabel,
+  getLabelById,
 } from "@/utils/outlook/label";
 import type { InboxZeroLabel } from "@/utils/label";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
@@ -24,6 +25,7 @@ import {
   getOrCreateLabel,
   labelMessage,
   markReadThread,
+  removeThreadLabel,
 } from "@/utils/outlook/label";
 import { trashThread } from "@/utils/outlook/trash";
 import { markSpam } from "@/utils/outlook/spam";
@@ -34,7 +36,7 @@ import {
   getThreadsFromSenderWithSubject,
 } from "@/utils/outlook/thread";
 import { getOutlookAttachment } from "@/utils/outlook/attachment";
-import { getOrCreateLabels as getOutlookOrCreateLabels } from "@/utils/outlook/label";
+import { getOrCreateLabels } from "@/utils/outlook/label";
 import {
   AWAITING_REPLY_LABEL_NAME,
   NEEDS_REPLY_LABEL_NAME,
@@ -275,9 +277,17 @@ export class OutlookProvider implements EmailProvider {
     return this.getThreadMessages(messageIds[0]);
   }
 
-  async removeThreadLabel(_threadId: string, _labelId: string): Promise<void> {
-    // For Outlook, we don't need to do anything with labels at this point
-    return Promise.resolve();
+  async removeThreadLabel(threadId: string, labelId: string): Promise<void> {
+    // TODO: this can be more efficient by using the label name directly
+    // Get the label to convert ID to name (Outlook uses names)
+    const label = await getLabelById({ client: this.client, id: labelId });
+    const categoryName = label.displayName || "";
+
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName,
+    });
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
@@ -731,29 +741,42 @@ export class OutlookProvider implements EmailProvider {
     return getThreadsFromSenderWithSubject(this.client, sender, limit);
   }
 
-  async getAwaitingReplyLabel(): Promise<string> {
-    const [awaitingReplyLabel] = await getOutlookOrCreateLabels({
+  async getNeedsReplyLabel(): Promise<string | null> {
+    const [needsReplyLabel] = await getOrCreateLabels({
+      client: this.client,
+      names: [NEEDS_REPLY_LABEL_NAME],
+    });
+
+    return needsReplyLabel.id || null;
+  }
+
+  async getAwaitingReplyLabel(): Promise<string | null> {
+    const [awaitingReplyLabel] = await getOrCreateLabels({
       client: this.client,
       names: [AWAITING_REPLY_LABEL_NAME],
     });
 
-    return awaitingReplyLabel.id || "";
+    return awaitingReplyLabel.id || null;
   }
 
-  async getReplyTrackingLabels(): Promise<{
-    awaitingReplyLabelId: string;
-    needsReplyLabelId: string;
-  }> {
-    const [awaitingReplyLabel, needsReplyLabel] =
-      await getOutlookOrCreateLabels({
-        client: this.client,
-        names: [AWAITING_REPLY_LABEL_NAME, NEEDS_REPLY_LABEL_NAME],
-      });
+  async labelAwaitingReply(messageId: string): Promise<void> {
+    await this.labelMessage(messageId, AWAITING_REPLY_LABEL_NAME);
+  }
 
-    return {
-      awaitingReplyLabelId: awaitingReplyLabel.id || "",
-      needsReplyLabelId: needsReplyLabel.id || "",
-    };
+  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: AWAITING_REPLY_LABEL_NAME,
+    });
+  }
+
+  async removeNeedsReplyLabel(threadId: string): Promise<void> {
+    await removeThreadLabel({
+      client: this.client,
+      threadId,
+      categoryName: NEEDS_REPLY_LABEL_NAME,
+    });
   }
 
   async processHistory(options: {

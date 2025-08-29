@@ -7,10 +7,6 @@ import {
   ACTION_TYPE_ICONS,
 } from "@/app/(app)/[emailAccountId]/assistant/constants";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
-import {
-  AWAITING_REPLY_LABEL_NAME,
-  NEEDS_REPLY_LABEL_NAME,
-} from "@/utils/reply-tracker/consts";
 import { getEmailTerminology } from "@/utils/terminology";
 
 export function ActionSummaryCard({
@@ -22,6 +18,14 @@ export function ActionSummaryCard({
   typeOptions: { label: string; value: ActionType }[];
   provider: string;
 }) {
+  // don't display
+  if (
+    action.type === ActionType.TRACK_THREAD ||
+    action.type === ActionType.DIGEST
+  ) {
+    return null;
+  }
+
   const terminology = getEmailTerminology(provider);
   const actionTypeLabel =
     typeOptions.find((opt) => opt.value === action.type)?.label || action.type;
@@ -177,11 +181,6 @@ export function ActionSummaryCard({
         "Sends email details and rule execution data to your webhook endpoint when this rule is triggered.";
       break;
 
-    case ActionType.TRACK_THREAD:
-      summaryContent = `Auto-update reply ${terminology.label.singular}`;
-      tooltipText = `Our AI will automatically update the thread ${terminology.label.singular} to '${NEEDS_REPLY_LABEL_NAME}' or '${AWAITING_REPLY_LABEL_NAME}' based on whether you need to respond or are awaiting a response from the recipient.`;
-      break;
-
     case ActionType.ARCHIVE:
       summaryContent = "Skip Inbox";
       break;
@@ -192,10 +191,6 @@ export function ActionSummaryCard({
 
     case ActionType.MARK_SPAM:
       summaryContent = "Mark as spam";
-      break;
-
-    case ActionType.DIGEST:
-      summaryContent = "Add to digest";
       break;
 
     case ActionType.MOVE_FOLDER:

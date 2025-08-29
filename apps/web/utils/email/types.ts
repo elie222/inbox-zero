@@ -59,7 +59,11 @@ export interface EmailProvider {
   ): Promise<void>;
   labelMessage(messageId: string, labelName: string): Promise<void>;
   removeThreadLabel(threadId: string, labelId: string): Promise<void>;
-  getAwaitingReplyLabel(): Promise<string>;
+  getNeedsReplyLabel(): Promise<string | null>;
+  getAwaitingReplyLabel(): Promise<string | null>;
+  labelAwaitingReply(messageId: string): Promise<void>;
+  removeAwaitingReplyLabel(threadId: string): Promise<void>;
+  removeNeedsReplyLabel(threadId: string): Promise<void>;
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },
@@ -137,10 +141,6 @@ export interface EmailProvider {
     sender: string,
     limit: number,
   ): Promise<Array<{ id: string; snippet: string; subject: string }>>;
-  getReplyTrackingLabels(): Promise<{
-    awaitingReplyLabelId: string;
-    needsReplyLabelId: string;
-  }>;
   processHistory(options: {
     emailAddress: string;
     historyId?: number;

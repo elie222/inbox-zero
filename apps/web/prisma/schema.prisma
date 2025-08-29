@@ -121,7 +121,7 @@ model EmailAccount {
   coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false)
+  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
   autoCategorizeSenders Boolean           @default(false)
 
   digestSchedule Schedule?
