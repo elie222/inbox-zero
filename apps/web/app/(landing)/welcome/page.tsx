@@ -1,9 +1,12 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { after } from "next/server";
 import { OnboardingForm } from "@/app/(landing)/welcome/form";
 import { SquaresPattern } from "@/app/(landing)/home/SquaresPattern";
 import { PageHeading, TypographyP } from "@/components/Typography";
 import { CardBasic } from "@/components/ui/card";
+import { fetchUserAndStoreUtms } from "@/app/(landing)/welcome/utms";
+import { auth } from "@/utils/auth";
 
 export const metadata: Metadata = {
   title: "Welcome",
@@ -19,6 +22,14 @@ export default async function WelcomePage(props: {
   const questionIndex = searchParams.question
     ? Number.parseInt(searchParams.question)
     : 0;
+
+  const authPromise = auth();
+
+  after(async () => {
+    const user = await authPromise;
+    if (!user?.user) return;
+    await fetchUserAndStoreUtms(user.user.id);
+  });
 
   return (
     <div className="flex flex-col justify-center px-6 py-20 text-gray-900">
