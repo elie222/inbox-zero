@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { signIn } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,6 @@ import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
-import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
@@ -37,24 +36,28 @@ export function AddAccount() {
     window.location.href = data.url;
   };
 
-  const handleConnectMicrosoft = async () => {
-    await signIn.social({
-      provider: "microsoft",
-      callbackURL: "/accounts",
-      scopes: [...OUTLOOK_SCOPES],
-    });
-  };
-
-  const handleMergeMicrosoft = async () => {
-    const response = await fetch("/api/outlook/linking/auth-url", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+  const handleConnectMicrosoft = async (action: "merge" | "create") => {
+    const response = await fetch(
+      `/api/outlook/linking/auth-url?action=${action}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
 
     const data: GetOutlookAuthLinkUrlResponse = await response.json();
 
     window.location.href = data.url;
   };
+
+  const handleCreateMicrosoft = useCallback(
+    () => handleConnectMicrosoft("create"),
+    [],
+  );
+  const handleMergeMicrosoft = useCallback(
+    () => handleConnectMicrosoft("merge"),
+    [],
+  );
 
   return (
     <Card className="flex items-center justify-center">
@@ -68,7 +71,7 @@ export function AddAccount() {
         <AddEmailAccount
           name="Microsoft"
           image="/images/microsoft.svg"
-          handleConnect={handleConnectMicrosoft}
+          handleConnect={handleCreateMicrosoft}
           handleMerge={handleMergeMicrosoft}
         />
       </CardContent>
@@ -146,9 +149,9 @@ function AddEmailAccount({
           <Button
             variant="outline"
             size="sm"
-            loading={isMerging}
+            loading={isConnecting}
             disabled={isMerging || isConnecting}
-            onClick={onMerge}
+            onClick={onConnect}
           >
             Yes, it's an existing Inbox Zero account
           </Button>
