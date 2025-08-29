@@ -6,8 +6,8 @@ import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 
 export type GetOutlookAuthLinkUrlResponse = { url: string };
 
-const getAuthUrl = ({ userId }: { userId: string }) => {
-  const stateObject = { userId, nonce: crypto.randomUUID() };
+const getAuthUrl = ({ userId, action }: { userId: string; action: string }) => {
+  const stateObject = { userId, action, nonce: crypto.randomUUID() };
   const state = Buffer.from(JSON.stringify(stateObject)).toString("base64url");
 
   const baseUrl = getLinkingOAuth2Url();
@@ -18,9 +18,11 @@ const getAuthUrl = ({ userId }: { userId: string }) => {
 
 export const GET = withAuth(async (request) => {
   const userId = request.auth.userId;
-  const { url, state } = getAuthUrl({ userId });
+  const url = new URL(request.url);
+  const action = url.searchParams.get("action") || "merge";
+  const { url: authUrl, state } = getAuthUrl({ userId, action });
 
-  const response = NextResponse.json({ url });
+  const response = NextResponse.json({ url: authUrl });
 
   response.cookies.set(OUTLOOK_LINKING_STATE_COOKIE_NAME, state, {
     httpOnly: true,
