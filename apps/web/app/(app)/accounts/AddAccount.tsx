@@ -149,9 +149,9 @@ function AddEmailAccount({
           <Button
             variant="outline"
             size="sm"
-            loading={isConnecting}
+            loading={isMerging}
             disabled={isMerging || isConnecting}
-            onClick={onConnect}
+            onClick={onMerge}
           >
             Yes, it's an existing Inbox Zero account
           </Button>
