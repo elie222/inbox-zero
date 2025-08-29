@@ -1,9 +1,9 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
 import { betterAuth } from "better-auth";
 import type { Account, User, AuthContext } from "better-auth";
-
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
+import { sso } from "@better-auth/sso";
 import { env } from "@/env";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
@@ -50,7 +50,7 @@ export const betterAuthConfig = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  plugins: [nextCookies()],
+  plugins: [nextCookies(), sso()],
   session: {
     modelName: "Session",
     fields: {
