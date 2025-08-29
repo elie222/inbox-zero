@@ -21,12 +21,18 @@ export async function watchEmails({
     const result = await provider.watchEmails();
 
     if (result) {
+      logger.info("Watching emails", {
+        emailAccountId,
+        providerName: provider.name,
+        expirationDate: result.expirationDate,
+        subscriptionId: result.subscriptionId,
+      });
+
       await prisma.emailAccount.update({
         where: { id: emailAccountId },
         data: {
           watchEmailsExpirationDate: result.expirationDate,
-          watchEmailsSubscriptionId:
-            provider.name === "microsoft" ? result.subscriptionId : null,
+          watchEmailsSubscriptionId: result.subscriptionId,
         },
       });
 
