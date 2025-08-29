@@ -46,13 +46,17 @@ export function AddAccount() {
   };
 
   const handleMergeMicrosoft = async () => {
-    const response = await fetch("/api/outlook/linking/auth-url", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch("/api/outlook/linking/auth-url");
+
+    if (!response.ok) {
+      toastError({
+        title: "Error initiating Microsoft link",
+        description: "Please try again or contact support",
+      });
+      return;
+    }
 
     const data: GetOutlookAuthLinkUrlResponse = await response.json();
-
     window.location.href = data.url;
   };
 
