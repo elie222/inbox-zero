@@ -100,10 +100,18 @@ async function watchAllEmails() {
         provider: emailAccount.account.provider,
       });
 
-      await watchEmails({
+      const result = await watchEmails({
         emailAccountId: emailAccount.id,
         provider,
       });
+
+      if (!result.success) {
+        logger.error("Failed to watch emails for account", {
+          emailAccountId: emailAccount.id,
+          email: emailAccount.email,
+          error: result.error,
+        });
+      }
     } catch (error) {
       if (error instanceof Error) {
         const warn = [

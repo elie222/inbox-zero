@@ -54,23 +54,28 @@ export const GET = withAuth(async (request) => {
         provider: account.provider,
       });
 
-      const expirationDate = await watchEmails({
+      const result = await watchEmails({
         emailAccountId,
         provider,
       });
 
-      if (expirationDate) {
+      if (result.success) {
         results.push({
           emailAccountId,
           status: "success",
-          expirationDate,
+          expirationDate: result.expirationDate,
         });
       } else {
-        logger.error("Error watching inbox for account", { emailAccountId });
+        logger.error("Error watching inbox for account", {
+          emailAccountId,
+          provider: account.provider,
+          error: result.error,
+        });
         results.push({
           emailAccountId,
           status: "error",
           message: "Failed to set up watch for this account.",
+          errorDetails: result.error,
         });
       }
     } catch (error) {
