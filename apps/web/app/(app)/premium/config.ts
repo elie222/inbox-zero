@@ -237,8 +237,7 @@ const businessPlusTier: Tier = {
       pricing.BUSINESS_PLUS_ANNUALLY,
     ),
   },
-  description:
-    "Ideal for teams and growing businesses handling high email volumes.",
+  description: "For teams and growing businesses handling high email volumes.",
   features: [
     aiAssistantFeature,
     sortsFeature,
@@ -273,7 +272,7 @@ const enterpriseTier: Tier = {
   priceAdditional: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
   description:
-    "Custom solutions for large organizations with enterprise-grade security and compliance requirements.",
+    "For large organizations with enterprise-grade security and compliance requirements.",
   features: [
     {
       text: "Everything in Team, plus:",
