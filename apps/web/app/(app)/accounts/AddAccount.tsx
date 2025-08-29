@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { signIn } from "@/utils/auth-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,14 +50,8 @@ export function AddAccount() {
     window.location.href = data.url;
   };
 
-  const handleCreateMicrosoft = useCallback(
-    () => handleConnectMicrosoft("create"),
-    [],
-  );
-  const handleMergeMicrosoft = useCallback(
-    () => handleConnectMicrosoft("merge"),
-    [],
-  );
+  const handleCreateMicrosoft = () => handleConnectMicrosoft("create");
+  const handleMergeMicrosoft = () => handleConnectMicrosoft("merge");
 
   return (
     <Card className="flex items-center justify-center">
