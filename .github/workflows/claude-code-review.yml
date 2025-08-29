@@ -1,19 +1,20 @@
 name: Claude Code Review
 
 on:
-  issue_comment:
-    types: [created]
   pull_request_review_comment:
     types: [created]
   workflow_dispatch:  # Manual trigger from GitHub UI
 
 jobs:
   claude-review:
-    # Only run when @claude is mentioned in comments or manually triggered
+    # Only run when manually triggered or when trusted users mention @claude in PR review comments
     if: |
       github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude')) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude'))
+      (
+        github.event_name == 'pull_request_review_comment' &&
+        contains(github.event.comment.body, '@claude') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      )
     
     runs-on: ubuntu-latest
     permissions:
