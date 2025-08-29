@@ -1,0 +1,12 @@
+diff --git a/dist/cookies/index.mjs b/dist/cookies/index.mjs
+index f4c53b8b90f61589ffe873e22d756bf081144f2f..993b62d63705fe3ffee1bfea69386d939b482c77 100644
+--- a/dist/cookies/index.mjs
++++ b/dist/cookies/index.mjs
+@@ -259,6 +259,7 @@ async function setCookieCache(ctx, session) {
+       },
+       {}
+     );
++    session.user.image = null;
+     const sessionData = { session: filteredSession, user: session.user };
+     const expiresAtDate = getDate(
+       ctx.context.authCookies.sessionData.options.maxAge || 60,

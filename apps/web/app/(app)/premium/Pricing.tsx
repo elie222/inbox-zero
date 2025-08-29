@@ -16,7 +16,6 @@ import {
   pricingAdditonalEmail,
   type Tier,
   tiers,
-  enterpriseTier,
 } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
@@ -86,7 +85,7 @@ export default function Pricing(props: PricingProps) {
   //   tiers: [basicTier, businessTier, enterpriseTier],
   // };
 
-  const Layout = TwoColLayout;
+  const Layout = ThreeColLayout;
 
   const router = useRouter();
 
@@ -165,16 +164,17 @@ export default function Pricing(props: PricingProps) {
           </RadioGroup>
 
           <div className="ml-1">
-            <Badge>Save up to 20%!</Badge>
+            <Badge>Save up to 16%</Badge>
           </div>
         </div>
 
-        <Layout className="isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-y-8">
-          {tiers.map((tier) => {
+        <Layout className="isolate mx-auto mt-10 grid max-w-7xl grid-cols-1 gap-y-8">
+          {tiers.map((tier, index) => {
             return (
               <PriceTier
                 key={tier.name}
                 tier={tier}
+                index={index}
                 userPremiumTier={userPremiumTier}
                 frequency={frequency}
                 stripeSubscriptionId={premium?.stripeSubscriptionId}
@@ -184,10 +184,6 @@ export default function Pricing(props: PricingProps) {
             );
           })}
         </Layout>
-
-        <div className="mx-auto mt-8 max-w-4xl">
-          <EnterpriseCard />
-        </div>
       </div>
     </LoadingContent>
   );
@@ -195,6 +191,7 @@ export default function Pricing(props: PricingProps) {
 
 function PriceTier({
   tier,
+  index,
   userPremiumTier,
   frequency,
   stripeSubscriptionId,
@@ -202,6 +199,7 @@ function PriceTier({
   router,
 }: {
   tier: Tier;
+  index: number;
   userPremiumTier: PremiumTier | null;
   frequency: (typeof frequencies)[number];
   stripeSubscriptionId: string | null | undefined;
@@ -214,13 +212,14 @@ function PriceTier({
 
   function getCTAText() {
     if (isCurrentPlan) return "Current plan";
-    if (userPremiumTier) return "Switch to this plan";
+    if (userPremiumTier && !tier.ctaLink) return "Switch to this plan";
     return tier.cta;
   }
 
   return (
-    <TwoColItem
+    <ThreeColItem
       key={tier.name}
+      index={index}
       className="flex flex-col rounded-3xl bg-white p-8 ring-1 ring-gray-200 xl:p-10"
     >
       <div className="flex-1">
@@ -240,12 +239,20 @@ function PriceTier({
           {tier.description}
         </p>
         <p className="mt-6 flex items-baseline gap-x-1">
-          <span className="text-4xl font-bold tracking-tight text-gray-900">
-            ${tier.price[frequency.value]}
-          </span>
-          <span className="text-sm font-semibold leading-6 text-gray-600">
-            {frequency.priceSuffix}
-          </span>
+          {tier.price[frequency.value] === 0 ? (
+            <span className="text-4xl font-bold tracking-tight text-gray-900">
+              Let's talk
+            </span>
+          ) : (
+            <>
+              <span className="text-4xl font-bold tracking-tight text-gray-900">
+                ${tier.price[frequency.value]}
+              </span>
+              <span className="text-sm font-semibold leading-6 text-gray-600">
+                {frequency.priceSuffix}
+              </span>
+            </>
+          )}
 
           {!!tier.discount?.[frequency.value] && (
             <Badge>
@@ -255,13 +262,13 @@ function PriceTier({
             </Badge>
           )}
         </p>
-        {tier.priceAdditional ? (
+        {tier.priceAdditional && tier.priceAdditional[frequency.value] > 0 ? (
           <p className="mt-3 text-sm leading-6 text-gray-500">
             +${formatPrice(tier.priceAdditional[frequency.value])} for each
             additional email account
           </p>
         ) : (
-          <div className="mt-16" />
+          <div />
         )}
         <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
           {tier.features.map((feature) => (
@@ -285,6 +292,12 @@ function PriceTier({
         type="button"
         disabled={loading}
         onClick={async () => {
+          // Handle enterprise tier differently - redirect to sales page
+          if (tier.ctaLink) {
+            window.location.href = tier.ctaLink;
+            return;
+          }
+
           if (!isLoggedIn) router.push("/login");
 
           setLoading(true);
@@ -341,7 +354,7 @@ function PriceTier({
           getCTAText()
         )}
       </button>
-    </TwoColItem>
+    </ThreeColItem>
   );
 }
 
@@ -401,21 +414,7 @@ function PriceTier({
 //   };
 // }
 
-// function ThreeColLayout({
-//   children,
-//   className,
-// }: {
-//   children: React.ReactNode;
-//   className?: string;
-// }) {
-//   return (
-//     <div className={cn("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
-//       {children}
-//     </div>
-//   );
-// }
-
-function TwoColLayout({
+function ThreeColLayout({
   children,
   className,
 }: {
@@ -423,44 +422,30 @@ function TwoColLayout({
   className?: string;
 }) {
   return (
-    <div className={cn("gap-x-4 lg:max-w-4xl lg:grid-cols-2", className)}>
+    <div className={cn("lg:mx-0 lg:max-w-none lg:grid-cols-3", className)}>
       {children}
     </div>
   );
 }
 
-// function ThreeColItem({
-//   children,
-//   className,
-//   index,
-// }: {
-//   children: React.ReactNode;
-//   className?: string;
-//   index: number;
-// }) {
-//   return (
-//     <div
-//       className={cn(
-//         index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
-//         index === 0 ? "lg:rounded-r-none" : "",
-//         index === 2 ? "lg:rounded-l-none" : "",
-//         className,
-//       )}
-//     >
-//       {children}
-//     </div>
-//   );
-// }
-
-function TwoColItem({
+function ThreeColItem({
   children,
   className,
+  index,
 }: {
   children: React.ReactNode;
   className?: string;
+  index: number;
 }) {
   return (
-    <div className={cn("flex flex-col justify-between", className)}>
+    <div
+      className={cn(
+        index === 1 ? "lg:z-10 lg:rounded-b-none" : "lg:mt-8", // middle tier
+        index === 0 ? "lg:rounded-r-none" : "",
+        index === 2 ? "lg:rounded-l-none" : "",
+        className,
+      )}
+    >
       {children}
     </div>
   );
@@ -471,48 +456,6 @@ function Badge({ children }: { children: React.ReactNode }) {
     <span className="rounded-full bg-blue-600/10 px-2.5 py-1 text-xs font-semibold leading-5 text-blue-600">
       {children}
     </span>
-  );
-}
-
-function EnterpriseCard() {
-  return (
-    <div className="rounded-3xl bg-white p-6 ring-1 ring-gray-200">
-      <div className="flex flex-col items-center justify-between gap-4 lg:flex-row">
-        <div className="flex-1 text-center lg:text-left">
-          <div className="flex items-center justify-center gap-x-4 lg:justify-start">
-            <h3 className="font-cal text-lg leading-8 text-gray-900">
-              {enterpriseTier.name}
-            </h3>
-            {/* <Badge>Custom pricing</Badge> */}
-          </div>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
-            {enterpriseTier.description}
-          </p>
-        </div>
-
-        <ul className="mt-4 space-y-2 text-sm leading-6 text-gray-600 lg:mt-0 lg:flex-1">
-          {enterpriseTier.features.map((feature) => (
-            <li key={feature.text} className="flex gap-x-3">
-              <CheckIcon
-                className="h-5 w-4 flex-none text-blue-600"
-                aria-hidden="true"
-              />
-              <span>{feature.text}</span>
-            </li>
-          ))}
-        </ul>
-
-        <div className="mt-4 lg:mt-0">
-          <Link
-            href={enterpriseTier.ctaLink || "#"}
-            target="_blank"
-            className="block rounded-md bg-blue-600 px-6 py-2.5 text-center text-sm font-semibold leading-6 text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
-          >
-            {enterpriseTier.cta}
-          </Link>
-        </div>
-      </div>
-    </div>
   );
 }
 

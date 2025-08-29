@@ -23,7 +23,7 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_MONTHLY]: 16,
   [PremiumTier.PRO_ANNUALLY]: 10,
   [PremiumTier.BUSINESS_MONTHLY]: 20,
-  [PremiumTier.BUSINESS_ANNUALLY]: 16,
+  [PremiumTier.BUSINESS_ANNUALLY]: 18,
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
@@ -81,7 +81,10 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
-    oldPriceIds: ["price_1RfSoxKGf8mwZWHngHcug4YM"],
+    oldPriceIds: [
+      "price_1RMSnIKGf8mwZWHnymtuW2s0",
+      "price_1RfSoxKGf8mwZWHngHcug4YM",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
@@ -124,17 +127,19 @@ function discount(monthly: number, annually: number) {
 
 const aiAssistantFeature = {
   text: "AI personal assistant",
-  tooltip: "AI assistant that drafts replies and organizes your inbox",
+  tooltip: "AI assistant that drafts replies, sorts and labels your inbox",
+};
+
+const sortsFeature = {
+  text: "Labels and sorts every email",
 };
 
 const replyZeroFeature = {
-  text: "Auto drafted replies",
-  tooltip: "Prewritten drafts ready to send in your inbox",
+  text: "Pre-written drafts in your voice",
 };
 
 const coldEmailBlockerFeature = {
-  text: "Cold email blocker",
-  tooltip: "Automatically block cold emails",
+  text: "Blocks cold emails",
 };
 
 // const smartCategoriesFeature = {
@@ -143,8 +148,8 @@ const coldEmailBlockerFeature = {
 // };
 
 const bulkUnsubscribeFeature = {
-  text: "Bulk unsubscriber",
-  tooltip: "Bulk unsubscribe from emails in one-click",
+  text: "Bulk unsubscribe and archive emails",
+  tooltip: "Unsubscribe and archive thousands of emails in one-click",
 };
 
 const analyticsFeature = { text: "Email analytics" };
@@ -174,7 +179,7 @@ const analyticsFeature = { text: "Email analytics" };
 //   cta: "Try free for 7 days",
 // };
 
-export const businessTierName = "Pro";
+export const businessTierName = "Individual";
 
 const businessTier: Tier = {
   name: businessTierName,
@@ -195,14 +200,15 @@ const businessTier: Tier = {
     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
   },
   description:
-    "For individuals and businesses that want to get their email under control.",
+    "For entrepreneurs, executives, and leaders looking to buy back their time.",
   features: [
     aiAssistantFeature,
+    sortsFeature,
     replyZeroFeature,
     coldEmailBlockerFeature,
     bulkUnsubscribeFeature,
     analyticsFeature,
-    { text: "Unlimited AI credits" },
+    { text: "Process unlimited emails per month" },
     {
       text: "Basic Knowledge Base",
       tooltip:
@@ -214,7 +220,7 @@ const businessTier: Tier = {
 };
 
 const businessPlusTier: Tier = {
-  name: "Business",
+  name: "Team",
   tiers: {
     monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
     annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,
@@ -234,15 +240,15 @@ const businessPlusTier: Tier = {
       pricing.BUSINESS_PLUS_ANNUALLY,
     ),
   },
-  description:
-    "For teams handling high email volumes: streamline repetitive tasks, outreach, and support.",
+  description: "For teams and growing businesses handling high email volumes.",
   features: [
     aiAssistantFeature,
+    sortsFeature,
     replyZeroFeature,
     coldEmailBlockerFeature,
     bulkUnsubscribeFeature,
     analyticsFeature,
-    { text: "Unlimited AI credits" },
+    { text: "Process unlimited emails per month" },
     {
       text: "Unlimited Knowledge Base",
       tooltip:
@@ -268,16 +274,28 @@ const enterpriseTier: Tier = {
   price: { monthly: 0, annually: 0 },
   priceAdditional: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
-  description: "Custom solutions for large organizations",
+  description:
+    "For large organizations with enterprise-grade security and compliance requirements.",
   features: [
     {
-      text: "Everything in Business, plus:",
+      text: "Everything in Team, plus:",
     },
     {
-      text: "Unlimited accounts & on-premise deployment",
+      text: "Unlimited accounts",
+    },
+    {
+      text: "On-premise deployment for maximum privacy and security",
     },
     {
       text: "Advanced security, SLA & dedicated support",
+    },
+    {
+      text: "Dedicated account manager",
+    },
+    {
+      text: "Dedicated training",
+      tooltip:
+        "We'll help your team get set up on training calls to get the most out of the product.",
     },
   ],
   cta: "Speak to sales",
@@ -295,5 +313,4 @@ export function getLemonSubscriptionTier({
   return tier;
 }
 
-export const tiers: Tier[] = [businessTier, businessPlusTier];
-export { enterpriseTier };
+export const tiers: Tier[] = [businessTier, businessPlusTier, enterpriseTier];
