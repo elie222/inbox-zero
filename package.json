@@ -20,9 +20,9 @@
     "turbo": "2.5.4",
     "ultracite": "5.0.35"
   },
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "pnpm@10.15.0",
   "lint-staged": {
-    "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [
+    "*.{js,jsx,ts,tsx,json,jsonc,css,scss,md,mdx}": [ 
       "npx ultracite format"
     ]
   },

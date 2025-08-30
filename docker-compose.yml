@@ -22,7 +22,7 @@ services:
     volumes:
       - database-data:/data
     networks:
-      - inbox-zero-network
+      - inbox-zero-network  
 
   serverless-redis-http:
     ports:

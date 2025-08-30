@@ -1,30 +1,39 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-// import { Analytics } from "@vercel/analytics/react";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Inter } from "next/font/google";
-import localFont from "next/font/local";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
+import { Cal_Sans }  from "next/font/google"; 
+// import { Analytics } from "@vercel/analytics/react";
+// import localFont from "next/font/local";
 
 const inter = Inter({
-  subsets: ["latin"],
+  subsets: ["latin"], 
   variable: "--font-inter",
   preload: true,
   display: "swap",
 });
-const calFont = localFont({
-  src: "../styles/CalSans-SemiBold.woff2",
-  variable: "--font-cal",
-  preload: true,
-  display: "swap",
+
+const calSans = Cal_Sans({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap", 
+  variable: "--font-cal-sans",
 });
+
+// const calFont = localFont({
+//   src: "../styles/CalSans-SemiBold.woff2",
+//   variable: "--font-cal",
+//   preload: true,
+//   display: "swap",
+// });
 
 const title = "Inbox Zero | Automate and clean your inbox";
 const description =
@@ -74,7 +83,7 @@ export const viewport = {
   themeColor: "#FFF",
 };
 
-export default async function RootLayout({
+export default async function RootLayout({ 
   children,
 }: {
   children: React.ReactNode;
@@ -82,12 +91,12 @@ export default async function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
+        className={`h-full ${inter.variable} ${calSans.variable} font-cal antialiased`} 
       >
         <PostHogProvider>
           <Suspense>
-            <PostHogPageview />
-          </Suspense>
+            <PostHogPageview /> 
+          </Suspense> 
           <GlobalProviders>{children}</GlobalProviders>
         </PostHogProvider>
         {/* <Analytics /> */}
@@ -107,3 +116,6 @@ export default async function RootLayout({
     </html>
   );
 }
+
+
+

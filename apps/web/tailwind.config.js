@@ -18,7 +18,7 @@ module.exports = {
       padding: "2rem",
       screens: {
         "2xl": "1400px",
-      },
+      }, 
     },
     extend: {
       keyframes: {
@@ -28,17 +28,17 @@ module.exports = {
         },
         "accordion-up": {
           from: { height: "var(--radix-accordion-content-height)" },
-          to: { height: 0 },
+          to: { height: 0 }, 
         },
-      },
+      }, 
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
       },
-      fontFamily: {
-        cal: ["var(--font-cal)", ...fontFamily.sans],
-        sans: ["var(--font-inter)", ...fontFamily.sans],
-      },
+      fontFamily: { 
+        cal: ["var(--font-cal-sans)", ...fontFamily.sans], 
+        sans: ["var(--font-inter)", ...fontFamily.sans], 
+      }, 
       colors: {
         // shadcn/ui
         border: "hsl(var(--border))",
