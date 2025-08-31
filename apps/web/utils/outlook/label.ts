@@ -230,6 +230,60 @@ export async function labelThread({
   );
 }
 
+// Doesn't use pagination. But this function not really used anyway. Can add in the future of needed.
+export async function removeThreadLabel({
+  client,
+  threadId,
+  categoryName,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  categoryName: string;
+}) {
+  if (!categoryName) {
+    logger.warn("Category name is empty, skipping removal", { threadId });
+    return;
+  }
+
+  // Get all messages in the thread
+  const escapedThreadId = threadId.replace(/'/g, "''");
+  const messages = await client
+    .getClient()
+    .api("/me/messages")
+    .filter(`conversationId eq '${escapedThreadId}'`)
+    .select("id,categories")
+    .get();
+
+  // Remove the category from each message
+  await Promise.all(
+    messages.value.map(
+      async (message: { id: string; categories?: string[] }) => {
+        if (!message.categories || !message.categories.includes(categoryName)) {
+          return; // Category not present, nothing to remove
+        }
+
+        const updatedCategories = message.categories.filter(
+          (cat) => cat !== categoryName,
+        );
+
+        try {
+          await client
+            .getClient()
+            .api(`/me/messages/${message.id}`)
+            .patch({ categories: updatedCategories });
+        } catch (error) {
+          logger.warn("Failed to remove category from message", {
+            messageId: message.id,
+            threadId,
+            categoryName,
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      },
+    ),
+  );
+}
+
 export async function archiveThread({
   client,
   threadId,
