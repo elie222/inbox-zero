@@ -88,7 +88,7 @@ export const betterAuthConfig = betterAuth({
       clientSecret: env.GOOGLE_CLIENT_SECRET,
       scope: [...GMAIL_SCOPES],
       accessType: "offline",
-      prompt: "select_account+consent",
+      prompt: "select_account consent",
       disableIdTokenSignIn: true,
     },
     microsoft: {

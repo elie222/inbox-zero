@@ -168,8 +168,6 @@ export function createGenerateObject({
 export async function chatCompletionStream({
   userAi,
   modelType,
-  system,
-  prompt,
   messages,
   tools,
   maxSteps,
@@ -180,9 +178,7 @@ export async function chatCompletionStream({
 }: {
   userAi: UserAIFields;
   modelType?: ModelType;
-  system?: string;
-  prompt?: string;
-  messages?: ModelMessage[];
+  messages: ModelMessage[];
   tools?: Record<string, Tool>;
   maxSteps?: number;
   userEmail: string;
@@ -197,8 +193,6 @@ export async function chatCompletionStream({
 
   const result = streamText({
     model,
-    system,
-    prompt,
     messages,
     tools,
     stopWhen: maxSteps ? stepCountIs(maxSteps) : undefined,
