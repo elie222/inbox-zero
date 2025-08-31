@@ -8,6 +8,8 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
+const TIMEOUT = 15_000;
+
 vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
@@ -22,7 +24,8 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       }),
       emailAccount: getEmailAccount(),
       selectedRule: rule,
-      gmail: {} as any,
+      client: {} as any,
+      modelType: "default",
     });
 
     expect(result).toEqual(actions);
@@ -44,43 +47,49 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       }),
       emailAccount: getEmailAccount(),
       selectedRule: rule,
-      gmail: {} as any,
+      client: {} as any,
+      modelType: "default",
     });
 
     expect(result).toHaveLength(1);
     expect(result[0]).toMatchObject(actions[0]);
   });
 
-  test("should generate AI content for actions that need it", async () => {
-    const actions = [
-      getAction({
-        type: ActionType.REPLY,
-        content:
-          "The price of pears is: {{the price with the dollar sign - pears are $1.99, apples are $2.99}}",
-      }),
-    ];
-    const rule = getRule(
-      "Choose this when the price of an items is asked for",
-      actions,
-    );
+  test(
+    "should generate AI content for actions that need it",
+    async () => {
+      const actions = [
+        getAction({
+          type: ActionType.REPLY,
+          content:
+            "The price of pears is: {{the price with the dollar sign - pears are $1.99, apples are $2.99}}",
+        }),
+      ];
+      const rule = getRule(
+        "Choose this when the price of an items is asked for",
+        actions,
+      );
 
-    const result = await getActionItemsWithAiArgs({
-      message: getParsedMessage({
-        subject: "Quick question",
-        content: "How much are pears?",
-      }),
-      emailAccount: getEmailAccount(),
-      selectedRule: rule,
-      gmail: {} as any,
-    });
+      const result = await getActionItemsWithAiArgs({
+        message: getParsedMessage({
+          subject: "Quick question",
+          content: "How much are pears?",
+        }),
+        emailAccount: getEmailAccount(),
+        selectedRule: rule,
+        client: {} as any,
+        modelType: "default",
+      });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toMatchObject({
-      ...actions[0],
-      content: "The price of pears is: $1.99",
-    });
-    console.debug("Generated content:\n", result[0].content);
-  }, 15_000);
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({
+        ...actions[0],
+        content: "The price of pears is: $1.99",
+      });
+      console.debug("Generated content:\n", result[0].content);
+    },
+    TIMEOUT,
+  );
 
   test("should handle multiple actions with mixed AI needs", async () => {
     const actions = [
@@ -98,7 +107,8 @@ describe.runIf(isAiTest)("getActionItemsWithAiArgs", () => {
       }),
       emailAccount: getEmailAccount(),
       selectedRule: rule,
-      gmail: {} as any,
+      client: {} as any,
+      modelType: "default",
     });
 
     expect(result).toHaveLength(2);
@@ -135,7 +145,8 @@ Matt`,
       }),
       emailAccount: getEmailAccount(),
       selectedRule: rule,
-      gmail: {} as any,
+      client: {} as any,
+      modelType: "default",
     });
 
     expect(result).toHaveLength(2);
@@ -172,6 +183,9 @@ function getAction(action: Partial<Action> = {}): Action {
     cc: null,
     bcc: null,
     url: null,
+    delayInMinutes: null,
+    folderName: null,
+    folderId: null,
     ...action,
   };
 }
@@ -199,6 +213,7 @@ function getRule(
     categoryFilterType: null,
     conditionalOperator: LogicalOperator.AND,
     systemType: null,
+    promptText: null,
   };
 }
 
@@ -213,10 +228,11 @@ function getParsedMessage({
     snippet: "",
     attachments: [],
     historyId: "history-id",
-    sizeEstimate: 100,
     internalDate: new Date().toISOString(),
     inline: [],
     textPlain: content,
+    date: new Date().toISOString(),
+    subject,
     // ...message,
     headers: {
       from,

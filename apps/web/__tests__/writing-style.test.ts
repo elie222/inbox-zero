@@ -4,6 +4,8 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai writing-style
 
+const TIMEOUT = 15_000;
+
 vi.mock("server-only", () => ({}));
 
 // Skip tests unless explicitly running AI tests
@@ -38,8 +40,8 @@ describe.runIf(isAiTest)(
       expect(result).toBeNull();
     });
   },
-  15_000,
-); // 15 second timeout
+  TIMEOUT,
+);
 
 function getTestEmails() {
   return [

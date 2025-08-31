@@ -3,11 +3,11 @@
   "version": "0.0.0",
   "main": "src/index.ts",
   "dependencies": {
-    "loops": "^5.0.1"
+    "loops": "^6.0.0"
   },
   "devDependencies": {
-    "@types/node": "22.15.29",
+    "@types/node": "24.3.0",
     "tsconfig": "workspace:*",
-    "typescript": "5.8.3"
+    "typescript": "5.9.2"
   }
 }

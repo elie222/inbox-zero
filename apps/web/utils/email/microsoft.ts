@@ -59,7 +59,7 @@ const logger = createScopedLogger("outlook-provider");
 
 export class OutlookProvider implements EmailProvider {
   readonly name = "microsoft";
-  private client: OutlookClient;
+  private readonly client: OutlookClient;
 
   constructor(client: OutlookClient) {
     this.client = client;
