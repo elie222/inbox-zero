@@ -9,6 +9,7 @@ import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { isAIRule } from "@/utils/condition";
 import { prefixPath } from "@/utils/path";
+import { ActionType } from "@prisma/client";
 
 export function ProcessResultDisplay({
   result,
@@ -49,34 +50,46 @@ export function ProcessResultDisplay({
 
   const MAX_LENGTH = 280;
 
-  const aiGeneratedContent = result.actionItems?.map((action, i) => (
-    <div
-      key={i}
-      className="space-y-2 rounded-md border border-border bg-muted p-3"
-    >
-      <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
-        {capitalCase(action.type)}
+  const aiGeneratedContent = result.actionItems
+    ?.filter(
+      (action) =>
+        action.type !== ActionType.TRACK_THREAD &&
+        action.type !== ActionType.DIGEST,
+    )
+    .map((action, i) => (
+      <div
+        key={i}
+        className="space-y-2 rounded-md border border-border bg-muted p-3"
+      >
+        <div className="text-xs font-semibold uppercase tracking-wide text-foreground">
+          {capitalCase(action.type)}
+        </div>
+        {Object.entries(action)
+          .filter(
+            ([key, value]) =>
+              value &&
+              [
+                "label",
+                "subject",
+                "content",
+                "to",
+                "cc",
+                "bcc",
+                "url",
+              ].includes(key),
+          )
+          .map(([key, value]) => (
+            <div key={key} className="flex text-sm text-foreground">
+              <span className="min-w-16 font-medium text-muted-foreground">
+                {capitalCase(key)}:
+              </span>
+              <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
+                {value}
+              </span>
+            </div>
+          ))}
       </div>
-      {Object.entries(action)
-        .filter(
-          ([key, value]) =>
-            value &&
-            ["label", "subject", "content", "to", "cc", "bcc", "url"].includes(
-              key,
-            ),
-        )
-        .map(([key, value]) => (
-          <div key={key} className="flex text-sm text-foreground">
-            <span className="min-w-16 font-medium text-muted-foreground">
-              {capitalCase(key)}:
-            </span>
-            <span className="ml-2 max-h-40 flex-1 overflow-y-auto">
-              {value}
-            </span>
-          </div>
-        ))}
-    </div>
-  ));
+    ));
 
   return (
     <HoverCard
