@@ -3,6 +3,8 @@ import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
 import type { Knowledge } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
 
+const TIMEOUT = 30_000;
+
 // pnpm test-ai ai-extract-knowledge
 
 vi.mock("server-only", () => ({}));
@@ -85,62 +87,74 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     vi.clearAllMocks();
   });
 
-  test("extracts Instagram pricing knowledge when asked about Instagram sponsorship", async () => {
-    const emailContent =
-      "Hi! I'm interested in doing an Instagram sponsorship with you. What are your rates?";
+  test(
+    "extracts Instagram pricing knowledge when asked about Instagram sponsorship",
+    async () => {
+      const emailContent =
+        "Hi! I'm interested in doing an Instagram sponsorship with you. What are your rates?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$5,000 per post/i);
-    expect(result?.relevantContent).toMatch(/3 stories/i);
-    console.debug(
-      "Generated content for Instagram query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$5,000 per post/i);
+      expect(result?.relevantContent).toMatch(/3 stories/i);
+      console.debug(
+        "Generated content for Instagram query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
-  test("extracts YouTube pricing knowledge when asked about video sponsorship", async () => {
-    const emailContent =
-      "We'd love to sponsor a video on your YouTube channel. Could you share your rates for video integrations?";
+  test(
+    "extracts YouTube pricing knowledge when asked about video sponsorship",
+    async () => {
+      const emailContent =
+        "We'd love to sponsor a video on your YouTube channel. Could you share your rates for video integrations?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$10,000/i);
-    expect(result?.relevantContent).toMatch(/60-90 second integration/i);
-    console.debug(
-      "Generated content for YouTube query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$10,000/i);
+      expect(result?.relevantContent).toMatch(/60-90 second integration/i);
+      console.debug(
+        "Generated content for YouTube query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
-  test("extracts TikTok pricing knowledge when asked about TikTok collaboration", async () => {
-    const emailContent =
-      "Hey! Looking to collaborate on TikTok. What's your rate for sponsored content?";
+  test(
+    "extracts TikTok pricing knowledge when asked about TikTok collaboration",
+    async () => {
+      const emailContent =
+        "Hey! Looking to collaborate on TikTok. What's your rate for sponsored content?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$3,000 per video/i);
-    expect(result?.relevantContent).toMatch(/6-8pm EST/i);
-    console.debug(
-      "Generated content for TikTok query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$3,000 per video/i);
+      expect(result?.relevantContent).toMatch(/6-8pm EST/i);
+      console.debug(
+        "Generated content for TikTok query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
   test("handles empty knowledge base", async () => {
     const emailContent = "What are your sponsorship rates?";
@@ -154,81 +168,97 @@ describe.runIf(isAiTest)("aiExtractRelevantKnowledge", () => {
     expect(result?.relevantContent).toBe("");
   });
 
-  test("extracts multiple platform knowledge for general sponsorship inquiry", async () => {
-    const emailContent =
-      "Hi! We're a brand looking to work with you across multiple platforms. Could you share your rates?";
+  test(
+    "extracts multiple platform knowledge for general sponsorship inquiry",
+    async () => {
+      const emailContent =
+        "Hi! We're a brand looking to work with you across multiple platforms. Could you share your rates?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/instagram/i);
-    expect(result?.relevantContent).toMatch(/youtube/i);
-    expect(result?.relevantContent).toMatch(/tiktok/i);
-    console.debug(
-      "Generated content for multi-platform query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/instagram/i);
+      expect(result?.relevantContent).toMatch(/youtube/i);
+      expect(result?.relevantContent).toMatch(/tiktok/i);
+      console.debug(
+        "Generated content for multi-platform query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
-  test("extracts speaking engagement information when asked about keynote speaking", async () => {
-    const emailContent =
-      "Hi! We're organizing a tech conference in New York and would love to have you as a keynote speaker. What are your speaking fees?";
+  test(
+    "extracts speaking engagement information when asked about keynote speaking",
+    async () => {
+      const emailContent =
+        "Hi! We're organizing a tech conference in New York and would love to have you as a keynote speaker. What are your speaking fees?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$15,000 for in-person events/i);
-    expect(result?.relevantContent).toMatch(/travel expenses/i);
-    console.debug(
-      "Generated content for speaking engagement query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$15,000 for in-person events/i);
+      expect(result?.relevantContent).toMatch(/travel expenses/i);
+      console.debug(
+        "Generated content for speaking engagement query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
-  test("extracts consulting information when asked about strategy services", async () => {
-    const emailContent =
-      "We're interested in getting your help with our social media strategy. Can you tell me about your consulting services and rates?";
+  test(
+    "extracts consulting information when asked about strategy services",
+    async () => {
+      const emailContent =
+        "We're interested in getting your help with our social media strategy. Can you tell me about your consulting services and rates?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$500/i);
-    expect(result?.relevantContent).toMatch(/strategy audit/i);
-    console.debug(
-      "Generated content for consulting query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$500/i);
+      expect(result?.relevantContent).toMatch(/strategy audit/i);
+      console.debug(
+        "Generated content for consulting query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 
-  test("extracts brand ambassador details for long-term partnership inquiry", async () => {
-    const emailContent =
-      "Our brand is looking for a long-term ambassador. We'd like to work with you across all platforms for at least a year. What are your rates for this type of partnership?";
+  test(
+    "extracts brand ambassador details for long-term partnership inquiry",
+    async () => {
+      const emailContent =
+        "Our brand is looking for a long-term ambassador. We'd like to work with you across all platforms for at least a year. What are your rates for this type of partnership?";
 
-    const result = await aiExtractRelevantKnowledge({
-      knowledgeBase: getKnowledgeBase(),
-      emailContent,
-      emailAccount: getEmailAccount(),
-    });
+      const result = await aiExtractRelevantKnowledge({
+        knowledgeBase: getKnowledgeBase(),
+        emailContent,
+        emailAccount: getEmailAccount(),
+      });
 
-    expect(result?.relevantContent).toBeDefined();
-    expect(result?.relevantContent).toMatch(/\$50,000/i);
-    expect(result?.relevantContent).toMatch(/quarterly packages/i);
-    expect(result?.relevantContent).toMatch(/6 months/i);
-    console.debug(
-      "Generated content for brand ambassador query:\n",
-      result?.relevantContent,
-    );
-  }, 15_000);
+      expect(result?.relevantContent).toBeDefined();
+      expect(result?.relevantContent).toMatch(/\$50,000/i);
+      expect(result?.relevantContent).toMatch(/quarterly packages/i);
+      expect(result?.relevantContent).toMatch(/6 months/i);
+      console.debug(
+        "Generated content for brand ambassador query:\n",
+        result?.relevantContent,
+      );
+    },
+    TIMEOUT,
+  );
 });

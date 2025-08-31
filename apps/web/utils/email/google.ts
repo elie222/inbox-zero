@@ -71,7 +71,7 @@ const logger = createScopedLogger("gmail-provider");
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
-  private client: gmail_v1.Gmail;
+  private readonly client: gmail_v1.Gmail;
   constructor(client: gmail_v1.Gmail) {
     this.client = client;
   }

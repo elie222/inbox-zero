@@ -24,10 +24,10 @@ export async function createContact(
   if (!loops) return { success: false };
   // so we can run a/b tests with 2-6 groups easily
   const abTestId = getRandomInt(60);
-  const resp = await loops.createContact(
+  const resp = await loops.createContact({
     email,
-    firstName ? { firstName, abTestId } : { abTestId },
-  );
+    properties: firstName ? { firstName, abTestId } : { abTestId },
+  });
   return resp;
 }
 
