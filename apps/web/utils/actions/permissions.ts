@@ -58,10 +58,14 @@ export const adminCheckPermissionsAction = adminActionClient
     try {
       const emailAccount = await prisma.emailAccount.findUnique({
         where: { email },
-        select: { id: true },
+        select: { id: true, account: { select: { provider: true } } },
       });
       if (!emailAccount) throw new SafeError("Email account not found");
       const emailAccountId = emailAccount.id;
+
+      if (!isGoogleProvider(emailAccount.account.provider)) {
+        throw new SafeError("Not supported for non-Google providers");
+      }
 
       const { accessToken, tokens } = await getGmailAndAccessTokenForEmail({
         emailAccountId,
