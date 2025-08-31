@@ -48,6 +48,7 @@ export interface EmailProvider {
     maxResults?: number;
   }): Promise<EmailThread[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
+  getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]>;

@@ -312,6 +312,13 @@ export class GmailProvider implements EmailProvider {
     return getThreadMessages(threadId, this.client);
   }
 
+  async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
+    const messages = await getThreadMessages(threadId, this.client);
+    return messages.filter((message) =>
+      message.labelIds?.includes(GmailLabel.INBOX),
+    );
+  }
+
   async getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]> {
