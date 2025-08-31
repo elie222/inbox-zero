@@ -7,13 +7,14 @@ import { actionClient, adminActionClient } from "@/utils/actions/safe-action";
 import { getGmailAndAccessTokenForEmail } from "@/utils/account";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("actions/permissions");
 
 export const checkPermissionsAction = actionClient
   .metadata({ name: "checkPermissions" })
   .action(async ({ ctx: { emailAccountId, provider } }) => {
-    if (provider !== "google") {
+    if (!isGoogleProvider(provider)) {
       // TODO: add Outlook handling
       return { hasAllPermissions: true, hasRefreshToken: true };
     }

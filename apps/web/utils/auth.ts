@@ -19,6 +19,10 @@ import { updateAccountSeats } from "@/utils/premium/server";
 import type { Prisma } from "@prisma/client";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("auth");
 
@@ -257,8 +261,9 @@ export async function handleReferralOnSignUp({
   }
 }
 
+// TODO: move into email provider instead of checking the provider type
 async function getProfileData(providerId: string, accessToken: string) {
-  if (providerId === "google") {
+  if (isGoogleProvider(providerId)) {
     const contactsClient = getGoogleContactsClient({ accessToken });
     const profileResponse = await contactsClient.people.get({
       resourceName: "people/me",
@@ -275,7 +280,7 @@ async function getProfileData(providerId: string, accessToken: string) {
     };
   }
 
-  if (providerId === "microsoft") {
+  if (isMicrosoftProvider(providerId)) {
     const client = getOutlookContactsClient({ accessToken });
     try {
       const profileResponse = await client.getUserProfile();

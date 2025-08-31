@@ -159,6 +159,42 @@ export class GmailProvider implements EmailProvider {
     return getSentMessages(this.client, maxResults);
   }
 
+  async getSentThreadsExcluding(options: {
+    excludeToEmails?: string[];
+    excludeFromEmails?: string[];
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const {
+      excludeToEmails = [],
+      excludeFromEmails = [],
+      maxResults = 100,
+    } = options;
+
+    // Build Gmail query string
+    const excludeFilters = [
+      ...excludeToEmails.map((email) => `-to:${email}`),
+      ...excludeFromEmails.map((email) => `-from:${email}`),
+    ];
+
+    const query = `in:sent ${excludeFilters.join(" ")}`.trim();
+
+    // Use the existing Gmail thread functionality - this returns minimal threads
+    const response = await getThreadsWithNextPageToken({
+      gmail: this.client,
+      q: query,
+      labelIds: [GmailLabel.SENT],
+      maxResults,
+    });
+
+    // Convert minimal threads to EmailThread format (just with id and snippet, no messages)
+    return response.threads.map((thread) => ({
+      id: thread.id || "",
+      snippet: thread.snippet || "",
+      messages: [], // Empty - consumer will call getThreadMessages(id) if needed
+      historyId: thread.historyId || undefined,
+    }));
+  }
+
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
     await archiveThread({
       gmail: this.client,

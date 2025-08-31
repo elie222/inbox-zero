@@ -156,6 +156,73 @@ export class OutlookProvider implements EmailProvider {
     return response.messages || [];
   }
 
+  async getSentThreadsExcluding(options: {
+    excludeToEmails?: string[];
+    excludeFromEmails?: string[];
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const {
+      excludeToEmails = [],
+      excludeFromEmails = [],
+      maxResults = 100,
+    } = options;
+    const client = this.client.getClient();
+
+    // Build Microsoft Graph API filter
+    const filters: string[] = [];
+
+    // Filter by sent items folder
+    filters.push("parentFolderId eq 'sentitems'");
+
+    // Add exclusion filters for TO emails
+    for (const email of excludeToEmails) {
+      const escapedEmail = email.replace(/'/g, "''");
+      filters.push(
+        `not (toRecipients/any(r: r/emailAddress/address eq '${escapedEmail}'))`,
+      );
+    }
+
+    // Add exclusion filters for FROM emails
+    for (const email of excludeFromEmails) {
+      const escapedEmail = email.replace(/'/g, "''");
+      filters.push(`not (from/emailAddress/address eq '${escapedEmail}')`);
+    }
+
+    const filter = filters.join(" and ");
+
+    // Get messages from Microsoft Graph API
+    const request = client
+      .api("/me/messages")
+      .select(
+        "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients",
+      )
+      .filter(filter)
+      .top(maxResults)
+      .orderby("receivedDateTime desc");
+
+    const response = await request.get();
+
+    // Group messages by conversationId to create minimal threads (like original Gmail implementation)
+    const threadMap = new Map<string, string>();
+
+    for (const message of response.value) {
+      const conversationId = message.conversationId;
+      if (!conversationId) continue;
+
+      // Only keep the first snippet per thread (like Gmail's minimal thread approach)
+      if (!threadMap.has(conversationId)) {
+        threadMap.set(conversationId, message.bodyPreview || "");
+      }
+    }
+
+    // Convert to EmailThread format (minimal, no messages - consumer will call getThreadMessages if needed)
+    return Array.from(threadMap.entries()).map(([id, snippet]) => ({
+      id,
+      snippet,
+      messages: [], // Empty - consumer will call getThreadMessages(id) if needed
+    }));
+  }
+
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
     await archiveThread({
       client: this.client,
@@ -548,6 +615,9 @@ export class OutlookProvider implements EmailProvider {
         filters.push(
           "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
         );
+      } else if (query?.type === "sent") {
+        // For sent messages, filter by sentitems folder
+        filters.push("parentFolderId eq 'sentitems'");
       } else {
         // Default to inbox only
         filters.push("parentFolderId eq 'inbox'");
