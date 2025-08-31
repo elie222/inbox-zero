@@ -10,7 +10,7 @@ export const getStripe = () => {
   if (!env.STRIPE_SECRET_KEY) throw new Error("STRIPE_SECRET_KEY is not set");
   if (!stripe) {
     stripe = new Stripe(env.STRIPE_SECRET_KEY, {
-      apiVersion: "2025-05-28.basil",
+      apiVersion: "2025-08-27.basil",
       appInfo: {
         name: "Inbox Zero",
         version: "1.0.0",

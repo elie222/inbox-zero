@@ -1,13 +1,8 @@
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { auth } from "@/utils/auth";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
 import { WelcomeRedirectContent } from "@/app/(landing)/welcome-redirect/content";
-import { storeUtms } from "@/app/(landing)/welcome/utms";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("welcome-redirect");
 
 export default async function WelcomeRedirectPage(props: {
   searchParams: Promise<{ question?: string; force?: boolean }>;
@@ -28,14 +23,6 @@ export default async function WelcomeRedirectPage(props: {
 
   if (!searchParams.force && user.completedOnboardingAt)
     redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
-
-  after(async () => {
-    if (!user.utms) {
-      await storeUtms(session.user.id).catch((error) => {
-        logger.error("Failed to store utms", { error });
-      });
-    }
-  });
 
   return <WelcomeRedirectContent />;
 }

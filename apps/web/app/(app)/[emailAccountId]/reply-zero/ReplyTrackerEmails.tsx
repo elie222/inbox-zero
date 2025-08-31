@@ -479,7 +479,10 @@ function EmptyState({
 
 function useReplyTrackerKeyboardNav(
   items: { id: string }[],
-  onAction: (index: number, action: "reply" | "resolve" | "unresolve") => void,
+  onAction: (
+    index: number,
+    action: "reply" | "resolve" | "unresolve",
+  ) => Promise<void>,
 ) {
   const handleKeyAction = useCallback(
     (index: number, key: string) => {

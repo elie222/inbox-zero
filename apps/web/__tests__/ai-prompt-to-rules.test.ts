@@ -8,103 +8,109 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
+const TIMEOUT = 15_000;
+
 vi.mock("server-only", () => ({}));
 
 describe.runIf(isAiTest)("aiPromptToRules", () => {
-  it("should convert prompt file to rules", async () => {
-    const emailAccount = getEmailAccount();
+  it(
+    "should convert prompt file to rules",
+    async () => {
+      const emailAccount = getEmailAccount();
 
-    const prompts = [
-      `* Label receipts as "Receipt"`,
-      `* Archive all newsletters and label them "Newsletter"`,
-      `* Archive all marketing emails and label them "Marketing"`,
-      `* Label all emails from mycompany.com as "Internal"`,
-    ];
+      const prompts = [
+        `* Label receipts as "Receipt"`,
+        `* Archive all newsletters and label them "Newsletter"`,
+        `* Archive all marketing emails and label them "Marketing"`,
+        `* Label all emails from mycompany.com as "Internal"`,
+      ];
 
-    const promptFile = prompts.join("\n");
+      const promptFile = prompts.join("\n");
 
-    const result = await aiPromptToRules({
-      emailAccount,
-      promptFile,
-      isEditing: false,
-    });
+      const result = await aiPromptToRules({
+        emailAccount,
+        promptFile,
+        isEditing: false,
+      });
 
-    console.log(JSON.stringify(result, null, 2));
+      console.log(JSON.stringify(result, null, 2));
 
-    expect(Array.isArray(result)).toBe(true);
-    expect(result.length).toBe(prompts.length);
+      expect(Array.isArray(result)).toBe(true);
+      expect(result.length).toBe(prompts.length);
 
-    // receipts
-    expect(result[0]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        group: "Receipts",
-      },
-      actions: [
-        {
-          type: ActionType.LABEL,
-          label: "Receipt",
+      // receipts
+      expect(result[0]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          group: "Receipts",
         },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.LABEL,
+            label: "Receipt",
+          },
+        ],
+      });
 
-    // newsletters
-    expect(result[1]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        group: "Newsletters",
-      },
-      actions: [
-        {
-          type: ActionType.ARCHIVE,
+      // newsletters
+      expect(result[1]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          group: "Newsletters",
         },
-        {
-          type: ActionType.LABEL,
-          label: "Newsletter",
-        },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+          },
+          {
+            type: ActionType.LABEL,
+            label: "Newsletter",
+          },
+        ],
+      });
 
-    // marketing
-    expect(result[2]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        aiInstructions: expect.any(String),
-      },
-      actions: [
-        {
-          type: ActionType.ARCHIVE,
+      // marketing
+      expect(result[2]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          aiInstructions: expect.any(String),
         },
-        {
-          type: ActionType.LABEL,
-          label: "Marketing",
-        },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.ARCHIVE,
+          },
+          {
+            type: ActionType.LABEL,
+            label: "Marketing",
+          },
+        ],
+      });
 
-    // internal
-    expect(result[3]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        static: {
-          from: "mycompany.com",
+      // internal
+      expect(result[3]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          static: {
+            from: "mycompany.com",
+          },
         },
-      },
-      actions: [
-        {
-          type: ActionType.LABEL,
-          label: "Internal",
-        },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.LABEL,
+            label: "Internal",
+          },
+        ],
+      });
 
-    // Validate each rule against the schema
-    for (const rule of result) {
-      expect(() =>
-        createRuleSchema(emailAccount.account.provider).parse(rule),
-      ).not.toThrow();
-    }
-  }, 15_000);
+      // Validate each rule against the schema
+      for (const rule of result) {
+        expect(() =>
+          createRuleSchema(emailAccount.account.provider).parse(rule),
+        ).not.toThrow();
+      }
+    },
+    TIMEOUT,
+  );
 
   it("should handle errors gracefully", async () => {
     const emailAccount = {
@@ -123,80 +129,86 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
     ).rejects.toThrow();
   });
 
-  it("should handle complex email forwarding rules", async () => {
-    const emailAccount = getEmailAccount();
+  it(
+    "should handle complex email forwarding rules",
+    async () => {
+      const emailAccount = getEmailAccount();
 
-    const promptFile = `
+      const promptFile = `
       * Forward urgent emails about system outages to urgent@company.com and label as "Urgent"
       * When someone asks for pricing, forward to sales@company.com and label as "Sales Lead"
       * Forward emails from VIP clients (from @bigclient.com) to vip-support@company.com
     `.trim();
 
-    const result = await aiPromptToRules({
-      emailAccount,
-      promptFile,
-      isEditing: false,
-    });
+      const result = await aiPromptToRules({
+        emailAccount,
+        promptFile,
+        isEditing: false,
+      });
 
-    expect(result.length).toBe(3);
+      expect(result.length).toBe(3);
 
-    // System outages rule
-    expect(result[0]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        aiInstructions: expect.stringMatching(/system|outage|urgent/i),
-      },
-      actions: [
-        {
-          type: ActionType.FORWARD,
-          to: "urgent@company.com",
+      // System outages rule
+      expect(result[0]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          aiInstructions: expect.stringMatching(/system|outage|urgent/i),
         },
-        {
-          type: ActionType.LABEL,
-          label: "Urgent",
-        },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.FORWARD,
+            to: "urgent@company.com",
+          },
+          {
+            type: ActionType.LABEL,
+            label: "Urgent",
+          },
+        ],
+      });
 
-    // Sales lead rule
-    expect(result[1]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        aiInstructions: expect.stringMatching(/pricing|sales/i),
-      },
-      actions: [
-        {
-          type: ActionType.FORWARD,
-          to: "sales@company.com",
+      // Sales lead rule
+      expect(result[1]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          aiInstructions: expect.stringMatching(/pricing|sales/i),
         },
-        {
-          type: ActionType.LABEL,
-          label: "Sales Lead",
-        },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.FORWARD,
+            to: "sales@company.com",
+          },
+          {
+            type: ActionType.LABEL,
+            label: "Sales Lead",
+          },
+        ],
+      });
 
-    // VIP client rule
-    expect(result[2]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        static: {
-          from: "@bigclient.com",
+      // VIP client rule
+      expect(result[2]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          static: {
+            from: "@bigclient.com",
+          },
         },
-      },
-      actions: [
-        {
-          type: ActionType.FORWARD,
-          to: "vip-support@company.com",
-        },
-      ],
-    });
-  }, 15_000);
+        actions: [
+          {
+            type: ActionType.FORWARD,
+            to: "vip-support@company.com",
+          },
+        ],
+      });
+    },
+    TIMEOUT,
+  );
 
-  it("should handle reply templates with smart categories", async () => {
-    const emailAccount = getEmailAccount();
+  it(
+    "should handle reply templates with smart categories",
+    async () => {
+      const emailAccount = getEmailAccount();
 
-    const promptFile = `
+      const promptFile = `
       When someone sends a job application, reply with:
       """
       Thank you for your application. We'll review it and get back to you within 5 business days.
@@ -205,72 +217,80 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       """
     `.trim();
 
-    const result = await aiPromptToRules({
-      emailAccount,
-      promptFile,
-      isEditing: false,
-      availableCategories: ["Job Applications", "HR", "Recruiting"],
-    });
+      const result = await aiPromptToRules({
+        emailAccount,
+        promptFile,
+        isEditing: false,
+        availableCategories: ["Job Applications", "HR", "Recruiting"],
+      });
 
-    expect(result.length).toBe(1);
-    expect(result[0]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        categories: {
-          categoryFilterType: "INCLUDE",
-          categoryFilters: ["Job Applications"],
+      expect(result.length).toBe(1);
+      expect(result[0]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          categories: {
+            categoryFilterType: "INCLUDE",
+            categoryFilters: ["Job Applications"],
+          },
         },
-      },
-      actions: [
-        {
-          type: ActionType.REPLY,
-          content: expect.stringMatching(/Thank you for your application/),
-        },
-      ],
-    });
-  }, 15_000);
+        actions: [
+          {
+            type: ActionType.REPLY,
+            content: expect.stringMatching(/Thank you for your application/),
+          },
+        ],
+      });
+    },
+    TIMEOUT,
+  );
 
-  it("should handle multiple conditions in a single rule", async () => {
-    const emailAccount = getEmailAccount();
+  it(
+    "should handle multiple conditions in a single rule",
+    async () => {
+      const emailAccount = getEmailAccount();
 
-    const promptFile = `
+      const promptFile = `
       When I get an urgent email from support@company.com containing the word "escalation", 
       forward it to manager@company.com and label it as "Escalation"
     `.trim();
 
-    const result = await aiPromptToRules({
-      emailAccount,
-      promptFile,
-      isEditing: false,
-    });
+      const result = await aiPromptToRules({
+        emailAccount,
+        promptFile,
+        isEditing: false,
+      });
 
-    expect(result.length).toBe(1);
-    expect(result[0]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        conditionalOperator: "AND",
-        static: {
-          from: "support@company.com",
+      expect(result.length).toBe(1);
+      expect(result[0]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          conditionalOperator: "AND",
+          static: {
+            from: "support@company.com",
+          },
+          aiInstructions: expect.stringMatching(/urgent|escalation/i),
         },
-        aiInstructions: expect.stringMatching(/urgent|escalation/i),
-      },
-      actions: [
-        {
-          type: ActionType.FORWARD,
-          to: "manager@company.com",
-        },
-        {
-          type: ActionType.LABEL,
-          label: "Escalation",
-        },
-      ],
-    });
-  }, 15_000);
+        actions: [
+          {
+            type: ActionType.FORWARD,
+            to: "manager@company.com",
+          },
+          {
+            type: ActionType.LABEL,
+            label: "Escalation",
+          },
+        ],
+      });
+    },
+    TIMEOUT,
+  );
 
-  it("should handle template variables in replies", async () => {
-    const emailAccount = getEmailAccount();
+  it(
+    "should handle template variables in replies",
+    async () => {
+      const emailAccount = getEmailAccount();
 
-    const promptFile = `
+      const promptFile = `
       When someone asks about pricing, reply with:
       """
       Hi [firstName],
@@ -282,30 +302,32 @@ describe.runIf(isAiTest)("aiPromptToRules", () => {
       """
     `.trim();
 
-    const result = await aiPromptToRules({
-      emailAccount,
-      promptFile,
-      isEditing: false,
-    });
+      const result = await aiPromptToRules({
+        emailAccount,
+        promptFile,
+        isEditing: false,
+      });
 
-    expect(result.length).toBe(1);
-    expect(result[0]).toMatchObject({
-      name: expect.any(String),
-      condition: {
-        aiInstructions: expect.stringMatching(/pricing|price/i),
-      },
-      actions: [
-        {
-          type: ActionType.REPLY,
-          content: expect.stringMatching(/Hi {{firstName}}/),
+      expect(result.length).toBe(1);
+      expect(result[0]).toMatchObject({
+        name: expect.any(String),
+        condition: {
+          aiInstructions: expect.stringMatching(/pricing|price/i),
         },
-      ],
-    });
+        actions: [
+          {
+            type: ActionType.REPLY,
+            content: expect.stringMatching(/Hi {{firstName}}/),
+          },
+        ],
+      });
 
-    // Verify template variable is preserved in the content
-    const replyAction = result[0].actions.find(
-      (a) => a.type === ActionType.REPLY,
-    );
-    expect(replyAction?.fields?.content).toContain("{{firstName}}");
-  }, 15_000);
+      // Verify template variable is preserved in the content
+      const replyAction = result[0].actions.find(
+        (a) => a.type === ActionType.REPLY,
+      );
+      expect(replyAction?.fields?.content).toContain("{{firstName}}");
+    },
+    TIMEOUT,
+  );
 });

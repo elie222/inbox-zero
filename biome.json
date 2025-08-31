@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.2.2/schema.json",
   "linter": {
     "enabled": true,
     "rules": {
@@ -18,7 +18,9 @@
         "useCollapsedIf": "off",
         "useConsistentArrayType": "off",
         "useDefaultSwitchClause": "off",
-        "useCollapsedElseIf": "off"
+        "useCollapsedElseIf": "off",
+        "useConsistentObjectDefinitions": "off",
+        "noMagicNumbers": "off"
       },
       "suspicious": {
         "noConsole": "warn",
@@ -27,7 +29,12 @@
         "noEmptyBlockStatements": "off",
         "useAwait": "off",
         "noEvolvingTypes": "off",
-        "noDocumentCookie": "off"
+        "noDocumentCookie": "off",
+        "noConstantBinaryExpressions": "off",
+        "noBitwiseOperators": "off",
+        "noTsIgnore": "off",
+        "useIterableCallbackReturn": "off",
+        "noUnknownAtRules": "off"
       },
       "complexity": {
         "noForEach": "off",
@@ -37,32 +44,29 @@
       "nursery": {
         "useSortedClasses": "off",
         "noShadow": "off",
-        "noConstantBinaryExpression": "off",
-        "useParseIntRadix": "off",
-        "noNestedComponentDefinitions": "off",
-        "noAwaitInLoop": "off",
-        "noNoninteractiveElementInteractions": "off",
         "noUselessUndefined": "off",
-        "noBitwiseOperators": "off",
-        "noTsIgnore": "off",
-        "useIterableCallbackReturn": "off",
-        "noUnknownAtRule": "off",
-        "useConsistentObjectDefinition": "off"
+        "useMaxParams": "off",
+        "useConsistentTypeDefinitions": "off",
+        "noUnnecessaryConditions": "off"
       },
       "performance": {
         "useTopLevelRegex": "off",
-        "noNamespaceImport": "off"
+        "noNamespaceImport": "off",
+        "noAwaitInLoops": "off"
       },
       "correctness": {
         "noUnusedImports": "warn",
         "noUnusedVariables": "warn",
         "noUnusedFunctionParameters": "warn",
-        "useExhaustiveDependencies": "warn"
+        "useExhaustiveDependencies": "warn",
+        "useParseIntRadix": "off",
+        "noNestedComponentDefinitions": "off"
       },
       "a11y": {
         "useSemanticElements": "off",
         "noStaticElementInteractions": "off",
-        "noSvgWithoutTitle": "off"
+        "noSvgWithoutTitle": "off",
+        "noNoninteractiveElementInteractions": "off"
       }
     }
   },
@@ -91,13 +95,14 @@
     "includes": [
       "apps/**",
       "packages/**",
-      "!node_modules/**",
+      "!node_modules",
       "!*.config.*",
       "!*.json",
       "!**/tsconfig*.json",
-      "!.turbo/**",
-      "!.next/**",
-      "!sw.js"
+      "!.turbo",
+      "!.next",
+      "!sw.js",
+      "!.vscode"
     ]
   },
   "assist": {

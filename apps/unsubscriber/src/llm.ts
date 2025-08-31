@@ -15,5 +15,7 @@ export function getModel(provider: LLMProvider) {
       return anthropic("claude-3-7-sonnet-20250219");
     case "bedrock":
       return bedrock("anthropic.claude-3-7-sonnet-20250219-v1:0");
+    default:
+      throw new Error(`Unknown provider: ${provider}`);
   }
 }
