@@ -891,17 +891,10 @@ export class OutlookProvider implements EmailProvider {
 
     await processHistoryForUser({
       subscriptionId: options.subscriptionId,
-      resourceData: options.resourceData
-        ? {
-            id: options.resourceData.id,
-            conversationId: options.resourceData.conversationId || null,
-            folderId: null,
-          }
-        : {
-            id: options.historyId?.toString() || "0",
-            conversationId: options.startHistoryId?.toString() || null,
-            folderId: null,
-          },
+      resourceData: options.resourceData || {
+        id: options.historyId?.toString() || "0",
+        conversationId: options.startHistoryId?.toString() || null,
+      },
     });
   }
 
