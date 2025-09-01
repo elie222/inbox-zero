@@ -6,7 +6,7 @@ export async function watchOutlook(client: Client) {
   const subscription = await client.api("/subscriptions").post({
     changeType: "created,updated",
     // must be https
-    notificationUrl: `${env.NODE_ENV === "development" ? env.WEBHOOK_URL : env.NEXT_PUBLIC_BASE_URL}/api/outlook/webhook`,
+    notificationUrl: `${env.NODE_ENV === "development" ? env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL : env.NEXT_PUBLIC_BASE_URL}/api/outlook/webhook`,
     resource: "/me/mailFolders/inbox/messages",
     expirationDateTime: addDays(new Date(), 3).toISOString(), // 3 days (max allowed)
   });
