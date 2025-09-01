@@ -11,14 +11,15 @@ export const FOLDER_SEPARATOR = " ⦙ ";
 export type OutlookFolder = {
   id: NonNullable<MailFolder["id"]>;
   displayName: NonNullable<MailFolder["displayName"]>;
-  childFolders: MailFolder["childFolders"];
+  childFolders: OutlookFolder[];
 };
 
 function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
   return {
     id: folder.id ?? "",
     displayName: folder.displayName ?? "",
-    childFolders: folder.childFolders,
+    childFolders:
+      folder.childFolders?.map(convertMailFolderToOutlookFolder) ?? [],
   };
 }
 
