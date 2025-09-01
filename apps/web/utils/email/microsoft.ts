@@ -50,13 +50,13 @@ import {
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { watchOutlook, unwatchOutlook } from "@/utils/outlook/watch";
 import type {
   EmailProvider,
   EmailThread,
   EmailLabel,
   EmailFilter,
 } from "@/utils/email/types";
+import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -891,10 +891,17 @@ export class OutlookProvider implements EmailProvider {
 
     await processHistoryForUser({
       subscriptionId: options.subscriptionId,
-      resourceData: options.resourceData || {
-        id: options.historyId?.toString() || "0",
-        conversationId: options.startHistoryId?.toString(),
-      },
+      resourceData: options.resourceData
+        ? {
+            id: options.resourceData.id,
+            conversationId: options.resourceData.conversationId || null,
+            folderId: null,
+          }
+        : {
+            id: options.historyId?.toString() || "0",
+            conversationId: options.startHistoryId?.toString() || null,
+            folderId: null,
+          },
     });
   }
 

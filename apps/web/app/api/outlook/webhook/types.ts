@@ -19,8 +19,6 @@ export type ProcessHistoryOptions = {
 
 const resourceDataSchema = z
   .object({
-    "@odata.type": z.string().nullable(),
-    "@odata.id": z.string().nullable(),
     id: z.string(),
     folderId: z.string().nullable(),
     conversationId: z.string().nullable(),
