@@ -20,24 +20,24 @@ export type ProcessHistoryOptions = {
 const resourceDataSchema = z
   .object({
     id: z.string(),
-    folderId: z.string().nullable(),
-    conversationId: z.string().nullable(),
+    folderId: z.string().nullish(),
+    conversationId: z.string().nullish(),
   })
   .passthrough(); // Allow additional properties
 
 const notificationSchema = z.object({
   subscriptionId: z.string(),
   changeType: z.string(),
-  resource: z.string().nullable(),
+  resource: z.string().nullish(),
   resourceData: resourceDataSchema,
-  subscriptionExpirationDateTime: z.string().nullable(),
-  clientState: z.string().nullable(),
-  tenantId: z.string().nullable(),
+  subscriptionExpirationDateTime: z.string().nullish(),
+  clientState: z.string().nullish(),
+  tenantId: z.string().nullish(),
 });
 
 export const webhookBodySchema = z.object({
   value: z.array(notificationSchema),
-  clientState: z.string().nullable(),
+  clientState: z.string().nullish(),
 });
 
 export type OutlookResourceData = z.infer<typeof resourceDataSchema>;
