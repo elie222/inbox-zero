@@ -42,7 +42,13 @@ export interface EmailProvider {
   getMessage(messageId: string): Promise<ParsedMessage>;
   getMessages(query?: string, maxResults?: number): Promise<ParsedMessage[]>;
   getSentMessages(maxResults?: number): Promise<ParsedMessage[]>;
+  getSentThreadsExcluding(options: {
+    excludeToEmails?: string[];
+    excludeFromEmails?: string[];
+    maxResults?: number;
+  }): Promise<EmailThread[]>;
   getThreadMessages(threadId: string): Promise<ParsedMessage[]>;
+  getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]>;
   getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]>;

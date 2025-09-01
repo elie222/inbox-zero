@@ -1,7 +1,5 @@
 import { revalidatePath } from "next/cache";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { createScopedLogger } from "@/utils/logger";
-import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { GmailLabel } from "@/utils/gmail/label";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
@@ -14,40 +12,40 @@ import { createEmailProvider } from "@/utils/email/provider";
 const logger = createScopedLogger("reply-tracker/check-previous-emails");
 
 export async function processPreviousSentEmails({
-  gmail,
   emailAccount,
   maxResults = 100,
 }: {
-  gmail: gmail_v1.Gmail;
   emailAccount: EmailAccountWithAI;
   maxResults?: number;
 }) {
   const assistantEmail = getAssistantEmail({ userEmail: emailAccount.email });
 
-  // Get last sent messages
-  const result = await getThreads(
-    `in:sent -to:${assistantEmail} -from:${assistantEmail}`,
-    [GmailLabel.SENT],
-    gmail,
-    maxResults,
-  );
+  const emailProvider = await createEmailProvider({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.account.provider,
+  });
 
-  if (!result.threads) {
+  const threads = await emailProvider.getSentThreadsExcluding({
+    excludeToEmails: [assistantEmail],
+    excludeFromEmails: [assistantEmail],
+    maxResults,
+  });
+
+  if (!threads || threads.length === 0) {
     logger.info("No sent messages found");
     return;
   }
 
   // Process each message
-  for (const thread of result.threads) {
-    const threadMessages = await getThreadMessages(thread.id, gmail);
-
-    // Check if the thread is archived by looking at its labels
-    const isArchived = threadMessages.every(
-      (message) => !message.labelIds?.includes(GmailLabel.INBOX),
+  for (const thread of threads) {
+    // Get only messages that are in the inbox (not archived)
+    const threadMessages = await emailProvider.getThreadMessagesInInbox(
+      thread.id,
     );
 
-    if (isArchived) {
-      logger.trace("Skipping archived thread", {
+    // If no inbox messages, skip this thread (it's archived or deleted)
+    if (!threadMessages || threadMessages.length === 0) {
+      logger.trace("Skipping thread with no inbox messages", {
         email: emailAccount.email,
         threadId: thread.id,
       });
@@ -84,18 +82,17 @@ export async function processPreviousSentEmails({
     }
 
     try {
-      const provider = await createEmailProvider({
-        emailAccountId: emailAccount.id,
-        provider: "google",
-      });
+      const isLatestMessageOutbound =
+        latestMessage.labelIds?.includes(GmailLabel.SENT) ||
+        latestMessage.headers?.from === emailAccount.email;
 
-      if (latestMessage.labelIds?.includes(GmailLabel.SENT)) {
+      if (isLatestMessageOutbound) {
         // outbound
         logger.info("Processing outbound reply", loggerOptions);
         await handleOutboundReply({
           emailAccount,
           message: latestMessage,
-          provider,
+          provider: emailProvider,
         });
       } else {
         // inbound
@@ -103,7 +100,7 @@ export async function processPreviousSentEmails({
         await handleInboundReply({
           emailAccount,
           message: latestMessage,
-          client: provider,
+          client: emailProvider,
         });
       }
 

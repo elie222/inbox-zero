@@ -156,6 +156,73 @@ export class OutlookProvider implements EmailProvider {
     return response.messages || [];
   }
 
+  async getSentThreadsExcluding(options: {
+    excludeToEmails?: string[];
+    excludeFromEmails?: string[];
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const {
+      excludeToEmails = [],
+      excludeFromEmails = [],
+      maxResults = 100,
+    } = options;
+    const client = this.client.getClient();
+
+    // Build Microsoft Graph API filter (only exclusions here; folder is scoped via endpoint)
+    const filters: string[] = [];
+
+    // Add exclusion filters for TO emails
+    for (const email of excludeToEmails) {
+      const escapedEmail = email.replace(/'/g, "''");
+      filters.push(
+        `not (toRecipients/any(r: r/emailAddress/address eq '${escapedEmail}'))`,
+      );
+    }
+
+    // Add exclusion filters for FROM emails
+    for (const email of excludeFromEmails) {
+      const escapedEmail = email.replace(/'/g, "''");
+      filters.push(`not (from/emailAddress/address eq '${escapedEmail}')`);
+    }
+
+    const filter = filters.length ? filters.join(" and ") : undefined;
+
+    // Get messages from Microsoft Graph API (well-known Sent Items folder)
+    let request = client
+      .api("/me/mailFolders('sentitems')/messages")
+      .select(
+        "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients",
+      )
+      .top(maxResults)
+      .orderby("receivedDateTime desc");
+
+    if (filter) {
+      request = request.filter(filter);
+    }
+
+    const response = await request.get();
+
+    // Group messages by conversationId to create minimal threads (like original Gmail implementation)
+    const threadMap = new Map<string, string>();
+
+    for (const message of response.value) {
+      const conversationId = message.conversationId;
+      if (!conversationId) continue;
+
+      // Only keep the first snippet per thread (like Gmail's minimal thread approach)
+      if (!threadMap.has(conversationId)) {
+        threadMap.set(conversationId, message.bodyPreview || "");
+      }
+    }
+
+    // Convert to EmailThread format (minimal, no messages - consumer will call getThreadMessages if needed)
+    return Array.from(threadMap.entries()).map(([id, snippet]) => ({
+      id,
+      snippet,
+      messages: [], // Empty - consumer will call getThreadMessages(id) if needed
+    }));
+  }
+
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
     await archiveThread({
       client: this.client,
@@ -269,6 +336,44 @@ export class OutlookProvider implements EmailProvider {
 
   async getThreadMessages(threadId: string): Promise<ParsedMessage[]> {
     return getThreadMessages(threadId, this.client);
+  }
+
+  async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
+    // Optimized: Direct API call filtering by inbox folder
+    const client = this.client.getClient();
+
+    try {
+      const response = await client
+        .api("/me/messages")
+        .filter(`conversationId eq '${threadId}' and parentFolderId eq 'inbox'`)
+        .select(
+          "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
+        )
+        .orderby("receivedDateTime asc")
+        .get();
+
+      // Convert to ParsedMessage format using existing helper
+      const messages: ParsedMessage[] = [];
+
+      for (const message of response.value) {
+        try {
+          // Use the existing getMessage function to properly parse each message
+          const parsedMessage = await getMessage(message.id, this.client);
+          messages.push(parsedMessage);
+        } catch (error) {
+          logger.warn("Failed to parse message in inbox thread", {
+            error,
+            messageId: message.id,
+            threadId,
+          });
+        }
+      }
+
+      return messages;
+    } catch (error) {
+      logger.error("Error fetching inbox thread messages", { error, threadId });
+      throw error;
+    }
   }
 
   async getPreviousConversationMessages(
@@ -535,44 +640,42 @@ export class OutlookProvider implements EmailProvider {
     const query = options.query;
     const client = this.client.getClient();
 
-    // Build the filter query for Microsoft Graph API
-    function getFilter() {
-      const filters: string[] = [];
+    // Determine endpoint and build filters based on query type
+    let endpoint = "/me/messages";
+    const filters: string[] = [];
 
-      // Add folder filter based on type or labelId
-      if (query?.labelId) {
-        // Use labelId as parentFolderId (should be lowercase for Outlook)
-        filters.push(`parentFolderId eq '${query.labelId.toLowerCase()}'`);
-      } else if (query?.type === "all") {
-        // For "all" type, include both inbox and archive
-        filters.push(
-          "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
-        );
-      } else {
-        // Default to inbox only
-        filters.push("parentFolderId eq 'inbox'");
-      }
-
-      // Add other filters
-      if (query?.fromEmail) {
-        // Escape single quotes in email address
-        const escapedEmail = query.fromEmail.replace(/'/g, "''");
-        filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
-      }
-
-      if (query?.q) {
-        // Escape single quotes in search query
-        const escapedQuery = query.q.replace(/'/g, "''");
-        filters.push(
-          `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
-        );
-      }
-
-      return filters.length > 0 ? filters.join(" and ") : undefined;
+    // Route to appropriate endpoint based on type
+    if (query?.type === "sent") {
+      endpoint = "/me/mailFolders('sentitems')/messages";
+    } else if (query?.type === "all") {
+      // For "all" type, use default messages endpoint with folder filter
+      filters.push(
+        "(parentFolderId eq 'inbox' or parentFolderId eq 'archive')",
+      );
+    } else if (query?.labelId) {
+      // Use labelId as parentFolderId (should be lowercase for Outlook)
+      filters.push(`parentFolderId eq '${query.labelId.toLowerCase()}'`);
+    } else {
+      // Default to inbox only
+      filters.push("parentFolderId eq 'inbox'");
     }
 
-    // Get messages from Microsoft Graph API
-    const endpoint = "/me/messages";
+    // Add other filters
+    if (query?.fromEmail) {
+      // Escape single quotes in email address
+      const escapedEmail = query.fromEmail.replace(/'/g, "''");
+      filters.push(`from/emailAddress/address eq '${escapedEmail}'`);
+    }
+
+    if (query?.q) {
+      // Escape single quotes in search query
+      const escapedQuery = query.q.replace(/'/g, "''");
+      filters.push(
+        `(contains(subject,'${escapedQuery}') or contains(bodyPreview,'${escapedQuery}'))`,
+      );
+    }
+
+    const filter = filters.length > 0 ? filters.join(" and ") : undefined;
 
     // Build the request
     let request = client
@@ -583,7 +686,6 @@ export class OutlookProvider implements EmailProvider {
       .top(options.maxResults || 50);
 
     // Add filter if present
-    const filter = getFilter();
     if (filter) {
       request = request.filter(filter);
     }

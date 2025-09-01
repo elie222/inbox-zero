@@ -2,48 +2,66 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { logger } from "@/app/api/outlook/webhook/logger";
+import { env } from "@/env";
+import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 
 export const maxDuration = 120;
 
-// Microsoft Graph API calls this endpoint each time a user receives an email
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const validationToken = searchParams.get("validationToken");
 
-  // Handle subscription validation
   if (validationToken) {
     logger.info("Received validation request", { validationToken });
-    return new NextResponse(validationToken, {
+    return new NextResponse(decodeURIComponent(validationToken), {
       headers: { "Content-Type": "text/plain" },
     });
   }
 
-  const body = await request.json();
+  const rawBody = await request.json();
+
+  const parseResult = webhookBodySchema.safeParse(rawBody);
+
+  if (!parseResult.success) {
+    logger.error("Invalid webhook payload", {
+      body: rawBody,
+      errors: parseResult.error.errors,
+    });
+    return NextResponse.json(
+      {
+        error: "Invalid webhook payload",
+        details: parseResult.error.errors,
+      },
+      { status: 400 },
+    );
+  }
+
+  const body = parseResult.data;
+
+  // Validate clientState for security (verify webhook is from Microsoft)
+  if (
+    !body.clientState ||
+    body.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
+  ) {
+    logger.error("Invalid or missing clientState", {
+      receivedClientState: body.clientState,
+      hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+    });
+    return NextResponse.json(
+      { error: "Unauthorized webhook request" },
+      { status: 403 },
+    );
+  }
 
   logger.info("Received webhook notification", {
     value: body.value,
     clientState: body.clientState,
   });
 
-  // Microsoft sends notifications in an array
   const notifications = body.value;
 
-  if (!notifications || !Array.isArray(notifications)) {
-    logger.error("Invalid notification format", { body });
-    return NextResponse.json(
-      { error: "Invalid notification format" },
-      { status: 400 },
-    );
-  }
-
-  // Process each notification
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
-
-    if (!subscriptionId || !resourceData) {
-      logger.error("Missing required notification data", { notification });
-      continue;
-    }
 
     logger.info("Processing notification", {
       subscriptionId,
