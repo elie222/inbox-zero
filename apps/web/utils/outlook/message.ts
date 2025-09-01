@@ -181,7 +181,8 @@ export async function queryBatchMessages(
         request = request.skipToken(pageToken);
       }
 
-      const response = await request.get();
+      const response: { value: Message[]; "@odata.nextLink"?: string } =
+        await request.get();
       const messages = await convertMessages(response.value, folderIds);
 
       // For filter, get next page token from @odata.nextLink
@@ -204,10 +205,11 @@ export async function queryBatchMessages(
         request = request.skipToken(pageToken);
       }
 
-      const response = await request.get();
+      const response: { value: Message[]; "@odata.nextLink"?: string } =
+        await request.get();
       // Filter messages to only include inbox and archive folders
       const filteredMessages = response.value.filter(
-        (message: Message) =>
+        (message) =>
           message.parentFolderId === inboxFolderId ||
           message.parentFolderId === archiveFolderId,
       );
@@ -242,7 +244,7 @@ export async function queryBatchMessages(
       .skip(pageToken ? Number.parseInt(pageToken, 10) : 0)
       .orderby("receivedDateTime DESC");
 
-    const response = await request.get();
+    const response: { value: Message[] } = await request.get();
     const messages = await convertMessages(response.value, folderIds);
 
     // For non-search, calculate next page token based on message count
@@ -316,7 +318,8 @@ export async function getMessages(
     );
   }
 
-  const response = await request.get();
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await request.get();
 
   // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
