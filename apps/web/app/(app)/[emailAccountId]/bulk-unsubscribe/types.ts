@@ -1,6 +1,7 @@
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
 import type { NewsletterStatus } from "@prisma/client";
 import type { EmailLabel } from "@/providers/EmailProvider";
+import type { UserResponse } from "@/app/api/user/me/route";
 
 export type Row = {
   name: string;
@@ -21,12 +22,13 @@ export interface RowProps {
 
   onOpenNewsletter: (row: Newsletter) => void;
   labels: EmailLabel[];
+  // biome-ignore lint/suspicious/noExplicitAny: simplest
   mutate: () => Promise<any>;
   selected: boolean;
   onSelectRow: () => void;
   onDoubleClick: () => void;
   hasUnsubscribeAccess: boolean;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   openPremiumModal: () => void;
   checked: boolean;
   onToggleSelect: (id: string) => void;

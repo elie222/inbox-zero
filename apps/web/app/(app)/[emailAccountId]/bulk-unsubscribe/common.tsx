@@ -18,6 +18,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Tooltip } from "@/components/Tooltip";
@@ -69,7 +70,7 @@ export function ActionCell<T extends Row>({
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   onOpenNewsletter: (row: T) => void;
   selected: boolean;
   labels: EmailLabel[];
@@ -159,7 +160,7 @@ function UnsubscribeButton<T extends Row>({
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -223,7 +224,7 @@ function AutoArchiveButton<T extends Row>({
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   labels: EmailLabel[];
   emailAccountId: string;
 }) {

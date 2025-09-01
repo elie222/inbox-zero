@@ -128,8 +128,9 @@ export async function getFiltersList(options: { client: OutlookClient }) {
 }
 
 // Helper function to check if a filter already exists
-function isFilterExistsError(error: unknown): boolean {
-  const errorMessage = (error as unknown as { message: string })?.message || "";
+function isFilterExistsError(error: unknown) {
+  // biome-ignore lint/suspicious/noExplicitAny: simplest
+  const errorMessage = (error as any)?.message || "";
   return (
     errorMessage.includes("already exists") ||
     errorMessage.includes("duplicate") ||
@@ -155,8 +156,8 @@ export async function createCategoryFilter({
       .api("/me/outlook/masterCategories")
       .get();
 
-    let category: OutlookCategory | undefined = categories.value.find(
-      (cat: OutlookCategory) => cat.displayName === categoryName,
+    let category = categories.value.find(
+      (cat) => cat.displayName === categoryName,
     );
 
     if (!category) {

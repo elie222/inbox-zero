@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   type FieldError,
+  type FieldErrors,
   type SubmitHandler,
   useFieldArray,
   useForm,
@@ -132,6 +133,7 @@ export function RuleForm({
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
+  // biome-ignore lint/suspicious/noExplicitAny: lazy
   mutate?: (data?: any, options?: any) => void;
   onCancel?: () => void;
 }) {
@@ -1033,7 +1035,7 @@ function ActionCard({
   watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   control: ReturnType<typeof useForm<CreateRuleBody>>["control"];
-  errors: any;
+  errors: FieldErrors<CreateRuleBody>;
   userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
@@ -1375,7 +1377,10 @@ function ActionCard({
               {errors?.actions?.[index]?.delayInMinutes && (
                 <div className="mt-2">
                   <ErrorMessage
-                    message={errors.actions?.[index]?.delayInMinutes?.message}
+                    message={
+                      errors.actions?.[index]?.delayInMinutes?.message ||
+                      "Invalid delay value"
+                    }
                   />
                 </div>
               )}
