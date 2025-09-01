@@ -1,3 +1,4 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { ParsedMessage } from "@/utils/types";
 import {
@@ -294,10 +295,10 @@ export class OutlookProvider implements EmailProvider {
           logger,
         }),
       ]);
-      return { draftId: result.id };
+      return { draftId: result.id || "" };
     } else {
       const result = await draftEmail(this.client, email, args);
-      return { draftId: result.id };
+      return { draftId: result.id || "" };
     }
   }
 
@@ -402,8 +403,8 @@ export class OutlookProvider implements EmailProvider {
     });
 
     return {
-      id: label.id,
-      name: label.displayName || label.id,
+      id: label.id || "",
+      name: label.displayName || label.id || "",
       type: "user",
     };
   }
@@ -414,8 +415,8 @@ export class OutlookProvider implements EmailProvider {
       key,
     });
     return {
-      id: label.id,
-      name: label.displayName || label.id,
+      id: label.id || "",
+      name: label.displayName || label.id || "",
       type: "user",
     };
   }
@@ -435,27 +436,21 @@ export class OutlookProvider implements EmailProvider {
     try {
       const response = await getFiltersList({ client: this.client });
 
-      const mappedFilters = (response.value || []).map(
-        (filter: {
-          id: string;
-          conditions: { senderContains: string[] };
-          actions: { applyCategories: string[]; moveToFolder: string };
-        }) => {
-          const mappedFilter = {
-            id: filter.id || "",
-            criteria: {
-              from: filter.conditions?.senderContains?.[0] || undefined,
-            },
-            action: {
-              addLabelIds: filter.actions?.applyCategories || undefined,
-              removeLabelIds: filter.actions?.moveToFolder
-                ? ["INBOX"]
-                : undefined,
-            },
-          };
-          return mappedFilter;
-        },
-      );
+      const mappedFilters = (response.value || []).map((filter) => {
+        const mappedFilter = {
+          id: filter.id || "",
+          criteria: {
+            from: filter.conditions?.senderContains?.[0] || undefined,
+          },
+          action: {
+            addLabelIds: filter.actions?.assignCategories || undefined,
+            removeLabelIds: filter.actions?.moveToFolder
+              ? ["INBOX"]
+              : undefined,
+          },
+        };
+        return mappedFilter;
+      });
 
       return mappedFilters;
     } catch (error) {
@@ -468,14 +463,11 @@ export class OutlookProvider implements EmailProvider {
     from: string;
     addLabelIds?: string[];
     removeLabelIds?: string[];
-  }): Promise<any> {
+  }) {
     return createFilter({ client: this.client, ...options });
   }
 
-  async createAutoArchiveFilter(options: {
-    from: string;
-    labelName?: string;
-  }): Promise<any> {
+  async createAutoArchiveFilter(options: { from: string; labelName?: string }) {
     return createAutoArchiveFilter({
       client: this.client,
       from: options.from,
@@ -483,7 +475,7 @@ export class OutlookProvider implements EmailProvider {
     });
   }
 
-  async deleteFilter(id: string): Promise<any> {
+  async deleteFilter(id: string) {
     return deleteFilter({ client: this.client, id });
   }
 
@@ -810,7 +802,7 @@ export class OutlookProvider implements EmailProvider {
     messageId: string;
   }): Promise<boolean> {
     try {
-      const response = await this.client
+      const response: { value: Message[] } = await this.client
         .getClient()
         .api("/me/messages")
         .filter(
@@ -823,7 +815,7 @@ export class OutlookProvider implements EmailProvider {
       // Check if there are any messages from this sender before the current date
       // and exclude the current message
       const hasPreviousEmail = response.value.some(
-        (message: { id: string }) => message.id !== options.messageId,
+        (message) => message.id !== options.messageId,
       );
 
       return hasPreviousEmail;

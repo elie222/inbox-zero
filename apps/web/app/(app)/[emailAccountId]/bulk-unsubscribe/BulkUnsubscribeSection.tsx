@@ -107,6 +107,7 @@ export function BulkUnsubscribe() {
     includeMissingUnsubscribe: true,
     ...getDateRangeParams(dateRange),
   };
+  // biome-ignore lint/suspicious/noExplicitAny: simplest
   const urlParams = new URLSearchParams(params as any);
   const { data, isLoading, error, mutate } = useSWR<
     NewsletterStatsResponse,

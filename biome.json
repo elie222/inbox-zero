@@ -24,7 +24,7 @@
       },
       "suspicious": {
         "noConsole": "warn",
-        "noExplicitAny": "off",
+        "noExplicitAny": "warn",
         "noArrayIndexKey": "off",
         "noEmptyBlockStatements": "off",
         "useAwait": "off",
