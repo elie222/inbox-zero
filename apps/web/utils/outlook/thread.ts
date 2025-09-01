@@ -25,11 +25,16 @@ export async function getThreads(
   nextPageToken?: string | null;
   threads: { id: string; snippet: string }[];
 }> {
+  let request = client.getClient().api("/me/messages");
+
+  if (query) {
+    request = request.filter(
+      `contains(subject, '${escapeODataString(query)}')`,
+    );
+  }
+
   const response: { value: Message[]; "@odata.nextLink"?: string } =
-    await client
-      .getClient()
-      .api("/me/messages")
-      .filter(query ? `contains(subject, '${escapeODataString(query)}')` : "")
+    await request
       .top(maxResults)
       .select("id,conversationId,subject,bodyPreview")
       .get();
