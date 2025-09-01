@@ -77,18 +77,21 @@ function getOutlookLabels(
       ([_, id]) => id === message.parentFolderId,
     )?.[0];
 
-    if (folderKey === "inbox") {
-      labels.push(OutlookLabel.INBOX);
-    } else if (folderKey === "sentitems") {
-      labels.push(OutlookLabel.SENT);
-    } else if (folderKey === "drafts") {
-      labels.push(OutlookLabel.DRAFT);
-    } else if (folderKey === "archive") {
-      labels.push(OutlookLabel.ARCHIVE);
-    } else if (folderKey === "junkemail") {
-      labels.push(OutlookLabel.SPAM);
-    } else if (folderKey === "deleteditems") {
-      labels.push(OutlookLabel.TRASH);
+    if (folderKey) {
+      const FOLDER_TO_LABEL_MAP = {
+        [WELL_KNOWN_FOLDERS.inbox]: OutlookLabel.INBOX,
+        [WELL_KNOWN_FOLDERS.sentitems]: OutlookLabel.SENT,
+        [WELL_KNOWN_FOLDERS.drafts]: OutlookLabel.DRAFT,
+        [WELL_KNOWN_FOLDERS.archive]: OutlookLabel.ARCHIVE,
+        [WELL_KNOWN_FOLDERS.junkemail]: OutlookLabel.SPAM,
+        [WELL_KNOWN_FOLDERS.deleteditems]: OutlookLabel.TRASH,
+      };
+
+      const label =
+        FOLDER_TO_LABEL_MAP[folderKey as keyof typeof FOLDER_TO_LABEL_MAP];
+      if (label) {
+        labels.push(label);
+      }
     }
   }
 

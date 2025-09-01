@@ -22,6 +22,7 @@ import {
 import { formatError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { WELL_KNOWN_FOLDERS } from "@/utils/outlook/message";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
@@ -65,6 +66,20 @@ export async function processHistoryItem(
         select: { id: true },
       }),
     ]);
+
+    // Skip messages that are not in inbox or sent items folders
+    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
+    const parentFolderId = message.parentFolderId?.toLowerCase();
+    const isInInbox = parentFolderId === WELL_KNOWN_FOLDERS.inbox;
+    const isInSentItems = parentFolderId === WELL_KNOWN_FOLDERS.sentitems;
+
+    if (!isInInbox && !isInSentItems) {
+      logger.info("Skipping message not in inbox or sent items", {
+        ...loggerOptions,
+        parentFolderId,
+      });
+      return;
+    }
 
     // if the rule has already been executed, skip
     if (hasExistingRule) {
@@ -133,9 +148,7 @@ export async function processHistoryItem(
       return;
     }
 
-    const isOutbound =
-      message.from?.emailAddress?.address?.toLowerCase() ===
-      userEmail.toLowerCase();
+    const isOutbound = isInSentItems;
 
     if (isOutbound) {
       await handleOutbound(
@@ -260,7 +273,7 @@ async function handleOutbound(
   message: Message,
   provider: EmailProvider,
   messageId: string,
-  conversationId?: string,
+  conversationId?: string | null,
 ) {
   const loggerOptions = {
     email: emailAccount.email,
