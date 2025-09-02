@@ -39,23 +39,26 @@ export const POST = withError(async (request) => {
   const body = parseResult.data;
 
   // Validate clientState for security (verify webhook is from Microsoft)
-  if (
-    !body.clientState ||
-    body.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
-  ) {
-    logger.error("Invalid or missing clientState", {
-      receivedClientState: body.clientState,
-      hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
-    });
-    return NextResponse.json(
-      { error: "Unauthorized webhook request" },
-      { status: 403 },
-    );
+  for (const notification of body.value) {
+    if (
+      !notification.clientState ||
+      notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
+    ) {
+      logger.error("Invalid or missing clientState", {
+        receivedClientState: notification.clientState,
+        hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+        subscriptionId: notification.subscriptionId,
+      });
+      return NextResponse.json(
+        { error: "Unauthorized webhook request" },
+        { status: 403 },
+      );
+    }
   }
 
   logger.info("Received webhook notification", {
-    value: body.value,
-    clientState: body.clientState,
+    notificationCount: body.value.length,
+    subscriptionIds: body.value.map((n) => n.subscriptionId),
   });
 
   const notifications = body.value;

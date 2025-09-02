@@ -37,7 +37,6 @@ const notificationSchema = z.object({
 
 export const webhookBodySchema = z.object({
   value: z.array(notificationSchema),
-  clientState: z.string().nullish(),
 });
 
 export type OutlookResourceData = z.infer<typeof resourceDataSchema>;
