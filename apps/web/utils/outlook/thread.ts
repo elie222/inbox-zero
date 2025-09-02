@@ -11,6 +11,7 @@ export async function getThread(
     .getClient()
     .api("/me/messages")
     .filter(`conversationId eq '${threadId}'`)
+    .top(100) // Get up to 100 messages instead of default 10
     .get();
 
   // Sort in memory to avoid "restriction or sort order is too complex" error
