@@ -150,7 +150,7 @@ export async function processHistoryItem(
         parsedMessage,
         provider,
         messageId,
-        resourceData.conversationId,
+        resourceData.conversationId || undefined,
       );
       return;
     }
