@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
+import { createEmailProvider } from "@/utils/email/provider";
 import {
   type CreateCategoryBody,
   createCategoryBody,
@@ -24,7 +25,6 @@ import { saveCategorizationTotalItems } from "@/utils/redis/categorization-progr
 import { getSenders } from "@/app/api/user/categorize/senders/uncategorized/get-senders";
 import { extractEmailAddress } from "@/utils/email";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
 import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("actions/categorize");
@@ -110,21 +110,21 @@ export const categorizeSenderAction = actionClient
   .schema(z.object({ senderAddress: z.string() }))
   .action(
     async ({
-      ctx: { emailAccountId, session },
+      ctx: { emailAccountId, provider },
       parsedInput: { senderAddress },
     }) => {
-      const gmail = await getGmailClientForEmail({ emailAccountId });
-
       const userResult = await validateUserAndAiAccess({ emailAccountId });
       const { emailAccount } = userResult;
 
-      if (!session.session.token) throw new SafeError("No access token");
+      const emailProvider = await createEmailProvider({
+        emailAccountId,
+        provider,
+      });
 
       const result = await categorizeSender(
         senderAddress,
         emailAccount,
-        gmail,
-        session.session.token,
+        emailProvider,
       );
 
       revalidatePath(prefixPath(emailAccountId, "/smart-categories"));

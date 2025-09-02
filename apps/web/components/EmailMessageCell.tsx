@@ -92,21 +92,28 @@ export function EmailMessageCell({
       <MessageText className="flex items-center">
         <span className="max-w-[300px] truncate">
           {extractNameFromEmail(sender)}
-        </span>{" "}
-        <Link
-          className="ml-2 hover:text-foreground"
-          href={getEmailUrlForMessage(messageId, threadId, userEmail, provider)}
-          target="_blank"
-        >
-          <ExternalLinkIcon className="h-4 w-4" />
-        </Link>
+        </span>
         {!hideViewEmailButton && isGoogleProvider(provider) && (
-          <ViewEmailButton
-            threadId={threadId}
-            messageId={messageId}
-            size="xs"
-            className="ml-1.5"
-          />
+          <>
+            <Link
+              className="ml-2 hover:text-foreground"
+              href={getEmailUrlForMessage(
+                messageId,
+                threadId,
+                userEmail,
+                provider,
+              )}
+              target="_blank"
+            >
+              <ExternalLinkIcon className="h-4 w-4" />
+            </Link>
+            <ViewEmailButton
+              threadId={threadId}
+              messageId={messageId}
+              size="xs"
+              className="ml-1.5"
+            />
+          </>
         )}
         {labelsToDisplay && labelsToDisplay.length > 0 && (
           <span className="ml-2 flex flex-wrap items-center gap-1">

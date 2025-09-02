@@ -7,8 +7,12 @@ import { EmailThread } from "@/components/email-list/EmailThread";
 import { useThread } from "@/hooks/useThread";
 import { LoadingContent } from "@/components/LoadingContent";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function EmailViewer() {
+  const { provider } = useAccount();
+
   const { threadId, showEmail, showReplyButton, autoOpenReplyForMessageId } =
     useDisplayedEmail();
 
@@ -22,12 +26,20 @@ export function EmailViewer() {
         className="overflow-y-auto bg-slate-100 p-0"
         overlay="transparent"
       >
-        {threadId && (
-          <ThreadContent
-            threadId={threadId}
-            showReplyButton={showReplyButton}
-            autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
-          />
+        {isGoogleProvider(provider) ? (
+          threadId && (
+            <ThreadContent
+              threadId={threadId}
+              showReplyButton={showReplyButton}
+              autoOpenReplyForMessageId={autoOpenReplyForMessageId ?? undefined}
+            />
+          )
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-sm text-muted-foreground">
+              This feature isn't enabled for Outlook.
+            </p>
+          </div>
         )}
       </SheetContent>
     </Sheet>

@@ -87,73 +87,6 @@ export async function isColdEmail({
   };
 }
 
-// New function that works with EmailProvider
-export async function isColdEmailWithProvider({
-  email,
-  emailAccount,
-  provider,
-  modelType,
-}: {
-  email: EmailForLLM & { threadId?: string };
-  emailAccount: Pick<EmailAccount, "coldEmailPrompt"> & EmailAccountWithAI;
-  provider: EmailProvider;
-  modelType: ModelType;
-}): Promise<{
-  isColdEmail: boolean;
-  reason: ColdEmailBlockerReason;
-  aiReason?: string | null;
-}> {
-  const loggerOptions = {
-    email: emailAccount.email,
-    threadId: email.threadId,
-    messageId: email.id,
-  };
-
-  logger.info("Checking is cold email", loggerOptions);
-
-  // Check if we marked it as a cold email already
-  const isColdEmailer = await isKnownColdEmailSender({
-    from: email.from,
-    emailAccountId: emailAccount.id,
-  });
-
-  if (isColdEmailer) {
-    logger.info("Known cold email sender", {
-      ...loggerOptions,
-      from: email.from,
-    });
-    return { isColdEmail: true, reason: "ai-already-labeled" };
-  }
-
-  const hasPreviousEmail =
-    email.date && email.id
-      ? await provider.hasPreviousCommunicationsWithSenderOrDomain({
-          from: email.from,
-          date: email.date,
-          messageId: email.id,
-        })
-      : false;
-
-  if (hasPreviousEmail) {
-    logger.info("Has previous email", loggerOptions);
-    return { isColdEmail: false, reason: "hasPreviousEmail" };
-  }
-
-  // otherwise run through ai to see if it's a cold email
-  const res = await aiIsColdEmail(email, emailAccount, modelType);
-
-  logger.info("AI is cold email?", {
-    ...loggerOptions,
-    coldEmail: res.coldEmail,
-  });
-
-  return {
-    isColdEmail: !!res.coldEmail,
-    reason: "ai",
-    aiReason: res.reason,
-  };
-}
-
 async function isKnownColdEmailSender({
   from,
   emailAccountId,
@@ -225,7 +158,7 @@ ${stringifyEmail(email, 500)}
   return response.object;
 }
 
-export async function runColdEmailBlockerWithProvider(options: {
+export async function runColdEmailBlocker(options: {
   email: EmailForLLM & { threadId: string };
   provider: EmailProvider;
   emailAccount: Pick<EmailAccount, "coldEmailPrompt" | "coldEmailBlocker"> &
@@ -237,7 +170,7 @@ export async function runColdEmailBlockerWithProvider(options: {
   aiReason?: string | null;
   coldEmailId?: string | null;
 }> {
-  const response = await isColdEmailWithProvider({
+  const response = await isColdEmail({
     email: options.email,
     emailAccount: options.emailAccount,
     provider: options.provider,
@@ -246,7 +179,7 @@ export async function runColdEmailBlockerWithProvider(options: {
 
   if (!response.isColdEmail) return { ...response, coldEmailId: null };
 
-  const coldEmail = await blockColdEmailWithProvider({
+  const coldEmail = await blockColdEmail({
     ...options,
     aiReason: response.aiReason ?? null,
   });
@@ -254,7 +187,7 @@ export async function runColdEmailBlockerWithProvider(options: {
 }
 
 // New function that works with EmailProvider
-export async function blockColdEmailWithProvider(options: {
+export async function blockColdEmail(options: {
   provider: EmailProvider;
   email: { from: string; id: string; threadId: string };
   emailAccount: Pick<EmailAccount, "coldEmailBlocker"> & EmailAccountWithAI;

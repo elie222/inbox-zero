@@ -2,15 +2,15 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
 import { logger } from "@/app/api/outlook/webhook/logger";
+import { env } from "@/env";
+import { webhookBodySchema } from "@/app/api/outlook/webhook/types";
 
 export const maxDuration = 120;
 
-// Microsoft Graph API calls this endpoint each time a user receives an email
 export const POST = withError(async (request) => {
   const searchParams = new URL(request.url).searchParams;
   const validationToken = searchParams.get("validationToken");
 
-  // Handle subscription validation
   if (validationToken) {
     logger.info("Received validation request", { validationToken });
     return new NextResponse(validationToken, {
@@ -18,32 +18,50 @@ export const POST = withError(async (request) => {
     });
   }
 
-  const body = await request.json();
+  const rawBody = await request.json();
 
-  logger.info("Received webhook notification", {
-    value: body.value,
-    clientState: body.clientState,
-  });
+  const parseResult = webhookBodySchema.safeParse(rawBody);
 
-  // Microsoft sends notifications in an array
-  const notifications = body.value;
-
-  if (!notifications || !Array.isArray(notifications)) {
-    logger.error("Invalid notification format", { body });
+  if (!parseResult.success) {
+    logger.error("Invalid webhook payload", {
+      body: rawBody,
+      errors: parseResult.error.errors,
+    });
     return NextResponse.json(
-      { error: "Invalid notification format" },
+      {
+        error: "Invalid webhook payload",
+        details: parseResult.error.errors,
+      },
       { status: 400 },
     );
   }
 
-  // Process each notification
+  const body = parseResult.data;
+
+  // Validate clientState for security (verify webhook is from Microsoft)
+  for (const notification of body.value) {
+    if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+      logger.warn("Invalid or missing clientState", {
+        receivedClientState: notification.clientState,
+        hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+        subscriptionId: notification.subscriptionId,
+      });
+      return NextResponse.json(
+        { error: "Unauthorized webhook request" },
+        { status: 403 },
+      );
+    }
+  }
+
+  logger.info("Received webhook notification", {
+    notificationCount: body.value.length,
+    subscriptionIds: body.value.map((n) => n.subscriptionId),
+  });
+
+  const notifications = body.value;
+
   for (const notification of notifications) {
     const { subscriptionId, resourceData } = notification;
-
-    if (!subscriptionId || !resourceData) {
-      logger.error("Missing required notification data", { notification });
-      continue;
-    }
 
     logger.info("Processing notification", {
       subscriptionId,

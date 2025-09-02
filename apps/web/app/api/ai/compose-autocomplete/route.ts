@@ -20,8 +20,16 @@ Limit your response to no more than 200 characters, but make sure to construct c
 
   const response = await chatCompletionStream({
     userAi: user.user,
-    system,
-    prompt,
+    messages: [
+      {
+        role: "system",
+        content: system,
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
     userEmail: user.email,
     usageLabel: "Compose auto complete",
   });

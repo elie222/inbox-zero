@@ -1,13 +1,14 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
+import type { ParsedMessage } from "@/utils/types";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import prisma from "@/utils/prisma";
-import { runColdEmailBlockerWithProvider } from "@/utils/cold-email/is-cold-email";
+import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
 import { blockUnsubscribedEmails } from "@/app/api/outlook/webhook/block-unsubscribed-emails";
-import { categorizeSenderWithProvider } from "@/utils/categorize/senders/categorize";
+import { categorizeSender } from "@/utils/categorize/senders/categorize";
 import { markMessageAsProcessing } from "@/utils/redis/message-processing";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
-import { handleOutboundReplyWithProvider } from "@/utils/reply-tracker/outbound";
+import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type {
   ProcessHistoryOptions,
   OutlookResourceData,
@@ -16,17 +17,16 @@ import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import {
-  trackSentDraftStatusWithProvider,
-  cleanupThreadAIDraftsWithProvider,
+  trackSentDraftStatus,
+  cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
-import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
   {
-    client,
+    provider,
     emailAccount,
     hasAutomationRules,
     hasAiAccess,
@@ -52,8 +52,8 @@ export async function processHistoryItem(
   logger.info("Getting message", loggerOptions);
 
   try {
-    const [message, hasExistingRule] = await Promise.all([
-      client.api(`/me/messages/${messageId}`).get() as Promise<Message>,
+    const [parsedMessage, hasExistingRule] = await Promise.all([
+      provider.getMessage(messageId),
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
@@ -72,22 +72,33 @@ export async function processHistoryItem(
       return;
     }
 
-    const from = message.from?.emailAddress?.address;
-    const to =
-      message.toRecipients
-        ?.map((r) => r.emailAddress?.address)
-        .filter(Boolean) || [];
-    const subject = message.subject || "";
+    const from = parsedMessage.headers.from;
+    const to = parsedMessage.headers.to
+      ? parsedMessage.headers.to
+          .split(",")
+          .map((email) => email.trim())
+          .filter(Boolean)
+      : [];
+    const subject = parsedMessage.headers.subject || "";
 
     if (!from) {
       logger.error("Message has no sender", loggerOptions);
       return;
     }
 
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: "microsoft",
-    });
+    // Skip messages that are not in inbox or sent items folders
+    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
+    // Note: ParsedMessage already contains the necessary folder information in labels
+    const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
+    const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
+
+    if (!isInInbox && !isInSentItems) {
+      logger.info("Skipping message not in inbox or sent items", {
+        ...loggerOptions,
+        labels: parsedMessage.labelIds,
+      });
+      return;
+    }
 
     if (
       isAssistantEmail({
@@ -104,22 +115,20 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
-            date: message.receivedDateTime
-              ? new Date(message.receivedDateTime).toISOString()
-              : new Date().toISOString(),
+            date: parsedMessage.date || new Date().toISOString(),
           },
-          snippet: message.bodyPreview || "",
+          snippet: parsedMessage.snippet || "",
           historyId: resourceData.id,
           inline: [],
           subject,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
+          date: parsedMessage.date
+            ? new Date(parsedMessage.date).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex,
+          conversationIndex: parsedMessage.conversationIndex,
         },
         emailAccountId,
         userEmail,
-        provider: emailProvider,
+        provider,
       });
     }
 
@@ -133,17 +142,15 @@ export async function processHistoryItem(
       return;
     }
 
-    const isOutbound =
-      message.from?.emailAddress?.address?.toLowerCase() ===
-      userEmail.toLowerCase();
+    const isOutbound = isInSentItems;
 
     if (isOutbound) {
       await handleOutbound(
         emailAccount,
-        message,
-        emailProvider,
+        parsedMessage,
+        provider,
         messageId,
-        resourceData.conversationId,
+        resourceData.conversationId || undefined,
       );
       return;
     }
@@ -152,8 +159,9 @@ export async function processHistoryItem(
     const blocked = await blockUnsubscribedEmails({
       from,
       emailAccountId,
-      client,
       messageId,
+      provider,
+      ownerEmail: userEmail,
     });
 
     if (blocked) {
@@ -169,21 +177,15 @@ export async function processHistoryItem(
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...", loggerOptions);
 
-      const content = message.body?.content || "";
+      const emailForLLM = getEmailForLLM(parsedMessage);
 
-      const response = await runColdEmailBlockerWithProvider({
+      const response = await runColdEmailBlocker({
         email: {
-          from,
-          to: to.join(","),
-          subject,
-          content,
-          id: messageId,
+          ...emailForLLM,
           threadId: resourceData.conversationId || messageId,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime)
-            : new Date(),
+          date: parsedMessage.date ? new Date(parsedMessage.date) : new Date(),
         },
-        provider: emailProvider,
+        provider,
         emailAccount,
         modelType: "default",
       });
@@ -205,7 +207,7 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSenderWithProvider(sender, emailAccount, emailProvider);
+        await categorizeSender(sender, emailAccount, provider);
       }
     }
 
@@ -213,7 +215,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        client: emailProvider,
+        provider,
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
@@ -221,18 +223,16 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
-            date: message.receivedDateTime
-              ? new Date(message.receivedDateTime).toISOString()
-              : new Date().toISOString(),
+            date: parsedMessage.date || new Date().toISOString(),
           },
-          snippet: message.bodyPreview || "",
+          snippet: parsedMessage.snippet || "",
           historyId: resourceData.id,
           inline: [],
           subject,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
+          date: parsedMessage.date
+            ? new Date(parsedMessage.date).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex,
+          conversationIndex: parsedMessage.conversationIndex,
         },
         rules,
         emailAccount,
@@ -257,10 +257,10 @@ export async function processHistoryItem(
 
 async function handleOutbound(
   emailAccount: ProcessHistoryOptions["emailAccount"],
-  message: Message,
+  parsedMessage: ParsedMessage,
   provider: EmailProvider,
   messageId: string,
-  conversationId?: string,
+  conversationId?: string | null,
 ) {
   const loggerOptions = {
     email: emailAccount.email,
@@ -270,42 +270,18 @@ async function handleOutbound(
 
   logger.info("Handling outbound reply", loggerOptions);
 
-  const messageHeaders = {
-    from: message.from?.emailAddress?.address || "",
-    to:
-      message.toRecipients?.map((r) => r.emailAddress?.address).join(",") || "",
-    subject: message.subject || "",
-    date: message.receivedDateTime
-      ? new Date(message.receivedDateTime).toISOString()
-      : new Date().toISOString(),
-  };
-
-  const parsedMessage = {
-    id: messageId,
-    threadId: conversationId || messageId,
-    headers: messageHeaders,
-    snippet: message.bodyPreview || "",
-    historyId: message.id || messageId,
-    inline: [],
-    subject: message.subject || "",
-    date: message.receivedDateTime
-      ? new Date(message.receivedDateTime).toISOString()
-      : new Date().toISOString(),
-    conversationIndex: message.conversationIndex,
-  };
-
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
   const [trackingResult, outboundResult] = await Promise.allSettled([
-    trackSentDraftStatusWithProvider({
+    trackSentDraftStatus({
       emailAccountId: emailAccount.id,
       message: parsedMessage,
-      provider: provider,
+      provider,
     }),
-    handleOutboundReplyWithProvider({
+    handleOutboundReply({
       emailAccount,
       message: parsedMessage,
-      provider: provider,
+      provider,
     }),
   ]);
 
@@ -326,7 +302,7 @@ async function handleOutbound(
   // Run cleanup for any other old/unmodified drafts in the thread
   // Must happen after previous steps
   try {
-    await cleanupThreadAIDraftsWithProvider({
+    await cleanupThreadAIDrafts({
       threadId: conversationId || messageId,
       emailAccountId: emailAccount.id,
       provider: provider,

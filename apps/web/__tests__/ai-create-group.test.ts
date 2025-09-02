@@ -9,58 +9,64 @@ import { getEmailAccount } from "@/__tests__/helpers";
 
 const isAiTest = process.env.RUN_AI_TESTS === "true";
 
+const TIMEOUT = 15_000;
+
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/gmail/message", () => ({
   queryBatchMessages: vi.fn(),
 }));
 
 describe.runIf(isAiTest)("aiGenerateGroupItems", () => {
-  it("should generate group items based on user prompt", async () => {
-    const emailAccount = getEmailAccount();
-    const gmail = {} as gmail_v1.Gmail;
-    const group = {
-      name: "Work Emails",
-      prompt:
-        "Create a group for work-related emails from my company domain and about projects or meetings",
-    };
+  it(
+    "should generate group items based on user prompt",
+    async () => {
+      const emailAccount = getEmailAccount();
+      const gmail = {} as gmail_v1.Gmail;
+      const group = {
+        name: "Work Emails",
+        prompt:
+          "Create a group for work-related emails from my company domain and about projects or meetings",
+      };
 
-    const mockMessages = [
-      {
-        headers: {
-          from: "colleague@mycompany.com",
-          subject: "Project Update: Q2 Goals",
+      const mockMessages = [
+        {
+          headers: {
+            from: "colleague@mycompany.com",
+            subject: "Project Update: Q2 Goals",
+          },
+          snippet: "Here's the latest update on our Q2 project goals...",
         },
-        snippet: "Here's the latest update on our Q2 project goals...",
-      },
-      {
-        headers: {
-          from: "boss@mycompany.com",
-          subject: "Team Meeting: Strategic Planning",
+        {
+          headers: {
+            from: "boss@mycompany.com",
+            subject: "Team Meeting: Strategic Planning",
+          },
+          snippet:
+            "Let's schedule our next team meeting for strategic planning...",
         },
-        snippet:
-          "Let's schedule our next team meeting for strategic planning...",
-      },
-      {
-        headers: {
-          from: "newsletter@external.com",
-          subject: "Industry News Digest",
+        {
+          headers: {
+            from: "newsletter@external.com",
+            subject: "Industry News Digest",
+          },
+          snippet: "Top stories in our industry this week...",
         },
-        snippet: "Top stories in our industry this week...",
-      },
-    ];
+      ];
 
-    vi.mocked(queryBatchMessages).mockResolvedValue({
-      messages: mockMessages as ParsedMessage[],
-      nextPageToken: null,
-    });
+      vi.mocked(queryBatchMessages).mockResolvedValue({
+        messages: mockMessages as ParsedMessage[],
+        nextPageToken: null,
+      });
 
-    const result = await aiGenerateGroupItems(emailAccount, gmail, group);
+      const result = await aiGenerateGroupItems(emailAccount, gmail, group);
 
-    expect(result).toEqual({
-      senders: expect.arrayContaining(["@mycompany.com"]),
-      subjects: expect.arrayContaining(["Project Update:", "Team Meeting:"]),
-    });
+      expect(result).toEqual({
+        senders: expect.arrayContaining(["@mycompany.com"]),
+        subjects: expect.arrayContaining(["Project Update:", "Team Meeting:"]),
+      });
 
-    expect(queryBatchMessages).toHaveBeenCalled();
-  }, 15_000); // Increased timeout for AI call
+      expect(queryBatchMessages).toHaveBeenCalled();
+    },
+    TIMEOUT,
+  ); // Increased timeout for AI call
 });

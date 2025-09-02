@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   type FieldError,
+  type FieldErrors,
   type SubmitHandler,
   useFieldArray,
   useForm,
@@ -132,6 +133,7 @@ export function RuleForm({
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
+  // biome-ignore lint/suspicious/noExplicitAny: lazy
   mutate?: (data?: any, options?: any) => void;
   onCancel?: () => void;
 }) {
@@ -147,7 +149,11 @@ export function RuleForm({
           ),
           actions: [
             ...rule.actions
-              .filter((action) => action.type !== ActionType.DIGEST)
+              .filter(
+                (action) =>
+                  action.type !== ActionType.DIGEST &&
+                  action.type !== ActionType.TRACK_THREAD,
+              )
               .map((action) => ({
                 ...action,
                 delayInMinutes: action.delayInMinutes,
@@ -363,14 +369,10 @@ export function RuleForm({
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      {
-        label: `Auto-update reply ${terminology.label.singular}`,
-        value: ActionType.TRACK_THREAD,
-      },
     ];
 
     return options;
-  }, [provider, terminology.label.action, terminology.label.singular]);
+  }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
@@ -1033,7 +1035,7 @@ function ActionCard({
   watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   control: ReturnType<typeof useForm<CreateRuleBody>>["control"];
-  errors: any;
+  errors: FieldErrors<CreateRuleBody>;
   userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
@@ -1375,7 +1377,10 @@ function ActionCard({
               {errors?.actions?.[index]?.delayInMinutes && (
                 <div className="mt-2">
                   <ErrorMessage
-                    message={errors.actions?.[index]?.delayInMinutes?.message}
+                    message={
+                      errors.actions?.[index]?.delayInMinutes?.message ||
+                      "Invalid delay value"
+                    }
                   />
                 </div>
               )}

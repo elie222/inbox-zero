@@ -17,8 +17,8 @@ type AuthOptions = {
 
 // Wrapper class to hold both the Microsoft Graph client and its access token
 export class OutlookClient {
-  private client: Client;
-  private accessToken: string;
+  private readonly client: Client;
+  private readonly accessToken: string;
 
   constructor(accessToken: string) {
     this.accessToken = accessToken;

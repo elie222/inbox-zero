@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/style/noMagicNumbers: we're defining constants */
 import type { LanguageModelUsage } from "ai";
 import { saveUsage } from "@/utils/redis/usage";
 import { publishAiCall } from "@inboxzero/tinybird-ai-analytics";

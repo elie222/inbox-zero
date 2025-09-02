@@ -20,8 +20,16 @@ export async function summarise({
 
   const response = await chatCompletionStream({
     userAi: userAi.user,
-    system,
-    prompt,
+    messages: [
+      {
+        role: "system",
+        content: system,
+      },
+      {
+        role: "user",
+        content: prompt,
+      },
+    ],
     userEmail,
     usageLabel: "Summarise",
     onFinish: async (result) => {

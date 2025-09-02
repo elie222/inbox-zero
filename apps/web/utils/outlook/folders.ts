@@ -1,3 +1,4 @@
+import type { MailFolder } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "./client";
 import { createScopedLogger } from "@/utils/logger";
 
@@ -6,17 +7,27 @@ const logger = createScopedLogger("outlook/folders");
 // Should not use a common separator like "/|\>" as it may be used in the folder name.
 // Using U+2999 as it is unlikely to appear in normal text
 export const FOLDER_SEPARATOR = " ⦙ ";
+
 export type OutlookFolder = {
-  id: string;
-  displayName: string;
-  childFolders?: OutlookFolder[];
+  id: NonNullable<MailFolder["id"]>;
+  displayName: NonNullable<MailFolder["displayName"]>;
+  childFolders: OutlookFolder[];
 };
+
+function convertMailFolderToOutlookFolder(folder: MailFolder): OutlookFolder {
+  return {
+    id: folder.id ?? "",
+    displayName: folder.displayName ?? "",
+    childFolders:
+      folder.childFolders?.map(convertMailFolderToOutlookFolder) ?? [],
+  };
+}
 
 export async function getOutlookRootFolders(
   client: OutlookClient,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response = await client
+  const response: { value: MailFolder[] } = await client
     .getClient()
     .api("/me/mailFolders")
     .select(fields)
@@ -25,7 +36,7 @@ export async function getOutlookRootFolders(
     )
     .get();
 
-  return response.value;
+  return response.value.map(convertMailFolderToOutlookFolder);
 }
 
 export async function getOutlookChildFolders(
@@ -33,7 +44,7 @@ export async function getOutlookChildFolders(
   folderId: string,
 ): Promise<OutlookFolder[]> {
   const fields = "id,displayName";
-  const response = await client
+  const response: { value: MailFolder[] } = await client
     .getClient()
     .api(`/me/mailFolders/${folderId}/childFolders`)
     .select(fields)
@@ -42,7 +53,7 @@ export async function getOutlookChildFolders(
     )
     .get();
 
-  return response.value;
+  return response.value.map(convertMailFolderToOutlookFolder);
 }
 
 export async function getOutlookFolderTree(
@@ -57,7 +68,7 @@ export async function getOutlookFolderTree(
 
   const remainingLevels = expandLevels - 2;
   for (let currentLevel = 0; currentLevel < remainingLevels; currentLevel++) {
-    const folderQueue: OutlookFolder[] = [...folders];
+    const folderQueue = [...folders];
 
     while (folderQueue.length > 0) {
       const folder = folderQueue.shift()!;
@@ -72,7 +83,9 @@ export async function getOutlookFolderTree(
         }
       }
       if (folder.childFolders) {
-        folderQueue.push(...folder.childFolders);
+        folderQueue.push(
+          ...folder.childFolders.map(convertMailFolderToOutlookFolder),
+        );
       }
     }
   }

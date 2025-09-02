@@ -28,6 +28,8 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 
    vi.mock("server-only", () => ({}));
 
+   const TIMEOUT = 15_000;
+
    // Skip tests unless explicitly running AI tests
    const isAiTest = process.env.RUN_AI_TESTS === "true";
 
@@ -39,7 +41,7 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
      test("test case description", async () => {
        // Test implementation
      });
-   }, 15_000);
+   }, TIMEOUT);
    ```
 
 ## Helper Functions
@@ -100,9 +102,10 @@ Tests for LLM-related functionality should follow these guidelines to ensure con
 1. Set appropriate timeouts for LLM calls:
 
    ```typescript
+   const TIMEOUT = 15_000;
    test("handles long-running LLM operations", async () => {
      // ...
-   }, 15_000); // 15 second timeout
+   }, TIMEOUT);
    ```
 
 2. Use descriptive console.debug for generated content:

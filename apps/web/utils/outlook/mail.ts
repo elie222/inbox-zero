@@ -1,3 +1,4 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import type { Attachment } from "nodemailer/lib/mailer";
 import type { SendEmailBody } from "@/utils/gmail/mail";
@@ -46,7 +47,10 @@ export async function sendEmailWithHtml(
     message.conversationId = body.replyToEmail.threadId;
   }
 
-  const result = await client.getClient().api("/me/messages").post(message);
+  const result: Message = await client
+    .getClient()
+    .api("/me/messages")
+    .post(message);
   return result;
 }
 
@@ -105,7 +109,7 @@ export async function forwardEmail(
   if (!options.to.trim()) throw new Error("Recipient address is required");
 
   // Get the original message
-  const originalMessage = await client
+  const originalMessage: Message = await client
     .getClient()
     .api(`/me/messages/${options.messageId}`)
     .get();
@@ -202,7 +206,10 @@ export async function draftEmail(
     isDraft: true,
   };
 
-  const result = await client.getClient().api("/me/messages").post(draft);
+  const result: Message = await client
+    .getClient()
+    .api("/me/messages")
+    .post(draft);
   return result;
 }
 

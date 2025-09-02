@@ -98,16 +98,18 @@ export function NavUser() {
               Settings
             </Link>
           </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link
-              href={EXTENSION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ChromeIcon className="mr-2 size-4" />
-              Install extension
-            </Link>
-          </DropdownMenuItem>
+          {isGoogleProvider(provider) && (
+            <DropdownMenuItem asChild>
+              <Link
+                href={EXTENSION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ChromeIcon className="mr-2 size-4" />
+                Install extension
+              </Link>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link href="/premium">
               <CrownIcon className="mr-2 size-4" />
@@ -146,15 +148,14 @@ export function NavUser() {
                   Cold Email Blocker
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/early-access">
+                  <RibbonIcon className="mr-2 size-4" />
+                  Early Access
+                </Link>
+              </DropdownMenuItem>
             </>
           )}
-
-          <DropdownMenuItem asChild>
-            <Link href="/early-access">
-              <RibbonIcon className="mr-2 size-4" />
-              Early Access
-            </Link>
-          </DropdownMenuItem>
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />

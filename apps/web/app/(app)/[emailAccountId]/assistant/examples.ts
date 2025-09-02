@@ -67,8 +67,14 @@ const examplePromptsBase = [
   "Label Stripe emails as @[Stripe]",
 ];
 
-export function getExamplePrompts(provider: string): string[] {
-  return processPromptsWithTerminology(examplePromptsBase, provider);
+export function getExamplePrompts(
+  provider: string,
+  examples?: string[],
+): string[] {
+  return processPromptsWithTerminology(
+    examples || examplePromptsBase,
+    provider,
+  );
 }
 
 const founderPromptArray = [

@@ -1,3 +1,4 @@
+import type { Message } from "@microsoft/microsoft-graph-types";
 import type { OutlookClient } from "@/utils/outlook/client";
 import { createScopedLogger } from "@/utils/logger";
 import { convertMessage } from "@/utils/outlook/message";
@@ -6,7 +7,7 @@ const logger = createScopedLogger("outlook/draft");
 
 export async function getDraft(draftId: string, client: OutlookClient) {
   try {
-    const response = await client
+    const response: Message = await client
       .getClient()
       .api(`/me/messages/${draftId}`)
       .get();
@@ -22,13 +23,7 @@ export async function getDraft(draftId: string, client: OutlookClient) {
 export async function deleteDraft(client: OutlookClient, draftId: string) {
   try {
     logger.info("Deleting draft", { draftId });
-    const response = await client
-      .getClient()
-      .api(`/me/messages/${draftId}`)
-      .delete();
-    if (response.status !== 204) {
-      logger.error("Failed to delete draft", { draftId, response });
-    }
+    await client.getClient().api(`/me/messages/${draftId}`).delete();
     logger.info("Successfully deleted draft", { draftId });
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === 404) {

@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import prisma from "@/utils/prisma";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
@@ -68,16 +67,17 @@ export async function processHistoryForUser({
     ? emailAccount.user.premium
     : undefined;
 
+  const provider = await createEmailProvider({
+    emailAccountId: emailAccount.id,
+    provider: emailAccount.account?.provider || "microsoft",
+  });
+
   if (!premium) {
     logger.info("Account not premium", {
       email: emailAccount.email,
       lemonSqueezyRenewsAt: emailAccount.user.premium?.lemonSqueezyRenewsAt,
       stripeSubscriptionStatus:
         emailAccount.user.premium?.stripeSubscriptionStatus,
-    });
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft",
     });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
@@ -91,10 +91,6 @@ export async function processHistoryForUser({
 
   if (!userHasAiAccess) {
     logger.trace("Does not have ai access", { email: emailAccount.email });
-    const provider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft",
-    });
     await unwatchEmails({
       emailAccountId: emailAccount.id,
       provider,
@@ -107,6 +103,7 @@ export async function processHistoryForUser({
   const shouldBlockColdEmails =
     emailAccount.coldEmailBlocker &&
     emailAccount.coldEmailBlocker !== ColdEmailSetting.DISABLED;
+
   if (!hasAutomationRules && !shouldBlockColdEmails) {
     logger.trace("Has no rules set and cold email blocker disabled", {
       email: emailAccount.email,
@@ -125,16 +122,8 @@ export async function processHistoryForUser({
   }
 
   try {
-    const outlookClient = await getOutlookClientWithRefresh({
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at?.getTime() || null,
-      emailAccountId: emailAccount.id,
-    });
-
     await processHistoryItem(resourceData, {
-      client: outlookClient.getClient(),
-      accessToken: emailAccount.account.access_token,
+      provider,
       hasAutomationRules,
       hasAiAccess: userHasAiAccess,
       rules: emailAccount.rules,

@@ -15,7 +15,6 @@ import { Dialog } from "@/components/ui/dialog";
 import type { GetAuthLinkUrlResponse } from "@/app/api/google/linking/auth-url/route";
 import type { GetOutlookAuthLinkUrlResponse } from "@/app/api/outlook/linking/auth-url/route";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
-import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 
 export function AddAccount() {
   const handleConnectGoogle = async () => {
@@ -37,24 +36,30 @@ export function AddAccount() {
     window.location.href = data.url;
   };
 
-  const handleConnectMicrosoft = async () => {
-    await signIn.social({
-      provider: "microsoft",
-      callbackURL: "/accounts",
-      scopes: [...OUTLOOK_SCOPES],
-    });
-  };
+  const handleConnectMicrosoft = async (action: "merge" | "create") => {
+    const response = await fetch(
+      `/api/outlook/linking/auth-url?action=${action}`,
+      {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
 
-  const handleMergeMicrosoft = async () => {
-    const response = await fetch("/api/outlook/linking/auth-url", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    if (!response.ok) {
+      toastError({
+        title: "Error initiating Microsoft link",
+        description: "Please try again or contact support",
+      });
+      return;
+    }
 
     const data: GetOutlookAuthLinkUrlResponse = await response.json();
 
     window.location.href = data.url;
   };
+
+  const handleCreateMicrosoft = () => handleConnectMicrosoft("create");
+  const handleMergeMicrosoft = () => handleConnectMicrosoft("merge");
 
   return (
     <Card className="flex items-center justify-center">
@@ -68,7 +73,7 @@ export function AddAccount() {
         <AddEmailAccount
           name="Microsoft"
           image="/images/microsoft.svg"
-          handleConnect={handleConnectMicrosoft}
+          handleConnect={handleCreateMicrosoft}
           handleMerge={handleMergeMicrosoft}
         />
       </CardContent>

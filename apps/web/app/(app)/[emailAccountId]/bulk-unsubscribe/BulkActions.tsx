@@ -22,6 +22,7 @@ export function BulkActions({
   mutate,
 }: {
   selected: Map<string, boolean>;
+  // biome-ignore lint/suspicious/noExplicitAny: lazy
   mutate: () => Promise<any>;
 }) {
   const posthog = usePostHog();

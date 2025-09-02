@@ -91,7 +91,7 @@ export async function getActionItemsWithAiArgs({
   );
 }
 
-function combineActionsWithAiArgs(
+export function combineActionsWithAiArgs(
   actions: Action[],
   aiArgs: ActionArgResponse | undefined,
   draft: string | null = null,
@@ -112,8 +112,8 @@ function combineActionsWithAiArgs(
 
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {
-      // Already handled above
-      if (field === "content" && draft) continue;
+      // Skip content field only if the action originally had no content and we've already set a draft
+      if (field === "content" && draft && !action.content) continue;
 
       // Only process fields that we know can contain template strings
       if (
