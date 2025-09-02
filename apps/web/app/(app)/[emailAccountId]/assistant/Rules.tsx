@@ -12,6 +12,7 @@ import {
   ToggleLeftIcon,
   InfoIcon,
   SparklesIcon,
+  EyeIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -339,6 +340,21 @@ export function Rules({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (isColdEmailBlocker) {
+                                  coldEmailDialog.open();
+                                } else {
+                                  ruleDialog.open({
+                                    ruleId: rule.id,
+                                    editMode: false,
+                                  });
+                                }
+                              }}
+                            >
+                              <EyeIcon className="mr-2 size-4" />
+                              View
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
