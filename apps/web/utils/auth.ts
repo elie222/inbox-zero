@@ -20,6 +20,7 @@ import { updateAccountSeats } from "@/utils/premium/server";
 import type { Prisma } from "@prisma/client";
 import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
 import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
+import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("auth");
 
@@ -30,7 +31,7 @@ export const betterAuthConfig = betterAuth({
     },
   },
   logger: {
-    level: "debug",
+    level: "info",
     log: (level, message, ...args) => {
       switch (level) {
         case "info":
@@ -69,9 +70,22 @@ export const betterAuthConfig = betterAuth({
   plugins: [
     nextCookies(),
     sso({
-      providersLimit: 10, // Allow up to 10 SSO providers
+      disableImplicitSignUp: false,
+      organizationProvisioning: {
+        disabled: false,
+        defaultRole: "member",
+      },
     }),
-    organization(),
+    organization({
+      // By default anyone can create an organization
+      // @see https://www.better-auth.com/docs/plugins/organization#restrict-who-can-create-an-organization
+      allowUserToCreateOrganization: async (user: User) => {
+        if (isAdmin({ email: user.email })) {
+          return true;
+        }
+        return false;
+      },
+    }),
   ],
   session: {
     modelName: "Session",
@@ -95,6 +109,10 @@ export const betterAuthConfig = betterAuth({
       accessToken: "access_token",
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
+    },
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["google", "microsoft", "okta", "inboxzero-okta"],
     },
   },
   verification: {
