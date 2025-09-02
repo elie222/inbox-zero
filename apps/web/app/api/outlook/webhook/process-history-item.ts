@@ -143,7 +143,7 @@ export async function processHistoryItem(
         message,
         emailProvider,
         messageId,
-        resourceData.conversationId,
+        resourceData.conversationId || undefined,
       );
       return;
     }

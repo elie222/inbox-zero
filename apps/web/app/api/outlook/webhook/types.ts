@@ -6,22 +6,22 @@ import type { EmailAccount } from "@prisma/client";
 
 const resourceDataSchema = z
   .object({
-    "@odata.type": z.string().optional(),
-    "@odata.id": z.string().optional(),
+    "@odata.type": z.string().nullish(),
+    "@odata.id": z.string().nullish(),
     id: z.string(),
-    folderId: z.string().optional(),
-    conversationId: z.string().optional(),
+    folderId: z.string().nullish(),
+    conversationId: z.string().nullish(),
   })
   .passthrough(); // Allow additional properties
 
 const notificationSchema = z.object({
   subscriptionId: z.string(),
   changeType: z.string(),
-  resource: z.string().optional(),
+  resource: z.string().nullish(),
   resourceData: resourceDataSchema,
-  subscriptionExpirationDateTime: z.string().optional(),
-  clientState: z.string().optional(),
-  tenantId: z.string().optional(),
+  subscriptionExpirationDateTime: z.string().nullish(),
+  clientState: z.string().nullish(),
+  tenantId: z.string().nullish(),
 });
 
 export const webhookBodySchema = z.object({
@@ -43,6 +43,6 @@ export type ProcessHistoryOptions = {
 
 export type OutlookResourceData = {
   id: string;
-  folderId?: string;
-  conversationId?: string;
+  folderId?: string | null;
+  conversationId?: string | null;
 };
