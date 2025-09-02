@@ -100,7 +100,8 @@ function getOutlookLabels(
     labels.push(...message.categories);
   }
 
-  return labels;
+  // Remove duplicates
+  return [...new Set(labels)];
 }
 
 export async function queryBatchMessages(

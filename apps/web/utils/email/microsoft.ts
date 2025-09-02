@@ -350,7 +350,6 @@ export class OutlookProvider implements EmailProvider {
         .select(
           "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
         )
-        .orderby("receivedDateTime asc")
         .get();
 
       // Convert to ParsedMessage format using existing helper
@@ -370,7 +369,12 @@ export class OutlookProvider implements EmailProvider {
         }
       }
 
-      return messages;
+      // Sort messages by receivedDateTime in ascending order (oldest first) to avoid "restriction or sort order is too complex" error
+      return messages.sort((a, b) => {
+        const dateA = new Date(a.date || 0).getTime();
+        const dateB = new Date(b.date || 0).getTime();
+        return dateA - dateB; // asc order (oldest first)
+      });
     } catch (error) {
       logger.error("Error fetching inbox thread messages", { error, threadId });
       throw error;

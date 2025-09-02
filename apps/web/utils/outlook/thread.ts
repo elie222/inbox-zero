@@ -11,10 +11,14 @@ export async function getThread(
     .getClient()
     .api("/me/messages")
     .filter(`conversationId eq '${threadId}'`)
-    .orderby("receivedDateTime desc")
     .get();
 
-  return messages.value;
+  // Sort in memory to avoid "restriction or sort order is too complex" error
+  return messages.value.sort((a, b) => {
+    const dateA = new Date(a.receivedDateTime || 0).getTime();
+    const dateB = new Date(b.receivedDateTime || 0).getTime();
+    return dateB - dateA; // desc order (newest first)
+  });
 }
 
 export async function getThreads(
