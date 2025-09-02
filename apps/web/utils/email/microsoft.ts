@@ -951,4 +951,22 @@ export class OutlookProvider implements EmailProvider {
       folderId,
     });
   }
+
+  async archiveMessage(messageId: string): Promise<void> {
+    try {
+      await this.client.getClient().api(`/me/messages/${messageId}/move`).post({
+        destinationId: "archive",
+      });
+
+      logger.info("Message archived successfully", {
+        messageId,
+      });
+    } catch (error) {
+      logger.error("Failed to archive message", {
+        messageId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
 }

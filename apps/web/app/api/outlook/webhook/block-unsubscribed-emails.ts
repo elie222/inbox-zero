@@ -31,7 +31,7 @@ export async function blockUnsubscribedEmails({
   if (!sender) return false;
 
   try {
-    await provider.archiveThread(messageId, ownerEmail);
+    await provider.archiveMessage(messageId);
     await provider.markRead(messageId);
 
     logger.info("Moved unsubscribed email to archive", {

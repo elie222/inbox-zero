@@ -218,6 +218,28 @@ export class GmailProvider implements EmailProvider {
     });
   }
 
+  async archiveMessage(messageId: string): Promise<void> {
+    try {
+      await this.client.users.messages.modify({
+        userId: "me",
+        id: messageId,
+        requestBody: {
+          removeLabelIds: [GmailLabel.INBOX],
+        },
+      });
+
+      logger.info("Message archived successfully", {
+        messageId,
+      });
+    } catch (error) {
+      logger.error("Failed to archive message", {
+        messageId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
+  }
+
   async trashThread(
     threadId: string,
     ownerEmail: string,

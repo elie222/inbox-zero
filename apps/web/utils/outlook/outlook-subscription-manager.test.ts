@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import type { Client } from "@microsoft/microsoft-graph-client";
 import { OutlookSubscriptionManager } from "@/utils/outlook/subscription-manager";
 import prisma from "@/utils/prisma";
-import { watchOutlook, unwatchOutlook } from "@/utils/outlook/watch";
+import type { EmailProvider } from "@/utils/email/types";
 
 // Mock dependencies
+vi.mock("server-only", () => ({}));
 vi.mock("@/utils/prisma", () => ({
   default: {
     emailAccount: {
@@ -12,11 +12,6 @@ vi.mock("@/utils/prisma", () => ({
       update: vi.fn(),
     },
   },
-}));
-
-vi.mock("@/utils/outlook/watch", () => ({
-  watchOutlook: vi.fn(),
-  unwatchOutlook: vi.fn(),
 }));
 
 vi.mock("@/utils/logger", () => ({
@@ -32,14 +27,17 @@ vi.mock("@/utils/error", () => ({
 }));
 
 describe("OutlookSubscriptionManager", () => {
-  let mockClient: Client;
+  let mockProvider: EmailProvider;
   let manager: OutlookSubscriptionManager;
   const emailAccountId = "test-account-id";
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockClient = {} as Client;
-    manager = new OutlookSubscriptionManager(mockClient, emailAccountId);
+    mockProvider = {
+      watchEmails: vi.fn(),
+      unwatchEmails: vi.fn(),
+    } as unknown as EmailProvider;
+    manager = new OutlookSubscriptionManager(mockProvider, emailAccountId);
   });
 
   describe("createSubscription", () => {
@@ -52,20 +50,19 @@ describe("OutlookSubscriptionManager", () => {
 
       // Mock new subscription creation
       const newSubscription = {
-        id: "new-subscription-id",
-        expirationDateTime: new Date().toISOString(),
+        subscriptionId: "new-subscription-id",
+        expirationDate: new Date(),
       };
-      vi.mocked(watchOutlook).mockResolvedValue(newSubscription);
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(newSubscription);
 
       // Act
       const result = await manager.createSubscription();
 
       // Assert
-      expect(unwatchOutlook).toHaveBeenCalledWith(
-        mockClient,
+      expect(mockProvider.unwatchEmails).toHaveBeenCalledWith(
         existingSubscriptionId,
       );
-      expect(watchOutlook).toHaveBeenCalledWith(mockClient);
+      expect(mockProvider.watchEmails).toHaveBeenCalled();
       expect(result).toEqual(newSubscription);
     });
 
@@ -76,17 +73,17 @@ describe("OutlookSubscriptionManager", () => {
       } as any);
 
       const newSubscription = {
-        id: "new-subscription-id",
-        expirationDateTime: new Date().toISOString(),
+        subscriptionId: "new-subscription-id",
+        expirationDate: new Date(),
       };
-      vi.mocked(watchOutlook).mockResolvedValue(newSubscription);
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(newSubscription);
 
       // Act
       const result = await manager.createSubscription();
 
       // Assert
-      expect(unwatchOutlook).not.toHaveBeenCalled();
-      expect(watchOutlook).toHaveBeenCalledWith(mockClient);
+      expect(mockProvider.unwatchEmails).not.toHaveBeenCalled();
+      expect(mockProvider.watchEmails).toHaveBeenCalled();
       expect(result).toEqual(newSubscription);
     });
 
@@ -96,23 +93,23 @@ describe("OutlookSubscriptionManager", () => {
         watchEmailsSubscriptionId: "old-subscription-id",
       } as any);
 
-      // Mock unwatchOutlook to fail
-      vi.mocked(unwatchOutlook).mockRejectedValue(
+      // Mock unwatchEmails to fail
+      vi.mocked(mockProvider.unwatchEmails).mockRejectedValue(
         new Error("Subscription not found"),
       );
 
       const newSubscription = {
-        id: "new-subscription-id",
-        expirationDateTime: new Date().toISOString(),
+        subscriptionId: "new-subscription-id",
+        expirationDate: new Date(),
       };
-      vi.mocked(watchOutlook).mockResolvedValue(newSubscription);
+      vi.mocked(mockProvider.watchEmails).mockResolvedValue(newSubscription);
 
       // Act
       const result = await manager.createSubscription();
 
       // Assert
-      expect(unwatchOutlook).toHaveBeenCalled();
-      expect(watchOutlook).toHaveBeenCalledWith(mockClient);
+      expect(mockProvider.unwatchEmails).toHaveBeenCalled();
+      expect(mockProvider.watchEmails).toHaveBeenCalled();
       expect(result).toEqual(newSubscription);
     });
 
@@ -122,8 +119,10 @@ describe("OutlookSubscriptionManager", () => {
         watchEmailsSubscriptionId: null,
       } as any);
 
-      // Mock watchOutlook to fail
-      vi.mocked(watchOutlook).mockRejectedValue(new Error("API error"));
+      // Mock watchEmails to fail
+      vi.mocked(mockProvider.watchEmails).mockRejectedValue(
+        new Error("API error"),
+      );
 
       // Act
       const result = await manager.createSubscription();
@@ -136,8 +135,8 @@ describe("OutlookSubscriptionManager", () => {
   describe("updateSubscriptionInDatabase", () => {
     it("should update database with new subscription details", async () => {
       const subscription = {
-        id: "test-subscription-id",
-        expirationDateTime: "2024-01-01T00:00:00Z",
+        subscriptionId: "test-subscription-id",
+        expirationDate: new Date("2024-01-01T00:00:00Z"),
       };
 
       // Act
@@ -151,18 +150,6 @@ describe("OutlookSubscriptionManager", () => {
           watchEmailsSubscriptionId: "test-subscription-id",
         },
       });
-    });
-
-    it("should throw error if subscription has no expiration date", async () => {
-      const subscription = {
-        id: "test-subscription-id",
-        expirationDateTime: undefined,
-      };
-
-      // Act & Assert
-      await expect(
-        manager.updateSubscriptionInDatabase(subscription),
-      ).rejects.toThrow("Subscription missing expiration date");
     });
   });
 });
