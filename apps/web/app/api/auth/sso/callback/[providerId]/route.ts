@@ -22,8 +22,6 @@ export async function POST(request: NextRequest) {
 
     // TODO: Decide what to do from here as the user has been authenticated on Okta's end
     // An user without an account can end up here.
-
-    console.log("User info:", userInfo);
     let user = await prisma.user.findUnique({
       where: { email: userInfo.email },
     });

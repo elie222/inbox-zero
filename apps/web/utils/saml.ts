@@ -175,7 +175,7 @@ export function validateSAMLCertificate(
     const cleanExtractedCert = extractedCert.raw;
 
     return cleanExpectedCert === cleanExtractedCert;
-  } catch (error) {
+  } catch (_error) {
     return false;
   }
 }
@@ -190,7 +190,7 @@ export function parseSAMLResponse(samlResponseXml: string): any {
 
   try {
     return parser.parse(samlResponseXml);
-  } catch (parseError) {
+  } catch (_error) {
     throw new Error("Invalid SAML response format");
   }
 }
