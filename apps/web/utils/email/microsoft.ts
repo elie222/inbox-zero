@@ -50,13 +50,13 @@ import {
   createAutoArchiveFilter,
 } from "@/utils/outlook/filter";
 import { processHistoryForUser } from "@/app/api/outlook/webhook/process-history";
-import { watchOutlook, unwatchOutlook } from "@/utils/outlook/watch";
 import type {
   EmailProvider,
   EmailThread,
   EmailLabel,
   EmailFilter,
 } from "@/utils/email/types";
+import { unwatchOutlook, watchOutlook } from "@/utils/outlook/watch";
 
 const logger = createScopedLogger("outlook-provider");
 
@@ -350,7 +350,6 @@ export class OutlookProvider implements EmailProvider {
         .select(
           "id,conversationId,subject,bodyPreview,receivedDateTime,from,toRecipients,body,isDraft,categories,parentFolderId",
         )
-        .orderby("receivedDateTime asc")
         .get();
 
       // Convert to ParsedMessage format using existing helper
@@ -370,7 +369,12 @@ export class OutlookProvider implements EmailProvider {
         }
       }
 
-      return messages;
+      // Sort messages by receivedDateTime in ascending order (oldest first) to avoid "restriction or sort order is too complex" error
+      return messages.sort((a, b) => {
+        const dateA = new Date(a.date || 0).getTime();
+        const dateB = new Date(b.date || 0).getTime();
+        return dateA - dateB; // asc order (oldest first)
+      });
     } catch (error) {
       logger.error("Error fetching inbox thread messages", { error, threadId });
       throw error;
@@ -893,7 +897,7 @@ export class OutlookProvider implements EmailProvider {
       subscriptionId: options.subscriptionId,
       resourceData: options.resourceData || {
         id: options.historyId?.toString() || "0",
-        conversationId: options.startHistoryId?.toString(),
+        conversationId: options.startHistoryId?.toString() || null,
       },
     });
   }
@@ -946,5 +950,23 @@ export class OutlookProvider implements EmailProvider {
       actionSource: "automation",
       folderId,
     });
+  }
+
+  async archiveMessage(messageId: string): Promise<void> {
+    try {
+      await this.client.getClient().api(`/me/messages/${messageId}/move`).post({
+        destinationId: "archive",
+      });
+
+      logger.info("Message archived successfully", {
+        messageId,
+      });
+    } catch (error) {
+      logger.error("Failed to archive message", {
+        messageId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
   }
 }

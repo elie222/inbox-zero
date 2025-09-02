@@ -18,7 +18,7 @@ export async function watchOutlook(client: Client) {
   const subscriptionPayload = {
     changeType: "created,updated",
     notificationUrl: notificationUrl.toString(),
-    resource: "/me/mailFolders/inbox/messages",
+    resource: "/me/messages",
     expirationDateTime: addDays(new Date(), 3).toISOString(), // 3 days (max allowed)
     clientState: env.MICROSOFT_WEBHOOK_CLIENT_STATE,
   };

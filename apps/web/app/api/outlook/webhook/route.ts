@@ -13,7 +13,7 @@ export const POST = withError(async (request) => {
 
   if (validationToken) {
     logger.info("Received validation request", { validationToken });
-    return new NextResponse(decodeURIComponent(validationToken), {
+    return new NextResponse(validationToken, {
       headers: { "Content-Type": "text/plain" },
     });
   }
@@ -39,23 +39,23 @@ export const POST = withError(async (request) => {
   const body = parseResult.data;
 
   // Validate clientState for security (verify webhook is from Microsoft)
-  if (
-    !body.value[0]?.clientState ||
-    body.value[0]?.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
-  ) {
-    logger.error("Invalid or missing clientState", {
-      receivedClientState: body.value[0].clientState,
-      hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
-    });
-    return NextResponse.json(
-      { error: "Unauthorized webhook request" },
-      { status: 403 },
-    );
+  for (const notification of body.value) {
+    if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+      logger.error("Invalid or missing clientState", {
+        receivedClientState: notification.clientState,
+        hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
+        subscriptionId: notification.subscriptionId,
+      });
+      return NextResponse.json(
+        { error: "Unauthorized webhook request" },
+        { status: 403 },
+      );
+    }
   }
 
   logger.info("Received webhook notification", {
-    value: body.value,
-    clientState: body.value[0]?.clientState,
+    notificationCount: body.value.length,
+    subscriptionIds: body.value.map((n) => n.subscriptionId),
   });
 
   const notifications = body.value;

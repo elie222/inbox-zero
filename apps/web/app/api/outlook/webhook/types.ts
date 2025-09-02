@@ -1,13 +1,23 @@
 import { z } from "zod";
-import type { Client } from "@microsoft/microsoft-graph-client";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailAccount } from "@prisma/client";
+import type { EmailProvider } from "@/utils/email/types";
+
+export type ProcessHistoryOptions = {
+  provider: EmailProvider;
+  rules: RuleWithActionsAndCategories[];
+  hasAutomationRules: boolean;
+  hasAiAccess: boolean;
+  emailAccount: Pick<
+    EmailAccount,
+    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
+  > &
+    EmailAccountWithAI;
+};
 
 const resourceDataSchema = z
   .object({
-    "@odata.type": z.string().nullish(),
-    "@odata.id": z.string().nullish(),
     id: z.string(),
     folderId: z.string().nullish(),
     conversationId: z.string().nullish(),
@@ -28,21 +38,4 @@ export const webhookBodySchema = z.object({
   value: z.array(notificationSchema),
 });
 
-export type ProcessHistoryOptions = {
-  client: Client;
-  accessToken: string;
-  rules: RuleWithActionsAndCategories[];
-  hasAutomationRules: boolean;
-  hasAiAccess: boolean;
-  emailAccount: Pick<
-    EmailAccount,
-    "coldEmailPrompt" | "coldEmailBlocker" | "autoCategorizeSenders"
-  > &
-    EmailAccountWithAI;
-};
-
-export type OutlookResourceData = {
-  id: string;
-  folderId?: string | null;
-  conversationId?: string | null;
-};
+export type OutlookResourceData = z.infer<typeof resourceDataSchema>;

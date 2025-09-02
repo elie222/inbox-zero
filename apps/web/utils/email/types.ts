@@ -58,6 +58,7 @@ export interface EmailProvider {
     ownerEmail: string,
     labelId?: string,
   ): Promise<void>;
+  archiveMessage(messageId: string): Promise<void>;
   trashThread(
     threadId: string,
     ownerEmail: string,
