@@ -216,7 +216,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        client: provider,
+        provider,
         message: parsedMessage,
         rules,
         emailAccount,
