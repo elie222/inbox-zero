@@ -41,7 +41,7 @@ export const POST = withError(async (request) => {
   // Validate clientState for security (verify webhook is from Microsoft)
   for (const notification of body.value) {
     if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
-      logger.error("Invalid or missing clientState", {
+      logger.warn("Invalid or missing clientState", {
         receivedClientState: notification.clientState,
         hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
         subscriptionId: notification.subscriptionId,
