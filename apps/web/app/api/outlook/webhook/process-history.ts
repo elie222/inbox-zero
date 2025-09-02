@@ -123,15 +123,13 @@ export async function processHistoryForUser({
   }
 
   try {
-    const outlookClient = await getOutlookClientWithRefresh({
-      accessToken: emailAccount.account?.access_token,
-      refreshToken: emailAccount.account?.refresh_token,
-      expiresAt: emailAccount.account?.expires_at?.getTime() || null,
+    const emailProvider = await createEmailProvider({
       emailAccountId: emailAccount.id,
+      provider: emailAccount.account?.provider || "microsoft",
     });
 
     await processHistoryItem(resourceData, {
-      client: outlookClient.getClient(),
+      provider: emailProvider,
       accessToken: emailAccount.account.access_token,
       hasAutomationRules,
       hasAiAccess: userHasAiAccess,

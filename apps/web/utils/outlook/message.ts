@@ -292,7 +292,6 @@ export async function getMessage(
     )
     .get();
 
-  // Get folder IDs to properly map labels
   const folderIds = await getFolderIds(client);
 
   return convertMessage(message, folderIds);

@@ -1,4 +1,5 @@
-import type { Message } from "@microsoft/microsoft-graph-types";
+import type { ParsedMessage } from "@/utils/types";
+import { getEmailForLLM } from "@/utils/get-email-from-message";
 import prisma from "@/utils/prisma";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";
 import { runRules } from "@/utils/ai/choose-rule/run-rules";
@@ -20,14 +21,12 @@ import {
   cleanupThreadAIDrafts,
 } from "@/utils/reply-tracker/draft-tracking";
 import { formatError } from "@/utils/error";
-import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
-import { WELL_KNOWN_FOLDERS } from "@/utils/outlook/message";
 
 export async function processHistoryItem(
   resourceData: OutlookResourceData,
   {
-    client,
+    provider,
     emailAccount,
     hasAutomationRules,
     hasAiAccess,
@@ -53,8 +52,8 @@ export async function processHistoryItem(
   logger.info("Getting message", loggerOptions);
 
   try {
-    const [message, hasExistingRule] = await Promise.all([
-      client.api(`/me/messages/${messageId}`).get() as Promise<Message>,
+    const [parsedMessage, hasExistingRule] = await Promise.all([
+      provider.getMessage(messageId),
       prisma.executedRule.findUnique({
         where: {
           unique_emailAccount_thread_message: {
@@ -67,42 +66,39 @@ export async function processHistoryItem(
       }),
     ]);
 
-    // Skip messages that are not in inbox or sent items folders
-    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
-    const parentFolderId = message.parentFolderId?.toLowerCase();
-    const isInInbox = parentFolderId === WELL_KNOWN_FOLDERS.inbox;
-    const isInSentItems = parentFolderId === WELL_KNOWN_FOLDERS.sentitems;
-
-    if (!isInInbox && !isInSentItems) {
-      logger.info("Skipping message not in inbox or sent items", {
-        ...loggerOptions,
-        parentFolderId,
-      });
-      return;
-    }
-
     // if the rule has already been executed, skip
     if (hasExistingRule) {
       logger.info("Skipping. Rule already exists.", loggerOptions);
       return;
     }
 
-    const from = message.from?.emailAddress?.address;
-    const to =
-      message.toRecipients
-        ?.map((r) => r.emailAddress?.address)
-        .filter(Boolean) || [];
-    const subject = message.subject || "";
+    const from = parsedMessage.headers.from;
+    const to = parsedMessage.headers.to
+      ? parsedMessage.headers.to
+          .split(",")
+          .map((email) => email.trim())
+          .filter(Boolean)
+      : [];
+    const subject = parsedMessage.headers.subject || "";
 
     if (!from) {
       logger.error("Message has no sender", loggerOptions);
       return;
     }
 
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: "microsoft",
-    });
+    // Skip messages that are not in inbox or sent items folders
+    // We want to process inbox messages (for rules/automation) and sent messages (for reply tracking)
+    // Note: ParsedMessage already contains the necessary folder information in labels
+    const isInInbox = parsedMessage.labelIds?.includes("INBOX") || false;
+    const isInSentItems = parsedMessage.labelIds?.includes("SENT") || false;
+
+    if (!isInInbox && !isInSentItems) {
+      logger.info("Skipping message not in inbox or sent items", {
+        ...loggerOptions,
+        labels: parsedMessage.labelIds,
+      });
+      return;
+    }
 
     if (
       isAssistantEmail({
@@ -119,22 +115,20 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
-            date: message.receivedDateTime
-              ? new Date(message.receivedDateTime).toISOString()
-              : new Date().toISOString(),
+            date: parsedMessage.date || new Date().toISOString(),
           },
-          snippet: message.bodyPreview || "",
+          snippet: parsedMessage.snippet || "",
           historyId: resourceData.id,
           inline: [],
           subject,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
+          date: parsedMessage.date
+            ? new Date(parsedMessage.date).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex,
+          conversationIndex: parsedMessage.conversationIndex,
         },
         emailAccountId,
         userEmail,
-        provider: emailProvider,
+        provider,
       });
     }
 
@@ -153,8 +147,8 @@ export async function processHistoryItem(
     if (isOutbound) {
       await handleOutbound(
         emailAccount,
-        message,
-        emailProvider,
+        parsedMessage,
+        provider,
         messageId,
         resourceData.conversationId,
       );
@@ -165,8 +159,9 @@ export async function processHistoryItem(
     const blocked = await blockUnsubscribedEmails({
       from,
       emailAccountId,
-      client,
       messageId,
+      provider,
+      ownerEmail: userEmail,
     });
 
     if (blocked) {
@@ -182,21 +177,15 @@ export async function processHistoryItem(
     if (shouldRunBlocker) {
       logger.info("Running cold email blocker...", loggerOptions);
 
-      const content = message.body?.content || "";
+      const emailForLLM = getEmailForLLM(parsedMessage);
 
       const response = await runColdEmailBlocker({
         email: {
-          from,
-          to: to.join(","),
-          subject,
-          content,
-          id: messageId,
+          ...emailForLLM,
           threadId: resourceData.conversationId || messageId,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime)
-            : new Date(),
+          date: parsedMessage.date ? new Date(parsedMessage.date) : new Date(),
         },
-        provider: emailProvider,
+        provider,
         emailAccount,
         modelType: "default",
       });
@@ -218,7 +207,7 @@ export async function processHistoryItem(
         select: { category: true },
       });
       if (!existingSender?.category) {
-        await categorizeSender(sender, emailAccount, emailProvider);
+        await categorizeSender(sender, emailAccount, provider);
       }
     }
 
@@ -226,7 +215,7 @@ export async function processHistoryItem(
       logger.info("Running rules...", loggerOptions);
 
       await runRules({
-        client: emailProvider,
+        provider,
         message: {
           id: messageId,
           threadId: resourceData.conversationId || messageId,
@@ -234,18 +223,16 @@ export async function processHistoryItem(
             from,
             to: to.join(","),
             subject,
-            date: message.receivedDateTime
-              ? new Date(message.receivedDateTime).toISOString()
-              : new Date().toISOString(),
+            date: parsedMessage.date || new Date().toISOString(),
           },
-          snippet: message.bodyPreview || "",
+          snippet: parsedMessage.snippet || "",
           historyId: resourceData.id,
           inline: [],
           subject,
-          date: message.receivedDateTime
-            ? new Date(message.receivedDateTime).toISOString()
+          date: parsedMessage.date
+            ? new Date(parsedMessage.date).toISOString()
             : new Date().toISOString(),
-          conversationIndex: message.conversationIndex,
+          conversationIndex: parsedMessage.conversationIndex,
         },
         rules,
         emailAccount,
@@ -270,7 +257,7 @@ export async function processHistoryItem(
 
 async function handleOutbound(
   emailAccount: ProcessHistoryOptions["emailAccount"],
-  message: Message,
+  parsedMessage: ParsedMessage,
   provider: EmailProvider,
   messageId: string,
   conversationId?: string | null,
@@ -282,30 +269,6 @@ async function handleOutbound(
   };
 
   logger.info("Handling outbound reply", loggerOptions);
-
-  const messageHeaders = {
-    from: message.from?.emailAddress?.address || "",
-    to:
-      message.toRecipients?.map((r) => r.emailAddress?.address).join(",") || "",
-    subject: message.subject || "",
-    date: message.receivedDateTime
-      ? new Date(message.receivedDateTime).toISOString()
-      : new Date().toISOString(),
-  };
-
-  const parsedMessage = {
-    id: messageId,
-    threadId: conversationId || messageId,
-    headers: messageHeaders,
-    snippet: message.bodyPreview || "",
-    historyId: message.id || messageId,
-    inline: [],
-    subject: message.subject || "",
-    date: message.receivedDateTime
-      ? new Date(message.receivedDateTime).toISOString()
-      : new Date().toISOString(),
-    conversationIndex: message.conversationIndex,
-  };
 
   // Run tracking and outbound reply handling concurrently
   // The individual functions handle their own operational errors.
