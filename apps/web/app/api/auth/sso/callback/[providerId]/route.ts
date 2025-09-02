@@ -1,31 +1,78 @@
-import { betterAuthConfig, ssoPlugin } from "@/utils/auth";
 import { type NextRequest, NextResponse } from "next/server";
+import prisma from "@/utils/prisma";
+import { validateAndExtractUserInfoFromSAML } from "@/utils/saml";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { providerId: string } },
-) {
+export async function POST(request: NextRequest) {
   try {
-    const { providerId } = params;
-    const url = new URL(request.url);
-
-    console.log("Manual SSO callback for provider:", providerId);
-    console.log(
-      "Callback query params:",
-      Object.fromEntries(url.searchParams.entries()),
+    const formData = await request.formData();
+    const samlResponseBase64 = (formData.get("SAMLResponse") as string) || "";
+    const samlResponseXml = Buffer.from(samlResponseBase64, "base64").toString(
+      "utf-8",
     );
 
-    // Use the main auth config's API to handle the SSO callback
-    const result = await betterAuthConfig.api.callbackSSO({
-      query: Object.fromEntries(url.searchParams.entries()),
-      headers: request.headers,
-      params: { providerId },
+    const expectedCert = process.env.OKTA_CERT_TEST_ORG; // TODO: Save this certificate somewhere
+    if (!expectedCert) {
+      throw new Error("SAML certificate not configured");
+    }
+
+    const userInfo = validateAndExtractUserInfoFromSAML(
+      samlResponseXml,
+      expectedCert,
+    );
+
+    // TODO: Decide what to do from here as the user has been authenticated on Okta's end
+    // An user without an account can end up here.
+
+    console.log("User info:", userInfo);
+    let user = await prisma.user.findUnique({
+      where: { email: userInfo.email },
     });
 
-    // The callback should redirect, so we return the result
-    return result;
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email: userInfo.email,
+          name: userInfo.name,
+          emailVerified: true,
+        },
+      });
+    }
+
+    const sessionToken = crypto.randomUUID();
+    const expiresAt = new Date(Date.now() + 60 * 60 * 24 * 30 * 1000);
+
+    await prisma.session.create({
+      data: {
+        sessionToken,
+        userId: user.id,
+        expires: expiresAt,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    });
+
+    const relayState =
+      (formData.get("RelayState") as string) || "/welcome-redirect";
+    const redirectUrl = new URL(relayState, request.url);
+
+    const response = NextResponse.redirect(redirectUrl);
+
+    response.cookies.set("better-auth.session_token", sessionToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 30,
+      path: "/",
+    });
+
+    return response;
   } catch (error) {
-    console.error("Manual SSO callback error:", error);
-    return NextResponse.json({ error: "SSO callback failed" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: "SAML SSO callback failed",
+        details: error instanceof Error ? error.message : String(error),
+      },
+      { status: 500 },
+    );
   }
 }

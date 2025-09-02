@@ -20,13 +20,14 @@ export default async function AuthenticationPage(props: {
 }) {
   const searchParams = await props.searchParams;
   const session = await auth();
-  if (session?.user && !searchParams?.error) {
-    if (searchParams?.next) {
-      redirect(searchParams?.next);
-    } else {
-      redirect(WELCOME_PATH);
-    }
-  }
+  // Temporarily disabled redirect for SSO testing
+  // if (session?.user && !searchParams?.error) {
+  //   if (searchParams?.next) {
+  //     redirect(searchParams?.next);
+  //   } else {
+  //     redirect(WELCOME_PATH);
+  //   }
+  // }
 
   return (
     <div className="flex h-screen flex-col justify-center text-foreground">

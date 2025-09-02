@@ -4,6 +4,7 @@ import type { Account, User, AuthContext } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { nextCookies } from "better-auth/next-js";
 import { sso } from "@better-auth/sso";
+import { organization } from "better-auth/plugins";
 import { env } from "@/env";
 import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
@@ -29,7 +30,7 @@ export const betterAuthConfig = betterAuth({
     },
   },
   logger: {
-    level: "info",
+    level: "debug",
     log: (level, message, ...args) => {
       switch (level) {
         case "info":
@@ -45,12 +46,33 @@ export const betterAuthConfig = betterAuth({
   trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
-    enabled: false,
+    enabled: true,
+    requireEmailVerification: false,
+    signUp: {
+      enabled: true,
+      requireEmailVerification: false,
+    },
+  },
+  credential: {
+    modelName: "Credential",
+    fields: {
+      id: "id",
+      userId: "userId",
+      type: "type",
+      value: "value",
+      expiresAt: "expiresAt",
+    },
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  plugins: [nextCookies(), sso()],
+  plugins: [
+    nextCookies(),
+    sso({
+      providersLimit: 10, // Allow up to 10 SSO providers
+    }),
+    organization(),
+  ],
   session: {
     modelName: "Session",
     fields: {
@@ -98,18 +120,6 @@ export const betterAuthConfig = betterAuth({
       tenantId: "common",
       prompt: "consent",
       disableIdTokenSignIn: true,
-    },
-    okta: {
-      clientId: env.OKTA_CLIENT_ID || "",
-      clientSecret: env.OKTA_CLIENT_SECRET || "",
-      issuer: "https://integrator-9554919.okta.com",
-      authorizationEndpoint:
-        "https://integrator-9554919.okta.com/oauth2/v1/authorize",
-      tokenEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/token",
-      userinfoEndpoint:
-        "https://integrator-9554919.okta.com/oauth2/v1/userinfo",
-      jwksEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/keys",
-      scope: ["openid", "email", "profile"],
     },
   },
   events: {

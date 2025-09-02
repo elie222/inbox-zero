@@ -98,6 +98,12 @@ export const env = createEnv({
 
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
+
+    // Okta SSO Configuration
+    OKTA_PRIVATE_KEY_TEST_ORG: z.string().optional(),
+    OKTA_CERT_TEST_ORG: z.string().optional(),
+    OKTA_IDP_METADATA: z.string().optional(),
+    OKTA_SP_METADATA: z.string().optional(),
     RESEND_FROM_EMAIL: z
       .string()
       .optional()

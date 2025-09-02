@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { sso, signIn } from "@/utils/auth-client";
+import { useState } from "react";
+import { signIn, signUp } from "@/utils/auth-client";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/Button";
@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { WELCOME_PATH } from "@/utils/config";
-import { env } from "@/env";
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -24,10 +23,6 @@ export function LoginForm() {
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [loadingOkta, setLoadingOkta] = useState(false);
-
-  // Note: SSO provider registration requires authentication
-  // It will be handled after the user signs in through another method
-  // (Google, Microsoft, or email/password)
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -51,53 +46,28 @@ export function LoginForm() {
     setLoadingMicrosoft(false);
   };
 
-  // Register Okta SSO provider on component mount
-  useEffect(() => {
-    const registerOktaProvider = async () => {
-      try {
-        console.log("Registering Okta SSO provider...");
-        await sso.register({
-          providerId: "okta",
-          issuer: "https://integrator-9554919.okta.com",
-          domain: "getinboxzero.com",
-          oidcConfig: {
-            clientId: env.NEXT_PUBLIC_OKTA_CLIENT_ID || "",
-            clientSecret: env.NEXT_PUBLIC_OKTA_CLIENT_SECRET || "",
-            authorizationEndpoint:
-              "https://integrator-9554919.okta.com/oauth2/v1/authorize",
-            tokenEndpoint:
-              "https://integrator-9554919.okta.com/oauth2/v1/token",
-            jwksEndpoint: "https://integrator-9554919.okta.com/oauth2/v1/keys",
-            discoveryEndpoint:
-              "https://integrator-9554919.okta.com/.well-known/openid-configuration",
-            scopes: ["openid", "email", "profile"],
-            pkce: true,
-          },
-          mapping: {
-            id: "sub",
-            email: "email",
-            emailVerified: "email_verified",
-            name: "name",
-            image: "picture",
-          },
-        });
-        console.log("Okta SSO provider registered successfully");
-      } catch (error) {
-        console.error("Failed to register Okta SSO provider:", error);
-      }
-    };
-
-    registerOktaProvider();
-  }, []);
-
   const handleOktaSignIn = async () => {
+    // TODO: Must be dynamic.
+    // Provider is unique, so must be unique accross organizations
+    // Ideally we allow the user to choose the organization
+
     setLoadingOkta(true);
     try {
-      const res = await signIn.sso({
-        providerId: "okta",
-        callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+      const response = await fetch("/api/auth/sso/sign-in", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          providerId: "okta",
+          callbackURL: next && next.length > 0 ? next : WELCOME_PATH,
+        }),
       });
-      console.log("SSO sign-in response:", res);
+
+      const result = await response.json();
+      if (result.success && result.redirectUrl) {
+        window.location.href = result.redirectUrl;
+      }
     } catch (error) {
       console.error("Okta sign-in failed:", error);
     } finally {
@@ -164,13 +134,13 @@ export function LoginForm() {
 
       <Button size="2xl" loading={loadingOkta} onClick={handleOktaSignIn}>
         <span className="flex items-center justify-center">
-          {/* <Image
+          <Image
             src="/images/okta.svg"
             alt=""
             width={24}
             height={24}
             unoptimized
-          /> */}
+          />
           <span className="ml-2">SSO with Okta</span>
         </span>
       </Button>
