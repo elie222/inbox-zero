@@ -40,7 +40,7 @@ export function RulesPrompt() {
   const personas = getPersonas(provider);
 
   const examples = persona
-    ? personas[persona as keyof typeof personas].promptArray
+    ? personas[persona as keyof typeof personas]?.promptArray
     : undefined;
 
   return (
