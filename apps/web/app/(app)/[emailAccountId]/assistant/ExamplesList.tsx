@@ -7,15 +7,17 @@ import { Button } from "@/components/ui/button";
 import { getExamplePrompts } from "@/app/(app)/[emailAccountId]/assistant/examples";
 
 function PureExamples({
+  examples,
   onSelect,
   provider,
   className = "mt-1.5 sm:h-[60vh] sm:max-h-[60vh]",
 }: {
+  examples: string[];
   onSelect: (example: string) => void;
   provider: string;
   className?: string;
 }) {
-  const examplePrompts = getExamplePrompts(provider);
+  const examplePrompts = getExamplePrompts(provider, examples);
 
   return (
     <div>
