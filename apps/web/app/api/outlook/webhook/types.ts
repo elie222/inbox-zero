@@ -6,7 +6,6 @@ import type { EmailProvider } from "@/utils/email/types";
 
 export type ProcessHistoryOptions = {
   provider: EmailProvider;
-  accessToken: string;
   rules: RuleWithActionsAndCategories[];
   hasAutomationRules: boolean;
   hasAiAccess: boolean;

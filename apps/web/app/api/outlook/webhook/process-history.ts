@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
 import prisma from "@/utils/prisma";
 import { hasAiAccess, isPremium } from "@/utils/premium";
 import { ColdEmailSetting } from "@prisma/client";
@@ -123,14 +122,8 @@ export async function processHistoryForUser({
   }
 
   try {
-    const emailProvider = await createEmailProvider({
-      emailAccountId: emailAccount.id,
-      provider: emailAccount.account?.provider || "microsoft",
-    });
-
     await processHistoryItem(resourceData, {
-      provider: emailProvider,
-      accessToken: emailAccount.account.access_token,
+      provider,
       hasAutomationRules,
       hasAiAccess: userHasAiAccess,
       rules: emailAccount.rules,

@@ -13,7 +13,7 @@ export const POST = withError(async (request) => {
 
   if (validationToken) {
     logger.info("Received validation request", { validationToken });
-    return new NextResponse(decodeURIComponent(validationToken), {
+    return new NextResponse(validationToken, {
       headers: { "Content-Type": "text/plain" },
     });
   }
@@ -40,10 +40,7 @@ export const POST = withError(async (request) => {
 
   // Validate clientState for security (verify webhook is from Microsoft)
   for (const notification of body.value) {
-    if (
-      !notification.clientState ||
-      notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
-    ) {
+    if (notification.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
       logger.error("Invalid or missing clientState", {
         receivedClientState: notification.clientState,
         hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,

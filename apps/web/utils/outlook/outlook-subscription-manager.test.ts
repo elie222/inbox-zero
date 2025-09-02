@@ -14,14 +14,6 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-vi.mock("@/utils/logger", () => ({
-  createScopedLogger: () => ({
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  }),
-}));
-
 vi.mock("@/utils/error", () => ({
   captureException: vi.fn(),
 }));
