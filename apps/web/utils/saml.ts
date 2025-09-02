@@ -1,14 +1,11 @@
 import { XMLParser } from "fast-xml-parser";
 
-export function validateAndExtractUserInfoFromSAML(
-  samlResponseXml: string,
-  expectedCert: string,
-): { email: string; name: string; [key: string]: any } {
+export function validateAndExtractUserInfoFromSAML(samlResponseXml: string): {
+  email: string;
+  name: string;
+  [key: string]: any;
+} {
   try {
-    if (!validateSAMLCertificate(samlResponseXml, expectedCert)) {
-      throw new Error("SAML certificate validation failed");
-    }
-
     const parsedSAML = parseSAMLResponse(samlResponseXml);
 
     const response =
@@ -103,80 +100,6 @@ export function validateAndExtractUserInfoFromSAML(
     throw new Error(
       `Failed to extract user information: ${error instanceof Error ? error.message : String(error)}`,
     );
-  }
-}
-
-function extractX509CertificateRobust(xmlString: string): {
-  raw: string;
-  pem: string;
-} {
-  const options = {
-    ignoreAttributes: false,
-    parseAttributeValue: false,
-    trimValues: true,
-    ignoreNameSpace: true,
-    parseTagValue: false,
-    arrayMode: (name: string) => {
-      if (name === "Signature" || name === "X509Certificate") {
-        return true;
-      }
-      return false;
-    },
-  };
-
-  const parser = new XMLParser(options);
-  const parsedXml = parser.parse(xmlString);
-
-  function findX509Certificate(obj: any): string | null {
-    if (typeof obj !== "object" || obj === null) return null;
-
-    if (obj.X509Certificate) {
-      const cert = obj.X509Certificate;
-      return Array.isArray(cert) ? cert[0] : cert;
-    }
-
-    for (const key in obj) {
-      if (Object.hasOwn(obj, key)) {
-        const result = findX509Certificate(obj[key]);
-        if (result) return result;
-      }
-    }
-
-    return null;
-  }
-
-  const certificate = findX509Certificate(parsedXml);
-
-  if (!certificate) {
-    throw new Error("No X509Certificate found in SAML response");
-  }
-
-  const rawCertData = certificate.replace(/\s/g, "");
-  const pemCert = `-----BEGIN CERTIFICATE-----\n${rawCertData.match(/.{1,64}/g)?.join("\n")}\n-----END CERTIFICATE-----`;
-
-  return {
-    raw: rawCertData,
-    pem: pemCert,
-  };
-}
-
-export function validateSAMLCertificate(
-  samlResponseXml: string,
-  expectedCert: string,
-): boolean {
-  try {
-    const extractedCert = extractX509CertificateRobust(samlResponseXml);
-
-    const cleanExpectedCert = expectedCert
-      .replace(/-----BEGIN CERTIFICATE-----/g, "")
-      .replace(/-----END CERTIFICATE-----/g, "")
-      .replace(/\s/g, "");
-
-    const cleanExtractedCert = extractedCert.raw;
-
-    return cleanExpectedCert === cleanExtractedCert;
-  } catch (_error) {
-    return false;
   }
 }
 

@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { validateAndExtractUserInfoFromSAML } from "@/utils/saml";
+import crypto from "node:crypto";
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
     if (!expectedCert) {
       throw new Error("SAML certificate not configured");
     }
+
+    // Debug: Log the entire SAML XML
+    console.log("Full SAML Response XML:", samlResponseXml);
 
     const userInfo = validateAndExtractUserInfoFromSAML(
       samlResponseXml,
@@ -49,8 +53,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const relayState =
-      (formData.get("RelayState") as string) || "/welcome-redirect";
+    const relayState = (formData.get("RelayState") as string) || "/welcome";
     const redirectUrl = new URL(relayState, request.url);
 
     const response = NextResponse.redirect(redirectUrl);
