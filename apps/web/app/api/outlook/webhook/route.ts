@@ -40,11 +40,11 @@ export const POST = withError(async (request) => {
 
   // Validate clientState for security (verify webhook is from Microsoft)
   if (
-    !body.clientState ||
-    body.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
+    !body.value[0]?.clientState ||
+    body.value[0]?.clientState !== env.MICROSOFT_WEBHOOK_CLIENT_STATE
   ) {
     logger.error("Invalid or missing clientState", {
-      receivedClientState: body.clientState,
+      receivedClientState: body.value[0].clientState,
       hasExpectedClientState: !!env.MICROSOFT_WEBHOOK_CLIENT_STATE,
     });
     return NextResponse.json(
@@ -55,7 +55,7 @@ export const POST = withError(async (request) => {
 
   logger.info("Received webhook notification", {
     value: body.value,
-    clientState: body.clientState,
+    clientState: body.value[0]?.clientState,
   });
 
   const notifications = body.value;

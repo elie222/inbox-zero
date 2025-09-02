@@ -26,7 +26,6 @@ const notificationSchema = z.object({
 
 export const webhookBodySchema = z.object({
   value: z.array(notificationSchema),
-  clientState: z.string().optional(),
 });
 
 export type ProcessHistoryOptions = {
