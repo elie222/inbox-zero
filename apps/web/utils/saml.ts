@@ -1,6 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 
-export function validateAndExtractUserInfoFromSAML(samlResponseXml: string): {
+export function extractUserInfoFromSAML(samlResponseXml: string): {
   email: string;
   name: string;
   [key: string]: any;

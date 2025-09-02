@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { validateAndExtractUserInfoFromSAML } from "@/utils/saml";
+import { extractUserInfoFromSAML } from "@/utils/saml";
 import crypto from "node:crypto";
 
 export async function POST(request: NextRequest) {
@@ -16,13 +16,7 @@ export async function POST(request: NextRequest) {
       throw new Error("SAML certificate not configured");
     }
 
-    // Debug: Log the entire SAML XML
-    console.log("Full SAML Response XML:", samlResponseXml);
-
-    const userInfo = validateAndExtractUserInfoFromSAML(
-      samlResponseXml,
-      expectedCert,
-    );
+    const userInfo = extractUserInfoFromSAML(samlResponseXml);
 
     // TODO: Decide what to do from here as the user has been authenticated on Okta's end
     // An user without an account can end up here.
