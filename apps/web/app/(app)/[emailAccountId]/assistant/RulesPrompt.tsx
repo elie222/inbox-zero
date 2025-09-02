@@ -344,9 +344,9 @@ function RulesPromptForm({
           </div>
         </form>
 
-        {showExamples && (
+        {/* {showExamples && (
           <Examples onSelect={addExamplePrompt} provider={provider} />
-        )}
+        )} */}
       </div>
     </div>
   );
