@@ -216,28 +216,32 @@ function CategoryCard({
 
   return (
     <Card>
-      <CardContent className="flex items-center gap-4 p-4">
-        <IconCircle size="sm" color={iconColor} Icon={Icon} />
-        <div>
-          {useTooltip ? (
-            <div className="flex flex-1 items-center gap-2">
-              {label}
-              {description && (
-                <TooltipExplanation
-                  text={description}
-                  className="text-muted-foreground"
-                />
-              )}
-            </div>
-          ) : (
-            <>
-              <div className="font-medium">{label}</div>
-              <div className="text-sm text-muted-foreground">{description}</div>
-            </>
-          )}
+      <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
+        <div className="flex items-center gap-2">
+          <IconCircle size="sm" color={iconColor} Icon={Icon} />
+          <div>
+            {useTooltip ? (
+              <div className="flex flex-1 items-center gap-2">
+                {label}
+                {description && (
+                  <TooltipExplanation
+                    text={description}
+                    className="text-muted-foreground"
+                  />
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="font-medium">{label}</div>
+                <div className="text-sm text-muted-foreground">
+                  {description}
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="ml-auto flex items-center gap-4">
+        <div className="sm:ml-auto flex items-center gap-4">
           <Select
             value={value || undefined}
             onValueChange={(value) => {
@@ -290,9 +294,13 @@ function CustomCategoryCard() {
       <CardContent className="flex items-center gap-4 p-4">
         <IconCircle size="sm" color="purple" Icon={PencilLineIcon} />
 
-        <div className="flex flex-1 items-center gap-2 font-medium">Custom</div>
-        <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
-          You can set your own custom categories later
+        <div>
+          <div className="flex flex-1 items-center gap-2 font-medium">
+            Custom
+          </div>
+          <div className="ml-auto flex items-center gap-4 text-muted-foreground text-sm">
+            You can set your own custom categories later
+          </div>{" "}
         </div>
       </CardContent>
     </Card>
