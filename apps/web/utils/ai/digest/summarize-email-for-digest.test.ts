@@ -1,6 +1,5 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiSummarizeEmailForDigest } from "@/utils/ai/digest/summarize-email-for-digest";
-import { schema as DigestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 
@@ -76,9 +75,10 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
         content: expect.any(String),
       });
 
-      // Verify the result matches the schema
-      const validationResult = DigestEmailSummarySchema.safeParse(result);
-      expect(validationResult.success).toBe(true);
+      // Verify the result has the expected structure
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty("content");
+      expect(typeof result?.content).toBe("string");
     },
     TIMEOUT,
   );
@@ -106,8 +106,10 @@ describe.runIf(isAiTest)("aiSummarizeEmailForDigest", () => {
         content: expect.any(String),
       });
 
-      const validationResult = DigestEmailSummarySchema.safeParse(result);
-      expect(validationResult.success).toBe(true);
+      // Verify the result has the expected structure
+      expect(result).toBeDefined();
+      expect(result).toHaveProperty("content");
+      expect(typeof result?.content).toBe("string");
     },
     TIMEOUT,
   );

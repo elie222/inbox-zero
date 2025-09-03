@@ -6,13 +6,12 @@ import { stringifyEmailSimple } from "@/utils/stringify-email";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 
-export const schema = z.object({
-  content: z.string().describe("The content of the summary text"),
-});
-
 const logger = createScopedLogger("summarize-digest-email");
 
-export type AISummarizeResult = z.infer<typeof schema>;
+const schema = z.object({
+  content: z.string().describe("The content of the summary text"),
+});
+type AISummarizeResult = z.infer<typeof schema>;
 
 export async function aiSummarizeEmailForDigest({
   ruleName,
