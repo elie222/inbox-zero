@@ -46,12 +46,26 @@ export async function registerSSOProvider({
     throw new Error("Missing IDPSSODescriptor in IdP metadata");
   }
 
-  const keyDescriptor = idpDescriptor["md:KeyDescriptor"];
-  if (!keyDescriptor) {
+  const keyDescriptors = idpDescriptor["md:KeyDescriptor"];
+  if (!keyDescriptors) {
     throw new Error("Missing KeyDescriptor in IdP metadata");
   }
 
-  const keyInfo = keyDescriptor["ds:KeyInfo"];
+  // Normalize to array
+  const keyDescriptorArray = Array.isArray(keyDescriptors)
+    ? keyDescriptors
+    : [keyDescriptors];
+
+  // Select appropriate descriptor (prefer signing, otherwise first)
+  const selectedKeyDescriptor =
+    keyDescriptorArray.find((desc) => desc["@_use"] === "signing") ||
+    keyDescriptorArray[0];
+
+  if (!selectedKeyDescriptor) {
+    throw new Error("No valid KeyDescriptor found in IdP metadata");
+  }
+
+  const keyInfo = selectedKeyDescriptor["ds:KeyInfo"];
   if (!keyInfo) {
     throw new Error("Missing KeyInfo in IdP metadata");
   }

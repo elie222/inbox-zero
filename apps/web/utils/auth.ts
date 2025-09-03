@@ -52,12 +52,7 @@ export const betterAuthConfig = betterAuth({
   trustedOrigins: [env.NEXT_PUBLIC_BASE_URL],
   secret: env.AUTH_SECRET || env.NEXTAUTH_SECRET,
   emailAndPassword: {
-    enabled: true,
-    requireEmailVerification: false,
-    signUp: {
-      enabled: true,
-      requireEmailVerification: false,
-    },
+    enabled: false,
   },
   database: prismaAdapter(prisma, {
     provider: "postgresql",
