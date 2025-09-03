@@ -1,10 +1,8 @@
-import type { Organization as PrismaOrganization } from "@prisma/client";
+import type { Organization } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-
-type Organization = PrismaOrganization | { id: string; [key: string]: any };
 
 export async function registerSSOProvider({
   idpMetadata,
@@ -112,7 +110,7 @@ export async function registerSSOProvider({
     },
   });
   if (!organization) {
-    organization = await betterAuthConfig.api.createOrganization({
+    organization = await betterAuthConfig.api.createOrganization<Organization>({
       body: {
         name: organizationName,
         slug: organizationSlug,

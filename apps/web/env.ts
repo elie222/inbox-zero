@@ -24,9 +24,6 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
-    OKTA_CLIENT_ID: z.string().optional(),
-    OKTA_CLIENT_SECRET: z.string().optional(),
-    OKTA_ISSUER: z.string().optional(),
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -100,12 +97,6 @@ export const env = createEnv({
 
     RESEND_API_KEY: z.string().optional(),
     RESEND_AUDIENCE_ID: z.string().optional(),
-
-    // Okta SSO Configuration
-    OKTA_PRIVATE_KEY_TEST_ORG: z.string().optional(),
-    OKTA_CERT_TEST_ORG: z.string().optional(),
-    OKTA_IDP_METADATA: z.string().optional(),
-    OKTA_SP_METADATA: z.string().optional(),
     RESEND_FROM_EMAIL: z
       .string()
       .optional()

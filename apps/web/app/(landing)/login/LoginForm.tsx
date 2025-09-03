@@ -20,7 +20,6 @@ import {
 import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 
-// Validation schema for SSO form
 const ssoFormSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   organizationName: z.string().min(1, "Organization name is required"),
@@ -32,13 +31,11 @@ export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
   const error = searchParams?.get("error");
-  const providerId = searchParams?.get("providerId");
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [showSSOForm, setShowSSOForm] = useState(false);
 
-  // React Hook Form setup
   const {
     register,
     handleSubmit,
@@ -74,40 +71,34 @@ export function LoginForm() {
     setShowSSOForm(true);
   };
 
-  const onSubmitSSO: SubmitHandler<SSOFormData> = useCallback(
-    async (data) => {
-      try {
-        const url = new URL("/api/sso/signin", window.location.origin);
-        url.searchParams.set("email", data.email);
-        url.searchParams.set("organizationSlug", data.organizationName);
-        if (providerId) {
-          url.searchParams.set("providerId", providerId);
-        }
+  const onSubmitSSO: SubmitHandler<SSOFormData> = async (data) => {
+    try {
+      const url = new URL("/api/sso/signin", window.location.origin);
+      url.searchParams.set("email", data.email);
+      url.searchParams.set("organizationSlug", data.organizationName);
 
-        const response = await fetch(url.toString());
-        const responseData = await response.json();
+      const response = await fetch(url.toString());
+      const responseData = await response.json();
 
-        if (!response.ok) {
-          toastError({
-            title: "SSO Sign-in Error",
-            description: responseData.error || "Failed to initiate SSO sign-in",
-          });
-          return;
-        }
-
-        if (responseData.redirectUrl) {
-          toastSuccess({ description: "Redirecting to SSO provider..." });
-          window.location.href = responseData.redirectUrl;
-        }
-      } catch {
+      if (!response.ok) {
         toastError({
           title: "SSO Sign-in Error",
-          description: "An unexpected error occurred. Please try again.",
+          description: responseData.error || "Failed to initiate SSO sign-in",
         });
+        return;
       }
-    },
-    [providerId],
-  );
+
+      if (responseData.redirectUrl) {
+        toastSuccess({ description: "Redirecting to SSO provider..." });
+        window.location.href = responseData.redirectUrl;
+      }
+    } catch {
+      toastError({
+        title: "SSO Sign-in Error",
+        description: "An unexpected error occurred. Please try again.",
+      });
+    }
+  };
 
   const handleBackToSocial = () => {
     setShowSSOForm(false);

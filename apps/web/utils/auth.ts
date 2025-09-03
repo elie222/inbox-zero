@@ -37,7 +37,7 @@ export const betterAuthConfig = betterAuth({
   },
   logger: {
     level: "info",
-    log: (level, message, ...args) => {
+    log: (level: string, message: string, ...args: any[]) => {
       switch (level) {
         case "info":
           logger.info(message, { args });
@@ -57,16 +57,6 @@ export const betterAuthConfig = betterAuth({
     signUp: {
       enabled: true,
       requireEmailVerification: false,
-    },
-  },
-  credential: {
-    modelName: "Credential",
-    fields: {
-      id: "id",
-      userId: "userId",
-      type: "type",
-      value: "value",
-      expiresAt: "expiresAt",
     },
   },
   database: prismaAdapter(prisma, {
@@ -114,10 +104,6 @@ export const betterAuthConfig = betterAuth({
       accessToken: "access_token",
       accessTokenExpiresAt: "expires_at",
       idToken: "id_token",
-    },
-    accountLinking: {
-      enabled: true,
-      trustedProviders: ["google", "microsoft", "okta", "inboxzero-okta"],
     },
   },
   verification: {
