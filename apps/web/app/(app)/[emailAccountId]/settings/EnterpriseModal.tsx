@@ -76,8 +76,17 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
     }
   }, [isExecuting, reset, onClose]);
 
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      if (!open) {
+        handleClose();
+      }
+    },
+    [handleClose],
+  );
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Enterprise SSO Registration</DialogTitle>

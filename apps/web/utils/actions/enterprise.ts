@@ -73,33 +73,47 @@ export const registerSSOProviderAction = actionClient
         },
       });
 
-      return await betterAuthConfig.api.registerSSOProvider({
-        body: {
-          providerId,
-          organizationId: organization.id,
-          issuer: ssoConfig.issuer,
-          domain,
-          samlConfig: {
-            entryPoint: ssoConfig.entryPoint,
-            cert: ssoConfig.cert,
-            callbackUrl: `${env.NEXT_PUBLIC_BASE_URL}/api/auth/sso/saml2/callback/${providerId}`,
-            wantAssertionsSigned: false,
-            signatureAlgorithm: "sha256",
-            digestAlgorithm: "sha256",
-            identifierFormat:
-              "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-            idpMetadata: {
-              metadata: idpMetadata,
-              isAssertionEncrypted: false,
-            },
-            spMetadata: {
-              metadata: ssoConfig.spMetadata,
-              binding: "post",
-              isAssertionEncrypted: false,
+      try {
+        const callbackUrl = new URL(
+          `/api/auth/sso/saml2/callback/${encodeURIComponent(providerId)}`,
+          env.NEXT_PUBLIC_BASE_URL,
+        ).toString();
+
+        return await betterAuthConfig.api.registerSSOProvider({
+          body: {
+            providerId,
+            organizationId: organization.id,
+            issuer: ssoConfig.issuer,
+            domain,
+            samlConfig: {
+              entryPoint: ssoConfig.entryPoint,
+              cert: ssoConfig.cert,
+              callbackUrl,
+              wantAssertionsSigned: false,
+              signatureAlgorithm: "sha256",
+              digestAlgorithm: "sha256",
+              identifierFormat:
+                "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+              idpMetadata: {
+                metadata: idpMetadata,
+                isAssertionEncrypted: false,
+              },
+              spMetadata: {
+                metadata: ssoConfig.spMetadata,
+                binding: "post",
+                isAssertionEncrypted: false,
+              },
             },
           },
-        },
-        headers: await headers(),
-      });
+          headers: await headers(),
+        });
+      } catch (err) {
+        // Cleanup to avoid orphaned orgs and members on failure
+        await prisma.member.deleteMany({
+          where: { organizationId: organization.id },
+        });
+        await prisma.organization.delete({ where: { id: organization.id } });
+        throw new SafeError("Failed to register SSO provider");
+      }
     },
   );
