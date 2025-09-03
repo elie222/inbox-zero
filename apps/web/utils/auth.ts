@@ -11,7 +11,6 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
-import { isAdmin } from "@/utils/admin";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -37,7 +36,7 @@ export const betterAuthConfig = betterAuth({
   },
   logger: {
     level: "info",
-    log: (level: string, message: string, ...args: any[]) => {
+    log: (level: string, message: string, ...args: unknown[]) => {
       switch (level) {
         case "info":
           logger.info(message, { args });
@@ -67,13 +66,8 @@ export const betterAuthConfig = betterAuth({
       },
     }),
     organization({
-      // By default anyone can create an organization
-      // @see https://www.better-auth.com/docs/plugins/organization#restrict-who-can-create-an-organization
-      allowUserToCreateOrganization: async (user: User) => {
-        if (isAdmin({ email: user.email })) {
-          return true;
-        }
-        return false;
+      allowUserToCreateOrganization: async (_user: User) => {
+        return true;
       },
     }),
   ],

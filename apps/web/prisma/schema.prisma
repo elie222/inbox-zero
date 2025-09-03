@@ -32,15 +32,17 @@ model Account {
 
 // not in use. we only use jwt for sessions
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String        @id @default(cuid())
+  sessionToken        String        @unique
+  userId              String
+  expires             DateTime
+  activeOrganizationId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  ipAddress           String?
+  userAgent           String?
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganization  Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -180,6 +182,7 @@ model Organization {
   updatedAt   DateTime      @updatedAt
   members     Member[]
   ssoProvider ssoProvider[]
+  sessions    Session[]
 }
 
 model Member {
