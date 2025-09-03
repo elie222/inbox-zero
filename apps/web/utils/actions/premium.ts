@@ -110,6 +110,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             emailAccountsAccess: true,
             admins: { select: { id: true } },
             pendingInvites: true,
+            users: { select: { id: true, email: true } },
           },
         },
       },
@@ -152,6 +153,18 @@ export const updateMultiAccountPremiumAction = actionClientUser
       }
     }
 
+    // Get current users connected to this premium
+    const currentPremium = await prisma.premium.findUnique({
+      where: { id: premium.id },
+      select: { users: { select: { id: true, email: true } } },
+    });
+    const currentUsers = currentPremium?.users || [];
+
+    // Determine which users to disconnect (those not in the new email list)
+    const usersToDisconnect = currentUsers.filter(
+      (u) => u.id !== userId && !uniqueEmails.includes(u.email),
+    );
+
     // delete premium for other users when adding them to this premium plan
     // don't delete the premium for the current user
     await prisma.premium.deleteMany({
@@ -161,15 +174,18 @@ export const updateMultiAccountPremiumAction = actionClientUser
       },
     });
 
-    // add users to plan
+    // Update users: disconnect removed users and connect new users
     await prisma.premium.update({
       where: { id: premium.id },
       data: {
-        users: { connect: otherUsers.map((user) => ({ id: user.id })) },
+        users: {
+          disconnect: usersToDisconnect.map((user) => ({ id: user.id })),
+          connect: otherUsers.map((user) => ({ id: user.id })),
+        },
       },
     });
 
-    // add users to pending invites
+    // Set pending invites to exactly match non-existing users in the email list
     const nonExistingUsers = uniqueEmails.filter(
       (email) => !users.some((u) => u.email === email),
     );
@@ -177,7 +193,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
       where: { id: premium.id },
       data: {
         pendingInvites: {
-          set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
+          set: nonExistingUsers,
         },
       },
       select: {
