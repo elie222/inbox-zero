@@ -99,6 +99,7 @@ export function MultiAccountSection() {
                     isLifetime={premium?.tier === PremiumTier.LIFETIME}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
                     pendingInvites={premium?.pendingInvites || []}
+                    onUpdate={mutate}
                   />
                 </div>
               </div>
@@ -125,11 +126,13 @@ function MultiAccountForm({
   isLifetime,
   emailAccountsAccess,
   pendingInvites,
+  onUpdate,
 }: {
   emailAddresses: { email: string }[];
   isLifetime: boolean;
   emailAccountsAccess: number;
   pendingInvites: string[];
+  onUpdate?: () => void;
 }) {
   const {
     register,
@@ -159,6 +162,7 @@ function MultiAccountForm({
     {
       onSuccess: () => {
         toastSuccess({ description: "Users updated!" });
+        onUpdate?.();
       },
       onError: (error) => {
         toastError({

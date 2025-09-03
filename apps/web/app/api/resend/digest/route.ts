@@ -8,12 +8,15 @@ import { createScopedLogger } from "@/utils/logger";
 import { createUnsubscribeToken } from "@/utils/unsubscribe";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import type { ParsedMessage } from "@/utils/types";
-import { sendDigestEmailBody, type Digest } from "./validation";
+import {
+  sendDigestEmailBody,
+  storedDigestContentSchema,
+  type Digest,
+} from "./validation";
 import { DigestStatus } from "@prisma/client";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
-import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
-import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
+import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { camelCase } from "lodash";
 import { createEmailProvider } from "@/utils/email/provider";
 import { sleep } from "@/utils/sleep";
@@ -27,7 +30,47 @@ type SendEmailResult = {
   message: string;
 };
 
-// Function to get digest schedule data separately
+export const GET = withEmailAccount(async (request) => {
+  // send to self
+  const emailAccountId = request.auth.emailAccountId;
+
+  logger.info("Sending digest email to user GET", { emailAccountId });
+
+  const result = await sendEmail({ emailAccountId, force: true });
+
+  return NextResponse.json(result);
+});
+
+export const POST = withError(
+  verifySignatureAppRouter(async (request: NextRequest) => {
+    const json = await request.json();
+    const { success, data, error } = sendDigestEmailBody.safeParse(json);
+
+    if (!success) {
+      logger.error("Invalid request body", { error });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
+    }
+    const { emailAccountId } = data;
+
+    logger.info("Sending digest email to user POST", { emailAccountId });
+
+    try {
+      const result = await sendEmail({ emailAccountId });
+      return NextResponse.json(result);
+    } catch (error) {
+      logger.error("Error sending digest email", { error });
+      captureException(error);
+      return NextResponse.json(
+        { success: false, error: "Error sending digest email" },
+        { status: 500 },
+      );
+    }
+  }),
+);
+
 async function getDigestSchedule({
   emailAccountId,
 }: {
@@ -199,13 +242,20 @@ async function sendEmail({
           return; // Skip this item and continue with the next one
         }
 
-        const contentResult = digestEmailSummarySchema.safeParse(parsedContent);
+        const contentResult =
+          storedDigestContentSchema.safeParse(parsedContent);
 
         if (contentResult.success) {
           acc[ruleNameKey].push({
-            content: contentResult.data,
+            content: contentResult.data.content,
             from: extractNameFromEmail(message?.headers?.from || ""),
             subject: message?.headers?.subject || "",
+          });
+        } else {
+          logger.warn("Failed to validate digest content structure", {
+            messageId: item.messageId,
+            digestId: digest.id,
+            error: contentResult.error,
           });
         }
       });
@@ -300,44 +350,3 @@ async function sendEmail({
 
   return { success: true, message: "Digest email sent successfully" };
 }
-
-export const GET = withEmailAccount(async (request) => {
-  // send to self
-  const emailAccountId = request.auth.emailAccountId;
-
-  logger.info("Sending digest email to user GET", { emailAccountId });
-
-  const result = await sendEmail({ emailAccountId, force: true });
-
-  return NextResponse.json(result);
-});
-
-export const POST = withError(
-  verifySignatureAppRouter(async (request: NextRequest) => {
-    const json = await request.json();
-    const { success, data, error } = sendDigestEmailBody.safeParse(json);
-
-    if (!success) {
-      logger.error("Invalid request body", { error });
-      return NextResponse.json(
-        { error: "Invalid request body" },
-        { status: 400 },
-      );
-    }
-    const { emailAccountId } = data;
-
-    logger.info("Sending digest email to user POST", { emailAccountId });
-
-    try {
-      const result = await sendEmail({ emailAccountId });
-      return NextResponse.json(result);
-    } catch (error) {
-      logger.error("Error sending digest email", { error });
-      captureException(error);
-      return NextResponse.json(
-        { success: false, error: "Error sending digest email" },
-        { status: 500 },
-      );
-    }
-  }),
-);

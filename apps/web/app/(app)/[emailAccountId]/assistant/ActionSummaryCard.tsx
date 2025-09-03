@@ -30,6 +30,8 @@ export function ActionSummaryCard({
   const actionTypeLabel =
     typeOptions.find((opt) => opt.value === action.type)?.label || action.type;
 
+  const delaySuffix = formatDelay(action.delayInMinutes);
+
   let summaryContent: React.ReactNode = actionTypeLabel;
   let tooltipText: string | undefined;
 
@@ -209,14 +211,18 @@ export function ActionSummaryCard({
     <CardBasic className="flex items-center justify-between p-4">
       <div className="flex items-center gap-3">
         <Icon className={`size-5 ${textColorClass}`} />
-        <div className="whitespace-pre-wrap">{summaryContent}</div>
+        <div className="whitespace-pre-wrap">
+          {summaryContent}
+          {delaySuffix && (
+            <span className="text-muted-foreground">{delaySuffix}</span>
+          )}
+        </div>
         {tooltipText && <TooltipExplanation size="md" text={tooltipText} />}
       </div>
     </CardBasic>
   );
 }
 
-// Helper component for CC/BCC fields
 function EmailField({
   label,
   value,
@@ -234,7 +240,6 @@ function EmailField({
   );
 }
 
-// Helper component for optional email fields (cc, bcc)
 function OptionalEmailFields({
   cc,
   bcc,
@@ -250,4 +255,18 @@ function OptionalEmailFields({
       {bcc && <EmailField label="bcc" value={bcc} />}
     </div>
   );
+}
+
+function formatDelay(delayInMinutes: number | null | undefined): string {
+  if (!delayInMinutes) return "";
+
+  if (delayInMinutes < 60) {
+    return ` after ${delayInMinutes} minute${delayInMinutes === 1 ? "" : "s"}`;
+  } else if (delayInMinutes < 1440) {
+    const hours = Math.floor(delayInMinutes / 60);
+    return ` after ${hours} hour${hours === 1 ? "" : "s"}`;
+  } else {
+    const days = Math.floor(delayInMinutes / 1440);
+    return ` after ${days} day${days === 1 ? "" : "s"}`;
+  }
 }

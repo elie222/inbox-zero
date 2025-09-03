@@ -179,15 +179,11 @@ export default function DigestEmail(props: DigestEmailProps) {
     toReply: "red",
   };
 
-  // Return early if no digest data is found
+  // Check if there are any items to display
   const hasItems = Object.keys(digestData).some((key) => {
     const categoryData = normalizeCategoryData(key, digestData[key]);
     return categoryData && categoryData.count > 0;
   });
-
-  if (!hasItems) {
-    return null;
-  }
 
   const renderEmailContent = (item: DigestItem) => {
     if (!item.content) return null;
@@ -343,21 +339,32 @@ export default function DigestEmail(props: DigestEmailProps) {
               </Text>
             </Section>
 
-            {Object.keys(digestData).map((categoryKey) => {
-              const categoryData = normalizeCategoryData(
-                categoryKey,
-                digestData[categoryKey],
-              );
-              if (!categoryData) return null;
+            {hasItems ? (
+              Object.keys(digestData).map((categoryKey) => {
+                const categoryData = normalizeCategoryData(
+                  categoryKey,
+                  digestData[categoryKey],
+                );
+                if (!categoryData) return null;
 
-              return (
-                <CategorySection
-                  key={categoryKey}
-                  categoryKey={categoryKey}
-                  categoryData={categoryData}
-                />
-              );
-            })}
+                return (
+                  <CategorySection
+                    key={categoryKey}
+                    categoryKey={categoryKey}
+                    categoryData={categoryData}
+                  />
+                );
+              })
+            ) : (
+              <Section className="mb-8 text-center">
+                <Text className="text-gray-500 text-lg">
+                  No emails to summarize in this digest.
+                </Text>
+                <Text className="text-gray-400 text-sm mt-2">
+                  We'll send you a summary when there are emails to report.
+                </Text>
+              </Section>
+            )}
             <Hr className="border-solid border-gray-200 my-[24px]" />
             <Footer
               baseUrl={baseUrl}
