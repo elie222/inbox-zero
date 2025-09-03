@@ -38,9 +38,7 @@ export const GET = withError(async (request: NextRequest) => {
       email,
       organizationSlug,
     });
-    return NextResponse.redirect(
-      new URL("/login/error?error=organization_not_found", request.url),
-    );
+    throw new SafeError("No SSO provider found for this organization");
   }
 
   const ssoResponse = await betterAuthConfig.api.signInSSO({

@@ -1,14 +1,9 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useState } from "react";
-import { type SubmitHandler, useForm } from "react-hook-form";
-import { z } from "zod";
 import { Button } from "@/components/Button";
-import { Input } from "@/components/Input";
-import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
 import {
   Dialog,
@@ -20,13 +15,6 @@ import {
 import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 
-const ssoFormSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  organizationName: z.string().min(1, "Organization name is required"),
-});
-
-type SSOFormData = z.infer<typeof ssoFormSchema>;
-
 export function LoginForm() {
   const searchParams = useSearchParams();
   const next = searchParams?.get("next");
@@ -34,16 +22,6 @@ export function LoginForm() {
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
-  const [showSSOForm, setShowSSOForm] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-    reset,
-  } = useForm<SSOFormData>({
-    resolver: zodResolver(ssoFormSchema),
-  });
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -67,83 +45,9 @@ export function LoginForm() {
     setLoadingMicrosoft(false);
   };
 
-  const handleSSOSignIn = () => {
-    setShowSSOForm(true);
-  };
-
-  const onSubmitSSO: SubmitHandler<SSOFormData> = async (data) => {
-    try {
-      const url = new URL("/api/sso/signin", window.location.origin);
-      url.searchParams.set("email", data.email);
-      url.searchParams.set("organizationSlug", data.organizationName);
-
-      const response = await fetch(url.toString());
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        toastError({
-          title: "SSO Sign-in Error",
-          description: responseData.error || "Failed to initiate SSO sign-in",
-        });
-        return;
-      }
-
-      if (responseData.redirectUrl) {
-        toastSuccess({ description: "Redirecting to SSO provider..." });
-        window.location.href = responseData.redirectUrl;
-      }
-    } catch {
-      toastError({
-        title: "SSO Sign-in Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
-    }
-  };
-
-  const handleBackToSocial = () => {
-    setShowSSOForm(false);
-    reset();
-  };
-
-  if (showSSOForm) {
-    return (
-      <div className="flex flex-col justify-center gap-4 px-4 sm:px-8 max-w-md mx-auto">
-        <form className="space-y-4" onSubmit={handleSubmit(onSubmitSSO)}>
-          <Input
-            type="email"
-            name="email"
-            label="Email"
-            placeholder="Enter your email address"
-            registerProps={register("email")}
-            error={errors.email}
-          />
-
-          <Input
-            type="text"
-            name="organizationName"
-            label="Organization Name"
-            placeholder="Enter your organization name"
-            registerProps={register("organizationName")}
-            error={errors.organizationName}
-          />
-
-          <Button type="submit" size="2xl" full loading={isSubmitting}>
-            Continue
-          </Button>
-
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={handleBackToSocial}
-              className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
-            >
-              Back to social login options
-            </button>
-          </div>
-        </form>
-      </div>
-    );
-  }
+  const handleSSOSignIn = useCallback(() => {
+    window.location.href = "/login/sso";
+  }, []);
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -202,13 +106,9 @@ export function LoginForm() {
         </span>
       </Button>
 
-      <button
-        type="button"
-        onClick={handleSSOSignIn}
-        className="w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-transform hover:scale-105 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:focus:ring-slate-400 dark:disabled:bg-slate-800"
-      >
-        Sign in with SAML/OIDC
-      </button>
+      <Button color="transparent" size="lg" full onClick={handleSSOSignIn}>
+        Sign in with SSO
+      </Button>
     </div>
   );
 }

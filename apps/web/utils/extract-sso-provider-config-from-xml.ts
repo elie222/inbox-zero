@@ -23,21 +23,17 @@ export function extractSSOProviderConfigFromXML(
   const entityDescriptor = metadata["md:EntityDescriptor"];
   const issuer = entityDescriptor["@_entityID"];
 
-  // Data is already validated on client side, so we can trust it exists
   const idpDescriptor = entityDescriptor["md:IDPSSODescriptor"];
   const keyDescriptors = idpDescriptor["md:KeyDescriptor"];
 
-  // Normalize to array
   const keyDescriptorArray = Array.isArray(keyDescriptors)
     ? keyDescriptors
     : [keyDescriptors];
 
-  // Select appropriate descriptor (prefer signing, otherwise first)
   const selectedKeyDescriptor =
     keyDescriptorArray.find((desc) => desc["@_use"] === "signing") ||
     keyDescriptorArray[0];
 
-  // Data is already validated on client side
   const keyInfo = selectedKeyDescriptor["ds:KeyInfo"];
   const x509Data = keyInfo["ds:X509Data"];
   const x509Certificate = x509Data["ds:X509Certificate"];
