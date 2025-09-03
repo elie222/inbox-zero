@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "@/utils/auth-client";
+import { zodResolver } from "@hookform/resolvers/zod";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { useCallback, useState } from "react";
+import { type SubmitHandler, useForm } from "react-hook-form";
+import { z } from "zod";
 import { Button } from "@/components/Button";
+import { Input } from "@/components/Input";
+import { toastError, toastSuccess } from "@/components/Toast";
 import { SectionDescription } from "@/components/Typography";
 import {
   Dialog,
@@ -13,9 +17,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 
-import { toastError, toastSuccess } from "@/components/Toast";
+// Validation schema for SSO form
+const ssoFormSchema = z.object({
+  email: z.string().email("Please enter a valid email address"),
+  organizationName: z.string().min(1, "Organization name is required"),
+});
+
+type SSOFormData = z.infer<typeof ssoFormSchema>;
 
 export function LoginForm() {
   const searchParams = useSearchParams();
@@ -27,7 +38,16 @@ export function LoginForm() {
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
   const [loadingSSO, setLoadingSSO] = useState(false);
   const [showSSOForm, setShowSSOForm] = useState(false);
-  const [email, setEmail] = useState("");
+
+  // React Hook Form setup
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+    reset,
+  } = useForm<SSOFormData>({
+    resolver: zodResolver(ssoFormSchema),
+  });
 
   const handleGoogleSignIn = async () => {
     setLoadingGoogle(true);
@@ -55,81 +75,70 @@ export function LoginForm() {
     setShowSSOForm(true);
   };
 
-  const handleSSOContinue = async () => {
-    if (!email) return;
+  const onSubmitSSO: SubmitHandler<SSOFormData> = useCallback(
+    async (data) => {
+      try {
+        // Build URL with search parameters
+        const url = new URL("/api/sso/signin", window.location.origin);
+        url.searchParams.set("email", data.email);
+        url.searchParams.set("organizationSlug", data.organizationName);
+        if (providerId) {
+          url.searchParams.set("providerId", providerId);
+        }
 
-    setLoadingSSO(true);
+        const response = await fetch(url.toString());
+        const responseData = await response.json();
 
-    try {
-      // Build URL with search parameters
-      const url = new URL("/api/sso/signin", window.location.origin);
-      url.searchParams.set("email", email);
-      if (providerId) {
-        url.searchParams.set("providerId", providerId);
-      }
+        if (!response.ok) {
+          toastError({
+            title: "SSO Sign-in Error",
+            description: responseData.error || "Failed to initiate SSO sign-in",
+          });
+          return;
+        }
 
-      const response = await fetch(url.toString());
-      const data = await response.json();
-
-      if (!response.ok) {
+        if (responseData.redirectUrl) {
+          toastSuccess({ description: "Redirecting to SSO provider..." });
+          window.location.href = responseData.redirectUrl;
+        }
+      } catch {
         toastError({
           title: "SSO Sign-in Error",
-          description: data.error || "Failed to initiate SSO sign-in",
+          description: "An unexpected error occurred. Please try again.",
         });
-        return;
       }
-
-      if (data.redirectUrl) {
-        toastSuccess({ description: "Redirecting to SSO provider..." });
-        window.location.href = data.redirectUrl;
-      }
-    } catch {
-      toastError({
-        title: "SSO Sign-in Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
-    } finally {
-      setLoadingSSO(false);
-    }
-  };
+    },
+    [providerId],
+  );
 
   const handleBackToSocial = () => {
     setShowSSOForm(false);
-    setEmail("");
+    reset();
   };
 
   if (showSSOForm) {
     return (
       <div className="flex flex-col justify-center gap-4 px-4 sm:px-8 max-w-md mx-auto">
-        <div className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-foreground"
-            >
-              Email
-            </label>
-            <input
-              type="email"
-              id="email"
-              name="email"
-              placeholder="Enter your email address"
-              value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setEmail(e.target.value)
-              }
-              required
-              className="mt-1 block w-full rounded-md border border-slate-300 bg-background px-4 py-3 text-base shadow-sm focus:border-black focus:ring-black disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-muted-foreground disabled:ring-slate-200 dark:border-slate-700 dark:text-slate-100 dark:focus:border-slate-400 dark:focus:ring-slate-400 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 dark:disabled:ring-slate-700"
-            />
-          </div>
+        <form className="space-y-4" onSubmit={handleSubmit(onSubmitSSO)}>
+          <Input
+            type="email"
+            name="email"
+            label="Email"
+            placeholder="Enter your email address"
+            registerProps={register("email")}
+            error={errors.email}
+          />
 
-          <Button
-            size="2xl"
-            full
-            loading={loadingSSO}
-            onClick={handleSSOContinue}
-            disabled={!email}
-          >
+          <Input
+            type="text"
+            name="organizationName"
+            label="Organization Name"
+            placeholder="Enter your organization name"
+            registerProps={register("organizationName")}
+            error={errors.organizationName}
+          />
+
+          <Button type="submit" size="2xl" full loading={isSubmitting}>
             Continue
           </Button>
 
@@ -142,7 +151,7 @@ export function LoginForm() {
               Back to social login options
             </button>
           </div>
-        </div>
+        </form>
       </div>
     );
   }
@@ -204,11 +213,13 @@ export function LoginForm() {
         </span>
       </Button>
 
-      <Button size="2xl" loading={loadingSSO} onClick={handleSSOSignIn}>
-        <span className="flex items-center justify-center">
-          <span className="ml-2">Sign in with SSO</span>
-        </span>
-      </Button>
+      <button
+        type="button"
+        onClick={handleSSOSignIn}
+        className="w-full rounded-md border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm transition-transform hover:scale-105 hover:bg-slate-50 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:border-slate-600 dark:focus:ring-slate-400 dark:disabled:bg-slate-800"
+      >
+        Sign in with SAML/OIDC
+      </button>
     </div>
   );
 }
