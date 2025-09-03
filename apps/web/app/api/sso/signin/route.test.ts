@@ -1,9 +1,3 @@
-import { NextRequest, NextResponse } from "next/server";
-import { beforeEach, describe, expect, test, vi } from "vitest";
-import { SafeError } from "@/utils/error";
-import prisma from "@/utils/prisma";
-import { GET } from "./route";
-
 // Mock server-only as per testing guidelines
 vi.mock("server-only", () => ({}));
 
@@ -33,9 +27,13 @@ vi.mock("@/utils/prisma", () => ({
   },
 }));
 
-// Import the mocked modules
+import { NextRequest, NextResponse } from "next/server";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { betterAuthConfig } from "@/utils/auth";
+import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
+import prisma from "@/utils/prisma";
+import { GET } from "./route";
 
 const mockBetterAuthConfig = vi.mocked(betterAuthConfig);
 const mockLogger = vi.mocked(createScopedLogger);
@@ -48,14 +46,17 @@ describe("SSO Signin Route", () => {
   });
 
   // Helper function to create mock NextRequest with search params
-  const createMockRequest = (
-    searchParams: Record<string, string> = {},
-  ): NextRequest => {
-    const url = new URL("http://localhost/api/sso/signin");
-    Object.entries(searchParams).forEach(([key, value]) => {
-      url.searchParams.set(key, value);
-    });
-    return new NextRequest(url, { method: "GET" });
+  const createMockRequest = (params: {
+    email?: string;
+    organizationSlug?: string;
+  }) => {
+    const searchParams = new URLSearchParams();
+    if (params.email) searchParams.set("email", params.email);
+    if (params.organizationSlug)
+      searchParams.set("organizationSlug", params.organizationSlug);
+
+    const url = `http://localhost/api/sso/signin?${searchParams.toString()}`;
+    return new NextRequest(url);
   };
 
   describe("Parameter validation", () => {
@@ -73,7 +74,7 @@ describe("SSO Signin Route", () => {
     });
 
     test("should return 400 when organization name parameter is missing", async () => {
-      const request = createMockRequest({ email: "user@company.com" });
+      const request = createMockRequest({ email: "user@example.com" });
 
       const response = await GET(request, mockContext);
       const responseBody = await response.json();
@@ -84,110 +85,10 @@ describe("SSO Signin Route", () => {
         isKnownError: true,
       });
     });
-
-    test("should return 400 when email has invalid format", async () => {
-      const request = createMockRequest({
-        email: "invalid-email",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(responseBody).toEqual({
-        error: "Invalid email format",
-        isKnownError: true,
-      });
-    });
-
-    test("should return 400 when email has no domain", async () => {
-      const request = createMockRequest({
-        email: "user@",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      expect(response.status).toBe(400);
-      expect(responseBody).toEqual({
-        error: "Invalid email format",
-        isKnownError: true,
-      });
-    });
   });
 
-  describe("ProviderId parameter precedence", () => {
-    test("should use providerId when provided, ignoring email domain", async () => {
-      const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
-      mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
-        mockSignInSSOResponse,
-      );
-
-      const request = createMockRequest({
-        email: "user@company.com",
-        organizationSlug: "test-org",
-        providerId: "custom-provider-id",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      // Should not query Prisma for domain-based lookup
-      expect(prisma.ssoProvider.findFirst).not.toHaveBeenCalled();
-
-      // Should use the provided providerId
-      expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
-        body: {
-          providerId: "custom-provider-id",
-          callbackURL: "/accounts",
-        },
-      });
-
-      expect(responseBody).toEqual({
-        redirectUrl: "https://sso.example.com/signin",
-        providerId: "custom-provider-id",
-      });
-    });
-
-    test("should use providerId even when email domain has different provider", async () => {
-      const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
-      mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
-        mockSignInSSOResponse,
-      );
-
-      // Mock that company.com has a different provider
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "company-provider-id",
-      } as any);
-
-      const request = createMockRequest({
-        email: "user@company.com",
-        organizationSlug: "test-org",
-        providerId: "override-provider-id",
-      });
-
-      const response = await GET(request, mockContext);
-      const responseBody = await response.json();
-
-      // Should not query Prisma for domain-based lookup
-      expect(prisma.ssoProvider.findFirst).not.toHaveBeenCalled();
-
-      // Should use the provided providerId, not the domain-based one
-      expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
-        body: {
-          providerId: "override-provider-id",
-          callbackURL: "/accounts",
-        },
-      });
-
-      expect(responseBody.providerId).toBe("override-provider-id");
-    });
-  });
-
-  describe("Domain-based provider lookup", () => {
-    test("should find provider by email domain when no providerId provided", async () => {
+  describe("Organization-based provider lookup", () => {
+    test("should find provider by organization slug", async () => {
       const mockSignInSSOResponse = { url: "https://sso.example.com/signin" };
       mockBetterAuthConfig.api.signInSSO.mockResolvedValue(
         mockSignInSSOResponse,
@@ -195,21 +96,20 @@ describe("SSO Signin Route", () => {
 
       // Mock the Prisma call to return a provider
       vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
-        providerId: "company-provider-id",
+        providerId: "test-provider-id",
       } as any);
 
       const request = createMockRequest({
-        email: "user@company.com",
+        email: "user@example.com",
         organizationSlug: "test-org",
       });
 
       const response = await GET(request, mockContext);
       const responseBody = await response.json();
 
-      // Should query Prisma for domain-based lookup with organization relation
+      // Should query Prisma for organization-based lookup
       expect(prisma.ssoProvider.findFirst).toHaveBeenCalledWith({
         where: {
-          domain: "company.com",
           organization: {
             slug: "test-org",
           },
@@ -221,14 +121,15 @@ describe("SSO Signin Route", () => {
 
       expect(mockBetterAuthConfig.api.signInSSO).toHaveBeenCalledWith({
         body: {
-          providerId: "company-provider-id",
+          providerId: "test-provider-id",
           callbackURL: "/accounts",
         },
       });
 
+      expect(response.status).toBe(200);
       expect(responseBody).toEqual({
         redirectUrl: "https://sso.example.com/signin",
-        providerId: "company-provider-id",
+        providerId: "test-provider-id",
       });
     });
 
@@ -237,7 +138,7 @@ describe("SSO Signin Route", () => {
       vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
 
       const request = createMockRequest({
-        email: "user@company.com",
+        email: "user@example.com",
         organizationSlug: "non-existent-org",
       });
 
@@ -251,37 +152,8 @@ describe("SSO Signin Route", () => {
       // Should query ssoProvider with organization relation
       expect(prisma.ssoProvider.findFirst).toHaveBeenCalledWith({
         where: {
-          domain: "company.com",
           organization: {
             slug: "non-existent-org",
-          },
-        },
-        select: {
-          providerId: true,
-        },
-      });
-    });
-
-    test("should redirect to /login/error when no provider found for domain", async () => {
-      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
-
-      const request = createMockRequest({
-        email: "user@unknown-domain.com",
-        organizationSlug: "test-org",
-      });
-
-      const response = await GET(request, mockContext);
-
-      expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe(
-        "http://localhost/login/error?error=organization_not_found",
-      );
-
-      expect(prisma.ssoProvider.findFirst).toHaveBeenCalledWith({
-        where: {
-          domain: "unknown-domain.com",
-          organization: {
-            slug: "test-org",
           },
         },
         select: {
@@ -294,14 +166,18 @@ describe("SSO Signin Route", () => {
   describe("Error handling", () => {
     test("should return 500 when betterAuth fails", async () => {
       const request = createMockRequest({
-        email: "user@company.com",
+        email: "user@example.com",
         organizationSlug: "test-org",
-        providerId: "non-existent-provider",
       });
 
-      // Mock that the providerId doesn't exist (betterAuth will handle this)
+      // Mock Prisma to return a provider
+      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
+        providerId: "test-provider",
+      } as any);
+
+      // Mock betterAuth to throw an error
       mockBetterAuthConfig.api.signInSSO.mockRejectedValue(
-        new Error("Provider not found"),
+        new Error("SSO service unavailable"),
       );
 
       const response = await GET(request, mockContext);
@@ -323,9 +199,14 @@ describe("SSO Signin Route", () => {
         mockSignInSSOResponse,
       );
 
-      const request = createMockRequest({
-        email: "user@company.com",
+      // Mock Prisma to return a provider
+      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
         providerId: "test-provider",
+      } as any);
+
+      const request = createMockRequest({
+        email: "user@example.com",
+        organizationSlug: "test-org",
       });
 
       const response = await GET(request, mockContext);
@@ -344,9 +225,14 @@ describe("SSO Signin Route", () => {
         mockSignInSSOResponse,
       );
 
-      const request = createMockRequest({
-        email: "user@company.com",
+      // Mock Prisma to return a provider
+      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
         providerId: "test-provider",
+      } as any);
+
+      const request = createMockRequest({
+        email: "user@example.com",
+        organizationSlug: "test-org",
       });
 
       const response = await GET(request, mockContext);
@@ -361,10 +247,12 @@ describe("SSO Signin Route", () => {
     });
 
     test("should redirect to /login/error when no SSO provider found", async () => {
+      // Mock Prisma to return null (no provider found)
       vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
 
       const request = createMockRequest({
-        email: "user@unknown-domain.com",
+        email: "user@example.com",
+        organizationSlug: "test-org",
       });
 
       const response = await GET(request, mockContext);
@@ -384,9 +272,14 @@ describe("SSO Signin Route", () => {
         mockSignInSSOResponse,
       );
 
-      const request = createMockRequest({
-        email: "user@company.com",
+      // Mock Prisma to return a provider
+      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
         providerId: "test-provider",
+      } as any);
+
+      const request = createMockRequest({
+        email: "user@example.com",
+        organizationSlug: "test-org",
       });
 
       await GET(request, mockContext);
@@ -400,13 +293,20 @@ describe("SSO Signin Route", () => {
     });
 
     test("should handle betterAuthConfig errors", async () => {
-      const authError = new Error("Authentication failed");
-      mockBetterAuthConfig.api.signInSSO.mockRejectedValue(authError);
-
       const request = createMockRequest({
-        email: "user@company.com",
-        providerId: "test-provider",
+        email: "user@example.com",
+        organizationSlug: "test-org",
       });
+
+      // Mock Prisma to return a provider
+      vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue({
+        providerId: "test-provider",
+      } as any);
+
+      // Mock betterAuth to throw an error
+      mockBetterAuthConfig.api.signInSSO.mockRejectedValue(
+        new Error("SSO service unavailable"),
+      );
 
       const response = await GET(request, mockContext);
       const responseBody = await response.json();

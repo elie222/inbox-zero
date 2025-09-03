@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
+import { isAdmin } from "@/utils/admin";
+import { auth } from "@/utils/auth";
+import { createScopedLogger } from "@/utils/logger";
 import { withAuth } from "@/utils/middleware";
 import { registerSSOProvider } from "@/utils/register-sso-provider";
-import { isAdmin } from "@/utils/admin";
-import { z } from "zod";
-import { auth } from "@/utils/auth";
+
+const logger = createScopedLogger("api/sso/register");
 
 const registerSSOProviderBody = z.object({
   idpMetadata: z
@@ -53,7 +56,7 @@ export const POST = withAuth(async (request) => {
       result,
     });
   } catch (error) {
-    console.error("SSO provider registration failed:", error);
+    logger.error("SSO provider registration failed:", { error });
     return NextResponse.json(
       {
         error: "SSO provider registration failed",

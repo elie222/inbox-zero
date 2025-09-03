@@ -36,7 +36,6 @@ export function LoginForm() {
 
   const [loadingGoogle, setLoadingGoogle] = useState(false);
   const [loadingMicrosoft, setLoadingMicrosoft] = useState(false);
-  const [loadingSSO, setLoadingSSO] = useState(false);
   const [showSSOForm, setShowSSOForm] = useState(false);
 
   // React Hook Form setup
@@ -78,7 +77,6 @@ export function LoginForm() {
   const onSubmitSSO: SubmitHandler<SSOFormData> = useCallback(
     async (data) => {
       try {
-        // Build URL with search parameters
         const url = new URL("/api/sso/signin", window.location.origin);
         url.searchParams.set("email", data.email);
         url.searchParams.set("organizationSlug", data.organizationName);

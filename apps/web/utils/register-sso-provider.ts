@@ -1,10 +1,9 @@
+import type { Organization as PrismaOrganization } from "@prisma/client";
+import { XMLParser } from "fast-xml-parser";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
 import prisma from "@/utils/prisma";
-import { XMLParser } from "fast-xml-parser";
-import type { Organization as PrismaOrganization } from "@prisma/client";
 
-// Union type for organization that can be either from Prisma or better-auth
 type Organization = PrismaOrganization | { id: string; [key: string]: any };
 
 export async function registerSSOProvider({
@@ -37,23 +36,68 @@ export async function registerSSOProvider({
     throw new Error("Could not find entityID in IdP metadata");
   }
 
-  const organizationSlug = organizationName.toLowerCase().replace(/ /g, "-");
-  const idpDescriptor = entityDescriptor["md:IDPSSODescriptor"];
-  const keyDescriptor = idpDescriptor["md:KeyDescriptor"];
-  const x509Certificate =
-    keyDescriptor["ds:KeyInfo"]["ds:X509Data"]["ds:X509Certificate"];
-  const cert = `-----BEGIN CERTIFICATE-----\n${x509Certificate}\n-----END CERTIFICATE-----`;
-  const singleSignOnServices = idpDescriptor["md:SingleSignOnService"];
-  const entryPoint = Array.isArray(singleSignOnServices)
-    ? singleSignOnServices.find(
-        (service) =>
-          service["@_Binding"] ===
-          "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
-      )?.["@_Location"]
-    : singleSignOnServices["@_Location"];
+  const organizationSlug = organizationName
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]+/g, "")
+    .replace(/[\s-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
-  // generic SP Metadata, for the full SP Metadata
-  // @see https://www.better-auth.com/docs/plugins/sso#get-service-provider-metadata
+  const idpDescriptor = entityDescriptor["md:IDPSSODescriptor"];
+  if (!idpDescriptor) {
+    throw new Error("Missing IDPSSODescriptor in IdP metadata");
+  }
+
+  const keyDescriptor = idpDescriptor["md:KeyDescriptor"];
+  if (!keyDescriptor) {
+    throw new Error("Missing KeyDescriptor in IdP metadata");
+  }
+
+  const keyInfo = keyDescriptor["ds:KeyInfo"];
+  if (!keyInfo) {
+    throw new Error("Missing KeyInfo in IdP metadata");
+  }
+
+  const x509Data = keyInfo["ds:X509Data"];
+  if (!x509Data) {
+    throw new Error("Missing X509Data in IdP metadata");
+  }
+
+  const x509Certificate = x509Data["ds:X509Certificate"];
+  if (
+    !x509Certificate ||
+    typeof x509Certificate !== "string" ||
+    !x509Certificate.trim()
+  ) {
+    throw new Error("Missing or empty X509Certificate in IdP metadata");
+  }
+
+  const cert = `-----BEGIN CERTIFICATE-----\n${x509Certificate.trim()}\n-----END CERTIFICATE-----`;
+
+  const singleSignOnServices = idpDescriptor["md:SingleSignOnService"];
+  if (!singleSignOnServices) {
+    throw new Error("Missing SingleSignOnService in IdP metadata");
+  }
+
+  let entryPoint: string | undefined;
+
+  if (Array.isArray(singleSignOnServices)) {
+    const httpPostService = singleSignOnServices.find(
+      (service) =>
+        service &&
+        service["@_Binding"] ===
+          "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
+    );
+    entryPoint = httpPostService?.["@_Location"];
+  } else if (singleSignOnServices && typeof singleSignOnServices === "object") {
+    entryPoint = singleSignOnServices["@_Location"];
+  } else {
+    throw new Error("Invalid SingleSignOnService format in IdP metadata");
+  }
+
+  if (!entryPoint || typeof entryPoint !== "string" || !entryPoint.trim()) {
+    throw new Error("Missing or empty entry point location in IdP metadata");
+  }
   const spMetadata = `<?xml version="1.0"?>
 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="${env.NEXT_PUBLIC_BASE_URL}">
   <md:SPSSODescriptor protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">
@@ -62,18 +106,16 @@ export async function registerSSOProvider({
   </md:SPSSODescriptor>
 </md:EntityDescriptor>`;
 
-  // Organization must exist before an SSO provider can be registered and attached to it
   let organization: Organization | null = await prisma.organization.findUnique({
     where: {
       slug: organizationSlug,
     },
   });
   if (!organization) {
-    // Create the organization
     organization = await betterAuthConfig.api.createOrganization({
       body: {
         name: organizationName,
-        slug: organizationName.toLowerCase().replace(/ /g, "-"),
+        slug: organizationSlug,
         keepCurrentActiveOrganization: true,
       },
       headers,
@@ -83,8 +125,6 @@ export async function registerSSOProvider({
     throw new Error("Failed to create or find organization");
   }
 
-  // If the SSO provider has an organization, the user adding it must be a member of the organization
-  // Check if user is already a member of the organization
   const existingMember = await prisma.member.findUnique({
     where: {
       organizationId_userId: {
@@ -104,7 +144,6 @@ export async function registerSSOProvider({
     });
   }
 
-  // Check if an SSO provider with this providerId already exists
   const existingSSOProvider = await prisma.ssoProvider.findUnique({
     where: {
       providerId: providerId,
@@ -114,8 +153,6 @@ export async function registerSSOProvider({
   if (existingSSOProvider) {
     throw new Error(`SSO provider with ID "${providerId}" already exists`);
   }
-
-  // The SSO provider must be registered once before sign in can happen
   return await betterAuthConfig.api.registerSSOProvider({
     body: {
       providerId,
