@@ -49,7 +49,6 @@ async function storeUtms(userId: string, cookies: ReadonlyRequestCookies) {
 
     logger.info("Stored utms", { utms, userId });
   } catch (error) {
-    console.error(error);
     logger.error("Failed to store utms", { error, userId });
   }
 }
