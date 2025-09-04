@@ -1,11 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { extractSSOProviderConfigFromXML } from "./extract-sso-provider-config-from-xml";
-
-vi.mock("@/env", () => ({
-  env: {
-    NEXT_PUBLIC_BASE_URL: "https://example.com",
-  },
-}));
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // Mock the env module for dynamic access
 const mockEnv = {
@@ -13,7 +6,9 @@ const mockEnv = {
     NEXT_PUBLIC_BASE_URL: "https://example.com",
   },
 };
-vi.doMock("@/env", () => mockEnv);
+
+// Store the original function for dynamic import
+let extractSSOProviderConfigFromXML: typeof import("./extract-sso-provider-config-from-xml").extractSSOProviderConfigFromXML;
 
 describe("extractSSOProviderConfigFromXML", () => {
   const validIdpMetadata = `<?xml version="1.0" encoding="UTF-8"?>
@@ -80,8 +75,17 @@ describe("extractSSOProviderConfigFromXML", () => {
   </md:IDPSSODescriptor>
 </md:EntityDescriptor>`;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+  beforeEach(async () => {
+    vi.resetModules();
+    vi.doMock("@/env", () => mockEnv);
+
+    // Dynamically import the module after setting up the mock
+    const module = await import("./extract-sso-provider-config-from-xml");
+    extractSSOProviderConfigFromXML = module.extractSSOProviderConfigFromXML;
+  });
+
+  afterEach(() => {
+    vi.resetModules();
   });
 
   describe("successful extraction", () => {
@@ -188,10 +192,21 @@ describe("extractSSOProviderConfigFromXML", () => {
       );
     });
 
-    it("should handle base URL with trailing slash", () => {
-      mockEnv.env.NEXT_PUBLIC_BASE_URL = "https://example.com/";
+    it("should handle base URL with trailing slash", async () => {
+      // Reset modules and set up mock with trailing slash
+      vi.resetModules();
+      vi.doMock("@/env", () => ({
+        env: {
+          NEXT_PUBLIC_BASE_URL: "https://example.com/",
+        },
+      }));
 
-      const result = extractSSOProviderConfigFromXML(
+      // Dynamically import the module with the new mock
+      const module = await import("./extract-sso-provider-config-from-xml");
+      const { extractSSOProviderConfigFromXML: extractWithTrailingSlash } =
+        module;
+
+      const result = extractWithTrailingSlash(
         validIdpMetadata,
         "test-provider",
       );

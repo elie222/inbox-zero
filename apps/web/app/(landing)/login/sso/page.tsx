@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import Link from "next/link";
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,7 +10,13 @@ import { toastError, toastSuccess } from "@/components/Toast";
 
 const ssoLoginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
-  organizationSlug: z.string().min(1, "Organization slug is required"),
+  organizationSlug: z
+    .string()
+    .regex(
+      /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/,
+      "Please enter a valid organization slug",
+    )
+    .max(63, "Organization slug must be 63 characters or fewer"),
 });
 
 type SsoLoginBody = z.infer<typeof ssoLoginSchema>;
@@ -96,36 +101,6 @@ export default function SSOLoginPage() {
             </form>
           </div>
         </div>
-
-        <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
-          By clicking continue, you agree to our{" "}
-          <Link
-            href="/terms"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Terms of Service
-          </Link>{" "}
-          and{" "}
-          <Link
-            href="/privacy"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Privacy Policy
-          </Link>
-          .
-        </p>
-
-        <p className="px-4 pt-4 text-center text-sm text-muted-foreground">
-          Inbox Zero{"'"}s use and transfer of information received from Google
-          APIs to any other app will adhere to{" "}
-          <a
-            href="https://developers.google.com/terms/api-services-user-data-policy"
-            className="underline underline-offset-4 hover:text-foreground"
-          >
-            Google API Services User Data
-          </a>{" "}
-          Policy, including the Limited Use requirements.
-        </p>
       </div>
     </div>
   );
