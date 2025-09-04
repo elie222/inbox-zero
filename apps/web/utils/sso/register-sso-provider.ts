@@ -153,6 +153,7 @@ export async function registerSSOProvider({
         role: ["owner"],
         organizationId: organization.id,
       },
+      headers,
     });
   }
 
@@ -165,16 +166,20 @@ export async function registerSSOProvider({
   if (existingSSOProvider) {
     throw new Error(`SSO provider with ID "${providerId}" already exists`);
   }
+  // Normalize domain and encode providerId
+  const normalizedDomain = domain.trim().toLowerCase();
+  const encodedProviderId = encodeURIComponent(providerId);
+
   return await betterAuthConfig.api.registerSSOProvider({
     body: {
       providerId,
       organizationId: organization.id,
       issuer,
-      domain,
+      domain: normalizedDomain,
       samlConfig: {
         entryPoint,
         cert,
-        callbackUrl: `${env.NEXT_PUBLIC_BASE_URL}/api/auth/sso/saml2/callback/${providerId}`,
+        callbackUrl: `${env.NEXT_PUBLIC_BASE_URL}/api/auth/sso/saml2/callback/${encodedProviderId}`,
         wantAssertionsSigned: false,
         signatureAlgorithm: "sha256",
         digestAlgorithm: "sha256",
