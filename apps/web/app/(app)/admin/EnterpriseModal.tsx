@@ -15,8 +15,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { useAccount } from "@/providers/EmailAccountProvider";
+import TextareaAutosize from "react-textarea-autosize";
 import { registerSSOProviderAction } from "@/utils/actions/enterprise";
 import {
   type SsoRegistrationBody,
@@ -29,8 +28,6 @@ interface EnterpriseModalProps {
 }
 
 export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
-  const { emailAccount } = useAccount();
-
   const {
     register,
     handleSubmit,
@@ -41,16 +38,11 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
   });
 
   const { executeAsync: executeRegisterSSO, isExecuting } = useAction(
-    registerSSOProviderAction.bind(null, emailAccount?.id || ""),
+    registerSSOProviderAction,
   );
 
   const onSubmit: SubmitHandler<SsoRegistrationBody> = useCallback(
     async (data) => {
-      if (!emailAccount?.id) {
-        toastError({ title: "Error", description: "Email account not found" });
-        return;
-      }
-
       const result = await executeRegisterSSO(data);
 
       if (result?.serverError) {
@@ -66,7 +58,7 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
         onClose();
       }
     },
-    [emailAccount?.id, executeRegisterSSO, reset, onClose],
+    [executeRegisterSSO, reset, onClose],
   );
 
   const handleClose = useCallback(() => {
@@ -89,10 +81,10 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Enterprise SSO Registration</DialogTitle>
+          <DialogTitle>Enterprise SSO Registration (SAML)</DialogTitle>
           <DialogDescription>
-            Configure Single Sign-On (SSO) for your organization. This will
-            enable your team to sign in using your identity provider.
+            Configure Single Sign-On (SAML) for your organization. This will
+            enable your team to sign in using your SAML identity provider.
           </DialogDescription>
         </DialogHeader>
 
@@ -111,7 +103,7 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
               type="text"
               name="providerId"
               label="Provider ID"
-              placeholder="e.g., inboxzero-google"
+              placeholder="e.g., your-company-saml"
               registerProps={register("providerId")}
               error={errors.providerId}
             />
@@ -129,11 +121,13 @@ export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
               <label htmlFor="idpMetadata" className="text-sm font-medium">
                 IDP Metadata (XML)
               </label>
-              <Textarea
+              <TextareaAutosize
                 id="idpMetadata"
+                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm font-mono text-xs"
+                minRows={3}
+                rows={3}
                 {...register("idpMetadata")}
-                placeholder="Paste your SAML IDP metadata XML here..."
-                className="min-h-[200px] font-mono text-xs"
+                placeholder="Paste your SAML IDP metadata XML from your identity provider here..."
               />
               {errors.idpMetadata && (
                 <div className="mt-0.5 text-sm font-semibold leading-snug text-red-400">

@@ -3,7 +3,6 @@
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
-import { EnterpriseSection } from "@/app/(app)/[emailAccountId]/settings/EnterpriseSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
@@ -35,7 +34,6 @@ export default function SettingsPage() {
           <ModelSection />
           <WebhookSection />
           <ApiKeysSection />
-          <EnterpriseSection />
           <DeleteSection />
         </FormWrapper>
       </TabsContent>

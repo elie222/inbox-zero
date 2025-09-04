@@ -1,5 +1,6 @@
 import { AdminUpgradeUserForm } from "@/app/(app)/admin/AdminUpgradeUserForm";
 import { AdminUserControls } from "@/app/(app)/admin/AdminUserControls";
+import { AdminEnterpriseControls } from "@/app/(app)/admin/AdminEnterpriseControls";
 import { TopSection } from "@/components/TopSection";
 import { auth } from "@/utils/auth";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -31,6 +32,7 @@ export default async function AdminPage() {
       <div className="m-8 space-y-8">
         <AdminUpgradeUserForm />
         <AdminUserControls />
+        <AdminEnterpriseControls />
 
         <div className="flex gap-2">
           <AdminSyncStripe />

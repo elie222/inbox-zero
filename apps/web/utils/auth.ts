@@ -25,6 +25,7 @@ import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/c
 import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
 import { updateAccountSeats } from "@/utils/premium/server";
 import prisma from "@/utils/prisma";
+import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("auth");
 
@@ -66,8 +67,8 @@ export const betterAuthConfig = betterAuth({
       },
     }),
     organization({
-      allowUserToCreateOrganization: async (_user: User) => {
-        return true;
+      allowUserToCreateOrganization: async (user: User) => {
+        return isAdmin({ email: user.email }) || false;
       },
     }),
   ],

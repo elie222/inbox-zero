@@ -3,21 +3,26 @@
 import { headers } from "next/headers";
 import { env } from "@/env";
 import { ssoRegistrationBody } from "@/utils/actions/enterprise.validation";
-import { actionClient } from "@/utils/actions/safe-action";
-import { betterAuthConfig } from "@/utils/auth";
+import { adminActionClient } from "@/utils/actions/safe-action";
+import { betterAuthConfig, auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { extractSSOProviderConfigFromXML } from "@/utils/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
 import { validateIdpMetadata } from "@/utils/sso";
 
-export const registerSSOProviderAction = actionClient
+export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })
   .schema(ssoRegistrationBody)
   .action(
     async ({
-      ctx: { userId },
       parsedInput: { idpMetadata, organizationName, domain, providerId },
     }) => {
+      const session = await auth();
+      if (!session?.user?.id) {
+        throw new SafeError("Unauthorized");
+      }
+      const userId = session.user.id;
+
       if (!validateIdpMetadata(idpMetadata)) {
         throw new SafeError("Invalid IDP metadata XML.");
       }
