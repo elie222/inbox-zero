@@ -143,7 +143,17 @@ function MultiAccountForm({
     resolver: zodResolver(saveMultiAccountPremiumBody),
     defaultValues: {
       emailAddresses: emailAddresses?.length
-        ? [...emailAddresses, ...pendingInvites.map((email) => ({ email }))]
+        ? (() => {
+            // Deduplicate to prevent showing the same email twice
+            const existingEmails = new Set(emailAddresses.map((e) => e.email));
+            const uniquePendingInvites = pendingInvites.filter(
+              (email) => !existingEmails.has(email),
+            );
+            return [
+              ...emailAddresses,
+              ...uniquePendingInvites.map((email) => ({ email })),
+            ];
+          })()
         : [{ email: "" }],
     },
   });
