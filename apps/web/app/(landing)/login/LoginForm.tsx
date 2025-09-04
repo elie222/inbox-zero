@@ -1,9 +1,11 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/Button";
+import { Button as UIButton } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
 import {
   Dialog,
@@ -44,10 +46,6 @@ export function LoginForm() {
     });
     setLoadingMicrosoft(false);
   };
-
-  const handleSSOSignIn = useCallback(() => {
-    window.location.href = "/login/sso";
-  }, []);
 
   return (
     <div className="flex flex-col justify-center gap-2 px-4 sm:px-16">
@@ -106,9 +104,14 @@ export function LoginForm() {
         </span>
       </Button>
 
-      <Button color="transparent" size="lg" full onClick={handleSSOSignIn}>
-        Sign in with SSO
-      </Button>
+      <UIButton
+        variant="outline"
+        size="lg"
+        className="w-full hover:scale-105 transition-transform"
+        asChild
+      >
+        <Link href="/login/sso">Sign in with SSO</Link>
+      </UIButton>
     </div>
   );
 }

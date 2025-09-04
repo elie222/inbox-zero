@@ -37,7 +37,7 @@ export const betterAuthConfig = betterAuth({
   },
   logger: {
     level: "info",
-    log: (level: string, message: string, ...args: unknown[]) => {
+    log: (level, message, ...args) => {
       switch (level) {
         case "info":
           logger.info(message, { args });

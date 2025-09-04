@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-
+import Link from "next/link";
 import { useCallback, useState } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod";
@@ -60,44 +60,72 @@ export default function SSOLoginPage() {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
-            Enterprise SSO Login
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
+    <div className="flex h-screen flex-col justify-center text-foreground">
+      <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+        <div className="flex flex-col text-center">
+          <h1 className="font-cal text-2xl text-foreground">SSO Sign In</h1>
+          <p className="mt-4 text-muted-foreground">
             Sign in to your organization account
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <div className="mt-4">
           <div className="space-y-4">
-            <Input
-              type="email"
-              name="email"
-              label="Email"
-              placeholder="Enter your email address"
-              registerProps={register("email")}
-              error={errors.email}
-            />
+            <form className="space-y-4" onSubmit={handleSubmit(onSubmit)}>
+              <Input
+                type="email"
+                name="email"
+                label="Email"
+                placeholder="Enter your email address"
+                registerProps={register("email")}
+                error={errors.email}
+              />
 
-            <Input
-              type="text"
-              name="organizationSlug"
-              label="Organization Slug"
-              placeholder="your-org-slug — lowercase, hyphens only"
-              registerProps={register("organizationSlug")}
-              error={errors.organizationSlug}
-            />
-          </div>
+              <Input
+                type="text"
+                name="organizationSlug"
+                label="Organization Slug"
+                placeholder="your-org-slug — lowercase, hyphens only"
+                registerProps={register("organizationSlug")}
+                error={errors.organizationSlug}
+              />
 
-          <div>
-            <Button type="submit" size="lg" full loading={isSubmitting}>
-              Continue with SSO
-            </Button>
+              <Button type="submit" size="lg" full loading={isSubmitting}>
+                Continue with SSO
+              </Button>
+            </form>
           </div>
-        </form>
+        </div>
+
+        <p className="px-8 pt-10 text-center text-sm text-muted-foreground">
+          By clicking continue, you agree to our{" "}
+          <Link
+            href="/terms"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link
+            href="/privacy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Privacy Policy
+          </Link>
+          .
+        </p>
+
+        <p className="px-4 pt-4 text-center text-sm text-muted-foreground">
+          Inbox Zero{"'"}s use and transfer of information received from Google
+          APIs to any other app will adhere to{" "}
+          <a
+            href="https://developers.google.com/terms/api-services-user-data-policy"
+            className="underline underline-offset-4 hover:text-foreground"
+          >
+            Google API Services User Data
+          </a>{" "}
+          Policy, including the Limited Use requirements.
+        </p>
       </div>
     </div>
   );

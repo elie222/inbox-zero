@@ -6,9 +6,9 @@ import { ssoRegistrationBody } from "@/utils/actions/enterprise.validation";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { betterAuthConfig, auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
-import { extractSSOProviderConfigFromXML } from "@/utils/extract-sso-provider-config-from-xml";
+import { extractSSOProviderConfigFromXML } from "@/utils/sso/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
-import { validateIdpMetadata } from "@/utils/sso";
+import { validateIdpMetadata } from "@/utils/sso/validate-idp-metadata";
 
 export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })

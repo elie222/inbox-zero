@@ -129,30 +129,27 @@ export function extractSSOProviderConfigFromXML(
     throw new Error("No SingleSignOnService found in IDPSSODescriptor");
   }
 
-  let entryPoint: string;
   const httpPostService = singleSignOnServices.find(
     (service: Record<string, unknown>) =>
       service &&
       service["@_Binding"] === "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST",
   );
 
-  const httpPostLocation = httpPostService
-    ? getStringValue(httpPostService, "@_Location")
-    : undefined;
-  const fallbackLocation = singleSignOnServices[0]
-    ? getStringValue(singleSignOnServices[0], "@_Location")
-    : undefined;
+  let entryPoint: string | undefined;
 
-  if (httpPostLocation) {
-    entryPoint = httpPostLocation;
-  } else if (fallbackLocation) {
-    entryPoint = fallbackLocation;
-  } else {
-    throw new Error("No valid SingleSignOnService location found");
+  if (httpPostService) {
+    entryPoint = getStringValue(httpPostService, "@_Location");
   }
 
-  if (!entryPoint || typeof entryPoint !== "string") {
-    throw new Error("Invalid entry point location in SingleSignOnService");
+  if (!entryPoint && singleSignOnServices.length > 0) {
+    const firstService = singleSignOnServices[0];
+    if (firstService && typeof firstService === "object") {
+      entryPoint = getStringValue(firstService, "@_Location");
+    }
+  }
+
+  if (!entryPoint) {
+    throw new Error("No valid SingleSignOnService location found");
   }
 
   const encodedProviderId = encodeURIComponent(providerId);

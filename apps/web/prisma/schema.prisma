@@ -97,6 +97,8 @@ model User {
 
   // Organization relationships
   members Member[]
+  invitations Invitation[]
+  ssoproviders SsoProvider[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -157,21 +159,6 @@ model EmailAccount {
   @@index([lastSummaryEmailAt])
 }
 
-model ssoProvider {
-  id             String        @id @default(cuid())
-  issuer         String
-  domain         String
-  oidcConfig     String?    
-  samlConfig     String?
-  mapping        String?
-  userId         String?
-  providerId     String        @unique
-  organizationId String?
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
-}
-
 model Organization {
   id          String        @id @default(cuid())
   name        String
@@ -181,8 +168,9 @@ model Organization {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   members     Member[]
-  ssoProvider ssoProvider[]
+  SsoProvider SsoProvider[]
   sessions    Session[]
+  invitations Invitation[]
 }
 
 model Member {
@@ -196,6 +184,46 @@ model Member {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, userId])
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model SsoProvider {
+  id             String  @id @default(cuid())
+  issuer         String
+  oidcConfig     String?
+  samlConfig     String?
+  userId         String?
+  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String  @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain         String
+
+  @@map("ssoProvider")
 }
 
 model Digest {

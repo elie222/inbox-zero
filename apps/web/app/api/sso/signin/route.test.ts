@@ -133,7 +133,7 @@ describe("SSO Signin Route", () => {
       });
     });
 
-    test("should redirect to /login/error when organization not found", async () => {
+    test("should return 400 when organization not found", async () => {
       // Mock the ssoProvider lookup to return null (organization not found)
       vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
 
@@ -143,11 +143,13 @@ describe("SSO Signin Route", () => {
       });
 
       const response = await GET(request, mockContext);
+      const responseBody = await response.json();
 
-      expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe(
-        "http://localhost/login/error?error=organization_not_found",
-      );
+      expect(response.status).toBe(400);
+      expect(responseBody).toEqual({
+        error: "No SSO provider found for this organization",
+        isKnownError: true,
+      });
 
       // Should query ssoProvider with organization relation
       expect(prisma.ssoProvider.findFirst).toHaveBeenCalledWith({
@@ -246,7 +248,7 @@ describe("SSO Signin Route", () => {
       });
     });
 
-    test("should redirect to /login/error when no SSO provider found", async () => {
+    test("should return 400 when no SSO provider found", async () => {
       // Mock Prisma to return null (no provider found)
       vi.mocked(prisma.ssoProvider.findFirst).mockResolvedValue(null as any);
 
@@ -256,12 +258,14 @@ describe("SSO Signin Route", () => {
       });
 
       const response = await GET(request, mockContext);
+      const responseBody = await response.json();
 
-      // Verify the redirect works correctly
-      expect(response.status).toBe(307);
-      expect(response.headers.get("location")).toBe(
-        "http://localhost/login/error?error=organization_not_found",
-      );
+      // Verify the error response works correctly
+      expect(response.status).toBe(400);
+      expect(responseBody).toEqual({
+        error: "No SSO provider found for this organization",
+        isKnownError: true,
+      });
     });
   });
 

@@ -16,18 +16,18 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import TextareaAutosize from "react-textarea-autosize";
-import { registerSSOProviderAction } from "@/utils/actions/enterprise";
+import { registerSSOProviderAction } from "@/utils/actions/sso";
 import {
   type SsoRegistrationBody,
   ssoRegistrationBody,
 } from "@/utils/actions/enterprise.validation";
 
-interface EnterpriseModalProps {
+interface RegisterSSOModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export function EnterpriseModal({ isOpen, onClose }: EnterpriseModalProps) {
+export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
   const {
     register,
     handleSubmit,

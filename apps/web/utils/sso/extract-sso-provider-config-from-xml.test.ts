@@ -7,6 +7,14 @@ vi.mock("@/env", () => ({
   },
 }));
 
+// Mock the env module for dynamic access
+const mockEnv = {
+  env: {
+    NEXT_PUBLIC_BASE_URL: "https://example.com",
+  },
+};
+vi.doMock("@/env", () => mockEnv);
+
 describe("extractSSOProviderConfigFromXML", () => {
   const validIdpMetadata = `<?xml version="1.0" encoding="UTF-8"?>
 <md:EntityDescriptor xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata" entityID="https://idp.example.com">
@@ -181,8 +189,7 @@ describe("extractSSOProviderConfigFromXML", () => {
     });
 
     it("should handle base URL with trailing slash", () => {
-      vi.mocked(require("@/env")).env.NEXT_PUBLIC_BASE_URL =
-        "https://example.com/";
+      mockEnv.env.NEXT_PUBLIC_BASE_URL = "https://example.com/";
 
       const result = extractSSOProviderConfigFromXML(
         validIdpMetadata,
@@ -200,13 +207,13 @@ describe("extractSSOProviderConfigFromXML", () => {
     it("should throw error for invalid XML", () => {
       expect(() => {
         extractSSOProviderConfigFromXML("invalid xml", "test-provider");
-      }).toThrow("Failed to parse XML metadata: Invalid XML structure");
+      }).toThrow("Missing or invalid EntityDescriptor in SAML metadata");
     });
 
     it("should throw error for null/undefined metadata", () => {
       expect(() => {
         extractSSOProviderConfigFromXML("", "test-provider");
-      }).toThrow("Failed to parse XML metadata: Invalid XML structure");
+      }).toThrow("Missing or invalid EntityDescriptor in SAML metadata");
     });
 
     it("should throw error when EntityDescriptor is missing", () => {
@@ -311,7 +318,7 @@ describe("extractSSOProviderConfigFromXML", () => {
 
       expect(() => {
         extractSSOProviderConfigFromXML(invalidMetadata, "test-provider");
-      }).toThrow("Missing or invalid X509Certificate in X509Data");
+      }).toThrow("Missing or invalid X509Data in KeyInfo");
     });
 
     it("should throw error when SingleSignOnService is missing", () => {
