@@ -8,6 +8,7 @@ import { AlertBasic } from "@/components/Alert";
 import { env } from "@/env";
 import { Button } from "@/components/ui/button";
 import { WELCOME_PATH } from "@/utils/config";
+import { CrispChatLoggedOutVisible } from "@/components/CrispChat";
 
 export const metadata: Metadata = {
   title: "Log in | Inbox Zero",
@@ -100,10 +101,15 @@ function ErrorAlert({ error }: { error: string }) {
   }
 
   return (
-    <AlertBasic
-      variant="destructive"
-      title="Error logging in"
-      description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
-    />
+    <>
+      <AlertBasic
+        variant="destructive"
+        title="Error logging in"
+        description={`There was an error logging in. Please try log in again. If this error persists please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`}
+      />
+      <Suspense>
+        <CrispChatLoggedOutVisible />
+      </Suspense>
+    </>
   );
 }
