@@ -17,6 +17,7 @@
     "husky": "9.1.7",
     "lint-staged": "16.1.5",
     "prettier": "3.6.2",
+    "tsconfig-paths": "^4.2.0",
     "turbo": "2.5.6",
     "ultracite": "5.3.3"
   },
