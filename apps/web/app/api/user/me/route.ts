@@ -34,6 +34,11 @@ async function getUser({ userId }: { userId: string }) {
         select: {
           organizationId: true,
           role: true,
+          organization: {
+            select: {
+              name: true,
+            },
+          },
         },
       },
     },
