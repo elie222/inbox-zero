@@ -11,6 +11,7 @@ import { nextCookies } from "better-auth/next-js";
 import { organization } from "better-auth/plugins";
 import { cookies, headers } from "next/headers";
 import { env } from "@/env";
+import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
@@ -69,6 +70,14 @@ export const betterAuthConfig = betterAuth({
     organization({
       allowUserToCreateOrganization: async (user: User) => {
         return isAdmin({ email: user.email }) || false;
+      },
+      async sendInvitationEmail(data) {
+        await sendOrganizationInvitation({
+          email: data.email,
+          organizationName: data.organization.name,
+          inviterName: data.inviter.user.name || data.inviter.user.email,
+          invitationId: data.invitation.id,
+        });
       },
     }),
   ],

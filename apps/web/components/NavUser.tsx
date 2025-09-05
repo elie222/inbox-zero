@@ -13,6 +13,7 @@ import {
   SettingsIcon,
   CrownIcon,
   ChromeIcon,
+  Building2Icon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -32,10 +33,15 @@ import { ProfileImage } from "@/components/ProfileImage";
 import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
+import { useUser } from "@/hooks/useUser";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
+  const { data: user } = useUser();
+
+  const hasOrganization = user?.members && user.members.length > 0;
+  const isAdmin = user?.members?.some((member) => member.role === "admin");
 
   return (
     <DropdownMenu>
@@ -98,6 +104,22 @@ export function NavUser() {
               Settings
             </Link>
           </DropdownMenuItem>
+          {!hasOrganization && (
+            <DropdownMenuItem asChild>
+              <Link href="/organizations">
+                <Building2Icon className="mr-2 size-4" />
+                Create organization
+              </Link>
+            </DropdownMenuItem>
+          )}
+          {hasOrganization && isAdmin && (
+            <DropdownMenuItem asChild>
+              <Link href="/organizations/members">
+                <Building2Icon className="mr-2 size-4" />
+                My Organization
+              </Link>
+            </DropdownMenuItem>
+          )}
           {isGoogleProvider(provider) && (
             <DropdownMenuItem asChild>
               <Link
