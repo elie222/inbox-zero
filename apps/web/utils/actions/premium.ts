@@ -197,17 +197,29 @@ export const updateMultiAccountPremiumAction = actionClientUser
         },
       },
       select: {
-        users: { select: { _count: { select: { emailAccounts: true } } } },
+        users: {
+          select: {
+            email: true,
+            _count: { select: { emailAccounts: true } },
+          },
+        },
         pendingInvites: true,
       },
     });
 
-    // total seats = premium users + pending invites
+    const connectedUserEmails = new Set(
+      updatedPremium.users.map((u) => u.email),
+    );
+
+    const uniquePendingInvites = (updatedPremium.pendingInvites || []).filter(
+      (email) => !connectedUserEmails.has(email),
+    );
+
+    // total seats = premium users + unique pending invites
     const totalSeats =
       sumBy(updatedPremium.users, (u) => u._count.emailAccounts) +
-      (updatedPremium.pendingInvites?.length || 0);
+      uniquePendingInvites.length;
 
-    // Update subscription quantity to reflect the actual total seats
     await updateAccountSeatsForPremium(premium, totalSeats);
   });
 

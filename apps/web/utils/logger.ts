@@ -14,13 +14,10 @@ const colors = {
   reset: "\x1b[0m",
 } as const;
 
-// const logScopes = new Map<string, boolean>();
-// logScopes.set("reply-tracker/outbound", true);
-// logScopes.set("outlook/webhook", true);
-
 export function createScopedLogger(scope: string) {
   if (env.NEXT_PUBLIC_AXIOM_TOKEN) return createAxiomLogger(scope);
-  // if (!logScopes.has(scope)) return createNullLogger();
+  if (env.NEXT_PUBLIC_LOG_SCOPES && !env.NEXT_PUBLIC_LOG_SCOPES.includes(scope))
+    return createNullLogger();
 
   const createLogger = (fields: Record<string, unknown> = {}) => {
     const formatMessage = (
@@ -89,15 +86,15 @@ function createAxiomLogger(scope: string) {
   return createLogger();
 }
 
-// function createNullLogger() {
-//   return {
-//     info: () => {},
-//     error: () => {},
-//     warn: () => {},
-//     trace: () => {},
-//     with: () => createNullLogger(),
-//   };
-// }
+function createNullLogger() {
+  return {
+    info: () => {},
+    error: () => {},
+    warn: () => {},
+    trace: () => {},
+    with: () => createNullLogger(),
+  };
+}
 
 function formatError(args?: Record<string, unknown>) {
   if (env.NODE_ENV !== "production") return args;
