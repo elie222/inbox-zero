@@ -22,6 +22,7 @@ import { useAccounts } from "@/hooks/useAccounts";
 import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { ProfileImage } from "@/components/ProfileImage";
+import { useUser } from "@/hooks/useUser";
 
 export function AccountSwitcher() {
   const { data: accountsData } = useAccounts();
@@ -37,12 +38,15 @@ export function AccountSwitcherInternal({
   emailAccounts: GetEmailAccountsResponse["emailAccounts"];
 }) {
   const { isMobile } = useSidebar();
+  const { data: user } = useUser();
 
   const {
     emailAccountId: activeEmailAccountId,
     emailAccount: activeEmailAccount,
     isLoading,
   } = useAccount();
+
+  const organizationName = user?.members?.[0]?.organization?.name;
 
   const pathname = usePathname();
   const searchParams = useSearchParams();
