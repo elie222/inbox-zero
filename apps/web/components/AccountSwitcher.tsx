@@ -77,7 +77,7 @@ export function AccountSwitcherInternal({
           <DropdownMenuTrigger asChild>
             <SidebarMenuButton
               size="lg"
-              className={`data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground ${organizationName ? "h-16" : ""}`}
+              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
               sidebarName="left-sidebar"
             >
               {activeEmailAccount ? (
@@ -97,11 +97,6 @@ export function AccountSwitcherInternal({
                     {activeEmailAccount.name && (
                       <span className="truncate text-xs text-muted-foreground">
                         {activeEmailAccount.email}
-                      </span>
-                    )}
-                    {organizationName && (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {organizationName}
                       </span>
                     )}
                   </div>

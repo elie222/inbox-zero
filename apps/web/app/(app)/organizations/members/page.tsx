@@ -87,13 +87,14 @@ export default function MembersPage() {
                             member.role === "admin" ? "default" : "secondary"
                           }
                         >
-                          {member.role}
+                          {member.role.charAt(0).toUpperCase() +
+                            member.role.slice(1)}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {member.user.email}
                       </p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Joined {new Date(member.createdAt).toLocaleDateString()}
                       </p>
                     </div>
