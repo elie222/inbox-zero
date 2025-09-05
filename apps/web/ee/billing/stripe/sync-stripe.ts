@@ -122,7 +122,8 @@ export async function syncStripeDataToDb({
         pendingInvites: true,
         users: {
           select: {
-            _count: true,
+            email: true,
+            _count: { select: { emailAccounts: true } },
           },
         },
       },
@@ -149,17 +150,27 @@ export async function syncStripeDataToDb({
 async function syncSeats(
   premium: Prisma.PremiumGetPayload<{
     select: {
-      users: { select: { _count: { select: { emailAccounts: true } } } };
+      users: {
+        select: { email: true; _count: { select: { emailAccounts: true } } };
+      };
       pendingInvites: true;
       stripeSubscriptionItemId: true;
     };
   }>,
 ) {
   try {
-    // total seats = premium users + pending invites
+    // Get all connected user emails
+    const connectedUserEmails = new Set(premium.users.map((u) => u.email));
+
+    // Filter out pending invites that are already connected users to avoid double counting
+    const uniquePendingInvites = (premium.pendingInvites || []).filter(
+      (email) => !connectedUserEmails.has(email),
+    );
+
+    // total seats = premium users + unique pending invites (excluding duplicates)
     const totalSeats =
       sumBy(premium.users, (u) => u._count.emailAccounts) +
-      (premium.pendingInvites?.length || 0);
+      uniquePendingInvites.length;
 
     await updateAccountSeatsForPremium(premium, totalSeats);
   } catch (error) {

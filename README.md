@@ -2,10 +2,10 @@
 
 <p align="center">
   <a href="https://www.getinboxzero.com">
-    <h1 align="center">Inbox Zero - Your AI Email Assistant</h1>
+    <h1 align="center">Inbox Zero - your 24/7 AI email assistant</h1>
   </a>
   <p align="center">
-    Open source email app to reach inbox zero fast.
+    Organizes your inbox, pre-drafts replies, and tracks follow‑ups - so you reach inbox zero faster. Open source.
     <br />
     <a href="https://www.getinboxzero.com">Website</a>
     ·
@@ -15,19 +15,20 @@
   </p>
 </p>
 
-## About
+<div align="center">
 
-There are two parts to Inbox Zero:
+![Stars](https://img.shields.io/github/stars/elie222/inbox-zero?labelColor=black&style=for-the-badge&color=2563EB)
+![Forks](https://img.shields.io/github/forks/elie222/inbox-zero?labelColor=black&style=for-the-badge&color=2563EB)
 
-1. An AI email assistant that helps you spend less time on email.
-2. Open source AI email client.
+<a href="https://trendshift.io/repositories/6400" target="_blank"><img src="https://trendshift.io/api/badge/repositories/6400" alt="elie222%2Finbox-zero | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-If you're looking to contribute to the project, the email client is the best place to do this.
+[![Vercel OSS Program](https://vercel.com/oss/program-badge.svg)](https://vercel.com/oss)
 
-<br />
-<a href="https://vercel.com/oss">
-  <img alt="Vercel OSS Program" src="https://vercel.com/oss/program-badge.svg" />
-</a
+</div>
+
+## Mission
+
+To help you spend less time in your inbox, so you can focus on what matters.
 
 <br />
 
@@ -35,12 +36,13 @@ If you're looking to contribute to the project, the email client is the best pla
 
 ## Features
 
-- **AI Personal Assistant:** Manages your email for you based on a plain text prompt file. It can take any action a human assistant can take on your behalf (Draft reply, Label, Archive, Reply, Forward, Mark Spam, and even call a webhook).
-- **Reply Zero:** Track emails that need your reply and those awaiting responses.
-- **Smart Categories:** Categorize everyone that's ever emailed you.
-- **Bulk Unsubscriber:** Quickly unsubscribe from emails you never read in one-click.
-- **Cold Email Blocker:** Automatically block cold emails.
-- **Email Analytics:** Track your email activity with daily, weekly, and monthly stats.
+- **AI Personal Assistant:** Organizes your inbox and pre-drafts replies in your tone and style.
+- **Cursor Rules for email:** Explain in plain English how your AI should handle your inbox.
+- **Reply Zero:** Track emails to reply to and those awaiting responses.
+- **Smart Categories:** Automatically categorize every sender.
+- **Bulk Unsubscriber:** One-click unsubscribe and archive emails you never read.
+- **Cold Email Blocker:** Auto‑block cold emails.
+- **Email Analytics:** Track your activity and trends over time.
 
 Learn more in our [docs](https://docs.getinboxzero.com).
 

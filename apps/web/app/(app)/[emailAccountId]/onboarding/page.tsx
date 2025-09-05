@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { after } from "next/server";
 import { OnboardingContent } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingContent";
 import { fetchUserAndStoreUtms } from "@/app/(landing)/welcome/utms";
@@ -21,10 +22,11 @@ export default async function OnboardingPage(props: {
 
   const authPromise = auth();
 
+  const cookieStore = await cookies();
   after(async () => {
     const user = await authPromise;
     if (!user?.user) return;
-    await fetchUserAndStoreUtms(user.user.id);
+    await fetchUserAndStoreUtms(user.user.id, cookieStore);
   });
 
   return (
