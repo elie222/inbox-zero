@@ -39,7 +39,9 @@ export function NavUser() {
   const { data: user } = useUser();
 
   const hasOrganization = user?.members && user.members.length > 0;
-  const isAdmin = user?.members?.some((member) => member.role === "admin");
+  const isAdmin = user?.members?.some((member) =>
+    ["owner", "admin"].includes(member.role),
+  );
   const organizationName = user?.members?.[0]?.organization?.name;
 
   return (

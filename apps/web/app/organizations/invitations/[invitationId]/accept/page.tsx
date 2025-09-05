@@ -13,6 +13,8 @@ import {
 import { Loader2 } from "lucide-react";
 import { useUser } from "@/hooks/useUser";
 import { handleInvitationAction } from "@/utils/actions/invitation";
+import { mutate } from "swr";
+import { setInvitationCookie, clearInvitationCookie } from "@/utils/cookies";
 
 export default function AcceptInvitationPage() {
   const params = useParams();
@@ -23,22 +25,30 @@ export default function AcceptInvitationPage() {
   const [success, setSuccess] = useState<{ organizationName: string } | null>(
     null,
   );
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   const invitationId = params.invitationId as string;
 
+  // Revalidate user data to ensure we have fresh data
+  useEffect(() => {
+    mutate("/api/user/me");
+  }, []);
+
   useEffect(() => {
     const handleInvitation = async () => {
-      if (userLoading) return;
+      if (userLoading || hasProcessed) return;
 
       try {
         if (!user) {
-          document.cookie = `invitation_id=${invitationId}; path=/; max-age=${7 * 24 * 60 * 60}`;
+          setHasProcessed(true);
+          setInvitationCookie(invitationId);
           router.push(
-            `/login?redirect=/organizations/invitations/${invitationId}/accept`,
+            `/login?next=/organizations/invitations/${invitationId}/accept`,
           );
           return;
         }
 
+        setHasProcessed(true);
         const result = await handleInvitationAction({ invitationId });
 
         if (result?.serverError) {
@@ -46,8 +56,7 @@ export default function AcceptInvitationPage() {
         } else if (result?.validationErrors) {
           setError("Validation error occurred");
         } else if (result?.data) {
-          document.cookie =
-            "invitation_id=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+          clearInvitationCookie();
           setSuccess({
             organizationName:
               result.data.organizationName || "the organization",
@@ -56,7 +65,6 @@ export default function AcceptInvitationPage() {
           setError("An unknown error occurred.");
         }
       } catch (err) {
-        console.error("Invitation error:", err);
         setError(
           err instanceof Error ? err.message : "Failed to process invitation",
         );
@@ -68,7 +76,7 @@ export default function AcceptInvitationPage() {
     if (invitationId) {
       handleInvitation();
     }
-  }, [invitationId, user, userLoading, router]);
+  }, [invitationId, user, userLoading, router, hasProcessed]);
 
   if (loading || userLoading) {
     return (

@@ -72,6 +72,10 @@ export const betterAuthConfig = betterAuth({
         return isAdmin({ email: user.email }) || false;
       },
       async sendInvitationEmail(data) {
+        logger.info("Sending organization invitation email", {
+          email: data.email,
+          organizationName: data.organization.name,
+        });
         await sendOrganizationInvitation({
           email: data.email,
           organizationName: data.organization.name,
