@@ -55,6 +55,8 @@ import { AccountSwitcher } from "@/components/AccountSwitcher";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
+import useSWR from "swr";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 
@@ -72,35 +74,42 @@ export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const { emailAccountId, provider } = useAccount();
 
+  // Get user's own email accounts to ensure Analytics always points to their own account
+  const { data: userEmailAccounts } = useSWR<GetEmailAccountsResponse>(
+    "/api/user/email-accounts",
+  );
+  const userOwnEmailAccountId =
+    userEmailAccounts?.emailAccounts?.[0]?.id || emailAccountId;
+
   // Assistant category items
   const navItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
-        href: prefixPath(emailAccountId, "/automation"),
+        href: prefixPath(userOwnEmailAccountId, "/automation"),
         icon: SparklesIcon,
       },
       {
         name: "Bulk Unsubscribe",
-        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
+        href: prefixPath(userOwnEmailAccountId, "/bulk-unsubscribe"),
         icon: MailsIcon,
       },
       ...(isGoogleProvider(provider)
         ? [
             {
               name: "Deep Clean",
-              href: prefixPath(emailAccountId, "/clean"),
+              href: prefixPath(userOwnEmailAccountId, "/clean"),
               icon: BrushIcon,
             },
             {
               name: "Analytics",
-              href: prefixPath(emailAccountId, "/stats"),
+              href: prefixPath(userOwnEmailAccountId, "/stats"),
               icon: BarChartBigIcon,
             },
           ]
         : []),
     ],
-    [emailAccountId, provider],
+    [provider, userOwnEmailAccountId],
   );
 
   const navItemsFiltered = useMemo(

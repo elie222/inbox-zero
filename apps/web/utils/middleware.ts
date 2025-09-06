@@ -13,6 +13,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { checkOrgEmailAccountAccess } from "@/utils/organizations/access";
 
 const logger = createScopedLogger("middleware");
 
@@ -168,10 +169,26 @@ async function emailAccountMiddleware(
     );
   }
 
-  // If account ID is provided, validate and get the email account ID
   const email = await getEmailAccount({ userId, emailAccountId });
 
   if (!email) {
+    // Check if user can access this email account through organization membership
+    const targetEmailAccount = await checkOrgEmailAccountAccess(
+      userId,
+      emailAccountId,
+    );
+
+    if (targetEmailAccount) {
+      // Allow access - admin can view member's email account
+      const emailAccountReq = req.clone() as RequestWithEmailAccount;
+      emailAccountReq.auth = {
+        userId,
+        emailAccountId,
+        email: targetEmailAccount.email,
+      };
+      return emailAccountReq;
+    }
+
     return NextResponse.json(
       { error: "Invalid account ID", isKnownError: true },
       { status: 403 },

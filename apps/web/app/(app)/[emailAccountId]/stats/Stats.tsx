@@ -17,6 +17,7 @@ import { CardBasic } from "@/components/ui/card";
 import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
+import { useMemberAnalytics } from "@/hooks/useMemberAnalytics";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -28,6 +29,14 @@ const selectOptions = [
 const defaultSelected = selectOptions[1];
 
 export function Stats() {
+  const { isOwnAnalytics, memberInfo, memberInfoError } = useMemberAnalytics();
+
+  // Debug logging
+  console.log("Stats component debug:", {
+    isOwnAnalytics,
+    memberInfo,
+    memberInfoError,
+  });
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
@@ -64,9 +73,13 @@ export function Stats() {
     onLoad({ loadBefore: false, showToast: false });
   }, [onLoad]);
 
+  const pageTitle = isOwnAnalytics
+    ? "Analytics"
+    : `Analytics - ${memberInfo?.name || "Member"}`;
+
   return (
     <PageWrapper>
-      <PageHeading>Analytics</PageHeading>
+      <PageHeading>{pageTitle}</PageHeading>
       <div className="flex items-center justify-between mt-2 sm:mt-0">
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
