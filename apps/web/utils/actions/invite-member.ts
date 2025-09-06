@@ -8,6 +8,7 @@ import { SafeError } from "@/utils/error";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
 import type { Invitation } from "better-auth/plugins";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export const inviteMemberAction = actionClientUser
   .metadata({ name: "inviteMember" })
@@ -22,7 +23,7 @@ export const inviteMemberAction = actionClientUser
       throw new SafeError("You are not a member of any organization.");
     }
 
-    if (!["admin", "owner"].includes(userMembership.role)) {
+    if (!hasOrganizationAdminRole(userMembership.role)) {
       throw new SafeError(
         "Only organization owners or admins can invite members.",
       );

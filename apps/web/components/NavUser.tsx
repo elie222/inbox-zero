@@ -32,6 +32,7 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
@@ -40,7 +41,7 @@ export function NavUser() {
 
   const hasOrganization = user?.members && user.members.length > 0;
   const isAdmin = user?.members?.some((member) =>
-    ["owner", "admin"].includes(member.role),
+    hasOrganizationAdminRole(member.role),
   );
   const organizationName = user?.members?.[0]?.organization?.name;
 

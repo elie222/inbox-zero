@@ -32,13 +32,31 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
           name: true,
           email: true,
           image: true,
+          emailAccounts: {
+            select: {
+              id: true,
+              email: true,
+            },
+          },
         },
       },
     },
     orderBy: [{ role: "asc" }, { createdAt: "asc" }],
   });
 
-  return { members };
+  // An user can have multiple email accounts,
+  // but we should only show the account that matches the user's email
+  const transformedMembers = members.map((member) => ({
+    ...member,
+    user: {
+      ...member.user,
+      emailAccounts: member.user.emailAccounts.filter(
+        (ea) => ea.email === member.user.email,
+      ),
+    },
+  }));
+
+  return { members: transformedMembers };
 }
 
 export const GET = withAuth(async (request) => {

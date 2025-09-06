@@ -1,18 +1,133 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserPlusIcon, TrashIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  UserPlusIcon,
+  TrashIcon,
+  MoreHorizontalIcon,
+  BarChartBigIcon,
+  BarChartIcon,
+} from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { removeMemberAction } from "@/utils/actions/remove-member";
 import { toastSuccess, toastError } from "@/components/Toast";
+import type { OrganizationMembersResponse } from "@/app/api/organizations/members/route";
+import { useExecutedRulesCount } from "@/hooks/useExecutedRulesCount";
+
+type Member = OrganizationMembersResponse["members"][0];
+
+interface MemberCardProps {
+  member: Member;
+  onRemove: (memberId: string) => void;
+  executedRulesCount?: number;
+}
+
+function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
+  return (
+    <div className="flex items-center justify-between p-4 border rounded-lg">
+      <div className="flex items-center space-x-4 flex-1 min-w-0">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Avatar className="h-10 w-10 flex-shrink-0">
+                <AvatarImage
+                  src={member.user.image || ""}
+                  alt={member.user.name || member.user.email}
+                />
+                <AvatarFallback>
+                  {member.user.name
+                    ? member.user.name.charAt(0).toUpperCase()
+                    : member.user.email.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>
+                Joined at: {new Date(member.createdAt).toLocaleDateString()}
+              </p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center space-x-3">
+            <p className="font-medium">{member.user.name || "No name"}</p>
+            <Badge
+              variant={member.role === "admin" ? "default" : "secondary"}
+              className="text-xs"
+            >
+              {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+            </Badge>
+          </div>
+          <div className="flex items-center space-x-3 mt-1">
+            <span className="text-xs text-muted-foreground">
+              {member.user.email}
+            </span>
+            {executedRulesCount !== undefined && (
+              <>
+                <span className="text-xs text-muted-foreground">∣</span>
+                <span className="text-xs text-muted-foreground">
+                  {executedRulesCount} executed rules
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="sm">
+            <MoreHorizontalIcon className="size-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => onRemove(member.id)}>
+            <TrashIcon className="mr-2 size-4" />
+            Remove
+          </DropdownMenuItem>
+          {member.user.emailAccounts?.[0]?.id ? (
+            <DropdownMenuItem asChild>
+              <Link href={`/${member.user.emailAccounts[0].id}/stats`}>
+                <BarChartBigIcon className="mr-2 size-4" />
+                Analytics
+              </Link>
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem disabled>
+              <BarChartBigIcon className="mr-2 size-4" />
+              Analytics
+            </DropdownMenuItem>
+          )}
+          <DropdownMenuItem>
+            <BarChartIcon className="mr-2 size-4" />
+            Usage
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
 
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
+  const { data: executedRulesData } = useExecutedRulesCount();
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const handleRemoveMember = async (memberId: string) => {
@@ -60,57 +175,21 @@ export default function MembersPage() {
             </div>
 
             <div className="space-y-4">
-              {data?.members.map((member) => (
-                <div
-                  key={member.id}
-                  className="flex items-center justify-between p-4 border rounded-lg"
-                >
-                  <div className="flex items-center space-x-4">
-                    <Avatar className="h-10 w-10">
-                      <AvatarImage
-                        src={member.user.image || ""}
-                        alt={member.user.name || member.user.email}
-                      />
-                      <AvatarFallback>
-                        {member.user.name
-                          ? member.user.name.charAt(0).toUpperCase()
-                          : member.user.email.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <p className="font-medium">
-                          {member.user.name || "No name"}
-                        </p>
-                        <Badge
-                          variant={
-                            member.role === "admin" ? "default" : "secondary"
-                          }
-                        >
-                          {member.role.charAt(0).toUpperCase() +
-                            member.role.slice(1)}
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {member.user.email}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Joined {new Date(member.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRemoveMember(member.id)}
-                    >
-                      <TrashIcon className="mr-2 size-4" />
-                      Remove
-                    </Button>
-                  </div>
-                </div>
-              ))}
+              {data?.members.map((member) => {
+                const executedRulesCount =
+                  executedRulesData?.executedRulesCount.find(
+                    (item) => item.userId === member.user.id,
+                  )?.executedRulesCount;
+
+                return (
+                  <MemberCard
+                    key={member.id}
+                    member={member}
+                    onRemove={handleRemoveMember}
+                    executedRulesCount={executedRulesCount}
+                  />
+                );
+              })}
             </div>
 
             {data?.members.length === 0 && (
