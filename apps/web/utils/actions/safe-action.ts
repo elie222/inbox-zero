@@ -76,7 +76,6 @@ export const actionClient = baseClient
       );
 
       if (targetEmailAccount) {
-        // Allow access - admin can access member's email account
         return withServerActionInstrumentation(metadata?.name, async () => {
           return next({
             ctx: {

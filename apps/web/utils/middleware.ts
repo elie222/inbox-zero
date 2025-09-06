@@ -179,7 +179,6 @@ async function emailAccountMiddleware(
     );
 
     if (targetEmailAccount) {
-      // Allow access - admin can view member's email account
       const emailAccountReq = req.clone() as RequestWithEmailAccount;
       emailAccountReq.auth = {
         userId,

@@ -17,7 +17,6 @@ export async function checkOrgEmailAccountAccess(
     return null;
   }
 
-  // Check if the email account belongs to a member of the same organization
   const targetEmailAccount = await prisma.emailAccount.findFirst({
     where: { id: emailAccountId },
     select: {

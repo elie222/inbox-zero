@@ -24,15 +24,6 @@ export function useMemberAnalytics() {
       : null,
   );
 
-  // Debug logging
-  console.log("useMemberAnalytics debug:", {
-    currentEmailAccountId,
-    userOwnEmailAccountId,
-    isOwnAnalytics,
-    memberInfo,
-    memberInfoError,
-  });
-
   return {
     isOwnAnalytics,
     memberInfo,

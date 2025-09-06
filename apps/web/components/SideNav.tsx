@@ -74,7 +74,6 @@ export const useNavigation = () => {
   const showCleaner = useCleanerEnabled();
   const { emailAccountId, provider } = useAccount();
 
-  // Get user's own email accounts to ensure Analytics always points to their own account
   const { data: userEmailAccounts } = useSWR<GetEmailAccountsResponse>(
     "/api/user/email-accounts",
   );

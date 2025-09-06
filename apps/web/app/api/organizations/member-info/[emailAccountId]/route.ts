@@ -21,7 +21,6 @@ export async function GET(
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Get member information
     const member = await prisma.member.findFirst({
       where: {
         user: {

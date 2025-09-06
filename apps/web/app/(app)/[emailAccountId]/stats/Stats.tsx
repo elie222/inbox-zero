@@ -29,14 +29,8 @@ const selectOptions = [
 const defaultSelected = selectOptions[1];
 
 export function Stats() {
-  const { isOwnAnalytics, memberInfo, memberInfoError } = useMemberAnalytics();
+  const { isOwnAnalytics, memberInfo } = useMemberAnalytics();
 
-  // Debug logging
-  console.log("Stats component debug:", {
-    isOwnAnalytics,
-    memberInfo,
-    memberInfoError,
-  });
   const [dateDropdown, setDateDropdown] = useState<string>(
     defaultSelected.label,
   );
