@@ -167,7 +167,10 @@ export const env = createEnv({
     NEXT_PUBLIC_LOG_SCOPES: z
       .string()
       .optional()
-      .transform((value) => value?.split(",")),
+      .transform((value) => {
+        if (!value) return;
+        return value.split(",");
+      }),
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
       .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
