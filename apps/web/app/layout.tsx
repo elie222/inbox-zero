@@ -8,6 +8,7 @@ import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import type { WebApplication, WithContext } from "schema-dts";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
@@ -33,7 +34,7 @@ const description =
   "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source";
 
 // JSON-LD structured data
-const jsonLd = {
+const jsonLd: WithContext<WebApplication> = {
   "@context": "https://schema.org",
   "@type": "WebApplication",
   name: "Inbox Zero",
