@@ -53,7 +53,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
-import { hasVariables } from "@/utils/template";
+import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -1291,7 +1291,7 @@ function ActionCard({
                         name={`actions.${index}.${field.name}.ai`}
                         labelRight="AI generated"
                         enabled={isAiGenerated || false}
-                        onChange={(enabled: boolean) => {
+                        onChange={(enabled) => {
                           setValue(
                             `actions.${index}.${field.name}`,
                             enabled
@@ -1312,7 +1312,9 @@ function ActionCard({
                   canFieldUseVariables(field, isAiGenerated) && (
                     <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
                       {(value || "")
-                        .split(/(\{\{.*?\}\})/g)
+                        .split(
+                          new RegExp(`(${TEMPLATE_VARIABLE_PATTERN})`, "g"),
+                        )
                         .map((part: string, idx: number) =>
                           part.startsWith("{{") ? (
                             <span
