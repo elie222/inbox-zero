@@ -1,11 +1,11 @@
 import { useState, useCallback } from "react";
 
-interface DialogState<T = any> {
+interface DialogState<T = unknown> {
   isOpen: boolean;
   data?: T;
 }
 
-export function useDialogState<T = any>(initialState?: DialogState<T>) {
+export function useDialogState<T = unknown>(initialState?: DialogState<T>) {
   const [state, setState] = useState<DialogState<T>>(
     initialState || { isOpen: false },
   );
