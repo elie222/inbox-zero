@@ -99,7 +99,6 @@ export default function SSOLoginPage() {
                 type="email"
                 name="email"
                 label="Email"
-                placeholder="Enter your email address"
                 registerProps={register("email")}
                 error={errors.email}
               />
@@ -108,7 +107,7 @@ export default function SSOLoginPage() {
                 type="text"
                 name="organizationSlug"
                 label="Organization Slug"
-                placeholder="your-org-slug — lowercase, hyphens only"
+                placeholder="your-org-slug"
                 registerProps={register("organizationSlug")}
                 error={errors.organizationSlug}
               />

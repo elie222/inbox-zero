@@ -22,7 +22,7 @@ import { registerSSOProviderAction } from "@/utils/actions/sso";
 import {
   type SsoRegistrationBody,
   ssoRegistrationBody,
-} from "@/utils/actions/enterprise.validation";
+} from "@/utils/actions/sso.validation";
 import { useDialogState } from "@/hooks/useDialogState";
 
 export function RegisterSSOModal() {
@@ -35,7 +35,7 @@ export function RegisterSSOModal() {
     resolver: zodResolver(ssoRegistrationBody),
   });
 
-  const { isOpen, onClose } = useDialogState();
+  const { isOpen, onOpen, onClose } = useDialogState();
 
   const { executeAsync: executeRegisterSSO, isExecuting } = useAction(
     registerSSOProviderAction,
@@ -62,7 +62,7 @@ export function RegisterSSOModal() {
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={onOpen}>
       <DialogTrigger asChild>
         <Button>Register SSO Provider</Button>
       </DialogTrigger>
