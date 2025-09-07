@@ -65,6 +65,13 @@ export async function processHistoryItem(
     provider: "google",
   });
 
+  const isFree = await markMessageAsProcessing({ userEmail, messageId });
+
+  if (!isFree) {
+    logger.info("Skipping. Message already being processed.", loggerOptions);
+    return;
+  }
+
   if (type === HistoryEventType.LABEL_REMOVED) {
     logger.info("Processing label removed event for learning", loggerOptions);
     return handleLabelRemovedEvent(item, {
@@ -73,13 +80,6 @@ export async function processHistoryItem(
     });
   } else if (type === HistoryEventType.LABEL_ADDED) {
     logger.info("Processing label added event for learning", loggerOptions);
-    return;
-  }
-
-  const isFree = await markMessageAsProcessing({ userEmail, messageId });
-
-  if (!isFree) {
-    logger.info("Skipping. Message already being processed.", loggerOptions);
     return;
   }
 
