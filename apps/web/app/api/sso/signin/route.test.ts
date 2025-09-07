@@ -68,7 +68,17 @@ describe("SSO Signin Route", () => {
 
       expect(response.status).toBe(400);
       expect(responseBody).toEqual({
-        error: "Email parameter is required",
+        error: {
+          issues: [
+            {
+              code: "invalid_type",
+              expected: "string",
+              message: "Expected string, received null",
+              path: ["email"],
+              received: "null",
+            },
+          ],
+        },
         isKnownError: true,
       });
     });
@@ -81,7 +91,17 @@ describe("SSO Signin Route", () => {
 
       expect(response.status).toBe(400);
       expect(responseBody).toEqual({
-        error: "Organization name parameter is required",
+        error: {
+          issues: [
+            {
+              code: "invalid_type",
+              expected: "string",
+              message: "Expected string, received null",
+              path: ["organizationSlug"],
+              received: "null",
+            },
+          ],
+        },
         isKnownError: true,
       });
     });
