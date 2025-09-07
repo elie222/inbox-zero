@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "@/utils/auth-client";
 import Image from "next/image";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/Button";
+import { Button as UIButton } from "@/components/ui/button";
 import { SectionDescription } from "@/components/Typography";
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { signIn } from "@/utils/auth-client";
 import { WELCOME_PATH } from "@/utils/config";
 
 export function LoginForm() {
@@ -101,6 +103,15 @@ export function LoginForm() {
           <span className="ml-2">Sign in with Microsoft</span>
         </span>
       </Button>
+
+      <UIButton
+        variant="ghost"
+        size="lg"
+        className="w-full hover:scale-105 transition-transform"
+        asChild
+      >
+        <Link href="/login/sso">Sign in with SSO</Link>
+      </UIButton>
     </div>
   );
 }

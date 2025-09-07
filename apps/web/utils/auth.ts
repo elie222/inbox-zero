@@ -1,28 +1,31 @@
 // based on: https://github.com/vercel/platforms/blob/main/lib/auth.ts
-import { betterAuth } from "better-auth";
-import type { Account, User, AuthContext } from "better-auth";
 
-import { prismaAdapter } from "better-auth/adapters/prisma";
-import { nextCookies } from "better-auth/next-js";
-import { env } from "@/env";
-import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
-import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
-import prisma from "@/utils/prisma";
+import { sso } from "@better-auth/sso";
 import { createContact as createLoopsContact } from "@inboxzero/loops";
 import { createContact as createResendContact } from "@inboxzero/resend";
-import { trackDubSignUp } from "@/utils/dub";
-import { createScopedLogger } from "@/utils/logger";
-import { captureException } from "@/utils/error";
-import { encryptToken } from "@/utils/encryption";
-import { cookies, headers } from "next/headers";
-import { updateAccountSeats } from "@/utils/premium/server";
 import type { Prisma } from "@prisma/client";
-import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
-import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
+import type { Account, AuthContext, User } from "better-auth";
+import { betterAuth } from "better-auth";
+import { prismaAdapter } from "better-auth/adapters/prisma";
+import { nextCookies } from "better-auth/next-js";
+import { organization } from "better-auth/plugins";
+import { cookies, headers } from "next/headers";
+import { env } from "@/env";
+import { trackDubSignUp } from "@/utils/dub";
 import {
   isGoogleProvider,
   isMicrosoftProvider,
 } from "@/utils/email/provider-types";
+import { encryptToken } from "@/utils/encryption";
+import { captureException } from "@/utils/error";
+import { getContactsClient as getGoogleContactsClient } from "@/utils/gmail/client";
+import { SCOPES as GMAIL_SCOPES } from "@/utils/gmail/scopes";
+import { createScopedLogger } from "@/utils/logger";
+import { getContactsClient as getOutlookContactsClient } from "@/utils/outlook/client";
+import { SCOPES as OUTLOOK_SCOPES } from "@/utils/outlook/scopes";
+import { updateAccountSeats } from "@/utils/premium/server";
+import prisma from "@/utils/prisma";
+import { isAdmin } from "@/utils/admin";
 
 const logger = createScopedLogger("auth");
 
@@ -54,7 +57,21 @@ export const betterAuthConfig = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
-  plugins: [nextCookies()],
+  plugins: [
+    nextCookies(),
+    sso({
+      disableImplicitSignUp: false,
+      organizationProvisioning: {
+        disabled: false,
+        defaultRole: "member",
+      },
+    }),
+    organization({
+      allowUserToCreateOrganization: async (user: User) => {
+        return isAdmin({ email: user.email }) || false;
+      },
+    }),
+  ],
   session: {
     modelName: "Session",
     fields: {

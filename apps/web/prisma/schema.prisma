@@ -32,15 +32,17 @@ model Account {
 
 // not in use. we only use jwt for sessions
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String        @id @default(cuid())
+  sessionToken        String        @unique
+  userId              String
+  expires             DateTime
+  activeOrganizationId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  ipAddress           String?
+  userAgent           String?
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganization  Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -92,6 +94,11 @@ model User {
   // Referral relationships
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
+
+  // Organization relationships
+  members Member[]
+  invitations Invitation[]
+  ssoproviders SsoProvider[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -150,6 +157,73 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
 
   @@index([lastSummaryEmailAt])
+}
+
+model Organization {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  logo        String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     Member[]
+  SsoProvider SsoProvider[]
+  sessions    Session[]
+  invitations Invitation[]
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("member") // "admin" | "member"
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model SsoProvider {
+  id             String  @id @default(cuid())
+  issuer         String
+  oidcConfig     String?
+  samlConfig     String?
+  userId         String?
+  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String  @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain         String
+
+  @@map("ssoProvider")
 }
 
 model Digest {
