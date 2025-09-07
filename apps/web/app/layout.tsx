@@ -47,9 +47,9 @@ const jsonLd = {
     priceCurrency: "USD",
     priceSpecification: {
       "@type": "UnitPriceSpecification",
-      price: "20.00",
+      price: 20,
       priceCurrency: "USD",
-      billingPeriod: "P1M",
+      billingDuration: "P1M",
     },
     availability: "https://schema.org/InStock",
   },
@@ -73,13 +73,6 @@ const jsonLd = {
       "https://x.com/inboxzero_ai",
       "https://github.com/elie222/inbox-zero",
     ],
-  },
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: "4.8",
-    ratingCount: "250",
-    bestRating: "5",
-    worstRating: "1",
   },
 };
 
@@ -141,7 +134,7 @@ export default async function RootLayout({
           id="json-ld"
           type="application/ld+json"
           strategy="beforeInteractive"
-          // biome-ignore lint/security/noDangerouslySetInnerHtml: <explanation>
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
           dangerouslySetInnerHTML={{
             __html: JSON.stringify(jsonLd),
           }}
