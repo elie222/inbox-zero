@@ -4,16 +4,18 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAction } from "next-safe-action/hooks";
 import { useCallback } from "react";
 import { type SubmitHandler, useForm } from "react-hook-form";
-import { Input } from "@/components/Input";
+import { ErrorMessage, Input, Label } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import TextareaAutosize from "react-textarea-autosize";
 import { registerSSOProviderAction } from "@/utils/actions/sso";
@@ -21,13 +23,9 @@ import {
   type SsoRegistrationBody,
   ssoRegistrationBody,
 } from "@/utils/actions/enterprise.validation";
+import { useDialogState } from "@/hooks/useDialogState";
 
-interface RegisterSSOModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
+export function RegisterSSOModal() {
   const {
     register,
     handleSubmit,
@@ -36,6 +34,8 @@ export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
   } = useForm<SsoRegistrationBody>({
     resolver: zodResolver(ssoRegistrationBody),
   });
+
+  const { isOpen, onClose } = useDialogState();
 
   const { executeAsync: executeRegisterSSO, isExecuting } = useAction(
     registerSSOProviderAction,
@@ -61,24 +61,12 @@ export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
     [executeRegisterSSO, reset, onClose],
   );
 
-  const handleClose = useCallback(() => {
-    if (!isExecuting) {
-      reset();
-      onClose();
-    }
-  }, [isExecuting, reset, onClose]);
-
-  const handleOpenChange = useCallback(
-    (open: boolean) => {
-      if (!open) {
-        handleClose();
-      }
-    },
-    [handleClose],
-  );
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogTrigger asChild>
+        <Button>Register SSO Provider</Button>
+      </DialogTrigger>
+
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Enterprise SSO Registration (SAML)</DialogTitle>
@@ -94,7 +82,7 @@ export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
               type="text"
               name="organizationName"
               label="Organization Name"
-              placeholder="Enter your organization name"
+              placeholder="e.g., Your Company"
               registerProps={register("organizationName")}
               error={errors.organizationName}
             />
@@ -112,40 +100,31 @@ export function RegisterSSOModal({ isOpen, onClose }: RegisterSSOModalProps) {
               type="text"
               name="domain"
               label="Domain"
-              placeholder="e.g., getinboxzero.com"
+              placeholder="e.g., your-company.com"
               registerProps={register("domain")}
               error={errors.domain}
             />
 
             <div className="space-y-2">
-              <label htmlFor="idpMetadata" className="text-sm font-medium">
-                IDP Metadata (XML)
-              </label>
+              <Label name="idpMetadata" label="IDP Metadata (XML)" />
               <TextareaAutosize
                 id="idpMetadata"
-                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm font-mono text-xs"
+                className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
                 minRows={3}
                 rows={3}
                 {...register("idpMetadata")}
-                placeholder="Paste your SAML IDP metadata XML from your identity provider here..."
+                placeholder="Paste your SAML IDP metadata XML from your identity provider here."
               />
               {errors.idpMetadata && (
-                <div className="mt-0.5 text-sm font-semibold leading-snug text-red-400">
-                  {errors.idpMetadata.message}
-                </div>
+                <ErrorMessage message={errors.idpMetadata.message ?? ""} />
               )}
             </div>
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleClose}
-              disabled={isExecuting}
-            >
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
             <Button type="submit" loading={isExecuting}>
               Register SSO
             </Button>

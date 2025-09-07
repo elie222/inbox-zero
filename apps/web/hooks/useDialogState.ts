@@ -10,23 +10,23 @@ export function useDialogState<T = any>(initialState?: DialogState<T>) {
     initialState || { isOpen: false },
   );
 
-  const open = useCallback((data?: T) => {
+  const onOpen = useCallback((data?: T) => {
     setState({ isOpen: true, data });
   }, []);
 
-  const close = useCallback(() => {
+  const onClose = useCallback(() => {
     setState({ isOpen: false, data: undefined });
   }, []);
 
-  const toggle = useCallback(() => {
+  const onToggle = useCallback(() => {
     setState((prev) => ({ ...prev, isOpen: !prev.isOpen }));
   }, []);
 
   return {
     isOpen: state.isOpen,
     data: state.data,
-    open,
-    close,
-    toggle,
+    onOpen,
+    onClose,
+    onToggle,
   };
 }
