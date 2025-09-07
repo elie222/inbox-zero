@@ -69,3 +69,11 @@ export function usePricingCopyVariant() {
     "control"
   );
 }
+
+export type HomeLayoutVariant = "control" | "new";
+
+export function useHomeLayoutVariant() {
+  return (
+    (useFeatureFlagVariantKey("home-layout") as HomeLayoutVariant) || "control"
+  );
+}

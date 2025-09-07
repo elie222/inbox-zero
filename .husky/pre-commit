@@ -1,4 +1,4 @@
 npx lint-staged
 # pnpm run lint
 
-npx ultracite format
+npx ultracite fix
