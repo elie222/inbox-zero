@@ -35,7 +35,7 @@ export function RegisterSSOModal() {
     resolver: zodResolver(ssoRegistrationBody),
   });
 
-  const { isOpen, onOpen, onClose } = useDialogState();
+  const { isOpen, onToggle, onClose } = useDialogState();
 
   const { executeAsync: executeRegisterSSO, isExecuting } = useAction(
     registerSSOProviderAction,
@@ -62,7 +62,7 @@ export function RegisterSSOModal() {
   );
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpen}>
+    <Dialog open={isOpen} onOpenChange={onToggle}>
       <DialogTrigger asChild>
         <Button>Register SSO Provider</Button>
       </DialogTrigger>
