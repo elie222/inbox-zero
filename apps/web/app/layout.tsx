@@ -1,11 +1,14 @@
 import { Suspense } from "react";
 import type { Metadata } from "next";
-// import { Analytics } from "@vercel/analytics/react";
+import Script from "next/script";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { AxiomWebVitals } from "next-axiom";
 import { GoogleTagManager } from "@next/third-parties/google";
 import { Analytics as DubAnalytics } from "@dub/analytics/react";
 import { Inter } from "next/font/google";
 import localFont from "next/font/local";
+import type { WebApplication, WithContext } from "schema-dts";
 import "../styles/globals.css";
 import { PostHogPageview, PostHogProvider } from "@/providers/PostHogProvider";
 import { env } from "@/env";
@@ -28,7 +31,51 @@ const calFont = localFont({
 
 const title = "Inbox Zero | Automate and clean your inbox";
 const description =
-  "Inbox Zero is your AI personal assistant for email and the quickest way to reach inbox zero. Automate your email, bulk unsubscribe from newsletters, block cold emails, and view your email analytics. Open-source.";
+  "Your AI executive assistant to reach inbox zero fast. Automate emails, bulk unsubscribe, block cold emails, and analytics. Open-source";
+
+// JSON-LD structured data
+const jsonLd: WithContext<WebApplication> = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: "Inbox Zero",
+  url: env.NEXT_PUBLIC_BASE_URL,
+  description,
+  applicationCategory: "ProductivityApplication",
+  operatingSystem: "Web Browser",
+  offers: {
+    "@type": "Offer",
+    price: "20.00",
+    priceCurrency: "USD",
+    priceSpecification: {
+      "@type": "UnitPriceSpecification",
+      price: 20,
+      priceCurrency: "USD",
+      billingDuration: "P1M",
+    },
+    availability: "https://schema.org/InStock",
+  },
+  featureList: [
+    "AI Email Assistant",
+    "Email Automation",
+    "Bulk Unsubscribe",
+    "Cold Email Blocking",
+    "Email Analytics",
+    "Newsletter Management",
+  ],
+  publisher: {
+    "@type": "Organization",
+    name: "Inbox Zero",
+    url: env.NEXT_PUBLIC_BASE_URL,
+    logo: {
+      "@type": "ImageObject",
+      url: `${env.NEXT_PUBLIC_BASE_URL}/icon.png`,
+    },
+    sameAs: [
+      "https://x.com/inboxzero_ai",
+      "https://github.com/elie222/inbox-zero",
+    ],
+  },
+};
 
 export const metadata: Metadata = {
   title,
@@ -84,15 +131,25 @@ export default async function RootLayout({
       <body
         className={`h-full ${inter.variable} ${calFont.variable} font-sans antialiased`}
       >
+        <Script
+          id="json-ld"
+          type="application/ld+json"
+          strategy="beforeInteractive"
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: JSON.stringify on controlled object is safe
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd),
+          }}
+        />
         <PostHogProvider>
           <Suspense>
             <PostHogPageview />
           </Suspense>
           <GlobalProviders>{children}</GlobalProviders>
         </PostHogProvider>
-        {/* <Analytics /> */}
+        <Analytics />
         <AxiomWebVitals />
         <UTM />
+        <SpeedInsights />
         {env.NEXT_PUBLIC_DUB_REFER_DOMAIN && (
           <DubAnalytics
             apiHost="/_proxy/dub"

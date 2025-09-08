@@ -6,7 +6,6 @@ import { processPreviousSentEmails } from "@/utils/reply-tracker/check-previous-
 import { createScopedLogger } from "@/utils/logger";
 import { isValidInternalApiKey } from "@/utils/internal-api";
 import { getEmailAccountWithAi } from "@/utils/user/get";
-import { getGmailClientForEmail } from "@/utils/account";
 
 const logger = createScopedLogger("api/reply-tracker/process-previous");
 
@@ -27,9 +26,7 @@ export const POST = withError(async (request) => {
   const emailAccount = await getEmailAccountWithAi({ emailAccountId });
   if (!emailAccount) return NextResponse.json({ error: "User not found" });
 
-  const gmail = await getGmailClientForEmail({ emailAccountId });
-
-  await processPreviousSentEmails({ gmail, emailAccount });
+  await processPreviousSentEmails({ emailAccount });
 
   return NextResponse.json({ success: true });
 });

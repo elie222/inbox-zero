@@ -102,7 +102,7 @@ export const runRulesAction = actionClient
 
       const result = await runRules({
         isTest,
-        client: emailProvider,
+        provider: emailProvider,
         message,
         rules,
         emailAccount,
@@ -138,7 +138,7 @@ export const testAiCustomContentAction = actionClient
 
       const result = await runRules({
         isTest: true,
-        client: emailProvider,
+        provider: emailProvider,
         message: {
           id: "testMessageId",
           threadId: "testThreadId",

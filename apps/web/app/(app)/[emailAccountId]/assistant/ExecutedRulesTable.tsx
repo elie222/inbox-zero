@@ -17,6 +17,7 @@ import { ExecutedRuleStatus } from "@prisma/client";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { useAccount } from "@/providers/EmailAccountProvider";
+import { isGoogleProvider } from "@/utils/email/provider-types";
 
 export function EmailCell({
   from,
@@ -182,6 +183,10 @@ function OpenInGmailButton({
   userEmail: string;
 }) {
   const { provider } = useAccount();
+
+  if (!isGoogleProvider(provider)) {
+    return null;
+  }
 
   return (
     <Link

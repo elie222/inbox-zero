@@ -944,8 +944,13 @@ Examples:
     userEmail: user.email,
     modelType: "chat",
     usageLabel: "assistant-chat",
-    system,
-    messages,
+    messages: [
+      {
+        role: "system",
+        content: system,
+      },
+      ...messages,
+    ],
     onStepFinish: async ({ text, toolCalls }) => {
       logger.trace("Step finished", { text, toolCalls });
     },

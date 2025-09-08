@@ -9,19 +9,14 @@ import {
 } from "@/utils/types";
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
+import {
+  type ActionArgResponse,
+  aiGenerateArgs,
+} from "@/utils/ai/choose-rule/ai-choose-args";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("choose-args");
-
-type ActionArgResponse = {
-  [key: `${string}-${string}`]: {
-    [field: string]: {
-      [key: `var${number}`]: string;
-    };
-  };
-};
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -84,14 +79,10 @@ export async function getActionItemsWithAiArgs({
     modelType,
   });
 
-  return combineActionsWithAiArgs(
-    selectedRule.actions,
-    result as ActionArgResponse,
-    draft,
-  );
+  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
 }
 
-function combineActionsWithAiArgs(
+export function combineActionsWithAiArgs(
   actions: Action[],
   aiArgs: ActionArgResponse | undefined,
   draft: string | null = null,
@@ -112,8 +103,8 @@ function combineActionsWithAiArgs(
 
     // Merge variables for each field that has AI-generated content
     for (const [field, vars] of Object.entries(aiAction)) {
-      // Already handled above
-      if (field === "content" && draft) continue;
+      // Skip content field only if the action originally had no content and we've already set a draft
+      if (field === "content" && draft && !action.content) continue;
 
       // Only process fields that we know can contain template strings
       if (

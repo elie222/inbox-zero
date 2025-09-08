@@ -39,7 +39,8 @@ export function usePricingFrequencyDefault() {
 }
 
 export function useDelayedActionsEnabled() {
-  return useFeatureFlagEnabled("delayed-actions");
+  return true;
+  // return useFeatureFlagEnabled("delayed-actions");
 }
 
 export type TestimonialsVariant = "control" | "senja-widget";
@@ -66,5 +67,13 @@ export function usePricingCopyVariant() {
   return (
     (useFeatureFlagVariantKey("pricing-copy") as PricingCopyVariant) ||
     "control"
+  );
+}
+
+export type HomeLayoutVariant = "control" | "new";
+
+export function useHomeLayoutVariant() {
+  return (
+    (useFeatureFlagVariantKey("home-layout") as HomeLayoutVariant) || "control"
   );
 }

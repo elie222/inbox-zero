@@ -2,7 +2,7 @@ import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
-import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("api/user/planned/get-executed-rules");
 
@@ -13,11 +13,13 @@ export async function getExecutedRules({
   page,
   ruleId,
   emailAccountId,
+  emailProvider,
 }: {
   status: ExecutedRuleStatus;
   page: number;
   ruleId?: string;
   emailAccountId: string;
+  emailProvider: EmailProvider;
 }) {
   const where = {
     emailAccountId,
@@ -25,6 +27,7 @@ export async function getExecutedRules({
     rule: ruleId === "skipped" ? undefined : { isNot: null },
     ruleId: ruleId === "all" || ruleId === "skipped" ? undefined : ruleId,
   };
+  logger.info("getExecutedRules query", { where });
 
   const [executedRules, total] = await Promise.all([
     prisma.executedRule.findMany({
@@ -51,11 +54,6 @@ export async function getExecutedRules({
     }),
     prisma.executedRule.count({ where }),
   ]);
-
-  const emailProvider = await createEmailProvider({
-    emailAccountId,
-    provider: "google",
-  });
 
   const executedRulesWithMessages = await Promise.all(
     executedRules.map(async (p) => {

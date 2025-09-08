@@ -176,7 +176,10 @@ async function onRun(
         q,
       };
       const res = await fetchWithAccount({
-        url: `/api/threads?${new URLSearchParams(query as any).toString()}`,
+        url: `/api/threads?${
+          // biome-ignore lint/suspicious/noExplicitAny: simplest
+          new URLSearchParams(query as any).toString()
+        }`,
         emailAccountId,
       });
       const data: ThreadsResponse = await res.json();

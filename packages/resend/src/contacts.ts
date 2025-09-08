@@ -3,7 +3,7 @@ import { resend } from "./client";
 export async function createContact(options: {
   email: string;
   audienceId?: string;
-}): Promise<any> {
+}) {
   if (!resend) {
     console.warn("Resend not configured");
     return;
@@ -16,7 +16,7 @@ export async function createContact(options: {
 export async function deleteContact(options: {
   email: string;
   audienceId?: string;
-}): Promise<any> {
+}) {
   if (!resend) {
     console.warn("Resend not configured");
     return;

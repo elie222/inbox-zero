@@ -68,6 +68,8 @@ export const env = createEnv({
     GOOGLE_PUBSUB_TOPIC_NAME: z.string().min(1),
     GOOGLE_PUBSUB_VERIFICATION_TOKEN: z.string().optional(),
 
+    MICROSOFT_WEBHOOK_CLIENT_STATE: z.string().optional(),
+
     SENTRY_AUTH_TOKEN: z.string().optional(),
     SENTRY_ORGANIZATION: z.string().optional(),
     SENTRY_PROJECT: z.string().optional(),
@@ -162,6 +164,13 @@ export const env = createEnv({
       .default(false),
     NEXT_PUBLIC_AXIOM_DATASET: z.string().optional(),
     NEXT_PUBLIC_AXIOM_TOKEN: z.string().optional(),
+    NEXT_PUBLIC_LOG_SCOPES: z
+      .string()
+      .optional()
+      .transform((value) => {
+        if (!value) return;
+        return value.split(",");
+      }),
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL: z
       .string()
       .default("us.anthropic.claude-3-7-sonnet-20250219-v1:0"),
@@ -216,6 +225,7 @@ export const env = createEnv({
       process.env.NEXT_PUBLIC_WELCOME_UPGRADE_ENABLED,
     NEXT_PUBLIC_AXIOM_DATASET: process.env.NEXT_PUBLIC_AXIOM_DATASET,
     NEXT_PUBLIC_AXIOM_TOKEN: process.env.NEXT_PUBLIC_AXIOM_TOKEN,
+    NEXT_PUBLIC_LOG_SCOPES: process.env.NEXT_PUBLIC_LOG_SCOPES,
     NEXT_PUBLIC_BEDROCK_SONNET_MODEL:
       process.env.NEXT_PUBLIC_BEDROCK_SONNET_MODEL,
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,

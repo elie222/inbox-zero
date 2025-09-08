@@ -25,6 +25,7 @@ export function RulesPromptFormat() {
     if (!rules) return "";
 
     return rules
+      .filter((rule) => rule.enabled)
       .map((rule, index) => {
         const ruleText = ruleToText(rule);
         return `## Rule ${index + 1}: ${rule.name}\n${rule.enabled ? "" : "(Disabled)\n"}${ruleText}`;

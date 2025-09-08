@@ -13,6 +13,8 @@ import {
   createLabel,
   getOrCreateInboxZeroLabel,
   GmailLabel,
+  getNeedsReplyLabel,
+  getAwaitingReplyLabel,
 } from "@/utils/gmail/label";
 import { labelVisibility, messageVisibility } from "@/utils/gmail/constants";
 import type { InboxZeroLabel } from "@/utils/label";
@@ -46,10 +48,6 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import {
-  getAwaitingReplyLabel as getGmailAwaitingReplyLabel,
-  getReplyTrackingLabels,
-} from "@/utils/reply-tracker/label";
 import { getDraft, deleteDraft } from "@/utils/gmail/draft";
 import {
   getFiltersList,
@@ -71,7 +69,7 @@ const logger = createScopedLogger("gmail-provider");
 
 export class GmailProvider implements EmailProvider {
   readonly name = "google";
-  private client: gmail_v1.Gmail;
+  private readonly client: gmail_v1.Gmail;
   constructor(client: gmail_v1.Gmail) {
     this.client = client;
   }
@@ -161,6 +159,42 @@ export class GmailProvider implements EmailProvider {
     return getSentMessages(this.client, maxResults);
   }
 
+  async getSentThreadsExcluding(options: {
+    excludeToEmails?: string[];
+    excludeFromEmails?: string[];
+    maxResults?: number;
+  }): Promise<EmailThread[]> {
+    const {
+      excludeToEmails = [],
+      excludeFromEmails = [],
+      maxResults = 100,
+    } = options;
+
+    // Build Gmail query string
+    const excludeFilters = [
+      ...excludeToEmails.map((email) => `-to:${email}`),
+      ...excludeFromEmails.map((email) => `-from:${email}`),
+    ];
+
+    const query = `in:sent ${excludeFilters.join(" ")}`.trim();
+
+    // Use the existing Gmail thread functionality - this returns minimal threads
+    const response = await getThreadsWithNextPageToken({
+      gmail: this.client,
+      q: query,
+      labelIds: [GmailLabel.SENT],
+      maxResults,
+    });
+
+    // Convert minimal threads to EmailThread format (just with id and snippet, no messages)
+    return response.threads.map((thread) => ({
+      id: thread.id || "",
+      snippet: thread.snippet || "",
+      messages: [], // Empty - consumer will call getThreadMessages(id) if needed
+      historyId: thread.historyId || undefined,
+    }));
+  }
+
   async archiveThread(threadId: string, ownerEmail: string): Promise<void> {
     await archiveThread({
       gmail: this.client,
@@ -182,6 +216,28 @@ export class GmailProvider implements EmailProvider {
       actionSource: "user",
       labelId,
     });
+  }
+
+  async archiveMessage(messageId: string): Promise<void> {
+    try {
+      await this.client.users.messages.modify({
+        userId: "me",
+        id: messageId,
+        requestBody: {
+          removeLabelIds: [GmailLabel.INBOX],
+        },
+      });
+
+      logger.info("Message archived successfully", {
+        messageId,
+      });
+    } catch (error) {
+      logger.error("Failed to archive message", {
+        messageId,
+        error: error instanceof Error ? error.message : error,
+      });
+      throw error;
+    }
   }
 
   async trashThread(
@@ -278,6 +334,13 @@ export class GmailProvider implements EmailProvider {
     return getThreadMessages(threadId, this.client);
   }
 
+  async getThreadMessagesInInbox(threadId: string): Promise<ParsedMessage[]> {
+    const messages = await getThreadMessages(threadId, this.client);
+    return messages.filter((message) =>
+      message.labelIds?.includes(GmailLabel.INBOX),
+    );
+  }
+
   async getPreviousConversationMessages(
     messageIds: string[],
   ): Promise<ParsedMessage[]> {
@@ -291,8 +354,30 @@ export class GmailProvider implements EmailProvider {
     await removeThreadLabel(this.client, threadId, labelId);
   }
 
-  async getAwaitingReplyLabel(): Promise<string> {
-    return getGmailAwaitingReplyLabel(this.client);
+  async getAwaitingReplyLabel(): Promise<string | null> {
+    return getAwaitingReplyLabel(this.client);
+  }
+
+  async getNeedsReplyLabel(): Promise<string | null> {
+    return getNeedsReplyLabel(this.client);
+  }
+
+  async removeAwaitingReplyLabel(threadId: string): Promise<void> {
+    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
+    if (!awaitingReplyLabelId) {
+      logger.warn("No awaiting reply label found");
+      return;
+    }
+    await removeThreadLabel(this.client, threadId, awaitingReplyLabelId);
+  }
+
+  async removeNeedsReplyLabel(threadId: string): Promise<void> {
+    const needsReplyLabelId = await this.getNeedsReplyLabel();
+    if (!needsReplyLabelId) {
+      logger.warn("No needs reply label found");
+      return;
+    }
+    await removeThreadLabel(this.client, threadId, needsReplyLabelId);
   }
 
   async createLabel(name: string): Promise<EmailLabel> {
@@ -610,11 +695,17 @@ export class GmailProvider implements EmailProvider {
     );
   }
 
-  async getReplyTrackingLabels(): Promise<{
-    awaitingReplyLabelId: string;
-    needsReplyLabelId: string;
-  }> {
-    return getReplyTrackingLabels(this.client);
+  async labelAwaitingReply(messageId: string): Promise<void> {
+    const awaitingReplyLabelId = await this.getAwaitingReplyLabel();
+    if (!awaitingReplyLabelId) {
+      logger.warn("No awaiting reply label found");
+      return;
+    }
+    await labelMessage({
+      gmail: this.client,
+      messageId,
+      addLabelIds: [awaitingReplyLabelId],
+    });
   }
 
   async processHistory(options: {

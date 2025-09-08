@@ -10,36 +10,39 @@ generator client {
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
 model Account {
-  id                String   @id @default(cuid())
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id                String        @id @default(cuid())
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
   userId            String
   provider          String
-  type              String   @default("oidc") // next-auth deprecated field
+  type              String        @default("oidc") // next-auth deprecated field
   providerAccountId String
-  refresh_token     String?  @db.Text
-  access_token      String?  @db.Text
-  expires_at        DateTime? @default(now())
+  refresh_token     String?       @db.Text
+  access_token      String?       @db.Text
+  expires_at        DateTime?     @default(now())
   token_type        String?
   scope             String?
-  id_token          String?  @db.Text
+  id_token          String?       @db.Text
   session_state     String?
-  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   emailAccount      EmailAccount?
+
   @@unique([provider, providerAccountId])
 }
 
 // not in use. we only use jwt for sessions
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  ipAddress    String?
-  userAgent    String?
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String        @id @default(cuid())
+  sessionToken        String        @unique
+  userId              String
+  expires             DateTime
+  activeOrganizationId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  ipAddress           String?
+  userAgent           String?
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganization  Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -91,6 +94,11 @@ model User {
   // Referral relationships
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
+
+  // Organization relationships
+  members Member[]
+  invitations Invitation[]
+  ssoproviders SsoProvider[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -121,7 +129,7 @@ model EmailAccount {
   coldEmailDigest       Boolean           @default(false)
   coldEmailPrompt       String?
   rulesPrompt           String?
-  outboundReplyTracking Boolean           @default(false)
+  outboundReplyTracking Boolean           @default(false) // When true: manages "To Reply" and "Awaiting Reply" labels automatically
   autoCategorizeSenders Boolean           @default(false)
 
   digestSchedule Schedule?
@@ -149,6 +157,73 @@ model EmailAccount {
   scheduledActions ScheduledAction[]
 
   @@index([lastSummaryEmailAt])
+}
+
+model Organization {
+  id          String        @id @default(cuid())
+  name        String
+  slug        String        @unique
+  logo        String?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  members     Member[]
+  SsoProvider SsoProvider[]
+  sessions    Session[]
+  invitations Invitation[]
+}
+
+model Member {
+  id             String       @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String       @default("member") // "admin" | "member"
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model Invitation {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  role           String?
+  status         String
+  expiresAt      DateTime
+  inviterId      String
+  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+
+  @@map("invitation")
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+model SsoProvider {
+  id             String  @id @default(cuid())
+  issuer         String
+  oidcConfig     String?
+  samlConfig     String?
+  userId         String?
+  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String  @unique
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  domain         String
+
+  @@map("ssoProvider")
 }
 
 model Digest {
@@ -269,6 +344,7 @@ model VerificationToken {
   identifier String
   token      String   @unique
   expires    DateTime
+
   @@unique([identifier, token])
 }
 
@@ -343,15 +419,15 @@ model Action {
   ruleId    String
   rule      Rule       @relation(fields: [ruleId], references: [id], onDelete: Cascade)
 
-  label   String?
-  subject String?
-  content String?
-  to      String?
-  cc      String?
-  bcc     String?
-  url     String?
-  folderName String?
-  folderId String?
+  label          String?
+  subject        String?
+  content        String?
+  to             String?
+  cc             String?
+  bcc            String?
+  url            String?
+  folderName     String?
+  folderId       String?
   delayInMinutes Int?
 }
 
@@ -420,15 +496,15 @@ model ExecutedAction {
   executedRule   ExecutedRule @relation(fields: [executedRuleId], references: [id], onDelete: Cascade)
 
   // optional extra fields to be used with the action
-  label   String?
-  subject String?
-  content String?
-  to      String?
-  cc      String?
-  bcc     String?
-  url     String?
+  label      String?
+  subject    String?
+  content    String?
+  to         String?
+  cc         String?
+  bcc        String?
+  url        String?
   folderName String?
-  folderId String?
+  folderId   String?
 
   // additional fields as a result of the action
   draftId         String? // Gmail draft ID created by DRAFT_EMAIL action
@@ -439,27 +515,27 @@ model ExecutedAction {
 }
 
 model ScheduledAction {
-  id             String                @id @default(cuid())
-  createdAt      DateTime              @default(now())
-  updatedAt      DateTime              @updatedAt
-  executedRuleId String
-  actionType     ActionType
-  messageId      String
-  threadId       String
-  scheduledFor   DateTime
-  emailAccountId String
-  status         ScheduledActionStatus @default(PENDING)
-  schedulingStatus SchedulingStatus    @default(PENDING)
+  id               String                @id @default(cuid())
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  executedRuleId   String
+  actionType       ActionType
+  messageId        String
+  threadId         String
+  scheduledFor     DateTime
+  emailAccountId   String
+  status           ScheduledActionStatus @default(PENDING)
+  schedulingStatus SchedulingStatus      @default(PENDING)
 
-  label   String?
-  subject String?
-  content String?
-  to      String?
-  cc      String?
-  bcc     String?
-  url     String?
-  folderName String?
-  folderId String?
+  label       String?
+  subject     String?
+  content     String?
+  to          String?
+  cc          String?
+  bcc         String?
+  url         String?
+  folderName  String?
+  folderId    String?
   scheduledId String?
 
   executedAt       DateTime?

@@ -39,8 +39,8 @@ export function RulesPrompt() {
   const [persona, setPersona] = useState<string | null>(null);
   const personas = getPersonas(provider);
 
-  const personaPrompt = persona
-    ? personas[persona as keyof typeof personas]?.prompt
+  const examples = persona
+    ? personas[persona as keyof typeof personas]?.promptArray
     : undefined;
 
   return (
@@ -48,7 +48,7 @@ export function RulesPrompt() {
       <RulesPromptForm
         emailAccountId={emailAccountId}
         provider={provider}
-        personaPrompt={personaPrompt}
+        examples={examples}
         onOpenPersonaDialog={onOpenPersonaDialog}
       />
       <PersonaDialog
@@ -65,12 +65,12 @@ export function RulesPrompt() {
 function RulesPromptForm({
   emailAccountId,
   provider,
-  personaPrompt,
+  examples,
   onOpenPersonaDialog,
 }: {
   emailAccountId: string;
   provider: string;
-  personaPrompt?: string;
+  examples?: string[];
   onOpenPersonaDialog: () => void;
 }) {
   const { mutate } = useRules();
@@ -88,9 +88,6 @@ function RulesPromptForm({
   ] = useLocalStorage("viewedProcessingPromptFileDialog", false);
 
   const ruleDialog = useDialogState();
-
-  // const [isExamplesOpen, setIsExamplesOpen] = useState(false);
-  const isExamplesOpen = true;
 
   const editorRef = useRef<SimpleRichTextEditorRef>(null);
 
@@ -143,11 +140,6 @@ function RulesPromptForm({
     }
   }, [createdRules, isProcessingDialogOpen]);
 
-  useEffect(() => {
-    if (!personaPrompt) return;
-    editorRef.current?.appendText(personaPrompt);
-  }, [personaPrompt]);
-
   const addExamplePrompt = useCallback((example: string) => {
     editorRef.current?.appendText(`\n* ${example.trim()}`);
   }, []);
@@ -155,6 +147,15 @@ function RulesPromptForm({
   return (
     <div>
       <div className="grid md:grid-cols-3 gap-4">
+        {examples && (
+          <Examples
+            examples={examples}
+            onSelect={addExamplePrompt}
+            provider={provider}
+            className="mt-1.5 sm:h-[350px] sm:max-h-[350px]"
+          />
+        )}
+
         <form
           className="col-span-2"
           onSubmit={(e) => {
@@ -168,7 +169,7 @@ function RulesPromptForm({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => ruleDialog.open()}
+              onClick={() => ruleDialog.onOpen()}
               Icon={PlusIcon}
             >
               Add manually
@@ -178,12 +179,12 @@ function RulesPromptForm({
           <div className="mt-1.5 space-y-2">
             <LoadingContent
               loading={isLoadingLabels}
-              loadingComponent={<Skeleton className="min-h-[220px] w-full" />}
+              loadingComponent={<Skeleton className="min-h-[180px] w-full" />}
             >
               <SimpleRichTextEditor
                 ref={editorRef}
                 defaultValue={undefined}
-                minHeight={220}
+                minHeight={180}
                 userLabels={userLabels}
                 placeholder={`* Label urgent emails as "Urgent"
 * Forward receipts to jane@accounting.com`}
@@ -197,17 +198,8 @@ function RulesPromptForm({
 
               <Button variant="outline" size="sm" onClick={onOpenPersonaDialog}>
                 <UserPenIcon className="mr-2 size-4" />
-                Choose persona
+                Choose from examples
               </Button>
-
-              {/* <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsExamplesOpen((show) => !show)}
-              >
-                <ListIcon className="mr-2 size-4" />
-                {isExamplesOpen ? "Hide examples" : "Show examples"}
-              </Button> */}
 
               {/* <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
                 <Button
@@ -260,24 +252,14 @@ function RulesPromptForm({
             </div>
           </div>
         </form>
-
-        <div>
-          {isExamplesOpen && (
-            <Examples
-              onSelect={addExamplePrompt}
-              provider={provider}
-              className="mt-1.5 sm:h-[260px] sm:max-h-[260px]"
-            />
-          )}
-        </div>
       </div>
 
       <RuleDialog
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         onSuccess={() => {
           mutate();
-          ruleDialog.close();
+          ruleDialog.onClose();
         }}
         editMode={false}
       />

@@ -22,20 +22,22 @@ export const isPremium = (
 };
 
 export const getUserTier = (
-  premium?: Pick<Premium, "tier" | "lemonSqueezyRenewsAt"> | null,
+  premium?: Pick<
+    Premium,
+    "tier" | "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+  > | null,
 ) => {
-  if (isPremiumExpired(premium)) return null;
-  return premium?.tier || null;
-};
+  if (!premium) return null;
 
-function isPremiumExpired(
-  premium?: Pick<Premium, "lemonSqueezyRenewsAt"> | null,
-) {
-  return (
-    !!premium?.lemonSqueezyRenewsAt &&
-    new Date(premium.lemonSqueezyRenewsAt) < new Date()
+  const isActive = isPremium(
+    premium.lemonSqueezyRenewsAt || null,
+    premium.stripeSubscriptionStatus || null,
   );
-}
+
+  if (!isActive) return null;
+
+  return premium.tier || null;
+};
 
 export const isAdminForPremium = (
   premiumAdmins: { id: string }[],

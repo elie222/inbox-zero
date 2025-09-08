@@ -300,6 +300,12 @@ if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
   );
 }
 
+if (env.MICROSOFT_CLIENT_ID && !env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+  throw new Error(
+    "MICROSOFT_WEBHOOK_CLIENT_STATE environment variable must be defined",
+  );
+}
+
 const withSerwist = withSerwistInit({
   swSrc: "app/sw.ts",
   swDest: "public/sw.js",

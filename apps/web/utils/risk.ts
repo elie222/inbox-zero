@@ -1,6 +1,7 @@
 import type { RulesResponse } from "@/app/api/user/rules/route";
 import { isAIRule, type RuleConditions } from "@/utils/condition";
 import { ActionType } from "@prisma/client";
+import { TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 
 const RISK_LEVELS = {
   VERY_HIGH: "very-high",
@@ -164,10 +165,11 @@ function getFieldsDynamicStatus(action: RiskAction) {
 }
 
 // Helper functions
-function isFullyDynamicField(field: string) {
-  return /^\{\{.*?\}\}$/.test(field);
+export function isFullyDynamicField(field: string) {
+  const trimmed = field.trim();
+  return trimmed.startsWith("{{") && trimmed.endsWith("}}");
 }
 
-function isPartiallyDynamicField(field: string) {
-  return /\{\{.*?\}\}/.test(field);
+export function isPartiallyDynamicField(field: string) {
+  return new RegExp(TEMPLATE_VARIABLE_PATTERN).test(field);
 }

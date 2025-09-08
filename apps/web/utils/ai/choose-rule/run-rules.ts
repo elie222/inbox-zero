@@ -35,14 +35,14 @@ export type RunRulesResult = {
 };
 
 export async function runRules({
-  client,
+  provider,
   message,
   rules,
   emailAccount,
   isTest,
   modelType,
 }: {
-  client: EmailProvider;
+  provider: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   emailAccount: EmailAccountWithAI;
@@ -53,7 +53,7 @@ export async function runRules({
     rules,
     message,
     emailAccount,
-    client,
+    provider,
     modelType,
   });
 
@@ -71,7 +71,7 @@ export async function runRules({
       result.rule,
       message,
       emailAccount,
-      client,
+      provider,
       result.reason,
       result.matchReasons,
       isTest,

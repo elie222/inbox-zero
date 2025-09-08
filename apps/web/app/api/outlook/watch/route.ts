@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { watchEmails } from "./controller";
 import { withAuth } from "@/utils/middleware";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
-import { getOutlookClientWithRefresh } from "@/utils/outlook/client";
+import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
 
 export const dynamic = "force-dynamic";
 
@@ -55,17 +54,8 @@ export const GET = withAuth(async (request) => {
         continue;
       }
 
-      const outlookClient = await getOutlookClientWithRefresh({
-        accessToken: account.account.access_token,
-        refreshToken: account.account.refresh_token,
-        expiresAt: account.account.expires_at?.getTime() || null,
-        emailAccountId,
-      });
-
-      const expirationDate = await watchEmails({
-        emailAccountId,
-        client: outlookClient.getClient(),
-      });
+      const expirationDate =
+        await createManagedOutlookSubscription(emailAccountId);
 
       if (expirationDate) {
         results.push({

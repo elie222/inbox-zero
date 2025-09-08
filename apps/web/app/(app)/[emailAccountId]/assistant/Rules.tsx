@@ -12,6 +12,7 @@ import {
   ToggleLeftIcon,
   InfoIcon,
   SparklesIcon,
+  EyeIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -81,7 +82,7 @@ export function Rules({
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
 
-  const onCreateRule = () => ruleDialog.open();
+  const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
   const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
@@ -258,9 +259,9 @@ export function Rules({
                           type="button"
                           onClick={() => {
                             if (isColdEmailBlocker) {
-                              coldEmailDialog.open();
+                              coldEmailDialog.onOpen();
                             } else {
-                              ruleDialog.open({
+                              ruleDialog.onOpen({
                                 ruleId: rule.id,
                                 editMode: false,
                               });
@@ -342,9 +343,24 @@ export function Rules({
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
-                                  coldEmailDialog.open();
+                                  coldEmailDialog.onOpen();
                                 } else {
-                                  ruleDialog.open({
+                                  ruleDialog.onOpen({
+                                    ruleId: rule.id,
+                                    editMode: false,
+                                  });
+                                }
+                              }}
+                            >
+                              <EyeIcon className="mr-2 size-4" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (isColdEmailBlocker) {
+                                  coldEmailDialog.onOpen();
+                                } else {
+                                  ruleDialog.onOpen({
                                     ruleId: rule.id,
                                     editMode: true,
                                   });
@@ -484,17 +500,17 @@ export function Rules({
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         onSuccess={() => {
           mutate();
-          ruleDialog.close();
+          ruleDialog.onClose();
         }}
         editMode={ruleDialog.data?.editMode}
       />
 
       <ColdEmailDialog
         isOpen={coldEmailDialog.isOpen}
-        onClose={coldEmailDialog.close}
+        onClose={coldEmailDialog.onClose}
       />
     </div>
   );

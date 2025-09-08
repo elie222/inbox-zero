@@ -5,7 +5,7 @@ const logger = createScopedLogger("braintrust");
 
 // Used for evals. Not used in production.
 export class Braintrust {
-  private dataset: Dataset | null = null;
+  private readonly dataset: Dataset | null = null;
 
   constructor(dataset: string) {
     if (process.env.BRAINTRUST_API_KEY) {

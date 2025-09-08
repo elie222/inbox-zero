@@ -284,6 +284,9 @@ const enterpriseTier: Tier = {
       text: "Unlimited accounts",
     },
     {
+      text: "SSO login",
+    },
+    {
       text: "On-premise deployment for maximum privacy and security",
     },
     {

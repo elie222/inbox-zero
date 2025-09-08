@@ -2,6 +2,8 @@ import prisma from "@/utils/prisma";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
+import { createManagedOutlookSubscription } from "@/utils/outlook/subscription-manager";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 const logger = createScopedLogger("watch/controller");
 
@@ -11,43 +13,48 @@ export async function watchEmails({
 }: {
   emailAccountId: string;
   provider: EmailProvider;
-}) {
+}): Promise<
+  { success: true; expirationDate: Date } | { success: false; error: string }
+> {
   logger.info("Watching emails", {
     emailAccountId,
     providerName: provider.name,
   });
 
   try {
-    const result = await provider.watchEmails();
+    if (isMicrosoftProvider(provider.name)) {
+      const result = await createManagedOutlookSubscription(emailAccountId);
 
-    if (result) {
-      logger.info("Watching emails", {
-        emailAccountId,
-        providerName: provider.name,
-        expirationDate: result.expirationDate,
-        subscriptionId: result.subscriptionId,
-      });
+      if (result) return { success: true, expirationDate: result };
+    } else {
+      const result = await provider.watchEmails();
 
-      await prisma.emailAccount.update({
-        where: { id: emailAccountId },
-        data: {
-          watchEmailsExpirationDate: result.expirationDate,
-          watchEmailsSubscriptionId: result.subscriptionId,
-        },
-      });
-
-      return result.expirationDate;
+      if (result) {
+        await prisma.emailAccount.update({
+          where: { id: emailAccountId },
+          data: { watchEmailsExpirationDate: result.expirationDate },
+        });
+        return { success: true, expirationDate: result.expirationDate };
+      }
     }
+
+    const errorMessage = "Provider returned no result for watch setup";
+    logger.error("Error watching inbox", {
+      emailAccountId,
+      providerName: provider.name,
+      error: errorMessage,
+    });
+    return { success: false, error: errorMessage };
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("Error watching inbox", {
       emailAccountId,
       providerName: provider.name,
       error,
     });
     captureException(error);
+    return { success: false, error: errorMessage };
   }
-
-  return null;
 }
 
 export async function unwatchEmails({

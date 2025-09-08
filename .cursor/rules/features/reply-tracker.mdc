@@ -1,25 +1,47 @@
 ---
-description: 
+description: Reply tracking system that manages "To Reply" and "Awaiting Reply" labels automatically
 globs: 
 alwaysApply: false
 ---
 # Reply Tracker
 
-Reply Tracker (also known as Reply Zero) lets the user which emails need a reply for them and those they're awaiting a reply on.
-It updates the labels for the thread automatically in Gmail.
+Reply Tracker (Reply Zero) helps users track which emails need replies and which emails they're awaiting replies on. It automatically manages Gmail/Outlook labels based on email flow.
 
-The database models and fields that are used for this feature:
+## Core Components
 
-- ThreadTracker
-- User.outboundReplyTracking
-- ActionType.TRACK_THREAD
+**Database Models:**
+- `ThreadTracker` - stores tracking state and timestamps
+- `EmailAccount.outboundReplyTracking` - enables outbound reply detection
+- `ActionType.TRACK_THREAD` - action that removes "Awaiting Reply" labels
 
-The system uses rules. The AI can choose which rule to use each time an email comes in. Rules are for incoming emails only. Not ongoing.
-When enabling the reply tracker, we create a rule for the user that has the following actions associated with it:
-- LABEL: "To Reply"
-- TRACK_THREAD
-- DRAFT_EMAIL (optional)
+**Labels:**
+- `"To Reply"` - emails that need your response
+- `"Awaiting Reply"` - emails you sent that need their response
 
-We'll draft a reply for the user automatically if DRAFT_EMAIL is set. The draft will be generated using the email history for this sender as well as the Knowledge base. See `.cursor/rules/features/knowledge.mdc` for more on the Knowledge Base feature.
+## How It Works
 
-Enabling `User.outboundReplyTracking` means that when a user sends an email, we'll run an LLM over the email and check if it needs a reply. If it does we'll mark it as Awaiting Reply.
+### Inbound Flow (Receiving Emails)
+1. **Adding "To Reply"**: Regular rules with LABEL action add "To Reply" labels
+2. **Removing "Awaiting Reply"**: Rules with TRACK_THREAD action remove "Awaiting Reply" labels when replies arrive
+
+### Outbound Flow (Sending Emails)  
+1. **Removing "To Reply"**: Always removes "To Reply" label when you reply (if `outboundReplyTracking` enabled)
+2. **Adding "Awaiting Reply"**: AI decides if your sent email needs a response and adds label accordingly
+
+## Settings
+
+Users control this via one unified setting:
+- **"Reply tracking"**: Controls both outbound tracking (`outboundReplyTracking`) and automatically adds TRACK_THREAD actions to "To Reply" rules
+
+## Key Files
+- `apps/web/utils/reply-tracker/outbound.ts` - handles sent emails
+- `apps/web/utils/reply-tracker/inbound.ts` - handles received emails  
+- `apps/web/utils/ai/actions.ts` - executes TRACK_THREAD action
+
+## Future Improvements
+The current implementation works but has some architectural complexity that could be cleaned up:
+- TRACK_THREAD action is hidden from users but managed via settings
+- Two separate systems (outbound tracking + TRACK_THREAD actions) that need to stay in sync
+- Hard-coded label names ("To Reply", "Awaiting Reply") - users can't customize these
+- Could potentially be simplified to a more unified label-based approach in the future
+- May want to support todos

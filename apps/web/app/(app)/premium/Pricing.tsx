@@ -178,6 +178,7 @@ export default function Pricing(props: PricingProps) {
                 userPremiumTier={userPremiumTier}
                 frequency={frequency}
                 stripeSubscriptionId={premium?.stripeSubscriptionId}
+                stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
                 isLoggedIn={isLoggedIn}
                 router={router}
               />
@@ -195,6 +196,7 @@ function PriceTier({
   userPremiumTier,
   frequency,
   stripeSubscriptionId,
+  stripeSubscriptionStatus,
   isLoggedIn,
   router,
 }: {
@@ -203,6 +205,7 @@ function PriceTier({
   userPremiumTier: PremiumTier | null;
   frequency: (typeof frequencies)[number];
   stripeSubscriptionId: string | null | undefined;
+  stripeSubscriptionStatus: string | null | undefined;
   isLoggedIn: boolean;
   router: ReturnType<typeof useRouter>;
 }) {
@@ -310,7 +313,13 @@ function PriceTier({
 
             const upgradeToTier = tier.tiers[frequency.value];
 
-            const result = stripeSubscriptionId
+            // Only use billing portal if subscription is active or trialing
+            const hasActiveStripeSubscription =
+              stripeSubscriptionId &&
+              stripeSubscriptionStatus &&
+              ["active", "trialing"].includes(stripeSubscriptionStatus);
+
+            const result = hasActiveStripeSubscription
               ? await getBillingPortalUrlAction({
                   tier: upgradeToTier,
                 })

@@ -8,6 +8,7 @@ import { NavBottom } from "@/components/NavBottom";
 import {
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
@@ -65,9 +66,20 @@ export function SideNavWithTopNav({
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
+      <MobileHeader />
       <SideNav name="left-sidebar" />
       <ContentWrapper>{children}</ContentWrapper>
       <SidebarRight name="chat-sidebar" />
     </SidebarProvider>
+  );
+}
+
+function MobileHeader() {
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 h-9 md:hidden">
+      <div className="flex h-full items-center px-4">
+        <SidebarTrigger name="left-sidebar" className="size-6" />
+      </div>
+    </header>
   );
 }
