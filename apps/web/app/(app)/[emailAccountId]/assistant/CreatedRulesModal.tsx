@@ -77,7 +77,7 @@ export function CreatedRulesContent({
               role="button"
               tabIndex={0}
               className="p-4 cursor-pointer"
-              onClick={() => ruleDialog.open({ ruleId: rule.id })}
+              onClick={() => ruleDialog.onOpen({ ruleId: rule.id })}
             >
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -111,7 +111,7 @@ export function CreatedRulesContent({
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         editMode={false}
       />
     </>

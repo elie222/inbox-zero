@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { getRiskLevel, getActionRiskLevel } from "./risk";
+import {
+  getRiskLevel,
+  getActionRiskLevel,
+  isFullyDynamicField,
+  isPartiallyDynamicField,
+} from "./risk";
 import { ActionType } from "@prisma/client";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
@@ -216,4 +221,133 @@ describe("getRiskLevel", () => {
       });
     },
   );
+});
+
+describe("isFullyDynamicField", () => {
+  const testCases = [
+    {
+      name: "returns true for single-line template variable",
+      field: "{{name}}",
+      expected: true,
+    },
+    {
+      name: "returns true for multi-line template variable",
+      field: `{{
+tell a funny joke.
+do it in the language of the questioner.
+always start with "Here's a great joke:"
+}}`,
+      expected: true,
+    },
+    {
+      name: "returns true for template variable with spaces",
+      field: "{{ write a greeting }}",
+      expected: true,
+    },
+    {
+      name: "returns false for partially dynamic field",
+      field: "Hello {{name}}",
+      expected: false,
+    },
+    {
+      name: "returns false for static field",
+      field: "Static content",
+      expected: false,
+    },
+    {
+      name: "returns false for empty string",
+      field: "",
+      expected: false,
+    },
+    {
+      name: "returns true for field with multiple template variables (starts and ends with braces)",
+      field: "{{greeting}} {{name}}",
+      expected: true,
+    },
+    {
+      name: "returns true for complex multi-line template",
+      field: `{{
+Generate a personalized response that:
+1. Acknowledges their request
+2. Provides helpful information
+3. Maintains a professional tone
+}}`,
+      expected: true,
+    },
+  ];
+
+  testCases.forEach(({ name, field, expected }) => {
+    it(name, () => {
+      expect(isFullyDynamicField(field)).toBe(expected);
+    });
+  });
+});
+
+describe("isPartiallyDynamicField", () => {
+  const testCases = [
+    {
+      name: "returns true for single-line template variable",
+      field: "{{name}}",
+      expected: true,
+    },
+    {
+      name: "returns true for multi-line template variable",
+      field: `{{
+tell a funny joke.
+do it in the language of the questioner.
+always start with "Here's a great joke:"
+}}`,
+      expected: true,
+    },
+    {
+      name: "returns true for partially dynamic field",
+      field: "Hello {{name}}",
+      expected: true,
+    },
+    {
+      name: "returns true for field with multiple template variables",
+      field: "{{greeting}} {{name}}",
+      expected: true,
+    },
+    {
+      name: "returns true for mixed content with multi-line template",
+      field: `Hi {{name}}!
+
+{{
+Please write a personalized response based on:
+- Their previous interactions
+- Their current needs
+- Our company policies
+}}
+
+Best regards`,
+      expected: true,
+    },
+    {
+      name: "returns false for static field",
+      field: "Static content",
+      expected: false,
+    },
+    {
+      name: "returns false for empty string",
+      field: "",
+      expected: false,
+    },
+    {
+      name: "returns false for field with only curly braces (no double)",
+      field: "Hello {name}",
+      expected: false,
+    },
+    {
+      name: "returns false for field with malformed template syntax",
+      field: "Hello {{name}",
+      expected: false,
+    },
+  ];
+
+  testCases.forEach(({ name, field, expected }) => {
+    it(name, () => {
+      expect(isPartiallyDynamicField(field)).toBe(expected);
+    });
+  });
 });

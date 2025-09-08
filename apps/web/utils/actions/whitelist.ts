@@ -18,7 +18,7 @@ export const whitelistInboxZeroAction = actionClient
     await createFilter({
       gmail,
       from: env.WHITELIST_FROM,
-      addLabelIds: ["CATEGORY_PERSONAL"],
+      addLabelIds: ["CATEGORY_PERSONAL", GmailLabel.IMPORTANT],
       removeLabelIds: [GmailLabel.SPAM],
     });
   });

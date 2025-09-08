@@ -1,11 +1,11 @@
 import { z } from "zod";
 import { InvalidArgumentError } from "ai";
-import { createGenerateText, withRetry } from "@/utils/llms";
+import { createGenerateObject, withRetry } from "@/utils/llms";
 import { stringifyEmail } from "@/utils/stringify-email";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, RuleWithActions } from "@/utils/types";
-import type { ActionType } from "@prisma/client";
+import { LogicalOperator, type ActionType } from "@prisma/client";
 import { getModel, type ModelType } from "@/utils/llms/model";
 
 /**
@@ -35,6 +35,14 @@ import { getModel, type ModelType } from "@/utils/llms/model";
 
 const logger = createScopedLogger("AI Choose Args");
 
+export type ActionArgResponse = {
+  [key: `${string}-${string}`]: {
+    [field: string]: {
+      [key: `var${number}`]: string;
+    };
+  };
+};
+
 export async function aiGenerateArgs({
   email,
   emailAccount,
@@ -53,7 +61,7 @@ export async function aiGenerateArgs({
     >;
   }[];
   modelType: ModelType;
-}) {
+}): Promise<ActionArgResponse | undefined> {
   const loggerOptions = {
     email: emailAccount.email,
     ruleId: selectedRule.id,
@@ -75,7 +83,7 @@ export async function aiGenerateArgs({
 
   const modelOptions = getModel(emailAccount.user, modelType);
 
-  const generateText = createGenerateText({
+  const generateObject = createGenerateObject({
     label: "Args for rule",
     userEmail: emailAccount.email,
     modelOptions,
@@ -83,23 +91,16 @@ export async function aiGenerateArgs({
 
   const aiResponse = await withRetry(
     () =>
-      generateText({
+      generateObject({
         ...modelOptions,
         system,
         prompt,
-        tools: {
-          apply_rule: {
-            description: "Apply the rule with the given arguments.",
-            inputSchema: z.object(
-              Object.fromEntries(
-                parameters.map((p) => [
-                  `${p.type}-${p.actionId}`,
-                  p.parameters,
-                ]),
-              ),
-            ),
-          },
-        },
+        schemaDescription: "The arguments for the rule",
+        schema: z.object(
+          Object.fromEntries(
+            parameters.map((p) => [`${p.type}-${p.actionId}`, p.parameters]),
+          ),
+        ),
       }),
     {
       retryIf: (error: unknown) => InvalidArgumentError.isInstance(error),
@@ -108,17 +109,15 @@ export async function aiGenerateArgs({
     },
   );
 
-  const toolCall = aiResponse.toolCalls?.[0];
+  const result = aiResponse.object;
 
-  if (!toolCall?.input) {
+  if (!result) {
     logger.warn("No tool call found", {
       ...loggerOptions,
       aiResponse,
     });
     return;
   }
-
-  const result = toolCall.input;
 
   return result;
 }
@@ -155,10 +154,45 @@ function getPrompt({
   return `Process this email according to the selected rule:
 
 <selected_rule>
-${selectedRule.instructions}
+${printConditions(selectedRule)}
 </selected_rule>
 
 <email>
 ${stringifyEmail(email, 3000)}
 </email>`;
+}
+
+function printConditions(condition: RuleWithActions) {
+  const result: string[] = [];
+  if (condition.instructions) {
+    result.push(`<match>${condition.instructions}</match>`);
+  }
+
+  const staticConditions = printStaticConditions(condition);
+  if (staticConditions) {
+    result.push(`<match>${staticConditions}</match>`);
+  }
+
+  return result.join(
+    condition.conditionalOperator === LogicalOperator.AND
+      ? "\nAND\n"
+      : "\nOR\n",
+  );
+}
+
+function printStaticConditions(condition: RuleWithActions) {
+  const result: string[] = [];
+  if (condition.from) {
+    result.push(`From: ${condition.from}`);
+  }
+  if (condition.to) {
+    result.push(`To: ${condition.to}`);
+  }
+  if (condition.subject) {
+    result.push(`Subject: ${condition.subject}`);
+  }
+  if (condition.body) {
+    result.push(`Body: ${condition.body}`);
+  }
+  return result.join("\n");
 }
