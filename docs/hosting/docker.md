@@ -50,15 +50,18 @@ Start the services:
 ```bash
 # Start all services in detached mode
 docker compose --env-file ./apps/web/.env up -d
-
-# View logs
-docker compose logs -f
-
-# Check status
-docker compose ps
 ```
 
-### 5. Setup Nginx
+### 5. Run Database Migrations
+
+In another terminal, run the database migrations :
+
+```bash
+# Run Prisma migrations
+docker compose exec web pnpm --filter inbox-zero-ai exec -- prisma migrate deploy
+```
+
+### 6. Setup Nginx
 
 Install and configure Nginx as reverse proxy:
 
@@ -106,7 +109,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### 6. Setup SSL Certificate
+### 7. Setup SSL Certificate
 
 Install Certbot and generate SSL certificate:
 
