@@ -1,4 +1,3 @@
-import type { Organization } from "@prisma/client";
 import { XMLParser } from "fast-xml-parser";
 import { env } from "@/env";
 import { betterAuthConfig } from "@/utils/auth";
@@ -9,7 +8,6 @@ export async function registerSSOProvider({
   providerId,
   organizationName,
   domain,
-  userId,
   headers,
 }: {
   idpMetadata: string;
@@ -118,13 +116,14 @@ export async function registerSSOProvider({
   </md:SPSSODescriptor>
 </md:EntityDescriptor>`;
 
-  let organization: Organization | null = await prisma.organization.findUnique({
-    where: {
-      slug: organizationSlug,
-    },
-  });
+  let organization: { id: string } | null =
+    await prisma.organization.findUnique({
+      where: {
+        slug: organizationSlug,
+      },
+    });
   if (!organization) {
-    organization = await betterAuthConfig.api.createOrganization<Organization>({
+    organization = await betterAuthConfig.api.createOrganization({
       body: {
         name: organizationName,
         slug: organizationSlug,
@@ -135,26 +134,6 @@ export async function registerSSOProvider({
   }
   if (!organization) {
     throw new Error("Failed to create or find organization");
-  }
-
-  const existingMember = await prisma.member.findUnique({
-    where: {
-      organizationId_userId: {
-        organizationId: organization.id,
-        userId: userId,
-      },
-    },
-  });
-
-  if (!existingMember) {
-    await betterAuthConfig.api.addMember({
-      body: {
-        userId: userId,
-        role: ["owner"],
-        organizationId: organization.id,
-      },
-      headers,
-    });
   }
 
   const existingSSOProvider = await prisma.ssoProvider.findUnique({
