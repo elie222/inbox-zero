@@ -28,9 +28,7 @@ export const removeMemberAction = actionClientUser
     });
 
     if (!callerMembership) {
-      throw new SafeError(
-        "You are not a member of this organization.",
-      );
+      throw new SafeError("You are not a member of this organization.");
     }
 
     if (!hasOrganizationAdminRole(callerMembership.role)) {

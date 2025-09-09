@@ -16,29 +16,32 @@ export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
   const { data: currentUser } = useUser();
 
-  const handleRemoveMember = useCallback((memberId: string) => {
-    return async () => {
-      try {
-        const result = await removeMemberAction({ memberId });
+  const handleRemoveMember = useCallback(
+    (memberId: string) => {
+      return async () => {
+        try {
+          const result = await removeMemberAction({ memberId });
 
-        if (result?.serverError) {
+          if (result?.serverError) {
+            toastError({
+              title: "Error removing member",
+              description: result.serverError,
+            });
+          } else {
+            toastSuccess({ description: "Member removed successfully" });
+            mutate(); // Refresh the members list
+          }
+        } catch (err) {
           toastError({
             title: "Error removing member",
-            description: result.serverError,
+            description:
+              err instanceof Error ? err.message : "Failed to remove member",
           });
-        } else {
-          toastSuccess({ description: "Member removed successfully" });
-          mutate(); // Refresh the members list
         }
-      } catch (err) {
-        toastError({
-          title: "Error removing member",
-          description:
-            err instanceof Error ? err.message : "Failed to remove member",
-        });
-      }
-    };
-  }, [mutate]);
+      };
+    },
+    [mutate],
+  );
 
   return (
     <div className="container mx-auto py-8">

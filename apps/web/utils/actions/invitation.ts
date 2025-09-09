@@ -53,11 +53,13 @@ export const handleInvitationAction = actionClientUser
     ].filter(Boolean);
 
     const normalizedCandidateEmails = candidateEmails.map((email) =>
-      email?.toLowerCase().trim()
+      email?.toLowerCase().trim(),
     );
     const normalizedInvitationEmail = invitation.email?.toLowerCase().trim();
 
-    const emailMatches = normalizedCandidateEmails.includes(normalizedInvitationEmail);
+    const emailMatches = normalizedCandidateEmails.includes(
+      normalizedInvitationEmail,
+    );
 
     if (!emailMatches) {
       throw new SafeError(
