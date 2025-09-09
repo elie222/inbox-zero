@@ -1,19 +1,17 @@
 "use client";
 
-import { useState } from "react";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { UserPlusIcon, TrashIcon } from "lucide-react";
+import { TrashIcon } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { removeMemberAction } from "@/utils/actions/remove-member";
 import { toastSuccess, toastError } from "@/components/Toast";
 
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   const handleRemoveMember = async (memberId: string) => {
     try {
@@ -53,10 +51,7 @@ export default function MembersPage() {
               <h2 className="text-xl font-semibold">
                 Members ({data?.members.length || 0})
               </h2>
-              <Button onClick={() => setIsInviteModalOpen(true)}>
-                <UserPlusIcon className="mr-2 size-4" />
-                Invite Member
-              </Button>
+              <InviteMemberModal />
             </div>
 
             <div className="space-y-4">
@@ -122,12 +117,6 @@ export default function MembersPage() {
             )}
           </div>
         </LoadingContent>
-
-        <InviteMemberModal
-          open={isInviteModalOpen}
-          onOpenChange={setIsInviteModalOpen}
-          onSuccess={() => mutate()}
-        />
       </div>
     </div>
   );

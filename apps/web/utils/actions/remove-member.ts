@@ -7,6 +7,7 @@ import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
+import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
@@ -21,7 +22,7 @@ export const removeMemberAction = actionClientUser
       throw new SafeError("You are not a member of any organization.");
     }
 
-    if (!["admin", "owner"].includes(userMembership.role)) {
+    if (!hasOrganizationAdminRole(userMembership.role)) {
       throw new SafeError(
         "Only organization owners or admins can remove members.",
       );

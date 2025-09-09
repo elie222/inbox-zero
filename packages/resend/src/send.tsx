@@ -152,7 +152,7 @@ export const sendInvitationEmail = async ({
   test?: boolean;
   emailProps: InvitationEmailProps;
 }) => {
-  return sendEmail({
+  sendEmail({
     from,
     to,
     subject: `You're invited to join ${emailProps.organizationName} on Inbox Zero`,
