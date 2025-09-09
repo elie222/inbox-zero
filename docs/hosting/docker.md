@@ -34,7 +34,7 @@ cp apps/web/.env.example apps/web/.env
 
 and edit with your production settings.
 
-For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#L107).
+For detailed configuration instructions including all required environment variables, OAuth setup, and LLM configuration, see the [main README.md configuration section](../../README.md#updating-env-file-secrets).
 
 ### 4. Build and Deploy
 
