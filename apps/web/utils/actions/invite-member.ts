@@ -3,7 +3,6 @@
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { inviteMemberBody } from "@/utils/actions/invite-member.validation";
 import prisma from "@/utils/prisma";
-import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
@@ -52,6 +51,4 @@ export const inviteMemberAction = actionClientUser
       }
       throw new SafeError("Failed to create invitation", 500);
     }
-
-    revalidatePath("/api/organizations/members");
   });

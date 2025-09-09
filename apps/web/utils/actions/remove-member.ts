@@ -4,7 +4,6 @@ import { actionClientUser } from "@/utils/actions/safe-action";
 import { removeMemberBody } from "@/utils/actions/remove-member.validation";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
@@ -28,9 +27,7 @@ export const removeMemberAction = actionClientUser
     });
 
     if (!callerMembership) {
-      throw new SafeError(
-        "You are not a member of this organization.",
-      );
+      throw new SafeError("You are not a member of this organization.");
     }
 
     if (!hasOrganizationAdminRole(callerMembership.role)) {
@@ -73,8 +70,6 @@ export const removeMemberAction = actionClientUser
       }
       throw new SafeError("Failed to remove member", 500);
     }
-
-    revalidatePath("/api/organizations/members");
 
     return { success: true, message: "Member removed successfully" };
   });

@@ -3,7 +3,6 @@
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { createOrganizationBody } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
-import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
 import { headers } from "next/headers";
 import { betterAuthConfig } from "@/utils/auth";
@@ -46,8 +45,6 @@ export const createOrganizationAction = actionClientUser
     if (!organization) {
       throw new SafeError("Failed to create organization");
     }
-
-    revalidatePath("/api/user/me");
 
     return organization;
   });

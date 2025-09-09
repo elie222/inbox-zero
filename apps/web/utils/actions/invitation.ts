@@ -5,7 +5,6 @@ import { handleInvitationBody } from "@/utils/actions/invitation.validation";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { headers } from "next/headers";
-import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import type { Invitation } from "better-auth/plugins";
 
@@ -53,11 +52,13 @@ export const handleInvitationAction = actionClientUser
     ].filter(Boolean);
 
     const normalizedCandidateEmails = candidateEmails.map((email) =>
-      email?.toLowerCase().trim()
+      email?.toLowerCase().trim(),
     );
     const normalizedInvitationEmail = invitation.email?.toLowerCase().trim();
 
-    const emailMatches = normalizedCandidateEmails.includes(normalizedInvitationEmail);
+    const emailMatches = normalizedCandidateEmails.includes(
+      normalizedInvitationEmail,
+    );
 
     if (!emailMatches) {
       throw new SafeError(
@@ -84,12 +85,6 @@ export const handleInvitationAction = actionClientUser
       }
       throw new SafeError("Failed to accept invitation", 500);
     }
-
-    // Revalidate relevant paths after successful invitation acceptance
-    revalidatePath("/organizations");
-    revalidatePath("/organizations/members");
-    revalidatePath("/api/organizations/members");
-    revalidatePath("/welcome");
 
     return {
       redirectUrl: "/welcome",

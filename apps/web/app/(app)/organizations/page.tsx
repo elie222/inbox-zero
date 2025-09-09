@@ -53,7 +53,7 @@ export default function CreateOrganizationPage() {
       } else {
         toastSuccess({ description: "Organization created successfully!" });
         reset();
-        await mutate(); // revalidate the user data to update the bottom-left dropdown
+        await mutate();
         router.push("/organizations/members");
       }
     },

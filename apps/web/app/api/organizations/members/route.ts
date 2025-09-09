@@ -8,16 +8,16 @@ export type OrganizationMembersResponse = Awaited<
 >;
 
 async function getOrganizationMembers({ userId }: { userId: string }) {
-  const userMembership = await prisma.member.findFirst({ 
+  const userMembership = await prisma.member.findFirst({
     where: {
-      userId
+      userId,
     },
     orderBy: {
-      createdAt: "asc"
+      createdAt: "asc",
     },
     select: {
-      organizationId: true
-    }
+      organizationId: true,
+    },
   });
 
   if (!userMembership) {
