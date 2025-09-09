@@ -1,6 +1,8 @@
 "use client";
 
+import { useCallback } from "react";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
+import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -12,28 +14,31 @@ import { toastSuccess, toastError } from "@/components/Toast";
 
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
+  const { data: currentUser } = useUser();
 
-  const handleRemoveMember = async (memberId: string) => {
-    try {
-      const result = await removeMemberAction({ memberId });
+  const handleRemoveMember = useCallback((memberId: string) => {
+    return async () => {
+      try {
+        const result = await removeMemberAction({ memberId });
 
-      if (result?.serverError) {
+        if (result?.serverError) {
+          toastError({
+            title: "Error removing member",
+            description: result.serverError,
+          });
+        } else {
+          toastSuccess({ description: "Member removed successfully" });
+          mutate(); // Refresh the members list
+        }
+      } catch (err) {
         toastError({
           title: "Error removing member",
-          description: result.serverError,
+          description:
+            err instanceof Error ? err.message : "Failed to remove member",
         });
-      } else {
-        toastSuccess({ description: "Member removed successfully" });
-        mutate(); // Refresh the members list
       }
-    } catch (err) {
-      toastError({
-        title: "Error removing member",
-        description:
-          err instanceof Error ? err.message : "Failed to remove member",
-      });
-    }
-  };
+    };
+  }, [mutate]);
 
   return (
     <div className="container mx-auto py-8">
@@ -95,14 +100,16 @@ export default function MembersPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleRemoveMember(member.id)}
-                    >
-                      <TrashIcon className="mr-2 size-4" />
-                      Remove
-                    </Button>
+                    {currentUser?.id !== member.user.id && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRemoveMember(member.id)}
+                      >
+                        <TrashIcon className="mr-2 size-4" />
+                        Remove
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))}

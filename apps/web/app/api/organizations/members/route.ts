@@ -27,7 +27,6 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
   const members = await prisma.member.findMany({
     where: {
       organizationId: userMembership.organizationId,
-      userId: { not: userId }, // Exclude the current user
     },
     select: {
       id: true,
