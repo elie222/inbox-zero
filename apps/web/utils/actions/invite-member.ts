@@ -40,6 +40,8 @@ export const inviteMemberAction = actionClientUser
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
+        // Better Auth will throw UI-friendly errors with error messages
+        // for expired, already accepted, not found, invalid, etc.
         throw new SafeError(error.message, 400);
       }
       throw new SafeError("Failed to create invitation", 500);

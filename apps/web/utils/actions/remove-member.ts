@@ -13,31 +13,62 @@ export const removeMemberAction = actionClientUser
   .metadata({ name: "removeMember" })
   .schema(removeMemberBody)
   .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
-    const userMembership = await prisma.member.findFirst({
-      where: { userId },
-      select: { organizationId: true, role: true },
+    const targetMember = await prisma.member.findUnique({
+      where: { id: memberId },
+      select: { id: true, userId: true, organizationId: true, role: true },
     });
 
-    if (!userMembership) {
-      throw new SafeError("You are not a member of any organization.");
+    if (!targetMember) {
+      throw new SafeError("Member not found.");
     }
 
-    if (!hasOrganizationAdminRole(userMembership.role)) {
+    const callerMembership = await prisma.member.findFirst({
+      where: { userId, organizationId: targetMember.organizationId },
+      select: { role: true },
+    });
+
+    if (!callerMembership) {
+      throw new SafeError(
+        "You are not a member of this organization.",
+      );
+    }
+
+    if (!hasOrganizationAdminRole(callerMembership.role)) {
       throw new SafeError(
         "Only organization owners or admins can remove members.",
       );
+    }
+
+    if (targetMember.userId === userId) {
+      throw new SafeError("You cannot remove yourself from the organization.");
+    }
+
+    if (targetMember.role === "owner" && callerMembership.role !== "owner") {
+      throw new SafeError("Only owners can remove other owners.");
+    }
+
+    if (targetMember.role === "owner") {
+      const ownerCount = await prisma.member.count({
+        where: { organizationId: targetMember.organizationId, role: "owner" },
+      });
+      if (ownerCount === 1) {
+        throw new SafeError(
+          "Cannot remove the last remaining owner from the organization.",
+        );
+      }
     }
 
     try {
       await betterAuthConfig.api.removeMember({
         body: {
           memberIdOrEmail: memberId,
-          organizationId: userMembership.organizationId,
+          organizationId: targetMember.organizationId,
         },
         headers: await headers(),
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
+        // Better Auth will throw UI-friendly errors with error messages
         throw new SafeError(error.message, 400);
       }
       throw new SafeError("Failed to remove member", 500);
