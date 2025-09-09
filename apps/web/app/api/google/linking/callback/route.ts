@@ -5,6 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
+import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 
 const logger = createScopedLogger("google/linking/callback");
 
@@ -133,6 +134,13 @@ export const GET = withError(async (request: NextRequest) => {
         targetUserId,
       },
     );
+
+    // Transfer premium subscription before deleting the source user
+    await transferPremiumDuringMerge({
+      sourceUserId: existingAccount.userId,
+      targetUserId,
+    });
+
     await prisma.$transaction([
       prisma.account.update({
         where: { id: existingAccount.id },
