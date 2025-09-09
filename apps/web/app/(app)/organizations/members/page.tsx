@@ -1,13 +1,20 @@
 "use client";
 
 import { useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { TrashIcon } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, TrashIcon, BarChart3 } from "lucide-react";
 import { InviteMemberModal } from "@/components/InviteMemberModal";
 import { removeMemberAction } from "@/utils/actions/remove-member";
 import { toastSuccess, toastError } from "@/components/Toast";
@@ -15,6 +22,7 @@ import { toastSuccess, toastError } from "@/components/Toast";
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
   const { data: currentUser } = useUser();
+  const router = useRouter();
 
   const handleRemoveMember = useCallback(
     (memberId: string) => {
@@ -41,6 +49,13 @@ export default function MembersPage() {
       };
     },
     [mutate],
+  );
+
+  const handleViewAnalytics = useCallback(
+    (emailAccountId: string) => {
+      router.push(`/${emailAccountId}/stats`);
+    },
+    [router],
   );
 
   return (
@@ -104,14 +119,34 @@ export default function MembersPage() {
                   </div>
                   <div className="flex items-center space-x-2">
                     {currentUser?.id !== member.user.id && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRemoveMember(member.id)}
-                      >
-                        <TrashIcon className="mr-2 size-4" />
-                        Remove
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <MoreHorizontal className="size-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          {member.user.emailAccounts.length > 0 && (
+                            <DropdownMenuItem
+                              onClick={() =>
+                                handleViewAnalytics(
+                                  member.user.emailAccounts[0].id,
+                                )
+                              }
+                            >
+                              <BarChart3 className="mr-2 size-4" />
+                              Analytics
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={handleRemoveMember(member.id)}
+                            className="text-red-600 focus:text-red-600"
+                          >
+                            <TrashIcon className="mr-2 size-4" />
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </div>
                 </div>

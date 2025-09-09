@@ -38,6 +38,11 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
           name: true,
           email: true,
           image: true,
+          emailAccounts: {
+            select: {
+              id: true,
+            },
+          },
         },
       },
     },
