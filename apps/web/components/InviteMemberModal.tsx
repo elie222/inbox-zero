@@ -5,11 +5,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useCallback } from "react";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
@@ -20,24 +22,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { inviteMemberAction } from "@/utils/actions/invite-member";
 import {
   inviteMemberBody,
   type InviteMemberBody,
 } from "@/utils/actions/invite-member.validation";
+import { useDialogState } from "@/hooks/useDialogState";
 
-interface InviteMemberModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSuccess?: () => void;
-}
-
-export function InviteMemberModal({
-  open,
-  onOpenChange,
-  onSuccess,
-}: InviteMemberModalProps) {
+export function InviteMemberModal() {
   const {
     register,
     handleSubmit,
@@ -52,6 +46,8 @@ export function InviteMemberModal({
     },
   });
 
+  const { isOpen, onToggle, onClose } = useDialogState();
+
   const selectedRole = watch("role");
 
   const onSubmit: SubmitHandler<InviteMemberBody> = useCallback(
@@ -65,25 +61,21 @@ export function InviteMemberModal({
         });
       } else {
         toastSuccess({
-          description: result?.data?.message || "Invitation sent successfully!",
+          description: "Invitation sent successfully!",
         });
         reset();
-        onOpenChange(false);
-        onSuccess?.();
+        onClose();
       }
     },
-    [reset, onOpenChange, onSuccess],
+    [reset, onClose],
   );
 
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!newOpen) {
-      reset();
-    }
-    onOpenChange(newOpen);
-  };
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={isOpen} onOpenChange={onToggle}>
+      <DialogTrigger asChild>
+        <Button>Invite Member</Button>
+      </DialogTrigger>
+
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Invite Member</DialogTitle>
@@ -104,9 +96,15 @@ export function InviteMemberModal({
           />
 
           <div className="space-y-2">
-            <label htmlFor="role" className="text-sm font-medium">
-              Role
-            </label>
+            <div className="flex items-center space-x-2">
+              <label htmlFor="role" className="text-sm font-medium">
+                Role
+              </label>
+              <TooltipExplanation
+                side="right"
+                text="Members can view and collaborate.\nAdmins can manage the organization and invite others."
+              />
+            </div>
             <Select
               value={selectedRole}
               onValueChange={(value) =>
@@ -121,22 +119,12 @@ export function InviteMemberModal({
                 <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              <b>Members</b> can view and collaborate.
-              <br />
-              <b>Admins</b> can manage the organization and invite others.
-            </p>
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancel
-            </Button>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
             <Button type="submit" loading={isSubmitting}>
               Send Invitation
             </Button>

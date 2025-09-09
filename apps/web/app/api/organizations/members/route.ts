@@ -9,8 +9,15 @@ export type OrganizationMembersResponse = Awaited<
 
 async function getOrganizationMembers({ userId }: { userId: string }) {
   const userMembership = await prisma.member.findFirst({
-    where: { userId },
-    select: { organizationId: true },
+    where: {
+      userId,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      organizationId: true,
+    },
   });
 
   if (!userMembership) {
@@ -20,7 +27,6 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
   const members = await prisma.member.findMany({
     where: {
       organizationId: userMembership.organizationId,
-      userId: { not: userId }, // Exclude the current user
     },
     select: {
       id: true,

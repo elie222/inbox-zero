@@ -9,19 +9,14 @@ import {
 } from "@/utils/types";
 import { fetchMessagesAndGenerateDraft } from "@/utils/reply-tracker/generate-draft";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { aiGenerateArgs } from "@/utils/ai/choose-rule/ai-choose-args";
+import {
+  type ActionArgResponse,
+  aiGenerateArgs,
+} from "@/utils/ai/choose-rule/ai-choose-args";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("choose-args");
-
-type ActionArgResponse = {
-  [key: `${string}-${string}`]: {
-    [field: string]: {
-      [key: `var${number}`]: string;
-    };
-  };
-};
 
 export async function getActionItemsWithAiArgs({
   message,
@@ -84,11 +79,7 @@ export async function getActionItemsWithAiArgs({
     modelType,
   });
 
-  return combineActionsWithAiArgs(
-    selectedRule.actions,
-    result as ActionArgResponse,
-    draft,
-  );
+  return combineActionsWithAiArgs(selectedRule.actions, result, draft);
 }
 
 export function combineActionsWithAiArgs(

@@ -5,11 +5,14 @@ import { createOrganizationBody } from "@/utils/actions/organization.validation"
 import prisma from "@/utils/prisma";
 import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
+import { headers } from "next/headers";
+import { betterAuthConfig } from "@/utils/auth";
 
 export const createOrganizationAction = actionClientUser
   .metadata({ name: "createOrganization" })
   .schema(createOrganizationBody)
   .action(async ({ ctx: { userId }, parsedInput: { name, slug } }) => {
+    const nextHeaders = await headers();
     const existingMembership = await prisma.member.findFirst({
       where: { userId },
       select: { id: true },
@@ -32,20 +35,17 @@ export const createOrganizationAction = actionClientUser
       );
     }
 
-    const organization = await prisma.organization.create({
-      data: {
+    const organization = await betterAuthConfig.api.createOrganization({
+      body: {
         name,
         slug,
       },
+      headers: nextHeaders,
     });
 
-    await prisma.member.create({
-      data: {
-        organizationId: organization.id,
-        userId,
-        role: "owner",
-      },
-    });
+    if (!organization) {
+      throw new SafeError("Failed to create organization");
+    }
 
     revalidatePath("/api/user/me");
 

@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 import { SafeError } from "@/utils/error";
 import { betterAuthConfig } from "@/utils/auth";
 import { headers } from "next/headers";
-import type { Invitation } from "better-auth/plugins";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
 export const inviteMemberAction = actionClientUser
@@ -29,9 +28,14 @@ export const inviteMemberAction = actionClientUser
       );
     }
 
-    let invitation: Invitation;
+    if (role === "owner" && userMembership.role !== "owner") {
+      throw new SafeError(
+        "Only existing owners can assign the owner role to new members.",
+      );
+    }
+
     try {
-      invitation = await betterAuthConfig.api.createInvitation({
+      await betterAuthConfig.api.createInvitation({
         body: {
           email,
           role: [role],
@@ -42,12 +46,12 @@ export const inviteMemberAction = actionClientUser
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
+        // Better Auth will throw UI-friendly errors with error messages
+        // for expired, already accepted, not found, invalid, etc.
         throw new SafeError(error.message, 400);
       }
       throw new SafeError("Failed to create invitation", 500);
     }
 
     revalidatePath("/api/organizations/members");
-
-    return { invitation, message: `Invitation sent to ${email}` };
   });

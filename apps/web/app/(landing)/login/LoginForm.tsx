@@ -105,7 +105,7 @@ export function LoginForm() {
       </Button>
 
       <UIButton
-        variant="outline"
+        variant="ghost"
         size="lg"
         className="w-full hover:scale-105 transition-transform"
         asChild

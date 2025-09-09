@@ -11,6 +11,7 @@ import {
   Tailwind,
   Text,
 } from "@react-email/components";
+import type { FC } from "react";
 
 export type InvitationEmailProps = {
   baseUrl: string;
@@ -20,13 +21,17 @@ export type InvitationEmailProps = {
   unsubscribeToken: string;
 };
 
-export default function InvitationEmail({
+type InvitationEmailComponent = FC<InvitationEmailProps> & {
+  PreviewProps: InvitationEmailProps;
+};
+
+const InvitationEmail: InvitationEmailComponent = ({
   baseUrl = "https://www.getinboxzero.com",
   organizationName,
   inviterName,
   invitationId,
   unsubscribeToken,
-}: InvitationEmailProps) {
+}: InvitationEmailProps) => {
   const acceptUrl = `${baseUrl}/organizations/invitations/${invitationId}/accept`;
 
   return (
@@ -87,7 +92,9 @@ export default function InvitationEmail({
       </Tailwind>
     </Html>
   );
-}
+};
+
+export default InvitationEmail;
 
 function Footer({
   baseUrl,
@@ -123,11 +130,10 @@ function Footer({
   );
 }
 
-// Preview props for testing
 InvitationEmail.PreviewProps = {
   baseUrl: "https://www.getinboxzero.com",
   organizationName: "Apple Inc.",
   inviterName: "Eduardo Lelis",
   invitationId: "cmf5pzul7000lf1zrlatybrr7",
   unsubscribeToken: "preview-token-123",
-} as InvitationEmailProps;
+};

@@ -2,7 +2,7 @@
 
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/Input";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export default function CreateOrganizationPage() {
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, dirtyFields },
     reset,
     watch,
     setValue,
@@ -32,7 +32,7 @@ export default function CreateOrganizationPage() {
   });
 
   const nameValue = watch("name");
-  const [userModifiedSlug, setUserModifiedSlug] = useState(false);
+  const userModifiedSlug = dirtyFields.slug;
 
   useEffect(() => {
     if (nameValue && !userModifiedSlug) {
@@ -40,11 +40,6 @@ export default function CreateOrganizationPage() {
       setValue("slug", generatedSlug);
     }
   }, [nameValue, userModifiedSlug, setValue]);
-
-  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUserModifiedSlug(true);
-    register("slug").onChange(e);
-  };
 
   const onSubmit: SubmitHandler<CreateOrganizationBody> = useCallback(
     async (data) => {
@@ -62,7 +57,7 @@ export default function CreateOrganizationPage() {
         router.push("/organizations/members");
       }
     },
-    [mutate],
+    [mutate, reset, router],
   );
 
   return (
@@ -95,10 +90,7 @@ export default function CreateOrganizationPage() {
               name="slug"
               label="URL Slug"
               placeholder="apple-inc"
-              registerProps={{
-                ...register("slug"),
-                onChange: handleSlugChange,
-              }}
+              registerProps={register("slug")}
               error={errors.slug}
             />
 

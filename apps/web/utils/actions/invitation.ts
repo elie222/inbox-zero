@@ -5,20 +5,15 @@ import { handleInvitationBody } from "@/utils/actions/invitation.validation";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import type { Invitation } from "better-auth/plugins";
 
 export const handleInvitationAction = actionClientUser
   .metadata({ name: "handleInvitation" })
   .schema(handleInvitationBody)
-  .action(async ({ parsedInput: { invitationId } }) => {
-    const session = await betterAuthConfig.api.getSession({
-      headers: await headers(),
-    });
-
-    if (!session) {
-      throw new SafeError("User not authenticated", 401);
-    }
+  .action(async ({ ctx: { userId }, parsedInput: { invitationId } }) => {
+    const nextHeaders = await headers();
 
     let invitation: Invitation;
     try {
@@ -26,10 +21,11 @@ export const handleInvitationAction = actionClientUser
         query: {
           id: invitationId,
         },
-        headers: await headers(),
+        headers: nextHeaders,
       });
     } catch (error: unknown) {
       if (error instanceof Error) {
+        // Better Auth will throw UI-friendly errors with error messages
         throw new SafeError(error.message, 400);
       }
       throw new SafeError("Failed to fetch invitation", 500);
@@ -39,25 +35,35 @@ export const handleInvitationAction = actionClientUser
       throw new SafeError("Invitation not found", 404);
     }
 
-    const userEmailAccounts = await prisma.emailAccount.findMany({
-      where: {
-        user: {
-          id: session.user.id,
-        },
-      },
-      select: {
-        email: true,
-      },
-    });
+    // Fetch user's primary email and linked email accounts
+    const [user, userEmailAccounts] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      }),
+      prisma.emailAccount.findMany({
+        where: { userId: userId },
+        select: { email: true },
+      }),
+    ]);
 
-    const userEmails = userEmailAccounts.map((account) => account.email);
-    const allUserEmails = [session.user.email, ...userEmails];
-    const emailMatches = allUserEmails.includes(invitation.email);
+    const candidateEmails = [
+      user?.email,
+      ...userEmailAccounts.map((account) => account.email),
+    ].filter(Boolean);
+
+    const normalizedCandidateEmails = candidateEmails.map((email) =>
+      email?.toLowerCase().trim(),
+    );
+    const normalizedInvitationEmail = invitation.email?.toLowerCase().trim();
+
+    const emailMatches = normalizedCandidateEmails.includes(
+      normalizedInvitationEmail,
+    );
 
     if (!emailMatches) {
-      const emailList = allUserEmails.join(", ");
       throw new SafeError(
-        `You're logged in as ${session.user.email} (email accounts: ${emailList}), but this invitation was sent to ${invitation.email}. Please logout and sign in with the correct account.`,
+        "This invitation was sent to an account associated with a different email address.",
         400,
       );
     }
@@ -67,7 +73,7 @@ export const handleInvitationAction = actionClientUser
         body: {
           invitationId,
         },
-        headers: await headers(),
+        headers: nextHeaders,
       });
 
       if (!acceptResult) {
@@ -76,20 +82,19 @@ export const handleInvitationAction = actionClientUser
     } catch (error: unknown) {
       if (error instanceof Error) {
         // Better Auth will throw UI-friendly errors with error messages
-        // for expired, already accepted, not found, invalid, etc.
         throw new SafeError(error.message, 400);
       }
       throw new SafeError("Failed to accept invitation", 500);
     }
 
-    const organization = await prisma.organization.findUnique({
-      where: { id: invitation.organizationId },
-      select: { name: true },
-    });
+    // Revalidate relevant paths after successful invitation acceptance
+    revalidatePath("/organizations");
+    revalidatePath("/organizations/members");
+    revalidatePath("/api/organizations/members");
+    revalidatePath("/welcome");
 
     return {
       redirectUrl: "/welcome",
       organizationId: invitation.organizationId,
-      organizationName: organization?.name || "the organization",
     };
   });

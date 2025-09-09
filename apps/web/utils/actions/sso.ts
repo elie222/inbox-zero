@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { ssoRegistrationBody } from "@/utils/actions/enterprise.validation";
+import { ssoRegistrationBody } from "@/utils/actions/sso.validation";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
@@ -16,14 +16,12 @@ export const registerSSOProviderAction = adminActionClient
       parsedInput: { idpMetadata, organizationName, domain, providerId },
     }) => {
       const session = await auth();
-      if (!session?.user?.id) {
-        throw new SafeError("Unauthorized");
-      }
-      const userId = session.user.id;
+      const userId = session?.user?.id;
 
-      if (!validateIdpMetadata(idpMetadata)) {
+      if (!userId) throw new SafeError("Unauthorized");
+
+      if (!validateIdpMetadata(idpMetadata))
         throw new SafeError("Invalid IDP metadata XML.");
-      }
 
       return await registerSSOProvider({
         idpMetadata,

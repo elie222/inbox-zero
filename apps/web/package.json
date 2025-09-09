@@ -140,6 +140,7 @@
     "react-youtube": "10.1.0",
     "remark-gfm": "4.0.1",
     "sanity-plugin-markdown": "6.0.0",
+    "schema-dts": "1.1.5",
     "server-only": "0.0.1",
     "sonner": "2.0.7",
     "streamdown": "1.1.6",

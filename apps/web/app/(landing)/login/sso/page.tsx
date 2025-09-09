@@ -7,6 +7,11 @@ import { z } from "zod";
 import { Button } from "@/components/Button";
 import { Input } from "@/components/Input";
 import { toastError, toastSuccess } from "@/components/Toast";
+import { useRouter } from "next/navigation";
+import type {
+  GetSsoSignInParams,
+  GetSsoSignInResponse,
+} from "@/app/api/sso/signin/route";
 
 const ssoLoginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -22,6 +27,7 @@ const ssoLoginSchema = z.object({
 type SsoLoginBody = z.infer<typeof ssoLoginSchema>;
 
 export default function SSOLoginPage() {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -32,37 +38,49 @@ export default function SSOLoginPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const onSubmit: SubmitHandler<SsoLoginBody> = useCallback(async (data) => {
-    setIsSubmitting(true);
-    try {
-      const url = new URL("/api/sso/signin", window.location.origin);
-      url.searchParams.set("email", data.email);
-      url.searchParams.set("organizationSlug", data.organizationSlug);
+  const onSubmit: SubmitHandler<SsoLoginBody> = useCallback(
+    async (data) => {
+      setIsSubmitting(true);
+      try {
+        const params: GetSsoSignInParams = {
+          email: data.email,
+          organizationSlug: data.organizationSlug,
+        };
 
-      const response = await fetch(url.toString());
-      const responseData = await response.json();
+        const paramsString = new URLSearchParams(params).toString();
+        const url = new URL(
+          `/api/sso/signin?${paramsString}`,
+          window.location.origin,
+        );
 
-      if (!response.ok) {
+        const response = await fetch(url.toString());
+        const responseData = await response.json();
+
+        if (!response.ok) {
+          toastError({
+            title: "SSO Sign-in Error",
+            description: responseData.error || "Failed to initiate SSO sign-in",
+          });
+          return;
+        }
+
+        const res: GetSsoSignInResponse = responseData;
+
+        if (res.redirectUrl) {
+          toastSuccess({ description: "Redirecting to SSO provider..." });
+          router.push(res.redirectUrl);
+        }
+      } catch {
         toastError({
           title: "SSO Sign-in Error",
-          description: responseData.error || "Failed to initiate SSO sign-in",
+          description: "An unexpected error occurred. Please try again.",
         });
-        return;
+      } finally {
+        setIsSubmitting(false);
       }
-
-      if (responseData.redirectUrl) {
-        toastSuccess({ description: "Redirecting to SSO provider..." });
-        window.location.href = responseData.redirectUrl;
-      }
-    } catch {
-      toastError({
-        title: "SSO Sign-in Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, []);
+    },
+    [router],
+  );
 
   return (
     <div className="flex h-screen flex-col justify-center text-foreground">
@@ -81,7 +99,6 @@ export default function SSOLoginPage() {
                 type="email"
                 name="email"
                 label="Email"
-                placeholder="Enter your email address"
                 registerProps={register("email")}
                 error={errors.email}
               />
@@ -90,7 +107,7 @@ export default function SSOLoginPage() {
                 type="text"
                 name="organizationSlug"
                 label="Organization Slug"
-                placeholder="your-org-slug — lowercase, hyphens only"
+                placeholder="your-org-slug"
                 registerProps={register("organizationSlug")}
                 error={errors.organizationSlug}
               />

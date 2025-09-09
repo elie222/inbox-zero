@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback } from "react";
 import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -20,7 +20,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  UserPlusIcon,
   TrashIcon,
   MoreHorizontalIcon,
   BarChartBigIcon,
@@ -128,29 +127,33 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
 export default function MembersPage() {
   const { data, isLoading, error, mutate } = useOrganizationMembers();
   const { data: executedRulesData } = useExecutedRulesCount();
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
-  const handleRemoveMember = async (memberId: string) => {
-    try {
-      const result = await removeMemberAction({ memberId });
+  const handleRemoveMember = useCallback(
+    (memberId: string) => {
+      return async () => {
+        try {
+          const result = await removeMemberAction({ memberId });
 
-      if (result?.serverError) {
-        toastError({
-          title: "Error removing member",
-          description: result.serverError,
-        });
-      } else {
-        toastSuccess({ description: "Member removed successfully" });
-        mutate(); // Refresh the members list
-      }
-    } catch (err) {
-      toastError({
-        title: "Error removing member",
-        description:
-          err instanceof Error ? err.message : "Failed to remove member",
-      });
-    }
-  };
+          if (result?.serverError) {
+            toastError({
+              title: "Error removing member",
+              description: result.serverError,
+            });
+          } else {
+            toastSuccess({ description: "Member removed successfully" });
+            mutate(); // Refresh the members list
+          }
+        } catch (err) {
+          toastError({
+            title: "Error removing member",
+            description:
+              err instanceof Error ? err.message : "Failed to remove member",
+          });
+        }
+      };
+    },
+    [mutate],
+  );
 
   return (
     <div className="container mx-auto py-8">
@@ -168,10 +171,7 @@ export default function MembersPage() {
               <h2 className="text-xl font-semibold">
                 Members ({data?.members.length || 0})
               </h2>
-              <Button onClick={() => setIsInviteModalOpen(true)}>
-                <UserPlusIcon className="mr-2 size-4" />
-                Invite Member
-              </Button>
+              <InviteMemberModal />
             </div>
 
             <div className="space-y-4">
@@ -201,12 +201,6 @@ export default function MembersPage() {
             )}
           </div>
         </LoadingContent>
-
-        <InviteMemberModal
-          open={isInviteModalOpen}
-          onOpenChange={setIsInviteModalOpen}
-          onSuccess={() => mutate()}
-        />
       </div>
     </div>
   );

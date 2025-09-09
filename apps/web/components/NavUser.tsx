@@ -9,7 +9,6 @@ import {
   RibbonIcon,
   LogOutIcon,
   PaletteIcon,
-  SettingsIcon,
   ChromeIcon,
   Building2Icon,
 } from "lucide-react";
@@ -32,7 +31,7 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
-import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
@@ -40,9 +39,7 @@ export function NavUser() {
   const { data: user } = useUser();
 
   const hasOrganization = user?.members && user.members.length > 0;
-  const isAdmin = user?.members?.some((member) =>
-    hasOrganizationAdminRole(member.role),
-  );
+  const isOrgAdmin = isOrganizationAdmin(user?.members);
   const organizationName = user?.members?.[0]?.organization?.name;
 
   return (
@@ -104,12 +101,6 @@ export function NavUser() {
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href={prefixPath(emailAccountId, "/settings")}>
-              <SettingsIcon className="mr-2 size-4" />
-              Settings
-            </Link>
-          </DropdownMenuItem>
           {!hasOrganization && (
             <DropdownMenuItem asChild>
               <Link href="/organizations">
@@ -118,7 +109,7 @@ export function NavUser() {
               </Link>
             </DropdownMenuItem>
           )}
-          {hasOrganization && isAdmin && (
+          {hasOrganization && isOrgAdmin && (
             <DropdownMenuItem asChild>
               <Link href="/organizations/members">
                 <Building2Icon className="mr-2 size-4" />
