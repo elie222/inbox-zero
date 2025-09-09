@@ -79,6 +79,10 @@ To request a feature open a [GitHub issue](https://github.com/elie222/inbox-zero
 
 We offer a hosted version of Inbox Zero at [https://getinboxzero.com](https://getinboxzero.com). To self-host follow the steps below.
 
+### Self-Hosting with Docker on VPS
+
+For a complete guide on deploying Inbox Zero to a VPS using Docker, see our [Docker Self-Hosting Guide](docs/hosting/docker.md).
+
 ### Setup
 
 [Here's a video](https://youtu.be/hVQENQ4WT2Y) on how to set up the project. It covers the same steps mentioned in this document. But goes into greater detail on setting up the external services.
