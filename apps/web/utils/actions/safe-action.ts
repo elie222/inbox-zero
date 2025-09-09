@@ -7,6 +7,7 @@ import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
 import { SafeError } from "@/utils/error";
 import { env } from "@/env";
+import { checkOrgEmailAccountAccess } from "@/utils/organizations/access";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
 
@@ -14,7 +15,14 @@ const logger = createScopedLogger("safe-action");
 
 const baseClient = createSafeActionClient({
   defineMetadataSchema() {
-    return z.object({ name: z.string() });
+    return z.object({
+      name: z.string(),
+      options: z
+        .object({
+          allowAdmins: z.boolean().nullish(),
+        })
+        .nullish(),
+    });
   },
   handleServerError(error, { metadata, ctx, bindArgsClientInputs }) {
     const context = ctx as any;
@@ -68,8 +76,32 @@ export const actionClient = baseClient
         },
       },
     });
-    if (!emailAccount || emailAccount?.account.userId !== userId)
+
+    if (!emailAccount || emailAccount?.account.userId !== userId) {
+      if (metadata?.options?.allowAdmins) {
+        const targetEmailAccount = await checkOrgEmailAccountAccess(
+          userId,
+          emailAccountId,
+        );
+
+        if (targetEmailAccount) {
+          return withServerActionInstrumentation(metadata?.name, async () => {
+            return next({
+              ctx: {
+                userId,
+                userEmail,
+                session,
+                emailAccountId,
+                emailAccount: targetEmailAccount,
+                provider: targetEmailAccount.account.provider,
+              },
+            });
+          });
+        }
+      }
+
       throw new SafeError("Unauthorized");
+    }
 
     return withServerActionInstrumentation(metadata?.name, async () => {
       return next({
