@@ -5,6 +5,7 @@ import { handleInvitationBody } from "@/utils/actions/invitation.validation";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { headers } from "next/headers";
+import { revalidatePath } from "next/cache";
 import prisma from "@/utils/prisma";
 import type { Invitation } from "better-auth/plugins";
 
@@ -34,17 +35,29 @@ export const handleInvitationAction = actionClientUser
       throw new SafeError("Invitation not found", 404);
     }
 
-    const userEmailAccounts = await prisma.emailAccount.findMany({
-      where: {
-        userId: userId,
-      },
-      select: {
-        email: true,
-      },
-    });
+    // Fetch user's primary email and linked email accounts
+    const [user, userEmailAccounts] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      }),
+      prisma.emailAccount.findMany({
+        where: { userId: userId },
+        select: { email: true },
+      }),
+    ]);
 
-    const userEmails = userEmailAccounts.map((account) => account.email);
-    const emailMatches = userEmails.includes(invitation.email);
+    const candidateEmails = [
+      user?.email,
+      ...userEmailAccounts.map((account) => account.email),
+    ].filter(Boolean);
+
+    const normalizedCandidateEmails = candidateEmails.map((email) =>
+      email?.toLowerCase().trim()
+    );
+    const normalizedInvitationEmail = invitation.email?.toLowerCase().trim();
+
+    const emailMatches = normalizedCandidateEmails.includes(normalizedInvitationEmail);
 
     if (!emailMatches) {
       throw new SafeError(
@@ -71,6 +84,12 @@ export const handleInvitationAction = actionClientUser
       }
       throw new SafeError("Failed to accept invitation", 500);
     }
+
+    // Revalidate relevant paths after successful invitation acceptance
+    revalidatePath("/organizations");
+    revalidatePath("/organizations/members");
+    revalidatePath("/api/organizations/members");
+    revalidatePath("/welcome");
 
     return {
       redirectUrl: "/welcome",

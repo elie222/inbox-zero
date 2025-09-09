@@ -28,6 +28,12 @@ export const inviteMemberAction = actionClientUser
       );
     }
 
+    if (role === "owner" && userMembership.role !== "owner") {
+      throw new SafeError(
+        "Only existing owners can assign the owner role to new members.",
+      );
+    }
+
     try {
       await betterAuthConfig.api.createInvitation({
         body: {
