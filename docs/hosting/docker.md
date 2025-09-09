@@ -18,22 +18,11 @@ Connect to your VPS and install Docker Engine by following the [the official gui
 
 ### 2. Clone
 
-Connect to your VPS with SSH agent forwarding to access GitHub:
-
-```bash
-# Connect to your VPS with SSH agent forwarding
-ssh -A user@your-vps-ip
-```
-
-Then clone the repository:
-
 ```bash
 # Clone the repository
 git clone https://github.com/elie222/inbox-zero.git
 cd inbox-zero
 ```
-
-**Note**: The `-A` flag enables SSH agent forwarding, which allows you to use your local SSH keys on the remote server to authenticate with GitHub without copying your private keys to the VPS.
 
 ### 3. Configure
 
