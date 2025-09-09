@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { type NextRequest, NextResponse } from "next/server";
 import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
@@ -5,20 +6,24 @@ import { createScopedLogger } from "@/utils/logger";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 
+const getSsoSignInSchema = z.object({
+  email: z.string().email(),
+  organizationSlug: z.string(),
+});
+export type GetSsoSignInParams = z.infer<typeof getSsoSignInSchema>;
+export type GetSsoSignInResponse = {
+  redirectUrl: string;
+  providerId: string;
+};
+
 const logger = createScopedLogger("api/sso/signin");
 
 export const GET = withError(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
-  const email = searchParams.get("email");
-  const organizationSlug = searchParams.get("organizationSlug");
-
-  if (!email) {
-    throw new SafeError("Email parameter is required");
-  }
-
-  if (!organizationSlug) {
-    throw new SafeError("Organization name parameter is required");
-  }
+  const { email, organizationSlug } = getSsoSignInSchema.parse({
+    email: searchParams.get("email"),
+    organizationSlug: searchParams.get("organizationSlug"),
+  });
 
   logger.info("SSO sign-in requested", { email, organizationSlug });
 
@@ -48,8 +53,10 @@ export const GET = withError(async (request: NextRequest) => {
     },
   });
 
-  return NextResponse.json({
+  const response: GetSsoSignInResponse = {
     redirectUrl: ssoResponse.url,
     providerId: provider.providerId,
-  });
+  };
+
+  return NextResponse.json(response);
 });

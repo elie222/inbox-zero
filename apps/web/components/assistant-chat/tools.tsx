@@ -383,7 +383,7 @@ function RuleActions({ ruleId }: { ruleId: string }) {
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0"
-          onClick={() => ruleDialog.open({ ruleId })}
+          onClick={() => ruleDialog.onOpen({ ruleId })}
         >
           <EyeIcon className="size-4" />
         </Button>
@@ -418,7 +418,7 @@ function RuleActions({ ruleId }: { ruleId: string }) {
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         editMode={false}
       />
     </>

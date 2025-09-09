@@ -1,6 +1,5 @@
 import { AdminUpgradeUserForm } from "@/app/(app)/admin/AdminUpgradeUserForm";
 import { AdminUserControls } from "@/app/(app)/admin/AdminUserControls";
-import { AdminEnterpriseControls } from "@/app/(app)/admin/AdminEnterpriseControls";
 import { TopSection } from "@/components/TopSection";
 import { auth } from "@/utils/auth";
 import { ErrorPage } from "@/components/ErrorPage";
@@ -9,6 +8,7 @@ import {
   AdminSyncStripe,
   AdminSyncStripeCustomers,
 } from "@/app/(app)/admin/AdminSyncStripe";
+import { RegisterSSOModal } from "@/app/(app)/admin/RegisterSSOModal";
 
 // NOTE: Turn on Fluid Compute on Vercel to allow for 800 seconds max duration
 export const maxDuration = 800;
@@ -32,7 +32,7 @@ export default async function AdminPage() {
       <div className="m-8 space-y-8">
         <AdminUpgradeUserForm />
         <AdminUserControls />
-        <AdminEnterpriseControls />
+        <RegisterSSOModal />
 
         <div className="flex gap-2">
           <AdminSyncStripe />

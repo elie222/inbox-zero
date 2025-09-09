@@ -2,13 +2,16 @@
 
 import { headers } from "next/headers";
 import { env } from "@/env";
-import { ssoRegistrationBody } from "@/utils/actions/enterprise.validation";
+import { ssoRegistrationBody } from "@/utils/actions/sso.validation";
 import { adminActionClient } from "@/utils/actions/safe-action";
 import { betterAuthConfig, auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { extractSSOProviderConfigFromXML } from "@/utils/sso/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
 import { validateIdpMetadata } from "@/utils/sso/validate-idp-metadata";
+import { createScopedLogger } from "@/utils/logger";
+
+const logger = createScopedLogger("sso");
 
 export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })
@@ -18,14 +21,12 @@ export const registerSSOProviderAction = adminActionClient
       parsedInput: { idpMetadata, organizationName, domain, providerId },
     }) => {
       const session = await auth();
-      if (!session?.user?.id) {
-        throw new SafeError("Unauthorized");
-      }
-      const userId = session.user.id;
+      const userId = session?.user?.id;
 
-      if (!validateIdpMetadata(idpMetadata)) {
+      if (!userId) throw new SafeError("Unauthorized");
+
+      if (!validateIdpMetadata(idpMetadata))
         throw new SafeError("Invalid IDP metadata XML.");
-      }
 
       const ssoConfig = extractSSOProviderConfigFromXML(
         idpMetadata,
@@ -113,6 +114,11 @@ export const registerSSOProviderAction = adminActionClient
           headers: await headers(),
         });
       } catch (err) {
+        logger.error("Failed to register SSO provider", {
+          error: err,
+          organizationId: organization.id,
+        });
+
         // Cleanup to avoid orphaned orgs and members on failure
         await prisma.member.deleteMany({
           where: { organizationId: organization.id },

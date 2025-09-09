@@ -169,7 +169,7 @@ function RulesPromptForm({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => ruleDialog.open()}
+              onClick={() => ruleDialog.onOpen()}
               Icon={PlusIcon}
             >
               Add manually
@@ -256,10 +256,10 @@ function RulesPromptForm({
 
       <RuleDialog
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         onSuccess={() => {
           mutate();
-          ruleDialog.close();
+          ruleDialog.onClose();
         }}
         editMode={false}
       />
