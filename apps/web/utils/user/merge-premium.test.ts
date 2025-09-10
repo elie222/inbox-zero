@@ -404,7 +404,7 @@ describe("transferPremiumDuringMerge", () => {
       expect(prisma.user.update).not.toHaveBeenCalled();
     });
 
-    it("should throw error when target user is not found", async () => {
+    it("should handle error gracefully when target user is not found", async () => {
       const sourceUserId = "source-user-id";
       const targetUserId = "non-existent-target";
 
@@ -419,9 +419,52 @@ describe("transferPremiumDuringMerge", () => {
         } as any)
         .mockResolvedValueOnce(null);
 
+      // Should not throw an error, but should complete gracefully
       await expect(
         transferPremiumDuringMerge({ sourceUserId, targetUserId }),
-      ).rejects.toThrow(`Target user ${targetUserId} not found`);
+      ).resolves.toBeUndefined();
+
+      // Should not make any updates when target user is not found
+      expect(prisma.premium.update).not.toHaveBeenCalled();
+      expect(prisma.user.update).not.toHaveBeenCalled();
+    });
+
+    it("should handle database errors gracefully", async () => {
+      const sourceUserId = "source-user-id";
+      const targetUserId = "target-user-id";
+      const sourcePremiumId = "source-premium-id";
+
+      prisma.user.findUnique
+        .mockResolvedValueOnce({
+          id: sourceUserId,
+          email: "source@example.com",
+          premiumId: sourcePremiumId,
+          premiumAdminId: null,
+          premium: {
+            id: sourcePremiumId,
+            tier: PremiumTier.PRO_MONTHLY,
+            users: [{ id: sourceUserId, email: "source@example.com" }],
+            admins: [],
+          },
+          premiumAdmin: null,
+        } as any)
+        .mockResolvedValueOnce({
+          id: targetUserId,
+          email: "target@example.com",
+          premiumId: null,
+          premiumAdminId: null,
+          premium: null,
+        } as any);
+
+      // Mock database error
+      prisma.user.update.mockRejectedValue(
+        new Error("Database connection failed"),
+      );
+
+      // Should not throw an error, but should complete gracefully
+      await expect(
+        transferPremiumDuringMerge({ sourceUserId, targetUserId }),
+      ).resolves.toBeUndefined();
     });
   });
 });
