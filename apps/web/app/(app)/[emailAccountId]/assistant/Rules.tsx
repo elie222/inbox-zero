@@ -52,6 +52,7 @@ import { prefixPath } from "@/utils/path";
 import { ExpandableText } from "@/components/ExpandableText";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { sortActionsByPriority } from "@/utils/action-sort";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
 import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
@@ -531,7 +532,7 @@ export function ActionBadges({
 }) {
   return (
     <div className="flex gap-2">
-      {actions.map((action) => {
+      {sortActionsByPriority(actions).map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
 
