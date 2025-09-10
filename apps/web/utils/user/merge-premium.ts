@@ -101,19 +101,7 @@ export async function transferPremiumDuringMerge({
       shouldUseSourcePremium &&
       sourceUser.premiumId !== targetUser.premiumId
     ) {
-      // Remove target user from their previous premium
-      operations.push(
-        prisma.premium.update({
-          where: { id: targetUser.premiumId },
-          data: {
-            users: {
-              disconnect: { id: targetUserId },
-            },
-          },
-        }),
-      );
-
-      // Update target user to use source's premium
+      // Update target user to use source's premium (atomic operation that handles the relationship change)
       operations.push(
         prisma.user.update({
           where: { id: targetUserId },

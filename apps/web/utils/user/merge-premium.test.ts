@@ -44,22 +44,14 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      prisma.premium.update.mockResolvedValue({} as any);
       prisma.user.update.mockResolvedValue({} as any);
 
       await transferPremiumDuringMerge({ sourceUserId, targetUserId });
 
-      // Should disconnect target from their old premium
-      expect(prisma.premium.update).toHaveBeenCalledWith({
-        where: { id: targetPremiumId },
-        data: {
-          users: {
-            disconnect: { id: targetUserId },
-          },
-        },
-      });
+      // Should not call premium.update since we use atomic user.update
+      expect(prisma.premium.update).not.toHaveBeenCalled();
 
-      // Should update target user to use source's premium
+      // Should update target user to use source's premium (atomic operation)
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: targetUserId },
         data: { premiumId: sourcePremiumId },
@@ -137,22 +129,14 @@ describe("transferPremiumDuringMerge", () => {
           },
         } as any);
 
-      prisma.premium.update.mockResolvedValue({} as any);
       prisma.user.update.mockResolvedValue({} as any);
 
       await transferPremiumDuringMerge({ sourceUserId, targetUserId });
 
-      // Should disconnect target from their old premium
-      expect(prisma.premium.update).toHaveBeenCalledWith({
-        where: { id: targetPremiumId },
-        data: {
-          users: {
-            disconnect: { id: targetUserId },
-          },
-        },
-      });
+      // Should not call premium.update since we use atomic user.update
+      expect(prisma.premium.update).not.toHaveBeenCalled();
 
-      // Should update target user to use source's premium
+      // Should update target user to use source's premium (atomic operation)
       expect(prisma.user.update).toHaveBeenCalledWith({
         where: { id: targetUserId },
         data: { premiumId: sourcePremiumId },
