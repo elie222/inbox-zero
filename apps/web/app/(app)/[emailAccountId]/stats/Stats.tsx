@@ -70,7 +70,9 @@ export function Stats() {
   return (
     <PageWrapper>
       <PageHeading>
-        {accountInfo?.name ? `Analytics for ${accountInfo.name}` : "Analytics"}
+        {!isAccountOwner && accountInfo?.name
+          ? `Analytics for ${accountInfo.name}`
+          : "Analytics"}
       </PageHeading>
       <div className="flex items-center justify-between mt-2 sm:mt-0">
         {isLoading ? <LoadProgress /> : <div />}
