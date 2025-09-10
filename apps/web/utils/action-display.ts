@@ -7,12 +7,17 @@ export function getActionDisplay(
     type: ActionType;
     label?: string | null;
     folderName?: string | null;
+    content?: string | null;
   },
   provider: string,
 ): string {
   const terminology = getEmailTerminology(provider);
   switch (action.type) {
     case ActionType.DRAFT_EMAIL:
+      if (action.content) {
+        const preview = action.content.substring(0, 10);
+        return `Draft Reply: ${preview}${action.content.length > 10 ? "..." : ""}`;
+      }
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label

@@ -525,6 +525,7 @@ export function ActionBadges({
     type: ActionType;
     label?: string | null;
     folderName?: string | null;
+    content?: string | null;
   }[];
   provider: string;
 }) {
