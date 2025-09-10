@@ -1,5 +1,6 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
+import { isOnHigherTier } from "@/utils/premium";
 
 const logger = createScopedLogger("user/merge-premium");
 
@@ -29,6 +30,7 @@ export async function transferPremiumDuringMerge({
       premium: {
         select: {
           id: true,
+          tier: true,
           users: { select: { id: true, email: true } },
           admins: { select: { id: true, email: true } },
         },
@@ -55,6 +57,12 @@ export async function transferPremiumDuringMerge({
       email: true,
       premiumId: true,
       premiumAdminId: true,
+      premium: {
+        select: {
+          id: true,
+          tier: true,
+        },
+      },
     },
   });
 
@@ -67,29 +75,62 @@ export async function transferPremiumDuringMerge({
 
   // Handle premium subscription scenarios
   if (sourceUser.premiumId && targetUser.premiumId) {
-    // Both users have premium - keep both premiums but prioritize source user's premium for the target
-    logger.warn("Both users have premium subscriptions", {
-      sourcePremiumId: sourceUser.premiumId,
-      targetPremiumId: targetUser.premiumId,
-      sourceUserId,
-      targetUserId,
-    });
+    // Both users have premium - choose the higher tier
+    const sourceTier = sourceUser.premium?.tier;
+    const targetTier = targetUser.premium?.tier;
 
-    // Connect target user to source premium (they'll have access to both)
-    operations.push(
-      prisma.premium.update({
-        where: { id: sourceUser.premiumId },
-        data: {
-          users: {
-            connect: { id: targetUserId },
+    logger.warn(
+      "Both users have premium subscriptions - choosing higher tier",
+      {
+        sourcePremiumId: sourceUser.premiumId,
+        targetPremiumId: targetUser.premiumId,
+        sourceTier,
+        targetTier,
+        sourceUserId,
+        targetUserId,
+      },
+    );
+
+    // If same premium or source has higher tier, use source premium
+    // If target has higher tier, keep target premium
+    const shouldUseSourcePremium =
+      sourceUser.premiumId === targetUser.premiumId ||
+      !isOnHigherTier(targetTier, sourceTier);
+
+    if (
+      shouldUseSourcePremium &&
+      sourceUser.premiumId !== targetUser.premiumId
+    ) {
+      // Remove target user from their previous premium
+      operations.push(
+        prisma.premium.update({
+          where: { id: targetUser.premiumId },
+          data: {
+            users: {
+              disconnect: { id: targetUserId },
+            },
           },
-        },
-      }),
-    );
+        }),
+      );
 
-    logger.info(
-      "Target user will maintain access to both premium subscriptions",
-    );
+      // Update target user to use source's premium
+      operations.push(
+        prisma.user.update({
+          where: { id: targetUserId },
+          data: { premiumId: sourceUser.premiumId },
+        }),
+      );
+
+      logger.info(
+        "Target user's premium subscription replaced with source user's higher tier premium",
+        { chosenTier: sourceTier },
+      );
+    } else {
+      logger.info(
+        "Target user keeps their premium subscription (higher or equal tier)",
+        { chosenTier: targetTier },
+      );
+    }
   } else if (sourceUser.premiumId && sourceUser.premium) {
     // Only source user has premium - transfer to target
     logger.info("Transferring premium subscription from source to target", {
@@ -98,15 +139,11 @@ export async function transferPremiumDuringMerge({
       targetUserId,
     });
 
-    // Connect target user to source premium
+    // Update target user to use source's premium
     operations.push(
-      prisma.premium.update({
-        where: { id: sourceUser.premiumId },
-        data: {
-          users: {
-            connect: { id: targetUserId },
-          },
-        },
+      prisma.user.update({
+        where: { id: targetUserId },
+        data: { premiumId: sourceUser.premiumId },
       }),
     );
   } else if (targetUser.premiumId) {
