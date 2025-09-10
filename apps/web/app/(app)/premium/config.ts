@@ -57,6 +57,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BUSINESS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
+      "price_1S5u73KGf8mwZWHn8VYFdALA",
       "price_1RMSnIKGf8mwZWHnlHP0212n",
       "price_1RfoILKGf8mwZWHnDiUMj6no",
       "price_1RfeAFKGf8mwZWHnnnPzFEky",
@@ -69,6 +70,7 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
+      "price_1S5u6uKGf8mwZWHnEvPWuQzG",
       "price_1S1QGGKGf8mwZWHnYpUcqNua",
       "price_1RMSnIKGf8mwZWHnymtuW2s0",
       "price_1RfSoxKGf8mwZWHngHcug4YM",
@@ -76,11 +78,17 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
-    oldPriceIds: ["price_1RMSoMKGf8mwZWHn5fAKBT19"],
+    oldPriceIds: [
+      "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+      "price_1RMSoMKGf8mwZWHn5fAKBT19",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
-    oldPriceIds: ["price_1RMSoMKGf8mwZWHnGjf6fRmh"],
+    oldPriceIds: [
+      "price_1S5u6XKGf8mwZWHnba8HX1H2",
+      "price_1RMSoMKGf8mwZWHnGjf6fRmh",
+    ],
   },
   [PremiumTier.COPILOT_MONTHLY]: {},
   [PremiumTier.LIFETIME]: {},
