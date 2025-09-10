@@ -57,6 +57,7 @@ import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
+import { useOwnEmailAccount } from "@/hooks/useOwnEmailAccount";
 
 type NavItem = {
   name: string;
@@ -71,36 +72,40 @@ export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
   const { emailAccountId, provider } = useAccount();
+  const { ownEmailAccountId } = useOwnEmailAccount();
 
   // Assistant category items
   const navItems: NavItem[] = useMemo(
     () => [
       {
         name: "Assistant",
-        href: prefixPath(emailAccountId, "/automation"),
+        href: prefixPath(ownEmailAccountId || emailAccountId, "/automation"),
         icon: SparklesIcon,
       },
       {
         name: "Bulk Unsubscribe",
-        href: prefixPath(emailAccountId, "/bulk-unsubscribe"),
+        href: prefixPath(
+          ownEmailAccountId || emailAccountId,
+          "/bulk-unsubscribe",
+        ),
         icon: MailsIcon,
       },
       ...(isGoogleProvider(provider)
         ? [
             {
               name: "Deep Clean",
-              href: prefixPath(emailAccountId, "/clean"),
+              href: prefixPath(ownEmailAccountId || emailAccountId, "/clean"),
               icon: BrushIcon,
             },
             {
               name: "Analytics",
-              href: prefixPath(emailAccountId, "/stats"),
+              href: prefixPath(ownEmailAccountId || emailAccountId, "/stats"),
               icon: BarChartBigIcon,
             },
           ]
         : []),
     ],
-    [emailAccountId, provider],
+    [ownEmailAccountId, emailAccountId, provider],
   );
 
   const navItemsFiltered = useMemo(

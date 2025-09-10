@@ -20,10 +20,13 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
   return emailAccount;
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const emailAccount = await getEmailAccount({ emailAccountId });
+    const emailAccount = await getEmailAccount({ emailAccountId });
 
-  return NextResponse.json(emailAccount);
-});
+    return NextResponse.json(emailAccount);
+  },
+  { allowAdmins: true },
+);

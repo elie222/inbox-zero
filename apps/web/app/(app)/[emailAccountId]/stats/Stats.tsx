@@ -17,6 +17,7 @@ import { CardBasic } from "@/components/ui/card";
 import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
 import { PageWrapper } from "@/components/PageWrapper";
+import { useOrgAccess } from "@/hooks/useOrgAccess";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -42,6 +43,8 @@ export function Stats() {
     "week",
   );
 
+  const { isAccountOwner, accountInfo } = useOrgAccess();
+
   const onSetDateDropdown = useCallback(
     (option: { label: string; value: string }) => {
       const { label, value } = option;
@@ -66,7 +69,9 @@ export function Stats() {
 
   return (
     <PageWrapper>
-      <PageHeading>Analytics</PageHeading>
+      <PageHeading>
+        {accountInfo?.name ? `Analytics for ${accountInfo.name}` : "Analytics"}
+      </PageHeading>
       <div className="flex items-center justify-between mt-2 sm:mt-0">
         {isLoading ? <LoadProgress /> : <div />}
         <div className="flex flex-wrap gap-1">
@@ -87,10 +92,12 @@ export function Stats() {
       <div className="grid gap-2 sm:gap-4 mt-2 sm:mt-4">
         <StatsSummary dateRange={dateRange} refreshInterval={refreshInterval} />
 
-        <EmailAnalytics
-          dateRange={dateRange}
-          refreshInterval={refreshInterval}
-        />
+        {isAccountOwner && (
+          <EmailAnalytics
+            dateRange={dateRange}
+            refreshInterval={refreshInterval}
+          />
+        )}
 
         <DetailedStats
           dateRange={dateRange}

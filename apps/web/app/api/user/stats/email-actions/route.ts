@@ -18,10 +18,13 @@ async function getEmailActionStats({ userEmail }: { userEmail: string }) {
   return { result };
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const userEmail = request.auth.email;
+export const GET = withEmailAccount(
+  async (request) => {
+    const userEmail = request.auth.email;
 
-  const result = await getEmailActionStats({ userEmail });
+    const result = await getEmailActionStats({ userEmail });
 
-  return NextResponse.json(result);
-});
+    return NextResponse.json(result);
+  },
+  { allowAdmins: true },
+);
