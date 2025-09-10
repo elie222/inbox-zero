@@ -5,6 +5,7 @@ import { createScopedLogger } from "@/utils/logger";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
+import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
@@ -218,6 +219,13 @@ export const GET = withError(async (request: NextRequest) => {
       email: providerEmail,
       targetUserId,
     });
+
+    // Transfer premium subscription before deleting the source user
+    await transferPremiumDuringMerge({
+      sourceUserId: existingAccount.userId,
+      targetUserId,
+    });
+
     await prisma.$transaction([
       prisma.account.update({
         where: { id: existingAccount.id },
