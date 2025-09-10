@@ -23,7 +23,6 @@ import {
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
-import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -251,12 +250,10 @@ function ExtraSeatsAlert({
 
   return (
     <AlertBasic
-      title="Extra email price"
+      title="Additional team member pricing"
       description={`You are on the ${capitalCase(
         premiumTier,
-      )} plan. You will be billed $${
-        pricingAdditonalEmail[premiumTier]
-      } for each extra email you add to your account.`}
+      )} plan. You will be billed for each additional team member you add to your account.`}
       icon={<CrownIcon className="h-4 w-4" />}
     />
   );

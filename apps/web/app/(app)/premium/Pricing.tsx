@@ -5,18 +5,13 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { Label, Radio, RadioGroup } from "@headlessui/react";
 import { CheckIcon, SparklesIcon } from "lucide-react";
-import { capitalCase } from "capital-case";
 import Link from "next/link";
 import { env } from "@/env";
 import { LoadingContent } from "@/components/LoadingContent";
 import { usePremium } from "@/components/PremiumAlert";
 import { Button } from "@/components/ui/button";
 import { getUserTier } from "@/utils/premium";
-import {
-  pricingAdditonalEmail,
-  type Tier,
-  tiers,
-} from "@/app/(app)/premium/config";
+import { type Tier, tiers } from "@/app/(app)/premium/config";
 import { AlertWithButton } from "@/components/Alert";
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { toastError } from "@/components/Toast";
@@ -115,25 +110,23 @@ export default function Pricing(props: PricingProps) {
                   </Link>
                 </Button>
                 <div className="mx-auto mt-4 max-w-md">
-                  <AlertWithButton
-                    className="bg-background"
-                    variant="blue"
-                    title="Add extra users to your account!"
-                    description={`You can upgrade extra accounts to ${capitalCase(
-                      userPremiumTier,
-                    )} for $${
-                      pricingAdditonalEmail[userPremiumTier]
-                    } per email address!`}
-                    icon={null}
-                    button={
-                      <div className="ml-4 whitespace-nowrap">
-                        <Button asChild>
-                          {/* <Link href="/settings#manage-users">Add users</Link> */}
-                          <Link href="/accounts">Add users</Link>
-                        </Button>
-                      </div>
-                    }
-                  />
+                  {userPremiumTier === "BUSINESS_MONTHLY" ||
+                  userPremiumTier === "BUSINESS_ANNUALLY" ? (
+                    <AlertWithButton
+                      className="bg-background"
+                      variant="blue"
+                      title="Need multiple accounts?"
+                      description="Individual plans are designed for single users. Contact our support team for custom pricing on multiple accounts."
+                      icon={null}
+                      button={
+                        <div className="ml-4 whitespace-nowrap">
+                          <Button asChild>
+                            <Link href="/support">Contact Support</Link>
+                          </Button>
+                        </div>
+                      }
+                    />
+                  ) : null}
                 </div>
               </>
             )}
@@ -265,14 +258,6 @@ function PriceTier({
             </Badge>
           )}
         </p>
-        {tier.priceAdditional && tier.priceAdditional[frequency.value] > 0 ? (
-          <p className="mt-3 text-sm leading-6 text-gray-500">
-            +${formatPrice(tier.priceAdditional[frequency.value])} for each
-            additional email account
-          </p>
-        ) : (
-          <div />
-        )}
         <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
           {tier.features.map((feature) => (
             <li key={feature.text} className="flex gap-x-3">

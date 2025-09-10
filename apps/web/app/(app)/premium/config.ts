@@ -7,7 +7,6 @@ export type Tier = {
   name: string;
   tiers: { monthly: PremiumTier; annually: PremiumTier };
   price: { monthly: number; annually: number };
-  priceAdditional: { monthly: number; annually: number };
   discount: { monthly: number; annually: number };
   quantity?: number;
   description: string;
@@ -28,19 +27,6 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
   [PremiumTier.LIFETIME]: 299,
-};
-
-export const pricingAdditonalEmail: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 6,
-  [PremiumTier.BASIC_ANNUALLY]: 6,
-  [PremiumTier.PRO_MONTHLY]: 8,
-  [PremiumTier.PRO_ANNUALLY]: 8,
-  [PremiumTier.BUSINESS_MONTHLY]: 10,
-  [PremiumTier.BUSINESS_ANNUALLY]: 10,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 25,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 25,
-  [PremiumTier.COPILOT_MONTHLY]: 10,
-  [PremiumTier.LIFETIME]: 99,
 };
 
 const variantIdToTier: Record<number, PremiumTier> = {
@@ -161,10 +147,6 @@ const analyticsFeature = { text: "Email analytics" };
 //     annually: PremiumTier.BASIC_ANNUALLY,
 //   },
 //   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-//   priceAdditional: {
-//     monthly: pricingAdditonalEmail.BASIC_MONTHLY,
-//     annually: pricingAdditonalEmail.BASIC_ANNUALLY,
-//   },
 //   discount: {
 //     monthly: 0,
 //     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
@@ -190,10 +172,6 @@ const businessTier: Tier = {
   price: {
     monthly: pricing.BUSINESS_MONTHLY,
     annually: pricing.BUSINESS_ANNUALLY,
-  },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
   },
   discount: {
     monthly: 0,
@@ -228,10 +206,6 @@ const businessPlusTier: Tier = {
   price: {
     monthly: pricing.BUSINESS_PLUS_MONTHLY,
     annually: pricing.BUSINESS_PLUS_ANNUALLY,
-  },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_PLUS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_PLUS_ANNUALLY,
   },
   discount: {
     monthly: 0,
@@ -272,7 +246,6 @@ const enterpriseTier: Tier = {
     annually: PremiumTier.COPILOT_MONTHLY,
   },
   price: { monthly: 0, annually: 0 },
-  priceAdditional: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
   description:
     "For large organizations with enterprise-grade security and compliance requirements.",
