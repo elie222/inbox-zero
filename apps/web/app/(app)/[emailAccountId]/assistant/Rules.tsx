@@ -55,7 +55,6 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
-import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -86,7 +85,6 @@ export function Rules({
   const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
-  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
     {
@@ -392,11 +390,10 @@ export function Rules({
                                         emailAccountId,
                                         "/cold-email-blocker",
                                       )
-                                    : createAssistantUrl({
-                                        tab: "history",
-                                        ruleId: rule.id,
-                                        path: "/automation?tab=history",
-                                      })
+                                    : prefixPath(
+                                        emailAccountId,
+                                        `/automation?tab=history&ruleId=${rule.id}`,
+                                      )
                                 }
                                 target={
                                   isColdEmailBlocker ? "_blank" : undefined
