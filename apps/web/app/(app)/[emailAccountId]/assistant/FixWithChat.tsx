@@ -40,9 +40,6 @@ export function FixWithChat({
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [showExplanation, setShowExplanation] = useState(false);
-  // const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
-  // const router = useRouter();
-  // const [currentTab] = useQueryState("tab");
 
   const { setOpen } = useSidebar();
 
