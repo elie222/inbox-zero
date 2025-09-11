@@ -10,7 +10,8 @@
     "test": "cross-env RUN_AI_TESTS=false vitest",
     "test-ai": "cross-env RUN_AI_TESTS=true vitest",
     "preinstall": "npx only-allow pnpm",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "teams:package": "cd public/teams && zip -r ../../inbox-zero-teams.zip manifest.json icon-*.png && cd ../.."
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "3.0.13",
@@ -37,6 +38,7 @@
     "@mdx-js/loader": "3.1.1",
     "@mdx-js/react": "3.1.1",
     "@microsoft/microsoft-graph-client": "3.0.7",
+    "@microsoft/teams-js": "2.19.0",
     "@mux/mux-player-react": "3.5.3",
     "@next/mdx": "15.5.2",
     "@next/third-parties": "15.5.2",

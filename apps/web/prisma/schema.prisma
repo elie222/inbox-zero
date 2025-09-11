@@ -32,17 +32,17 @@ model Account {
 
 // not in use. we only use jwt for sessions
 model Session {
-  id                  String        @id @default(cuid())
-  sessionToken        String        @unique
-  userId              String
-  expires             DateTime
+  id                   String        @id @default(cuid())
+  sessionToken         String        @unique
+  userId               String
+  expires              DateTime
   activeOrganizationId String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  ipAddress           String?
-  userAgent           String?
-  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activeOrganization  Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  ipAddress            String?
+  userAgent            String?
+  user                 User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -96,9 +96,10 @@ model User {
   referralReceived Referral?  @relation("ReferredUser")
 
   // Organization relationships
-  members Member[]
-  invitations Invitation[]
-  ssoproviders SsoProvider[]
+  members           Member[]
+  invitations       Invitation[]
+  ssoproviders      SsoProvider[]
+  TeamsInstallation TeamsInstallation[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -139,22 +140,23 @@ model EmailAccount {
   accountId String  @unique
   account   Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
-  labels           Label[]
-  rules            Rule[]
-  executedRules    ExecutedRule[]
-  newsletters      Newsletter[]
-  coldEmails       ColdEmail[]
-  groups           Group[]
-  categories       Category[]
-  threadTrackers   ThreadTracker[]
-  cleanupJobs      CleanupJob[]
-  cleanupThreads   CleanupThread[]
-  emailMessages    EmailMessage[]
-  emailTokens      EmailToken[]
-  knowledge        Knowledge[]
-  chats            Chat[]
-  digests          Digest[]
-  scheduledActions ScheduledAction[]
+  labels             Label[]
+  rules              Rule[]
+  executedRules      ExecutedRule[]
+  newsletters        Newsletter[]
+  coldEmails         ColdEmail[]
+  groups             Group[]
+  categories         Category[]
+  threadTrackers     ThreadTracker[]
+  cleanupJobs        CleanupJob[]
+  cleanupThreads     CleanupThread[]
+  emailMessages      EmailMessage[]
+  emailTokens        EmailToken[]
+  knowledge          Knowledge[]
+  chats              Chat[]
+  digests            Digest[]
+  scheduledActions   ScheduledAction[]
+  teamsInstallations TeamsInstallation[]
 
   @@index([lastSummaryEmailAt])
 }
@@ -212,13 +214,13 @@ model Verification {
 }
 
 model SsoProvider {
-  id             String  @id @default(cuid())
+  id             String        @id @default(cuid())
   issuer         String
   oidcConfig     String?
   samlConfig     String?
   userId         String?
-  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId     String  @unique
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String        @unique
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String
@@ -856,6 +858,30 @@ model Referral {
 
   @@index([referrerUserId])
   @@index([status])
+}
+
+model TeamsInstallation {
+  id String @id @default(uuid())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  tenantId   String
+  tenantName String?
+  userEmail  String
+
+  accessToken  String?   @db.Text
+  refreshToken String?   @db.Text
+  expiresAt    DateTime?
+
+  installedTeams Json? // Array of team objects with id, displayName, description
+  isActive       Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@unique([tenantId, userId])
+  @@index([userId])
 }
 
 enum ActionType {
