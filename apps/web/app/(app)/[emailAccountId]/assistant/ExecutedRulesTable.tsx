@@ -15,9 +15,9 @@ import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { ExecutedRuleStatus } from "@prisma/client";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
-import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { useRuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 
 export function EmailCell({
   from,
@@ -62,21 +62,19 @@ export function EmailCell({
 }
 
 export function RuleCell({
-  emailAccountId,
   rule,
   status,
   reason,
   message,
   setInput,
 }: {
-  emailAccountId: string;
   rule: PendingExecutedRules["executedRules"][number]["rule"];
   status: ExecutedRuleStatus;
   reason?: string | null;
   message: ParsedMessage;
   setInput: (input: string) => void;
 }) {
-  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
+  const { ruleDialog, RuleDialogComponent } = useRuleDialog();
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -104,21 +102,18 @@ export function RuleCell({
               </div>
               <div className="mt-2">
                 {!!rule && (
-                  <Button size="sm" asChild>
-                    <Link
-                      href={createAssistantUrl({
-                        tab: "rule",
-                        ruleId: rule.id,
-                        path: `/assistant/rule/${rule.id}`,
-                      })}
-                    >
-                      View
-                    </Link>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      ruleDialog.onOpen({ ruleId: rule.id });
+                    }}
+                  >
+                    View Rule
                   </Button>
                 )}
               </div>
               {!!reason && (
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 space-y-2 bg-muted p-2 rounded-md">
                   <div className="font-medium">
                     Reason for choosing this rule:
                   </div>
@@ -143,6 +138,7 @@ export function RuleCell({
         message={message}
         result={{ rule, reason }}
       />
+      <RuleDialogComponent />
     </div>
   );
 }
