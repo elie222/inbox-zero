@@ -4,6 +4,7 @@ import { DraftReplies } from "@/app/(app)/[emailAccountId]/assistant/settings/Dr
 import { DraftKnowledgeSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/DraftKnowledgeSetting";
 import { AwaitingReplySetting } from "@/app/(app)/[emailAccountId]/assistant/settings/AwaitingReplySetting";
 import { ReferralSignatureSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/ReferralSignatureSetting";
+import { LearnedPatternsSetting } from "@/app/(app)/[emailAccountId]/assistant/settings/LearnedPatternsSetting";
 
 export function SettingsTab() {
   return (
@@ -14,6 +15,7 @@ export function SettingsTab() {
       <AboutSetting />
       <DigestSetting />
       <ReferralSignatureSetting />
+      <LearnedPatternsSetting />
     </div>
   );
 }
