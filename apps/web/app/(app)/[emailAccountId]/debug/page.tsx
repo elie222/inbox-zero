@@ -14,11 +14,6 @@ export default async function DebugPage(props: {
 
       <div className="mt-4 flex gap-2">
         <Button variant="outline" asChild>
-          <Link href={prefixPath(emailAccountId, "/debug/learned")}>
-            Learned Patterns
-          </Link>
-        </Button>
-        <Button variant="outline" asChild>
           <Link href={prefixPath(emailAccountId, "/debug/drafts")}>Drafts</Link>
         </Button>
         <Button variant="outline" asChild>
