@@ -39,8 +39,6 @@ const variantIdToTier: Record<number, PremiumTier> = {
   [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: PremiumTier.COPILOT_MONTHLY,
 };
 
-// --- Stripe Configuration --- //
-
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
   {
@@ -117,61 +115,9 @@ export function getStripePriceId({
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
 }
 
-// --- End Stripe Configuration --- //
-
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
-
-const aiAssistantFeature = {
-  text: "AI personal assistant",
-  tooltip: "AI assistant that drafts replies, sorts and labels your inbox",
-};
-
-const sortsFeature = {
-  text: "Labels and sorts every email",
-};
-
-const replyZeroFeature = {
-  text: "Pre-written drafts in your voice",
-};
-
-const coldEmailBlockerFeature = {
-  text: "Blocks cold emails",
-};
-
-// const smartCategoriesFeature = {
-//   text: "Sender categories",
-//   tooltip: "Automatically group emails for easier management and bulk actions",
-// };
-
-const bulkUnsubscribeFeature = {
-  text: "Bulk unsubscribe and archive emails",
-  tooltip: "Unsubscribe and archive thousands of emails in one-click",
-};
-
-const analyticsFeature = { text: "Email analytics" };
-
-// const basicTier: Tier = {
-//   name: "Unsubscriber",
-//   tiers: {
-//     monthly: PremiumTier.BASIC_MONTHLY,
-//     annually: PremiumTier.BASIC_ANNUALLY,
-//   },
-//   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-//   discount: {
-//     monthly: 0,
-//     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
-//   },
-//   description: "Unlimited unsubscribe credits.",
-//   features: [
-//     bulkUnsubscribeFeature,
-//     { text: "Unlimited unsubscribes" },
-//     { text: "Unlimited archives" },
-//     analyticsFeature,
-//   ],
-//   cta: "Try free for 7 days",
-// };
 
 export const businessTierName = "Individual";
 
@@ -190,23 +136,26 @@ const businessTier: Tier = {
     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
   },
   description:
-    "For entrepreneurs, executives, and leaders looking to buy back their time.",
+    "For individuals, entrepreneurs, and executives looking to buy back their time.",
   features: [
-    aiAssistantFeature,
-    sortsFeature,
-    replyZeroFeature,
-    coldEmailBlockerFeature,
-    bulkUnsubscribeFeature,
-    analyticsFeature,
-    { text: "Process unlimited emails per month" },
     {
-      text: "Basic Knowledge Base",
-      tooltip:
-        "The knowledge base is used to help draft responses. This plan includes 2000 characters in your knowledge base.",
+      text: "Sorts and labels every email",
+    },
+    {
+      text: "Drafts replies in your voice",
+    },
+    {
+      text: "Blocks cold emails",
+    },
+    {
+      text: "Bulk unsubscribe and archive emails",
+    },
+    {
+      text: "Email analytics",
     },
   ],
   cta: "Try free for 7 days",
-  mostPopular: false,
+  mostPopular: true,
 };
 
 const businessPlusTier: Tier = {
@@ -228,18 +177,15 @@ const businessPlusTier: Tier = {
   },
   description: "For teams and growing businesses handling high email volumes.",
   features: [
-    aiAssistantFeature,
-    sortsFeature,
-    replyZeroFeature,
-    coldEmailBlockerFeature,
-    bulkUnsubscribeFeature,
-    analyticsFeature,
-    { text: "Process unlimited emails per month" },
     {
-      text: "Unlimited Knowledge Base",
+      text: "Everything in Individual, plus:",
+    },
+    {
+      text: "Unlimited knowledge base",
       tooltip:
         "The knowledge base is used to help draft responses. Store up to unlimited content in your knowledge base.",
     },
+    { text: "Team-wide analytics" },
     { text: "Priority support" },
     {
       text: "Dedicated onboarding manager",
@@ -248,7 +194,7 @@ const businessPlusTier: Tier = {
     },
   ],
   cta: "Try free for 7 days",
-  mostPopular: true,
+  mostPopular: false,
 };
 
 const enterpriseTier: Tier = {
@@ -260,30 +206,22 @@ const enterpriseTier: Tier = {
   price: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
   description:
-    "For large organizations with enterprise-grade security and compliance requirements.",
+    "For organizations with enterprise-grade security and compliance requirements.",
   features: [
     {
       text: "Everything in Team, plus:",
     },
     {
-      text: "Unlimited accounts",
-    },
-    {
       text: "SSO login",
     },
     {
-      text: "On-premise deployment for maximum privacy and security",
+      text: "On-premise deployment (optional)",
     },
     {
-      text: "Advanced security, SLA & dedicated support",
+      text: "Advanced security & SLA",
     },
     {
-      text: "Dedicated account manager",
-    },
-    {
-      text: "Dedicated training",
-      tooltip:
-        "We'll help your team get set up on training calls to get the most out of the product.",
+      text: "Dedicated account manager & training",
     },
   ],
   cta: "Speak to sales",
