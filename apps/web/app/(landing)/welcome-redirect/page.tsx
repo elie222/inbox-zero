@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { auth } from "@/utils/auth";
 import { env } from "@/env";
 import prisma from "@/utils/prisma";
-import { WelcomeRedirectContent } from "@/app/(landing)/welcome-redirect/content";
 
 export default async function WelcomeRedirectPage(props: {
   searchParams: Promise<{ question?: string; force?: boolean }>;
@@ -24,5 +23,5 @@ export default async function WelcomeRedirectPage(props: {
   if (!searchParams.force && user.completedOnboardingAt)
     redirect(env.NEXT_PUBLIC_APP_HOME_PATH);
 
-  return <WelcomeRedirectContent />;
+  redirect("/onboarding");
 }

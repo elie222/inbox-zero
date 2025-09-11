@@ -29,7 +29,6 @@ import type {
   CategoryConfig,
 } from "@/utils/actions/rule.validation";
 import { categoryConfig } from "@/utils/category-config";
-import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import { usePersona } from "@/hooks/usePersona";
 import { usersRolesInfo } from "@/app/(app)/[emailAccountId]/onboarding/config";
 import {
@@ -212,8 +211,6 @@ function CategoryCard({
   useTooltip: boolean;
   provider: string;
 }) {
-  const delayedActionsEnabled = useDelayedActionsEnabled();
-
   return (
     <Card>
       <CardContent className="flex flex-col sm:flex-row sm:items-center gap-4 p-4">
@@ -259,11 +256,9 @@ function CategoryCard({
                 <>
                   <SelectItem value="label">Categorise</SelectItem>
                   <SelectItem value="move_folder">Move to folder</SelectItem>
-                  {delayedActionsEnabled && (
-                    <SelectItem value="move_folder_delayed">
-                      Move to folder after a week
-                    </SelectItem>
-                  )}
+                  <SelectItem value="move_folder_delayed">
+                    Move to folder after a week
+                  </SelectItem>
                 </>
               )}
               {isGoogleProvider(provider) && (
@@ -272,11 +267,9 @@ function CategoryCard({
                   <SelectItem value="label_archive">
                     Label & skip inbox
                   </SelectItem>
-                  {delayedActionsEnabled && (
-                    <SelectItem value="label_archive_delayed">
-                      Label & archive after a week
-                    </SelectItem>
-                  )}
+                  <SelectItem value="label_archive_delayed">
+                    Label & archive after a week
+                  </SelectItem>
                 </>
               )}
               <SelectItem value="none">Do nothing</SelectItem>
