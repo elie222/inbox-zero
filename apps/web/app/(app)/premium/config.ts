@@ -7,7 +7,6 @@ export type Tier = {
   name: string;
   tiers: { monthly: PremiumTier; annually: PremiumTier };
   price: { monthly: number; annually: number };
-  priceAdditional: { monthly: number; annually: number };
   discount: { monthly: number; annually: number };
   quantity?: number;
   description: string;
@@ -28,19 +27,6 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
   [PremiumTier.LIFETIME]: 299,
-};
-
-export const pricingAdditonalEmail: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 6,
-  [PremiumTier.BASIC_ANNUALLY]: 6,
-  [PremiumTier.PRO_MONTHLY]: 8,
-  [PremiumTier.PRO_ANNUALLY]: 8,
-  [PremiumTier.BUSINESS_MONTHLY]: 10,
-  [PremiumTier.BUSINESS_ANNUALLY]: 10,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 25,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 25,
-  [PremiumTier.COPILOT_MONTHLY]: 10,
-  [PremiumTier.LIFETIME]: 99,
 };
 
 const variantIdToTier: Record<number, PremiumTier> = {
@@ -71,6 +57,8 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BUSINESS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
+      "price_1S5u73KGf8mwZWHn8VYFdALA",
+      "price_1RMSnIKGf8mwZWHnlHP0212n",
       "price_1RfoILKGf8mwZWHnDiUMj6no",
       "price_1RfeAFKGf8mwZWHnnnPzFEky",
       "price_1RfSoHKGf8mwZWHnxTsSDTqW",
@@ -82,15 +70,25 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
     oldPriceIds: [
+      "price_1S5u6uKGf8mwZWHnEvPWuQzG",
+      "price_1S1QGGKGf8mwZWHnYpUcqNua",
       "price_1RMSnIKGf8mwZWHnymtuW2s0",
       "price_1RfSoxKGf8mwZWHngHcug4YM",
     ],
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+    oldPriceIds: [
+      "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+      "price_1RMSoMKGf8mwZWHn5fAKBT19",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
+    oldPriceIds: [
+      "price_1S5u6XKGf8mwZWHnba8HX1H2",
+      "price_1RMSoMKGf8mwZWHnGjf6fRmh",
+    ],
   },
   [PremiumTier.COPILOT_MONTHLY]: {},
   [PremiumTier.LIFETIME]: {},
@@ -161,10 +159,6 @@ const analyticsFeature = { text: "Email analytics" };
 //     annually: PremiumTier.BASIC_ANNUALLY,
 //   },
 //   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-//   priceAdditional: {
-//     monthly: pricingAdditonalEmail.BASIC_MONTHLY,
-//     annually: pricingAdditonalEmail.BASIC_ANNUALLY,
-//   },
 //   discount: {
 //     monthly: 0,
 //     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
@@ -190,10 +184,6 @@ const businessTier: Tier = {
   price: {
     monthly: pricing.BUSINESS_MONTHLY,
     annually: pricing.BUSINESS_ANNUALLY,
-  },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
   },
   discount: {
     monthly: 0,
@@ -228,10 +218,6 @@ const businessPlusTier: Tier = {
   price: {
     monthly: pricing.BUSINESS_PLUS_MONTHLY,
     annually: pricing.BUSINESS_PLUS_ANNUALLY,
-  },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_PLUS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_PLUS_ANNUALLY,
   },
   discount: {
     monthly: 0,
@@ -272,7 +258,6 @@ const enterpriseTier: Tier = {
     annually: PremiumTier.COPILOT_MONTHLY,
   },
   price: { monthly: 0, annually: 0 },
-  priceAdditional: { monthly: 0, annually: 0 },
   discount: { monthly: 0, annually: 0 },
   description:
     "For large organizations with enterprise-grade security and compliance requirements.",
