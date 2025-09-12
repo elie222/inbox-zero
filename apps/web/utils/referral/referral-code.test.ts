@@ -8,8 +8,8 @@ import {
 } from "./referral-code";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/__mocks__/prisma";
-import { ReferralStatus } from "@prisma/client";
-import { Prisma } from "@prisma/client";
+import { ReferralStatus } from "@/generated/prisma";
+import { Prisma } from "@/generated/prisma";
 
 vi.mock("@/utils/prisma");
 
