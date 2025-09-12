@@ -5,7 +5,6 @@ import type { ComponentProps } from "react";
 import Image from "next/image";
 import { Play, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
-import { YouTubeVideo } from "@/components/YouTubeVideo";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +44,7 @@ const VideoCard = React.forwardRef<
     icon?: React.ReactNode;
     title: string;
     description: string;
-    videoId?: string;
+    videoSrc?: string;
     thumbnailSrc?: string;
     thumbnailAlt?: string;
     onClose?: () => void;
@@ -57,7 +56,7 @@ const VideoCard = React.forwardRef<
       icon,
       title,
       description,
-      videoId,
+      videoSrc,
       thumbnailSrc,
       thumbnailAlt = "Video thumbnail",
       onClose,
@@ -93,7 +92,7 @@ const VideoCard = React.forwardRef<
           </div>
 
           <div className="flex items-center gap-3 flex-shrink-0">
-            {videoId && thumbnailSrc && (
+            {videoSrc && thumbnailSrc && (
               <Dialog>
                 <DialogTrigger asChild>
                   <button
@@ -120,14 +119,12 @@ const VideoCard = React.forwardRef<
                 <DialogContent className="max-w-4xl border-0 bg-transparent p-0">
                   <DialogTitle className="sr-only">Video: {title}</DialogTitle>
                   <div className="relative aspect-video w-full">
-                    <YouTubeVideo
-                      videoId={videoId}
+                    <iframe
+                      src={`${videoSrc}${videoSrc.includes("?") ? "&" : "?"}autoplay=1&rel=0`}
+                      className="size-full rounded-lg"
                       title={`Video: ${title}`}
-                      opts={{
-                        playerVars: {
-                          autoplay: 1,
-                        },
-                      }}
+                      allowFullScreen
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     />
                   </div>
                 </DialogContent>
