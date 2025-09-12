@@ -24,6 +24,9 @@ export const env = createEnv({
     GOOGLE_CLIENT_SECRET: z.string().min(1),
     MICROSOFT_CLIENT_ID: z.string().optional(),
     MICROSOFT_CLIENT_SECRET: z.string().optional(),
+    // Teams marketplace specific
+    TEAMS_APP_ID: z.string().optional(), // Teams app ID (same as MICROSOFT_CLIENT_ID by default)
+    TEAMS_TENANT_ID: z.string().optional(), // For Teams multi-tenant apps, usually "common"
     EMAIL_ENCRYPT_SECRET: z.string(),
     EMAIL_ENCRYPT_SALT: z.string(),
 
@@ -150,6 +153,8 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_HERO_AB: z.string().optional(),
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID: z.string().optional(),
     NEXT_PUBLIC_BASE_URL: z.string(),
+    NEXT_PUBLIC_TEAMS_APP_ID: z.string().optional(), // Teams app ID for client-side
+    NEXT_PUBLIC_TEAMS_ENABLED: z.coerce.boolean().optional().default(false),
     NEXT_PUBLIC_CONTACTS_ENABLED: z.coerce.boolean().optional().default(false),
     NEXT_PUBLIC_SENTRY_DSN: z.string().optional(),
     NEXT_PUBLIC_SUPPORT_EMAIL: z
@@ -214,6 +219,8 @@ export const env = createEnv({
     NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID:
       process.env.NEXT_PUBLIC_POSTHOG_ONBOARDING_SURVEY_ID,
     NEXT_PUBLIC_BASE_URL: process.env.NEXT_PUBLIC_BASE_URL,
+    NEXT_PUBLIC_TEAMS_APP_ID: process.env.NEXT_PUBLIC_TEAMS_APP_ID,
+    NEXT_PUBLIC_TEAMS_ENABLED: process.env.NEXT_PUBLIC_TEAMS_ENABLED,
     NEXT_PUBLIC_CONTACTS_ENABLED: process.env.NEXT_PUBLIC_CONTACTS_ENABLED,
     NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS:
       process.env.NEXT_PUBLIC_FREE_UNSUBSCRIBE_CREDITS,

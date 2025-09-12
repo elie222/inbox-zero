@@ -1,0 +1,72 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.17",
+  "version": "1.0.0",
+  "id": "0f5de1eb-9b5c-466c-9f79-5fe279f67813",
+  "developer": {
+    "name": "Inbox Zero",
+    "websiteUrl": "https://getinboxzero.com",
+    "privacyUrl": "https://getinboxzero.com/privacy",
+    "termsOfUseUrl": "https://getinboxzero.com/terms"
+  },
+  "name": {
+    "short": "Inbox Zero",
+    "full": "Inbox Zero - AI Email Assistant"
+  },
+  "description": {
+    "short": "Clean up your inbox in minutes with AI assistance",
+    "full": "Inbox Zero is an AI-powered email assistant that helps you achieve and maintain inbox zero. Features include bulk unsubscribe, AI-powered email categorization, automated responses, and intelligent email management. Connect your Gmail or Outlook account and let AI help you manage your emails efficiently."
+  },
+  "icons": {
+    "outline": "icon-outline.png",
+    "color": "icon-color.png"
+  },
+  "accentColor": "#1a1a1a",
+  "configurableTabs": [],
+  "staticTabs": [
+    {
+      "entityId": "inboxzero-home",
+      "name": "Inbox Zero",
+      "contentUrl": "https://getinboxzero.com/teams/tab",
+      "websiteUrl": "https://getinboxzero.com",
+      "scopes": [
+        "personal",
+        "team"
+      ]
+    }
+  ],
+  "bots": [],
+  "connectors": [],
+  "composeExtensions": [],
+  "permissions": [
+    "identity",
+    "messageTeamMembers"
+  ],
+  "validDomains": [
+    "getinboxzero.com",
+    "*.getinboxzero.com"
+  ],
+  "webApplicationInfo": {
+    "id": "0f5de1eb-9b5c-466c-9f79-5fe279f67813",
+    "resource": "api://getinboxzero.com/0f5de1eb-9b5c-466c-9f79-5fe279f67813",
+    "scopes": [
+      "access_as_user",
+      "email",
+      "profile",
+      "openid"
+    ]
+  },
+  "authorization": {
+    "permissions": {
+      "resourceSpecific": [
+        {
+          "name": "WebApplicationInfo.Read.User",
+          "type": "Delegated"
+        }
+      ]
+    }
+  },
+  "localizationInfo": {
+    "defaultLanguageTag": "en-us"
+  }
+}
