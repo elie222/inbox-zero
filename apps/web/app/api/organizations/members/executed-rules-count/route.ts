@@ -12,28 +12,38 @@ async function getExecutedRulesCount({
 }: {
   organizationId: string;
 }) {
-  const result = await prisma.$queryRaw<
-    Array<{
-      user_id: string;
-      executed_rules_count: bigint;
-    }>
-  >`
-    SELECT 
-      m."userId" as user_id,
-      COUNT(er.id) as executed_rules_count
-    FROM "Member" m
-    JOIN "User" u ON m."userId" = u.id
-    JOIN "EmailAccount" ea ON u.id = ea."userId" AND ea.email = u.email
-    LEFT JOIN "ExecutedRule" er ON ea.id = er."emailAccountId"
-    WHERE m."organizationId" = ${organizationId}
-    GROUP BY m."userId"
-  `;
+  const membersWithCounts = await prisma.member.findMany({
+    where: { organizationId },
+    select: {
+      userId: true,
+      user: {
+        select: {
+          emailAccounts: {
+            select: {
+              id: true,
+              _count: {
+                select: {
+                  executedRules: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 
-  // Transform the result to match expected format
-  const executedRulesCount = result.map((row) => ({
-    userId: row.user_id,
-    executedRulesCount: Number(row.executed_rules_count),
-  }));
+  const executedRulesCount = membersWithCounts.map((member) => {
+    const totalCount = member.user.emailAccounts.reduce(
+      (sum, account) => sum + account._count.executedRules,
+      0,
+    );
+
+    return {
+      userId: member.userId,
+      executedRulesCount: totalCount,
+    };
+  });
 
   return { executedRulesCount };
 }

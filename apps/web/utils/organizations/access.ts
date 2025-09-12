@@ -1,51 +1,34 @@
 import prisma from "@/utils/prisma";
 import { hasOrganizationAdminRole } from "./roles";
 
-export async function checkOrgEmailAccountAccess(
-  userId: string,
-  emailAccountId: string,
+export async function getMemberEmailAccount(
+  callerUserId: string,
+  targetEmailAccountId: string,
 ) {
-  const userMembership = await prisma.member.findFirst({
-    where: { userId },
+  const callerMember = await prisma.member.findFirst({
+    where: { userId: callerUserId },
     select: {
       organizationId: true,
       role: true,
     },
   });
 
-  if (!userMembership || !hasOrganizationAdminRole(userMembership.role)) {
+  if (!callerMember || !hasOrganizationAdminRole(callerMember.role)) {
     return null;
   }
 
   const targetEmailAccount = await prisma.emailAccount.findFirst({
-    where: { id: emailAccountId },
-    select: {
-      id: true,
-      email: true,
-      account: {
-        select: {
-          userId: true,
-          provider: true,
-        },
-      },
+    where: {
+      id: targetEmailAccountId,
       user: {
-        select: {
-          members: {
-            where: {
-              organizationId: userMembership.organizationId,
-            },
-            select: {
-              id: true,
-            },
+        members: {
+          some: {
+            organizationId: callerMember.organizationId,
           },
         },
       },
     },
   });
 
-  if (targetEmailAccount && targetEmailAccount.user.members.length > 0) {
-    return targetEmailAccount;
-  }
-
-  return null;
+  return targetEmailAccount;
 }

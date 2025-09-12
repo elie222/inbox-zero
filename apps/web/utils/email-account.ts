@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/utils/auth";
 import prisma from "@/utils/prisma";
+import type { GetEmailAccountsResponse } from "@/app/api/user/email-accounts/route";
 
 export async function checkUserOwnsEmailAccount({
   emailAccountId,
@@ -16,4 +17,8 @@ export async function checkUserOwnsEmailAccount({
     select: { id: true },
   });
   if (!emailAccount) notFound();
+}
+
+export function getOwnEmailAccount(data: GetEmailAccountsResponse | undefined) {
+  return data?.emailAccounts?.find((account) => account.isPrimary);
 }

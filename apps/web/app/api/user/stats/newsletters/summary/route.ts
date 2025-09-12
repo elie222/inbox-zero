@@ -32,5 +32,5 @@ export const GET = withEmailAccount(
 
     return NextResponse.json(result);
   },
-  { allowAdmins: true },
+  { allowOrgAdmins: true },
 );

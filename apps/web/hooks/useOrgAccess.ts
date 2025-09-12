@@ -1,28 +1,18 @@
 import { useSession } from "@/utils/auth-client";
 import { useParams } from "next/navigation";
-import useSWR from "swr";
-import { fetchWithAccount } from "@/utils/fetch";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
+import type { EmailAccountFullResponse } from "@/app/api/user/email-account/route";
 
 export function useOrgAccess() {
   const { data: session } = useSession();
   const params = useParams<{ emailAccountId: string | undefined }>();
   const emailAccountId = params.emailAccountId;
 
-  const { data: emailAccount } = useSWR(
+  const { data: emailAccount, isLoading } = useOrgSWR<EmailAccountFullResponse>(
     emailAccountId ? "/api/user/email-account" : null,
-    async (url) => {
-      const response = await fetchWithAccount({ url, emailAccountId });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `Failed to fetch email account: ${response.status} ${errorText}`,
-        );
-      }
-      return response.json();
-    },
   );
 
-  if (!session?.user?.email || !emailAccount) {
+  if (!session?.user?.email) {
     return {
       isLoading: true,
       isAccountOwner: true,
@@ -30,7 +20,15 @@ export function useOrgAccess() {
     };
   }
 
-  const isAccountOwner = emailAccount.email === session.user.email;
+  if (isLoading || !emailAccount) {
+    return {
+      isLoading: true,
+      isAccountOwner: true,
+      accountInfo: null,
+    };
+  }
+
+  const isAccountOwner = emailAccount.user.id === session.user.id;
 
   return {
     isLoading: false,
@@ -39,15 +37,7 @@ export function useOrgAccess() {
       email: emailAccount.email,
       name: emailAccount.name,
       image: emailAccount.image,
-      provider: emailAccount.account?.provider,
+      provider: undefined, // Provider not available in this response
     },
   };
-}
-
-export function isViewingDifferentAccount(
-  currentUserEmail: string,
-  emailAccountEmail: string | undefined,
-): boolean {
-  if (!emailAccountEmail) return false;
-  return currentUserEmail !== emailAccountEmail;
 }

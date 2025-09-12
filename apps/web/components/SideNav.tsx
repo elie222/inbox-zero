@@ -57,7 +57,8 @@ import { prefixPath } from "@/utils/path";
 import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
-import { useOwnEmailAccount } from "@/hooks/useOwnEmailAccount";
+import { useAccounts } from "@/hooks/useAccounts";
+import { getOwnEmailAccount } from "@/utils/email-account";
 
 type NavItem = {
   name: string;
@@ -72,7 +73,9 @@ export const useNavigation = () => {
   // When we have features in early access, we can filter the navigation items
   const showCleaner = useCleanerEnabled();
   const { emailAccountId, provider } = useAccount();
-  const { ownEmailAccountId } = useOwnEmailAccount();
+  const { data: accountsData } = useAccounts();
+  const ownEmailAccount = getOwnEmailAccount(accountsData);
+  const ownEmailAccountId = ownEmailAccount?.id;
 
   // Assistant category items
   const navItems: NavItem[] = useMemo(

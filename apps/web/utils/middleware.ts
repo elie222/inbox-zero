@@ -13,7 +13,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
-import { checkOrgEmailAccountAccess } from "@/utils/organizations/access";
+import { getMemberEmailAccount } from "@/utils/organizations/access";
 
 const logger = createScopedLogger("middleware");
 
@@ -41,7 +41,7 @@ export interface RequestWithEmailProvider extends RequestWithEmailAccount {
 }
 
 export interface MiddlewareOptions {
-  allowAdmins?: boolean;
+  allowOrgAdmins?: boolean;
 }
 
 // Higher-order middleware factory that handles common error logic
@@ -143,7 +143,6 @@ function withMiddleware<T extends NextRequest>(
 
 async function authMiddleware(
   req: NextRequest,
-  options?: MiddlewareOptions,
 ): Promise<RequestWithAuth | Response> {
   const session = await auth();
   if (!session?.user) {
@@ -182,9 +181,9 @@ async function emailAccountMiddleware(
   // If account ID is provided, validate and get the email account ID
   const email = await getEmailAccount({ userId, emailAccountId });
 
-  if (!email && options?.allowAdmins) {
+  if (!email && options?.allowOrgAdmins) {
     // Check if user can access this email account through organization membership
-    const targetEmailAccount = await checkOrgEmailAccountAccess(
+    const targetEmailAccount = await getMemberEmailAccount(
       userId,
       emailAccountId,
     );
@@ -216,7 +215,6 @@ async function emailAccountMiddleware(
 
 async function emailProviderMiddleware(
   req: NextRequest,
-  options?: MiddlewareOptions,
 ): Promise<RequestWithEmailProvider | Response> {
   // First run email account middleware
   const emailAccountReq = await emailAccountMiddleware(req);
@@ -277,11 +275,8 @@ export function withError(
   return withMiddleware(handler, undefined, options);
 }
 
-export function withAuth(
-  handler: NextHandler<RequestWithAuth>,
-  options?: MiddlewareOptions,
-): NextHandler {
-  return withMiddleware(handler, authMiddleware, options);
+export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
+  return withMiddleware(handler, authMiddleware);
 }
 
 export function withEmailAccount(
@@ -293,9 +288,8 @@ export function withEmailAccount(
 
 export function withEmailProvider(
   handler: NextHandler<RequestWithEmailProvider>,
-  options?: MiddlewareOptions,
 ): NextHandler {
-  return withMiddleware(handler, emailProviderMiddleware, options);
+  return withMiddleware(handler, emailProviderMiddleware);
 }
 
 function isErrorWithConfigAndHeaders(

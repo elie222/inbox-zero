@@ -12,6 +12,11 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
     where: { id: emailAccountId },
     include: {
       digestSchedule: true,
+      user: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -28,5 +33,5 @@ export const GET = withEmailAccount(
 
     return NextResponse.json(emailAccount);
   },
-  { allowAdmins: true },
+  { allowOrgAdmins: true },
 );
