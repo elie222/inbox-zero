@@ -6,7 +6,6 @@ import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("actions/calendar");
 
-// Check calendar connection status
 export const checkCalendarStatusAction = actionClient
   .metadata({ name: "checkCalendarStatus" })
   .action(async ({ ctx: { emailAccountId } }) => {
@@ -25,8 +24,6 @@ export const checkCalendarStatusAction = actionClient
       };
     }
 
-    // Check if the account has calendar scopes
-    // Look for specific calendar-related scopes in the account's scope string
     const scope = emailAccount.account.scope || "";
     const hasCalendarScopes =
       scope.includes("calendar.events") ||

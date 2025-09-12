@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { linkSocial } from "@/utils/auth-client";
-import { CALENDAR_SCOPES } from "@/utils/calendar/scopes";
+import { CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { toastSuccess, toastError } from "@/components/Toast";
 import { useState } from "react";
 import { CalendarIcon, HelpCircle } from "lucide-react";
