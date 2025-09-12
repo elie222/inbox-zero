@@ -104,12 +104,12 @@ export function createGenerateText({
         try {
           return await generate(modelOptions.backupModel);
         } catch (error) {
-          await handleError(error, userEmail);
+          await handleError(error, userEmail, label);
           throw error;
         }
       }
 
-      await handleError(error, userEmail);
+      await handleError(error, userEmail, label);
       throw error;
     }
   };
@@ -159,7 +159,7 @@ export function createGenerateObject({
 
       return result;
     } catch (error) {
-      await handleError(error, userEmail);
+      await handleError(error, userEmail, label);
       throw error;
     }
   };
@@ -248,8 +248,8 @@ export async function chatCompletionStream({
   return result;
 }
 
-async function handleError(error: unknown, userEmail: string) {
-  logger.error("Error in LLM call", { error, userEmail });
+async function handleError(error: unknown, userEmail: string, label: string) {
+  logger.error("Error in LLM call", { error, userEmail, label });
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {
