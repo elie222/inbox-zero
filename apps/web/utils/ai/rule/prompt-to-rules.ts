@@ -82,6 +82,16 @@ You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
+IMPORTANT: You must return JSON object in this format:
+
+{
+  "rules": [
+    {
+      ...
+    }
+  ]
+}
+
 <examples>
   <example>
     <input>

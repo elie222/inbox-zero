@@ -12,6 +12,7 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
 } from "ai";
+import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -134,8 +135,25 @@ export function createGenerateObject({
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
+      if (
+        !options.system?.includes("JSON") &&
+        typeof options.prompt === "string" &&
+        !options.prompt?.includes("JSON")
+      ) {
+        logger.warn("Missing JSON in prompt", { label });
+      }
+
       const result = await generateObject(
         {
+          experimental_repairText: async ({ text }) => {
+            logger.info("Repairing text", { text: text.slice(0, 200) });
+
+            const fixed = jsonrepair(text);
+
+            logger.info("Fixed text", { fixed: fixed.slice(0, 200) });
+
+            return fixed;
+          },
           ...options,
           ...commonOptions,
         },
