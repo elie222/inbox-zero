@@ -146,12 +146,8 @@ export function createGenerateObject({
       const result = await generateObject(
         {
           experimental_repairText: async ({ text }) => {
-            logger.info("Repairing text", { text: text.slice(0, 200) });
-
+            logger.info("Repairing text", { label });
             const fixed = jsonrepair(text);
-
-            logger.info("Fixed text", { fixed: fixed.slice(0, 200) });
-
             return fixed;
           },
           ...options,
