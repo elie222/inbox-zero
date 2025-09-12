@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { SparklesIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -18,6 +19,7 @@ import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
+import { DismissibleVideoCard } from "@/components/VideoCard";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -120,6 +122,20 @@ export default async function AutomationPage({
                 hasPendingRule={hasPendingRule}
               />
             </Suspense>
+          </div>
+
+          <div className="mt-4">
+            <DismissibleVideoCard
+              icon={<SparklesIcon className="h-5 w-5" />}
+              title="Getting started with AI Assistant"
+              description={
+                "Learn how to use the AI Assistant to automatically label, archive, and more."
+              }
+              videoId="SoeNDVr7ve4"
+              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+              thumbnailAlt="Getting started with AI Assistant"
+              storageKey="ai-assistant-onboarding-video"
+            />
           </div>
 
           <Tabs defaultValue="rules">

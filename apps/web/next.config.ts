@@ -23,6 +23,10 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         protocol: "https",
+        hostname: "img.youtube.com",
+      },
+      {
+        protocol: "https",
         hostname: "ph-avatars.imgix.net",
       },
       {
