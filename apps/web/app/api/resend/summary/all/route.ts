@@ -8,7 +8,7 @@ import {
   hasCronSecret,
   hasPostCronSecret,
 } from "@/utils/cron";
-import { Frequency } from "@prisma/client";
+import { Frequency } from "@/generated/prisma";
 import { captureException } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { publishToQstashQueue } from "@/utils/upstash";

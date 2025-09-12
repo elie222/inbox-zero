@@ -1,4 +1,4 @@
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 // Action types that support delayed execution
 const SUPPORTED_DELAYED_ACTIONS: ActionType[] = [

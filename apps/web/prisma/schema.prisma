@@ -6,6 +6,7 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+  output   = "../generated/prisma"
 }
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
@@ -32,17 +33,18 @@ model Account {
 
 // not in use. we only use jwt for sessions
 model Session {
-  id                  String        @id @default(cuid())
-  sessionToken        String        @unique
-  userId              String
-  expires             DateTime
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  ipAddress    String?
+  userAgent    String?
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   activeOrganizationId String?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  ipAddress           String?
-  userAgent           String?
-  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  activeOrganization  Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
+  activeOrganization   Organization? @relation(fields: [activeOrganizationId], references: [id], onDelete: SetNull)
 }
 
 model User {
@@ -96,8 +98,8 @@ model User {
   referralReceived Referral?  @relation("ReferredUser")
 
   // Organization relationships
-  members Member[]
-  invitations Invitation[]
+  members      Member[]
+  invitations  Invitation[]
   ssoproviders SsoProvider[]
 }
 
@@ -212,13 +214,13 @@ model Verification {
 }
 
 model SsoProvider {
-  id             String  @id @default(cuid())
+  id             String        @id @default(cuid())
   issuer         String
   oidcConfig     String?
   samlConfig     String?
   userId         String?
-  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId     String  @unique
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  providerId     String        @unique
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String

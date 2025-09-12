@@ -8,7 +8,7 @@ import {
   GroupItemType,
   LogicalOperator,
   type Rule,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
 import { isDefined, type ParsedMessage } from "@/utils/types";

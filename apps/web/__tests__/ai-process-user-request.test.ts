@@ -3,8 +3,8 @@ import stripIndent from "strip-indent";
 import { processUserRequest } from "@/utils/ai/assistant/process-user-request";
 import type { ParsedMessage, ParsedMessageHeaders } from "@/utils/types";
 import type { RuleWithRelations } from "@/utils/ai/rule/create-prompt-from-rule";
-import type { Category, GroupItem, Prisma } from "@prisma/client";
-import { GroupItemType, LogicalOperator } from "@prisma/client";
+import type { Category, GroupItem, Prisma } from "@/generated/prisma";
+import { GroupItemType, LogicalOperator } from "@/generated/prisma";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // pnpm test-ai ai-process-user-request

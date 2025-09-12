@@ -1,6 +1,6 @@
 import { isDefined } from "@/utils/types";
 import prisma from "@/utils/prisma";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailProvider } from "@/utils/email/types";
 

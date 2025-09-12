@@ -3,7 +3,7 @@ import { capitalCase } from "capital-case";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { ConditionType } from "@/utils/config";
 import { CardBasic } from "@/components/ui/card";
-import { CategoryFilterType } from "@prisma/client";
+import { CategoryFilterType } from "@/generated/prisma";
 
 export function ConditionSummaryCard({
   condition,

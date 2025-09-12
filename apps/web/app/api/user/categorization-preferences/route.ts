@@ -6,7 +6,7 @@ import {
   ColdEmailSetting,
   SystemType,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import type {
   CategoryAction,
   CreateRulesOnboardingBody,

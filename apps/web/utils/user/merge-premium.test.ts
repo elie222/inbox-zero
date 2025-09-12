@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PremiumTier } from "@prisma/client";
+import { PremiumTier } from "@/generated/prisma";
 import { transferPremiumDuringMerge } from "./merge-premium";
 import prisma from "@/utils/__mocks__/prisma";
 

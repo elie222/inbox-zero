@@ -4,7 +4,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
   SystemType,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import { ConditionType } from "@/utils/config";
 import { NINETY_DAYS_MINUTES } from "@/utils/date";
 import { SystemRule } from "@/utils/rule/consts";

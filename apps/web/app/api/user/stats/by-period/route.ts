@@ -5,7 +5,7 @@ import sumBy from "lodash/sumBy";
 import { zodPeriod } from "@inboxzero/tinybird";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 
 const statsByWeekParams = z.object({
   period: zodPeriod,

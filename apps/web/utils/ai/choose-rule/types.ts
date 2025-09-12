@@ -1,4 +1,9 @@
-import type { Category, Group, GroupItem, SystemType } from "@prisma/client";
+import type {
+  Category,
+  Group,
+  GroupItem,
+  SystemType,
+} from "@/generated/prisma";
 import type { ConditionType } from "@/utils/config";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 

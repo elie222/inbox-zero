@@ -2,7 +2,7 @@ import {
   ExecutedRuleStatus,
   ScheduledActionStatus,
   type ScheduledAction,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";

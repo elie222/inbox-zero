@@ -4,7 +4,7 @@ import {
   type Category,
   ActionType,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getEmailTerminology } from "@/utils/terminology";
 

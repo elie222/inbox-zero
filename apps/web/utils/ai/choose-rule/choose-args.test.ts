@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { combineActionsWithAiArgs } from "./choose-args";
-import { ActionType, type Action } from "@prisma/client";
+import { ActionType, type Action } from "@/generated/prisma";
 
 vi.mock("server-only", () => ({}));
 

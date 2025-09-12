@@ -1,4 +1,4 @@
-import { ActionType, type ExecutedRule } from "@prisma/client";
+import { ActionType, type ExecutedRule } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";

@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
-import { type Action, ActionType, LogicalOperator } from "@prisma/client";
+import { type Action, ActionType, LogicalOperator } from "@/generated/prisma";
 import { defaultReplyTrackerInstructions } from "@/utils/reply-tracker/consts";
 import { getEmail, getEmailAccount } from "@/__tests__/helpers";
 

@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("category");
