@@ -17,12 +17,7 @@ import {
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -494,7 +489,7 @@ export function Rules({
               </TableBody>
             </Table>
           ) : (
-            <NoRules onCreateRule={onCreateRule} />
+            <NoRules />
           )}
         </LoadingContent>
       </Card>
@@ -551,21 +546,11 @@ export function ActionBadges({
   );
 }
 
-function NoRules({ onCreateRule }: { onCreateRule: () => void }) {
+function NoRules() {
   return (
-    <>
-      <CardHeader>
-        <CardDescription>
-          You don't have any rules yet.
-          <br />
-          You can teach your AI assistant how to handle your emails by chatting
-          with it or create rules manually.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <AddRuleButton onClick={onCreateRule} />
-      </CardContent>
-    </>
+    <CardHeader>
+      <CardDescription>You don't have any rules yet.</CardDescription>
+    </CardHeader>
   );
 }
 

@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
 } from "lucide-react";
+import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
@@ -112,6 +113,8 @@ const StepItem = ({
   completed,
   actionText,
   linkProps,
+  onMarkDone,
+  showMarkDone,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -122,12 +125,18 @@ const StepItem = ({
   completed: boolean;
   actionText: string;
   linkProps?: { target?: string; rel?: string };
+  onMarkDone?: () => void;
+  showMarkDone?: boolean;
 }) => {
+  const handleMarkDone = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onMarkDone?.();
+  };
+
   return (
-    <Link
+    <div
       className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
-      href={href}
-      {...linkProps}
     >
       <div className="flex items-center justify-between gap-8 p-4">
         <div className="flex max-w-lg items-center">
@@ -144,7 +153,7 @@ const StepItem = ({
           </div>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           {completed ? (
             <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
               <CheckIcon
@@ -153,13 +162,29 @@ const StepItem = ({
               />
             </div>
           ) : (
-            <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75">
-              {actionText}
-            </div>
+            <>
+              {showMarkDone && (
+                <button
+                  type="button"
+                  onClick={handleMarkDone}
+                  className="rounded-md bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  Mark Done
+                </button>
+              )}
+
+              <Link
+                href={href}
+                {...linkProps}
+                className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75"
+              >
+                {actionText}
+              </Link>
+            </>
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 
@@ -182,6 +207,15 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
+  const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
+    "inbox-zero-extension-installed",
+    false,
+  );
+
+  const handleMarkExtensionDone = () => {
+    setIsExtensionInstalled(true);
+  };
+
   return (
     <Card className="mb-6 overflow-hidden">
       <div className="border-b border-border p-4">
@@ -217,8 +251,8 @@ function Checklist({
         icon={<ArchiveIcon size={20} />}
         iconBg="bg-purple-100 dark:bg-purple-900/50"
         iconColor="text-purple-500 dark:text-purple-400"
-        title="Unsubscribe from emails you don't read"
-        timeEstimate="5 minutes"
+        title="Unsubscribe from a newsletter you don't read"
+        timeEstimate="2 minutes"
         completed={isBulkUnsubscribeConfigured}
         actionText="View"
       />
@@ -243,8 +277,10 @@ function Checklist({
           iconColor="text-orange-500 dark:text-orange-400"
           title="Install the Inbox Zero Tabs extension"
           timeEstimate="1 minute"
-          completed={false}
+          completed={isExtensionInstalled}
           actionText="Install"
+          onMarkDone={handleMarkExtensionDone}
+          showMarkDone={true}
         />
       )}
     </Card>
