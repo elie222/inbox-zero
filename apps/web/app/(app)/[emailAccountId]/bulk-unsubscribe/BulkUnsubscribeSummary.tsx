@@ -7,7 +7,7 @@ import { formatStat } from "@/utils/stats";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { NewsletterSummaryResponse } from "@/app/api/user/stats/newsletters/summary/route";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma";
 
 export function BulkUnsubscribeSummary() {
   const { data, isLoading, error } = useSWR<

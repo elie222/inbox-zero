@@ -1,5 +1,5 @@
 import { capitalCase } from "capital-case";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 import { getEmailTerminology } from "@/utils/terminology";
 
 export function getActionDisplay(

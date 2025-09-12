@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withEmailProvider } from "@/utils/middleware";
-import { ExecutedRuleStatus } from "@prisma/client";
+import { ExecutedRuleStatus } from "@/generated/prisma";
 import { getExecutedRules } from "@/app/api/user/planned/get-executed-rules";
 
 export const dynamic = "force-dynamic";

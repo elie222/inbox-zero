@@ -38,7 +38,7 @@ import {
   PremiumTooltip,
   PremiumTooltipContent,
 } from "@/components/PremiumAlert";
-import { NewsletterStatus } from "@prisma/client";
+import { NewsletterStatus } from "@/generated/prisma";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { createFilterAction } from "@/utils/actions/mail";
 import { getGmailSearchUrl } from "@/utils/url";

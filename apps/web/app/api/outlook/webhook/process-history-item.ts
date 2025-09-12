@@ -13,7 +13,7 @@ import type {
   ProcessHistoryOptions,
   OutlookResourceData,
 } from "@/app/api/outlook/webhook/types";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting } from "@/generated/prisma";
 import { logger } from "@/app/api/outlook/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import {

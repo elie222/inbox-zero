@@ -1,6 +1,6 @@
 import { TagIcon } from "lucide-react";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 import { CardBasic } from "@/components/ui/card";
 import {
   ACTION_TYPE_TEXT_COLORS,

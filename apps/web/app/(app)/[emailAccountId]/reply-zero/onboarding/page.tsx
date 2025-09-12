@@ -1,7 +1,7 @@
 import { EnableReplyTracker } from "@/app/(app)/[emailAccountId]/reply-zero/EnableReplyTracker";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 export default async function OnboardingReplyTracker(props: {
   params: Promise<{ emailAccountId: string }>;

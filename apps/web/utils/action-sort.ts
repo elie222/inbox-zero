@@ -1,5 +1,5 @@
 import sortBy from "lodash/sortBy";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 /**
  * Defines the priority order for action types when displaying them.

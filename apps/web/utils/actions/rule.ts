@@ -25,7 +25,7 @@ import {
   type Rule,
   SystemType,
   type Prisma,
-} from "@prisma/client";
+} from "@/generated/prisma";
 import {
   updatePromptFileOnRuleUpdated,
   updateRuleInstructionsAndPromptFile,

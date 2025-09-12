@@ -5,7 +5,7 @@ import { Controller, type SubmitHandler, useForm } from "react-hook-form";
 import { LoadingContent } from "@/components/LoadingContent";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ColdEmailSetting } from "@prisma/client";
+import { ColdEmailSetting } from "@/generated/prisma";
 import { Button } from "@/components/ui/button";
 import {
   type UpdateColdEmailSettingsBody,

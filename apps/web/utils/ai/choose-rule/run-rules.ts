@@ -4,7 +4,7 @@ import type {
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { ExecutedRuleStatus, type Prisma, type Rule } from "@prisma/client";
+import { ExecutedRuleStatus, type Prisma, type Rule } from "@/generated/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";

@@ -9,7 +9,7 @@ import { HoverCard } from "@/components/HoverCard";
 import { Badge } from "@/components/Badge";
 import { isAIRule } from "@/utils/condition";
 import { prefixPath } from "@/utils/path";
-import { ActionType } from "@prisma/client";
+import { ActionType } from "@/generated/prisma";
 
 export function ProcessResultDisplay({
   result,

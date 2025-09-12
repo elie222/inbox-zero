@@ -1,5 +1,6 @@
 "use client";
 
+import { AddCalendarSection } from "@/app/(app)/[emailAccountId]/settings/AddCalendarSection";
 import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
 import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
@@ -47,6 +48,7 @@ export default function SettingsPage() {
               </SectionDescription>
             </FormSection>
 
+            <AddCalendarSection />
             <ResetAnalyticsSection />
 
             {/* this is only used in Gmail when sending a new message. disabling for now. */}

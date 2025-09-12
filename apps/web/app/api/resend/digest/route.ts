@@ -13,7 +13,7 @@ import {
   storedDigestContentSchema,
   type Digest,
 } from "./validation";
-import { DigestStatus } from "@prisma/client";
+import { DigestStatus } from "@/generated/prisma";
 import { extractNameFromEmail } from "../../../../utils/email";
 import { RuleName } from "@/utils/rule/consts";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";

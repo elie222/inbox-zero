@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient } from "@/generated/prisma";
 import { encryptedTokens } from "@/utils/prisma-extensions";
 
 declare global {

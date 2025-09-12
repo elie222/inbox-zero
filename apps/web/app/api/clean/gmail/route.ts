@@ -8,7 +8,7 @@ import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { isDefined } from "@/utils/types";
 import { createScopedLogger } from "@/utils/logger";
-import { CleanAction } from "@prisma/client";
+import { CleanAction } from "@/generated/prisma";
 import { updateThread } from "@/utils/redis/clean";
 
 const logger = createScopedLogger("api/clean/gmail");

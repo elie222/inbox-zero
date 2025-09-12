@@ -5,7 +5,7 @@ import { getStripe } from "@/ee/billing/stripe";
 import { getStripeSubscriptionTier } from "@/app/(app)/premium/config";
 import { handleLoopsEvents } from "@/ee/billing/stripe/loops-events";
 import { updateAccountSeatsForPremium } from "@/utils/premium/server";
-import type { Prisma } from "@prisma/client";
+import type { Prisma } from "@/generated/prisma";
 
 const logger = createScopedLogger("stripe/syncStripeDataToDb");
 

@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client";
+import { Prisma } from "@/generated/prisma";
 
 export function isDuplicateError(error: unknown, key?: string) {
   const duplicateError =
