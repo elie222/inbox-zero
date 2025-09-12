@@ -10,9 +10,15 @@ import { ActionType, SystemType } from "@/generated/prisma";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingCard } from "@/components/SettingCard";
+import { CalendarConnectPrompt } from "@/components/CalendarConnectPrompt";
+import { useCalendar } from "@/hooks/useCalendar";
+import { CheckCircle } from "lucide-react";
 
 export function DraftReplies() {
   const { enabled, toggleDraftReplies, loading, error } = useDraftReplies();
+  const { emailAccountId } = useAccount();
+  const { status: calendarStatus, isLoading: calendarLoading } =
+    useCalendar(emailAccountId);
 
   const handleToggle = useCallback(
     async (enable: boolean) => {
@@ -43,6 +49,25 @@ export function DraftReplies() {
             onChange={handleToggle}
           />
         </LoadingContent>
+      }
+      footer={
+        <div className="mt-3 flex justify-start">
+          {calendarLoading ? (
+            <div className="text-sm text-gray-500">
+              Checking calendar status...
+            </div>
+          ) : calendarStatus?.isConnected &&
+            calendarStatus?.hasCalendarScopes ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              Your calendar is connected!
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <CalendarConnectPrompt />
+            </div>
+          )}
+        </div>
       }
     />
   );

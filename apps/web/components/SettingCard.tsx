@@ -4,10 +4,12 @@ export function SettingCard({
   title,
   description,
   right,
+  footer,
 }: {
   title: string;
   description: string;
   right: React.ReactNode;
+  footer?: React.ReactNode;
 }) {
   return (
     <Card>
@@ -17,9 +19,9 @@ export function SettingCard({
             <h3 className="font-medium">{title}</h3>
             <p className="text-sm text-muted-foreground">{description}</p>
           </div>
-
           {right}
         </div>
+        {footer && <div className="mt-4">{footer}</div>}
       </CardContent>
     </Card>
   );
