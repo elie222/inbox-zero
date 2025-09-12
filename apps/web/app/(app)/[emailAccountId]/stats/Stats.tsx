@@ -13,6 +13,7 @@ import { LoadProgress } from "@/app/(app)/[emailAccountId]/stats/LoadProgress";
 import { useStatLoader } from "@/providers/StatLoaderProvider";
 import { EmailActionsAnalytics } from "@/app/(app)/[emailAccountId]/stats/EmailActionsAnalytics";
 import { BulkUnsubscribeSummary } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/BulkUnsubscribeSummary";
+import { RuleStatsChart } from "./RuleStatsChart";
 import { CardBasic } from "@/components/ui/card";
 import { Title } from "@tremor/react";
 import { PageHeading } from "@/components/Typography";
@@ -117,6 +118,11 @@ export function Stats() {
         </CardBasic>
 
         <EmailActionsAnalytics />
+
+        <RuleStatsChart
+          dateRange={dateRange}
+          title="Types of emails handled for you"
+        />
       </div>
 
       <StatsOnboarding />

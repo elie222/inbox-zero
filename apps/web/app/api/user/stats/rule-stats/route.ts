@@ -5,8 +5,8 @@ import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
 
 const ruleStatsQuery = z.object({
-  fromDate: z.string().optional(),
-  toDate: z.string().optional(),
+  fromDate: z.coerce.number().nullish(),
+  toDate: z.coerce.number().nullish(),
 });
 
 export type RuleStatsResponse = Awaited<ReturnType<typeof getRuleStats>>;
@@ -17,8 +17,8 @@ async function getRuleStats({
   toDate,
 }: {
   emailAccountId: string;
-  fromDate?: string;
-  toDate?: string;
+  fromDate?: number;
+  toDate?: number;
 }) {
   const dateFilter: { gte?: Date; lte?: Date } = {};
   if (fromDate) {
@@ -98,7 +98,8 @@ export const GET = withEmailAccount(
 
       const result = await getRuleStats({
         emailAccountId,
-        ...params,
+        fromDate: params.fromDate ?? undefined,
+        toDate: params.toDate ?? undefined,
       });
 
       return NextResponse.json(result);
