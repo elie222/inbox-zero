@@ -13,6 +13,7 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
+import { getMemberEmailAccount } from "@/utils/organizations/access";
 
 const logger = createScopedLogger("middleware");
 
@@ -39,17 +40,25 @@ export interface RequestWithEmailProvider extends RequestWithEmailAccount {
   emailProvider: EmailProvider;
 }
 
+export interface MiddlewareOptions {
+  allowOrgAdmins?: boolean;
+}
+
 // Higher-order middleware factory that handles common error logic
 function withMiddleware<T extends NextRequest>(
   handler: NextHandler<T>,
-  middleware?: (req: NextRequest) => Promise<T | Response>,
+  middleware?: (
+    req: NextRequest,
+    options?: MiddlewareOptions,
+  ) => Promise<T | Response>,
+  options?: MiddlewareOptions,
 ): NextHandler {
   return async (req, context) => {
     try {
       // Apply middleware if provided
       let enhancedReq = req;
       if (middleware) {
-        const middlewareResult = await middleware(req);
+        const middlewareResult = await middleware(req, options);
 
         // If middleware returned a Response, return it directly
         if (middlewareResult instanceof Response) {
@@ -152,6 +161,7 @@ async function authMiddleware(
 
 async function emailAccountMiddleware(
   req: NextRequest,
+  options?: MiddlewareOptions,
 ): Promise<RequestWithEmailAccount | Response> {
   const authReq = await authMiddleware(req);
   if (authReq instanceof Response) return authReq;
@@ -170,6 +180,24 @@ async function emailAccountMiddleware(
 
   // If account ID is provided, validate and get the email account ID
   const email = await getEmailAccount({ userId, emailAccountId });
+
+  if (!email && options?.allowOrgAdmins) {
+    // Check if user can access this email account through organization membership
+    const targetEmailAccount = await getMemberEmailAccount(
+      userId,
+      emailAccountId,
+    );
+
+    if (targetEmailAccount) {
+      const emailAccountReq = req.clone() as RequestWithEmailAccount;
+      emailAccountReq.auth = {
+        userId,
+        emailAccountId,
+        email: targetEmailAccount.email,
+      };
+      return emailAccountReq;
+    }
+  }
 
   if (!email) {
     return NextResponse.json(
@@ -240,8 +268,11 @@ async function emailProviderMiddleware(
 }
 
 // Public middlewares that build on the common infrastructure
-export function withError(handler: NextHandler): NextHandler {
-  return withMiddleware(handler);
+export function withError(
+  handler: NextHandler,
+  options?: MiddlewareOptions,
+): NextHandler {
+  return withMiddleware(handler, undefined, options);
 }
 
 export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
@@ -250,8 +281,9 @@ export function withAuth(handler: NextHandler<RequestWithAuth>): NextHandler {
 
 export function withEmailAccount(
   handler: NextHandler<RequestWithEmailAccount>,
+  options?: MiddlewareOptions,
 ): NextHandler {
-  return withMiddleware(handler, emailAccountMiddleware);
+  return withMiddleware(handler, emailAccountMiddleware, options);
 }
 
 export function withEmailProvider(

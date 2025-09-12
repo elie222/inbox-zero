@@ -12,6 +12,11 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
     where: { id: emailAccountId },
     include: {
       digestSchedule: true,
+      user: {
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -20,10 +25,13 @@ async function getEmailAccount({ emailAccountId }: { emailAccountId: string }) {
   return emailAccount;
 }
 
-export const GET = withEmailAccount(async (request) => {
-  const emailAccountId = request.auth.emailAccountId;
+export const GET = withEmailAccount(
+  async (request) => {
+    const emailAccountId = request.auth.emailAccountId;
 
-  const emailAccount = await getEmailAccount({ emailAccountId });
+    const emailAccount = await getEmailAccount({ emailAccountId });
 
-  return NextResponse.json(emailAccount);
-});
+    return NextResponse.json(emailAccount);
+  },
+  { allowOrgAdmins: true },
+);
