@@ -158,6 +158,8 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
 
+  calendarConnections CalendarConnection[]
+
   @@index([lastSummaryEmailAt])
 }
 
@@ -830,6 +832,44 @@ model ChatMessage {
   chat   Chat   @relation(fields: [chatId], references: [id], onDelete: Cascade)
 
   @@index([chatId])
+}
+
+model CalendarConnection {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  provider     String // "google" or "microsoft"
+  email        String // Google account email (e.g., "elie@gmail.com")
+  accessToken  String?
+  refreshToken String?
+  expiresAt    DateTime?
+  isConnected  Boolean   @default(true)
+
+  emailAccountId String
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
+
+  calendars Calendar[]
+
+  @@unique([emailAccountId, provider, email]) // Allow multiple Google accounts per user
+}
+
+model Calendar {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  calendarId  String // External calendar ID from provider
+  name        String
+  description String?
+  primary     Boolean @default(false)
+  isEnabled   Boolean @default(true)
+  timezone    String?
+
+  connectionId String
+  connection   CalendarConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@unique([connectionId, calendarId])
 }
 
 model Referral {
