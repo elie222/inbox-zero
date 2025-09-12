@@ -121,7 +121,7 @@ export function Stats() {
 
         <RuleStatsChart
           dateRange={dateRange}
-          title="Types of emails handled for you"
+          title="Your email workload breakdown"
         />
       </div>
 

@@ -3,11 +3,10 @@
 import { BarChart, Card, Title } from "@tremor/react";
 import { useMemo } from "react";
 import type { DateRange } from "react-day-picker";
-import useSWR from "swr";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getDateRangeParams } from "./params";
-import { fetchWithAccount } from "@/utils/fetch";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type { RuleStatsResponse } from "@/app/api/user/stats/rule-stats/route";
 
 interface RuleStatsChartProps {
@@ -18,15 +17,8 @@ interface RuleStatsChartProps {
 export function RuleStatsChart({ dateRange, title }: RuleStatsChartProps) {
   const params = getDateRangeParams(dateRange);
 
-  const { data, isLoading, error } = useSWR<RuleStatsResponse>(
+  const { data, isLoading, error } = useOrgSWR<RuleStatsResponse>(
     `/api/user/stats/rule-stats?${new URLSearchParams(params as Record<string, string>)}`,
-    async (url: string) => {
-      const response = await fetchWithAccount({ url });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch rule stats: ${response.status}`);
-      }
-      return response.json();
-    },
   );
 
   const chartData = useMemo(() => {

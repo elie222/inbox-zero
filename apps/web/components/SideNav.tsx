@@ -58,7 +58,7 @@ import { ReferralDialog } from "@/components/ReferralDialog";
 import { isGoogleProvider } from "@/utils/email/provider-types";
 import { NavUser } from "@/components/NavUser";
 import { useAccounts } from "@/hooks/useAccounts";
-import { getOwnEmailAccount } from "@/utils/email-account";
+import { getOwnEmailAccount } from "@/utils/email-account-client";
 
 type NavItem = {
   name: string;
