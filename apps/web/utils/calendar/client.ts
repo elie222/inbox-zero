@@ -2,7 +2,7 @@ import { auth, calendar, type calendar_v3 } from "@googleapis/calendar";
 import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
-import { CALENDAR_SCOPES } from "@/utils/calendar/scopes";
+import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
 
 const logger = createScopedLogger("calendar/client");
@@ -30,7 +30,7 @@ const getAuth = ({
     access_token: accessToken,
     refresh_token: refreshToken,
     expiry_date: expiryDate,
-    scope: CALENDAR_SCOPES.join(" "),
+    scope: GOOGLE_CALENDAR_SCOPES.join(" "),
   });
 
   return googleAuth;

@@ -9,7 +9,7 @@ import prisma from "@/utils/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCalendarOAuth2Client } from "@/utils/calendar/client";
-import { CALENDAR_SCOPES } from "@/utils/calendar/scopes";
+import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 
 export const connectGoogleCalendarAction = actionClient
   .metadata({ name: "connectGoogleCalendar" })
@@ -18,7 +18,7 @@ export const connectGoogleCalendarAction = actionClient
 
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
-      scope: CALENDAR_SCOPES,
+      scope: GOOGLE_CALENDAR_SCOPES,
       state: JSON.stringify({
         emailAccountId,
         type: "calendar",
