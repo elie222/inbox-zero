@@ -16,7 +16,7 @@ export const GET = withError(async (request: NextRequest) => {
   const code = searchParams.get("code");
   const state = searchParams.get("state");
 
-  const redirectUrl = new URL("/settings", request.nextUrl.origin);
+  const redirectUrl = new URL("/calendars", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   if (!code || !state) {
@@ -43,6 +43,9 @@ export const GET = withError(async (request: NextRequest) => {
   }
 
   const { emailAccountId } = decodedState;
+
+  redirectUrl.pathname = `/${emailAccountId}/calendars`;
+
   const googleAuth = getCalendarOAuth2Client();
 
   try {
@@ -53,7 +56,6 @@ export const GET = withError(async (request: NextRequest) => {
       throw new Error("Missing id_token from Google response");
     }
 
-    // Verify the ID token to get user info
     const ticket = await googleAuth.verifyIdToken({
       idToken: id_token,
       audience: env.GOOGLE_CLIENT_ID,
@@ -66,7 +68,6 @@ export const GET = withError(async (request: NextRequest) => {
 
     const googleEmail = payload.email;
 
-    // Check if calendar connection already exists
     const existingConnection = await prisma.calendarConnection.findFirst({
       where: {
         emailAccountId,
@@ -84,7 +85,6 @@ export const GET = withError(async (request: NextRequest) => {
       return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }
 
-    // Create calendar connection
     const connection = await prisma.calendarConnection.create({
       data: {
         provider: "google",
@@ -97,7 +97,6 @@ export const GET = withError(async (request: NextRequest) => {
       },
     });
 
-    // Sync calendars
     await syncGoogleCalendars(
       connection.id,
       access_token!,
@@ -127,11 +126,10 @@ async function syncGoogleCalendars(
   emailAccountId: string,
 ) {
   try {
-    // Use the existing calendar client with refresh functionality
     const calendarClient = await getCalendarClientWithRefresh({
       accessToken,
       refreshToken,
-      expiresAt: null, // Force refresh to ensure we have valid tokens
+      expiresAt: null,
       emailAccountId,
     });
 
@@ -164,7 +162,6 @@ async function syncGoogleCalendars(
     }
   } catch (error) {
     logger.error("Error syncing calendars", { error, connectionId });
-    // Mark connection as disconnected on error
     await prisma.calendarConnection.update({
       where: { id: connectionId },
       data: { isConnected: false },

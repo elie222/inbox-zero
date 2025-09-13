@@ -8,20 +8,14 @@ import {
 import prisma from "@/utils/prisma";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import {
-  getCalendarClientWithRefresh,
-  fetchGoogleCalendars,
-  getCalendarOAuth2Client,
-} from "@/utils/calendar/client";
+import { getCalendarOAuth2Client } from "@/utils/calendar/client";
 import { CALENDAR_SCOPES } from "@/utils/calendar/scopes";
 
 export const connectGoogleCalendarAction = actionClient
   .metadata({ name: "connectGoogleCalendar" })
   .action(async ({ ctx: { emailAccountId } }) => {
-    // Create OAuth2 client for calendar permissions
     const oauth2Client = getCalendarOAuth2Client();
 
-    // Generate auth URL with calendar scopes
     const authUrl = oauth2Client.generateAuthUrl({
       access_type: "offline",
       scope: CALENDAR_SCOPES,
@@ -29,10 +23,9 @@ export const connectGoogleCalendarAction = actionClient
         emailAccountId,
         type: "calendar",
       }),
-      prompt: "consent", // Force consent to ensure we get refresh token
+      prompt: "consent",
     });
 
-    // Redirect to Google OAuth for calendar permissions
     redirect(authUrl);
   });
 
@@ -41,7 +34,6 @@ export const disconnectCalendarAction = actionClient
   .schema(disconnectCalendarBody)
   .action(
     async ({ ctx: { emailAccountId }, parsedInput: { connectionId } }) => {
-      // Verify the connection belongs to this email account
       const connection = await prisma.calendarConnection.findFirst({
         where: {
           id: connectionId,
@@ -53,12 +45,11 @@ export const disconnectCalendarAction = actionClient
         throw new Error("Calendar connection not found");
       }
 
-      // Delete the connection and all associated calendars
       await prisma.calendarConnection.delete({
         where: { id: connectionId },
       });
 
-      revalidatePath("/settings");
+      revalidatePath("/calendars");
       return { success: true };
     },
   );
@@ -71,26 +62,21 @@ export const toggleCalendarAction = actionClient
       ctx: { emailAccountId },
       parsedInput: { calendarId, isEnabled },
     }) => {
-      // Verify the calendar belongs to this email account
-      const calendar = await prisma.calendar.findFirst({
+      const updatedCalendar = await prisma.calendar.updateMany({
         where: {
           id: calendarId,
           connection: {
             emailAccountId,
           },
         },
-      });
-
-      if (!calendar) {
-        throw new Error("Calendar not found");
-      }
-
-      await prisma.calendar.update({
-        where: { id: calendarId },
         data: { isEnabled },
       });
 
-      revalidatePath("/settings");
+      if (updatedCalendar.count === 0) {
+        throw new Error("Calendar not found");
+      }
+
+      revalidatePath("/[emailAccountId]/calendars", "page");
       return { success: true };
     },
   );
