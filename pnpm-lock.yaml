@@ -145,6 +145,9 @@ importers:
       '@formkit/auto-animate':
         specifier: 0.8.4
         version: 0.8.4
+      '@googleapis/calendar':
+        specifier: ^11.0.1
+        version: 11.0.1
       '@googleapis/gmail':
         specifier: 14.0.1
         version: 14.0.1
@@ -1927,6 +1930,10 @@ packages:
 
   '@formkit/auto-animate@0.8.4':
     resolution: {integrity: sha512-DHHC01EJ1p70Q0z/ZFRBIY8NDnmfKccQoyoM84Tgb6omLMat6jivCdf272Y8k3nf4Lzdin/Y4R9q8uFtU0GbnA==}
+
+  '@googleapis/calendar@11.0.1':
+    resolution: {integrity: sha512-XR6/V8SjuOyGMMx5shcKB2Ouyqkw2OG5a1srCb6ifPkIJG5qu/aocQ4VVizPc89izgdCGaKqcSpRFNJUsUuizg==}
+    engines: {node: '>=12.0.0'}
 
   '@googleapis/gmail@14.0.1':
     resolution: {integrity: sha512-o2DExet8JjZd2UMpwrZZunxOVjvBzB2c37wepeszC+Dyi0tYsvqkTSrSrVTD4uzxnjr0pQVbqN6YoA0it6M1Sw==}
@@ -12750,6 +12757,12 @@ snapshots:
   '@floating-ui/utils@0.2.10': {}
 
   '@formkit/auto-animate@0.8.4': {}
+
+  '@googleapis/calendar@11.0.1':
+    dependencies:
+      googleapis-common: 8.0.2-rc.0
+    transitivePeerDependencies:
+      - supports-color
 
   '@googleapis/gmail@14.0.1':
     dependencies:
