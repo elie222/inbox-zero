@@ -133,7 +133,6 @@ export default async function AutomationPage({
               }
               videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
               thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
-              thumbnailAlt="Getting started with AI Assistant"
               storageKey="ai-assistant-onboarding-video"
             />
           </div>

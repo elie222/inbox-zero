@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import type { ComponentProps } from "react";
 import Image from "next/image";
-import { Play, X } from "lucide-react";
+import { PlayIcon, X } from "lucide-react";
 import { CardGreen } from "@/components/ui/card";
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
   DialogTrigger,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 type VideoCardProps = ComponentProps<typeof VideoCard> & {
   storageKey: string;
@@ -44,9 +45,8 @@ const VideoCard = React.forwardRef<
     icon?: React.ReactNode;
     title: string;
     description: string;
-    videoSrc?: string;
-    thumbnailSrc?: string;
-    thumbnailAlt?: string;
+    videoSrc: string;
+    thumbnailSrc: string;
     onClose?: () => void;
   }
 >(
@@ -58,42 +58,52 @@ const VideoCard = React.forwardRef<
       description,
       videoSrc,
       thumbnailSrc,
-      thumbnailAlt = "Video thumbnail",
       onClose,
       ...props
     },
     ref,
-  ) => (
-    <CardGreen ref={ref} className={className} {...props}>
-      <div className="relative">
-        {onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close"
-            className="absolute top-3 right-3 z-10 p-1.5 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200"
-          >
-            <X className="w-4 h-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" />
-          </button>
-        )}
-        <div className="flex items-center justify-between gap-6 p-6 pr-12">
-          <div className="flex items-start gap-3">
-            {icon && (
-              <div className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400">
-                {icon}
-              </div>
-            )}
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold">{title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {description}
-              </p>
-            </div>
-          </div>
+  ) => {
+    const [isOpen, setIsOpen] = useState(false);
 
-          <div className="flex items-center gap-3 flex-shrink-0">
-            {videoSrc && thumbnailSrc && (
-              <Dialog>
+    return (
+      <CardGreen ref={ref} className={className} {...props}>
+        <div className="relative">
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close"
+              className="absolute top-3 right-3 z-10 p-1.5 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-200"
+            >
+              <X className="w-4 h-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200" />
+            </button>
+          )}
+          <div className="flex items-center justify-between gap-6 p-6 pr-12">
+            <div className="flex items-start gap-3">
+              {icon && (
+                <div className="mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400">
+                  {icon}
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold">{title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {description}
+                </p>
+                <Button
+                  className="mt-3"
+                  size="sm"
+                  variant="primaryBlack"
+                  onClick={() => setIsOpen(true)}
+                  Icon={PlayIcon}
+                >
+                  Watch Video
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <Dialog open={isOpen} onOpenChange={setIsOpen}>
                 <DialogTrigger asChild>
                   <button
                     type="button"
@@ -103,14 +113,14 @@ const VideoCard = React.forwardRef<
                     <div className="relative w-32 h-20 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
                       <Image
                         src={thumbnailSrc}
-                        alt={thumbnailAlt}
+                        alt={title}
                         fill
                         className="object-cover transition-all duration-200 group-hover:scale-105"
                         sizes="(max-width: 128px) 100vw, 128px"
                       />
                       <div className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/30 transition-colors duration-200">
                         <div className="flex items-center justify-center w-8 h-8 rounded-full bg-white/90 group-hover:bg-white transition-colors duration-200">
-                          <Play className="w-3 h-3 text-gray-800 fill-current ml-0.5" />
+                          <PlayIcon className="size-3 text-gray-800 fill-current ml-0.5" />
                         </div>
                       </div>
                     </div>
@@ -129,12 +139,12 @@ const VideoCard = React.forwardRef<
                   </div>
                 </DialogContent>
               </Dialog>
-            )}
+            </div>
           </div>
         </div>
-      </div>
-    </CardGreen>
-  ),
+      </CardGreen>
+    );
+  },
 );
 VideoCard.displayName = "ActionCard";
 
