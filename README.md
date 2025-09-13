@@ -404,6 +404,10 @@ For more detailed Docker build instructions and security considerations, see [do
 1. Visit: https://console.cloud.google.com/apis/library
 2. Search for "Google Calendar API"
 3. Click on it and then click "Enable"
+4. Visit: [credentials](https://console.cloud.google.com/apis/credentials):
+    1. Click on your project
+    2. In `Authorized redirect URIs` add:
+      - `http://localhost:3000/api/google/calendar/callback`
 
 ## Contributing to the project
 
