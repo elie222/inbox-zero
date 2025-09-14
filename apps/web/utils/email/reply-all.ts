@@ -30,7 +30,9 @@ export function buildReplyAllRecipients(
       .map((addr) => addr.trim())
       .filter((addr) => addr && addr !== replyTo);
 
-    originalCcAddresses.forEach((addr) => ccSet.add(addr));
+    for (const addr of originalCcAddresses) {
+      ccSet.add(addr);
+    }
   }
 
   // Add original TO recipients to CC (excluding the reply-to address)
@@ -40,7 +42,9 @@ export function buildReplyAllRecipients(
       .map((addr) => addr.trim())
       .filter((addr) => addr && addr !== replyTo);
 
-    originalToAddresses.forEach((addr) => ccSet.add(addr));
+    for (const addr of originalToAddresses) {
+      ccSet.add(addr);
+    }
   }
 
   return {
