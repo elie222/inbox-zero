@@ -51,7 +51,7 @@ export async function generateDraft({
   }
 
   // 2. Create draft
-  await client.draftEmail(message, { content: result });
+  await client.draftEmail(message, { content: result }, emailAccount.email);
 
   logger.info("Draft created");
 }

@@ -244,13 +244,18 @@ export async function draftEmail(
     content: string;
     attachments?: Attachment[];
   },
+  userEmail: string,
 ) {
   const { text, html } = createReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
 
-  const recipients = buildReplyAllRecipients(originalEmail.headers, args.to);
+  const recipients = buildReplyAllRecipients(
+    originalEmail.headers,
+    args.to,
+    userEmail,
+  );
 
   const raw = await createRawMailMessage({
     to: recipients.to,

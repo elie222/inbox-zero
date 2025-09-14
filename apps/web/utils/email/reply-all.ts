@@ -1,4 +1,5 @@
 import type { ParsedMessageHeaders } from "@/utils/types";
+import { extractEmailAddress } from "@/utils/email";
 
 export interface ReplyAllRecipients {
   to: string;
@@ -11,14 +12,20 @@ export interface ReplyAllRecipients {
  *
  * @param headers - Original email headers
  * @param overrideTo - Optional override for the TO field (e.g., for drafts)
+ * @param currentUserEmail - Current user's email to exclude from CC
  * @returns Object with TO and CC recipients for reply-all
  */
 export function buildReplyAllRecipients(
   headers: ParsedMessageHeaders,
-  overrideTo?: string,
+  overrideTo: string | undefined,
+  currentUserEmail: string,
 ): ReplyAllRecipients {
   // Determine the primary recipient (TO field)
-  const replyTo = overrideTo || headers["reply-to"] || headers.from;
+  const replyToRaw = overrideTo || headers["reply-to"] || headers.from;
+  const replyTo = extractEmailAddress(replyToRaw);
+
+  // Extract current user's email
+  const currentUser = extractEmailAddress(currentUserEmail);
 
   // Build CC list for reply-all behavior
   const ccSet = new Set<string>();
@@ -27,20 +34,20 @@ export function buildReplyAllRecipients(
   if (headers.cc) {
     const originalCcAddresses = headers.cc
       .split(",")
-      .map((addr) => addr.trim())
-      .filter((addr) => addr && addr !== replyTo);
+      .map((addr) => extractEmailAddress(addr.trim()))
+      .filter((addr) => addr && addr !== replyTo && addr !== currentUser);
 
     for (const addr of originalCcAddresses) {
       ccSet.add(addr);
     }
   }
 
-  // Add original TO recipients to CC (excluding the reply-to address)
+  // Add original TO recipients to CC (excluding the reply-to address and current user)
   if (headers.to) {
     const originalToAddresses = headers.to
       .split(",")
-      .map((addr) => addr.trim())
-      .filter((addr) => addr && addr !== replyTo);
+      .map((addr) => extractEmailAddress(addr.trim()))
+      .filter((addr) => addr && addr !== replyTo && addr !== currentUser);
 
     for (const addr of originalToAddresses) {
       ccSet.add(addr);
@@ -48,7 +55,7 @@ export function buildReplyAllRecipients(
   }
 
   return {
-    to: replyTo,
+    to: replyToRaw, // Keep the original format for the TO field
     cc: Array.from(ccSet),
   };
 }

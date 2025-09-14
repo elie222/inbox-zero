@@ -95,7 +95,7 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, executedRule }) => {
+}> = async ({ client, email, args, userEmail, executedRule }) => {
   const draftArgs = {
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,
@@ -119,6 +119,7 @@ const draft: ActionFunction<{
       attachments: email.attachments,
     },
     draftArgs,
+    userEmail,
     executedRule,
   );
   return { draftId: result.draftId };
