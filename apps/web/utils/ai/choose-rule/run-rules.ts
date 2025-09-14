@@ -4,7 +4,12 @@ import type {
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { ExecutedRuleStatus, type Prisma, type Rule } from "@/generated/prisma";
+import {
+  ExecutedRuleStatus,
+  SystemType,
+  type Prisma,
+  type Rule,
+} from "@/generated/prisma";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
@@ -318,7 +323,9 @@ async function analyzeSenderPatternIfAiMatch({
         reason.type === "STATIC" ||
         reason.type === "GROUP" ||
         reason.type === "CATEGORY",
-    )
+    ) &&
+    // skip if the match was "to reply" system rule
+    result?.rule?.systemType !== SystemType.TO_REPLY
   ) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {

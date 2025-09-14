@@ -73,7 +73,6 @@ async function process({
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    // Check if we've already analyzed this sender
     const existingCheck = await prisma.newsletter.findUnique({
       where: {
         email_emailAccountId: {
@@ -102,7 +101,6 @@ async function process({
       emailAccountId,
     });
 
-    // Get threads from this sender
     const threadsWithMessages = await getThreadsFromSender(
       gmail,
       from,
@@ -120,7 +118,6 @@ async function process({
       return NextResponse.json({ success: true });
     }
 
-    // Get all messages and check if we have enough for pattern detection
     const allMessages = threadsWithMessages.flatMap(
       (thread) => thread.messages,
     );
@@ -132,14 +129,11 @@ async function process({
         count: allMessages.length,
       });
 
-      // Don't record a check since we didn't run the AI analysis
       return NextResponse.json({ success: true });
     }
 
-    // Convert messages to EmailForLLM format
     const emails = allMessages.map((message) => getEmailForLLM(message));
 
-    // Detect pattern using AI
     const patternResult = await aiDetectRecurringPattern({
       emails,
       emailAccount,
@@ -150,7 +144,6 @@ async function process({
     });
 
     if (patternResult?.matchedRule) {
-      // Save pattern to DB (adds sender to rule's group)
       await saveLearnedPattern({
         emailAccountId,
         from,
@@ -158,7 +151,6 @@ async function process({
       });
     }
 
-    // Record the pattern analysis result
     await savePatternCheck({ emailAccountId, from });
 
     return NextResponse.json({ success: true });
