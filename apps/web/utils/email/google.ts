@@ -278,12 +278,13 @@ export class GmailProvider implements EmailProvider {
   async draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },
+    userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }> {
     if (executedRule) {
       // Run draft creation and previous draft deletion in parallel
       const [result] = await Promise.all([
-        draftEmail(this.client, email, args),
+        draftEmail(this.client, email, args, userEmail),
         handlePreviousDraftDeletion({
           client: this,
           executedRule,
@@ -292,7 +293,7 @@ export class GmailProvider implements EmailProvider {
       ]);
       return { draftId: result.data.id || "" };
     } else {
-      const result = await draftEmail(this.client, email, args);
+      const result = await draftEmail(this.client, email, args, userEmail);
       return { draftId: result.data.id || "" };
     }
   }

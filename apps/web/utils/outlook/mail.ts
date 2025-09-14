@@ -6,6 +6,7 @@ import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createReplyContent } from "@/utils/gmail/reply";
 import { forwardEmailHtml, forwardEmailSubject } from "@/utils/gmail/forward";
+import { buildReplyAllRecipients } from "@/utils/email/reply-all";
 
 interface OutlookMessageRequest {
   subject: string;
@@ -72,6 +73,7 @@ export async function replyToEmail(
     message,
   });
 
+  // Only replying to the original sender
   const replyMessage = {
     subject: `Re: ${message.headers.subject}`,
     body: {
@@ -166,11 +168,23 @@ export async function draftEmail(
     content: string;
     attachments?: Attachment[];
   },
+  userEmail: string,
 ) {
   const { html } = createReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
+
+  const recipients = buildReplyAllRecipients(
+    originalEmail.headers,
+    args.to,
+    userEmail,
+  );
+
+  // Convert CC addresses to Outlook format
+  const ccRecipients = recipients.cc.map((addr) => ({
+    emailAddress: { address: addr },
+  }));
 
   const draft = {
     subject: args.subject || originalEmail.headers.subject,
@@ -181,27 +195,11 @@ export async function draftEmail(
     toRecipients: [
       {
         emailAddress: {
-          address:
-            args.to ||
-            originalEmail.headers["reply-to"] ||
-            originalEmail.headers.from,
+          address: recipients.to,
         },
       },
     ],
-    ...(originalEmail.headers.cc
-      ? {
-          ccRecipients: [
-            { emailAddress: { address: originalEmail.headers.cc } },
-          ],
-        }
-      : {}),
-    ...(originalEmail.headers.bcc
-      ? {
-          bccRecipients: [
-            { emailAddress: { address: originalEmail.headers.bcc } },
-          ],
-        }
-      : {}),
+    ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
     conversationId: originalEmail.threadId,
     isDraft: true,
   };
