@@ -1,17 +1,24 @@
+"use client";
+
 import { PricingLazy } from "@/app/(app)/premium/PricingLazy";
 import { Footer } from "@/app/(landing)/home/Footer";
 import { WelcomeUpgradeNav } from "@/app/(landing)/welcome-upgrade/WelcomeUpgradeNav";
 import { WelcomeUpgradeHeader } from "@/app/(landing)/welcome-upgrade/WelcomeUpgradeHeader";
 import { ABTestimonial } from "@/components/PersonWithLogo";
+import { useWelcomeTestimonialVariant } from "@/hooks/useFeatureFlags";
 
 export default function WelcomeUpgradePage() {
+  const testimonialVariant = useWelcomeTestimonialVariant();
+
   return (
     <>
       <WelcomeUpgradeNav />
       <PricingLazy showSkipUpgrade header={<WelcomeUpgradeHeader />} />
-      <div className="mt-20">
-        <Testimonial />
-      </div>
+      {testimonialVariant === "control" && (
+        <div className="mt-20">
+          <Testimonial />
+        </div>
+      )}
       <Footer />
     </>
   );
