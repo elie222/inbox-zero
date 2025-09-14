@@ -22,9 +22,7 @@ async function sendDigestAllUpdate() {
   const emailAccounts = await prisma.emailAccount.findMany({
     where: {
       digestSchedule: {
-        nextOccurrenceAt: {
-          lte: now,
-        },
+        nextOccurrenceAt: { lte: now },
       },
       // Only send to premium users
       user: {
@@ -35,9 +33,8 @@ async function sendDigestAllUpdate() {
           ],
         },
       },
-      // User at least 4 days old
       createdAt: {
-        lt: subDays(now, 4),
+        lt: subDays(now, 1),
       },
     },
     select: {
