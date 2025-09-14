@@ -366,6 +366,29 @@ describe("buildReplyAllRecipients", () => {
     expect(result.cc).toContain("charlie@company.com");
     expect(result.cc).toHaveLength(2);
   });
+
+  it("should handle display names with commas correctly", () => {
+    const headers: ParsedMessageHeaders = {
+      from: '"Smith, John" <john@example.com>',
+      to: '"Doe, Jane" <jane@company.com>, "Johnson, Bob" <bob@company.com>',
+      cc: '"Williams, Mary" <mary@company.com>, simple@company.com',
+      subject: "Test",
+      date: "2024-01-01",
+    };
+
+    const result = buildReplyAllRecipients(
+      headers,
+      undefined,
+      "myemail@example.com",
+    );
+
+    expect(result.to).toBe('"Smith, John" <john@example.com>');
+    expect(result.cc).toContain("jane@company.com");
+    expect(result.cc).toContain("bob@company.com");
+    expect(result.cc).toContain("mary@company.com");
+    expect(result.cc).toContain("simple@company.com");
+    expect(result.cc).toHaveLength(4);
+  });
 });
 
 describe("formatCcList", () => {
