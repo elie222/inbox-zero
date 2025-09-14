@@ -271,7 +271,7 @@ Only flag when someone:
       expect(result?.explanation).toBeDefined();
     });
 
-    test("detects reply needed pattern and suggests To Reply rule", async () => {
+    test("should NOT learn reply patterns from personal emails (be conservative)", async () => {
       const result = await aiDetectRecurringPattern({
         emails: getNeedsReplyEmails(),
         emailAccount: getEmailAccount(),
@@ -280,6 +280,41 @@ Only flag when someone:
 
       console.debug("Reply needed pattern detection result:", result);
 
+      // With the new conservative approach, personal emails should NOT be learned as always requiring replies
+      expect(result?.matchedRule).toBeNull();
+      expect(result?.explanation).toBeDefined();
+    });
+
+    test("should learn reply patterns from support systems that always require responses", async () => {
+      const supportEmails: EmailForLLM[] = Array.from({ length: 6 }).map((_, i) => ({
+        id: `support-${i}`,
+        from: "support@helpdesk.com",
+        to: "user@example.com",
+        subject: `Support Ticket #${1000 + i} - Action Required`,
+        content: `Dear Customer,
+        
+        Your support ticket #${1000 + i} requires your immediate attention.
+        
+        Please respond to this email with the following information:
+        - Your account details
+        - Steps to reproduce the issue
+        - Any error messages you encountered
+        
+        This ticket will be closed if we don't hear from you within 48 hours.
+        
+        Support Team`,
+        date: new Date(Date.now() - i * 2 * 24 * 60 * 60 * 1000),
+      }));
+
+      const result = await aiDetectRecurringPattern({
+        emails: supportEmails,
+        emailAccount: getEmailAccount(),
+        rules: getRealisticRules(),
+      });
+
+      console.debug("Support system pattern detection result:", result);
+
+      // Support systems that ALWAYS require responses should be learned
       expect(result?.matchedRule).toBe("To Reply");
       expect(result?.explanation).toBeDefined();
     });

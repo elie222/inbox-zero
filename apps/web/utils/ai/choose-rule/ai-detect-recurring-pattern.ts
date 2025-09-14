@@ -42,7 +42,7 @@ Your task is to determine if emails from a specific sender should ALWAYS be matc
 Analyze the email content to determine if this sender ALWAYS matches a specific rule.
 Only return a matchedRule if you're 100% confident all future emails from this sender will serve the same purpose; otherwise return null.
 
-A sender should only be matched to a rule if you are HIGHLY CONFIDENT (>80%) that:
+A sender should only be matched to a rule if you are HIGHLY CONFIDENT (>95%) that:
 - All future emails from this sender will serve the same purpose
 - The purpose clearly aligns with one specific rule
 - There's a consistent pattern across all sample emails provided
@@ -52,9 +52,20 @@ Examples of senders that typically match a single rule:
 - newsletter@substack.com → newsletter rule (always sends newsletters)
 - noreply@linkedin.com → social rule (always job or connection notifications)
 
+CRITICAL: Be extremely conservative with reply-related rules (like "To Reply"). Reply requirements are highly contextual and situational:
+- Even if someone has asked questions before, they might send "thank you" messages that don't need replies
+- People's communication patterns change over time
+- Context matters more than sender for reply decisions
+- AVOID learning reply patterns unless the sender is clearly a support system that ALWAYS requires responses
+
+Other rules to be cautious about:
+- Personal communication patterns (people's needs change)
+- Mixed-purpose senders (support emails that might be notifications OR require replies)
+- Senders who might send different types of content over time
+
 Pay close attention to the ACTUAL CONTENT of the sample emails provided. The decision should be based primarily on content analysis, not just the sender's email pattern.
 
-Be conservative in your matching. If there's any doubt, return null for "matchedRule".
+Be extremely conservative in your matching. If there's any doubt whatsoever, return null for "matchedRule". It's better to not learn a pattern than to learn an incorrect one.
 </instructions>
 
 <user_rules>
@@ -79,7 +90,7 @@ Respond with a JSON object with the following fields:
 - "matchedRule": string or null - the name of the existing rule that should handle all emails from this sender
 - "explanation": string - one sentence explanation of why this rule does or doesn't match
 
-If you're not confident (at least 80% certain) that a single rule should handle all emails from this sender, return null for matchedRule.
+If you're not confident (at least 95% certain) that a single rule should handle all emails from this sender, return null for matchedRule.
 </outputFormat>`;
 
   const prompt = `Analyze these emails and determine if they consistently match a rule:
