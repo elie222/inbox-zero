@@ -60,7 +60,8 @@ export type WelcomeTestimonialVariant = "control" | "hidden";
 
 export function useWelcomeTestimonialVariant() {
   return (
-    (useFeatureFlagVariantKey("welcome-testimonial") as WelcomeTestimonialVariant) ||
-    "control"
+    (useFeatureFlagVariantKey(
+      "welcome-testimonial",
+    ) as WelcomeTestimonialVariant) || "control"
   );
 }
