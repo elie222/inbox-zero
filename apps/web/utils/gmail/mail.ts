@@ -146,13 +146,10 @@ export async function replyToEmail(
     message,
   });
 
-  // Use reply-all logic to build recipients
-  const recipients = buildReplyAllRecipients(message.headers);
-
+  // Only replying to the original sender
   const raw = await createRawMailMessage(
     {
-      to: recipients.to,
-      cc: formatCcList(recipients.cc),
+      to: message.headers["reply-to"] || message.headers.from,
       subject: message.headers.subject,
       messageText: text,
       messageHtml: html,
@@ -253,13 +250,11 @@ export async function draftEmail(
     message: originalEmail,
   });
 
-  // Use reply-all logic to build recipients
   const recipients = buildReplyAllRecipients(originalEmail.headers, args.to);
 
   const raw = await createRawMailMessage({
     to: recipients.to,
     cc: formatCcList(recipients.cc),
-    bcc: originalEmail.headers.bcc,
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
     messageText: text,

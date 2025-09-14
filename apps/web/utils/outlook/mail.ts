@@ -73,14 +73,7 @@ export async function replyToEmail(
     message,
   });
 
-  // Use reply-all logic to build recipients
-  const recipients = buildReplyAllRecipients(message.headers);
-
-  // Convert CC addresses to Outlook format
-  const ccRecipients = recipients.cc.map((addr) => ({
-    emailAddress: { address: addr },
-  }));
-
+  // Only replying to the original sender
   const replyMessage = {
     subject: `Re: ${message.headers.subject}`,
     body: {
@@ -90,11 +83,10 @@ export async function replyToEmail(
     toRecipients: [
       {
         emailAddress: {
-          address: recipients.to,
+          address: message.headers["reply-to"] || message.headers.from,
         },
       },
     ],
-    ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
     conversationId: message.threadId,
   };
 
@@ -182,7 +174,6 @@ export async function draftEmail(
     message: originalEmail,
   });
 
-  // Use reply-all logic to build recipients
   const recipients = buildReplyAllRecipients(originalEmail.headers, args.to);
 
   // Convert CC addresses to Outlook format
@@ -204,13 +195,6 @@ export async function draftEmail(
       },
     ],
     ...(ccRecipients.length > 0 ? { ccRecipients } : {}),
-    ...(originalEmail.headers.bcc
-      ? {
-          bccRecipients: [
-            { emailAddress: { address: originalEmail.headers.bcc } },
-          ],
-        }
-      : {}),
     conversationId: originalEmail.threadId,
     isDraft: true,
   };
