@@ -119,6 +119,25 @@ async function sendEmail({
 
   const digestScheduleData = await getDigestSchedule({ emailAccountId });
 
+  const now = new Date();
+
+  // If not forced, gate by schedule to avoid repeated sends when backlog enqueues duplicates
+  if (!force && digestScheduleData?.nextOccurrenceAt) {
+    if (now < digestScheduleData.nextOccurrenceAt) {
+      return { success: true, message: "Not scheduled yet" };
+    }
+  }
+
+  // Prevent concurrent processing for the same account
+  if (!force) {
+    const inProgress = await prisma.digest.count({
+      where: { emailAccountId, status: DigestStatus.PROCESSING },
+    });
+    if (inProgress > 0) {
+      return { success: true, message: "Digest already processing" };
+    }
+  }
+
   const pendingDigests = await prisma.digest.findMany({
     where: {
       emailAccountId,
@@ -166,6 +185,19 @@ async function sendEmail({
     // Return early if no digests were found, unless force is true
     if (pendingDigests.length === 0) {
       if (!force) {
+        // Advance schedule even if there is nothing to send to prevent repeated attempts
+        if (digestScheduleData) {
+          await prisma.schedule.update({
+            where: {
+              id: digestScheduleData.id,
+              emailAccountId,
+            },
+            data: {
+              lastOccurrenceAt: now,
+              nextOccurrenceAt: calculateNextScheduleDate(digestScheduleData, now),
+            },
+          });
+        }
         return { success: true, message: "No digests to process" };
       }
       // When force is true, send an empty digest to indicate the system is working
@@ -267,6 +299,34 @@ async function sendEmail({
         "No executed rules found, skipping digest email",
         loggerOptions,
       );
+
+      // If not forced, advance schedule and revert any digests we marked as PROCESSING back to PENDING
+      if (!force) {
+        await prisma.$transaction([
+          ...(digestScheduleData
+            ? [
+                prisma.schedule.update({
+                  where: {
+                    id: digestScheduleData.id,
+                    emailAccountId,
+                  },
+                  data: {
+                    lastOccurrenceAt: now,
+                    nextOccurrenceAt: calculateNextScheduleDate(
+                      digestScheduleData,
+                      now,
+                    ),
+                  },
+                }),
+              ]
+            : []),
+          prisma.digest.updateMany({
+            where: { id: { in: processedDigestIds } },
+            data: { status: DigestStatus.PENDING },
+          }),
+        ]);
+      }
+
       return {
         success: true,
         message: "No executed rules found, skipping digest email",
@@ -304,8 +364,11 @@ async function sendEmail({
                 emailAccountId,
               },
               data: {
-                lastOccurrenceAt: new Date(),
-                nextOccurrenceAt: calculateNextScheduleDate(digestScheduleData),
+                lastOccurrenceAt: now,
+                nextOccurrenceAt: calculateNextScheduleDate(
+                  digestScheduleData,
+                  now,
+                ),
               },
             }),
           ]
