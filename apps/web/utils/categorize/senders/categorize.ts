@@ -4,7 +4,7 @@ import { defaultCategory, type SenderCategory } from "@/utils/categories";
 import { isNewsletterSender } from "@/utils/ai/group/find-newsletters";
 import { isReceiptSender } from "@/utils/ai/group/find-receipts";
 import { aiCategorizeSender } from "@/utils/ai/categorize-sender/ai-categorize-single-sender";
-import type { Category } from "@/generated/prisma";
+import type { Category } from "@prisma/client";
 import { getUserCategories } from "@/utils/category.server";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

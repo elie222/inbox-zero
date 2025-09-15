@@ -20,7 +20,7 @@ import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
 import prisma from "@/utils/prisma";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 import { updateThread } from "@/utils/redis/clean";
 import { getUnhandledCount } from "@/utils/assess";
 import { getGmailClientForEmail } from "@/utils/account";

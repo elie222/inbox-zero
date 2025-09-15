@@ -12,7 +12,7 @@ import {
   KNOWLEDGE_BASIC_MAX_ITEMS,
   KNOWLEDGE_BASIC_MAX_CHARS,
 } from "@/utils/config";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { checkHasAccess } from "@/utils/premium/server";
 
 export const createKnowledgeAction = actionClient

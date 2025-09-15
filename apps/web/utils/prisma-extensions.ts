@@ -1,4 +1,4 @@
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 import { encryptToken, decryptToken } from "@/utils/encryption";
 
 export const encryptedTokens = Prisma.defineExtension((client) => {

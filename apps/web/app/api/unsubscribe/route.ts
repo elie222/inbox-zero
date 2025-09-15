@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
-import { Frequency } from "@/generated/prisma";
+import { Frequency } from "@prisma/client";
 
 const logger = createScopedLogger("unsubscribe");
 

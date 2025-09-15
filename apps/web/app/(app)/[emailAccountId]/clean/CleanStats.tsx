@@ -1,7 +1,7 @@
 import { ArchiveIcon, InboxIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/utils";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 
 export function CleanStats({
   stats,

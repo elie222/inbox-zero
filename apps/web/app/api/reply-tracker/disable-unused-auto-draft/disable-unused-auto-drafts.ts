@@ -1,7 +1,7 @@
 import groupBy from "lodash/groupBy";
 import subDays from "date-fns/subDays";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
 const MAX_DRAFTS_TO_CHECK = 10;

@@ -31,7 +31,7 @@ import {
   addGroupItemAction,
   deleteGroupItemAction,
 } from "@/utils/actions/group";
-import { type GroupItem, GroupItemType } from "@/generated/prisma";
+import { type GroupItem, GroupItemType } from "@prisma/client";
 import { Input } from "@/components/Input";
 import { Select } from "@/components/Select";
 import { zodResolver } from "@hookform/resolvers/zod";

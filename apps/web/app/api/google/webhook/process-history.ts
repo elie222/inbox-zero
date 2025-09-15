@@ -4,7 +4,7 @@ import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import prisma from "@/utils/prisma";
 import { GmailLabel } from "@/utils/gmail/label";
 import { hasAiAccess, isPremium } from "@/utils/premium";
-import { ColdEmailSetting } from "@/generated/prisma";
+import { ColdEmailSetting } from "@prisma/client";
 import { captureException } from "@/utils/error";
 import { unwatchEmails } from "@/app/api/watch/controller";
 import { createEmailProvider } from "@/utils/email/provider";

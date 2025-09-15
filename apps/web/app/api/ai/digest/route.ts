@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { digestBody } from "./validation";
-import { DigestStatus } from "@/generated/prisma";
+import { DigestStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { RuleName } from "@/utils/rule/consts";

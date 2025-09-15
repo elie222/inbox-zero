@@ -9,7 +9,7 @@ import {
   SystemType,
   type Prisma,
   type Rule,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";

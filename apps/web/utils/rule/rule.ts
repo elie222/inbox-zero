@@ -7,7 +7,7 @@ import {
   type SystemType,
   type Prisma,
   type Rule,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { getUserCategoriesForNames } from "@/utils/category.server";
 import { getActionRiskLevel, type RiskAction } from "@/utils/risk";
 import { hasExampleParams } from "@/app/(app)/[emailAccountId]/assistant/examples";

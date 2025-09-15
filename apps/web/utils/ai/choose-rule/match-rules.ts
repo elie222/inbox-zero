@@ -12,7 +12,7 @@ import {
   CategoryFilterType,
   LogicalOperator,
   SystemType,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { ConditionType } from "@/utils/config";
 import prisma from "@/utils/prisma";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";

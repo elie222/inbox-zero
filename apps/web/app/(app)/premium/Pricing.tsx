@@ -19,7 +19,7 @@ import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";

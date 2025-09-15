@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { Action, Rule } from "@/generated/prisma";
+import type { Action, Rule } from "@prisma/client";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
 

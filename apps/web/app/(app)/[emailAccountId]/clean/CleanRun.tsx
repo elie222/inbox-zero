@@ -2,7 +2,7 @@ import { EmailFirehose } from "@/app/(app)/[emailAccountId]/clean/EmailFirehose"
 import { PreviewBatch } from "@/app/(app)/[emailAccountId]/clean/PreviewBatch";
 import { Card } from "@/components/ui/card";
 import type { getThreadsByJobId } from "@/utils/redis/clean";
-import type { CleanupJob } from "@/generated/prisma";
+import type { CleanupJob } from "@prisma/client";
 
 export function CleanRun({
   isPreviewBatch,

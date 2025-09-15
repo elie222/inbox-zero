@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmailItem } from "./EmailFirehoseItem";
 import { useEmailStream } from "./useEmailStream";
 import type { CleanThread } from "@/utils/redis/clean.types";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export function EmailFirehose({

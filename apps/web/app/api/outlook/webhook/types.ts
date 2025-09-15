@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { RuleWithActionsAndCategories } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { EmailAccount } from "@/generated/prisma";
+import type { EmailAccount } from "@prisma/client";
 import type { EmailProvider } from "@/utils/email/types";
 
 export type ProcessHistoryOptions = {

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createScopedLogger } from "@/utils/logger";
-import type { Knowledge } from "@/generated/prisma";
+import type { Knowledge } from "@prisma/client";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";

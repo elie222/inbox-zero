@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ColdEmailSetting } from "@/generated/prisma";
+import { ColdEmailSetting } from "@prisma/client";
 
 export const coldEmailBlockerBody = z.object({
   from: z.string(),

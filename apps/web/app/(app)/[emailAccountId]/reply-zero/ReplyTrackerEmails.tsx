@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
 import { useState, useCallback, type RefCallback } from "react";
 import type { ParsedMessage } from "@/utils/types";
-import { type ThreadTracker, ThreadTrackerType } from "@/generated/prisma";
+import { type ThreadTracker, ThreadTrackerType } from "@prisma/client";
 import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import { EmailMessageCell } from "@/components/EmailMessageCell";
 import { Button } from "@/components/ui/button";

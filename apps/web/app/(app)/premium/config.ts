@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 
 type Feature = { text: string; tooltip?: string };
 

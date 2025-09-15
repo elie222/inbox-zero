@@ -1,7 +1,7 @@
 import { runActionFunction } from "@/utils/ai/actions";
 import prisma from "@/utils/prisma";
-import type { Prisma } from "@/generated/prisma";
-import { ExecutedRuleStatus, ActionType } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
+import { ExecutedRuleStatus, ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import { updateExecutedActionWithDraftId } from "@/utils/ai/choose-rule/draft-management";

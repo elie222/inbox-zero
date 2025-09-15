@@ -2,7 +2,7 @@
 
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
-import { ColdEmailStatus } from "@/generated/prisma";
+import { ColdEmailStatus } from "@prisma/client";
 import { getLabel, labelThread } from "@/utils/gmail/label";
 import { GmailLabel } from "@/utils/gmail/label";
 import { getThreads } from "@/utils/gmail/thread";

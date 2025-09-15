@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { ActionType, ThreadTrackerType } from "@/generated/prisma";
+import { ActionType, ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { ParsedMessage } from "@/utils/types";

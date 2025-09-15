@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { ReplyTrackerEmails } from "./ReplyTrackerEmails";
 import { getDateFilter, type TimeRange } from "./date-filter";
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 
 const PAGE_SIZE = 20;
 

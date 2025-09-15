@@ -13,7 +13,7 @@ import {
   updateDigestItemsBody,
   type UpdateDigestItemsBody,
 } from "@/utils/actions/settings.validation";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetDigestSettingsResponse } from "@/app/api/user/digest-settings/route";
 import { Skeleton } from "@/components/ui/skeleton";

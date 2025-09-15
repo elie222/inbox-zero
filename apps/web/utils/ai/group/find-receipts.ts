@@ -2,7 +2,7 @@ import type { gmail_v1 } from "@googleapis/gmail";
 import uniq from "lodash/uniq";
 import uniqBy from "lodash/uniqBy";
 import { queryBatchMessagesPages } from "@/utils/gmail/message";
-import { GroupItemType } from "@/generated/prisma";
+import { GroupItemType } from "@prisma/client";
 import { findMatchingGroupItem } from "@/utils/group/find-matching-group";
 import { generalizeSubject } from "@/utils/string";
 import type { ParsedMessage } from "@/utils/types";

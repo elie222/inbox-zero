@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { ActionType, SystemType } from "@/generated/prisma";
+import { ActionType, SystemType } from "@prisma/client";
 
 // Define supported system types for digest settings
 const SUPPORTED_SYSTEM_TYPES = [
