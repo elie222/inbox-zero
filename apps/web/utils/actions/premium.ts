@@ -32,9 +32,6 @@ import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("actions/premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -402,7 +399,7 @@ export const claimPremiumAdminAction = actionClientUser
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
     const stripe = getStripe();
@@ -420,8 +417,10 @@ export const getBillingPortalUrlAction = actionClientUser
       },
     });
 
-    if (!user?.premium?.stripeCustomerId)
+    if (!user?.premium?.stripeCustomerId) {
+      logger.error("Stripe customer id not found", { userId });
       throw new SafeError("Stripe customer id not found");
+    }
 
     const subscription = user.premium.stripeSubscriptionId
       ? await stripe.subscriptions
@@ -463,7 +462,7 @@ export const getBillingPortalUrlAction = actionClientUser
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = getStripePriceId({ tier });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
