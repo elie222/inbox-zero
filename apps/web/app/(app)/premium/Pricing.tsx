@@ -23,6 +23,7 @@ import { PremiumTier } from "@/generated/prisma";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
+import { captureException } from "@/utils/error";
 
 const frequencies = [
   {
@@ -157,6 +158,7 @@ export default function Pricing(props: PricingProps) {
                 stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
                 isLoggedIn={isLoggedIn}
                 router={router}
+                userId={data?.id}
               />
             );
           })}
@@ -174,6 +176,7 @@ function PriceTier({
   stripeSubscriptionStatus,
   isLoggedIn,
   router,
+  userId,
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
@@ -182,6 +185,7 @@ function PriceTier({
   stripeSubscriptionStatus: string | null | undefined;
   isLoggedIn: boolean;
   router: ReturnType<typeof useRouter>;
+  userId: string | null | undefined;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -298,10 +302,17 @@ function PriceTier({
                 });
 
             if (!result?.data?.url || result?.serverError) {
+              captureException(new Error("Error creating checkout session"), {
+                extra: {
+                  tier: upgradeToTier,
+                  frequency: frequency.value,
+                  userId,
+                },
+              });
               toastError({
                 description:
                   result?.serverError ||
-                  "Error creating checkout session. Please contact support.",
+                  `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
               });
               return;
             }
