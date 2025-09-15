@@ -477,7 +477,7 @@ export const generateCheckoutSessionAction = actionClientUser
     });
     if (!user) {
       logger.error("User not found", { userId });
-      throw new Error("User not found");
+      throw new SafeError("User not found");
     }
 
     // Get the stripeCustomerId from your KV store

@@ -119,7 +119,7 @@ function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
 
-export const businessTierName = "Individual";
+export const businessTierName = "Starter";
 
 const businessTier: Tier = {
   name: businessTierName,
@@ -159,7 +159,7 @@ const businessTier: Tier = {
 };
 
 const businessPlusTier: Tier = {
-  name: "Team",
+  name: "Professional",
   tiers: {
     monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
     annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,

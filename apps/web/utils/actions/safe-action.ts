@@ -5,7 +5,7 @@ import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
@@ -89,7 +89,12 @@ export const actionClient = baseClient
 export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();
 
-  if (!session?.user) throw new SafeError("Unauthorized");
+  if (!session?.user) {
+    captureException(new Error(`Unauthorized: ${metadata?.name}`), {
+      extra: metadata,
+    });
+    throw new SafeError("Unauthorized");
+  }
 
   const userId = session.user.id;
 
