@@ -258,7 +258,10 @@ function PriceTier({
             return;
           }
 
-          if (!isLoggedIn) router.push("/login");
+          if (!isLoggedIn) {
+            router.push("/login");
+            return;
+          }
 
           setLoading(true);
 

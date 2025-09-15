@@ -423,6 +423,12 @@ export const getBillingPortalUrlAction = actionClientUser
     if (!user?.premium?.stripeCustomerId)
       throw new SafeError("Stripe customer id not found");
 
+    logger.info("Creating Stripe billing portal session", {
+      userId,
+      hasSubscription: !!user.premium.stripeSubscriptionId,
+      hasItem: !!user.premium.stripeSubscriptionItemId,
+      hasPriceId: !!priceId,
+    });
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
@@ -444,6 +450,7 @@ export const getBillingPortalUrlAction = actionClientUser
             }
           : undefined,
     });
+    logger.info("Stripe billing portal session created", { userId });
 
     return { url };
   });
@@ -490,7 +497,7 @@ export const generateCheckoutSessionAction = actionClientUser
           email: user.email,
           metadata: { userId },
         },
-        // prevent race conditions of creating 2 customers in stripe for on user
+        // prevent race conditions of creating 2 customers in stripe for one user
         // https://github.com/stripe/stripe-node/issues/476#issuecomment-402541143
         { idempotencyKey: userId },
       );
@@ -512,15 +519,25 @@ export const generateCheckoutSessionAction = actionClientUser
       sumBy(user.premium?.users || [], (u) => u._count.emailAccounts) || 1;
 
     // ALWAYS create a checkout with a stripeCustomerId
+    logger.info("Creating Stripe checkout session", {
+      userId,
+      priceId,
+      quantity,
+    });
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
       line_items: [{ price: priceId, quantity }],
       metadata: {
         dubCustomerId: userId,
       },
+    });
+    logger.info("Stripe checkout session created", {
+      userId,
+      checkoutId: checkout.id,
     });
 
     after(() => trackStripeCheckoutCreated(user.email));
