@@ -412,6 +412,7 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
+            stripeSubscriptionStatus: true,
           },
         },
       },
@@ -422,11 +423,14 @@ export const getBillingPortalUrlAction = actionClientUser
       throw new SafeError("Stripe customer id not found");
     }
 
-    const subscription = user.premium.stripeSubscriptionId
-      ? await stripe.subscriptions
-          .retrieve(user.premium.stripeSubscriptionId)
-          .catch(() => null)
-      : null;
+    const subscription =
+      priceId &&
+      user.premium.stripeSubscriptionId &&
+      user.premium.stripeSubscriptionStatus !== "canceled"
+        ? await stripe.subscriptions
+            .retrieve(user.premium.stripeSubscriptionId)
+            .catch(() => null)
+        : null;
 
     // we can't use the billing portal if the subscription is canceled
     if (priceId && subscription && subscription.status === "canceled") {
