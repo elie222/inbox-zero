@@ -429,7 +429,13 @@ export const getBillingPortalUrlAction = actionClientUser
       user.premium.stripeSubscriptionStatus !== "canceled"
         ? await stripe.subscriptions
             .retrieve(user.premium.stripeSubscriptionId)
-            .catch(() => null)
+            .catch((error) => {
+              logger.error("Failed to retrieve Stripe subscription", {
+                error: error?.message,
+                subscriptionId: user.premium?.stripeSubscriptionId,
+              });
+              return null;
+            })
         : null;
 
     // we can't use the billing portal if the subscription is canceled
