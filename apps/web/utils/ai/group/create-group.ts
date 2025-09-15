@@ -2,7 +2,7 @@ import { stepCountIs, tool } from "ai";
 import { z } from "zod";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { createGenerateText } from "@/utils/llms";
-import type { Group } from "@/generated/prisma";
+import type { Group } from "@prisma/client";
 import { queryBatchMessages } from "@/utils/gmail/message";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import { createScopedLogger } from "@/utils/logger";

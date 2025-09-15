@@ -1,5 +1,5 @@
 import type { gmail_v1 } from "@googleapis/gmail";
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
 
 // https://stackoverflow.com/a/53276873/2602771
 export type PartialRecord<K extends keyof any, T> = Partial<Record<K, T>>;

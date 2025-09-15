@@ -1,7 +1,7 @@
 import type { gmail_v1 } from "@googleapis/gmail";
 import prisma from "@/utils/prisma";
 
-import { ColdEmailStatus } from "@/generated/prisma";
+import { ColdEmailStatus } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailAccountWithAI } from "@/utils/llms/types";

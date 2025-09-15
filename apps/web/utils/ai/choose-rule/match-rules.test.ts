@@ -13,7 +13,7 @@ import {
   type Newsletter,
   type Prisma,
   SystemType,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import type {
   RuleWithActionsAndCategories,
   ParsedMessage,

@@ -6,7 +6,7 @@ import {
   type ReplyTrackerResponse,
 } from "./validation";
 import { validateApiKeyAndGetGmailClient } from "@/utils/api-auth";
-import { ThreadTrackerType } from "@/generated/prisma";
+import { ThreadTrackerType } from "@prisma/client";
 import { getPaginatedThreadTrackers } from "@/app/(app)/[emailAccountId]/reply-zero/fetch-trackers";
 import { getThreadsBatchAndParse } from "@/utils/gmail/thread";
 import { isDefined } from "@/utils/types";

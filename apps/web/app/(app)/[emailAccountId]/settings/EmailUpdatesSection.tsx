@@ -7,7 +7,7 @@ import { FormSection, FormSectionLeft } from "@/components/Form";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Select } from "@/components/Select";
-import { Frequency } from "@/generated/prisma";
+import { Frequency } from "@prisma/client";
 import {
   type SaveEmailUpdateSettingsBody,
   saveEmailUpdateSettingsBody,

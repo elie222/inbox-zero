@@ -4,7 +4,7 @@ import format from "date-fns/format";
 import { zodPeriod } from "@inboxzero/tinybird";
 import { withEmailAccount } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
-import { Prisma } from "@/generated/prisma";
+import { Prisma } from "@prisma/client";
 
 const senderEmailsQuery = z.object({
   fromEmail: z.string(),

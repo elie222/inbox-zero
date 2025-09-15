@@ -5,7 +5,7 @@ import { parseAsStringEnum, useQueryState } from "nuqs";
 import { TypographyH3 } from "@/components/Typography";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
 import { ButtonListSurvey } from "@/components/ButtonListSurvey";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 
 export function ActionSelectionStep() {
   const { onNext } = useStep();

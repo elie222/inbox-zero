@@ -12,7 +12,7 @@ import { TabsToolbar } from "@/components/TabsToolbar";
 import { GmailProvider } from "@/providers/GmailProvider";
 import { cookies } from "next/headers";
 import { REPLY_ZERO_ONBOARDING_COOKIE } from "@/utils/cookies";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import { prefixPath } from "@/utils/path";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 

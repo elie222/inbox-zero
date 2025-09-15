@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { businessTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";

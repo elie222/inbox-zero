@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/Badge";
 import { cleanInboxAction } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 import { PREVIEW_RUN_COUNT } from "@/app/(app)/[emailAccountId]/clean/consts";
 import { HistoryIcon, SettingsIcon } from "lucide-react";
 import { useAccount } from "@/providers/EmailAccountProvider";

@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import { safeCreateRule } from "@/utils/rule/rule";
-import { ActionType, SystemType, type Prisma } from "@/generated/prisma";
+import { ActionType, SystemType, type Prisma } from "@prisma/client";
 import {
   defaultReplyTrackerInstructions,
   NEEDS_REPLY_LABEL_NAME,

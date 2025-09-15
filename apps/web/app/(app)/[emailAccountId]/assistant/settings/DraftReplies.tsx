@@ -6,7 +6,7 @@ import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useRules } from "@/hooks/useRules";
-import { ActionType, SystemType } from "@/generated/prisma";
+import { ActionType, SystemType } from "@prisma/client";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingCard } from "@/components/SettingCard";

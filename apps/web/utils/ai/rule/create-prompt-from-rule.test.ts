@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { createPromptFromRule } from "./create-prompt-from-rule";
-import type { Action, Rule, Category, Group } from "@/generated/prisma";
+import type { Action, Rule, Category, Group } from "@prisma/client";
 
 describe("generatePromptFromRule", () => {
   it("generates prompt for simple archive rule", () => {

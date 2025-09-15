@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { findMatchingGroupItem } from "./find-matching-group";
-import { GroupItemType } from "@/generated/prisma";
+import { GroupItemType } from "@prisma/client";
 
 // Run with:
 // pnpm test utils/group/find-matching-group.test.ts

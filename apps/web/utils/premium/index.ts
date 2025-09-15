@@ -1,4 +1,4 @@
-import { type Premium, PremiumTier } from "@/generated/prisma";
+import { type Premium, PremiumTier } from "@prisma/client";
 
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   if (!stripeSubscriptionStatus) return false;

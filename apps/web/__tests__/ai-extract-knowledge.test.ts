@@ -1,6 +1,6 @@
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiExtractRelevantKnowledge } from "@/utils/ai/knowledge/extract";
-import type { Knowledge } from "@/generated/prisma";
+import type { Knowledge } from "@prisma/client";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 const TIMEOUT = 30_000;

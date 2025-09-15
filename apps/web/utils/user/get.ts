@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
   select: {

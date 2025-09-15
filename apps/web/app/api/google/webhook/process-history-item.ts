@@ -11,7 +11,7 @@ import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { processAssistantEmail } from "@/utils/assistant/process-assistant-email";
 import { handleOutboundReply } from "@/utils/reply-tracker/outbound";
 import type { ProcessHistoryOptions } from "@/app/api/google/webhook/types";
-import { ColdEmailSetting } from "@/generated/prisma";
+import { ColdEmailSetting } from "@prisma/client";
 import { logger } from "@/app/api/google/webhook/logger";
 import { internalDateToDate } from "@/utils/date";
 import { extractEmailAddress } from "@/utils/email";

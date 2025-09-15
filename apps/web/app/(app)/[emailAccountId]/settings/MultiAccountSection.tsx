@@ -23,7 +23,7 @@ import {
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
 import { useAction } from "next-safe-action/hooks";

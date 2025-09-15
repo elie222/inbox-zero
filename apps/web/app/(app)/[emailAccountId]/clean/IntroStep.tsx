@@ -5,7 +5,7 @@ import { SectionDescription } from "@/components/Typography";
 import { TypographyH3 } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import { useStep } from "@/app/(app)/[emailAccountId]/clean/useStep";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 
 export function IntroStep({
   unhandledCount,

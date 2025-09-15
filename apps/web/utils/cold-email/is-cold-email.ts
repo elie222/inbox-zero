@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { ColdEmail } from "@/generated/prisma";
+import type { ColdEmail } from "@prisma/client";
 import {
   ColdEmailSetting,
   ColdEmailStatus,
   type EmailAccount,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import prisma from "@/utils/prisma";
 import { DEFAULT_COLD_EMAIL_PROMPT } from "@/utils/cold-email/prompt";
 import { stringifyEmail } from "@/utils/stringify-email";

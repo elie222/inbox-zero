@@ -1,4 +1,4 @@
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type UserAIFields = Prisma.UserGetPayload<{
   select: {

@@ -1,7 +1,7 @@
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { getStripe } from "@/ee/billing/stripe";
-import { ReferralStatus } from "@/generated/prisma";
+import { ReferralStatus } from "@prisma/client";
 
 const logger = createScopedLogger("referral-tracking");
 

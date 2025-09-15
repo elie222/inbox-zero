@@ -1,7 +1,7 @@
 import type { EmailProvider, EmailFilter } from "@/utils/email/types";
 import { extractEmailAddress } from "@/utils/email";
 import prisma from "@/utils/prisma";
-import { NewsletterStatus } from "@/generated/prisma";
+import { NewsletterStatus } from "@prisma/client";
 import { GmailLabel } from "@/utils/gmail/label";
 import { createScopedLogger } from "@/utils/logger";
 

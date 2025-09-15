@@ -1,5 +1,5 @@
 import type { ParsedMessage } from "@/utils/types";
-import type { ExecutedAction } from "@/generated/prisma";
+import type { ExecutedAction } from "@prisma/client";
 
 export type EmailForAction = Pick<
   ParsedMessage,

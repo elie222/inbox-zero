@@ -13,7 +13,7 @@ import { conditionsToString, conditionTypesToString } from "@/utils/condition";
 import { MessageText } from "@/components/Typography";
 import type { ParsedMessage } from "@/utils/types";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
-import { ExecutedRuleStatus } from "@/generated/prisma";
+import { ExecutedRuleStatus } from "@prisma/client";
 import { FixWithChat } from "@/app/(app)/[emailAccountId]/assistant/FixWithChat";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { isGoogleProvider } from "@/utils/email/provider-types";

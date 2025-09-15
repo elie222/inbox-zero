@@ -6,7 +6,7 @@ import type { PostHog } from "posthog-js/react";
 import { onAutoArchive, onDeleteFilter } from "@/utils/actions/client";
 import { setNewsletterStatusAction } from "@/utils/actions/unsubscriber";
 import { decrementUnsubscribeCreditAction } from "@/utils/actions/premium";
-import { NewsletterStatus } from "@/generated/prisma";
+import { NewsletterStatus } from "@prisma/client";
 import { cleanUnsubscribeLink } from "@/utils/parse/parseHtml.client";
 import { captureException } from "@/utils/error";
 import { addToArchiveSenderQueue } from "@/store/archive-sender-queue";

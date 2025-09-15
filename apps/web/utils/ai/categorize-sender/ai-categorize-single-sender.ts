@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { Category } from "@/generated/prisma";
+import type { Category } from "@prisma/client";
 import { formatCategoriesForPrompt } from "@/utils/ai/categorize-sender/format-categories";
 import { getModel } from "@/utils/llms/model";
 import { createGenerateObject } from "@/utils/llms";
