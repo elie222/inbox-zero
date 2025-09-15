@@ -5,7 +5,7 @@ import {
   isFullyDynamicField,
   isPartiallyDynamicField,
 } from "./risk";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import type { RulesResponse } from "@/app/api/user/rules/route";
 
 // Run with:

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import prisma from "@/utils/__mocks__/prisma";
 import { disableUnusedAutoDrafts } from "./disable-unused-auto-drafts";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 
 vi.mock("@/utils/prisma");
 vi.mock("server-only", () => ({}));

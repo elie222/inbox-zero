@@ -1,5 +1,5 @@
 import { vi, describe, it, expect, beforeEach } from "vitest";
-import { ColdEmailStatus } from "@/generated/prisma";
+import { ColdEmailStatus } from "@prisma/client";
 import { HistoryEventType } from "./types";
 import { handleLabelRemovedEvent } from "./process-label-removed-event";
 import type { gmail_v1 } from "@googleapis/gmail";

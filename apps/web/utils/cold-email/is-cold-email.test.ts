@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import prisma from "@/utils/prisma";
-import { ColdEmailSetting, ColdEmailStatus } from "@/generated/prisma";
+import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
 import { blockColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/types";

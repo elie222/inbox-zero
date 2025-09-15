@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from "vitest";
-import { type Action, ActionType, LogicalOperator } from "@/generated/prisma";
+import { type Action, ActionType, LogicalOperator } from "@prisma/client";
 import type { ParsedMessage, RuleWithActions } from "@/utils/types";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
 import { getEmailAccount } from "@/__tests__/helpers";
