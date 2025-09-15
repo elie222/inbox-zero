@@ -320,6 +320,8 @@ function PriceTier({
                   tier: upgradeToTier,
                   frequency: frequency.value,
                   userId,
+                  serverError: result?.serverError,
+                  result,
                 },
               });
               toastError({
