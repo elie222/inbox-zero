@@ -423,10 +423,22 @@ export const getBillingPortalUrlAction = actionClientUser
     if (!user?.premium?.stripeCustomerId)
       throw new SafeError("Stripe customer id not found");
 
+    const subscription = user.premium.stripeSubscriptionId
+      ? await stripe.subscriptions
+          .retrieve(user.premium.stripeSubscriptionId)
+          .catch(() => null)
+      : null;
+
+    // we can't use the billing portal if the subscription is canceled
+    if (priceId && subscription && subscription.status === "canceled") {
+      return { url: null };
+    }
+
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       flow_data:
+        subscription &&
         user.premium.stripeSubscriptionId &&
         user.premium.stripeSubscriptionItemId &&
         priceId
