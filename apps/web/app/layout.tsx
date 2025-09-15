@@ -15,6 +15,7 @@ import { env } from "@/env";
 import { GlobalProviders } from "@/providers/GlobalProviders";
 import { UTM } from "@/app/utm";
 import { startupImage } from "@/app/startup-image";
+import { Toaster } from "@/components/Toast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -144,7 +145,10 @@ export default async function RootLayout({
           <Suspense>
             <PostHogPageview />
           </Suspense>
-          <GlobalProviders>{children}</GlobalProviders>
+          <GlobalProviders>
+            {children}
+            <Toaster closeButton richColors theme="light" visibleToasts={9} />
+          </GlobalProviders>
         </PostHogProvider>
         <Analytics />
         <AxiomWebVitals />

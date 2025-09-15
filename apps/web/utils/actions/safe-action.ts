@@ -32,6 +32,22 @@ const baseClient = createSafeActionClient({
       console.error("Error in server action", error);
     }
     if (error instanceof SafeError) return error.message;
+
+    captureException(
+      error,
+      {
+        extra: {
+          metadata,
+          userId: context?.userId,
+          userEmail: context?.userEmail,
+          emailAccountId: context?.emailAccountId,
+          bindArgsClientInputs,
+          error: error.message,
+        },
+      },
+      context?.userEmail,
+    );
+
     return "An unknown error occurred.";
   },
 }).use(async ({ next, metadata }) => {
