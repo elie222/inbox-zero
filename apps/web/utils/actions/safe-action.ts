@@ -35,8 +35,9 @@ const baseClient = createSafeActionClient({
     return "An unknown error occurred.";
   },
 }).use(async ({ next, metadata }) => {
+  const logger = createScopedLogger(metadata.name);
   logger.info("Calling action", { name: metadata?.name });
-  return next();
+  return next({ ctx: { logger } });
 });
 // .schema(z.object({}), {
 //   handleValidationErrorsShape: async (ve) =>
@@ -45,7 +46,7 @@ const baseClient = createSafeActionClient({
 
 export const actionClient = baseClient
   .bindArgsSchemas<[emailAccountId: z.ZodString]>([z.string()])
-  .use(async ({ next, metadata, bindArgsClientInputs }) => {
+  .use(async ({ next, metadata, bindArgsClientInputs, ctx }) => {
     const session = await auth();
 
     if (!session?.user) throw new SafeError("Unauthorized");
@@ -71,9 +72,17 @@ export const actionClient = baseClient
     if (!emailAccount || emailAccount?.account.userId !== userId)
       throw new SafeError("Unauthorized");
 
+    const logger = ctx.logger.with({
+      userId,
+      userEmail,
+      emailAccountId,
+      emailAccount,
+    });
+
     return withServerActionInstrumentation(metadata?.name, async () => {
       return next({
         ctx: {
+          logger,
           userId,
           userEmail,
           session,
@@ -86,24 +95,31 @@ export const actionClient = baseClient
   });
 
 // doesn't bind to a specific email
-export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
-  const session = await auth();
+export const actionClientUser = baseClient.use(
+  async ({ next, metadata, ctx }) => {
+    const session = await auth();
 
-  if (!session?.user) {
-    captureException(new Error(`Unauthorized: ${metadata?.name}`), {
-      extra: metadata,
+    if (!session?.user) {
+      captureException(new Error(`Unauthorized: ${metadata?.name}`), {
+        extra: metadata,
+      });
+      throw new SafeError("Unauthorized");
+    }
+
+    const userId = session.user.id;
+
+    const logger = ctx.logger.with({
+      userId,
+      userEmail: session.user.email,
     });
-    throw new SafeError("Unauthorized");
-  }
 
-  const userId = session.user.id;
-
-  return withServerActionInstrumentation(metadata?.name, async () => {
-    return next({
-      ctx: { userId },
+    return withServerActionInstrumentation(metadata?.name, async () => {
+      return next({
+        ctx: { userId, logger },
+      });
     });
-  });
-});
+  },
+);
 
 export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();

@@ -32,9 +32,6 @@ import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("actions/premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -402,7 +399,7 @@ export const claimPremiumAdminAction = actionClientUser
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
     const stripe = getStripe();
@@ -415,18 +412,42 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
+            stripeSubscriptionStatus: true,
           },
         },
       },
     });
 
-    if (!user?.premium?.stripeCustomerId)
+    if (!user?.premium?.stripeCustomerId) {
+      logger.error("Stripe customer id not found", { userId });
       throw new SafeError("Stripe customer id not found");
+    }
+
+    const subscription =
+      priceId &&
+      user.premium.stripeSubscriptionId &&
+      user.premium.stripeSubscriptionStatus !== "canceled"
+        ? await stripe.subscriptions
+            .retrieve(user.premium.stripeSubscriptionId)
+            .catch((error) => {
+              logger.error("Failed to retrieve Stripe subscription", {
+                error: error?.message,
+                subscriptionId: user.premium?.stripeSubscriptionId,
+              });
+              return null;
+            })
+        : null;
+
+    // we can't use the billing portal if the subscription is canceled
+    if (priceId && subscription && subscription.status === "canceled") {
+      return { url: null };
+    }
 
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       flow_data:
+        subscription &&
         user.premium.stripeSubscriptionId &&
         user.premium.stripeSubscriptionItemId &&
         priceId
@@ -451,7 +472,7 @@ export const getBillingPortalUrlAction = actionClientUser
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = getStripePriceId({ tier });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");

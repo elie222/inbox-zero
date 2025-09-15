@@ -293,13 +293,23 @@ function PriceTier({
               stripeSubscriptionStatus &&
               ["active", "trialing"].includes(stripeSubscriptionStatus);
 
-            const result = hasActiveStripeSubscription
-              ? await getBillingPortalUrlAction({
-                  tier: upgradeToTier,
-                })
-              : await generateCheckoutSessionAction({
+            let result:
+              | Awaited<ReturnType<typeof getBillingPortalUrlAction>>
+              | Awaited<ReturnType<typeof generateCheckoutSessionAction>>;
+
+            if (hasActiveStripeSubscription) {
+              result = await getBillingPortalUrlAction({ tier: upgradeToTier });
+
+              if (!result?.data?.url) {
+                result = await generateCheckoutSessionAction({
                   tier: upgradeToTier,
                 });
+              }
+            } else {
+              result = await generateCheckoutSessionAction({
+                tier: upgradeToTier,
+              });
+            }
 
             if (!result?.data?.url || result?.serverError) {
               captureException(new Error("Error creating checkout session"), {
