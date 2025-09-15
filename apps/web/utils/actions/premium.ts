@@ -536,6 +536,7 @@ export const generateCheckoutSessionAction = actionClientUser
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
       line_items: [{ price: priceId, quantity }],
