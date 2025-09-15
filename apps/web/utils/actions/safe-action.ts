@@ -36,7 +36,6 @@ const baseClient = createSafeActionClient({
   },
 }).use(async ({ next, metadata }) => {
   const logger = createScopedLogger(metadata.name);
-  logger.info("Calling action", { name: metadata?.name });
   return next({ ctx: { logger } });
 });
 // .schema(z.object({}), {
@@ -69,8 +68,10 @@ export const actionClient = baseClient
         },
       },
     });
-    if (!emailAccount || emailAccount?.account.userId !== userId)
+    if (!emailAccount || emailAccount?.account.userId !== userId) {
+      ctx.logger.error("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
+    }
 
     const logger = ctx.logger.with({
       userId,
@@ -78,8 +79,9 @@ export const actionClient = baseClient
       emailAccountId,
       emailAccount,
     });
+    logger.info("Calling action");
 
-    return withServerActionInstrumentation(metadata?.name, async () => {
+    return withServerActionInstrumentation(metadata.name, async () => {
       return next({
         ctx: {
           logger,
@@ -100,7 +102,8 @@ export const actionClientUser = baseClient.use(
     const session = await auth();
 
     if (!session?.user) {
-      captureException(new Error(`Unauthorized: ${metadata?.name}`), {
+      ctx.logger.error("Unauthorized", metadata);
+      captureException(new Error(`Unauthorized: ${metadata.name}`), {
         extra: metadata,
       });
       throw new SafeError("Unauthorized");
@@ -112,6 +115,7 @@ export const actionClientUser = baseClient.use(
       userId,
       userEmail: session.user.email,
     });
+    logger.info("Calling action");
 
     return withServerActionInstrumentation(metadata?.name, async () => {
       return next({
