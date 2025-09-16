@@ -14,6 +14,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { env } from "@/env";
 
 const logger = createScopedLogger("generate-reply");
 
@@ -79,10 +80,12 @@ export async function fetchMessagesAndGenerateDraft(
   }
 
   const emailAccountWithIncludeReferralSignature =
-    await prisma.emailAccount.findUnique({
-      where: { id: emailAccount.id },
-      select: { includeReferralSignature: true },
-    });
+    env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE
+      ? null
+      : await prisma.emailAccount.findUnique({
+          where: { id: emailAccount.id },
+          select: { includeReferralSignature: true },
+        });
 
   if (emailAccountWithIncludeReferralSignature?.includeReferralSignature) {
     const referralSignature = await getOrCreateReferralCode(

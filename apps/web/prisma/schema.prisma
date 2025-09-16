@@ -115,7 +115,7 @@ model EmailAccount {
   about                     String?
   writingStyle              String?
   signature                 String?
-  includeReferralSignature  Boolean   @default(false)
+  includeReferralSignature  Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?

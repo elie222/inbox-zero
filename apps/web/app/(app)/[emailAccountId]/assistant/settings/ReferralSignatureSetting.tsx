@@ -10,6 +10,7 @@ import { SettingCard } from "@/components/SettingCard";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import { useAction } from "next-safe-action/hooks";
 import { updateReferralSignatureAction } from "@/utils/actions/email-account";
+import { env } from "@/env";
 
 export function ReferralSignatureSetting() {
   const { data, isLoading, error, mutate } = useEmailAccountFull();
@@ -42,6 +43,10 @@ export function ReferralSignatureSetting() {
     },
     [execute],
   );
+
+  if (env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE) {
+    return null;
+  }
 
   return (
     <SettingCard

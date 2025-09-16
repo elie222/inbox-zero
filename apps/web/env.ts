@@ -178,6 +178,10 @@ export const env = createEnv({
     NEXT_PUBLIC_OLLAMA_MODEL: z.string().optional(),
     NEXT_PUBLIC_APP_HOME_PATH: z.string().default("/setup"),
     NEXT_PUBLIC_DUB_REFER_DOMAIN: z.string().optional(),
+    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE: z.coerce
+      .boolean()
+      .optional()
+      .default(false),
   },
   // For Next.js >= 13.4.4, you only need to destructure client variables:
   experimental__runtimeEnv: {
@@ -232,5 +236,7 @@ export const env = createEnv({
     NEXT_PUBLIC_OLLAMA_MODEL: process.env.NEXT_PUBLIC_OLLAMA_MODEL,
     NEXT_PUBLIC_APP_HOME_PATH: process.env.NEXT_PUBLIC_APP_HOME_PATH,
     NEXT_PUBLIC_DUB_REFER_DOMAIN: process.env.NEXT_PUBLIC_DUB_REFER_DOMAIN,
+    NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE:
+      process.env.NEXT_PUBLIC_DISABLE_REFERRAL_SIGNATURE,
   },
 });
