@@ -43,6 +43,7 @@ export const survey = {
     //     "101-1000 people",
     //     "1000+ people",
     //   ],
+    //   skippable: false,
     // },
     {
       key: "source",

@@ -30,6 +30,7 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyFeatures?: string[];
           surveyRole?: string;
           surveyGoal?: string;
+          surveyCompanySize?: number;
           surveySource?: string;
           surveyImprovements?: string;
         } = {};
@@ -83,6 +84,14 @@ export const saveOnboardingAnswersAction = actionClientUser
           result.surveyGoal = goalAnswer;
         }
 
+        const companySizeAnswer = getAnswerByKey("company_size");
+        if (companySizeAnswer && companySizeAnswer !== "undefined") {
+          const numericValue = Number(companySizeAnswer);
+          if (!Number.isNaN(numericValue)) {
+            result.surveyCompanySize = numericValue;
+          }
+        }
+
         const sourceAnswer = getAnswerByKey("source");
         if (sourceAnswer && sourceAnswer !== "undefined") {
           result.surveySource = sourceAnswer;
@@ -106,6 +115,7 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyFeatures: extractedAnswers.surveyFeatures,
           surveyRole: extractedAnswers.surveyRole,
           surveyGoal: extractedAnswers.surveyGoal,
+          surveyCompanySize: extractedAnswers.surveyCompanySize,
           surveySource: extractedAnswers.surveySource,
           surveyImprovements: extractedAnswers.surveyImprovements,
         },
