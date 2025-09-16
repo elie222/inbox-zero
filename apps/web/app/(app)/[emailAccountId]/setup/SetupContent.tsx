@@ -52,47 +52,61 @@ function FeatureCard({
   );
 }
 
-const features = [
-  {
-    href: "/automation",
-    icon: BotIcon,
-    iconBg: "bg-green-100 dark:bg-green-900/50",
-    iconColor: "text-green-600 dark:text-green-400",
-    title: "AI Assistant",
-    description:
-      "Your personal email assistant that organizes, archives, and drafts replies",
-  },
-  {
-    href: "/bulk-unsubscribe",
-    icon: ArchiveIcon,
-    iconBg: "bg-purple-100 dark:bg-purple-900/50",
-    iconColor: "text-purple-600 dark:text-purple-400",
-    title: "Bulk Unsubscribe",
-    description: "Easily unsubscribe from unwanted newsletters in one click",
-  },
-  {
-    href: "/reply-zero",
-    icon: MailIcon,
-    iconBg: "bg-blue-100 dark:bg-blue-900/50",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    title: "Reply Zero",
-    description:
-      "Track emails needing replies & follow-ups. Get AI-drafted responses",
-  },
-  {
-    href: "/cold-email-blocker",
-    icon: BanIcon,
-    iconBg: "bg-orange-100 dark:bg-orange-900/50",
-    iconColor: "text-orange-600 dark:text-orange-400",
-    title: "Cold Email Blocker",
-    description: "Filter out unsolicited messages and keep your inbox clean",
-  },
-] as const;
+function getFeatures(provider: string) {
+  const features = [
+    {
+      href: "/automation",
+      icon: BotIcon,
+      iconBg: "bg-green-100 dark:bg-green-900/50",
+      iconColor: "text-green-600 dark:text-green-400",
+      title: "AI Assistant",
+      description:
+        "Your personal email assistant that organizes, archives, and drafts replies",
+    },
+    {
+      href: "/bulk-unsubscribe",
+      icon: ArchiveIcon,
+      iconBg: "bg-purple-100 dark:bg-purple-900/50",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      title: "Bulk Unsubscribe",
+      description: "Easily unsubscribe from unwanted newsletters in one click",
+    },
+    ...(isGoogleProvider(provider)
+      ? [
+          {
+            href: "/reply-zero",
+            icon: MailIcon,
+            iconBg: "bg-blue-100 dark:bg-blue-900/50",
+            iconColor: "text-blue-600 dark:text-blue-400",
+            title: "Reply Zero",
+            description:
+              "Track emails needing replies & follow-ups. Get AI-drafted responses",
+          } as const,
+        ]
+      : []),
+    {
+      href: "/cold-email-blocker",
+      icon: BanIcon,
+      iconBg: "bg-orange-100 dark:bg-orange-900/50",
+      iconColor: "text-orange-600 dark:text-orange-400",
+      title: "Cold Email Blocker",
+      description: "Filter out unsolicited messages and keep your inbox clean",
+    },
+  ] as const;
 
-function FeatureGrid({ emailAccountId }: { emailAccountId: string }) {
+  return features;
+}
+
+function FeatureGrid({
+  emailAccountId,
+  provider,
+}: {
+  emailAccountId: string;
+  provider: string;
+}) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
-      {features.map((feature) => (
+      {getFeatures(provider).map((feature) => (
         <FeatureCard
           key={feature.href}
           emailAccountId={emailAccountId}
@@ -342,7 +356,7 @@ function SetupPageContent({
       </div>
 
       {isSetupComplete ? (
-        <FeatureGrid emailAccountId={emailAccountId} />
+        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       ) : (
         <Checklist
           emailAccountId={emailAccountId}
