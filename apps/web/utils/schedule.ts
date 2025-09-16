@@ -136,7 +136,6 @@ export function calculateNextScheduleDate(
   const { intervalDays, daysOfWeek, timeOfDay, occurrences, lastOccurrenceAt } =
     frequency;
 
-  // Use lastOccurrenceAt as the reference point, fall back to current time if not available
   const fromDate = lastOccurrenceAt || new Date();
 
   // Helper to set the time of day
