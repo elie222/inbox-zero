@@ -65,7 +65,10 @@ export const updateDigestScheduleAction = actionClient
       timeOfDay,
       occurrences,
       lastOccurrenceAt: new Date(),
-      nextOccurrenceAt: calculateNextScheduleDate(parsedInput),
+      nextOccurrenceAt: calculateNextScheduleDate({
+        ...parsedInput,
+        lastOccurrenceAt: null,
+      }),
     };
 
     // remove emailAccountId for update
