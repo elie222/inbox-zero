@@ -124,12 +124,9 @@ export function bitmaskToDaysOfWeek(bitmask: number): number[] {
 export function calculateNextScheduleDate(
   frequency: Pick<
     Schedule,
-    | "intervalDays"
-    | "daysOfWeek"
-    | "timeOfDay"
-    | "occurrences"
-    | "lastOccurrenceAt"
-  >,
+    "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"
+  > &
+    Partial<Pick<Schedule, "lastOccurrenceAt">>,
 ): Date | null {
   if (!frequency) return null;
 
