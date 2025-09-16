@@ -187,11 +187,15 @@ function selectModel(
 function createOpenRouterProviderOptions(
   providers: string,
 ): Record<string, any> {
+  const order = providers
+    .split(",")
+    .map((p: string) => p.trim())
+    .filter(Boolean);
+
   return {
     openrouter: {
-      provider: {
-        order: providers.split(",").map((p: string) => p.trim()),
-      },
+      provider: order.length > 0 ? { order } : undefined,
+      reasoning: { max_tokens: 20 },
     },
   };
 }
@@ -282,7 +286,8 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
-  const providerOptions: Record<string, any> = {};
+  const providerOptions: Record<string, any> =
+    createOpenRouterProviderOptions("");
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
