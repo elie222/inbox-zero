@@ -69,6 +69,7 @@ model User {
   surveyFeatures     String[] // multiple choice: features user is interested in
   surveyRole         String? // single choice: user's role. Now using `EmailAccount.role` instead
   surveyGoal         String? // single choice: what user wants to achieve
+  surveyCompanySize  Int? // numeric company size: 1 (solo), 5 (2-10), 50 (11-100), 500 (101-1000), 1000 (1000+)
   surveySource       String? // single choice: how user heard about Inbox Zero
   surveyImprovements String? // open text: what user wants to improve
 
