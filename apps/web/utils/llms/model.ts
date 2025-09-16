@@ -298,13 +298,21 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
     aiModel = env.DEFAULT_LLM_MODEL || null;
   }
 
-  // Configure OpenRouter provider options if using OpenRouter for default model
-  // (but not overriding custom logic which already sets its own provider options)
   if (aiProvider === Provider.OPENROUTER) {
     const openRouterOptions = createOpenRouterProviderOptions(
       env.DEFAULT_OPENROUTER_PROVIDERS || "",
     );
-    Object.assign(providerOptions, openRouterOptions);
+
+    // Preserve any custom options set earlier; always ensure reasoning exists.
+    const existingOpenRouterOptions = providerOptions.openrouter || {};
+    providerOptions.openrouter = {
+      ...openRouterOptions.openrouter,
+      ...existingOpenRouterOptions,
+      reasoning: {
+        ...openRouterOptions.openrouter.reasoning,
+        ...(existingOpenRouterOptions.reasoning ?? {}),
+      },
+    };
   }
 
   return selectModel(
