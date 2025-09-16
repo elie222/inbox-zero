@@ -28,6 +28,7 @@ export const env = createEnv({
     EMAIL_ENCRYPT_SALT: z.string(),
 
     DEFAULT_LLM_PROVIDER: z
+      // custom is deprecated
       .enum([...llmProviderEnum.options, "custom"])
       .default("anthropic"),
     DEFAULT_LLM_MODEL: z.string().optional(),

@@ -286,8 +286,7 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   let aiModel: string | null = null;
   const aiApiKey = userAi.aiApiKey;
 
-  const providerOptions: Record<string, any> =
-    createOpenRouterProviderOptions("");
+  const providerOptions: Record<string, any> = {};
 
   // If user has not api key set, then use default model
   // If they do they can use the model of their choice
@@ -297,77 +296,13 @@ function selectDefaultModel(userAi: UserAIFields): SelectModel {
   } else {
     aiProvider = env.DEFAULT_LLM_PROVIDER;
     aiModel = env.DEFAULT_LLM_MODEL || null;
-
-    // Allow custom logic in production with fallbacks that doesn't impact self-hosters
-    if (aiProvider === Provider.CUSTOM) {
-      // choose randomly between bedrock sonnet 3.7, sonnet 4, and openrouter
-      const models = [
-        // {
-        //   provider: Provider.ANTHROPIC,
-        //   modelName: Model.CLAUDE_3_7_SONNET_BEDROCK,
-        // },
-        // {
-        //   provider: Provider.ANTHROPIC,
-        //   modelName: Model.CLAUDE_4_SONNET_BEDROCK,
-        // },
-        {
-          provider: Provider.OPENROUTER,
-          modelName: null,
-        },
-      ];
-
-      const selectedProviderAndModel =
-        models[Math.floor(Math.random() * models.length)];
-
-      aiProvider = selectedProviderAndModel.provider;
-      aiModel = selectedProviderAndModel.modelName;
-
-      if (aiProvider === Provider.OPENROUTER) {
-        function selectRandomModel() {
-          // to avoid rate limits, we'll select a random model
-          const models = [
-            "google/gemini-2.5-pro",
-            // "anthropic/claude-sonnet-4",
-            // "anthropic/claude-3.7-sonnet",
-          ];
-          return models[Math.floor(Math.random() * models.length)];
-        }
-        aiModel = selectRandomModel() || null;
-        providerOptions.openrouter = {
-          models: [
-            "google/gemini-2.5-pro",
-            // "anthropic/claude-sonnet-4",
-            // "anthropic/claude-3.7-sonnet",
-          ],
-          provider: {
-            // max 3 options
-            order: [
-              "Google Vertex",
-              "Google AI Studio",
-              // "Anthropic",
-              // "Amazon Bedrock",
-            ],
-          },
-        };
-      } else {
-        return selectModel({
-          aiProvider: Provider.ANTHROPIC,
-          aiModel,
-          aiApiKey: null,
-        });
-      }
-    }
   }
 
   // Configure OpenRouter provider options if using OpenRouter for default model
   // (but not overriding custom logic which already sets its own provider options)
-  if (
-    aiProvider === Provider.OPENROUTER &&
-    env.DEFAULT_OPENROUTER_PROVIDERS &&
-    !providerOptions.openrouter
-  ) {
+  if (aiProvider === Provider.OPENROUTER) {
     const openRouterOptions = createOpenRouterProviderOptions(
-      env.DEFAULT_OPENROUTER_PROVIDERS,
+      env.DEFAULT_OPENROUTER_PROVIDERS || "",
     );
     Object.assign(providerOptions, openRouterOptions);
   }
