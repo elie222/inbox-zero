@@ -1,20 +1,29 @@
 "use server";
 
-import { actionClientUser } from "@/utils/actions/safe-action";
+import { actionClient } from "@/utils/actions/safe-action";
 import { removeMemberBody } from "@/utils/actions/remove-member.validation";
-import { betterAuthConfig } from "@/utils/auth";
-import { headers } from "next/headers";
 import { SafeError } from "@/utils/error";
 import prisma from "@/utils/prisma";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
 
-export const removeMemberAction = actionClientUser
+export const removeMemberAction = actionClient
   .metadata({ name: "removeMember" })
   .schema(removeMemberBody)
-  .action(async ({ ctx: { userId }, parsedInput: { memberId } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { memberId } }) => {
+    const callerEmailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { id: true },
+    });
+    if (!callerEmailAccount)
+      throw new SafeError("Invalid email account context.");
     const targetMember = await prisma.member.findUnique({
       where: { id: memberId },
-      select: { id: true, userId: true, organizationId: true, role: true },
+      select: {
+        id: true,
+        emailAccountId: true,
+        organizationId: true,
+        role: true,
+      },
     });
 
     if (!targetMember) {
@@ -22,7 +31,10 @@ export const removeMemberAction = actionClientUser
     }
 
     const callerMembership = await prisma.member.findFirst({
-      where: { userId, organizationId: targetMember.organizationId },
+      where: {
+        emailAccountId: callerEmailAccount.id,
+        organizationId: targetMember.organizationId,
+      },
       select: { role: true },
     });
 
@@ -36,7 +48,8 @@ export const removeMemberAction = actionClientUser
       );
     }
 
-    if (targetMember.userId === userId) {
+    // Prevent self-removal
+    if (targetMember.emailAccountId === callerEmailAccount.id) {
       throw new SafeError("You cannot remove yourself from the organization.");
     }
 
@@ -55,21 +68,7 @@ export const removeMemberAction = actionClientUser
       }
     }
 
-    try {
-      await betterAuthConfig.api.removeMember({
-        body: {
-          memberIdOrEmail: memberId,
-          organizationId: targetMember.organizationId,
-        },
-        headers: await headers(),
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        // Better Auth will throw UI-friendly errors with error messages
-        throw new SafeError(error.message, 400);
-      }
-      throw new SafeError("Failed to remove member", 500);
-    }
+    await prisma.member.delete({ where: { id: memberId } });
 
     return { success: true, message: "Member removed successfully" };
   });

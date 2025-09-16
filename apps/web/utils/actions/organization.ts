@@ -1,19 +1,16 @@
 "use server";
 
-import { actionClientUser } from "@/utils/actions/safe-action";
+import { actionClient } from "@/utils/actions/safe-action";
 import { createOrganizationBody } from "@/utils/actions/organization.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
-import { headers } from "next/headers";
-import { betterAuthConfig } from "@/utils/auth";
 
-export const createOrganizationAction = actionClientUser
+export const createOrganizationAction = actionClient
   .metadata({ name: "createOrganization" })
   .schema(createOrganizationBody)
-  .action(async ({ ctx: { userId }, parsedInput: { name, slug } }) => {
-    const nextHeaders = await headers();
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { name, slug } }) => {
     const existingMembership = await prisma.member.findFirst({
-      where: { userId },
+      where: { emailAccountId },
       select: { id: true },
     });
 
@@ -34,17 +31,18 @@ export const createOrganizationAction = actionClientUser
       );
     }
 
-    const organization = await betterAuthConfig.api.createOrganization({
-      body: {
-        name,
-        slug,
-      },
-      headers: nextHeaders,
+    const organization = await prisma.organization.create({
+      data: { name, slug },
+      select: { id: true, name: true, slug: true, createdAt: true },
     });
 
-    if (!organization) {
-      throw new SafeError("Failed to create organization");
-    }
+    await prisma.member.create({
+      data: {
+        organizationId: organization.id,
+        emailAccountId,
+        role: "owner",
+      },
+    });
 
     return organization;
   });

@@ -1,130 +1,78 @@
 "use server";
 
-import { headers } from "next/headers";
 import { env } from "@/env";
 import { ssoRegistrationBody } from "@/utils/actions/sso.validation";
 import { adminActionClient } from "@/utils/actions/safe-action";
-import { betterAuthConfig, auth } from "@/utils/auth";
+import { auth } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
 import { extractSSOProviderConfigFromXML } from "@/utils/sso/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
 import { validateIdpMetadata } from "@/utils/sso/validate-idp-metadata";
-import { createScopedLogger } from "@/utils/logger";
+// import { createScopedLogger } from "@/utils/logger";
 
-const logger = createScopedLogger("sso");
+// const logger = createScopedLogger("sso");
 
 export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })
   .schema(ssoRegistrationBody)
-  .action(
-    async ({
-      parsedInput: { idpMetadata, organizationName, domain, providerId },
-    }) => {
-      const session = await auth();
-      const userId = session?.user?.id;
+  .action(async ({ parsedInput: { idpMetadata, domain, providerId } }) => {
+    const session = await auth();
+    const userId = session?.user?.id;
 
-      if (!userId) throw new SafeError("Unauthorized");
+    if (!userId) throw new SafeError("Unauthorized");
 
-      if (!validateIdpMetadata(idpMetadata))
-        throw new SafeError("Invalid IDP metadata XML.");
+    if (!validateIdpMetadata(idpMetadata))
+      throw new SafeError("Invalid IDP metadata XML.");
 
-      const ssoConfig = extractSSOProviderConfigFromXML(
-        idpMetadata,
-        providerId,
+    const ssoConfig = extractSSOProviderConfigFromXML(idpMetadata, providerId);
+
+    const existingSSOProvider = await prisma.ssoProvider.findUnique({
+      where: {
+        providerId: providerId,
+      },
+    });
+
+    if (existingSSOProvider) {
+      throw new SafeError(
+        `SSO provider with ID "${providerId}" already exists`,
       );
+    }
 
-      const organizationSlug = organizationName
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9\s-]+/g, "")
-        .replace(/[\s-]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+    // Compute callback URL to store with config (informational)
+    const callbackUrl = new URL(
+      `/api/auth/sso/saml2/callback/${encodeURIComponent(providerId)}`,
+      env.NEXT_PUBLIC_BASE_URL,
+    ).toString();
 
-      const existingOrganization = await prisma.organization.findUnique({
-        where: {
-          slug: organizationSlug,
-        },
-      });
+    const samlConfig = {
+      entryPoint: ssoConfig.entryPoint,
+      cert: ssoConfig.cert,
+      callbackUrl,
+      wantAssertionsSigned: false,
+      signatureAlgorithm: "sha256",
+      digestAlgorithm: "sha256",
+      identifierFormat:
+        "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
+      idpMetadata: {
+        metadata: idpMetadata,
+        isAssertionEncrypted: false,
+      },
+      spMetadata: {
+        metadata: ssoConfig.spMetadata,
+        binding: "post",
+        isAssertionEncrypted: false,
+      },
+    } as const;
 
-      if (existingOrganization) {
-        throw new SafeError(
-          `Organization with name "${organizationName}" already exists`,
-        );
-      }
+    const created = await prisma.ssoProvider.create({
+      data: {
+        providerId,
+        issuer: ssoConfig.issuer,
+        domain,
+        samlConfig: JSON.stringify(samlConfig),
+      },
+      select: { id: true, providerId: true, domain: true },
+    });
 
-      const existingSSOProvider = await prisma.ssoProvider.findUnique({
-        where: {
-          providerId: providerId,
-        },
-      });
-
-      if (existingSSOProvider) {
-        throw new SafeError(
-          `SSO provider with ID "${providerId}" already exists`,
-        );
-      }
-
-      const organization = await prisma.organization.create({
-        data: {
-          name: organizationName,
-          slug: organizationSlug,
-        },
-      });
-
-      await prisma.member.create({
-        data: {
-          userId: userId,
-          organizationId: organization.id,
-          role: "owner",
-        },
-      });
-
-      try {
-        const callbackUrl = new URL(
-          `/api/auth/sso/saml2/callback/${encodeURIComponent(providerId)}`,
-          env.NEXT_PUBLIC_BASE_URL,
-        ).toString();
-
-        return await betterAuthConfig.api.registerSSOProvider({
-          body: {
-            providerId,
-            organizationId: organization.id,
-            issuer: ssoConfig.issuer,
-            domain,
-            samlConfig: {
-              entryPoint: ssoConfig.entryPoint,
-              cert: ssoConfig.cert,
-              callbackUrl,
-              wantAssertionsSigned: false,
-              signatureAlgorithm: "sha256",
-              digestAlgorithm: "sha256",
-              identifierFormat:
-                "urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress",
-              idpMetadata: {
-                metadata: idpMetadata,
-                isAssertionEncrypted: false,
-              },
-              spMetadata: {
-                metadata: ssoConfig.spMetadata,
-                binding: "post",
-                isAssertionEncrypted: false,
-              },
-            },
-          },
-          headers: await headers(),
-        });
-      } catch (err) {
-        logger.error("Failed to register SSO provider", {
-          error: err,
-          organizationId: organization.id,
-        });
-
-        // Cleanup to avoid orphaned orgs and members on failure
-        await prisma.member.deleteMany({
-          where: { organizationId: organization.id },
-        });
-        await prisma.organization.delete({ where: { id: organization.id } });
-        throw new SafeError("Failed to register SSO provider");
-      }
-    },
-  );
+    return created;
+  });

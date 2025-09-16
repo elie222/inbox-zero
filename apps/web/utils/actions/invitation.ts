@@ -1,93 +1,112 @@
 "use server";
 
-import { actionClientUser } from "@/utils/actions/safe-action";
+import { actionClient } from "@/utils/actions/safe-action";
 import { handleInvitationBody } from "@/utils/actions/invitation.validation";
-import { betterAuthConfig } from "@/utils/auth";
 import { SafeError } from "@/utils/error";
-import { headers } from "next/headers";
 import prisma from "@/utils/prisma";
-import type { Invitation } from "better-auth/plugins";
 
-export const handleInvitationAction = actionClientUser
+type PrismaInvitation = {
+  id: string;
+  organizationId: string;
+  email: string;
+  role: string | null;
+  status: string;
+  expiresAt: Date;
+  inviterId: string;
+};
+
+async function getInvitation({
+  emailAccountId,
+  invitationId,
+}: {
+  emailAccountId: string;
+  invitationId: string;
+}): Promise<PrismaInvitation> {
+  const invitation = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+  });
+
+  if (!invitation) {
+    throw new SafeError("Invitation not found", 404);
+  }
+
+  if (invitation.status !== "pending" || invitation.expiresAt < new Date()) {
+    throw new SafeError("Failed to retrieve invitation", 400);
+  }
+
+  const email = invitation.email.trim();
+
+  const hasMatchingEmail = await prisma.emailAccount.findFirst({
+    where: {
+      id: emailAccountId,
+      email: { equals: email, mode: "insensitive" },
+    },
+    select: { id: true },
+  });
+
+  if (!hasMatchingEmail) {
+    throw new SafeError("You are not the recipient of the invitation", 400);
+  }
+
+  return invitation;
+}
+
+async function acceptInvitation({
+  emailAccountId,
+  invitationId,
+}: {
+  emailAccountId: string;
+  invitationId: string;
+}): Promise<{ organizationId: string; memberId: string }> {
+  const invitation = await getInvitation({ emailAccountId, invitationId });
+
+  const existingMembership = await prisma.member.findFirst({
+    where: {
+      emailAccountId,
+      organizationId: invitation.organizationId,
+    },
+    select: { id: true },
+  });
+
+  if (existingMembership) {
+    return {
+      organizationId: invitation.organizationId,
+      memberId: existingMembership.id,
+    };
+  }
+
+  const createdMember = await prisma.member.create({
+    data: {
+      emailAccountId,
+      organizationId: invitation.organizationId,
+      role: invitation.role ?? "member",
+    },
+    select: { id: true },
+  });
+
+  await prisma.invitation.update({
+    where: { id: invitationId },
+    data: { status: "accepted" },
+  });
+
+  return {
+    organizationId: invitation.organizationId,
+    memberId: createdMember.id,
+  };
+}
+
+export const handleInvitationAction = actionClient
   .metadata({ name: "handleInvitation" })
   .schema(handleInvitationBody)
-  .action(async ({ ctx: { userId }, parsedInput: { invitationId } }) => {
-    const nextHeaders = await headers();
+  .action(
+    async ({ ctx: { emailAccountId }, parsedInput: { invitationId } }) => {
+      const invitation = await getInvitation({ emailAccountId, invitationId });
 
-    let invitation: Invitation;
-    try {
-      invitation = await betterAuthConfig.api.getInvitation({
-        query: {
-          id: invitationId,
-        },
-        headers: nextHeaders,
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        // Better Auth will throw UI-friendly errors with error messages
-        throw new SafeError(error.message, 400);
-      }
-      throw new SafeError("Failed to fetch invitation", 500);
-    }
+      await acceptInvitation({ emailAccountId, invitationId });
 
-    if (!invitation) {
-      throw new SafeError("Invitation not found", 404);
-    }
-
-    // Fetch user's primary email and linked email accounts
-    const [user, userEmailAccounts] = await Promise.all([
-      prisma.user.findUnique({
-        where: { id: userId },
-        select: { email: true },
-      }),
-      prisma.emailAccount.findMany({
-        where: { userId: userId },
-        select: { email: true },
-      }),
-    ]);
-
-    const candidateEmails = [
-      user?.email,
-      ...userEmailAccounts.map((account) => account.email),
-    ].filter(Boolean);
-
-    const normalizedCandidateEmails = candidateEmails.map((email) =>
-      email?.toLowerCase().trim(),
-    );
-    const normalizedInvitationEmail = invitation.email?.toLowerCase().trim();
-
-    const emailMatches = normalizedCandidateEmails.includes(
-      normalizedInvitationEmail,
-    );
-
-    if (!emailMatches) {
-      throw new SafeError(
-        "This invitation was sent to an account associated with a different email address.",
-        400,
-      );
-    }
-
-    try {
-      const acceptResult = await betterAuthConfig.api.acceptInvitation({
-        body: {
-          invitationId,
-        },
-        headers: nextHeaders,
-      });
-
-      if (!acceptResult) {
-        throw new SafeError("Failed to accept invitation", 400);
-      }
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        // Better Auth will throw UI-friendly errors with error messages
-        throw new SafeError(error.message, 400);
-      }
-      throw new SafeError("Failed to accept invitation", 500);
-    }
-
-    return {
-      redirectUrl: "/welcome",
-      organizationId: invitation.organizationId,
-    };
-  });
+      return {
+        redirectUrl: "/welcome",
+        organizationId: invitation.organizationId,
+      };
+    },
+  );

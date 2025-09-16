@@ -95,10 +95,6 @@ model User {
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
 
-  // Organization relationships
-  members Member[]
-  invitations Invitation[]
-  ssoproviders SsoProvider[]
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -156,6 +152,11 @@ model EmailAccount {
   digests          Digest[]
   scheduledActions ScheduledAction[]
 
+  // Organization relationships moved from User
+  members      Member[]
+  invitations  Invitation[]
+  ssoproviders SsoProvider[]
+
   @@index([lastSummaryEmailAt])
 }
 
@@ -176,14 +177,14 @@ model Organization {
 model Member {
   id             String       @id @default(cuid())
   organizationId String
-  userId         String
+  emailAccountId String
   role           String       @default("member") // "admin" | "member"
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
-  @@unique([organizationId, userId])
+  @@unique([organizationId, emailAccountId])
 }
 
 model Invitation {
@@ -195,7 +196,7 @@ model Invitation {
   status         String
   expiresAt      DateTime
   inviterId      String
-  user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
+  inviter        EmailAccount @relation(fields: [inviterId], references: [id], onDelete: Cascade)
 
   @@map("invitation")
 }
@@ -216,8 +217,8 @@ model SsoProvider {
   issuer         String
   oidcConfig     String?
   samlConfig     String?
-  userId         String?
-  user           User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailAccountId String?
+  emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   providerId     String  @unique
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)

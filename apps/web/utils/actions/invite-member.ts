@@ -1,19 +1,25 @@
 "use server";
 
-import { actionClientUser } from "@/utils/actions/safe-action";
+import { actionClient } from "@/utils/actions/safe-action";
 import { inviteMemberBody } from "@/utils/actions/invite-member.validation";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
-import { betterAuthConfig } from "@/utils/auth";
-import { headers } from "next/headers";
 import { hasOrganizationAdminRole } from "@/utils/organizations/roles";
+import { sendOrganizationInvitation } from "@/utils/organizations/invitations";
 
-export const inviteMemberAction = actionClientUser
+export const inviteMemberAction = actionClient
   .metadata({ name: "inviteMember" })
   .schema(inviteMemberBody)
-  .action(async ({ ctx: { userId }, parsedInput: { email, role } }) => {
+  .action(async ({ ctx: { emailAccountId }, parsedInput: { email, role } }) => {
+    const inviterEmailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { id: true, name: true, email: true },
+    });
+    if (!inviterEmailAccount)
+      throw new SafeError("Invalid email account context.");
+
     const userMembership = await prisma.member.findFirst({
-      where: { userId },
+      where: { emailAccountId },
       select: { organizationId: true, role: true },
     });
 
@@ -33,22 +39,39 @@ export const inviteMemberAction = actionClientUser
       );
     }
 
-    try {
-      await betterAuthConfig.api.createInvitation({
-        body: {
-          email,
-          role: [role],
-          organizationId: userMembership.organizationId,
-          resend: true,
-        },
-        headers: await headers(),
-      });
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        // Better Auth will throw UI-friendly errors with error messages
-        // for expired, already accepted, not found, invalid, etc.
-        throw new SafeError(error.message, 400);
-      }
-      throw new SafeError("Failed to create invitation", 500);
+    const existing = await prisma.invitation.findFirst({
+      where: {
+        organizationId: userMembership.organizationId,
+        email: email.trim(),
+        status: "pending",
+      },
+      select: { id: true },
+    });
+    if (existing) {
+      return;
     }
+
+    const invitation = await prisma.invitation.create({
+      data: {
+        organizationId: userMembership.organizationId,
+        email: email.trim(),
+        role,
+        status: "pending",
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 14), // 14 days
+        inviterId: emailAccountId,
+      },
+      select: { id: true },
+    });
+
+    const org = await prisma.organization.findUnique({
+      where: { id: userMembership.organizationId },
+      select: { name: true },
+    });
+
+    await sendOrganizationInvitation({
+      email,
+      organizationName: org?.name || "Your organization",
+      inviterName: inviterEmailAccount.name || inviterEmailAccount.email,
+      invitationId: invitation.id,
+    });
   });

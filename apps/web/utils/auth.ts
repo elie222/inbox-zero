@@ -62,27 +62,7 @@ export const betterAuthConfig = betterAuth({
     nextCookies(),
     sso({
       disableImplicitSignUp: false,
-      organizationProvisioning: {
-        disabled: false,
-        defaultRole: "member",
-      },
-    }),
-    organization({
-      allowUserToCreateOrganization: async (user: User) => {
-        return isAdmin({ email: user.email }) || false;
-      },
-      async sendInvitationEmail(data) {
-        logger.info("Sending organization invitation email", {
-          email: data.email,
-          organizationName: data.organization.name,
-        });
-        await sendOrganizationInvitation({
-          email: data.email,
-          organizationName: data.organization.name,
-          inviterName: data.inviter.user.name || data.inviter.user.email,
-          invitationId: data.invitation.id,
-        });
-      },
+      organizationProvisioning: { disabled: true },
     }),
   ],
   session: {
