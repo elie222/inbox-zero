@@ -363,11 +363,13 @@ async function matchesCategoryRule(
   return matchedFilter;
 }
 
-export async function filterToReplyPreset(
-  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
+export async function filterToReplyPreset<
+  T extends { id: string; systemType: SystemType | null },
+>(
+  potentialMatches: T[],
   message: ParsedMessage,
   provider: EmailProvider,
-): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
+): Promise<T[]> {
   const toReplyRule = potentialMatches.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
@@ -390,10 +392,14 @@ export async function filterToReplyPreset(
     "account@",
   ];
 
+  function filteredOutToReplyRule() {
+    return potentialMatches.filter((r) => r.systemType !== SystemType.TO_REPLY);
+  }
+
   if (
     noReplyPrefixes.some((prefix) => extractedSenderEmail.startsWith(prefix))
   ) {
-    return potentialMatches;
+    return filteredOutToReplyRule();
   }
 
   try {
@@ -412,7 +418,7 @@ export async function filterToReplyPreset(
           receivedCount,
         },
       );
-      return potentialMatches.filter((r) => r.id !== toReplyRule.id);
+      return filteredOutToReplyRule();
     }
   } catch (error) {
     logger.error("Error checking reply history for TO_REPLY filter", {
