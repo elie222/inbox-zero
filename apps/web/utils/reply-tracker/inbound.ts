@@ -6,6 +6,7 @@ import type { ParsedMessage } from "@/utils/types";
 import { internalDateToDate } from "@/utils/date";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { aiChooseRule } from "@/utils/ai/choose-rule/ai-choose-rule";
+import { filterToReplyPreset } from "@/utils/ai/choose-rule/match-rules";
 import type { EmailProvider } from "@/utils/email/types";
 
 /**
@@ -136,9 +137,17 @@ export async function handleInboundReply({
 
   if (replyTrackingRules.length === 0) return;
 
+  const filteredRules = await filterToReplyPreset(
+    replyTrackingRules,
+    message,
+    client,
+  );
+
+  if (filteredRules.length === 0) return;
+
   const result = await aiChooseRule({
     email: getEmailForLLM(message),
-    rules: replyTrackingRules.map((rule) => ({
+    rules: filteredRules.map((rule) => ({
       id: rule.id,
       name: rule.name,
       instructions: rule.instructions || "",
@@ -146,7 +155,7 @@ export async function handleInboundReply({
     emailAccount,
   });
 
-  if (replyTrackingRules.some((rule) => rule.id === result.rule?.id)) {
+  if (filteredRules.some((rule) => rule.id === result.rule?.id)) {
     await coordinateReplyProcess({
       emailAccountId: emailAccount.id,
       threadId: message.threadId,
