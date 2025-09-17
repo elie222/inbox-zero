@@ -21,6 +21,20 @@ export const isPremium = (
   );
 };
 
+export const isActivePremium = (
+  premium: Pick<
+    Premium,
+    "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+  > | null,
+): boolean => {
+  if (!premium) return false;
+
+  return (
+    premium.stripeSubscriptionStatus === "active" ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
+  );
+};
+
 export const getUserTier = (
   premium?: Pick<
     Premium,

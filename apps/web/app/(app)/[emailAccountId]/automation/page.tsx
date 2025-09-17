@@ -86,7 +86,7 @@ export default async function AutomationPage({
         <PermissionsCheck />
 
         <PageWrapper>
-          <PremiumAlertWithData className="mb-2" />
+          <PremiumAlertWithData className="mb-8" />
 
           <div className="flex items-center justify-between">
             <div>

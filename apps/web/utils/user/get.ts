@@ -102,6 +102,15 @@ export async function getEmailAccountWithAiAndTokens({
   };
 }
 
+export async function getUserPremium({ userId }: { userId: string }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { premium: true },
+  });
+
+  return user?.premium || null;
+}
+
 export async function getWritingStyle({
   emailAccountId,
 }: {
