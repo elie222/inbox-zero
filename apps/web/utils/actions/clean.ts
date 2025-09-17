@@ -28,6 +28,8 @@ import { actionClient } from "@/utils/actions/safe-action";
 import { SafeError } from "@/utils/error";
 import { createEmailProvider } from "@/utils/email/provider";
 import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getUserPremium } from "@/utils/user/get";
+import { isActivePremium } from "@/utils/premium";
 
 const logger = createScopedLogger("actions/clean");
 
@@ -36,7 +38,7 @@ export const cleanInboxAction = actionClient
   .schema(cleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId, provider },
+      ctx: { emailAccountId, provider, userId },
       parsedInput: { action, instructions, daysOld, skips, maxEmails },
     }) => {
       if (!isGoogleProvider(provider)) {
@@ -44,6 +46,10 @@ export const cleanInboxAction = actionClient
           "Clean inbox is only supported for Google accounts",
         );
       }
+
+      const premium = await getUserPremium({ userId });
+      if (!premium) throw new SafeError("User not premium");
+      if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
       const gmail = await getGmailClientForEmail({ emailAccountId });
       const emailProvider = await createEmailProvider({

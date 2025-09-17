@@ -10,7 +10,10 @@ import { SafeError } from "@/utils/error";
 import { createScopedLogger } from "@/utils/logger";
 import { aiClean } from "@/utils/ai/clean/ai-clean";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-import { getEmailAccountWithAiAndTokens } from "@/utils/user/get";
+import {
+  getEmailAccountWithAiAndTokens,
+  getUserPremium,
+} from "@/utils/user/get";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
 import { getCalendarEventStatus } from "@/utils/parse/calender-event";
 import { GmailLabel } from "@/utils/gmail/label";
@@ -20,6 +23,7 @@ import { saveThread, updateThread } from "@/utils/redis/clean";
 import { internalDateToDate } from "@/utils/date";
 import { CleanAction } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
+import { isActivePremium } from "@/utils/premium";
 
 const logger = createScopedLogger("api/clean");
 
@@ -66,6 +70,10 @@ async function cleanThread({
   if (!emailAccount.tokens) throw new SafeError("No Gmail account found", 404);
   if (!emailAccount.tokens.access_token || !emailAccount.tokens.refresh_token)
     throw new SafeError("No Gmail account found", 404);
+
+  const premium = await getUserPremium({ userId: emailAccount.userId });
+  if (!premium) throw new SafeError("User not premium");
+  if (!isActivePremium(premium)) throw new SafeError("Premium not active");
 
   const gmail = await getGmailClientWithRefresh({
     accessToken: emailAccount.tokens.access_token,
