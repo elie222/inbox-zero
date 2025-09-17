@@ -49,6 +49,7 @@ export function CalendarConnectionCard({
       )
     ) {
       executeDisconnect({ connectionId: connection.id });
+      mutate();
     }
   };
 
@@ -79,7 +80,7 @@ export function CalendarConnectionCard({
     }
 
     try {
-      await executeToggle({ calendarId, isEnabled });
+      executeToggle({ calendarId, isEnabled });
 
       setOptimisticUpdates((prev) => {
         const { [calendarId]: _, ...rest } = prev;
@@ -90,7 +91,7 @@ export function CalendarConnectionCard({
         const { [calendarId]: _, ...rest } = prev;
         return rest;
       });
-
+    } finally {
       mutate();
     }
   };
@@ -134,9 +135,10 @@ export function CalendarConnectionCard({
               onClick={handleDisconnect}
               disabled={isDisconnecting}
               className="text-red-600 hover:text-red-700 hover:bg-red-50"
+              Icon={Trash2}
+              loading={isDisconnecting}
             >
-              <Trash2 className="h-4 w-4" />
-              {isDisconnecting ? "Disconnecting..." : "Disconnect"}
+              Disconnect
             </Button>
           </div>
         </div>

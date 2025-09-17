@@ -1,9 +1,7 @@
 "use client";
 
-import { PageSubHeading } from "@/components/Typography";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useCalendars } from "@/hooks/useCalendars";
-import { ConnectCalendarButton } from "./ConnectCalendarButton";
 import { CalendarConnectionCard } from "./CalendarConnectionCard";
 
 export function CalendarConnections() {
@@ -13,11 +11,6 @@ export function CalendarConnections() {
   return (
     <LoadingContent loading={isLoading} error={error}>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <PageSubHeading>Connected Calendars</PageSubHeading>
-          <ConnectCalendarButton />
-        </div>
-
         {connections.length === 0 ? (
           <div className="text-center text-muted-foreground py-10">
             <p>No calendar connections found.</p>

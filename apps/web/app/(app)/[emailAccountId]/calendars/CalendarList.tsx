@@ -22,32 +22,30 @@ export function CalendarList({
       {calendars.map((calendar) => (
         <Card key={calendar.id} className="p-3">
           <CardContent className="p-0">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium truncate">
-                      {calendar.name}
-                    </p>
-                    {calendar.primary && (
-                      <Badge variant="outline" className="text-xs">
-                        <Star className="h-3 w-3 mr-1" />
-                        Primary
-                      </Badge>
-                    )}
-                  </div>
-                  {calendar.description && (
-                    <p className="text-xs text-muted-foreground truncate">
-                      {calendar.description}
-                    </p>
-                  )}
-                  {calendar.timezone && (
-                    <p className="text-xs text-muted-foreground">
-                      {calendar.timezone}
-                    </p>
+            <div className="grid grid-cols-[auto_1fr_auto] gap-3 items-start">
+              <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 min-w-0 mb-1">
+                  <p className="text-sm font-medium truncate flex-1 min-w-0">
+                    {calendar.name}
+                  </p>
+                  {calendar.primary && (
+                    <Badge variant="outline" className="text-xs flex-shrink-0">
+                      <Star className="h-3 w-3 mr-1" />
+                      Primary
+                    </Badge>
                   )}
                 </div>
+                {calendar.description && (
+                  <p className="text-xs text-muted-foreground truncate block overflow-hidden text-ellipsis whitespace-nowrap">
+                    {calendar.description}
+                  </p>
+                )}
+                {calendar.timezone && (
+                  <p className="text-xs text-muted-foreground truncate block overflow-hidden text-ellipsis whitespace-nowrap">
+                    {calendar.timezone}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Toggle
