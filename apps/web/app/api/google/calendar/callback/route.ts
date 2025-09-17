@@ -11,6 +11,7 @@ import { withError } from "@/utils/middleware";
 import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
 import { parseOAuthState } from "@/utils/oauth/state";
 import { auth } from "@/utils/auth";
+import { prefixPath } from "@/utils/path";
 
 const logger = createScopedLogger("google/calendar/callback");
 
@@ -20,7 +21,8 @@ export const GET = withError(async (request: NextRequest) => {
   const receivedState = searchParams.get("state");
   const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
-  const redirectUrl = new URL("/calendars", request.nextUrl.origin);
+  // We'll set the proper redirect URL after we decode the state and get emailAccountId
+  let redirectUrl = new URL("/calendars", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
   response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
@@ -58,6 +60,12 @@ export const GET = withError(async (request: NextRequest) => {
   }
 
   const { emailAccountId } = decodedState;
+
+  // Update redirect URL to include emailAccountId
+  redirectUrl = new URL(
+    prefixPath(emailAccountId, "/calendars"),
+    request.nextUrl.origin,
+  );
 
   // Verify user owns this email account
   const session = await auth();

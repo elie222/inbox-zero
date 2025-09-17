@@ -1,9 +1,9 @@
 import { auth, calendar, type calendar_v3 } from "@googleapis/calendar";
-import { saveTokens } from "@/utils/auth";
 import { env } from "@/env";
 import { createScopedLogger } from "@/utils/logger";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
+import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("calendar/client");
 
@@ -70,17 +70,31 @@ export const getCalendarClientWithRefresh = async ({
     const newAccessToken = tokens.credentials.access_token;
 
     if (newAccessToken !== accessToken) {
-      await saveTokens({
-        tokens: {
-          access_token: newAccessToken ?? undefined,
-          expires_at: tokens.credentials.expiry_date
-            ? Math.floor(tokens.credentials.expiry_date / 1000)
-            : undefined,
+      // Find the calendar connection to update
+      const calendarConnection = await prisma.calendarConnection.findFirst({
+        where: {
+          emailAccountId,
+          provider: "google",
+          refreshToken,
         },
-        accountRefreshToken: refreshToken,
-        emailAccountId,
-        provider: "google",
+        select: { id: true },
       });
+
+      if (calendarConnection) {
+        await saveCalendarTokens({
+          tokens: {
+            access_token: newAccessToken ?? undefined,
+            expires_at: tokens.credentials.expiry_date
+              ? Math.floor(tokens.credentials.expiry_date / 1000)
+              : undefined,
+          },
+          connectionId: calendarConnection.id,
+        });
+      } else {
+        logger.warn("No calendar connection found to update tokens", {
+          emailAccountId,
+        });
+      }
     }
 
     return cal;
@@ -113,5 +127,41 @@ export async function fetchGoogleCalendars(
   } catch (error) {
     logger.error("Error fetching Google calendars", { error });
     throw new SafeError("Failed to fetch calendars");
+  }
+}
+
+async function saveCalendarTokens({
+  tokens,
+  connectionId,
+}: {
+  tokens: {
+    access_token?: string;
+    refresh_token?: string;
+    expires_at?: number;
+  };
+  connectionId: string;
+}) {
+  if (!tokens.access_token) {
+    logger.warn("No access token to save for calendar connection", {
+      connectionId,
+    });
+    return;
+  }
+
+  try {
+    await prisma.calendarConnection.update({
+      where: { id: connectionId },
+      data: {
+        accessToken: tokens.access_token,
+        expiresAt: tokens.expires_at
+          ? new Date(tokens.expires_at * 1000)
+          : null,
+      },
+    });
+
+    logger.info("Calendar tokens saved successfully", { connectionId });
+  } catch (error) {
+    logger.error("Failed to save calendar tokens", { error, connectionId });
+    throw error;
   }
 }

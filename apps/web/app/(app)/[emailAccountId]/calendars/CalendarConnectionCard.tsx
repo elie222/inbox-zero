@@ -130,11 +130,10 @@ export function CalendarConnectionCard({
           </div>
           <div className="flex items-center gap-2">
             <Button
-              variant="outline"
+              variant="destructiveSoft"
               size="sm"
               onClick={handleDisconnect}
               disabled={isDisconnecting}
-              className="text-red-600 hover:text-red-700 hover:bg-red-50"
               Icon={Trash2}
               loading={isDisconnecting}
             >
