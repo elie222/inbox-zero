@@ -14,9 +14,23 @@ export const GET = withEmailAccount(async (request) => {
 async function getData({ emailAccountId }: { emailAccountId: string }) {
   const connections = await prisma.calendarConnection.findMany({
     where: { emailAccountId },
-    include: {
+    select: {
+      id: true,
+      email: true,
+      provider: true,
+      isConnected: true,
       calendars: {
-        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          isEnabled: true,
+          primary: true,
+          description: true,
+          timezone: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
       },
     },
     orderBy: { createdAt: "desc" },
