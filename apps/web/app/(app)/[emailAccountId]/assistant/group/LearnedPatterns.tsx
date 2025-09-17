@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useAction } from "next-safe-action/hooks";
 import { BrainIcon } from "lucide-react";
-import { ViewGroup } from "@/app/(app)/[emailAccountId]/assistant/group/ViewGroup";
+import { ViewLearnedPatterns } from "@/app/(app)/[emailAccountId]/assistant/group/ViewLearnedPatterns";
 import {
   Dialog,
   DialogContent,
@@ -83,7 +83,9 @@ export function LearnedPatternsDialog({
         {isExecuting ? (
           <Skeleton className="h-40 w-full" />
         ) : (
-          learnedPatternGroupId && <ViewGroup groupId={learnedPatternGroupId} />
+          learnedPatternGroupId && (
+            <ViewLearnedPatterns groupId={learnedPatternGroupId} />
+          )
         )}
       </DialogContent>
     </Dialog>

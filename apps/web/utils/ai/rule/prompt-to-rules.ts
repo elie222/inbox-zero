@@ -82,39 +82,43 @@ You can use multiple conditions in a rule, but aim for simplicity.
 In most cases, you should use the "aiInstructions" and sometimes you will use other fields in addition.
 If a rule can be handled fully with static conditions, do so, but this is rarely possible.
 
+IMPORTANT: You must return a JSON object.
+
 <examples>
   <example>
     <input>
       When I get a newsletter, archive it and label it as "Newsletter"
     </input>
     <output>
-      [{
-        "name": "Label Newsletters",
-        "condition": {
-          "aiInstructions": "Apply this rule to newsletters"
-          ${
-            hasSmartCategories
-              ? `,
-            "categories": {
-              "categoryFilterType": "INCLUDE",
-              "categoryFilters": ["Newsletters"]
-            },
-            "conditionalOperator": "OR"`
-              : ""
-          }
-        },
-        "actions": [
-          {
-            "type": "ARCHIVE"
-          },
-          {
-            "type": "LABEL",
-            "fields": {
-              "label": "Newsletter"
+      {
+        "rules": [{
+          "name": "Label Newsletters",
+          "condition": {
+            "aiInstructions": "Apply this rule to newsletters"
+            ${
+              hasSmartCategories
+                ? `,
+              "categories": {
+                "categoryFilterType": "INCLUDE",
+                "categoryFilters": ["Newsletters"]
+              },
+              "conditionalOperator": "OR"`
+                : ""
             }
-          }
-        ]
-      }]
+          },
+          "actions": [
+            {
+              "type": "ARCHIVE"
+            },
+            {
+              "type": "LABEL",
+              "fields": {
+                "label": "Newsletter"
+              }
+            }
+          ]
+        }]
+      }
     </output>
   </example>
 
@@ -123,26 +127,28 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       When someone mentions system outages or critical issues, forward to urgent-support@company.com and label as Urgent-Support
     </input>
     <output>
-      [{
-        "name": "Forward Urgent Emails",
-        "condition": {
-          "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
-        },
-        "actions": [
-          {
-            "type": "FORWARD",
-            "fields": {
-              "to": "urgent-support@company.com"
-            }
+      {
+        "rules": [{
+          "name": "Forward Urgent Emails",
+          "condition": {
+            "aiInstructions": "Apply this rule to emails mentioning system outages or critical issues"
           },
-          {
-            "type": "LABEL",
-            "fields": {
-              "label": "Urgent-Support"
+          "actions": [
+            {
+              "type": "FORWARD",
+              "fields": {
+                "to": "urgent-support@company.com"
+              }
+            },
+            {
+              "type": "LABEL",
+              "fields": {
+                "label": "Urgent-Support"
+              }
             }
-          }
-        ]
-      }]
+          ]
+        }]
+      }
     </output>
   </example>
 
@@ -151,24 +157,26 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       Label all urgent emails from company.com as "Urgent"
     </input>
     <output>
-      [{
-        "name": "Matt Urgent Emails",
-        "condition": {
-          "conditionalOperator": "AND",
-          "aiInstructions": "Apply this rule to urgent emails",
-          "static": {
-            "from": "@company.com"
-          }
-        },
-        "actions": [
-          {
-            "type": "LABEL",
-            "fields": {
-              "label": "Urgent"
+      {
+        "rules": [{
+          "name": "Matt Urgent Emails",
+          "condition": {
+            "conditionalOperator": "AND",
+            "aiInstructions": "Apply this rule to urgent emails",
+            "static": {
+              "from": "@company.com"
             }
-          }
-        ]
-      }]
+          },
+          "actions": [
+            {
+              "type": "LABEL",
+              "fields": {
+                "label": "Urgent"
+              }
+            }
+          ]
+        }]
+      }
     </output>
   </example>
 
@@ -184,20 +192,22 @@ If a rule can be handled fully with static conditions, do so, but this is rarely
       """
     </input>
     <output>
-      [{
-        "name": "Reply to Call Requests",
-        "condition": {
-          "aiInstructions": "Apply this rule to emails from people asking to set up a call"
-        },
-        "actions": [
-          {
-            "type": "REPLY",
-            "fields": {
-              "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
+      {
+        "rules": [{
+          "name": "Reply to Call Requests",
+          "condition": {
+            "aiInstructions": "Apply this rule to emails from people asking to set up a call"
+          },
+          "actions": [
+            {
+              "type": "REPLY",
+              "fields": {
+                "content": "Hi {{name}},\nThank you for your message.\nI'll respond within 2 hours.\nBest,\nAlice"
+              }
             }
-          }
-        ]
-      }]
+          ]
+        }]
+      }
     </output>
   </example>
 </examples>

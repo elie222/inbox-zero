@@ -1,7 +1,5 @@
-import { PreviewMessage } from "./message";
 import { Overview } from "./overview";
-import { memo } from "react";
-import equal from "fast-deep-equal";
+import { MessagePart } from "./message-part";
 import type { UseChatHelpers } from "@ai-sdk/react";
 import type { ChatMessage } from "@/components/assistant-chat/types";
 import {
@@ -21,26 +19,26 @@ interface MessagesProps {
   setInput: (input: string) => void;
 }
 
-function PureMessages({
-  status,
-  messages,
-  setMessages,
-  regenerate,
-  setInput,
-}: MessagesProps) {
+export function Messages({ status, messages, setInput }: MessagesProps) {
   return (
     <Conversation className="flex min-w-0 flex-1">
       <ConversationContent className="flex flex-col gap-6 pt-0 h-full">
         {messages.length === 0 && <Overview setInput={setInput} />}
 
-        {messages.map((message, index) => (
-          <PreviewMessage
-            key={message.id}
-            message={message}
-            isLoading={status === "streaming" && messages.length - 1 === index}
-            setMessages={setMessages}
-            regenerate={regenerate}
-          />
+        {messages.map((message) => (
+          <Message from={message.role} key={message.id}>
+            <MessageContent>
+              {message.parts?.map((part, index) => (
+                <MessagePart
+                  key={`${message.id}-${index}`}
+                  part={part}
+                  isStreaming={status === "streaming"}
+                  messageId={message.id}
+                  partIndex={index}
+                />
+              ))}
+            </MessageContent>
+          </Message>
         ))}
 
         {status === "submitted" &&
@@ -60,14 +58,3 @@ function PureMessages({
     </Conversation>
   );
 }
-
-export const Messages = memo(PureMessages, (prevProps, nextProps) => {
-  if (prevProps.isArtifactVisible && nextProps.isArtifactVisible) return true;
-
-  if (prevProps.status !== nextProps.status) return false;
-  if (prevProps.status && nextProps.status) return false;
-  if (prevProps.messages.length !== nextProps.messages.length) return false;
-  if (!equal(prevProps.messages, nextProps.messages)) return false;
-
-  return true;
-});

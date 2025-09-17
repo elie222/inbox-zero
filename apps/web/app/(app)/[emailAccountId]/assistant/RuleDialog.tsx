@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import { RuleForm } from "./RuleForm";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
+import { useDialogState } from "@/hooks/useDialogState";
 
 interface RuleDialogProps {
   ruleId?: string;
@@ -18,6 +20,23 @@ interface RuleDialogProps {
   onSuccess?: () => void;
   initialRule?: Partial<CreateRuleBody>;
   editMode?: boolean;
+}
+
+export function useRuleDialog() {
+  const ruleDialog = useDialogState<{ ruleId: string }>();
+
+  const RuleDialogComponent = useCallback(() => {
+    return (
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.onClose}
+        editMode={false}
+      />
+    );
+  }, [ruleDialog.data?.ruleId, ruleDialog.isOpen, ruleDialog.onClose]);
+
+  return { ruleDialog, RuleDialogComponent };
 }
 
 export function RuleDialog({

@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   ChromeIcon,
 } from "lucide-react";
+import { useLocalStorage } from "usehooks-ts";
 import { PageHeading, SectionDescription } from "@/components/Typography";
 import { Card } from "@/components/ui/card";
 import { prefixPath } from "@/utils/path";
@@ -51,47 +52,61 @@ function FeatureCard({
   );
 }
 
-const features = [
-  {
-    href: "/automation",
-    icon: BotIcon,
-    iconBg: "bg-green-100 dark:bg-green-900/50",
-    iconColor: "text-green-600 dark:text-green-400",
-    title: "AI Assistant",
-    description:
-      "Your personal email assistant that organizes, archives, and drafts replies",
-  },
-  {
-    href: "/bulk-unsubscribe",
-    icon: ArchiveIcon,
-    iconBg: "bg-purple-100 dark:bg-purple-900/50",
-    iconColor: "text-purple-600 dark:text-purple-400",
-    title: "Bulk Unsubscribe",
-    description: "Easily unsubscribe from unwanted newsletters in one click",
-  },
-  {
-    href: "/reply-zero",
-    icon: MailIcon,
-    iconBg: "bg-blue-100 dark:bg-blue-900/50",
-    iconColor: "text-blue-600 dark:text-blue-400",
-    title: "Reply Zero",
-    description:
-      "Track emails needing replies & follow-ups. Get AI-drafted responses",
-  },
-  {
-    href: "/cold-email-blocker",
-    icon: BanIcon,
-    iconBg: "bg-orange-100 dark:bg-orange-900/50",
-    iconColor: "text-orange-600 dark:text-orange-400",
-    title: "Cold Email Blocker",
-    description: "Filter out unsolicited messages and keep your inbox clean",
-  },
-] as const;
+function getFeatures(provider: string) {
+  const features = [
+    {
+      href: "/automation",
+      icon: BotIcon,
+      iconBg: "bg-green-100 dark:bg-green-900/50",
+      iconColor: "text-green-600 dark:text-green-400",
+      title: "AI Assistant",
+      description:
+        "Your personal email assistant that organizes, archives, and drafts replies",
+    },
+    {
+      href: "/bulk-unsubscribe",
+      icon: ArchiveIcon,
+      iconBg: "bg-purple-100 dark:bg-purple-900/50",
+      iconColor: "text-purple-600 dark:text-purple-400",
+      title: "Bulk Unsubscribe",
+      description: "Easily unsubscribe from unwanted newsletters in one click",
+    },
+    ...(isGoogleProvider(provider)
+      ? [
+          {
+            href: "/reply-zero",
+            icon: MailIcon,
+            iconBg: "bg-blue-100 dark:bg-blue-900/50",
+            iconColor: "text-blue-600 dark:text-blue-400",
+            title: "Reply Zero",
+            description:
+              "Track emails needing replies & follow-ups. Get AI-drafted responses",
+          } as const,
+        ]
+      : []),
+    {
+      href: "/cold-email-blocker",
+      icon: BanIcon,
+      iconBg: "bg-orange-100 dark:bg-orange-900/50",
+      iconColor: "text-orange-600 dark:text-orange-400",
+      title: "Cold Email Blocker",
+      description: "Filter out unsolicited messages and keep your inbox clean",
+    },
+  ] as const;
 
-function FeatureGrid({ emailAccountId }: { emailAccountId: string }) {
+  return features;
+}
+
+function FeatureGrid({
+  emailAccountId,
+  provider,
+}: {
+  emailAccountId: string;
+  provider: string;
+}) {
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
-      {features.map((feature) => (
+      {getFeatures(provider).map((feature) => (
         <FeatureCard
           key={feature.href}
           emailAccountId={emailAccountId}
@@ -112,6 +127,8 @@ const StepItem = ({
   completed,
   actionText,
   linkProps,
+  onMarkDone,
+  showMarkDone,
 }: {
   href: string;
   icon: React.ReactNode;
@@ -122,12 +139,18 @@ const StepItem = ({
   completed: boolean;
   actionText: string;
   linkProps?: { target?: string; rel?: string };
+  onMarkDone?: () => void;
+  showMarkDone?: boolean;
 }) => {
+  const handleMarkDone = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onMarkDone?.();
+  };
+
   return (
-    <Link
+    <div
       className={`border-b border-border last:border-0 ${completed ? "opacity-60" : ""}`}
-      href={href}
-      {...linkProps}
     >
       <div className="flex items-center justify-between gap-8 p-4">
         <div className="flex max-w-lg items-center">
@@ -144,7 +167,7 @@ const StepItem = ({
           </div>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
           {completed ? (
             <div className="flex size-6 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/50">
               <CheckIcon
@@ -153,13 +176,29 @@ const StepItem = ({
               />
             </div>
           ) : (
-            <div className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75">
-              {actionText}
-            </div>
+            <>
+              {showMarkDone && (
+                <button
+                  type="button"
+                  onClick={handleMarkDone}
+                  className="rounded-md bg-slate-100 px-3 py-1 text-sm text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700"
+                >
+                  Mark Done
+                </button>
+              )}
+
+              <Link
+                href={href}
+                {...linkProps}
+                className="rounded-md bg-blue-100 px-3 py-1 text-sm text-blue-600 hover:bg-blue-200 dark:bg-blue-900/50 dark:text-blue-400 dark:hover:bg-blue-900/75"
+              >
+                {actionText}
+              </Link>
+            </>
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 };
 
@@ -182,6 +221,15 @@ function Checklist({
   isBulkUnsubscribeConfigured: boolean;
   isAiAssistantConfigured: boolean;
 }) {
+  const [isExtensionInstalled, setIsExtensionInstalled] = useLocalStorage(
+    "inbox-zero-extension-installed",
+    false,
+  );
+
+  const handleMarkExtensionDone = () => {
+    setIsExtensionInstalled(true);
+  };
+
   return (
     <Card className="mb-6 overflow-hidden">
       <div className="border-b border-border p-4">
@@ -217,8 +265,8 @@ function Checklist({
         icon={<ArchiveIcon size={20} />}
         iconBg="bg-purple-100 dark:bg-purple-900/50"
         iconColor="text-purple-500 dark:text-purple-400"
-        title="Unsubscribe from emails you don't read"
-        timeEstimate="5 minutes"
+        title="Unsubscribe from a newsletter you don't read"
+        timeEstimate="2 minutes"
         completed={isBulkUnsubscribeConfigured}
         actionText="View"
       />
@@ -243,8 +291,10 @@ function Checklist({
           iconColor="text-orange-500 dark:text-orange-400"
           title="Install the Inbox Zero Tabs extension"
           timeEstimate="1 minute"
-          completed={false}
+          completed={isExtensionInstalled}
           actionText="Install"
+          onMarkDone={handleMarkExtensionDone}
+          showMarkDone={true}
         />
       )}
     </Card>
@@ -306,7 +356,7 @@ function SetupPageContent({
       </div>
 
       {isSetupComplete ? (
-        <FeatureGrid emailAccountId={emailAccountId} />
+        <FeatureGrid emailAccountId={emailAccountId} provider={provider} />
       ) : (
         <Checklist
           emailAccountId={emailAccountId}

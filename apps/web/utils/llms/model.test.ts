@@ -314,29 +314,5 @@ describe("Models", () => {
         "Anthropic",
       ]);
     });
-
-    it("should preserve custom logic and not override with default provider options", () => {
-      const userAi: UserAIFields = {
-        aiApiKey: null,
-        aiProvider: null,
-        aiModel: null,
-      };
-
-      vi.mocked(env).DEFAULT_LLM_PROVIDER = "custom";
-      vi.mocked(env).DEFAULT_OPENROUTER_PROVIDERS = "Should Not Override";
-      vi.mocked(env).OPENROUTER_API_KEY = "test-openrouter-key";
-
-      const result = getModel(userAi, "default");
-      expect(result.provider).toBe(Provider.OPENROUTER);
-      // Should have custom logic provider options, not the default ones
-      expect(result.providerOptions?.openrouter?.provider?.order).toEqual([
-        "Google Vertex",
-        "Google AI Studio",
-      ]);
-      // Should NOT contain the DEFAULT_OPENROUTER_PROVIDERS value
-      expect(result.providerOptions?.openrouter?.provider?.order).not.toContain(
-        "Should Not Override",
-      );
-    });
   });
 });

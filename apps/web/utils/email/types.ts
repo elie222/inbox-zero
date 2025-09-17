@@ -74,6 +74,7 @@ export interface EmailProvider {
   draftEmail(
     email: ParsedMessage,
     args: { to?: string; subject?: string; content: string },
+    userEmail: string,
     executedRule?: { id: string; threadId: string; emailAccountId: string },
   ): Promise<{ draftId: string }>;
   replyToEmail(email: ParsedMessage, content: string): Promise<void>;

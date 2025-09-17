@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import subDays from "date-fns/subDays";
 import { usePostHog } from "posthog-js/react";
-import { FilterIcon } from "lucide-react";
+import { ArchiveIcon, FilterIcon } from "lucide-react";
 import sortBy from "lodash/sortBy";
 import type { DateRange } from "react-day-picker";
 import { LoadingContent } from "@/components/LoadingContent";
@@ -49,6 +49,7 @@ import { LoadStatsButton } from "@/app/(app)/[emailAccountId]/stats/LoadStatsBut
 import { PageWrapper } from "@/components/PageWrapper";
 import { PageHeader } from "@/components/PageHeader";
 import { TextLink } from "@/components/Typography";
+import { DismissibleVideoCard } from "@/components/VideoCard";
 
 const selectOptions = [
   { label: "Last week", value: "7" },
@@ -232,6 +233,19 @@ export function BulkUnsubscribe() {
           videoId: "T1rnooV4OYc",
         }}
       />
+
+      <div className="mt-4">
+        <DismissibleVideoCard
+          icon={<ArchiveIcon className="size-5" />}
+          title="Getting started with Bulk Unsubscribe"
+          description={
+            "Learn how to use the Bulk Unsubscribe to unsubscribe from and archive unwanted emails."
+          }
+          videoSrc="https://www.youtube.com/embed/T1rnooV4OYc"
+          thumbnailSrc="https://img.youtube.com/vi/T1rnooV4OYc/0.jpg"
+          storageKey="bulk-unsubscribe-onboarding-video"
+        />
+      </div>
 
       <div className="items-center justify-between flex mt-4 flex-wrap">
         <div className="flex items-center justify-end gap-1">

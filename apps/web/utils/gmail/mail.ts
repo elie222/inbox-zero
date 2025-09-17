@@ -17,6 +17,7 @@ import { createReplyContent } from "@/utils/gmail/reply";
 import type { EmailForAction } from "@/utils/ai/types";
 import { createScopedLogger } from "@/utils/logger";
 import { withGmailRetry } from "@/utils/gmail/retry";
+import { buildReplyAllRecipients, formatCcList } from "@/utils/email/reply-all";
 
 const logger = createScopedLogger("gmail/mail");
 
@@ -145,6 +146,7 @@ export async function replyToEmail(
     message,
   });
 
+  // Only replying to the original sender
   const raw = await createRawMailMessage(
     {
       to: message.headers["reply-to"] || message.headers.from,
@@ -242,19 +244,22 @@ export async function draftEmail(
     content: string;
     attachments?: Attachment[];
   },
+  userEmail: string,
 ) {
   const { text, html } = createReplyContent({
     textContent: args.content,
     message: originalEmail,
   });
 
+  const recipients = buildReplyAllRecipients(
+    originalEmail.headers,
+    args.to,
+    userEmail,
+  );
+
   const raw = await createRawMailMessage({
-    to:
-      args.to ||
-      originalEmail.headers["reply-to"] ||
-      originalEmail.headers.from,
-    cc: originalEmail.headers.cc,
-    bcc: originalEmail.headers.bcc,
+    to: recipients.to,
+    cc: formatCcList(recipients.cc),
     subject: args.subject || originalEmail.headers.subject,
     messageHtml: html,
     messageText: text,

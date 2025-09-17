@@ -12,6 +12,7 @@ import {
   type StreamTextOnFinishCallback,
   type StreamTextOnStepFinishCallback,
 } from "ai";
+import { jsonrepair } from "jsonrepair";
 import type { LanguageModelV2 } from "@ai-sdk/provider";
 import { saveAiUsage } from "@/utils/usage";
 import type { UserAIFields } from "@/utils/llms/types";
@@ -104,12 +105,12 @@ export function createGenerateText({
         try {
           return await generate(modelOptions.backupModel);
         } catch (error) {
-          await handleError(error, userEmail);
+          await handleError(error, userEmail, label);
           throw error;
         }
       }
 
-      await handleError(error, userEmail);
+      await handleError(error, userEmail, label);
       throw error;
     }
   };
@@ -134,8 +135,21 @@ export function createGenerateObject({
         prompt: options.prompt?.slice(0, MAX_LOG_LENGTH),
       });
 
+      if (
+        !options.system?.includes("JSON") &&
+        typeof options.prompt === "string" &&
+        !options.prompt?.includes("JSON")
+      ) {
+        logger.warn("Missing JSON in prompt", { label });
+      }
+
       const result = await generateObject(
         {
+          experimental_repairText: async ({ text }) => {
+            logger.info("Repairing text", { label });
+            const fixed = jsonrepair(text);
+            return fixed;
+          },
           ...options,
           ...commonOptions,
         },
@@ -159,7 +173,7 @@ export function createGenerateObject({
 
       return result;
     } catch (error) {
-      await handleError(error, userEmail);
+      await handleError(error, userEmail, label);
       throw error;
     }
   };
@@ -248,8 +262,8 @@ export async function chatCompletionStream({
   return result;
 }
 
-async function handleError(error: unknown, userEmail: string) {
-  logger.error("Error in LLM call", { error, userEmail });
+async function handleError(error: unknown, userEmail: string, label: string) {
+  logger.error("Error in LLM call", { error, userEmail, label });
 
   if (APICallError.isInstance(error)) {
     if (isIncorrectOpenAIAPIKeyError(error)) {

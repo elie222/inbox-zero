@@ -47,9 +47,9 @@ import { prefixPath } from "@/utils/path";
 import { Toggle } from "@/components/Toggle";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-export function ViewGroup({ groupId }: { groupId: string }) {
+export function ViewLearnedPatterns({ groupId }: { groupId: string }) {
   return (
-    <ErrorBoundary extra={{ component: "ViewGroup", groupId }}>
+    <ErrorBoundary extra={{ component: "ViewLearnedPatterns", groupId }}>
       <ViewGroupInner groupId={groupId} />
     </ErrorBoundary>
   );

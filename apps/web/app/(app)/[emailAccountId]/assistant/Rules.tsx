@@ -17,12 +17,7 @@ import {
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,9 +47,9 @@ import { prefixPath } from "@/utils/path";
 import { ExpandableText } from "@/components/ExpandableText";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { sortActionsByPriority } from "@/utils/action-sort";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
-import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
@@ -85,7 +80,6 @@ export function Rules({
   const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
-  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
     {
@@ -391,11 +385,10 @@ export function Rules({
                                         emailAccountId,
                                         "/cold-email-blocker",
                                       )
-                                    : createAssistantUrl({
-                                        tab: "history",
-                                        ruleId: rule.id,
-                                        path: "/automation?tab=history",
-                                      })
+                                    : prefixPath(
+                                        emailAccountId,
+                                        `/automation?tab=history&ruleId=${rule.id}`,
+                                      )
                                 }
                                 target={
                                   isColdEmailBlocker ? "_blank" : undefined
@@ -492,7 +485,7 @@ export function Rules({
               </TableBody>
             </Table>
           ) : (
-            <NoRules onCreateRule={onCreateRule} />
+            <NoRules />
           )}
         </LoadingContent>
       </Card>
@@ -525,12 +518,13 @@ export function ActionBadges({
     type: ActionType;
     label?: string | null;
     folderName?: string | null;
+    content?: string | null;
   }[];
   provider: string;
 }) {
   return (
     <div className="flex gap-2">
-      {actions.map((action) => {
+      {sortActionsByPriority(actions).map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
 
@@ -548,21 +542,11 @@ export function ActionBadges({
   );
 }
 
-function NoRules({ onCreateRule }: { onCreateRule: () => void }) {
+function NoRules() {
   return (
-    <>
-      <CardHeader>
-        <CardDescription>
-          You don't have any rules yet.
-          <br />
-          You can teach your AI assistant how to handle your emails by chatting
-          with it or create rules manually.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <AddRuleButton onClick={onCreateRule} />
-      </CardContent>
-    </>
+    <CardHeader>
+      <CardDescription>You don't have any rules yet.</CardDescription>
+    </CardHeader>
   );
 }
 

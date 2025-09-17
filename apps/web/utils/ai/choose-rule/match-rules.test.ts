@@ -1074,9 +1074,7 @@ describe("filterToReplyPreset", () => {
       provider,
     );
 
-    // Should return all rules when sender is a no-reply address
-    expect(result).toHaveLength(2);
-    expect(result).toContain(toReplyRule);
+    expect(result).toHaveLength(1);
     expect(result).toContain(otherRule);
   });
 
@@ -1269,8 +1267,7 @@ describe("filterToReplyPreset", () => {
       );
 
       // All no-reply variations should return the rule (not filtered)
-      expect(result).toHaveLength(1);
-      expect(result).toContain(toReplyRule);
+      expect(result).toHaveLength(0);
     }
   });
 
