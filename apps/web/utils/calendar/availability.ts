@@ -78,7 +78,7 @@ async function fetchCalendarBusyPeriods({
 /**
  * Merge busy periods from multiple calendars to get unified availability
  */
-function mergeBusyPeriods(
+export function mergeBusyPeriods(
   busyPeriods: Array<{ start: string; end: string }>,
 ): Array<{ start: string; end: string }> {
   if (busyPeriods.length === 0) return [];
@@ -121,14 +121,14 @@ function mergeBusyPeriods(
 export function generateTimeSlots({
   date,
   busyPeriods,
-  startHour = 9,
-  endHour = 17,
+  startHour,
+  endHour,
   slotDurationMinutes = 30,
 }: {
   date: Date;
   busyPeriods: Array<{ start: string; end: string }>;
-  startHour?: number;
-  endHour?: number;
+  startHour: number;
+  endHour: number;
   slotDurationMinutes?: number;
 }): TimeSlot[] {
   const slots: TimeSlot[] = [];
@@ -180,6 +180,8 @@ export async function getCalendarAvailability({
   calendarIds,
   startDate,
   endDate,
+  startHour,
+  endHour,
   slotDurationMinutes = 30,
 }: {
   accessToken?: string | null;
@@ -189,6 +191,8 @@ export async function getCalendarAvailability({
   calendarIds: string[];
   startDate: Date;
   endDate: Date;
+  startHour: number;
+  endHour: number;
   slotDurationMinutes?: number;
 }): Promise<CalendarAvailability> {
   const calendarClient = await getCalendarClientWithRefresh({
@@ -218,8 +222,8 @@ export async function getCalendarAvailability({
   const timeSlots = generateTimeSlots({
     date: startDate,
     busyPeriods: mergedBusyPeriods,
-    startHour: 9, // Default business hours
-    endHour: 17, // Default business hours
+    startHour,
+    endHour,
     slotDurationMinutes,
   });
 
