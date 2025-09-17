@@ -93,7 +93,7 @@ Here are the emails they've sent:
 ${emails.map((e) => `<email>\n${stringifyEmail(e, 1000)}\n</email>`).join("\n")}
 </emails>`;
 
-  const modelOptions = getModel(emailAccount.user);
+  const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
