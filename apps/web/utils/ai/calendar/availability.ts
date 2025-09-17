@@ -3,23 +3,16 @@ import { tool } from "ai";
 import { createScopedLogger } from "@/utils/logger";
 import { createGenerateText } from "@/utils/llms";
 import { getModel } from "@/utils/llms/model";
-import {
-  getCalendarAvailability,
-  getSuggestedTimeSlots,
-} from "@/utils/calendar/availability";
+import { getCalendarAvailability } from "@/utils/calendar/availability";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM } from "@/utils/types";
 import prisma from "@/utils/prisma";
 
 const logger = createScopedLogger("calendar-availability");
 
-export type CalendarAvailabilityContext = {
-  suggestedTimes: string[];
-};
+const schema = z.object({ suggestedTimes: z.array(z.string()) });
+export type CalendarAvailabilityContext = z.infer<typeof schema>;
 
-/**
- * Check if an email thread contains meeting/scheduling requests and get calendar availability
- */
 export async function aiGetCalendarAvailability({
   emailAccount,
   messages,
@@ -27,8 +20,21 @@ export async function aiGetCalendarAvailability({
   emailAccount: EmailAccountWithAI;
   messages: EmailForLLM[];
 }): Promise<CalendarAvailabilityContext | null> {
-  if (!messages || messages.length === 0) {
+  if (!messages?.length) {
     logger.warn("No messages provided for calendar availability check");
+    return null;
+  }
+
+  const threadContent = messages
+    .map((msg, index) => {
+      const content = `${msg.subject || ""} ${msg.content || ""}`.trim();
+      return content ? `Message ${index + 1}: ${content}` : null;
+    })
+    .filter(Boolean)
+    .join("\n\n");
+
+  if (!threadContent) {
+    logger.info("No content in thread messages, skipping calendar check");
     return null;
   }
 
@@ -45,35 +51,39 @@ export async function aiGetCalendarAvailability({
     },
   });
 
-  const threadContent = messages
-    .map((msg, index) => {
-      const content = `${msg.subject || ""} ${msg.content || ""}`.trim();
-      return content ? `Message ${index + 1}: ${content}` : null;
-    })
-    .filter(Boolean)
-    .join("\n\n");
-
-  if (!threadContent) {
-    logger.info("No content in thread messages, skipping calendar check");
-    return null;
-  }
-
-  const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests.
+  const system = `You are an AI assistant that analyzes email threads to determine if they contain meeting or scheduling requests, and if yes, returns the suggested times for the meeting.
 
 Your task is to:
-1. Analyze the full email thread to determine if it's related to scheduling a meeting, call, or appointment
-2. Consider context from all messages - scheduling requests may be established across multiple messages
-3. If it is scheduling-related, extract the date and time information mentioned anywhere in the thread
-4. Use the checkCalendarAvailability tool to get actual availability data
-5. Return structured data about the scheduling request
+1. Analyze the email thread to determine if it's related to scheduling a meeting, call, or appointment
+2. If it is scheduling-related, extract the date and time information mentioned anywhere in the thread
+3. Use the checkCalendarAvailability tool to get actual availability from the user's calendars
+4. Return possible times for the meeting by calling "returnSuggestedTimes" with the suggested dates and times
 
-If the email thread is not about scheduling, return isRelevant: false.`;
+If the email thread is not about scheduling, return isRelevant: false.
 
-  const prompt = `Analyze this email thread for meeting/scheduling requests:
+You can only call "returnSuggestedTimes" once.
+Your suggested times should be in the format of "YYYY-MM-DD HH:MM".
+IMPORTANT: Another agent is responsible for drafting the final email reply. You just need to reply with the suggested times.`;
 
+  const prompt = `
+${
+  emailAccount.about
+    ? `<user_info>
+<about>${emailAccount.about}</about>
+<email>${emailAccount.email}</email>
+</user_info>`
+    : `<user_info>
+<email>${emailAccount.email}</email>
+</user_info>`
+}
+  
+<current_time>
+${new Date().toISOString()}
+</current_time>
+
+<thread>
 ${threadContent}
-
-Extract any date and time information mentioned across all messages and check calendar availability if relevant. Consider the full conversation context to understand scheduling requests that may have been established in earlier messages.`;
+</thread>`.trim();
 
   const modelOptions = getModel(emailAccount.user);
 
@@ -83,7 +93,7 @@ Extract any date and time information mentioned across all messages and check ca
     modelOptions,
   });
 
-  const toolCallResults: string[][] = [];
+  let result: CalendarAvailabilityContext["suggestedTimes"] | null = null;
 
   await generateText({
     ...modelOptions,
@@ -92,7 +102,7 @@ Extract any date and time information mentioned across all messages and check ca
     stopWhen: (result) =>
       result.steps.some((step) =>
         step.toolCalls?.some(
-          (call) => call.toolName === "checkCalendarAvailability",
+          (call) => call.toolName === "returnSuggestedTimes",
         ),
       ) || result.steps.length > 5,
     tools: {
@@ -110,40 +120,46 @@ Extract any date and time information mentioned across all messages and check ca
           const startDate = new Date(timeMin);
           const endDate = new Date(timeMax);
 
-          for (const calendarConnection of calendarConnections) {
-            const calendarIds = calendarConnections.flatMap((conn) =>
-              conn.calendars.map((cal) => cal.calendarId),
-            );
-
-            if (!calendarIds.length) {
-              continue;
-            }
-
-            try {
-              const availabilityData = await getCalendarAvailability({
-                accessToken: calendarConnection.accessToken,
-                refreshToken: calendarConnection.refreshToken,
-                expiresAt: calendarConnection.expiresAt?.getTime() || null,
-                emailAccountId: emailAccount.id,
-                calendarIds,
-                startDate,
-                endDate,
-              });
-
-              const suggestedTimes = getSuggestedTimeSlots(
-                availabilityData.timeSlots,
-                3,
+          const promises = calendarConnections.map(
+            async (calendarConnection) => {
+              const calendarIds = calendarConnections.flatMap((conn) =>
+                conn.calendars.map((cal) => cal.calendarId),
               );
 
-              toolCallResults.push(suggestedTimes);
-            } catch (error) {
-              logger.error("Error checking calendar availability", { error });
-            }
-          }
+              if (!calendarIds.length) return;
+
+              try {
+                const availabilityData = await getCalendarAvailability({
+                  accessToken: calendarConnection.accessToken,
+                  refreshToken: calendarConnection.refreshToken,
+                  expiresAt: calendarConnection.expiresAt?.getTime() || null,
+                  emailAccountId: emailAccount.id,
+                  calendarIds,
+                  startDate,
+                  endDate,
+                });
+
+                return availabilityData;
+              } catch (error) {
+                logger.error("Error checking calendar availability", { error });
+              }
+            },
+          );
+
+          const busyPeriods = await Promise.all(promises);
+
+          return { busyPeriods: busyPeriods.flat() };
+        },
+      }),
+      returnSuggestedTimes: tool({
+        description: "Return suggested times for a meeting",
+        inputSchema: schema,
+        execute: async ({ suggestedTimes }) => {
+          result = suggestedTimes;
         },
       }),
     },
   });
 
-  return { suggestedTimes: toolCallResults.flat() };
+  return result ? { suggestedTimes: result } : null;
 }
