@@ -6,6 +6,7 @@ import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
 import { withError } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { parseOAuthState } from "@/utils/oauth/state";
 
 const logger = createScopedLogger("outlook/linking/callback");
 
@@ -35,9 +36,7 @@ export const GET = withError(async (request: NextRequest) => {
 
   let decodedState: { userId: string; action: string; nonce: string };
   try {
-    decodedState = JSON.parse(
-      Buffer.from(storedState, "base64url").toString("utf8"),
-    );
+    decodedState = parseOAuthState(storedState);
   } catch (error) {
     logger.error("Failed to decode state", { error });
     redirectUrl.searchParams.set("error", "invalid_state_format");

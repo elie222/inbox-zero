@@ -8,29 +8,44 @@ import {
   getCalendarClientWithRefresh,
 } from "@/utils/calendar/client";
 import { withError } from "@/utils/middleware";
+import { CALENDAR_STATE_COOKIE_NAME } from "@/utils/calendar/constants";
+import { parseOAuthState } from "@/utils/oauth/state";
+import { auth } from "@/utils/auth";
 
 const logger = createScopedLogger("google/calendar/callback");
 
 export const GET = withError(async (request: NextRequest) => {
   const searchParams = request.nextUrl.searchParams;
   const code = searchParams.get("code");
-  const state = searchParams.get("state");
+  const receivedState = searchParams.get("state");
+  const storedState = request.cookies.get(CALENDAR_STATE_COOKIE_NAME)?.value;
 
   const redirectUrl = new URL("/calendars", request.nextUrl.origin);
   const response = NextResponse.redirect(redirectUrl);
 
-  if (!code || !state) {
-    logger.warn("Missing code or state in Google Calendar callback");
-    redirectUrl.searchParams.set("error", "missing_parameters");
+  response.cookies.delete(CALENDAR_STATE_COOKIE_NAME);
+
+  if (!code) {
+    logger.warn("Missing code in Google Calendar callback");
+    redirectUrl.searchParams.set("error", "missing_code");
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  let decodedState: { emailAccountId: string; type: string };
+  if (!storedState || !receivedState || storedState !== receivedState) {
+    logger.warn("Invalid state during Google Calendar callback", {
+      receivedState,
+      hasStoredState: !!storedState,
+    });
+    redirectUrl.searchParams.set("error", "invalid_state");
+    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+  }
+
+  let decodedState: { emailAccountId: string; type: string; nonce: string };
   try {
-    decodedState = JSON.parse(state);
+    decodedState = parseOAuthState(storedState);
   } catch (error) {
     logger.error("Failed to decode state", { error });
-    redirectUrl.searchParams.set("error", "invalid_state");
+    redirectUrl.searchParams.set("error", "invalid_state_format");
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
@@ -44,6 +59,31 @@ export const GET = withError(async (request: NextRequest) => {
 
   const { emailAccountId } = decodedState;
 
+  // Verify user owns this email account
+  const session = await auth();
+  if (!session?.user?.id) {
+    logger.warn("Unauthorized calendar callback - no session");
+    redirectUrl.searchParams.set("error", "unauthorized");
+    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+  }
+
+  const emailAccount = await prisma.emailAccount.findFirst({
+    where: {
+      id: emailAccountId,
+      userId: session.user.id,
+    },
+    select: { id: true },
+  });
+
+  if (!emailAccount) {
+    logger.warn("Unauthorized calendar callback - invalid email account", {
+      emailAccountId,
+      userId: session.user.id,
+    });
+    redirectUrl.searchParams.set("error", "forbidden");
+    return NextResponse.redirect(redirectUrl, { headers: response.headers });
+  }
+
   redirectUrl.pathname = `/${emailAccountId}/calendars`;
 
   const googleAuth = getCalendarOAuth2Client();
@@ -54,6 +94,12 @@ export const GET = withError(async (request: NextRequest) => {
 
     if (!id_token) {
       throw new Error("Missing id_token from Google response");
+    }
+
+    if (!access_token || !refresh_token) {
+      logger.warn("No refresh_token returned from Google", { emailAccountId });
+      redirectUrl.searchParams.set("error", "missing_refresh_token");
+      return NextResponse.redirect(redirectUrl, { headers: response.headers });
     }
 
     const ticket = await googleAuth.verifyIdToken({
@@ -99,8 +145,8 @@ export const GET = withError(async (request: NextRequest) => {
 
     await syncGoogleCalendars(
       connection.id,
-      access_token!,
-      refresh_token!,
+      access_token,
+      refresh_token,
       emailAccountId,
     );
 

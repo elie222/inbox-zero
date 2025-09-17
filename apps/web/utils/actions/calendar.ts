@@ -6,28 +6,7 @@ import {
   toggleCalendarBody,
 } from "@/utils/actions/calendar.validation";
 import prisma from "@/utils/prisma";
-import { redirect } from "next/navigation";
-import { getCalendarOAuth2Client } from "@/utils/calendar/client";
-import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
 import { SafeError } from "@/utils/error";
-
-export const connectGoogleCalendarAction = actionClient
-  .metadata({ name: "connectGoogleCalendar" })
-  .action(async ({ ctx: { emailAccountId } }) => {
-    const oauth2Client = getCalendarOAuth2Client();
-
-    const authUrl = oauth2Client.generateAuthUrl({
-      access_type: "offline",
-      scope: GOOGLE_CALENDAR_SCOPES,
-      state: JSON.stringify({
-        emailAccountId,
-        type: "calendar",
-      }),
-      prompt: "consent",
-    });
-
-    redirect(authUrl);
-  });
 
 export const disconnectCalendarAction = actionClient
   .metadata({ name: "disconnectCalendar" })
