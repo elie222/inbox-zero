@@ -41,12 +41,12 @@ async function findPotentialMatchingRules({
   rules,
   message,
   isThread,
-  client,
+  provider,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   isThread: boolean;
-  client: EmailProvider;
+  provider: EmailProvider;
 }): Promise<MatchingRuleResult> {
   const potentialMatches: (RuleWithActionsAndCategories & {
     instructions: string;
@@ -174,7 +174,7 @@ async function findPotentialMatchingRules({
   const filteredPotentialMatches = await filterToReplyPreset(
     potentialMatches,
     message,
-    client,
+    provider,
   );
 
   return { potentialMatches: filteredPotentialMatches };
@@ -203,20 +203,20 @@ export async function findMatchingRule({
   rules,
   message,
   emailAccount,
-  client,
+  provider,
   modelType,
 }: {
   rules: RuleWithActionsAndCategories[];
   message: ParsedMessage;
   emailAccount: EmailAccountWithAI;
-  client: EmailProvider;
+  provider: EmailProvider;
   modelType: ModelType;
 }) {
   const result = await findMatchingRuleWithReasons(
     rules,
     message,
     emailAccount,
-    client,
+    provider,
     modelType,
   );
   return {
@@ -229,21 +229,21 @@ async function findMatchingRuleWithReasons(
   rules: RuleWithActionsAndCategories[],
   message: ParsedMessage,
   emailAccount: EmailAccountWithAI,
-  client: EmailProvider,
+  provider: EmailProvider,
   modelType: ModelType,
 ): Promise<{
   rule?: RuleWithActionsAndCategories;
   matchReasons?: MatchReason[];
   reason?: string;
 }> {
-  const isThread = client.isReplyInThread(message);
+  const isThread = provider.isReplyInThread(message);
 
   const { match, matchReasons, potentialMatches } =
     await findPotentialMatchingRules({
       rules,
       message,
       isThread,
-      client,
+      provider,
     });
 
   if (match) return { rule: match, matchReasons };
@@ -363,11 +363,13 @@ async function matchesCategoryRule(
   return matchedFilter;
 }
 
-export async function filterToReplyPreset(
-  potentialMatches: (RuleWithActionsAndCategories & { instructions: string })[],
+export async function filterToReplyPreset<
+  T extends { id: string; systemType: SystemType | null },
+>(
+  potentialMatches: T[],
   message: ParsedMessage,
-  client: EmailProvider,
-): Promise<(RuleWithActionsAndCategories & { instructions: string })[]> {
+  provider: EmailProvider,
+): Promise<T[]> {
   const toReplyRule = potentialMatches.find(
     (r) => r.systemType === SystemType.TO_REPLY,
   );
@@ -390,15 +392,19 @@ export async function filterToReplyPreset(
     "account@",
   ];
 
+  function filteredOutToReplyRule() {
+    return potentialMatches.filter((r) => r.systemType !== SystemType.TO_REPLY);
+  }
+
   if (
     noReplyPrefixes.some((prefix) => extractedSenderEmail.startsWith(prefix))
   ) {
-    return potentialMatches;
+    return filteredOutToReplyRule();
   }
 
   try {
     const { hasReplied, receivedCount } = await checkSenderReplyHistory(
-      client,
+      provider,
       senderEmail,
       TO_REPLY_RECEIVED_THRESHOLD,
     );
@@ -412,7 +418,7 @@ export async function filterToReplyPreset(
           receivedCount,
         },
       );
-      return potentialMatches.filter((r) => r.id !== toReplyRule.id);
+      return filteredOutToReplyRule();
     }
   } catch (error) {
     logger.error("Error checking reply history for TO_REPLY filter", {

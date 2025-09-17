@@ -13,7 +13,6 @@ export const survey = {
         "Cold Email Blocker",
         "Reply/Follow-up Tracker",
         "Email Analytics",
-        "Other",
       ],
     },
     {
@@ -44,6 +43,7 @@ export const survey = {
     //     "101-1000 people",
     //     "1000+ people",
     //   ],
+    //   skippable: false,
     // },
     {
       key: "source",
@@ -53,9 +53,10 @@ export const survey = {
         "Search",
         "Friend",
         "Twitter",
-        "Facebook",
+        "GitHub",
         "YouTube",
         "Reddit",
+        "Facebook",
         "Newsletter",
         "Product Hunt",
         "HackerNews",

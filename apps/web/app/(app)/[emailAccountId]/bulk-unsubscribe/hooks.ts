@@ -15,6 +15,7 @@ import type { Row } from "@/app/(app)/[emailAccountId]/bulk-unsubscribe/types";
 import type { GetThreadsResponse } from "@/app/api/threads/basic/route";
 import { isDefined } from "@/utils/types";
 import { fetchWithAccount } from "@/utils/fetch";
+import type { UserResponse } from "@/app/api/user/me/route";
 
 async function unsubscribeAndArchive({
   newsletterEmail,
@@ -24,7 +25,7 @@ async function unsubscribeAndArchive({
 }: {
   newsletterEmail: string;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
   await setNewsletterStatusAction(emailAccountId, {
@@ -53,7 +54,7 @@ export function useUnsubscribe<T extends Row>({
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
 }) {
   const [unsubscribeLoading, setUnsubscribeLoading] = useState(false);
 
@@ -112,9 +113,9 @@ export function useBulkUnsubscribe<T extends Row>({
   emailAccountId,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<any>;
+  mutate: () => Promise<void>;
   posthog: PostHog;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
   const [bulkUnsubscribeLoading, setBulkUnsubscribeLoading] = useState(false);
@@ -167,7 +168,7 @@ async function autoArchive({
   labelId: string | undefined;
   labelName: string | undefined;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
   await onAutoArchive({
@@ -200,9 +201,9 @@ export function useAutoArchive<T extends Row>({
 }: {
   item: T;
   hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<any>;
+  mutate: () => Promise<void>;
   posthog: PostHog;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
   const [autoArchiveLoading, setAutoArchiveLoading] = useState(false);
@@ -286,8 +287,8 @@ export function useBulkAutoArchive<T extends Row>({
   emailAccountId,
 }: {
   hasUnsubscribeAccess: boolean;
-  mutate: () => Promise<any>;
-  refetchPremium: () => Promise<any>;
+  mutate: () => Promise<void>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   emailAccountId: string;
 }) {
   const [bulkAutoArchiveLoading, setBulkAutoArchiveLoading] = useState(false);
@@ -337,7 +338,7 @@ export function useApproveButton<T extends Row>({
     hasUnsubscribeAccess: true,
     mutate,
     posthog,
-    refetchPremium: () => Promise.resolve(),
+    refetchPremium: () => Promise.resolve(undefined),
     emailAccountId,
   });
 
@@ -367,7 +368,7 @@ export function useBulkApprove<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<any>;
+  mutate: () => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -467,7 +468,7 @@ export function useBulkArchive<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<any>;
+  mutate: () => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -566,7 +567,7 @@ export function useBulkDelete<T extends Row>({
   posthog,
   emailAccountId,
 }: {
-  mutate: () => Promise<any>;
+  mutate: () => Promise<void>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -600,8 +601,9 @@ export function useBulkUnsubscribeShortcuts<T extends Row>({
   selectedRow?: T;
   setSelectedRow: (row: T) => void;
   onOpenNewsletter: (row: T) => void;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   hasUnsubscribeAccess: boolean;
+  // biome-ignore lint/suspicious/noExplicitAny: simplest
   mutate: () => Promise<any>;
   emailAccountId: string;
   userEmail: string;

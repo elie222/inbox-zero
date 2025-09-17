@@ -10,7 +10,7 @@ export function HoverCard(props: {
   className?: string;
 }) {
   return (
-    <HoverCardUi>
+    <HoverCardUi openDelay={100} closeDelay={100}>
       <HoverCardTrigger asChild>{props.children}</HoverCardTrigger>
       <HoverCardContent className={props.className} align="start" side="right">
         {props.content}

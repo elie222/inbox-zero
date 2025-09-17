@@ -17,7 +17,7 @@ import { YouTubeVideo } from "@/components/YouTubeVideo";
 export function AssistantOnboarding({
   onComplete,
 }: {
-  onComplete: () => void;
+  onComplete?: () => void;
 }) {
   const { isOpen, setIsOpen, onClose } = useOnboarding("Automation");
 
@@ -64,7 +64,7 @@ export function AssistantOnboarding({
           <Button
             className="w-full"
             onClick={() => {
-              onComplete();
+              onComplete?.();
               onClose();
             }}
           >

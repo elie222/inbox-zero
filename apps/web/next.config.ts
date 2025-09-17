@@ -1,15 +1,9 @@
-// import { fileURLToPath } from "node:url";
 import { withSentryConfig } from "@sentry/nextjs";
 import { withAxiom } from "next-axiom";
 import nextMdx from "@next/mdx";
-// import { createJiti } from "jiti";
 import withSerwistInit from "@serwist/next";
 import { env } from "./env";
 import type { NextConfig } from "next";
-// const jiti = createJiti(fileURLToPath(import.meta.url));
-
-// Import env here to validate during build. Using jiti we can import .ts files :)
-// const { env } = await jiti.import("./env");
 
 const withMDX = nextMdx();
 
@@ -27,6 +21,10 @@ const nextConfig: NextConfig = {
   pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
   images: {
     remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "img.youtube.com",
+      },
       {
         protocol: "https",
         hostname: "ph-avatars.imgix.net",
@@ -143,6 +141,11 @@ const nextConfig: NextConfig = {
         source: "/soc2",
         destination: "https://go.getinboxzero.com/soc2",
         permanent: true,
+      },
+      {
+        source: "/sales",
+        destination: "https://go.getinboxzero.com/sales",
+        permanent: false,
       },
     ];
   },
@@ -298,6 +301,12 @@ const exportConfig = useSentry
 if (!env.AUTH_SECRET && !env.NEXTAUTH_SECRET) {
   throw new Error(
     "Either AUTH_SECRET or NEXTAUTH_SECRET environment variable must be defined",
+  );
+}
+
+if (env.MICROSOFT_CLIENT_ID && !env.MICROSOFT_WEBHOOK_CLIENT_STATE) {
+  throw new Error(
+    "MICROSOFT_WEBHOOK_CLIENT_STATE environment variable must be defined",
   );
 }
 

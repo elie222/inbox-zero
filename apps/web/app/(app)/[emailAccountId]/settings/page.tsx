@@ -1,16 +1,16 @@
 "use client";
 
-import { FormSection, FormWrapper } from "@/components/Form";
+import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
+import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
 import { DeleteSection } from "@/app/(app)/[emailAccountId]/settings/DeleteSection";
 import { ModelSection } from "@/app/(app)/[emailAccountId]/settings/ModelSection";
 import { MultiAccountSection } from "@/app/(app)/[emailAccountId]/settings/MultiAccountSection";
-import { ApiKeysSection } from "@/app/(app)/[emailAccountId]/settings/ApiKeysSection";
-import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { TabsToolbar } from "@/components/TabsToolbar";
 import { ResetAnalyticsSection } from "@/app/(app)/[emailAccountId]/settings/ResetAnalyticsSection";
-import { BillingSection } from "@/app/(app)/[emailAccountId]/settings/BillingSection";
+import { WebhookSection } from "@/app/(app)/[emailAccountId]/settings/WebhookSection";
+import { FormSection, FormWrapper } from "@/components/Form";
+import { TabsToolbar } from "@/components/TabsToolbar";
 import { SectionDescription } from "@/components/Typography";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function SettingsPage() {

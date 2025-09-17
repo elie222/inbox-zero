@@ -3,6 +3,7 @@ import { cn } from "@/utils";
 
 export function YouTubeVideo(props: {
   videoId: string;
+  title?: string;
   iframeClassName?: string;
   className?: string;
   opts?: {
@@ -16,6 +17,7 @@ export function YouTubeVideo(props: {
   return (
     <YouTube
       videoId={props.videoId}
+      title={props.title}
       className={cn("aspect-video h-full w-full rounded-lg", props.className)}
       iframeClassName={props.iframeClassName}
       opts={{

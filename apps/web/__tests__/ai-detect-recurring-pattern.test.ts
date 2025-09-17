@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/style/noMagicNumbers: test */
 import { describe, expect, test, vi, beforeEach } from "vitest";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import type { EmailForLLM } from "@/utils/types";
@@ -5,6 +6,8 @@ import { RuleName } from "@/utils/rule/consts";
 import { getEmailAccount } from "@/__tests__/helpers";
 
 // Run with: pnpm test-ai ai-detect-recurring-pattern
+
+const TIMEOUT = 15_000;
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/utils/logger", () => ({
@@ -307,5 +310,5 @@ Only flag when someone:
       ).toBeTruthy();
     });
   },
-  15_000,
+  TIMEOUT,
 );

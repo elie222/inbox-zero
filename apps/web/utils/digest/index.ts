@@ -1,7 +1,9 @@
 import { env } from "@/env";
 import { publishToQstashQueue } from "@/utils/upstash";
 import { createScopedLogger } from "@/utils/logger";
+import { emailToContent } from "@/utils/mail";
 import type { DigestBody } from "@/app/api/ai/digest/validation";
+import type { ParsedMessage } from "@/utils/types";
 import type { EmailForAction } from "@/utils/ai/types";
 
 const logger = createScopedLogger("digest");
@@ -12,7 +14,7 @@ export async function enqueueDigestItem({
   actionId,
   coldEmailId,
 }: {
-  email: EmailForAction;
+  email: ParsedMessage | EmailForAction;
   emailAccountId: string;
   actionId?: string;
   coldEmailId?: string;
@@ -33,7 +35,7 @@ export async function enqueueDigestItem({
           from: email.headers.from,
           to: email.headers.to || "",
           subject: email.headers.subject,
-          content: email.textPlain || "",
+          content: emailToContent(email),
         },
       },
     });

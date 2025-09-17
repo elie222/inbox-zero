@@ -7,14 +7,19 @@ export async function getThread(
   threadId: string,
   client: OutlookClient,
 ): Promise<Message[]> {
-  const messages = await client
+  const messages: { value: Message[] } = await client
     .getClient()
     .api("/me/messages")
     .filter(`conversationId eq '${threadId}'`)
-    .orderby("receivedDateTime desc")
+    .top(100) // Get up to 100 messages instead of default 10
     .get();
 
-  return messages.value;
+  // Sort in memory to avoid "restriction or sort order is too complex" error
+  return messages.value.sort((a, b) => {
+    const dateA = new Date(a.receivedDateTime || 0).getTime();
+    const dateB = new Date(b.receivedDateTime || 0).getTime();
+    return dateB - dateA; // desc order (newest first)
+  });
 }
 
 export async function getThreads(
@@ -25,13 +30,19 @@ export async function getThreads(
   nextPageToken?: string | null;
   threads: { id: string; snippet: string }[];
 }> {
-  const response = await client
-    .getClient()
-    .api("/me/messages")
-    .filter(query ? `contains(subject, '${escapeODataString(query)}')` : "")
-    .top(maxResults)
-    .select("id,conversationId,subject,bodyPreview")
-    .get();
+  let request = client.getClient().api("/me/messages");
+
+  if (query) {
+    request = request.filter(
+      `contains(subject, '${escapeODataString(query)}')`,
+    );
+  }
+
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await request
+      .top(maxResults)
+      .select("id,conversationId,subject,bodyPreview")
+      .get();
 
   // Group messages by conversationId to create thread-like structure
   const threadMap = new Map<string, { id: string; snippet: string }>();
@@ -73,7 +84,8 @@ export async function getThreadsWithNextPageToken({
     );
   }
 
-  const response = await request.get();
+  const response: { value: Message[]; "@odata.nextLink"?: string } =
+    await request.get();
 
   // Group messages by conversationId to create thread-like structure
   const threadMap = new Map<string, { id: string; snippet: string }>();
@@ -97,7 +109,7 @@ export async function getThreadsFromSender(
   sender: string,
   limit: number,
 ): Promise<Array<{ id: string; snippet: string }>> {
-  const response = await client
+  const response: { value: Message[] } = await client
     .getClient()
     .api("/me/messages")
     .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
@@ -124,7 +136,7 @@ export async function getThreadsFromSenderWithSubject(
   sender: string,
   limit: number,
 ): Promise<Array<{ id: string; snippet: string; subject: string }>> {
-  const response = await client
+  const response: { value: Message[] } = await client
     .getClient()
     .api("/me/messages")
     .filter(`from/emailAddress/address eq '${escapeODataString(sender)}'`)
@@ -154,7 +166,7 @@ export async function getThreadMessages(
   threadId: string,
   client: OutlookClient,
 ): Promise<ParsedMessage[]> {
-  const messages = await getThread(threadId, client);
+  const messages: Message[] = await getThread(threadId, client);
 
   return messages.map((msg) => ({
     id: msg.id || "",

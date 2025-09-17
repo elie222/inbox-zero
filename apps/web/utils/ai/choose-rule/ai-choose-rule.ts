@@ -64,7 +64,14 @@ ${
 </user_info>`
 }
 
-Respond with a valid JSON object.`;
+Respond with a valid JSON object:
+
+Example response format:
+{
+  "reason": "This email is a newsletter subscription",
+  "ruleName": "Newsletter",
+  "noMatchFound": false
+}`;
 
   const prompt = `Select a rule to apply to this email that was sent to me:
 

@@ -11,16 +11,13 @@ import {
   ToggleRightIcon,
   ToggleLeftIcon,
   InfoIcon,
+  SparklesIcon,
+  EyeIcon,
 } from "lucide-react";
 import { useMemo } from "react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardDescription, CardHeader } from "@/components/ui/card";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,26 +47,39 @@ import { prefixPath } from "@/utils/path";
 import { ExpandableText } from "@/components/ExpandableText";
 import { useEmailAccountFull } from "@/hooks/useEmailAccountFull";
 import type { RulesResponse } from "@/app/api/user/rules/route";
+import { sortActionsByPriority } from "@/utils/action-sort";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
-import { useAssistantNavigation } from "@/hooks/useAssistantNavigation";
 import { getActionDisplay } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
+import { useChat } from "@/providers/ChatProvider";
+import { useSidebar } from "@/components/ui/sidebar";
+import {
+  isGoogleProvider,
+  isMicrosoftProvider,
+} from "@/utils/email/provider-types";
 
 const COLD_EMAIL_BLOCKER_RULE_ID = "cold-email-blocker-rule";
 
-export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
+export function Rules({
+  size = "md",
+  showAddRuleButton = true,
+}: {
+  size?: "sm" | "md";
+  showAddRuleButton?: boolean;
+}) {
   const { data, isLoading, error, mutate } = useRules();
+  const { setOpen } = useSidebar();
+  const { setInput } = useChat();
   const { data: emailAccountData } = useEmailAccountFull();
   const ruleDialog = useDialogState<{ ruleId: string; editMode?: boolean }>();
   const coldEmailDialog = useDialogState();
 
-  const onCreateRule = () => ruleDialog.open();
+  const onCreateRule = () => ruleDialog.onOpen();
 
   const { emailAccountId, provider } = useAccount();
-  const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
   const { executeAsync: setRuleEnabled } = useAction(
     setRuleEnabledAction.bind(null, emailAccountId),
     {
@@ -120,27 +130,31 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       enabled: true,
       runOnThreads: false,
       actions: [
-        {
-          id: "cold-email-blocker-label",
-          type: ActionType.LABEL,
-          label: inboxZeroLabels.cold_email.name.split("/")[1],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
-          to: null,
-          subject: null,
-          content: null,
-          cc: null,
-          bcc: null,
-          url: null,
-          folderName: null,
-          folderId: null,
-          delayInMinutes: null,
-        },
+        isGoogleProvider(provider)
+          ? {
+              id: "cold-email-blocker-label",
+              type: ActionType.LABEL,
+              label: inboxZeroLabels.cold_email.name.split("/")[1],
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
+              to: null,
+              subject: null,
+              content: null,
+              cc: null,
+              bcc: null,
+              url: null,
+              folderName: null,
+              folderId: null,
+              delayInMinutes: null,
+            }
+          : null,
         showArchiveAction
           ? {
               id: "cold-email-blocker-archive",
-              type: ActionType.ARCHIVE,
+              type: isMicrosoftProvider(provider)
+                ? ActionType.MOVE_FOLDER
+                : ActionType.ARCHIVE,
               label: null,
               createdAt: new Date(),
               updatedAt: new Date(),
@@ -192,7 +206,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       promptText: null,
     };
     return [...(baseRules || []), coldEmailBlockerRule];
-  }, [baseRules, emailAccountData, emailAccountId]);
+  }, [baseRules, emailAccountData, emailAccountId, provider]);
 
   const hasRules = !!rules?.length;
 
@@ -216,9 +230,11 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                     </TableHead>
                   )} */}
                   <TableHead>
-                    <div className="flex justify-end">
-                      <AddRuleButton onClick={onCreateRule} />
-                    </div>
+                    {showAddRuleButton && (
+                      <div className="flex justify-end">
+                        <AddRuleButton onClick={onCreateRule} />
+                      </div>
+                    )}
                   </TableHead>
                 </TableRow>
               </TableHeader>
@@ -237,9 +253,9 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                           type="button"
                           onClick={() => {
                             if (isColdEmailBlocker) {
-                              coldEmailDialog.open();
+                              coldEmailDialog.onOpen();
                             } else {
-                              ruleDialog.open({
+                              ruleDialog.onOpen({
                                 ruleId: rule.id,
                                 editMode: false,
                               });
@@ -321,9 +337,24 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
-                                  coldEmailDialog.open();
+                                  coldEmailDialog.onOpen();
                                 } else {
-                                  ruleDialog.open({
+                                  ruleDialog.onOpen({
+                                    ruleId: rule.id,
+                                    editMode: false,
+                                  });
+                                }
+                              }}
+                            >
+                              <EyeIcon className="mr-2 size-4" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                if (isColdEmailBlocker) {
+                                  coldEmailDialog.onOpen();
+                                } else {
+                                  ruleDialog.onOpen({
                                     ruleId: rule.id,
                                     editMode: true,
                                   });
@@ -331,8 +362,21 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                               }}
                             >
                               <PenIcon className="mr-2 size-4" />
-                              Edit
+                              Edit manually
                             </DropdownMenuItem>
+                            {!isColdEmailBlocker && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  setInput(
+                                    `I'd like to edit the "${rule.name}" rule:\n`,
+                                  );
+                                  setOpen((arr) => [...arr, "chat-sidebar"]);
+                                }}
+                              >
+                                <SparklesIcon className="mr-2 size-4" />
+                                Edit via AI
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem asChild>
                               <Link
                                 href={
@@ -341,11 +385,10 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
                                         emailAccountId,
                                         "/cold-email-blocker",
                                       )
-                                    : createAssistantUrl({
-                                        tab: "history",
-                                        ruleId: rule.id,
-                                        path: "/automation?tab=history",
-                                      })
+                                    : prefixPath(
+                                        emailAccountId,
+                                        `/automation?tab=history&ruleId=${rule.id}`,
+                                      )
                                 }
                                 target={
                                   isColdEmailBlocker ? "_blank" : undefined
@@ -442,7 +485,7 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
               </TableBody>
             </Table>
           ) : (
-            <NoRules onCreateRule={onCreateRule} />
+            <NoRules />
           )}
         </LoadingContent>
       </Card>
@@ -450,17 +493,17 @@ export function Rules({ size = "md" }: { size?: "sm" | "md" }) {
       <RuleDialog
         ruleId={ruleDialog.data?.ruleId}
         isOpen={ruleDialog.isOpen}
-        onClose={ruleDialog.close}
+        onClose={ruleDialog.onClose}
         onSuccess={() => {
           mutate();
-          ruleDialog.close();
+          ruleDialog.onClose();
         }}
         editMode={ruleDialog.data?.editMode}
       />
 
       <ColdEmailDialog
         isOpen={coldEmailDialog.isOpen}
-        onClose={coldEmailDialog.close}
+        onClose={coldEmailDialog.onClose}
       />
     </div>
   );
@@ -475,12 +518,13 @@ export function ActionBadges({
     type: ActionType;
     label?: string | null;
     folderName?: string | null;
+    content?: string | null;
   }[];
   provider: string;
 }) {
   return (
     <div className="flex gap-2">
-      {actions.map((action) => {
+      {sortActionsByPriority(actions).map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
 
@@ -498,21 +542,11 @@ export function ActionBadges({
   );
 }
 
-function NoRules({ onCreateRule }: { onCreateRule: () => void }) {
+function NoRules() {
   return (
-    <>
-      <CardHeader>
-        <CardDescription>
-          You don't have any rules yet.
-          <br />
-          You can teach your AI assistant how to handle your emails by chatting
-          with it or create rules manually.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <AddRuleButton onClick={onCreateRule} />
-      </CardContent>
-    </>
+    <CardHeader>
+      <CardDescription>You don't have any rules yet.</CardDescription>
+    </CardHeader>
   );
 }
 

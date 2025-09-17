@@ -21,21 +21,37 @@ export const isPremium = (
   );
 };
 
-export const getUserTier = (
-  premium?: Pick<Premium, "tier" | "lemonSqueezyRenewsAt"> | null,
-) => {
-  if (isPremiumExpired(premium)) return null;
-  return premium?.tier || null;
+export const isActivePremium = (
+  premium: Pick<
+    Premium,
+    "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+  > | null,
+): boolean => {
+  if (!premium) return false;
+
+  return (
+    premium.stripeSubscriptionStatus === "active" ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
+  );
 };
 
-function isPremiumExpired(
-  premium?: Pick<Premium, "lemonSqueezyRenewsAt"> | null,
-) {
-  return (
-    !!premium?.lemonSqueezyRenewsAt &&
-    new Date(premium.lemonSqueezyRenewsAt) < new Date()
+export const getUserTier = (
+  premium?: Pick<
+    Premium,
+    "tier" | "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+  > | null,
+) => {
+  if (!premium) return null;
+
+  const isActive = isPremium(
+    premium.lemonSqueezyRenewsAt || null,
+    premium.stripeSubscriptionStatus || null,
   );
-}
+
+  if (!isActive) return null;
+
+  return premium.tier || null;
+};
 
 export const isAdminForPremium = (
   premiumAdmins: { id: string }[],

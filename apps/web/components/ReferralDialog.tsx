@@ -23,7 +23,7 @@ export function ReferralDialog() {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <SidebarMenuButton className="h-9" sidebarName="left-sidebar">
+        <SidebarMenuButton sidebarName="left-sidebar">
           <GiftIcon />
           <span className="font-semibold">Refer friend</span>
         </SidebarMenuButton>

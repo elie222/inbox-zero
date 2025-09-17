@@ -5,7 +5,7 @@ import { auth } from "@/utils/auth";
 import { createScopedLogger } from "@/utils/logger";
 import prisma from "@/utils/prisma";
 import { isAdmin } from "@/utils/admin";
-import { SafeError } from "@/utils/error";
+import { captureException, SafeError } from "@/utils/error";
 import { env } from "@/env";
 
 // TODO: take functionality from `withActionInstrumentation` and move it here (apps/web/utils/actions/middleware.ts)
@@ -32,11 +32,27 @@ const baseClient = createSafeActionClient({
       console.error("Error in server action", error);
     }
     if (error instanceof SafeError) return error.message;
+
+    captureException(
+      error,
+      {
+        extra: {
+          metadata,
+          userId: context?.userId,
+          userEmail: context?.userEmail,
+          emailAccountId: context?.emailAccountId,
+          bindArgsClientInputs,
+          error: error.message,
+        },
+      },
+      context?.userEmail,
+    );
+
     return "An unknown error occurred.";
   },
 }).use(async ({ next, metadata }) => {
-  logger.info("Calling action", { name: metadata?.name });
-  return next();
+  const logger = createScopedLogger(metadata.name);
+  return next({ ctx: { logger } });
 });
 // .schema(z.object({}), {
 //   handleValidationErrorsShape: async (ve) =>
@@ -45,7 +61,7 @@ const baseClient = createSafeActionClient({
 
 export const actionClient = baseClient
   .bindArgsSchemas<[emailAccountId: z.ZodString]>([z.string()])
-  .use(async ({ next, metadata, bindArgsClientInputs }) => {
+  .use(async ({ next, metadata, bindArgsClientInputs, ctx }) => {
     const session = await auth();
 
     if (!session?.user) throw new SafeError("Unauthorized");
@@ -68,12 +84,23 @@ export const actionClient = baseClient
         },
       },
     });
-    if (!emailAccount || emailAccount?.account.userId !== userId)
+    if (!emailAccount || emailAccount?.account.userId !== userId) {
+      ctx.logger.error("Unauthorized", metadata);
       throw new SafeError("Unauthorized");
+    }
 
-    return withServerActionInstrumentation(metadata?.name, async () => {
+    const logger = ctx.logger.with({
+      userId,
+      userEmail,
+      emailAccountId,
+      emailAccount,
+    });
+    logger.info("Calling action");
+
+    return withServerActionInstrumentation(metadata.name, async () => {
       return next({
         ctx: {
+          logger,
           userId,
           userEmail,
           session,
@@ -86,19 +113,33 @@ export const actionClient = baseClient
   });
 
 // doesn't bind to a specific email
-export const actionClientUser = baseClient.use(async ({ next, metadata }) => {
-  const session = await auth();
+export const actionClientUser = baseClient.use(
+  async ({ next, metadata, ctx }) => {
+    const session = await auth();
 
-  if (!session?.user) throw new SafeError("Unauthorized");
+    if (!session?.user) {
+      ctx.logger.error("Unauthorized", metadata);
+      captureException(new Error(`Unauthorized: ${metadata.name}`), {
+        extra: metadata,
+      });
+      throw new SafeError("Unauthorized");
+    }
 
-  const userId = session.user.id;
+    const userId = session.user.id;
 
-  return withServerActionInstrumentation(metadata?.name, async () => {
-    return next({
-      ctx: { userId },
+    const logger = ctx.logger.with({
+      userId,
+      userEmail: session.user.email,
     });
-  });
-});
+    logger.info("Calling action");
+
+    return withServerActionInstrumentation(metadata?.name, async () => {
+      return next({
+        ctx: { userId, logger },
+      });
+    });
+  },
+);
 
 export const adminActionClient = baseClient.use(async ({ next, metadata }) => {
   const session = await auth();

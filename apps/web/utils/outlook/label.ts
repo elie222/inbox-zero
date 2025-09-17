@@ -4,15 +4,12 @@ import { publishArchive, type TinybirdEmailAction } from "@inboxzero/tinybird";
 import { WELL_KNOWN_FOLDERS } from "./message";
 
 import { inboxZeroLabels, type InboxZeroLabel } from "@/utils/label";
+import type {
+  OutlookCategory,
+  Message,
+} from "@microsoft/microsoft-graph-types";
 
 const logger = createScopedLogger("outlook/label");
-
-// Define our own Category type since Microsoft Graph types don't export it
-interface OutlookCategory {
-  id: string;
-  displayName?: string;
-  color?: string;
-}
 
 // Outlook doesn't have system labels like Gmail, but we map common categories
 // Using same format as Gmail for consistency
@@ -57,11 +54,11 @@ export const OUTLOOK_COLOR_MAP = {
 } as const;
 
 export async function getLabels(client: OutlookClient) {
-  const response = await client
+  const response: { value: OutlookCategory[] } = await client
     .getClient()
     .api("/me/outlook/masterCategories")
     .get();
-  return (response.value as OutlookCategory[]).map((label) => ({
+  return response.value.map((label) => ({
     ...label,
     name: label.displayName || label.id,
   }));
@@ -72,11 +69,11 @@ export async function getLabelById(options: {
   id: string;
 }) {
   const { client, id } = options;
-  const response = await client
+  const response: OutlookCategory = await client
     .getClient()
     .api(`/me/outlook/masterCategories/${id}`)
     .get();
-  return response as OutlookCategory;
+  return response;
 }
 
 export async function createLabel({
@@ -95,14 +92,14 @@ export async function createLabel({
         ? color
         : OUTLOOK_COLORS[Math.floor(Math.random() * OUTLOOK_COLORS.length)];
 
-    const response = await client
+    const response: OutlookCategory = await client
       .getClient()
       .api("/me/outlook/masterCategories")
       .post({
         displayName: name,
         color: outlookColor,
       });
-    return response as OutlookCategory;
+    return response;
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
@@ -217,15 +214,69 @@ export async function labelThread({
   // In Outlook, we need to update each message in the thread
   // Escape single quotes in threadId for the filter
   const escapedThreadId = threadId.replace(/'/g, "''");
-  const messages = await client
+  const messages: { value: Message[] } = await client
     .getClient()
     .api("/me/messages")
     .filter(`conversationId eq '${escapedThreadId}'`)
     .get();
 
   await Promise.all(
-    messages.value.map((message: { id: string }) =>
-      labelMessage({ client, messageId: message.id, categories }),
+    messages.value.map((message) =>
+      labelMessage({ client, messageId: message.id!, categories }),
+    ),
+  );
+}
+
+// Doesn't use pagination. But this function not really used anyway. Can add in the future of needed.
+export async function removeThreadLabel({
+  client,
+  threadId,
+  categoryName,
+}: {
+  client: OutlookClient;
+  threadId: string;
+  categoryName: string;
+}) {
+  if (!categoryName) {
+    logger.warn("Category name is empty, skipping removal", { threadId });
+    return;
+  }
+
+  // Get all messages in the thread
+  const escapedThreadId = threadId.replace(/'/g, "''");
+  const messages = await client
+    .getClient()
+    .api("/me/messages")
+    .filter(`conversationId eq '${escapedThreadId}'`)
+    .select("id,categories")
+    .get();
+
+  // Remove the category from each message
+  await Promise.all(
+    messages.value.map(
+      async (message: { id: string; categories?: string[] }) => {
+        if (!message.categories || !message.categories.includes(categoryName)) {
+          return; // Category not present, nothing to remove
+        }
+
+        const updatedCategories = message.categories.filter(
+          (cat) => cat !== categoryName,
+        );
+
+        try {
+          await client
+            .getClient()
+            .api(`/me/messages/${message.id}`)
+            .patch({ categories: updatedCategories });
+        } catch (error) {
+          logger.warn("Failed to remove category from message", {
+            messageId: message.id,
+            threadId,
+            categoryName,
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      },
     ),
   );
 }

@@ -11,7 +11,6 @@ import {
   LogOutIcon,
   PaletteIcon,
   SettingsIcon,
-  BookIcon,
   CrownIcon,
   ChromeIcon,
 } from "lucide-react";
@@ -93,73 +92,49 @@ export function NavUser() {
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href={prefixPath(emailAccountId, "/settings")}>
-              <SettingsIcon className="mr-2 h-4 w-4" />
-              Settings
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link
-              href={EXTENSION_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <ChromeIcon className="mr-2 h-4 w-4" />
-              Install extension
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="/premium">
-              <CrownIcon className="mr-2 h-4 w-4" />
-              Premium
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem asChild>
-            <Link href="https://docs.getinboxzero.com">
-              <BookIcon className="mr-2 h-4 w-4" />
-              Help Center
-            </Link>
-          </DropdownMenuItem>
+          {isGoogleProvider(provider) && (
+            <DropdownMenuItem asChild>
+              <Link
+                href={EXTENSION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ChromeIcon className="mr-2 size-4" />
+                Install extension
+              </Link>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
 
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem asChild>
-            <Link href={prefixPath(emailAccountId, "/usage")}>
-              <BarChartIcon className="mr-2 h-4 w-4" />
-              Usage
-            </Link>
-          </DropdownMenuItem>
-
           {isGoogleProvider(provider) && (
             <>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(emailAccountId, "/mail")}>
-                  <InboxIcon className="mr-2 h-4 w-4" />
-                  Mail (Beta)
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/reply-zero")}>
-                  <MessageCircleReplyIcon className="mr-2 h-4 w-4" />
+                  <MessageCircleReplyIcon className="mr-2 size-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href={prefixPath(emailAccountId, "/cold-email-blocker")}>
-                  <ShieldCheckIcon className="mr-2 h-4 w-4" />
+                  <ShieldCheckIcon className="mr-2 size-4" />
                   Cold Email Blocker
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/early-access">
+                  <RibbonIcon className="mr-2 size-4" />
+                  Early Access
                 </Link>
               </DropdownMenuItem>
             </>
           )}
-
           <DropdownMenuItem asChild>
-            <Link href="/early-access">
-              <RibbonIcon className="mr-2 h-4 w-4" />
-              Early Access
+            <Link href={prefixPath(emailAccountId, "/usage")}>
+              <BarChartIcon className="mr-2 size-4" />
+              Usage
             </Link>
           </DropdownMenuItem>
         </DropdownMenuGroup>
@@ -171,13 +146,13 @@ export function NavUser() {
             setTheme(theme === "dark" ? "light" : "dark");
           }}
         >
-          <PaletteIcon className="mr-2 h-4 w-4" />
+          <PaletteIcon className="mr-2 size-4" />
           {theme === "dark" ? "Light mode" : "Dark mode"}
         </DropdownMenuItem>
 
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={() => logOut(window.location.origin)}>
-          <LogOutIcon className="mr-2 h-4 w-4" />
+          <LogOutIcon className="mr-2 size-4" />
           Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>

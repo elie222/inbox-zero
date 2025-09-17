@@ -38,10 +38,6 @@ export function usePricingFrequencyDefault() {
   );
 }
 
-export function useDelayedActionsEnabled() {
-  return useFeatureFlagEnabled("delayed-actions");
-}
-
 export type TestimonialsVariant = "control" | "senja-widget";
 
 export function useTestimonialsVariant() {
@@ -51,11 +47,21 @@ export function useTestimonialsVariant() {
   );
 }
 
-export type OnboardingVariant = "control" | "new-onboarding";
+export type PricingCopyVariant = "control" | "free-trial-emphasis";
 
-export function useOnboardingVariant() {
+export function usePricingCopyVariant() {
   return (
-    (useFeatureFlagVariantKey("onboarding-flow") as OnboardingVariant) ||
+    (useFeatureFlagVariantKey("pricing-copy") as PricingCopyVariant) ||
     "control"
+  );
+}
+
+export type WelcomeTestimonialVariant = "control" | "hidden";
+
+export function useWelcomeTestimonialVariant() {
+  return (
+    (useFeatureFlagVariantKey(
+      "welcome-testimonial",
+    ) as WelcomeTestimonialVariant) || "control"
   );
 }

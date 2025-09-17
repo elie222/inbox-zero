@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { SparklesIcon } from "lucide-react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -6,7 +7,6 @@ import { History } from "@/app/(app)/[emailAccountId]/assistant/History";
 import { Pending } from "@/app/(app)/[emailAccountId]/assistant/Pending";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Process } from "@/app/(app)/[emailAccountId]/assistant/Process";
-import { OnboardingModal } from "@/components/OnboardingModal";
 import { PermissionsCheck } from "@/app/(app)/[emailAccountId]/PermissionsCheck";
 import { EmailProvider } from "@/providers/EmailProvider";
 import { ASSISTANT_ONBOARDING_COOKIE } from "@/utils/cookies";
@@ -14,11 +14,12 @@ import { prefixPath } from "@/utils/path";
 import { PremiumAlertWithData } from "@/components/PremiumAlert";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { SettingsTab } from "@/app/(app)/[emailAccountId]/assistant/settings/SettingsTab";
-import { PageHeading } from "@/components/Typography";
 import { TabSelect } from "@/components/TabSelect";
-import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTab";
+import { RulesTab } from "@/app/(app)/[emailAccountId]/assistant/RulesTabNew";
 import { AIChatButton } from "@/app/(app)/[emailAccountId]/assistant/AIChatButton";
 import { PageWrapper } from "@/components/PageWrapper";
+import { PageHeader } from "@/components/PageHeader";
+import { DismissibleVideoCard } from "@/components/VideoCard";
 
 export const maxDuration = 300; // Applies to the actions
 
@@ -85,11 +86,25 @@ export default async function AutomationPage({
         <PermissionsCheck />
 
         <PageWrapper>
-          <PremiumAlertWithData className="mb-2" />
+          <PremiumAlertWithData className="mb-8" />
 
           <div className="flex items-center justify-between">
-            <PageHeading>Assistant</PageHeading>
-            <ExtraActions />
+            <div>
+              <PageHeader
+                title="AI Assistant"
+                description="Personalized AI to help you manage emails faster."
+                video={{
+                  title: "Getting started with AI Personal Assistant",
+                  description:
+                    "Learn how to use the AI Personal Assistant to automatically label, archive, and more.",
+                  videoId: "SoeNDVr7ve4",
+                }}
+              />
+            </div>
+
+            <div className="ml-4">
+              <AIChatButton />
+            </div>
           </div>
 
           <div className="border-b border-neutral-200 pt-2">
@@ -107,6 +122,19 @@ export default async function AutomationPage({
                 hasPendingRule={hasPendingRule}
               />
             </Suspense>
+          </div>
+
+          <div className="mt-4">
+            <DismissibleVideoCard
+              icon={<SparklesIcon className="h-5 w-5" />}
+              title="Getting started with AI Assistant"
+              description={
+                "Learn how to use the AI Assistant to automatically label, archive, and more."
+              }
+              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
+              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+              storageKey="ai-assistant-onboarding-video"
+            />
           </div>
 
           <Tabs defaultValue="rules">
@@ -173,25 +201,5 @@ async function PendingTab({
     <TabsContent value="pending" className="mb-10">
       <Pending />
     </TabsContent>
-  );
-}
-
-function ExtraActions() {
-  return (
-    <div className="flex items-center gap-2">
-      <OnboardingModal
-        title="Getting started with AI Personal Assistant"
-        description={
-          <>
-            Learn how to use the AI Personal Assistant to automatically label,
-            archive, and more.
-          </>
-        }
-        videoId="SoeNDVr7ve4"
-        buttonProps={{ size: "sm", variant: "ghost" }}
-      />
-
-      <AIChatButton />
-    </div>
   );
 }

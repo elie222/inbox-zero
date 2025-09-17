@@ -4,7 +4,12 @@ import type {
   RuleWithActionsAndCategories,
 } from "@/utils/types";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import { ExecutedRuleStatus, type Prisma, type Rule } from "@prisma/client";
+import {
+  ExecutedRuleStatus,
+  SystemType,
+  type Prisma,
+  type Rule,
+} from "@prisma/client";
 import type { ActionItem } from "@/utils/ai/types";
 import { findMatchingRule } from "@/utils/ai/choose-rule/match-rules";
 import { getActionItemsWithAiArgs } from "@/utils/ai/choose-rule/choose-args";
@@ -35,14 +40,14 @@ export type RunRulesResult = {
 };
 
 export async function runRules({
-  client,
+  provider,
   message,
   rules,
   emailAccount,
   isTest,
   modelType,
 }: {
-  client: EmailProvider;
+  provider: EmailProvider;
   message: ParsedMessage;
   rules: RuleWithActionsAndCategories[];
   emailAccount: EmailAccountWithAI;
@@ -53,7 +58,7 @@ export async function runRules({
     rules,
     message,
     emailAccount,
-    client,
+    provider,
     modelType,
   });
 
@@ -71,7 +76,7 @@ export async function runRules({
       result.rule,
       message,
       emailAccount,
-      client,
+      provider,
       result.reason,
       result.matchReasons,
       isTest,
@@ -318,7 +323,9 @@ async function analyzeSenderPatternIfAiMatch({
         reason.type === "STATIC" ||
         reason.type === "GROUP" ||
         reason.type === "CATEGORY",
-    )
+    ) &&
+    // skip if the match was "to reply" system rule
+    result?.rule?.systemType !== SystemType.TO_REPLY
   ) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {

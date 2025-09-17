@@ -4,12 +4,12 @@
   "main": "src/index.ts",
   "dependencies": {
     "@chronark/zod-bird": "0.3.10",
-    "p-retry": "^6.2.1",
+    "p-retry": "^7.0.0",
     "zod": "3.25.46"
   },
   "devDependencies": {
-    "@types/node": "22.15.29",
+    "@types/node": "24.3.0",
     "tsconfig": "workspace:*",
-    "typescript": "5.8.3"
+    "typescript": "5.9.2"
   }
 }

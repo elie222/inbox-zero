@@ -127,6 +127,7 @@ export const createRuleBody = z.object({
   groupId: z.string().nullish(),
   automate: z.boolean().nullish(),
   runOnThreads: z.boolean().nullish(),
+  digest: z.boolean().nullish(),
   actions: z.array(zodAction).min(1, "You must have at least one action"),
   conditions: z
     .array(zodCondition)
@@ -173,6 +174,9 @@ export type UpdateRuleInstructionsBody = z.infer<
 export const saveRulesPromptBody = z.object({ rulesPrompt: z.string().trim() });
 export type SaveRulesPromptBody = z.infer<typeof saveRulesPromptBody>;
 
+export const createRulesBody = z.object({ prompt: z.string().trim() });
+export type CreateRulesBody = z.infer<typeof createRulesBody>;
+
 export const rulesExamplesBody = z.object({ rulesPrompt: z.string() });
 export type RulesExamplesBody = z.infer<typeof rulesExamplesBody>;
 
@@ -189,6 +193,8 @@ const categoryAction = z.enum([
   "label",
   "label_archive",
   "label_archive_delayed",
+  "move_folder",
+  "move_folder_delayed",
   "none",
 ]);
 export type CategoryAction = z.infer<typeof categoryAction>;

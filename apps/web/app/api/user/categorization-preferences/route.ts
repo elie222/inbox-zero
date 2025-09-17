@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { withEmailAccount } from "@/utils/middleware";
+import { withEmailProvider } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import {
   ActionType,
@@ -12,6 +12,7 @@ import type {
   CreateRulesOnboardingBody,
 } from "@/utils/actions/rule.validation";
 import { RuleName, SystemRule } from "@/utils/rule/consts";
+import { isMicrosoftProvider } from "@/utils/email/provider-types";
 
 type CategoryConfig = {
   action: CategoryAction | undefined;
@@ -22,10 +23,14 @@ export type GetCategorizationPreferencesResponse = Awaited<
   ReturnType<typeof getUserPreferences>
 >;
 
-export const GET = withEmailAccount(async (request) => {
+export const GET = withEmailProvider(async (request) => {
   const emailAccountId = request.auth.emailAccountId;
+  const { emailProvider } = request;
 
-  const result = await getUserPreferences({ emailAccountId });
+  const result = await getUserPreferences({
+    emailAccountId,
+    provider: emailProvider.name,
+  });
   return NextResponse.json(result);
 });
 
@@ -46,8 +51,10 @@ type UserPreferences = Prisma.EmailAccountGetPayload<{
 
 async function getUserPreferences({
   emailAccountId,
+  provider,
 }: {
   emailAccountId: string;
+  provider: string;
 }): Promise<CreateRulesOnboardingBody> {
   const emailAccount = await prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
@@ -80,6 +87,7 @@ async function getUserPreferences({
       key: SystemRule.ColdEmail,
       description: "",
       ...getColdEmailSetting(
+        provider,
         emailAccount.coldEmailBlocker,
         emailAccount.coldEmailDigest,
       ),
@@ -145,6 +153,8 @@ function getRuleSetting(
   );
   if (!rule) return undefined;
 
+  if (rule.actions.some((action) => action.type === ActionType.MOVE_FOLDER))
+    return { action: "move_folder", hasDigest };
   if (rule.actions.some((action) => action.type === ActionType.ARCHIVE))
     return { action: "label_archive", hasDigest };
   if (rule.actions.some((action) => action.type === ActionType.LABEL))
@@ -153,6 +163,7 @@ function getRuleSetting(
 }
 
 function getColdEmailSetting(
+  provider: string,
   setting?: ColdEmailSetting | null,
   hasDigest?: boolean,
 ): CategoryConfig | undefined {
@@ -161,6 +172,8 @@ function getColdEmailSetting(
   switch (setting) {
     case ColdEmailSetting.ARCHIVE_AND_READ_AND_LABEL:
     case ColdEmailSetting.ARCHIVE_AND_LABEL:
+      if (isMicrosoftProvider(provider))
+        return { action: "move_folder", hasDigest };
       return { action: "label_archive", hasDigest };
     case ColdEmailSetting.LABEL:
       return { action: "label", hasDigest };

@@ -7,7 +7,6 @@ export type Tier = {
   name: string;
   tiers: { monthly: PremiumTier; annually: PremiumTier };
   price: { monthly: number; annually: number };
-  priceAdditional: { monthly: number; annually: number };
   discount: { monthly: number; annually: number };
   quantity?: number;
   description: string;
@@ -23,24 +22,11 @@ const pricing: Record<PremiumTier, number> = {
   [PremiumTier.PRO_MONTHLY]: 16,
   [PremiumTier.PRO_ANNUALLY]: 10,
   [PremiumTier.BUSINESS_MONTHLY]: 20,
-  [PremiumTier.BUSINESS_ANNUALLY]: 16,
+  [PremiumTier.BUSINESS_ANNUALLY]: 18,
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: 50,
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 42,
   [PremiumTier.COPILOT_MONTHLY]: 500,
   [PremiumTier.LIFETIME]: 299,
-};
-
-export const pricingAdditonalEmail: Record<PremiumTier, number> = {
-  [PremiumTier.BASIC_MONTHLY]: 6,
-  [PremiumTier.BASIC_ANNUALLY]: 6,
-  [PremiumTier.PRO_MONTHLY]: 8,
-  [PremiumTier.PRO_ANNUALLY]: 8,
-  [PremiumTier.BUSINESS_MONTHLY]: 10,
-  [PremiumTier.BUSINESS_ANNUALLY]: 10,
-  [PremiumTier.BUSINESS_PLUS_MONTHLY]: 25,
-  [PremiumTier.BUSINESS_PLUS_ANNUALLY]: 25,
-  [PremiumTier.COPILOT_MONTHLY]: 10,
-  [PremiumTier.LIFETIME]: 99,
 };
 
 const variantIdToTier: Record<number, PremiumTier> = {
@@ -52,8 +38,6 @@ const variantIdToTier: Record<number, PremiumTier> = {
   [env.NEXT_PUBLIC_BUSINESS_ANNUALLY_VARIANT_ID]: PremiumTier.BUSINESS_ANNUALLY,
   [env.NEXT_PUBLIC_COPILOT_MONTHLY_VARIANT_ID]: PremiumTier.COPILOT_MONTHLY,
 };
-
-// --- Stripe Configuration --- //
 
 const STRIPE_PRICE_ID_CONFIG: Record<
   PremiumTier,
@@ -71,6 +55,8 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   [PremiumTier.BUSINESS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_MONTHLY_PRICE_ID,
     oldPriceIds: [
+      "price_1S5u73KGf8mwZWHn8VYFdALA",
+      "price_1RMSnIKGf8mwZWHnlHP0212n",
       "price_1RfoILKGf8mwZWHnDiUMj6no",
       "price_1RfeAFKGf8mwZWHnnnPzFEky",
       "price_1RfSoHKGf8mwZWHnxTsSDTqW",
@@ -81,13 +67,26 @@ const STRIPE_PRICE_ID_CONFIG: Record<
   },
   [PremiumTier.BUSINESS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_ANNUALLY_PRICE_ID,
-    oldPriceIds: ["price_1RfSoxKGf8mwZWHngHcug4YM"],
+    oldPriceIds: [
+      "price_1S5u6uKGf8mwZWHnEvPWuQzG",
+      "price_1S1QGGKGf8mwZWHnYpUcqNua",
+      "price_1RMSnIKGf8mwZWHnymtuW2s0",
+      "price_1RfSoxKGf8mwZWHngHcug4YM",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_MONTHLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_MONTHLY_PRICE_ID,
+    oldPriceIds: [
+      "price_1S5u6NKGf8mwZWHnZCfy4D5n",
+      "price_1RMSoMKGf8mwZWHn5fAKBT19",
+    ],
   },
   [PremiumTier.BUSINESS_PLUS_ANNUALLY]: {
     priceId: env.NEXT_PUBLIC_STRIPE_BUSINESS_PLUS_ANNUALLY_PRICE_ID,
+    oldPriceIds: [
+      "price_1S5u6XKGf8mwZWHnba8HX1H2",
+      "price_1RMSoMKGf8mwZWHnGjf6fRmh",
+    ],
   },
   [PremiumTier.COPILOT_MONTHLY]: {},
   [PremiumTier.LIFETIME]: {},
@@ -116,65 +115,11 @@ export function getStripePriceId({
   return STRIPE_PRICE_ID_CONFIG[tier]?.priceId ?? null;
 }
 
-// --- End Stripe Configuration --- //
-
 function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
 
-const aiAssistantFeature = {
-  text: "AI personal assistant",
-  tooltip: "AI assistant that drafts replies and organizes your inbox",
-};
-
-const replyZeroFeature = {
-  text: "Auto drafted replies",
-  tooltip: "Prewritten drafts ready to send in your inbox",
-};
-
-const coldEmailBlockerFeature = {
-  text: "Cold email blocker",
-  tooltip: "Automatically block cold emails",
-};
-
-// const smartCategoriesFeature = {
-//   text: "Sender categories",
-//   tooltip: "Automatically group emails for easier management and bulk actions",
-// };
-
-const bulkUnsubscribeFeature = {
-  text: "Bulk unsubscriber",
-  tooltip: "Bulk unsubscribe from emails in one-click",
-};
-
-const analyticsFeature = { text: "Email analytics" };
-
-// const basicTier: Tier = {
-//   name: "Unsubscriber",
-//   tiers: {
-//     monthly: PremiumTier.BASIC_MONTHLY,
-//     annually: PremiumTier.BASIC_ANNUALLY,
-//   },
-//   price: { monthly: pricing.BASIC_MONTHLY, annually: pricing.BASIC_ANNUALLY },
-//   priceAdditional: {
-//     monthly: pricingAdditonalEmail.BASIC_MONTHLY,
-//     annually: pricingAdditonalEmail.BASIC_ANNUALLY,
-//   },
-//   discount: {
-//     monthly: 0,
-//     annually: discount(pricing.BASIC_MONTHLY, pricing.BASIC_ANNUALLY),
-//   },
-//   description: "Unlimited unsubscribe credits.",
-//   features: [
-//     bulkUnsubscribeFeature,
-//     { text: "Unlimited unsubscribes" },
-//     { text: "Unlimited archives" },
-//     analyticsFeature,
-//   ],
-//   cta: "Try free for 7 days",
-// };
-
-export const businessTierName = "Pro";
+export const businessTierName = "Starter";
 
 const businessTier: Tier = {
   name: businessTierName,
@@ -186,35 +131,35 @@ const businessTier: Tier = {
     monthly: pricing.BUSINESS_MONTHLY,
     annually: pricing.BUSINESS_ANNUALLY,
   },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_ANNUALLY,
-  },
   discount: {
     monthly: 0,
     annually: discount(pricing.BUSINESS_MONTHLY, pricing.BUSINESS_ANNUALLY),
   },
   description:
-    "For individuals and businesses that want to get their email under control.",
+    "For individuals, entrepreneurs, and executives looking to buy back their time.",
   features: [
-    aiAssistantFeature,
-    replyZeroFeature,
-    coldEmailBlockerFeature,
-    bulkUnsubscribeFeature,
-    analyticsFeature,
-    { text: "Unlimited AI credits" },
     {
-      text: "Basic Knowledge Base",
-      tooltip:
-        "The knowledge base is used to help draft responses. This plan includes 2000 characters in your knowledge base.",
+      text: "Sorts and labels every email",
+    },
+    {
+      text: "Drafts replies in your voice",
+    },
+    {
+      text: "Blocks cold emails",
+    },
+    {
+      text: "Bulk unsubscribe and archive emails",
+    },
+    {
+      text: "Email analytics",
     },
   ],
   cta: "Try free for 7 days",
-  mostPopular: false,
+  mostPopular: true,
 };
 
 const businessPlusTier: Tier = {
-  name: "Business",
+  name: "Professional",
   tiers: {
     monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
     annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,
@@ -223,10 +168,6 @@ const businessPlusTier: Tier = {
     monthly: pricing.BUSINESS_PLUS_MONTHLY,
     annually: pricing.BUSINESS_PLUS_ANNUALLY,
   },
-  priceAdditional: {
-    monthly: pricingAdditonalEmail.BUSINESS_PLUS_MONTHLY,
-    annually: pricingAdditonalEmail.BUSINESS_PLUS_ANNUALLY,
-  },
   discount: {
     monthly: 0,
     annually: discount(
@@ -234,20 +175,17 @@ const businessPlusTier: Tier = {
       pricing.BUSINESS_PLUS_ANNUALLY,
     ),
   },
-  description:
-    "For teams handling high email volumes: streamline repetitive tasks, outreach, and support.",
+  description: "For teams and growing businesses handling high email volumes.",
   features: [
-    aiAssistantFeature,
-    replyZeroFeature,
-    coldEmailBlockerFeature,
-    bulkUnsubscribeFeature,
-    analyticsFeature,
-    { text: "Unlimited AI credits" },
     {
-      text: "Unlimited Knowledge Base",
+      text: "Everything in Individual, plus:",
+    },
+    {
+      text: "Unlimited knowledge base",
       tooltip:
         "The knowledge base is used to help draft responses. Store up to unlimited content in your knowledge base.",
     },
+    { text: "Team-wide analytics" },
     { text: "Priority support" },
     {
       text: "Dedicated onboarding manager",
@@ -256,33 +194,40 @@ const businessPlusTier: Tier = {
     },
   ],
   cta: "Try free for 7 days",
-  mostPopular: true,
+  mostPopular: false,
 };
 
-// const enterpriseTier: Tier = {
-//   name: "Enterprise",
-//   tiers: {
-//     monthly: PremiumTier.COPILOT_MONTHLY,
-//     annually: PremiumTier.COPILOT_MONTHLY,
-//   },
-//   price: { monthly: 0, annually: 0 },
-//   priceAdditional: { monthly: 0, annually: 0 },
-//   discount: { monthly: 0, annually: 0 },
-//   description: "On premise deployment",
-//   features: [
-//     {
-//       text: "25+ accounts",
-//     },
-//     {
-//       text: "On premise deployment",
-//     },
-//     { text: "Setup assistance" },
-//     { text: "Dedicated account manager" },
-//   ],
-//   cta: "Book a call",
-//   ctaLink: env.NEXT_PUBLIC_CALL_LINK,
-//   mostPopular: false,
-// };
+const enterpriseTier: Tier = {
+  name: "Enterprise",
+  tiers: {
+    monthly: PremiumTier.COPILOT_MONTHLY,
+    annually: PremiumTier.COPILOT_MONTHLY,
+  },
+  price: { monthly: 0, annually: 0 },
+  discount: { monthly: 0, annually: 0 },
+  description:
+    "For organizations with enterprise-grade security and compliance requirements.",
+  features: [
+    {
+      text: "Everything in Team, plus:",
+    },
+    {
+      text: "SSO login",
+    },
+    {
+      text: "On-premise deployment (optional)",
+    },
+    {
+      text: "Advanced security & SLA",
+    },
+    {
+      text: "Dedicated account manager & training",
+    },
+  ],
+  cta: "Speak to sales",
+  ctaLink: "https://go.getinboxzero.com/sales",
+  mostPopular: false,
+};
 
 export function getLemonSubscriptionTier({
   variantId,
@@ -294,4 +239,4 @@ export function getLemonSubscriptionTier({
   return tier;
 }
 
-export const tiers: Tier[] = [businessTier, businessPlusTier];
+export const tiers: Tier[] = [businessTier, businessPlusTier, enterpriseTier];
