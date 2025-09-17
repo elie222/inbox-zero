@@ -6,10 +6,10 @@ import {
   toggleCalendarBody,
 } from "@/utils/actions/calendar.validation";
 import prisma from "@/utils/prisma";
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCalendarOAuth2Client } from "@/utils/calendar/client";
 import { CALENDAR_SCOPES as GOOGLE_CALENDAR_SCOPES } from "@/utils/gmail/scopes";
+import { SafeError } from "@/utils/error";
 
 export const connectGoogleCalendarAction = actionClient
   .metadata({ name: "connectGoogleCalendar" })
@@ -42,14 +42,13 @@ export const disconnectCalendarAction = actionClient
       });
 
       if (!connection) {
-        throw new Error("Calendar connection not found");
+        throw new SafeError("Calendar connection not found");
       }
 
       await prisma.calendarConnection.delete({
         where: { id: connectionId },
       });
 
-      revalidatePath("/calendars");
       return { success: true };
     },
   );
@@ -73,10 +72,9 @@ export const toggleCalendarAction = actionClient
       });
 
       if (updatedCalendar.count === 0) {
-        throw new Error("Calendar not found");
+        throw new SafeError("Calendar not found");
       }
 
-      revalidatePath("/[emailAccountId]/calendars", "page");
       return { success: true };
     },
   );
