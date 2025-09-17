@@ -10,18 +10,10 @@ const logger = createScopedLogger("calendar/client");
 type AuthOptions = {
   accessToken?: string | null;
   refreshToken?: string | null;
-  expiryDate?: number | null;
   expiresAt?: number | null;
 };
 
-const getAuth = ({
-  accessToken,
-  refreshToken,
-  expiresAt,
-  ...rest
-}: AuthOptions) => {
-  const expiryDate = expiresAt ? expiresAt : rest.expiryDate;
-
+const getAuth = ({ accessToken, refreshToken, expiresAt }: AuthOptions) => {
   const googleAuth = new auth.OAuth2({
     clientId: env.GOOGLE_CLIENT_ID,
     clientSecret: env.GOOGLE_CLIENT_SECRET,
@@ -29,7 +21,7 @@ const getAuth = ({
   googleAuth.setCredentials({
     access_token: accessToken,
     refresh_token: refreshToken,
-    expiry_date: expiryDate,
+    expiry_date: expiresAt,
     scope: GOOGLE_CALENDAR_SCOPES.join(" "),
   });
 
@@ -57,44 +49,45 @@ export const getCalendarClientWithRefresh = async ({
 }): Promise<calendar_v3.Calendar> => {
   if (!refreshToken) throw new SafeError("No refresh token");
 
-  // we handle refresh ourselves so not passing in expiresAt
+  // Check if token is still valid
+  if (expiresAt && expiresAt > Date.now()) {
+    const auth = getAuth({ accessToken, refreshToken, expiresAt });
+    return calendar({ version: "v3", auth });
+  }
+
+  // Token is expired or missing, need to refresh
   const auth = getAuth({ accessToken, refreshToken });
   const cal = calendar({ version: "v3", auth });
-
-  const expiryDate = expiresAt ? expiresAt : null;
-  if (expiryDate && expiryDate > Date.now()) return cal;
 
   // may throw `invalid_grant` error
   try {
     const tokens = await auth.refreshAccessToken();
     const newAccessToken = tokens.credentials.access_token;
+    const newExpiresAt = tokens.credentials.expiry_date ?? undefined;
+    const newRefreshToken = tokens.credentials.refresh_token ?? undefined;
 
-    if (newAccessToken !== accessToken) {
-      // Find the calendar connection to update
-      const calendarConnection = await prisma.calendarConnection.findFirst({
-        where: {
-          emailAccountId,
-          provider: "google",
-          refreshToken,
+    // Find the calendar connection to update
+    const calendarConnection = await prisma.calendarConnection.findFirst({
+      where: {
+        emailAccountId,
+        provider: "google",
+      },
+      select: { id: true },
+    });
+
+    if (calendarConnection) {
+      await saveCalendarTokens({
+        tokens: {
+          access_token: newAccessToken ?? undefined,
+          refresh_token: newRefreshToken,
+          expires_at: newExpiresAt,
         },
-        select: { id: true },
+        connectionId: calendarConnection.id,
       });
-
-      if (calendarConnection) {
-        await saveCalendarTokens({
-          tokens: {
-            access_token: newAccessToken ?? undefined,
-            expires_at: tokens.credentials.expiry_date
-              ? Math.floor(tokens.credentials.expiry_date / 1000)
-              : undefined,
-          },
-          connectionId: calendarConnection.id,
-        });
-      } else {
-        logger.warn("No calendar connection found to update tokens", {
-          emailAccountId,
-        });
-      }
+    } else {
+      logger.warn("No calendar connection found to update tokens", {
+        emailAccountId,
+      });
     }
 
     return cal;
@@ -137,7 +130,7 @@ async function saveCalendarTokens({
   tokens: {
     access_token?: string;
     refresh_token?: string;
-    expires_at?: number;
+    expires_at?: number; // milliseconds
   };
   connectionId: string;
 }) {
@@ -153,9 +146,8 @@ async function saveCalendarTokens({
       where: { id: connectionId },
       data: {
         accessToken: tokens.access_token,
-        expiresAt: tokens.expires_at
-          ? new Date(tokens.expires_at * 1000)
-          : null,
+        refreshToken: tokens.refresh_token,
+        expiresAt: tokens.expires_at ? new Date(tokens.expires_at) : null,
       },
     });
 

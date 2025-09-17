@@ -97,8 +97,8 @@ export function CalendarConnectionCard({
   };
 
   const enabledCalendars =
-    connection.calendars?.filter((cal) => cal.isEnabled).length || 0;
-  const totalCalendars = connection.calendars?.length || 0;
+    connection.calendars?.filter((cal) => cal.isEnabled)?.length ?? 0;
+  const totalCalendars = connection.calendars?.length ?? 0;
 
   return (
     <Card>
