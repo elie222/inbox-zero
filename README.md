@@ -399,6 +399,8 @@ For more detailed Docker build instructions and security considerations, see [do
 
 ### Calendar integrations
 
+*Note:* The calendar integration feature is a work in progress.
+
 #### Google Calendar
 
 1. Visit: https://console.cloud.google.com/apis/library

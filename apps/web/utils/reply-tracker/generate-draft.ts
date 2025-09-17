@@ -14,6 +14,7 @@ import type { EmailProvider } from "@/utils/email/types";
 import { aiCollectReplyContext } from "@/utils/ai/reply/reply-context-collector";
 import { getOrCreateReferralCode } from "@/utils/referral/referral-code";
 import { generateReferralLink } from "@/utils/referral/referral-link";
+import { aiGetCalendarAvailability } from "@/utils/ai/calendar/availability";
 import { env } from "@/env";
 
 const logger = createScopedLogger("generate-reply");
@@ -161,7 +162,12 @@ async function generateDraftContent(
     messages[messages.length - 1],
     10_000,
   );
-  const [knowledgeResult, emailHistoryContext] = await Promise.all([
+  const [
+    knowledgeResult,
+    emailHistoryContext,
+    calendarAvailability,
+    writingStyle,
+  ] = await Promise.all([
     aiExtractRelevantKnowledge({
       knowledgeBase,
       emailContent: lastMessageContent,
@@ -171,6 +177,13 @@ async function generateDraftContent(
       currentThread: messages,
       emailAccount,
       emailProvider,
+    }),
+    aiGetCalendarAvailability({
+      emailAccount,
+      messages,
+    }),
+    getWritingStyle({
+      emailAccountId: emailAccount.id,
     }),
   ]);
 
@@ -198,10 +211,6 @@ async function generateDraftContent(
       })
     : null;
 
-  const writingStyle = await getWritingStyle({
-    emailAccountId: emailAccount.id,
-  });
-
   // 3. Draft with extracted knowledge
   const text = await aiDraftWithKnowledge({
     messages,
@@ -209,6 +218,7 @@ async function generateDraftContent(
     knowledgeBaseContent: knowledgeResult?.relevantContent || null,
     emailHistorySummary,
     emailHistoryContext,
+    calendarAvailability,
     writingStyle,
   });
 

@@ -59,8 +59,6 @@ Create actionable recommendations in three categories:
 
 Focus on practical, implementable solutions that improve email organization and workflow efficiency.`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
@@ -75,8 +73,6 @@ Focus on practical, implementable solutions that improve email organization and 
     prompt,
     schema: actionableRecommendationsSchema,
   });
-
-  logger.trace("Output", result.object);
 
   return result.object;
 }
