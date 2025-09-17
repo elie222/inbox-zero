@@ -6,6 +6,7 @@ import {
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
+import { updateContactCompanySize } from "@inboxzero/loops";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -22,7 +23,7 @@ export const saveOnboardingAnswersAction = actionClientUser
   .action(
     async ({
       parsedInput: { surveyId, questions, answers },
-      ctx: { userId },
+      ctx: { userId, logger },
     }) => {
       // Helper function to extract survey answers from the response format
       function extractSurveyAnswers(questions: any[], answers: any) {
@@ -105,10 +106,9 @@ export const saveOnboardingAnswersAction = actionClientUser
         return result;
       }
 
-      // Extract individual survey answers for easier querying
       const extractedAnswers = extractSurveyAnswers(questions, answers);
 
-      await prisma.user.update({
+      const userPromise = prisma.user.update({
         where: { id: userId },
         data: {
           onboardingAnswers: { surveyId, questions, answers },
@@ -120,6 +120,20 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyImprovements: extractedAnswers.surveyImprovements,
         },
       });
+
+      await Promise.all([
+        userPromise,
+        async () => {
+          if (extractedAnswers.surveyCompanySize) {
+            updateContactCompanySize(
+              userId,
+              extractedAnswers.surveyCompanySize,
+            ).catch((error) => {
+              logger.error("Error updating company size", { error });
+            });
+          }
+        },
+      ]);
     },
   );
 
