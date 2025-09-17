@@ -88,8 +88,6 @@ For email categorization, create simple, practical categories based on actual em
 
 Only suggest categories that are meaningful and provide clear organizational value. If emails don't fit into meaningful categories, don't create categories for them.`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
@@ -104,8 +102,6 @@ Only suggest categories that are meaningful and provide clear organizational val
     prompt,
     schema: responsePatternsSchema,
   });
-
-  logger.trace("Output", result.object);
 
   return result.object;
 }

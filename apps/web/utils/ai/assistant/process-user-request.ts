@@ -155,8 +155,6 @@ ${senderCategory || "No category"}
     ...(messages || []),
   ];
 
-  logger.trace("Input", { allMessages });
-
   const createdRules = new Map<string, RuleWithRelations>();
   const updatedRules = new Map<string, RuleWithRelations>();
 
@@ -636,10 +634,6 @@ ${senderCategory || "No category"}
       }),
     },
   });
-
-  const toolCalls = result.steps.flatMap((step) => step.toolCalls);
-
-  logger.trace("Tool Calls", { toolCalls });
 
   // Upon completion, check what changes were made and make sure the prompt file is updated
 

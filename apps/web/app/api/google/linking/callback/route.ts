@@ -6,6 +6,7 @@ import { getLinkingOAuth2Client } from "@/utils/gmail/client";
 import { GOOGLE_LINKING_STATE_COOKIE_NAME } from "@/utils/gmail/constants";
 import { withError } from "@/utils/middleware";
 import { transferPremiumDuringMerge } from "@/utils/user/merge-premium";
+import { parseOAuthState } from "@/utils/oauth/state";
 
 const logger = createScopedLogger("google/linking/callback");
 
@@ -30,11 +31,9 @@ export const GET = withError(async (request: NextRequest) => {
     return NextResponse.redirect(redirectUrl, { headers: response.headers });
   }
 
-  let decodedState: { userId: string; intent: string; nonce: string };
+  let decodedState: { userId: string; intent?: string; nonce: string };
   try {
-    decodedState = JSON.parse(
-      Buffer.from(storedState, "base64url").toString("utf8"),
-    );
+    decodedState = parseOAuthState(storedState);
   } catch (error) {
     logger.error("Failed to decode state", { error });
     redirectUrl.searchParams.set("error", "invalid_state_format");

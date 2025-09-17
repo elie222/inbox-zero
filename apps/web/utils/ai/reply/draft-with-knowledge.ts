@@ -7,6 +7,7 @@ import { stringifyEmail } from "@/utils/stringify-email";
 import { getTodayForLLM } from "@/utils/llms/helpers";
 import { getModel } from "@/utils/llms/model";
 import type { ReplyContextCollectorResult } from "@/utils/ai/reply/reply-context-collector";
+import type { CalendarAvailabilityContext } from "@/utils/ai/calendar/availability";
 
 const logger = createScopedLogger("DraftWithKnowledge");
 
@@ -23,7 +24,7 @@ Don't reply with a Subject. Only reply with the body of the email.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information. For example, DO NOT offer to meet someone at a specific time as you don't know what time the user is available.
+Do not invent information.
 
 Return your response in JSON format.
 `;
@@ -34,6 +35,7 @@ const getUserPrompt = ({
   knowledgeBaseContent,
   emailHistorySummary,
   emailHistoryContext,
+  calendarAvailability,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
@@ -41,6 +43,7 @@ const getUserPrompt = ({
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
 }) => {
   const userAbout = emailAccount.about
@@ -98,11 +101,23 @@ ${writingStyle}
 `
     : "";
 
+  const calendarContext = calendarAvailability?.suggestedTimes.length
+    ? `Calendar availability information:
+    
+<calendar_availability>
+Suggested times: ${calendarAvailability.suggestedTimes.join(", ")}
+</calendar_availability>
+
+IMPORTANT: Use this calendar information to suggest specific available times when responding to meeting requests. You can now offer specific times when the user is available.
+`
+    : "";
+
   return `${userAbout}
 ${relevantKnowledge}
 ${historicalContext}
 ${precedentHistoryContext}
 ${writingStylePrompt}
+${calendarContext}
 
 Here is the context of the email thread (from oldest to newest):
 ${messages
@@ -132,6 +147,7 @@ export async function aiDraftWithKnowledge({
   knowledgeBaseContent,
   emailHistorySummary,
   emailHistoryContext,
+  calendarAvailability,
   writingStyle,
 }: {
   messages: (EmailForLLM & { to: string })[];
@@ -139,6 +155,7 @@ export async function aiDraftWithKnowledge({
   knowledgeBaseContent: string | null;
   emailHistorySummary: string | null;
   emailHistoryContext: ReplyContextCollectorResult | null;
+  calendarAvailability: CalendarAvailabilityContext | null;
   writingStyle: string | null;
 }) {
   try {
@@ -154,6 +171,7 @@ export async function aiDraftWithKnowledge({
       knowledgeBaseContent,
       emailHistorySummary,
       emailHistoryContext,
+      calendarAvailability,
       writingStyle,
     });
 

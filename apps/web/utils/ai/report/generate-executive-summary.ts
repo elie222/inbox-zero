@@ -137,8 +137,6 @@ Generate:
 3. **Top insights** about their email behavior
 4. **Quick actions** for immediate improvement`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
@@ -153,8 +151,6 @@ Generate:
     prompt,
     schema: executiveSummarySchema,
   });
-
-  logger.trace("Output", result.object);
 
   return result.object;
 }
