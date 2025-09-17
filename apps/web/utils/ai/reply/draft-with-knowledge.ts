@@ -24,7 +24,7 @@ Don't reply with a Subject. Only reply with the body of the email.
 
 IMPORTANT: Use placeholders sparingly! Only use them where you have limited information.
 Never use placeholders for the user's name. You do not need to sign off with the user's name. Do not add a signature.
-Do not invent information. However, if calendar availability information is provided, you can suggest specific available times for meetings.
+Do not invent information.
 
 Return your response in JSON format.
 `;
@@ -101,22 +101,16 @@ ${writingStyle}
 `
     : "";
 
-  const calendarContext =
-    calendarAvailability?.isRelevant && calendarAvailability.availability
-      ? `Calendar availability information:
+  const calendarContext = calendarAvailability?.suggestedTimes.length
+    ? `Calendar availability information:
     
 <calendar_availability>
-Date: ${calendarAvailability.availability.date}
-Available time slots: ${calendarAvailability.availability.timeSlots
-          .filter((slot) => slot.available)
-          .map((slot) => `${slot.start}-${slot.end}`)
-          .join(", ")}
-Suggested times: ${calendarAvailability.availability.suggestedTimes?.join(", ") || "None"}
+Suggested times: ${calendarAvailability.suggestedTimes.join(", ")}
 </calendar_availability>
 
 IMPORTANT: Use this calendar information to suggest specific available times when responding to meeting requests. You can now offer specific times when the user is available.
 `
-      : "";
+    : "";
 
   return `${userAbout}
 ${relevantKnowledge}
