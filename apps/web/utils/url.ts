@@ -64,7 +64,7 @@ export function getEmailUrlForMessage(
   provider?: string,
 ) {
   const config = getProviderConfig(provider);
-  const idToUse = config.selectId(messageId, threadId);
+  const idToUse = config?.selectId(messageId, threadId);
 
   return getEmailUrl(idToUse, emailAddress, provider);
 }

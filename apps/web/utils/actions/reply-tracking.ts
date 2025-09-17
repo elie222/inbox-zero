@@ -11,9 +11,10 @@ import {
 } from "@/utils/redis/reply-tracker-analyzing";
 import { enableReplyTracker } from "@/utils/reply-tracker/enable";
 import { actionClient } from "@/utils/actions/safe-action";
-import { getGmailClientForEmail } from "@/utils/account";
 import { SafeError } from "@/utils/error";
 import { prefixPath } from "@/utils/path";
+import { isGoogleProvider } from "@/utils/email/provider-types";
+import { getEmailAccountWithAi } from "@/utils/user/get";
 
 const logger = createScopedLogger("enableReplyTracker");
 
@@ -29,29 +30,20 @@ export const enableReplyTrackerAction = actionClient
 
 export const processPreviousSentEmailsAction = actionClient
   .metadata({ name: "processPreviousSentEmails" })
-  .action(async ({ ctx: { emailAccountId } }) => {
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        account: { select: { provider: true } },
-        user: { select: { aiProvider: true, aiModel: true, aiApiKey: true } },
-        id: true,
-        email: true,
-        userId: true,
-        about: true,
-      },
-    });
+  .action(async ({ ctx: { emailAccountId, provider } }) => {
+    // Not enabled for non-google providers yet
+    if (!isGoogleProvider(provider)) return;
 
-    if (emailAccount?.account?.provider !== "google") {
-      return { success: true };
+    const emailAccountWithAi = await getEmailAccountWithAi({ emailAccountId });
+
+    if (!emailAccountWithAi) {
+      logger.error("Email account not found", { emailAccountId });
+      throw new SafeError("Email account not found");
     }
 
-    if (!emailAccount) throw new SafeError("Email account not found");
-
-    const gmail = await getGmailClientForEmail({ emailAccountId });
-    await processPreviousSentEmails({ gmail, emailAccount });
-
-    return { success: true };
+    await processPreviousSentEmails({
+      emailAccount: emailAccountWithAi,
+    });
   });
 
 const resolveThreadTrackerSchema = z.object({

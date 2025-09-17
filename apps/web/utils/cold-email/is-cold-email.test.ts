@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import prisma from "@/utils/prisma";
 import { ColdEmailSetting, ColdEmailStatus } from "@prisma/client";
-import { blockColdEmailWithProvider } from "./is-cold-email";
+import { blockColdEmail } from "./is-cold-email";
 import { getEmailAccount } from "@/__tests__/helpers";
 import type { EmailProvider } from "@/utils/email/types";
 
@@ -46,7 +46,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
@@ -79,7 +79,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
@@ -106,7 +106,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithArchive,
@@ -134,7 +134,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithArchiveAndRead,
@@ -159,7 +159,7 @@ describe("blockColdEmail", () => {
     const userWithoutEmail = { ...mockEmailAccount, email: null as any };
 
     await expect(
-      blockColdEmailWithProvider({
+      blockColdEmail({
         provider: mockProvider,
         email: mockEmail,
         emailAccount: userWithoutEmail,
@@ -175,7 +175,7 @@ describe("blockColdEmail", () => {
       type: "user",
     });
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: mockEmailAccount,
@@ -194,7 +194,7 @@ describe("blockColdEmail", () => {
       coldEmailBlocker: ColdEmailSetting.DISABLED,
     };
 
-    await blockColdEmailWithProvider({
+    await blockColdEmail({
       provider: mockProvider,
       email: mockEmail,
       emailAccount: userWithBlockerOff,

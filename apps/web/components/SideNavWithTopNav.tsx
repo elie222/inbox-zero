@@ -1,16 +1,21 @@
 "use client";
 
+import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Toaster } from "@/components/Toast";
 import { NavBottom } from "@/components/NavBottom";
 import {
   SidebarInset,
   SidebarProvider,
+  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { SideNav } from "@/components/SideNav";
 import { SidebarRight } from "@/components/SidebarRight";
 import { cn } from "@/utils";
+
+const CrispWithNoSSR = dynamic(() => import("@/components/CrispChat"));
 
 function ContentWrapper({ children }: { children: React.ReactNode }) {
   const { state } = useSidebar();
@@ -24,7 +29,6 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
       )}
     >
       <SidebarInset className="overflow-hidden bg-background pt-9 max-w-full">
-        <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}
         <div
           className="md:hidden md:pt-0"
@@ -33,6 +37,9 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
           <NavBottom />
         </div>
       </SidebarInset>
+      <Suspense>
+        <CrispWithNoSSR />
+      </Suspense>
     </div>
   );
 }
@@ -58,9 +65,20 @@ export function SideNavWithTopNav({
       defaultOpen={defaultOpen ? ["left-sidebar"] : []}
       sidebarNames={["left-sidebar", "chat-sidebar"]}
     >
+      <MobileHeader />
       <SideNav name="left-sidebar" />
       <ContentWrapper>{children}</ContentWrapper>
       <SidebarRight name="chat-sidebar" />
     </SidebarProvider>
+  );
+}
+
+function MobileHeader() {
+  return (
+    <header className="fixed top-0 left-0 right-0 z-50 h-9 md:hidden">
+      <div className="flex h-full items-center px-4">
+        <SidebarTrigger name="left-sidebar" className="size-6" />
+      </div>
+    </header>
   );
 }

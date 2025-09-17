@@ -68,7 +68,7 @@ Remember, precision is crucial - only include matches you are absolutely sure ab
 
   const listEmailsTool = (gmail: gmail_v1.Gmail) => ({
     description: "List email messages. Returns max 20 results.",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string().optional().describe("Optional Gmail search query."),
     }),
     execute: async ({ query }: { query: string | undefined }) => {

@@ -9,9 +9,11 @@ import {
   ArchiveIcon,
   ArrowLeftIcon,
   BarChartBigIcon,
+  BookIcon,
   BrushIcon,
   ChevronDownIcon,
   ChevronRightIcon,
+  CrownIcon,
   FileIcon,
   InboxIcon,
   type LucideIcon,
@@ -21,6 +23,7 @@ import {
   PersonStandingIcon,
   RatioIcon,
   SendIcon,
+  SettingsIcon,
   SparklesIcon,
   TagIcon,
   Users2Icon,
@@ -58,7 +61,7 @@ import { NavUser } from "@/components/NavUser";
 type NavItem = {
   name: string;
   href: string;
-  icon: LucideIcon | ((props: any) => React.ReactNode);
+  icon: LucideIcon | (() => React.ReactNode);
   target?: "_blank";
   count?: number;
   hideInMail?: boolean;
@@ -168,6 +171,7 @@ const bottomMailLinks: NavItem[] = [
 
 export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigation = useNavigation();
+  const { emailAccountId } = useAccount();
   const path = usePathname();
   const showMailNav = path.includes("/mail") || path.includes("/compose");
 
@@ -224,6 +228,27 @@ export function SideNav({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <ClientOnly>
           <ReferralDialog />
         </ClientOnly>
+
+        <SidebarMenuButton asChild>
+          <Link href="https://docs.getinboxzero.com" target="_blank">
+            <BookIcon className="size-4" />
+            <span className="font-semibold">Help Center</span>
+          </Link>
+        </SidebarMenuButton>
+
+        <SidebarMenuButton asChild>
+          <Link href="/premium">
+            <CrownIcon className="size-4" />
+            <span className="font-semibold">Premium</span>
+          </Link>
+        </SidebarMenuButton>
+
+        <SidebarMenuButton asChild>
+          <Link href={prefixPath(emailAccountId, "/settings")}>
+            <SettingsIcon className="size-4" />
+            <span className="font-semibold">Settings</span>
+          </Link>
+        </SidebarMenuButton>
 
         <SideNavMenu items={visibleBottomLinks} activeHref={path} />
 

@@ -18,6 +18,7 @@ import {
   TrashIcon,
 } from "lucide-react";
 import { type PostHog, usePostHog } from "posthog-js/react";
+import type { UserResponse } from "@/app/api/user/me/route";
 import { Button } from "@/components/ui/button";
 import { ButtonLoader } from "@/components/Loading";
 import { Tooltip } from "@/components/Tooltip";
@@ -69,7 +70,7 @@ export function ActionCell<T extends Row>({
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   onOpenNewsletter: (row: T) => void;
   selected: boolean;
   labels: EmailLabel[];
@@ -159,7 +160,7 @@ function UnsubscribeButton<T extends Row>({
   item: T;
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   posthog: PostHog;
   emailAccountId: string;
 }) {
@@ -223,7 +224,7 @@ function AutoArchiveButton<T extends Row>({
   hasUnsubscribeAccess: boolean;
   mutate: () => Promise<void>;
   posthog: PostHog;
-  refetchPremium: () => Promise<any>;
+  refetchPremium: () => Promise<UserResponse | null | undefined>;
   labels: EmailLabel[];
   emailAccountId: string;
 }) {
@@ -310,7 +311,7 @@ function AutoArchiveButton<T extends Row>({
           )}
 
           <DropdownMenuLabel>
-            Skip Inbox and {terminology.label.singularCapitalized}
+            Skip Inbox and {terminology.label.action}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {labels.map((label) => {
@@ -330,7 +331,7 @@ function AutoArchiveButton<T extends Row>({
             <DropdownMenuItem>
               You do not have any {terminology.label.plural}. Create one in your
               email client first to auto
-              {terminology.label.singular} emails.
+              {terminology.label.action} emails.
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -447,7 +448,7 @@ export function MoreDropdown<T extends Row>({
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <TagIcon className="mr-2 size-4" />
-            <span>{terminology.label.singularCapitalized} future emails</span>
+            <span>{terminology.label.action} future emails</span>
           </DropdownMenuSubTrigger>
           <DropdownMenuPortal>
             <LabelsSubMenu

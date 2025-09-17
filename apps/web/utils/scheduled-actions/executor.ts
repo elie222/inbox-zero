@@ -112,6 +112,7 @@ async function validateEmailState(
       headers: message.headers,
       textPlain: message.textPlain || "",
       textHtml: message.textHtml || "",
+      snippet: message.snippet || "",
       attachments: message.attachments || [],
       internalDate: message.internalDate,
     };
@@ -180,6 +181,7 @@ async function executeDelayedAction({
     headers: emailMessage.headers,
     textPlain: emailMessage.textPlain,
     textHtml: emailMessage.textHtml,
+    snippet: emailMessage.snippet,
     attachments: emailMessage.attachments,
     internalDate: emailMessage.internalDate,
   };

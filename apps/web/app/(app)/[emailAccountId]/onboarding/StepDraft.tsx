@@ -8,12 +8,14 @@ import { OnboardingWrapper } from "@/app/(app)/[emailAccountId]/onboarding/Onboa
 import { useCallback } from "react";
 import { enableDraftRepliesAction } from "@/utils/actions/rule";
 import { toastError } from "@/components/Toast";
+import { OnboardingButton } from "@/app/(app)/[emailAccountId]/onboarding/OnboardingButton";
 
 export function StepDraft({
   emailAccountId,
   onNext,
 }: {
   emailAccountId: string;
+  provider: string;
   onNext: () => void;
 }) {
   const onSetDraftReplies = useCallback(
@@ -79,27 +81,5 @@ export function StepDraft({
         </div>
       </div>
     </div>
-  );
-}
-
-function OnboardingButton({
-  text,
-  icon,
-  onClick,
-}: {
-  text: string;
-  icon: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="rounded-xl border bg-card p-4 text-card-foreground shadow-sm text-left flex items-center gap-4 transition-all hover:border-blue-600 hover:ring-2 hover:ring-blue-100"
-      onClick={onClick}
-    >
-      <IconCircle size="sm">{icon}</IconCircle>
-
-      <div className="font-medium">{text}</div>
-    </button>
   );
 }

@@ -1,5 +1,8 @@
 import type { OutlookClient } from "@/utils/outlook/client";
-import type { MessageRule } from "@microsoft/microsoft-graph-types";
+import type {
+  MessageRule,
+  OutlookCategory,
+} from "@microsoft/microsoft-graph-types";
 import { createScopedLogger } from "@/utils/logger";
 
 const logger = createScopedLogger("outlook/filter");
@@ -32,7 +35,7 @@ export async function createFilter(options: {
       },
     };
 
-    const response = await client
+    const response: MessageRule = await client
       .getClient()
       .api("/me/mailFolders/inbox/messageRules")
       .post(rule);
@@ -72,7 +75,7 @@ export async function createAutoArchiveFilter({
       },
     };
 
-    const response = await client
+    const response: MessageRule = await client
       .getClient()
       .api("/me/mailFolders/inbox/messageRules")
       .post(rule);
@@ -94,12 +97,12 @@ export async function deleteFilter(options: {
   const { client, id } = options;
 
   try {
-    const response = await client
+    await client
       .getClient()
       .api(`/me/mailFolders/inbox/messageRules/${id}`)
       .delete();
 
-    return { status: 204, data: response };
+    return { status: 204 };
   } catch (error) {
     logger.error("Error deleting Outlook filter", { id, error });
     throw error;
@@ -108,7 +111,7 @@ export async function deleteFilter(options: {
 
 export async function getFiltersList(options: { client: OutlookClient }) {
   try {
-    const response = await options.client
+    const response: { value: MessageRule[] } = await options.client
       .getClient()
       .api("/me/mailFolders/inbox/messageRules")
       .get();
@@ -126,6 +129,7 @@ export async function getFiltersList(options: { client: OutlookClient }) {
 
 // Helper function to check if a filter already exists
 function isFilterExistsError(error: unknown) {
+  // biome-ignore lint/suspicious/noExplicitAny: simplest
   const errorMessage = (error as any)?.message || "";
   return (
     errorMessage.includes("already exists") ||
@@ -147,13 +151,13 @@ export async function createCategoryFilter({
 }) {
   try {
     // First, ensure the category exists
-    const categories = await client
+    const categories: { value: OutlookCategory[] } = await client
       .getClient()
       .api("/me/outlook/masterCategories")
       .get();
 
     let category = categories.value.find(
-      (cat: { displayName: string }) => cat.displayName === categoryName,
+      (cat) => cat.displayName === categoryName,
     );
 
     if (!category) {
@@ -174,7 +178,7 @@ export async function createCategoryFilter({
     logger.info("Category created for filter", {
       from,
       categoryName,
-      categoryId: category.id,
+      categoryId: category?.id,
     });
 
     return {
@@ -218,7 +222,7 @@ export async function updateFilter({
       },
     };
 
-    const response = await client
+    const response: MessageRule = await client
       .getClient()
       .api(`/me/mailFolders/inbox/messageRules/${id}`)
       .patch(rule);

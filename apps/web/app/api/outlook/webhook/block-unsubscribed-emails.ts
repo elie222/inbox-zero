@@ -1,21 +1,23 @@
-import type { Client } from "@microsoft/microsoft-graph-client";
 import prisma from "@/utils/prisma";
 import { NewsletterStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
+import type { EmailProvider } from "@/utils/email/types";
 
 const logger = createScopedLogger("outlook/webhook/block-unsubscribed-emails");
 
 export async function blockUnsubscribedEmails({
   from,
   emailAccountId,
-  client,
+  provider,
   messageId,
+  ownerEmail,
 }: {
   from: string;
   emailAccountId: string;
-  client: Client;
+  provider: EmailProvider;
   messageId: string;
+  ownerEmail: string;
 }): Promise<boolean> {
   const email = extractEmailAddress(from);
   const sender = await prisma.newsletter.findFirst({
@@ -29,15 +31,8 @@ export async function blockUnsubscribedEmails({
   if (!sender) return false;
 
   try {
-    // Move to Archive folder
-    await client.api(`/me/messages/${messageId}/move`).post({
-      destinationId: "archive",
-    });
-
-    // Mark as read
-    await client.api(`/me/messages/${messageId}`).patch({
-      isRead: true,
-    });
+    await provider.archiveMessage(messageId);
+    await provider.markRead(messageId);
 
     logger.info("Moved unsubscribed email to archive", {
       messageId,

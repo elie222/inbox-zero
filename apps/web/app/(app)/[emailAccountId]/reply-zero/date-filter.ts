@@ -1,10 +1,10 @@
 export type TimeRange = "all" | "3d" | "1w" | "2w" | "1m";
 
 export function getDateFilter(timeRange: TimeRange) {
-  if (timeRange === "all") return undefined;
-
   const now = new Date();
   switch (timeRange) {
+    case "all":
+      return undefined;
     case "3d":
       now.setDate(now.getDate() - 3);
       break;

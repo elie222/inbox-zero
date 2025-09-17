@@ -14,7 +14,7 @@ export function WebhookSection() {
     <FormSection>
       <FormSectionLeft
         title="Webhooks (Developers)"
-        description="API webhook secret for request verification. Include this in the X-Webhook-Secret header when setting up webhook endpoints."
+        description="API webhook secret for request verification. Include this in the X-Webhook-Secret header when setting up webhook endpoints. Set webhook URLs for individual rules in the Assistant=>Rules tab."
       />
 
       <div className="col-span-2">
@@ -26,10 +26,12 @@ export function WebhookSection() {
                   <CopyInput value={data.webhookSecret} />
                 )}
 
-                <RegenerateSecretButton
-                  hasSecret={!!data.webhookSecret}
-                  mutate={mutate}
-                />
+                <div className="flex items-center gap-3">
+                  <RegenerateSecretButton
+                    hasSecret={!!data.webhookSecret}
+                    mutate={mutate}
+                  />
+                </div>
               </div>
             )}
           </LoadingContent>

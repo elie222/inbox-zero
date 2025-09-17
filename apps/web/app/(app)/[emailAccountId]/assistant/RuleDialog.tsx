@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +11,7 @@ import { RuleForm } from "./RuleForm";
 import { LoadingContent } from "@/components/LoadingContent";
 import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
+import { useDialogState } from "@/hooks/useDialogState";
 
 interface RuleDialogProps {
   ruleId?: string;
@@ -18,6 +20,23 @@ interface RuleDialogProps {
   onSuccess?: () => void;
   initialRule?: Partial<CreateRuleBody>;
   editMode?: boolean;
+}
+
+export function useRuleDialog() {
+  const ruleDialog = useDialogState<{ ruleId: string }>();
+
+  const RuleDialogComponent = useCallback(() => {
+    return (
+      <RuleDialog
+        ruleId={ruleDialog.data?.ruleId}
+        isOpen={ruleDialog.isOpen}
+        onClose={ruleDialog.onClose}
+        editMode={false}
+      />
+    );
+  }, [ruleDialog.data?.ruleId, ruleDialog.isOpen, ruleDialog.onClose]);
+
+  return { ruleDialog, RuleDialogComponent };
 }
 
 export function RuleDialog({
@@ -38,10 +57,8 @@ export function RuleDialog({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className={ruleId ? "sr-only" : ""}>
-            {ruleId ? "Edit Rule" : "Create Rule"}
-          </DialogTitle>
+        <DialogHeader className={ruleId ? "sr-only" : ""}>
+          <DialogTitle>{ruleId ? "Edit Rule" : "Create Rule"}</DialogTitle>
         </DialogHeader>
         <div>
           {ruleId ? (
@@ -53,6 +70,7 @@ export function RuleDialog({
                   onSuccess={handleSuccess}
                   isDialog={true}
                   mutate={mutate}
+                  onCancel={onClose}
                 />
               )}
             </LoadingContent>
@@ -70,6 +88,7 @@ export function RuleDialog({
               alwaysEditMode={true}
               onSuccess={handleSuccess}
               isDialog={true}
+              onCancel={onClose}
             />
           )}
         </div>

@@ -1,28 +1,15 @@
 import { z } from "zod";
-import { schema as digestEmailSummarySchema } from "@/utils/ai/digest/summarize-email-for-digest";
 
-export type DigestEmailSummarySchema = z.infer<typeof digestEmailSummarySchema>;
+export const storedDigestContentSchema = z.object({ content: z.string() });
+export type StoredDigestContent = z.infer<typeof storedDigestContentSchema>;
 
-export const digestItemSchema = z.object({
+const digestItemSchema = z.object({
   from: z.string(),
   subject: z.string(),
-  content: digestEmailSummarySchema,
+  content: z.string(),
 });
 
-export const digestSummarySchema = z.string().transform((str) => {
-  try {
-    return digestEmailSummarySchema.parse(JSON.parse(str));
-  } catch {
-    throw new Error("Invalid summary JSON");
-  }
-});
-
-export const digestCategorySchema = z.string();
-
-export const digestSchema = z.record(
-  z.string(),
-  z.array(digestItemSchema).optional(),
-);
+const digestSchema = z.record(z.string(), z.array(digestItemSchema).optional());
 
 export const sendDigestEmailBody = z.object({ emailAccountId: z.string() });
 

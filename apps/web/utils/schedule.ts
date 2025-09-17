@@ -118,19 +118,22 @@ export function bitmaskToDaysOfWeek(bitmask: number): number[] {
  * @param schedule.intervalDays - Number of days between occurrences
  * @param schedule.timeOfDay - Time of day for the occurrence (if unset, defaults to midnight)
  * @param schedule.occurrences - Number of occurrences within the interval
- * @param fromDate - The reference date to calculate from (defaults to current date)
+ * @param schedule.lastOccurrenceAt - The last occurrence time (used as reference point)
  * @returns The next occurrence date, or null if no valid pattern is found
  */
 export function calculateNextScheduleDate(
   frequency: Pick<
     Schedule,
     "intervalDays" | "daysOfWeek" | "timeOfDay" | "occurrences"
-  >,
-  fromDate: Date = new Date(),
+  > &
+    Partial<Pick<Schedule, "lastOccurrenceAt">>,
 ): Date | null {
   if (!frequency) return null;
 
-  const { intervalDays, daysOfWeek, timeOfDay, occurrences } = frequency;
+  const { intervalDays, daysOfWeek, timeOfDay, occurrences, lastOccurrenceAt } =
+    frequency;
+
+  const fromDate = lastOccurrenceAt || new Date();
 
   // Helper to set the time of day
   function setTime(date: Date) {

@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { verifySignatureAppRouter } from "@upstash/qstash/dist/nextjs";
+import { verifySignatureAppRouter } from "@upstash/qstash/nextjs";
 import { z } from "zod";
 import { withError } from "@/utils/middleware";
 import { getGmailClientWithRefresh } from "@/utils/gmail/client";

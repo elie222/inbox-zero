@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   type FieldError,
+  type FieldErrors,
   type SubmitHandler,
   useFieldArray,
   useForm,
@@ -21,6 +22,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   PencilIcon,
+  TrashIcon,
 } from "lucide-react";
 import { CardBasic } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -51,7 +53,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { createLabelAction } from "@/utils/actions/mail";
 import { MultiSelectFilter } from "@/components/MultiSelectFilter";
 import { useCategories } from "@/hooks/useCategories";
-import { hasVariables } from "@/utils/template";
+import { hasVariables, TEMPLATE_VARIABLE_PATTERN } from "@/utils/template";
 import { getEmptyCondition } from "@/utils/condition";
 import { AlertError } from "@/components/Alert";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -89,11 +91,12 @@ import {
 import { Form, FormControl, FormField, FormItem } from "@/components/ui/form";
 import { isDefined } from "@/utils/types";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
-import { useDelayedActionsEnabled } from "@/hooks/useFeatureFlags";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import { FolderSelector } from "@/components/FolderSelector";
 import { useFolders } from "@/hooks/useFolders";
 import type { OutlookFolder } from "@/utils/outlook/folders";
+import { cn } from "@/utils";
+import { WebhookDocumentationLink } from "@/components/WebhookDocumentation";
 
 export function Rule({
   ruleId,
@@ -123,12 +126,15 @@ export function RuleForm({
   onSuccess,
   isDialog = false,
   mutate,
+  onCancel,
 }: {
   rule: CreateRuleBody & { id?: string };
   alwaysEditMode?: boolean;
   onSuccess?: () => void;
   isDialog?: boolean;
+  // biome-ignore lint/suspicious/noExplicitAny: lazy
   mutate?: (data?: any, options?: any) => void;
+  onCancel?: () => void;
 }) {
   const { emailAccountId, provider } = useAccount();
 
@@ -137,17 +143,26 @@ export function RuleForm({
     defaultValues: rule
       ? {
           ...rule,
+          digest: rule.actions.some(
+            (action) => action.type === ActionType.DIGEST,
+          ),
           actions: [
-            ...rule.actions.map((action) => ({
-              ...action,
-              delayInMinutes: action.delayInMinutes,
-              content: {
-                ...action.content,
-                setManually: !!action.content?.value,
-              },
-              folderName: action.folderName,
-              folderId: action.folderId,
-            })),
+            ...rule.actions
+              .filter(
+                (action) =>
+                  action.type !== ActionType.DIGEST &&
+                  action.type !== ActionType.TRACK_THREAD,
+              )
+              .map((action) => ({
+                ...action,
+                delayInMinutes: action.delayInMinutes,
+                content: {
+                  ...action.content,
+                  setManually: !!action.content?.value,
+                },
+                folderName: action.folderName,
+                folderId: action.folderId,
+              })),
           ],
         }
       : undefined,
@@ -209,6 +224,12 @@ export function RuleForm({
         }
       }
 
+      // Add DIGEST action if digest is enabled
+      const actionsToSubmit = [...data.actions];
+      if (data.digest) {
+        actionsToSubmit.push({ type: ActionType.DIGEST });
+      }
+
       if (data.id) {
         if (mutate) {
           // mutate delayInMinutes optimistically to keep the UI consistent
@@ -227,6 +248,7 @@ export function RuleForm({
 
         const res = await updateRuleAction(emailAccountId, {
           ...data,
+          actions: actionsToSubmit,
           id: data.id,
         });
 
@@ -245,9 +267,10 @@ export function RuleForm({
           if (mutate) mutate();
           posthog.capture("User updated AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: data.actions.map((action) => action.type),
+            actions: actionsToSubmit.map((action) => action.type),
             automate: data.automate,
             runOnThreads: data.runOnThreads,
+            digest: data.digest,
           });
           if (isDialog && onSuccess) {
             onSuccess();
@@ -256,7 +279,10 @@ export function RuleForm({
           }
         }
       } else {
-        const res = await createRuleAction(emailAccountId, data);
+        const res = await createRuleAction(emailAccountId, {
+          ...data,
+          actions: actionsToSubmit,
+        });
 
         if (res?.serverError) {
           console.error(res);
@@ -269,9 +295,10 @@ export function RuleForm({
           toastSuccess({ description: "Created!" });
           posthog.capture("User created AI rule", {
             conditions: data.conditions.map((condition) => condition.type),
-            actions: data.actions.map((action) => action.type),
+            actions: actionsToSubmit.map((action) => action.type),
             automate: data.automate,
             runOnThreads: data.runOnThreads,
+            digest: data.digest,
           });
           if (isDialog && onSuccess) {
             onSuccess();
@@ -340,16 +367,11 @@ export function RuleForm({
       { label: "Forward", value: ActionType.FORWARD },
       { label: "Mark read", value: ActionType.MARK_READ },
       { label: "Mark spam", value: ActionType.MARK_SPAM },
-      { label: "Digest", value: ActionType.DIGEST },
       { label: "Call webhook", value: ActionType.CALL_WEBHOOK },
-      {
-        label: `Auto-update reply ${terminology.label.singular}`,
-        value: ActionType.TRACK_THREAD,
-      },
     ];
 
     return options;
-  }, [provider, terminology.label.action, terminology.label.singular]);
+  }, [provider, terminology.label.action]);
 
   const [isNameEditMode, setIsNameEditMode] = useState(alwaysEditMode);
   const [isConditionsEditMode, setIsConditionsEditMode] =
@@ -486,9 +508,13 @@ export function RuleForm({
                 </div>
               )}
               {isConditionsEditMode ? (
-                <CardBasic>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <div className="sm:col-span-1">
+                <CardBasic className="relative">
+                  <RemoveButton
+                    onClick={() => removeCondition(index)}
+                    ariaLabel="Remove condition"
+                  />
+                  <CardLayout>
+                    <CardLayoutLeft>
                       <FormField
                         control={control}
                         name={`conditions.${index}.type`}
@@ -561,9 +587,9 @@ export function RuleForm({
                           </FormItem>
                         )}
                       />
-                    </div>
+                    </CardLayoutLeft>
 
-                    <div className="space-y-4 sm:col-span-2">
+                    <CardLayoutRight>
                       {watch(`conditions.${index}.type`) ===
                         ConditionType.AI && (
                         <Input
@@ -761,17 +787,8 @@ export function RuleForm({
                           </LoadingContent>
                         </>
                       )}
-                    </div>
-                  </div>
-
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    className="mt-2"
-                    onClick={() => removeCondition(index)}
-                  >
-                    Remove
-                  </Button>
+                    </CardLayoutRight>
+                  </CardLayout>
                 </CardBasic>
               ) : (
                 <ConditionSummaryCard
@@ -876,51 +893,70 @@ export function RuleForm({
           </div>
         )}
 
-        <div className="flex items-center justify-end space-x-2 mt-4">
-          <TooltipExplanation
-            size="md"
-            side="left"
-            text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
-          />
+        <div className="space-y-4 mt-8">
+          <TypographyH3 className="text-xl">Settings</TypographyH3>
 
-          <Toggle
-            name="automate"
-            label="Automate"
-            enabled={watch("automate") || false}
-            onChange={(enabled) => {
-              setValue("automate", enabled);
-            }}
-          />
-        </div>
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="automate"
+              labelRight="Automate"
+              enabled={watch("automate") || false}
+              onChange={(enabled) => {
+                setValue("automate", enabled);
+              }}
+            />
 
-        <div className="mt-4 flex items-center justify-end space-x-2">
-          <ThreadsExplanation size="md" />
-
-          <Toggle
-            name="runOnThreads"
-            label="Apply to threads"
-            enabled={watch("runOnThreads") || false}
-            onChange={(enabled) => {
-              setValue("runOnThreads", enabled);
-            }}
-          />
-        </div>
-
-        {!!rule.id && (
-          <div className="mt-4 flex justify-end">
-            <LearnedPatternsDialog
-              ruleId={rule.id}
-              groupId={rule.groupId || null}
+            <TooltipExplanation
+              size="md"
+              side="right"
+              text="When enabled our AI will perform actions automatically. If disabled, you will have to confirm actions first."
             />
           </div>
-        )}
 
-        <div className="flex justify-end space-x-2 py-6">
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="runOnThreads"
+              labelRight="Apply to threads"
+              enabled={watch("runOnThreads") || false}
+              onChange={(enabled) => {
+                setValue("runOnThreads", enabled);
+              }}
+            />
+
+            <ThreadsExplanation size="md" />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Toggle
+              name="digest"
+              labelRight="Include in daily digest"
+              enabled={watch("digest") || false}
+              onChange={(enabled) => {
+                setValue("digest", enabled);
+              }}
+            />
+
+            <TooltipExplanation
+              size="md"
+              side="right"
+              text="When enabled you will receive a summary of the emails that match this rule in your digest email."
+            />
+          </div>
+
+          {!!rule.id && (
+            <div className="flex">
+              <LearnedPatternsDialog
+                ruleId={rule.id}
+                groupId={rule.groupId || null}
+              />
+            </div>
+          )}
+
           {rule.id && (
             <Button
+              size="sm"
               variant="outline"
-              disabled={isSubmitting}
-              loading={isSubmitting}
+              Icon={TrashIcon}
               onClick={async () => {
                 const yes = confirm(
                   "Are you sure you want to delete this rule?",
@@ -951,20 +987,21 @@ export function RuleForm({
               Delete
             </Button>
           )}
+        </div>
+
+        <div className="flex justify-end space-x-2 pt-6">
+          {onCancel && (
+            <Button variant="outline" onClick={onCancel}>
+              Cancel
+            </Button>
+          )}
+
           {rule.id ? (
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
+            <Button type="submit" loading={isSubmitting}>
               Save
             </Button>
           ) : (
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              loading={isSubmitting}
-            >
+            <Button type="submit" loading={isSubmitting}>
               Create
             </Button>
           )}
@@ -997,7 +1034,7 @@ function ActionCard({
   watch: ReturnType<typeof useForm<CreateRuleBody>>["watch"];
   setValue: ReturnType<typeof useForm<CreateRuleBody>>["setValue"];
   control: ReturnType<typeof useForm<CreateRuleBody>>["control"];
-  errors: any;
+  errors: FieldErrors<CreateRuleBody>;
   userLabels: EmailLabel[];
   isLoading: boolean;
   mutate: () => void;
@@ -1009,7 +1046,6 @@ function ActionCard({
 }) {
   const fields = actionInputs[action.type].fields;
   const [expandedFields, setExpandedFields] = useState(false);
-  const delayedActionsEnabled = useDelayedActionsEnabled();
 
   // Get expandable fields that should be visible regardless of expanded state
   const hasExpandableFields = fields.some((field) => field.expandable);
@@ -1021,8 +1057,8 @@ function ActionCard({
       : false;
 
   const actionCanBeDelayed = useMemo(
-    () => delayedActionsEnabled && canActionBeDelayed(action.type),
-    [action.type, delayedActionsEnabled],
+    () => canActionBeDelayed(action.type),
+    [action.type],
   );
 
   const delayValue = watch(`actions.${index}.delayInMinutes`);
@@ -1080,9 +1116,10 @@ function ActionCard({
   });
 
   return (
-    <CardBasic>
-      <div className="grid gap-2 sm:grid-cols-3">
-        <div className="sm:col-span-1">
+    <CardBasic className="relative">
+      <RemoveButton onClick={() => remove(index)} ariaLabel="Remove action" />
+      <CardLayout>
+        <CardLayoutLeft>
           <FormField
             control={control}
             name={`actions.${index}.type`}
@@ -1105,17 +1142,8 @@ function ActionCard({
               </FormItem>
             )}
           />
-
-          <Button
-            size="xs"
-            variant="ghost"
-            className="mt-2"
-            onClick={() => remove(index)}
-          >
-            Remove
-          </Button>
-        </div>
-        <div className="space-y-4 sm:col-span-2">
+        </CardLayoutLeft>
+        <CardLayoutRight>
           {fields.map((field) => {
             const isAiGenerated = !!action[field.name]?.ai;
             const value = watch(`actions.${index}.${field.name}.value`) || "";
@@ -1129,23 +1157,139 @@ function ActionCard({
             if (!showField) return null;
 
             return (
-              <div
+              <CardLayoutRight
                 key={field.name}
                 className={field.expandable && !value ? "opacity-80" : ""}
               >
-                <div className="flex items-center justify-between">
+                <div>
                   <Label name={field.name} label={field.label} />
-                  {field.name === "label" && (
-                    <div className="flex items-center space-x-2">
-                      <TooltipExplanation
-                        side="left"
-                        text="Enable for AI-generated values unique to each email. Put the prompt inside braces {{your prompt here}}. Disable to use a fixed value."
+
+                  {field.name === "label" && !isAiGenerated ? (
+                    <div className="mt-2">
+                      <LabelCombobox
+                        userLabels={userLabels}
+                        isLoading={isLoading}
+                        mutate={mutate}
+                        value={value}
+                        onChangeValue={(newValue: string) => {
+                          setValue(
+                            `actions.${index}.${field.name}.value`,
+                            newValue,
+                          );
+                        }}
+                        emailAccountId={emailAccountId}
                       />
+                    </div>
+                  ) : field.name === "label" && isAiGenerated ? (
+                    <div className="mt-2">
+                      <Input
+                        type="text"
+                        name={`actions.${index}.${field.name}.value`}
+                        registerProps={register(
+                          `actions.${index}.${field.name}.value`,
+                        )}
+                      />
+                    </div>
+                  ) : field.name === "folderName" &&
+                    action.type === ActionType.MOVE_FOLDER ? (
+                    <div className="mt-2">
+                      <FolderSelector
+                        folders={folders}
+                        isLoading={foldersLoading}
+                        value={{
+                          name:
+                            watch(`actions.${index}.folderName.value`) || "",
+                          id: watch(`actions.${index}.folderId.value`) || "",
+                        }}
+                        onChangeValue={(folderData) => {
+                          if (folderData.name && folderData.id) {
+                            setValue(`actions.${index}.folderName`, {
+                              value: folderData.name,
+                            });
+                            setValue(`actions.${index}.folderId`, {
+                              value: folderData.id,
+                            });
+                          } else {
+                            setValue(`actions.${index}.folderName`, undefined);
+                            setValue(`actions.${index}.folderId`, undefined);
+                          }
+                        }}
+                      />
+                    </div>
+                  ) : field.name === "content" &&
+                    action.type === ActionType.DRAFT_EMAIL &&
+                    !setManually ? (
+                    <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
+                      <div className="max-w-sm text-center text-sm text-muted-foreground">
+                        Our AI will generate a reply using your knowledge base
+                        and previous conversations with the sender
+                      </div>
+
+                      <Button
+                        variant="link"
+                        size="xs"
+                        onClick={() => {
+                          setValue(
+                            `actions.${index}.content.setManually`,
+                            true,
+                          );
+                        }}
+                      >
+                        Set manually
+                      </Button>
+                    </div>
+                  ) : field.textArea ? (
+                    <div className="mt-2">
+                      <TextareaAutosize
+                        className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
+                        minRows={3}
+                        rows={3}
+                        {...register(`actions.${index}.${field.name}.value`)}
+                      />
+
+                      {field.name === "content" &&
+                        action.type === ActionType.DRAFT_EMAIL &&
+                        setManually && (
+                          <Button
+                            variant="link"
+                            size="xs"
+                            onClick={() => {
+                              setValue(
+                                `actions.${index}.content.setManually`,
+                                false,
+                              );
+                            }}
+                          >
+                            Auto draft
+                          </Button>
+                        )}
+                    </div>
+                  ) : (
+                    <div className="mt-2">
+                      <Input
+                        type="text"
+                        name={`actions.${index}.${field.name}.value`}
+                        registerProps={register(
+                          `actions.${index}.${field.name}.value`,
+                        )}
+                        placeholder={field.placeholder}
+                      />
+                      {field.name === "url" &&
+                        action.type === ActionType.CALL_WEBHOOK && (
+                          <div className="mt-2">
+                            <WebhookDocumentationLink />
+                          </div>
+                        )}
+                    </div>
+                  )}
+
+                  {field.name === "label" && (
+                    <div className="flex items-center space-x-2 mt-4">
                       <Toggle
                         name={`actions.${index}.${field.name}.ai`}
-                        label="AI generated"
+                        labelRight="AI generated"
                         enabled={isAiGenerated || false}
-                        onChange={(enabled: boolean) => {
+                        onChange={(enabled) => {
                           setValue(
                             `actions.${index}.${field.name}`,
                             enabled
@@ -1154,123 +1298,21 @@ function ActionCard({
                           );
                         }}
                       />
+
+                      <TooltipExplanation
+                        side="right"
+                        text="When enabled our AI will generate a value when processing the email. Put the prompt inside braces like so: {{your prompt here}}."
+                      />
                     </div>
                   )}
                 </div>
-
-                {field.name === "label" && !isAiGenerated ? (
-                  <div className="mt-2">
-                    <LabelCombobox
-                      userLabels={userLabels}
-                      isLoading={isLoading}
-                      mutate={mutate}
-                      value={value}
-                      onChangeValue={(newValue: string) => {
-                        setValue(
-                          `actions.${index}.${field.name}.value`,
-                          newValue,
-                        );
-                      }}
-                      emailAccountId={emailAccountId}
-                    />
-                  </div>
-                ) : field.name === "label" && isAiGenerated ? (
-                  <div className="mt-2">
-                    <Input
-                      type="text"
-                      name={`actions.${index}.${field.name}.value`}
-                      registerProps={register(
-                        `actions.${index}.${field.name}.value`,
-                      )}
-                    />
-                  </div>
-                ) : field.name === "folderName" &&
-                  action.type === ActionType.MOVE_FOLDER ? (
-                  <div className="mt-2">
-                    <FolderSelector
-                      folders={folders}
-                      isLoading={foldersLoading}
-                      value={{
-                        name: watch(`actions.${index}.folderName.value`) || "",
-                        id: watch(`actions.${index}.folderId.value`) || "",
-                      }}
-                      onChangeValue={(folderData) => {
-                        if (folderData.name && folderData.id) {
-                          setValue(`actions.${index}.folderName`, {
-                            value: folderData.name,
-                          });
-                          setValue(`actions.${index}.folderId`, {
-                            value: folderData.id,
-                          });
-                        } else {
-                          setValue(`actions.${index}.folderName`, undefined);
-                          setValue(`actions.${index}.folderId`, undefined);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : field.name === "content" &&
-                  action.type === ActionType.DRAFT_EMAIL &&
-                  !setManually ? (
-                  <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 py-4">
-                    <div className="max-w-sm text-center text-sm text-muted-foreground">
-                      Our AI will generate a reply using your knowledge base and
-                      previous conversations with the sender
-                    </div>
-
-                    <Button
-                      variant="link"
-                      size="xs"
-                      onClick={() => {
-                        setValue(`actions.${index}.content.setManually`, true);
-                      }}
-                    >
-                      Set manually
-                    </Button>
-                  </div>
-                ) : field.textArea ? (
-                  <div className="mt-2">
-                    <TextareaAutosize
-                      className="block w-full flex-1 whitespace-pre-wrap rounded-md border border-border bg-background shadow-sm focus:border-black focus:ring-black sm:text-sm"
-                      minRows={3}
-                      rows={3}
-                      {...register(`actions.${index}.${field.name}.value`)}
-                    />
-
-                    {field.name === "content" &&
-                      action.type === ActionType.DRAFT_EMAIL &&
-                      setManually && (
-                        <Button
-                          variant="link"
-                          size="xs"
-                          onClick={() => {
-                            setValue(
-                              `actions.${index}.content.setManually`,
-                              false,
-                            );
-                          }}
-                        >
-                          Auto draft
-                        </Button>
-                      )}
-                  </div>
-                ) : (
-                  <div className="mt-2">
-                    <Input
-                      type="text"
-                      name={`actions.${index}.${field.name}.value`}
-                      registerProps={register(
-                        `actions.${index}.${field.name}.value`,
-                      )}
-                    />
-                  </div>
-                )}
-
                 {hasVariables(value) &&
                   canFieldUseVariables(field, isAiGenerated) && (
                     <div className="mt-2 whitespace-pre-wrap rounded-md bg-muted/50 p-2 font-mono text-sm text-foreground">
                       {(value || "")
-                        .split(/(\{\{.*?\}\})/g)
+                        .split(
+                          new RegExp(`(${TEMPLATE_VARIABLE_PATTERN})`, "g"),
+                        )
                         .map((part: string, idx: number) =>
                           part.startsWith("{{") ? (
                             <span
@@ -1296,33 +1338,19 @@ function ActionCard({
                     }
                   />
                 )}
-              </div>
+              </CardLayoutRight>
             );
           })}
 
           {action.type === ActionType.TRACK_THREAD && <ReplyTrackerAction />}
           {shouldShowProTip && <VariableProTip />}
           {actionCanBeDelayed && (
-            <div className="mt-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  {delayEnabled && (
-                    <DelayInputControls
-                      index={index}
-                      delayInMinutes={delayValue}
-                      setValue={setValue}
-                    />
-                  )}
-                </div>
-
+            <div className="">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <TooltipExplanation
-                    text="Schedule this action to execute after a delay from when the email was received. For example, archive an email a week after receiving it."
-                    side="right"
-                  />
                   <Toggle
                     name={`actions.${index}.delayEnabled`}
-                    label="Delay"
+                    labelRight="Delay"
                     enabled={delayEnabled}
                     onChange={(enabled: boolean) => {
                       const newValue = enabled ? 60 : null;
@@ -1331,13 +1359,28 @@ function ActionCard({
                       });
                     }}
                   />
+                  <TooltipExplanation
+                    text="Delay this action to run later. Perfect for auto-archiving newsletters after you've had time to read them, or cleaning up notifications after a few days."
+                    side="right"
+                  />
                 </div>
+
+                {delayEnabled && (
+                  <DelayInputControls
+                    index={index}
+                    delayInMinutes={delayValue}
+                    setValue={setValue}
+                  />
+                )}
               </div>
 
               {errors?.actions?.[index]?.delayInMinutes && (
                 <div className="mt-2">
                   <ErrorMessage
-                    message={errors.actions?.[index]?.delayInMinutes?.message}
+                    message={
+                      errors.actions?.[index]?.delayInMinutes?.message ||
+                      "Invalid delay value"
+                    }
                   />
                 </div>
               )}
@@ -1345,7 +1388,7 @@ function ActionCard({
           )}
 
           {hasExpandableFields && (
-            <div className="mt-2 flex justify-end">
+            <div className="mt-2 flex">
               <Button
                 size="xs"
                 variant="ghost"
@@ -1366,9 +1409,31 @@ function ActionCard({
               </Button>
             </div>
           )}
-        </div>
-      </div>
+        </CardLayoutRight>
+      </CardLayout>
     </CardBasic>
+  );
+}
+
+function CardLayout({ children }: { children: React.ReactNode }) {
+  return <div className="flex flex-col sm:flex-row gap-4">{children}</div>;
+}
+
+function CardLayoutLeft({ children }: { children: React.ReactNode }) {
+  return <div className="w-[200px]">{children}</div>;
+}
+
+function CardLayoutRight({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-4 mx-auto w-full max-w-md", className)}>
+      {children}
+    </div>
   );
 }
 
@@ -1451,7 +1516,7 @@ export function ThreadsExplanation({ size }: { size: "sm" | "md" }) {
   return (
     <TooltipExplanation
       size={size}
-      side="left"
+      side="right"
       text="When enabled, this rule can apply to the first email and any subsequent replies in a conversation. When disabled, it can only apply to the first email."
     />
   );
@@ -1546,36 +1611,33 @@ function DelayInputControls({
   };
 
   return (
-    <div className="space-y-2">
-      <Label label="Delay" name={`delay-${index}`} />
-      <div className="flex items-center space-x-2">
-        <Input
-          name={`delay-${index}`}
-          type="text"
-          placeholder="0"
-          className="w-20"
-          registerProps={{
-            value: delayConfig.displayValue,
-            onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-              const value = e.target.value.replace(/[^0-9]/g, "");
-              delayConfig.handleValueChange(value, delayConfig.unit);
-            },
-          }}
-        />
-        <Select
-          value={delayConfig.unit}
-          onValueChange={delayConfig.handleUnitChange}
-        >
-          <SelectTrigger className="w-24">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="minutes">Minutes</SelectItem>
-            <SelectItem value="hours">Hours</SelectItem>
-            <SelectItem value="days">Days</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <div className="flex items-center space-x-2">
+      <Input
+        name={`delay-${index}`}
+        type="text"
+        placeholder="0"
+        className="w-20"
+        registerProps={{
+          value: delayConfig.displayValue,
+          onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+            const value = e.target.value.replace(/[^0-9]/g, "");
+            delayConfig.handleValueChange(value, delayConfig.unit);
+          },
+        }}
+      />
+      <Select
+        value={delayConfig.unit}
+        onValueChange={delayConfig.handleUnitChange}
+      >
+        <SelectTrigger className="w-24">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="minutes">Minutes</SelectItem>
+          <SelectItem value="hours">Hours</SelectItem>
+          <SelectItem value="days">Days</SelectItem>
+        </SelectContent>
+      </Select>
     </div>
   );
 }
@@ -1610,4 +1672,24 @@ function convertToMinutes(value: string, unit: string) {
     default:
       return numValue;
   }
+}
+
+function RemoveButton({
+  onClick,
+  ariaLabel,
+}: {
+  onClick: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <Button
+      size="icon"
+      variant="ghost"
+      className="absolute top-2 right-2 size-8"
+      onClick={onClick}
+      aria-label={ariaLabel}
+    >
+      <TrashIcon className="size-4" />
+    </Button>
+  );
 }

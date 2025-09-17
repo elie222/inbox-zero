@@ -10,6 +10,7 @@ import {
 } from "@prisma/client";
 import { truncate } from "@/utils/string";
 import { getEmailTerminology } from "@/utils/terminology";
+import { sortActionsByPriority } from "@/utils/action-sort";
 
 type Plan = Pick<ExecutedRule, "reason" | "status"> & {
   rule: Rule | null;
@@ -53,7 +54,7 @@ export function PlanBadge(props: { plan?: Plan; provider: string }) {
             </div>
           ) : null}
           <div className="mt-4 space-y-2">
-            {plan.actionItems?.map((action, i) => {
+            {sortActionsByPriority(plan.actionItems || []).map((action, i) => {
               return (
                 <div key={i}>
                   <Badge
@@ -159,7 +160,7 @@ function getActionLabel(type: ActionType, provider: string) {
 
   switch (type) {
     case ActionType.LABEL:
-      return terminology.label.singularCapitalized;
+      return terminology.label.action;
     case ActionType.ARCHIVE:
       return "Archive";
     case ActionType.FORWARD:

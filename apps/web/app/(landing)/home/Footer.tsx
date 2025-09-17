@@ -43,6 +43,7 @@ const navigation = {
   company: [
     { name: "Affiliates", href: "/affiliates", target: "_blank" },
     { name: "Blog", href: "/blog" },
+    { name: "Case Studies", href: "/case-studies" },
     { name: "Twitter", href: "/twitter", target: "_blank" },
     { name: "GitHub", href: "/github", target: "_blank" },
     { name: "Discord", href: "/discord", target: "_blank" },

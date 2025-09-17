@@ -32,9 +32,6 @@ import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("actions/premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -110,6 +107,7 @@ export const updateMultiAccountPremiumAction = actionClientUser
             emailAccountsAccess: true,
             admins: { select: { id: true } },
             pendingInvites: true,
+            users: { select: { id: true, email: true } },
           },
         },
       },
@@ -152,6 +150,18 @@ export const updateMultiAccountPremiumAction = actionClientUser
       }
     }
 
+    // Get current users connected to this premium
+    const currentPremium = await prisma.premium.findUnique({
+      where: { id: premium.id },
+      select: { users: { select: { id: true, email: true } } },
+    });
+    const currentUsers = currentPremium?.users || [];
+
+    // Determine which users to disconnect (those not in the new email list)
+    const usersToDisconnect = currentUsers.filter(
+      (u) => u.id !== userId && !uniqueEmails.includes(u.email),
+    );
+
     // delete premium for other users when adding them to this premium plan
     // don't delete the premium for the current user
     await prisma.premium.deleteMany({
@@ -161,15 +171,18 @@ export const updateMultiAccountPremiumAction = actionClientUser
       },
     });
 
-    // add users to plan
+    // Update users: disconnect removed users and connect new users
     await prisma.premium.update({
       where: { id: premium.id },
       data: {
-        users: { connect: otherUsers.map((user) => ({ id: user.id })) },
+        users: {
+          disconnect: usersToDisconnect.map((user) => ({ id: user.id })),
+          connect: otherUsers.map((user) => ({ id: user.id })),
+        },
       },
     });
 
-    // add users to pending invites
+    // Set pending invites to exactly match non-existing users in the email list
     const nonExistingUsers = uniqueEmails.filter(
       (email) => !users.some((u) => u.email === email),
     );
@@ -177,21 +190,33 @@ export const updateMultiAccountPremiumAction = actionClientUser
       where: { id: premium.id },
       data: {
         pendingInvites: {
-          set: uniq([...(premium.pendingInvites || []), ...nonExistingUsers]),
+          set: nonExistingUsers,
         },
       },
       select: {
-        users: { select: { _count: { select: { emailAccounts: true } } } },
+        users: {
+          select: {
+            email: true,
+            _count: { select: { emailAccounts: true } },
+          },
+        },
         pendingInvites: true,
       },
     });
 
-    // total seats = premium users + pending invites
+    const connectedUserEmails = new Set(
+      updatedPremium.users.map((u) => u.email),
+    );
+
+    const uniquePendingInvites = (updatedPremium.pendingInvites || []).filter(
+      (email) => !connectedUserEmails.has(email),
+    );
+
+    // total seats = premium users + unique pending invites
     const totalSeats =
       sumBy(updatedPremium.users, (u) => u._count.emailAccounts) +
-      (updatedPremium.pendingInvites?.length || 0);
+      uniquePendingInvites.length;
 
-    // Update subscription quantity to reflect the actual total seats
     await updateAccountSeatsForPremium(premium, totalSeats);
   });
 
@@ -374,7 +399,7 @@ export const claimPremiumAdminAction = actionClientUser
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
     const stripe = getStripe();
@@ -387,18 +412,42 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
+            stripeSubscriptionStatus: true,
           },
         },
       },
     });
 
-    if (!user?.premium?.stripeCustomerId)
+    if (!user?.premium?.stripeCustomerId) {
+      logger.error("Stripe customer id not found", { userId });
       throw new SafeError("Stripe customer id not found");
+    }
+
+    const subscription =
+      priceId &&
+      user.premium.stripeSubscriptionId &&
+      user.premium.stripeSubscriptionStatus !== "canceled"
+        ? await stripe.subscriptions
+            .retrieve(user.premium.stripeSubscriptionId)
+            .catch((error) => {
+              logger.error("Failed to retrieve Stripe subscription", {
+                error: error?.message,
+                subscriptionId: user.premium?.stripeSubscriptionId,
+              });
+              return null;
+            })
+        : null;
+
+    // we can't use the billing portal if the subscription is canceled
+    if (priceId && subscription && subscription.status === "canceled") {
+      return { url: null };
+    }
 
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       flow_data:
+        subscription &&
         user.premium.stripeSubscriptionId &&
         user.premium.stripeSubscriptionItemId &&
         priceId
@@ -423,7 +472,7 @@ export const getBillingPortalUrlAction = actionClientUser
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = getStripePriceId({ tier });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
@@ -449,7 +498,7 @@ export const generateCheckoutSessionAction = actionClientUser
     });
     if (!user) {
       logger.error("User not found", { userId });
-      throw new Error("User not found");
+      throw new SafeError("User not found");
     }
 
     // Get the stripeCustomerId from your KV store
@@ -487,6 +536,7 @@ export const generateCheckoutSessionAction = actionClientUser
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
       line_items: [{ price: priceId, quantity }],

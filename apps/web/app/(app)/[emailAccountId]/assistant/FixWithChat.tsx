@@ -40,9 +40,6 @@ export function FixWithChat({
   const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
   const [explanation, setExplanation] = useState("");
   const [showExplanation, setShowExplanation] = useState(false);
-  // const { createAssistantUrl } = useAssistantNavigation(emailAccountId);
-  // const router = useRouter();
-  // const [currentTab] = useQueryState("tab");
 
   const { setOpen } = useSidebar();
 
@@ -74,7 +71,7 @@ export function FixWithChat({
     }
 
     setInput(input);
-    setOpen(["chat-sidebar"]);
+    setOpen((arr) => [...arr, "chat-sidebar"]);
     setIsModalOpen(false);
 
     // Reset state

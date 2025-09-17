@@ -45,7 +45,6 @@ export async function getUserFromApiKey(secretKey: string) {
               refresh_token: true,
               expires_at: true,
             },
-            where: { provider: "google" },
             take: 1,
           },
         },

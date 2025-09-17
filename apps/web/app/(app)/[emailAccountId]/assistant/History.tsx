@@ -65,7 +65,7 @@ function HistoryTable({
   data: PlanHistoryResponse["executedRules"];
   totalPages: number;
 }) {
-  const { userEmail, emailAccountId } = useAccount();
+  const { userEmail } = useAccount();
   const { setInput } = useChat();
 
   return (
@@ -98,7 +98,6 @@ function HistoryTable({
               </TableCell>
               <TableCell>
                 <RuleCell
-                  emailAccountId={emailAccountId}
                   rule={p.rule}
                   status={p.status}
                   reason={p.reason}

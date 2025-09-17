@@ -36,7 +36,7 @@ export async function getEmailAccountWithAi({
   emailAccountId,
 }: {
   emailAccountId: string;
-}): Promise<EmailAccountWithAI | null> {
+}): Promise<(EmailAccountWithAI & { name: string | null }) | null> {
   return prisma.emailAccount.findUnique({
     where: { id: emailAccountId },
     select: {
@@ -44,6 +44,7 @@ export async function getEmailAccountWithAi({
       userId: true,
       email: true,
       about: true,
+      name: true,
       user: {
         select: {
           aiProvider: true,
@@ -99,6 +100,15 @@ export async function getEmailAccountWithAiAndTokens({
       expires_at: emailAccount.account.expires_at?.getTime() ?? null,
     },
   };
+}
+
+export async function getUserPremium({ userId }: { userId: string }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { premium: true },
+  });
+
+  return user?.premium || null;
 }
 
 export async function getWritingStyle({

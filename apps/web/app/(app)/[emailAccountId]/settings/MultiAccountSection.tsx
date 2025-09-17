@@ -23,7 +23,6 @@ import {
 import type { MultiAccountEmailsResponse } from "@/app/api/user/settings/multi-account/route";
 import { AlertBasic, AlertWithButton } from "@/components/Alert";
 import { usePremium } from "@/components/PremiumAlert";
-import { pricingAdditonalEmail } from "@/app/(app)/premium/config";
 import { PremiumTier } from "@prisma/client";
 import { getUserTier, isAdminForPremium } from "@/utils/premium";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
@@ -99,6 +98,7 @@ export function MultiAccountSection() {
                     isLifetime={premium?.tier === PremiumTier.LIFETIME}
                     emailAccountsAccess={premium?.emailAccountsAccess || 0}
                     pendingInvites={premium?.pendingInvites || []}
+                    onUpdate={mutate}
                   />
                 </div>
               </div>
@@ -125,11 +125,13 @@ function MultiAccountForm({
   isLifetime,
   emailAccountsAccess,
   pendingInvites,
+  onUpdate,
 }: {
   emailAddresses: { email: string }[];
   isLifetime: boolean;
   emailAccountsAccess: number;
   pendingInvites: string[];
+  onUpdate?: () => void;
 }) {
   const {
     register,
@@ -140,7 +142,17 @@ function MultiAccountForm({
     resolver: zodResolver(saveMultiAccountPremiumBody),
     defaultValues: {
       emailAddresses: emailAddresses?.length
-        ? [...emailAddresses, ...pendingInvites.map((email) => ({ email }))]
+        ? (() => {
+            // Deduplicate to prevent showing the same email twice
+            const existingEmails = new Set(emailAddresses.map((e) => e.email));
+            const uniquePendingInvites = pendingInvites.filter(
+              (email) => !existingEmails.has(email),
+            );
+            return [
+              ...emailAddresses,
+              ...uniquePendingInvites.map((email) => ({ email })),
+            ];
+          })()
         : [{ email: "" }],
     },
   });
@@ -159,6 +171,7 @@ function MultiAccountForm({
     {
       onSuccess: () => {
         toastSuccess({ description: "Users updated!" });
+        onUpdate?.();
       },
       onError: (error) => {
         toastError({
@@ -237,12 +250,10 @@ function ExtraSeatsAlert({
 
   return (
     <AlertBasic
-      title="Extra email price"
+      title="Additional team member pricing"
       description={`You are on the ${capitalCase(
         premiumTier,
-      )} plan. You will be billed $${
-        pricingAdditonalEmail[premiumTier]
-      } for each extra email you add to your account.`}
+      )} plan. You will be billed for each additional team member you add to your account.`}
       icon={<CrownIcon className="h-4 w-4" />}
     />
   );
