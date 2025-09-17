@@ -30,14 +30,10 @@ async function fetchCalendarBusyPeriods({
       },
     });
 
-    const busyPeriods: Array<{
-      start: string;
-      end: string;
-      calendarId: string;
-    }> = [];
+    const busyPeriods: BusyPeriod[] = [];
 
     if (response.data.calendars) {
-      for (const [calendarId, calendar] of Object.entries(
+      for (const [_calendarId, calendar] of Object.entries(
         response.data.calendars,
       )) {
         if (calendar.busy) {
@@ -46,7 +42,6 @@ async function fetchCalendarBusyPeriods({
               busyPeriods.push({
                 start: period.start,
                 end: period.end,
-                calendarId,
               });
             }
           }
