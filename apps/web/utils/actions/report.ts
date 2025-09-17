@@ -13,34 +13,34 @@ import { aiAnalyzeEmailBehavior } from "@/utils/ai/report/analyze-email-behavior
 import { aiAnalyzeResponsePatterns } from "@/utils/ai/report/response-patterns";
 import { aiAnalyzeLabelOptimization } from "@/utils/ai/report/analyze-label-optimization";
 import { aiGenerateActionableRecommendations } from "@/utils/ai/report/generate-actionable-recommendations";
-import { createScopedLogger } from "@/utils/logger";
 import { actionClient } from "@/utils/actions/safe-action";
 import { getEmailAccountWithAi } from "@/utils/user/get";
 import { getGmailClientForEmail } from "@/utils/account";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
-
-const logger = createScopedLogger("actions/report");
+import type { Logger } from "@/utils/logger";
 
 export type EmailReportData = Awaited<ReturnType<typeof getEmailReportData>>;
 
 export const generateReportAction = actionClient
   .metadata({ name: "generateReport" })
   .schema(z.object({}))
-  .action(async ({ ctx: { emailAccountId } }) => {
-    return getEmailReportData({ emailAccountId });
+  .action(async ({ ctx: { emailAccountId, logger } }) => {
+    return getEmailReportData({ emailAccountId, logger });
   });
 
 async function getEmailReportData({
   emailAccountId,
+  logger,
 }: {
   emailAccountId: string;
+  logger: Logger;
 }) {
-  logger.info("getEmailReportData started", { emailAccountId });
+  logger.info("getEmailReportData started");
 
   const emailAccount = await getEmailAccountWithAi({ emailAccountId });
 
   if (!emailAccount) {
-    logger.error("Email account not found", { emailAccountId });
+    logger.error("Email account not found");
     throw new Error("Email account not found");
   }
 
@@ -70,8 +70,8 @@ async function getEmailReportData({
     emailAccountId: emailAccount.id,
   });
 
-  const gmailLabels = await fetchGmailLabels(gmail);
-  const gmailSignature = await fetchGmailSignature(gmail);
+  const gmailLabels = await fetchGmailLabels(gmail, logger);
+  const gmailSignature = await fetchGmailSignature(gmail, logger);
   const gmailTemplates = await fetchGmailTemplates(gmail);
 
   const [
@@ -163,6 +163,7 @@ async function getEmailReportData({
 // TODO: should be able to import this functionality from elsewhere
 async function fetchGmailLabels(
   gmail: gmail_v1.Gmail,
+  logger: Logger,
 ): Promise<gmail_v1.Schema$Label[]> {
   try {
     const response = await gmail.users.labels.list({ userId: "me" });
@@ -198,7 +199,8 @@ async function fetchGmailLabels(
               threadsUnread: labelDetail.data.threadsUnread || 0,
             };
           } catch (error) {
-            logger.warn(`Failed to get details for label ${label.name}:`, {
+            logger.warn("Failed to get details for label", {
+              labelName: label.name,
               error: error instanceof Error ? error.message : String(error),
             });
             return {
@@ -218,7 +220,7 @@ async function fetchGmailLabels(
 
     return sortedLabels;
   } catch (error) {
-    logger.warn("Failed to fetch Gmail labels:", {
+    logger.warn("Failed to fetch Gmail labels", {
       error: error instanceof Error ? error.message : String(error),
     });
     return [];
@@ -226,7 +228,10 @@ async function fetchGmailLabels(
 }
 
 // TODO: should be able to import this functionality from elsewhere
-async function fetchGmailSignature(gmail: gmail_v1.Gmail): Promise<string> {
+async function fetchGmailSignature(
+  gmail: gmail_v1.Gmail,
+  logger: Logger,
+): Promise<string> {
   try {
     const sendAsList = await gmail.users.settings.sendAs.list({
       userId: "me",
@@ -256,7 +261,7 @@ async function fetchGmailSignature(gmail: gmail_v1.Gmail): Promise<string> {
 
     return signature || "";
   } catch (error) {
-    logger.warn("Failed to fetch Gmail signature:", {
+    logger.warn("Failed to fetch Gmail signature", {
       error: error instanceof Error ? error.message : String(error),
     });
     return "";

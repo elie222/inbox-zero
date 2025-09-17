@@ -419,7 +419,7 @@ export const getBillingPortalUrlAction = actionClientUser
     });
 
     if (!user?.premium?.stripeCustomerId) {
-      logger.error("Stripe customer id not found", { userId });
+      logger.error("Stripe customer id not found");
       throw new SafeError("Stripe customer id not found");
     }
 
@@ -497,7 +497,7 @@ export const generateCheckoutSessionAction = actionClientUser
       },
     });
     if (!user) {
-      logger.error("User not found", { userId });
+      logger.error("User not found");
       throw new SafeError("User not found");
     }
 
