@@ -17,7 +17,7 @@ import {
   activateLemonLicenseKey,
   getLemonCustomer,
 } from "@/ee/billing/lemon/index";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { ONE_MONTH_MS, ONE_YEAR_MS } from "@/utils/date";
 import { getStripePriceId } from "@/app/(app)/premium/config";
 import {
@@ -32,9 +32,6 @@ import {
   trackStripeCheckoutCreated,
   trackStripeCustomerCreated,
 } from "@/utils/posthog";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("actions/premium");
 
 const TEN_YEARS = 10 * 365 * 24 * 60 * 60 * 1000;
 
@@ -402,7 +399,7 @@ export const claimPremiumAdminAction = actionClientUser
 export const getBillingPortalUrlAction = actionClientUser
   .metadata({ name: "getBillingPortalUrl" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier).optional() }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = tier ? getStripePriceId({ tier }) : undefined;
 
     const stripe = getStripe();
@@ -415,18 +412,42 @@ export const getBillingPortalUrlAction = actionClientUser
             stripeCustomerId: true,
             stripeSubscriptionId: true,
             stripeSubscriptionItemId: true,
+            stripeSubscriptionStatus: true,
           },
         },
       },
     });
 
-    if (!user?.premium?.stripeCustomerId)
+    if (!user?.premium?.stripeCustomerId) {
+      logger.error("Stripe customer id not found", { userId });
       throw new SafeError("Stripe customer id not found");
+    }
+
+    const subscription =
+      priceId &&
+      user.premium.stripeSubscriptionId &&
+      user.premium.stripeSubscriptionStatus !== "canceled"
+        ? await stripe.subscriptions
+            .retrieve(user.premium.stripeSubscriptionId)
+            .catch((error) => {
+              logger.error("Failed to retrieve Stripe subscription", {
+                error: error?.message,
+                subscriptionId: user.premium?.stripeSubscriptionId,
+              });
+              return null;
+            })
+        : null;
+
+    // we can't use the billing portal if the subscription is canceled
+    if (priceId && subscription && subscription.status === "canceled") {
+      return { url: null };
+    }
 
     const { url } = await stripe.billingPortal.sessions.create({
       customer: user.premium.stripeCustomerId,
       return_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       flow_data:
+        subscription &&
         user.premium.stripeSubscriptionId &&
         user.premium.stripeSubscriptionItemId &&
         priceId
@@ -451,7 +472,7 @@ export const getBillingPortalUrlAction = actionClientUser
 export const generateCheckoutSessionAction = actionClientUser
   .metadata({ name: "generateCheckoutSession" })
   .schema(z.object({ tier: z.nativeEnum(PremiumTier) }))
-  .action(async ({ ctx: { userId }, parsedInput: { tier } }) => {
+  .action(async ({ ctx: { userId, logger }, parsedInput: { tier } }) => {
     const priceId = getStripePriceId({ tier });
 
     if (!priceId) throw new SafeError("Unknown tier. Contact support.");
@@ -477,7 +498,7 @@ export const generateCheckoutSessionAction = actionClientUser
     });
     if (!user) {
       logger.error("User not found", { userId });
-      throw new Error("User not found");
+      throw new SafeError("User not found");
     }
 
     // Get the stripeCustomerId from your KV store
@@ -515,6 +536,7 @@ export const generateCheckoutSessionAction = actionClientUser
     const checkout = await stripe.checkout.sessions.create({
       customer: stripeCustomerId,
       success_url: `${env.NEXT_PUBLIC_BASE_URL}/api/stripe/success`,
+      cancel_url: `${env.NEXT_PUBLIC_BASE_URL}/premium`,
       mode: "subscription",
       subscription_data: { trial_period_days: 7 },
       line_items: [{ price: priceId, quantity }],

@@ -3,7 +3,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
 

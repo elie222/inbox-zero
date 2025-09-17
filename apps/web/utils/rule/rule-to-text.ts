@@ -1,9 +1,9 @@
-import type { Rule, Action } from "@/generated/prisma";
+import type { Rule, Action } from "@prisma/client";
 import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-} from "@/generated/prisma";
+} from "@prisma/client";
 
 export interface RuleWithActions extends Rule {
   actions: Action[];

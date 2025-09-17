@@ -13,7 +13,7 @@ import { DEFAULT_PROVIDER } from "@/utils/llms/config";
 import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
-import { ActionType, type Prisma } from "@/generated/prisma";
+import { ActionType, type Prisma } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 
 export const updateEmailSettingsAction = actionClient
@@ -65,7 +65,10 @@ export const updateDigestScheduleAction = actionClient
       timeOfDay,
       occurrences,
       lastOccurrenceAt: new Date(),
-      nextOccurrenceAt: calculateNextScheduleDate(parsedInput),
+      nextOccurrenceAt: calculateNextScheduleDate({
+        ...parsedInput,
+        lastOccurrenceAt: null,
+      }),
     };
 
     // remove emailAccountId for update

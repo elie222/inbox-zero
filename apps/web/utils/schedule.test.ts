@@ -218,11 +218,13 @@ describe("calculateNextScheduleDate", () => {
     });
 
     it("should return null when no pattern is set", () => {
+      const fromDate = new Date("2024-01-15T10:00:00Z");
       const result = calculateNextScheduleDate({
         intervalDays: null,
         daysOfWeek: null,
         timeOfDay: null,
         occurrences: null,
+        lastOccurrenceAt: fromDate,
       });
       expect(result).toBeNull();
     });
@@ -231,15 +233,13 @@ describe("calculateNextScheduleDate", () => {
   describe("interval days pattern", () => {
     it("should calculate next occurrence for daily schedule", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z");
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day at midnight
       expect(result).not.toBeNull();
@@ -250,15 +250,13 @@ describe("calculateNextScheduleDate", () => {
 
     it("should calculate next occurrence for weekly schedule", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // Monday
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 7,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 7,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next week's same day at midnight
       expect(result).not.toBeNull();
@@ -269,15 +267,13 @@ describe("calculateNextScheduleDate", () => {
 
     it("should handle multiple occurrences within interval", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z");
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 7,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 2,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 7,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 2,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be 3.5 days from start of interval
       expect(result).not.toBeNull();
@@ -290,15 +286,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-15T06:00:00Z");
       const timeOfDay = createCanonicalTimeOfDay(9, 30);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       expect(result?.getHours()).toBe(9);
       expect(result?.getMinutes()).toBe(30);
@@ -308,15 +302,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-15T23:00:00Z");
       const timeOfDay = createCanonicalTimeOfDay(9, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day at 9:00 AM
       expect(result).not.toBeNull();
@@ -332,15 +324,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = createTestDate("2024-01-15T08:00:00Z"); // Monday 8 AM UTC
       const timeOfDay = createCanonicalTimeOfDay(10, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.MONDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be same day at 10:00 AM
       expect(result).not.toBeNull();
@@ -354,15 +344,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = createTestDate("2024-01-15T14:00:00Z"); // Monday 2 PM UTC
       const timeOfDay = createCanonicalTimeOfDay(10, 0); // 10 AM
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.MONDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Current time is 2 PM UTC, but 10 AM scheduled time has already passed today, so schedule for next Monday at 10:00 AM
       expect(result).not.toBeNull();
@@ -376,15 +364,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = createTestDate("2024-01-15T12:00:00Z"); // Monday
       const timeOfDay = createCanonicalTimeOfDay(9, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.MONDAY | DAYS.WEDNESDAY | DAYS.FRIDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.MONDAY | DAYS.WEDNESDAY | DAYS.FRIDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be Wednesday at 9:00 AM
       expect(result).not.toBeNull();
@@ -397,15 +383,13 @@ describe("calculateNextScheduleDate", () => {
       // Using UTC dates to ensure timezone independence
       const fromDate = createTestDate("2024-01-15T10:00:00Z"); // Monday 10 AM UTC
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.TUESDAY,
-          timeOfDay: null,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.TUESDAY,
+        timeOfDay: null,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be Tuesday at midnight
       expect(result).not.toBeNull();
@@ -418,15 +402,13 @@ describe("calculateNextScheduleDate", () => {
       // Using UTC dates to ensure timezone independence
       const fromDate = createTestDate("2024-01-15T10:00:00Z"); // Monday 10 AM UTC
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.MONDAY,
-          timeOfDay: null,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay: null,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next Monday at midnight (since it's 10 AM, midnight has already passed today)
       expect(result).not.toBeNull();
@@ -440,15 +422,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = createTestDate("2024-01-15T10:00:00Z"); // Monday
       const timeOfDay = createCanonicalTimeOfDay(11, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.SATURDAY | DAYS.SUNDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.SATURDAY | DAYS.SUNDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be Saturday at 11:00 AM
       expect(result).not.toBeNull();
@@ -462,15 +442,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle leap year dates", () => {
       const fromDate = new Date("2024-02-28T10:00:00Z"); // 2024 is a leap year
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day (Feb 29) at midnight
       expect(result).not.toBeNull();
@@ -483,15 +461,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle year boundary", () => {
       const fromDate = new Date("2024-12-31T10:00:00Z");
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day (Jan 1) at midnight
       expect(result).not.toBeNull();
@@ -507,15 +483,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-03-10T10:00:00Z");
       const timeOfDay = createCanonicalTimeOfDay(14, 30);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.SUNDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.SUNDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       expect(result?.getHours()).toBe(14);
       expect(result?.getMinutes()).toBe(30);
@@ -524,15 +498,13 @@ describe("calculateNextScheduleDate", () => {
     it("should prioritize intervalDays over daysOfWeek when both are set", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // Monday
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 3,
-          daysOfWeek: DAYS.TUESDAY, // This should be ignored
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 3,
+        daysOfWeek: DAYS.TUESDAY, // This should be ignored
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be 3 days later at midnight
       expect(result).not.toBeNull();
@@ -547,15 +519,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-15T07:00:00Z");
       const timeOfDay = createCanonicalTimeOfDay(9, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1,
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1,
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be same day at 9:00 AM
       expect(result).not.toBeNull();
@@ -568,15 +538,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-13T15:00:00Z"); // Saturday
       const timeOfDay = createCanonicalTimeOfDay(8, 0);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: null,
-          daysOfWeek: DAYS.MONDAY,
-          timeOfDay,
-          occurrences: null,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: null,
+        daysOfWeek: DAYS.MONDAY,
+        timeOfDay,
+        occurrences: null,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be Monday at 8:00 AM
       expect(result).not.toBeNull();
@@ -588,15 +556,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle bi-weekly schedule with 2 occurrences", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z");
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 14,
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 2,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 14,
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 2,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be 7 days later at midnight
       expect(result).not.toBeNull();
@@ -610,15 +576,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = createTestDate("2024-01-10T16:00:00Z"); // January 10th 4 PM UTC
       const timeOfDay = createCanonicalTimeOfDay(9, 0); // 9 AM
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Current time is 4 PM UTC, but 9 AM scheduled time has already passed today, so schedule for next interval (30 days later)
       expect(result).not.toBeNull();
@@ -632,15 +596,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-20T10:00:00Z"); // January 20th
       const timeOfDay = createCanonicalTimeOfDay(15, 30);
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Current time is 10 AM UTC, but 3:30 PM scheduled time hasn't passed yet, so schedule for same day at 3:30 PM
       expect(result).not.toBeNull();
@@ -654,15 +616,13 @@ describe("calculateNextScheduleDate", () => {
       const fromDate = new Date("2024-01-15T16:00:00Z"); // January 15th 4 PM
       const timeOfDay = createCanonicalTimeOfDay(10, 0); // 10 AM
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be February 14th at 10:00 AM (30 days later, since 10 AM has passed today)
       expect(result).not.toBeNull();
@@ -675,15 +635,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle monthly schedule across year boundary", () => {
       const fromDate = new Date("2024-12-15T10:00:00Z"); // December 15th
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be January 14th at midnight (30 days later, crosses year boundary)
       expect(result).not.toBeNull();
@@ -697,15 +655,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle monthly schedule with leap year", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th, 2024 is leap year
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be February 14th at midnight (30 days later, accounting for leap year)
       expect(result).not.toBeNull();
@@ -718,15 +674,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle monthly schedule with multiple occurrences", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 30, // Approximately monthly
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 2, // Two occurrences within 30 days
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 30, // Approximately monthly
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 2, // Two occurrences within 30 days,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be January 30th at midnight (15 days later, first occurrence)
       expect(result).not.toBeNull();
@@ -739,15 +693,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle very long intervals efficiently", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 365, // Yearly
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1,
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 365, // Yearly
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next year at midnight (365 days later, accounting for leap year)
       expect(result).not.toBeNull();
@@ -761,15 +713,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle very long intervals with many occurrences", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 365, // Yearly
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 365, // Daily occurrences within a year
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 365, // Yearly
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 365, // Daily occurrences within a year,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day at midnight (first occurrence within the year)
       expect(result).not.toBeNull();
@@ -782,15 +732,13 @@ describe("calculateNextScheduleDate", () => {
     it("should handle extreme intervals efficiently", () => {
       const fromDate = new Date("2024-01-15T10:00:00Z"); // January 15th
 
-      const result = calculateNextScheduleDate(
-        {
-          intervalDays: 1000, // Very long interval
-          daysOfWeek: null,
-          timeOfDay: null,
-          occurrences: 1000, // Many occurrences
-        },
-        fromDate,
-      );
+      const result = calculateNextScheduleDate({
+        intervalDays: 1000, // Very long interval
+        daysOfWeek: null,
+        timeOfDay: null,
+        occurrences: 1000, // Many occurrences,
+        lastOccurrenceAt: fromDate,
+      });
 
       // Should be next day at midnight (first occurrence within the interval)
       expect(result).not.toBeNull();
@@ -798,6 +746,99 @@ describe("calculateNextScheduleDate", () => {
       expect(result!.getDate()).toBe(16); // Next day
       expect(result!.getHours()).toBe(0);
       expect(result!.getMinutes()).toBe(0);
+    });
+  });
+});
+
+describe("calculateNextScheduleDate - Bug Fix Tests", () => {
+  describe("time drift bug fix", () => {
+    it("should calculate next occurrence from lastOccurrenceAt, not current time", () => {
+      // This test verifies the fix for the 30-minute digest issue
+      // where schedules were drifting forward in time with each processing
+
+      const schedule = {
+        intervalDays: 1, // Daily
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(0, 0), // Midnight
+        lastOccurrenceAt: createTestDate("2024-01-15T00:00:00Z"), // Last sent at midnight
+      };
+
+      // Simulate the bug: if we used current time (12:36 PM) instead of lastOccurrenceAt
+      const currentTime = createTestDate("2024-01-15T12:36:00Z"); // 12:36 PM
+
+      // With the fix: should calculate from lastOccurrenceAt (midnight)
+      const result = calculateNextScheduleDate(schedule);
+
+      // Should be next day at midnight (2024-01-16T00:00:00Z)
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(16);
+      expect(result!.getHours()).toBe(0);
+      expect(result!.getMinutes()).toBe(0);
+      expect(result!.getSeconds()).toBe(0);
+    });
+
+    it("should handle missing lastOccurrenceAt by using current time", () => {
+      // Test fallback behavior when lastOccurrenceAt is null
+      const schedule = {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(9, 0), // 9 AM
+        lastOccurrenceAt: null, // No previous occurrence
+      };
+
+      const result = calculateNextScheduleDate(schedule);
+
+      // Should calculate from current time (fallback behavior)
+      expect(result).not.toBeNull();
+      // The exact time will depend on when the test runs, but should be in the future
+      expect(result!.getTime()).toBeGreaterThan(Date.now());
+    });
+
+    it("should maintain consistent daily schedule timing", () => {
+      // Test that multiple calls with the same lastOccurrenceAt produce the same result
+      const schedule = {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(14, 30), // 2:30 PM
+        lastOccurrenceAt: createTestDate("2024-01-15T14:30:00Z"),
+      };
+
+      const result1 = calculateNextScheduleDate(schedule);
+      const result2 = calculateNextScheduleDate(schedule);
+
+      // Both calls should produce the same result
+      expect(result1).toEqual(result2);
+      expect(result1!.getDate()).toBe(16); // Next day
+      expect(result1!.getHours()).toBe(14);
+      expect(result1!.getMinutes()).toBe(30);
+    });
+
+    it("should prevent schedule drift in digest processing scenario", () => {
+      // Simulate the exact scenario from the bug report
+      const originalScheduledTime = createTestDate("2024-01-15T00:00:00Z"); // Midnight
+      const processingTime = createTestDate("2024-01-15T12:36:40Z"); // 12:36 PM (when cron processed it)
+
+      const schedule = {
+        intervalDays: 1,
+        occurrences: 1,
+        daysOfWeek: null,
+        timeOfDay: createCanonicalTimeOfDay(0, 0), // Midnight
+        lastOccurrenceAt: originalScheduledTime, // Use the original scheduled time
+      };
+
+      const result = calculateNextScheduleDate(schedule);
+
+      // Should be next day at midnight, NOT at 12:36 PM
+      expect(result).not.toBeNull();
+      expect(result!.getDate()).toBe(16); // Next day
+      expect(result!.getHours()).toBe(0); // Midnight, not 12:36 PM
+      expect(result!.getMinutes()).toBe(0);
+
+      // This prevents the 30-minute cron from finding the account "due" again
+      // because the next occurrence is at midnight, not at 12:36 PM
     });
   });
 });

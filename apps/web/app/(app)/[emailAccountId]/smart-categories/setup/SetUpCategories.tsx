@@ -24,7 +24,7 @@ import {
   CreateCategoryButton,
   CreateCategoryDialog,
 } from "@/app/(app)/[emailAccountId]/smart-categories/CreateCategoryButton";
-import type { Category } from "@/generated/prisma";
+import type { Category } from "@prisma/client";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";
 

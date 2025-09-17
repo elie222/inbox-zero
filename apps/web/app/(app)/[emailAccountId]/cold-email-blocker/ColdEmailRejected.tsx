@@ -15,7 +15,7 @@ import { DateCell } from "@/app/(app)/[emailAccountId]/assistant/ExecutedRulesTa
 import { TablePagination } from "@/components/TablePagination";
 import { AlertBasic } from "@/components/Alert";
 import { useSearchParams } from "next/navigation";
-import { ColdEmailStatus } from "@/generated/prisma";
+import { ColdEmailStatus } from "@prisma/client";
 import { ViewEmailButton } from "@/components/ViewEmailButton";
 import { EmailMessageCellWithData } from "@/components/EmailMessageCell";
 import { useAccount } from "@/providers/EmailAccountProvider";

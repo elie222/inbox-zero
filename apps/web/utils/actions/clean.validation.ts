@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 
 export const cleanInboxSchema = z.object({
   daysOld: z.number().default(7),

@@ -29,7 +29,6 @@ function ContentWrapper({ children }: { children: React.ReactNode }) {
       )}
     >
       <SidebarInset className="overflow-hidden bg-background pt-9 max-w-full">
-        <Toaster closeButton richColors theme="light" visibleToasts={9} />
         {children}
         <div
           className="md:hidden md:pt-0"

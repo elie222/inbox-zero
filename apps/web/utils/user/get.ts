@@ -1,6 +1,6 @@
 import prisma from "@/utils/prisma";
 import type { EmailAccountWithAI } from "@/utils/llms/types";
-import type { Prisma } from "@/generated/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type EmailAccountWithAIAndTokens = Prisma.EmailAccountGetPayload<{
   select: {
@@ -100,6 +100,15 @@ export async function getEmailAccountWithAiAndTokens({
       expires_at: emailAccount.account.expires_at?.getTime() ?? null,
     },
   };
+}
+
+export async function getUserPremium({ userId }: { userId: string }) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { premium: true },
+  });
+
+  return user?.premium || null;
 }
 
 export async function getWritingStyle({

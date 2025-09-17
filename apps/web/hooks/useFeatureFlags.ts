@@ -55,3 +55,13 @@ export function usePricingCopyVariant() {
     "control"
   );
 }
+
+export type WelcomeTestimonialVariant = "control" | "hidden";
+
+export function useWelcomeTestimonialVariant() {
+  return (
+    (useFeatureFlagVariantKey(
+      "welcome-testimonial",
+    ) as WelcomeTestimonialVariant) || "control"
+  );
+}

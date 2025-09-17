@@ -2,7 +2,7 @@ import sumBy from "lodash/sumBy";
 import { updateSubscriptionItemQuantity } from "@/ee/billing/lemon/index";
 import { updateStripeSubscriptionItemQuantity } from "@/ee/billing/stripe/index";
 import prisma from "@/utils/prisma";
-import type { PremiumTier } from "@/generated/prisma";
+import type { PremiumTier } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { hasTierAccess, isPremium } from "@/utils/premium";
 import { SafeError } from "@/utils/error";

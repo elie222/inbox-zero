@@ -18,7 +18,7 @@ import {
 } from "@/utils/actions/clean";
 import { toastError } from "@/components/Toast";
 import { getGmailUrl } from "@/utils/url";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 
 type Status = "markedDone" | "markingDone" | "keep" | "labelled" | "processing";
 

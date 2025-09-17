@@ -9,7 +9,7 @@ import {
   getThreadsWithNextPageToken,
 } from "@/utils/gmail/thread";
 import { decodeSnippet } from "@/utils/gmail/decode";
-import { ExecutedRuleStatus } from "@/generated/prisma";
+import { ExecutedRuleStatus } from "@prisma/client";
 import { SafeError } from "@/utils/error";
 import type { ThreadsQuery } from "@/app/api/threads/validation";
 

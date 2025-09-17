@@ -2,7 +2,7 @@ import type { EmailAccountWithAI } from "@/utils/llms/types";
 import type { EmailForLLM, ParsedMessage } from "@/utils/types";
 import { aiCheckIfNeedsReply } from "@/utils/ai/reply/check-if-needs-reply";
 import prisma from "@/utils/prisma";
-import { ThreadTrackerType } from "@/generated/prisma";
+import { ThreadTrackerType } from "@prisma/client";
 import { createScopedLogger, type Logger } from "@/utils/logger";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { internalDateToDate } from "@/utils/date";

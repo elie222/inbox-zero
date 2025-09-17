@@ -24,7 +24,7 @@ import {
   useGmail,
 } from "@/providers/GmailProvider";
 import { createLabelAction, updateLabelsAction } from "@/utils/actions/mail";
-import type { Label } from "@/generated/prisma";
+import type { Label } from "@prisma/client";
 import type { UserLabelsResponse } from "@/app/api/user/labels/route";
 import { PlusIcon } from "lucide-react";
 import { isErrorMessage } from "@/utils/error";

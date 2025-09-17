@@ -28,7 +28,7 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { SettingCard } from "@/components/SettingCard";
 
 export const maxDuration = 3;

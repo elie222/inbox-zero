@@ -1,6 +1,6 @@
 "use client";
 
-import type { Category } from "@/generated/prisma";
+import type { Category } from "@prisma/client";
 import {
   Select,
   SelectContent,

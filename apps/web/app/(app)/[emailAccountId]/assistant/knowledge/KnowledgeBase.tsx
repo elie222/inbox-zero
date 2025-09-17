@@ -28,7 +28,7 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { KnowledgeForm } from "@/app/(app)/[emailAccountId]/assistant/knowledge/KnowledgeForm";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
-import type { Knowledge } from "@/generated/prisma";
+import type { Knowledge } from "@prisma/client";
 
 export function KnowledgeBase() {
   const { emailAccountId } = useAccount();

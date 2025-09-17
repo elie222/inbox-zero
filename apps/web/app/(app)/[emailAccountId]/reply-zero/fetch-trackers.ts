@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import type { ThreadTrackerType } from "@/generated/prisma";
+import type { ThreadTrackerType } from "@prisma/client";
 import { getDateFilter, type TimeRange } from "./date-filter";
 
 const PAGE_SIZE = 20;

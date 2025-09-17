@@ -3,7 +3,7 @@
 import { z } from "zod";
 import prisma from "@/utils/prisma";
 import { isNotFoundError } from "@/utils/prisma-helpers";
-import { ExecutedRuleStatus } from "@/generated/prisma";
+import { ExecutedRuleStatus } from "@prisma/client";
 import { aiCreateRule } from "@/utils/ai/rule/create-rule";
 import {
   runRules,

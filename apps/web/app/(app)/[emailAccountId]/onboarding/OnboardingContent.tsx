@@ -20,6 +20,7 @@ import { prefixPath } from "@/utils/path";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { useSignUpEvent } from "@/hooks/useSignupEvent";
 import { isDefined } from "@/utils/types";
+import { StepCompanySize } from "@/app/(app)/[emailAccountId]/onboarding/StepCompanySize";
 
 interface OnboardingContentProps {
   step: number;
@@ -40,6 +41,7 @@ export function OnboardingContent({ step }: OnboardingContentProps) {
         onNext={onNext}
       />
     ),
+    () => <StepCompanySize onNext={onNext} />,
     () => (
       <StepLabels
         provider={provider}

@@ -6,7 +6,6 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
 
 // Account, User, Session, and VerificationToken based on: https://authjs.dev/reference/adapter/prisma
@@ -70,6 +69,7 @@ model User {
   surveyFeatures     String[] // multiple choice: features user is interested in
   surveyRole         String? // single choice: user's role. Now using `EmailAccount.role` instead
   surveyGoal         String? // single choice: what user wants to achieve
+  surveyCompanySize  Int? // numeric company size: 1 (solo), 5 (2-10), 50 (11-100), 500 (101-1000), 1000 (1000+)
   surveySource       String? // single choice: how user heard about Inbox Zero
   surveyImprovements String? // open text: what user wants to improve
 
@@ -116,7 +116,7 @@ model EmailAccount {
   about                     String?
   writingStyle              String?
   signature                 String?
-  includeReferralSignature  Boolean   @default(false)
+  includeReferralSignature  Boolean   @default(true)
   watchEmailsExpirationDate DateTime?
   watchEmailsSubscriptionId String? // For Outlook subscription ID
   lastSyncedHistoryId       String?

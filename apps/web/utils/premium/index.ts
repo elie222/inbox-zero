@@ -1,4 +1,4 @@
-import { type Premium, PremiumTier } from "@/generated/prisma";
+import { type Premium, PremiumTier } from "@prisma/client";
 
 function isPremiumStripe(stripeSubscriptionStatus: string | null): boolean {
   if (!stripeSubscriptionStatus) return false;
@@ -18,6 +18,20 @@ export const isPremium = (
   return (
     isPremiumStripe(stripeSubscriptionStatus) ||
     isPremiumLemonSqueezy(lemonSqueezyRenewsAt)
+  );
+};
+
+export const isActivePremium = (
+  premium: Pick<
+    Premium,
+    "lemonSqueezyRenewsAt" | "stripeSubscriptionStatus"
+  > | null,
+): boolean => {
+  if (!premium) return false;
+
+  return (
+    premium.stripeSubscriptionStatus === "active" ||
+    isPremiumLemonSqueezy(premium.lemonSqueezyRenewsAt)
   );
 };
 

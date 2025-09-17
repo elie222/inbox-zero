@@ -4,7 +4,7 @@ import {
   processHistoryItem,
 } from "./process-history-item";
 import { HistoryEventType } from "./types";
-import { ColdEmailSetting } from "@/generated/prisma";
+import { ColdEmailSetting } from "@prisma/client";
 import type { gmail_v1 } from "@googleapis/gmail";
 import { isAssistantEmail } from "@/utils/assistant/is-assistant-email";
 import { runColdEmailBlocker } from "@/utils/cold-email/is-cold-email";

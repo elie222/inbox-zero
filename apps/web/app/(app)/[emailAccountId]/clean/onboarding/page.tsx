@@ -6,7 +6,7 @@ import { TimeRangeStep } from "@/app/(app)/[emailAccountId]/clean/TimeRangeStep"
 import { ConfirmationStep } from "@/app/(app)/[emailAccountId]/clean/ConfirmationStep";
 import { getUnhandledCount } from "@/utils/assess";
 import { CleanStep } from "@/app/(app)/[emailAccountId]/clean/types";
-import { CleanAction } from "@/generated/prisma";
+import { CleanAction } from "@prisma/client";
 import { createEmailProvider } from "@/utils/email/provider";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import prisma from "@/utils/prisma";

@@ -1,4 +1,4 @@
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import type { ParsedMessage } from "@/utils/types";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";

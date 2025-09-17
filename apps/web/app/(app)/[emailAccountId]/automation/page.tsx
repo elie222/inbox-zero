@@ -86,7 +86,7 @@ export default async function AutomationPage({
         <PermissionsCheck />
 
         <PageWrapper>
-          <PremiumAlertWithData className="mb-2" />
+          <PremiumAlertWithData className="mb-8" />
 
           <div className="flex items-center justify-between">
             <div>
@@ -131,9 +131,8 @@ export default async function AutomationPage({
               description={
                 "Learn how to use the AI Assistant to automatically label, archive, and more."
               }
-              videoId="SoeNDVr7ve4"
+              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
               thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
-              thumbnailAlt="Getting started with AI Assistant"
               storageKey="ai-assistant-onboarding-video"
             />
           </div>

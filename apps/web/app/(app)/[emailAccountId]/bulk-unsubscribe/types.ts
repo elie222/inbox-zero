@@ -1,5 +1,5 @@
 import type { NewsletterStatsResponse } from "@/app/api/user/stats/newsletters/route";
-import type { NewsletterStatus } from "@/generated/prisma";
+import type { NewsletterStatus } from "@prisma/client";
 import type { EmailLabel } from "@/providers/EmailProvider";
 import type { UserResponse } from "@/app/api/user/me/route";
 

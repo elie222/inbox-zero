@@ -1,7 +1,7 @@
 import { RuleForm } from "@/app/(app)/[emailAccountId]/assistant/RuleForm";
 import { examples } from "@/app/(app)/[emailAccountId]/assistant/create/examples";
 import { getEmptyCondition } from "@/utils/condition";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import type { CoreConditionType } from "@/utils/config";
 
 export default async function CreateRulePage(props: {

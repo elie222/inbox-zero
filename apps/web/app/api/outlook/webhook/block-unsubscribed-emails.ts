@@ -1,5 +1,5 @@
 import prisma from "@/utils/prisma";
-import { NewsletterStatus } from "@/generated/prisma";
+import { NewsletterStatus } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { extractEmailAddress } from "@/utils/email";
 import type { EmailProvider } from "@/utils/email/types";

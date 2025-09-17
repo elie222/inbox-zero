@@ -1,5 +1,5 @@
 import { env } from "@/env";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 
 type Feature = { text: string; tooltip?: string };
 
@@ -119,7 +119,7 @@ function discount(monthly: number, annually: number) {
   return ((monthly - annually) / monthly) * 100;
 }
 
-export const businessTierName = "Individual";
+export const businessTierName = "Starter";
 
 const businessTier: Tier = {
   name: businessTierName,
@@ -159,7 +159,7 @@ const businessTier: Tier = {
 };
 
 const businessPlusTier: Tier = {
-  name: "Team",
+  name: "Professional",
   tiers: {
     monthly: PremiumTier.BUSINESS_PLUS_MONTHLY,
     annually: PremiumTier.BUSINESS_PLUS_ANNUALLY,
@@ -225,7 +225,7 @@ const enterpriseTier: Tier = {
     },
   ],
   cta: "Speak to sales",
-  ctaLink: "/sales",
+  ctaLink: "https://go.getinboxzero.com/sales",
   mostPopular: false,
 };
 

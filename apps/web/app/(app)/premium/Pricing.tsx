@@ -19,14 +19,23 @@ import {
   generateCheckoutSessionAction,
   getBillingPortalUrlAction,
 } from "@/utils/actions/premium";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { LoadingMiniSpinner } from "@/components/Loading";
 import { cn } from "@/utils";
 import { ManageSubscription } from "@/app/(app)/premium/ManageSubscription";
+import { captureException } from "@/utils/error";
 
 const frequencies = [
-  { value: "monthly" as const, label: "Monthly", priceSuffix: "/month" },
-  { value: "annually" as const, label: "Annually", priceSuffix: "/month" },
+  {
+    value: "monthly" as const,
+    label: "Monthly",
+    priceSuffix: "/month, billed monthly",
+  },
+  {
+    value: "annually" as const,
+    label: "Annually",
+    priceSuffix: "/month, billed annually",
+  },
 ];
 
 export type PricingProps = {
@@ -149,6 +158,7 @@ export default function Pricing(props: PricingProps) {
                 stripeSubscriptionStatus={premium?.stripeSubscriptionStatus}
                 isLoggedIn={isLoggedIn}
                 router={router}
+                userId={data?.id}
               />
             );
           })}
@@ -166,6 +176,7 @@ function PriceTier({
   stripeSubscriptionStatus,
   isLoggedIn,
   router,
+  userId,
 }: {
   tier: Tier;
   userPremiumTier: PremiumTier | null;
@@ -174,6 +185,7 @@ function PriceTier({
   stripeSubscriptionStatus: string | null | undefined;
   isLoggedIn: boolean;
   router: ReturnType<typeof useRouter>;
+  userId: string | null | undefined;
 }) {
   const [loading, setLoading] = useState(false);
 
@@ -217,7 +229,7 @@ function PriceTier({
                 ${tier.price[frequency.value]}
               </span>
               <span className="text-sm font-semibold leading-6 text-gray-600">
-                {frequency.priceSuffix}
+                /user
               </span>
             </>
           )}
@@ -230,6 +242,11 @@ function PriceTier({
             </Badge>
           )}
         </p>
+
+        <p className="mt-2 text-sm leading-6 text-gray-600">
+          {tier.price[frequency.value] ? frequency.priceSuffix : "\u00A0"}
+        </p>
+
         <ul className="mt-8 space-y-3 text-sm leading-6 text-gray-600">
           {tier.features.map((feature) => (
             <li key={feature.text} className="flex gap-x-3">
@@ -258,7 +275,10 @@ function PriceTier({
             return;
           }
 
-          if (!isLoggedIn) router.push("/login");
+          if (!isLoggedIn) {
+            router.push("/login");
+            return;
+          }
 
           setLoading(true);
 
@@ -276,19 +296,38 @@ function PriceTier({
               stripeSubscriptionStatus &&
               ["active", "trialing"].includes(stripeSubscriptionStatus);
 
-            const result = hasActiveStripeSubscription
-              ? await getBillingPortalUrlAction({
-                  tier: upgradeToTier,
-                })
-              : await generateCheckoutSessionAction({
+            let result:
+              | Awaited<ReturnType<typeof getBillingPortalUrlAction>>
+              | Awaited<ReturnType<typeof generateCheckoutSessionAction>>;
+
+            if (hasActiveStripeSubscription) {
+              result = await getBillingPortalUrlAction({ tier: upgradeToTier });
+
+              if (!result?.data?.url) {
+                result = await generateCheckoutSessionAction({
                   tier: upgradeToTier,
                 });
+              }
+            } else {
+              result = await generateCheckoutSessionAction({
+                tier: upgradeToTier,
+              });
+            }
 
             if (!result?.data?.url || result?.serverError) {
+              captureException(new Error("Error creating checkout session"), {
+                extra: {
+                  tier: upgradeToTier,
+                  frequency: frequency.value,
+                  userId,
+                  serverError: result?.serverError,
+                  result,
+                },
+              });
               toastError({
                 description:
                   result?.serverError ||
-                  "Error creating checkout session. Please contact support.",
+                  `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
               });
               return;
             }
@@ -300,6 +339,12 @@ function PriceTier({
             await load();
           } catch (error) {
             console.error(error);
+            toastError({
+              description:
+                error instanceof Error
+                  ? error.message
+                  : `Error creating checkout session. Please contact support at ${env.NEXT_PUBLIC_SUPPORT_EMAIL}`,
+            });
           } finally {
             setLoading(false);
           }

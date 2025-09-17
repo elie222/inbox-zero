@@ -40,11 +40,7 @@ import { getActionColor } from "@/components/PlanBadge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import { Tooltip } from "@/components/Tooltip";
 import { useRules } from "@/hooks/useRules";
-import {
-  ActionType,
-  ColdEmailSetting,
-  LogicalOperator,
-} from "@/generated/prisma";
+import { ActionType, ColdEmailSetting, LogicalOperator } from "@prisma/client";
 import { useAction } from "next-safe-action/hooks";
 import { useAccount } from "@/providers/EmailAccountProvider";
 import { prefixPath } from "@/utils/path";

@@ -40,9 +40,9 @@ export async function aiDetectRecurringPattern({
 Your task is to determine if emails from a specific sender should ALWAYS be matched to the same rule.
 
 Analyze the email content to determine if this sender ALWAYS matches a specific rule.
-Only return a matchedRule if you're 100% confident all future emails from this sender will serve the same purpose; otherwise return null.
+Only return a matchedRule if you're 90%+ confident all future emails from this sender will serve the same purpose; otherwise return null.
 
-A sender should only be matched to a rule if you are HIGHLY CONFIDENT (>80%) that:
+A sender should only be matched to a rule if you are HIGHLY CONFIDENT that:
 - All future emails from this sender will serve the same purpose
 - The purpose clearly aligns with one specific rule
 - There's a consistent pattern across all sample emails provided
@@ -79,7 +79,7 @@ Respond with a JSON object with the following fields:
 - "matchedRule": string or null - the name of the existing rule that should handle all emails from this sender
 - "explanation": string - one sentence explanation of why this rule does or doesn't match
 
-If you're not confident (at least 80% certain) that a single rule should handle all emails from this sender, return null for matchedRule.
+If you're not confident (at least 90% certain) that a single rule should handle all emails from this sender, return null for "matchedRule".
 </outputFormat>`;
 
   const prompt = `Analyze these emails and determine if they consistently match a rule:

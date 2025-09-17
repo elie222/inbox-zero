@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { hasAiAccess, hasUnsubscribeAccess, isPremium } from "@/utils/premium";
 import { Tooltip } from "@/components/Tooltip";
 import { usePremiumModal } from "@/app/(app)/premium/PremiumModal";
-import { PremiumTier } from "@/generated/prisma";
+import { PremiumTier } from "@prisma/client";
 import { businessTierName } from "@/app/(app)/premium/config";
 import { useUser } from "@/hooks/useUser";
 import { ActionCard } from "@/components/ui/card";
@@ -45,15 +45,34 @@ export function PremiumAiAssistantAlert({
   showSetApiKey,
   className,
   tier,
+  stripeSubscriptionStatus,
+  activeOnly,
 }: {
   showSetApiKey: boolean;
   className?: string;
   tier?: PremiumTier | null;
+  stripeSubscriptionStatus?: string | null;
+  activeOnly?: boolean;
 }) {
   const { PremiumModal, openModal } = usePremiumModal();
 
   const isBasicPlan =
     tier === PremiumTier.BASIC_MONTHLY || tier === PremiumTier.BASIC_ANNUALLY;
+
+  const isStripeTrialing =
+    stripeSubscriptionStatus && stripeSubscriptionStatus !== "active";
+
+  if (activeOnly && isStripeTrialing) {
+    return (
+      <div className={className}>
+        <ActionCard
+          icon={<CrownIcon className="h-5 w-5" />}
+          title="Active Subscription Required"
+          description="This feature is not available on trial plans."
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
@@ -88,12 +107,19 @@ export function PremiumAiAssistantAlert({
   );
 }
 
-export function PremiumAlertWithData({ className }: { className?: string }) {
+export function PremiumAlertWithData({
+  className,
+  activeOnly,
+}: {
+  className?: string;
+  activeOnly?: boolean;
+}) {
   const {
     hasAiAccess,
     isLoading: isLoadingPremium,
     isProPlanWithoutApiKey,
     tier,
+    data,
   } = usePremium();
 
   if (!isLoadingPremium && !hasAiAccess) {
@@ -102,6 +128,10 @@ export function PremiumAlertWithData({ className }: { className?: string }) {
         showSetApiKey={isProPlanWithoutApiKey}
         className={className}
         tier={tier}
+        stripeSubscriptionStatus={
+          data?.premium?.stripeSubscriptionStatus || null
+        }
+        activeOnly={activeOnly}
       />
     );
   }

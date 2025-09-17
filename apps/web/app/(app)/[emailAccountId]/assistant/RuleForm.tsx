@@ -33,7 +33,7 @@ import {
   ActionType,
   CategoryFilterType,
   LogicalOperator,
-} from "@/generated/prisma";
+} from "@prisma/client";
 import { ConditionType, type CoreConditionType } from "@/utils/config";
 import {
   createRuleAction,

@@ -1,4 +1,4 @@
-import type { Category } from "@/generated/prisma";
+import type { Category } from "@prisma/client";
 
 export function formatCategoriesForPrompt(
   categories: Pick<Category, "name" | "description">[],

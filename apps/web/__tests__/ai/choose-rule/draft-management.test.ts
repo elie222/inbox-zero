@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from "vitest";
 import { handlePreviousDraftDeletion } from "@/utils/ai/choose-rule/draft-management";
 import prisma from "@/utils/prisma";
-import { ActionType } from "@/generated/prisma";
+import { ActionType } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import type { ParsedMessage } from "@/utils/types";
 import type { EmailProvider } from "@/utils/email/types";

@@ -1,4 +1,4 @@
-import { ActionType, type ExecutedRule } from "@/generated/prisma";
+import { ActionType, type ExecutedRule } from "@prisma/client";
 import { createScopedLogger } from "@/utils/logger";
 import { callWebhook } from "@/utils/webhook";
 import type { ActionItem, EmailForAction } from "@/utils/ai/types";
@@ -95,7 +95,7 @@ const draft: ActionFunction<{
   to?: string | null;
   cc?: string | null;
   bcc?: string | null;
-}> = async ({ client, email, args, executedRule }) => {
+}> = async ({ client, email, args, userEmail, executedRule }) => {
   const draftArgs = {
     to: args.to ?? undefined,
     subject: args.subject ?? undefined,
@@ -119,6 +119,7 @@ const draft: ActionFunction<{
       attachments: email.attachments,
     },
     draftArgs,
+    userEmail,
     executedRule,
   );
   return { draftId: result.draftId };

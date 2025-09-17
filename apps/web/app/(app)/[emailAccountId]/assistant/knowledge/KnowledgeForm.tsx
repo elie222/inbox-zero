@@ -20,7 +20,7 @@ import {
 } from "@/utils/actions/knowledge";
 import { toastError, toastSuccess } from "@/components/Toast";
 import type { GetKnowledgeResponse } from "@/app/api/knowledge/route";
-import { PremiumTier, type Knowledge } from "@/generated/prisma";
+import { PremiumTier, type Knowledge } from "@prisma/client";
 import { Tiptap, type TiptapHandle } from "@/components/editor/Tiptap";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/utils";

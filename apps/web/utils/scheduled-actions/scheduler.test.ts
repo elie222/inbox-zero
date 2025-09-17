@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ActionType, ScheduledActionStatus } from "@/generated/prisma";
+import { ActionType, ScheduledActionStatus } from "@prisma/client";
 import { cancelScheduledActions } from "./scheduler";
 import { canActionBeDelayed } from "@/utils/delayed-actions";
 import prisma from "@/utils/__mocks__/prisma";
