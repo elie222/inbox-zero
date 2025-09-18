@@ -9,9 +9,6 @@ import { SafeError } from "@/utils/error";
 import { extractSSOProviderConfigFromXML } from "@/utils/sso/extract-sso-provider-config-from-xml";
 import prisma from "@/utils/prisma";
 import { validateIdpMetadata } from "@/utils/sso/validate-idp-metadata";
-import { createScopedLogger } from "@/utils/logger";
-
-const logger = createScopedLogger("sso");
 
 export const registerSSOProviderAction = adminActionClient
   .metadata({ name: "registerSSOProvider" })
@@ -19,6 +16,7 @@ export const registerSSOProviderAction = adminActionClient
   .action(
     async ({
       parsedInput: { idpMetadata, organizationName, domain, providerId },
+      ctx: { logger },
     }) => {
       const session = await auth();
       const userId = session?.user?.id;

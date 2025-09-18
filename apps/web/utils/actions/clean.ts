@@ -15,7 +15,6 @@ import {
   GmailLabel,
   labelThread,
 } from "@/utils/gmail/label";
-import { createScopedLogger } from "@/utils/logger";
 import type { CleanThreadBody } from "@/app/api/clean/route";
 import { isDefined } from "@/utils/types";
 import { inboxZeroLabels } from "@/utils/label";
@@ -31,14 +30,12 @@ import { isGoogleProvider } from "@/utils/email/provider-types";
 import { getUserPremium } from "@/utils/user/get";
 import { isActivePremium } from "@/utils/premium";
 
-const logger = createScopedLogger("actions/clean");
-
 export const cleanInboxAction = actionClient
   .metadata({ name: "cleanInbox" })
   .schema(cleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId, provider, userId },
+      ctx: { emailAccountId, provider, userId, logger },
       parsedInput: { action, instructions, daysOld, skips, maxEmails },
     }) => {
       if (!isGoogleProvider(provider)) {
@@ -132,7 +129,6 @@ export const cleanInboxAction = actionClient
             });
 
           logger.info("Fetched threads", {
-            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -144,7 +140,6 @@ export const cleanInboxAction = actionClient
           const url = `${env.WEBHOOK_URL || env.NEXT_PUBLIC_BASE_URL}/api/clean`;
 
           logger.info("Pushing to Qstash", {
-            emailAccountId,
             threadCount: threads.length,
             nextPageToken,
           });
@@ -200,7 +195,7 @@ export const undoCleanInboxAction = actionClient
   .schema(undoCleanInboxSchema)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { threadId, markedDone, action },
     }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId });
@@ -264,7 +259,10 @@ export const changeKeepToDoneAction = actionClient
   .metadata({ name: "changeKeepToDone" })
   .schema(changeKeepToDoneSchema)
   .action(
-    async ({ ctx: { emailAccountId }, parsedInput: { threadId, action } }) => {
+    async ({
+      ctx: { emailAccountId, logger },
+      parsedInput: { threadId, action },
+    }) => {
       const gmail = await getGmailClientForEmail({ emailAccountId });
 
       // Get the label to add (archived or marked_read)

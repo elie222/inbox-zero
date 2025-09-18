@@ -6,58 +6,64 @@ import { createEmailProvider } from "@/utils/email/provider";
 import { isDefined } from "@/utils/types";
 import { extractDomainFromEmail, extractEmailAddress } from "@/utils/email";
 import { findUnsubscribeLink } from "@/utils/parse/parseHtml.server";
-import { createScopedLogger } from "@/utils/logger";
 import { internalDateToDate } from "@/utils/date";
 import prisma from "@/utils/prisma";
 import { SafeError } from "@/utils/error";
+import type { Logger } from "@/utils/logger";
 
 const PAGE_SIZE = 20; // avoid setting too high because it will hit the rate limit
 // const PAUSE_AFTER_RATE_LIMIT = 10_000;
 const MAX_PAGES = 50;
 
-const logger = createScopedLogger("Load Emails");
-
 export const loadEmailStatsAction = actionClient
   .metadata({ name: "loadEmailStats" })
   .schema(z.object({ loadBefore: z.boolean() }))
-  .action(async ({ parsedInput: { loadBefore }, ctx: { emailAccountId } }) => {
-    // Get email account with provider information
-    const emailAccount = await prisma.emailAccount.findUnique({
-      where: { id: emailAccountId },
-      select: {
-        account: {
-          select: { provider: true },
+  .action(
+    async ({
+      parsedInput: { loadBefore },
+      ctx: { emailAccountId, logger },
+    }) => {
+      // Get email account with provider information
+      const emailAccount = await prisma.emailAccount.findUnique({
+        where: { id: emailAccountId },
+        select: {
+          account: {
+            select: { provider: true },
+          },
         },
-      },
-    });
+      });
 
-    if (!emailAccount?.account?.provider) {
-      throw new SafeError("Email account or provider not found");
-    }
+      if (!emailAccount?.account?.provider) {
+        throw new SafeError("Email account or provider not found");
+      }
 
-    const emailProvider = await createEmailProvider({
-      emailAccountId,
-      provider: emailAccount.account.provider,
-    });
-
-    await loadEmails(
-      {
+      const emailProvider = await createEmailProvider({
         emailAccountId,
-        emailProvider,
-      },
-      {
-        loadBefore,
-      },
-    );
-  });
+        provider: emailAccount.account.provider,
+      });
+
+      await loadEmails(
+        {
+          emailAccountId,
+          emailProvider,
+          logger,
+        },
+        {
+          loadBefore,
+        },
+      );
+    },
+  );
 
 async function loadEmails(
   {
     emailAccountId,
     emailProvider,
+    logger,
   }: {
     emailAccountId: string;
     emailProvider: any;
+    logger: Logger;
   },
   { loadBefore }: { loadBefore: boolean },
 ) {
@@ -78,6 +84,7 @@ async function loadEmails(
     const res = await saveBatch({
       emailAccountId,
       emailProvider,
+      logger,
       nextPageToken,
       after,
       before: undefined,
@@ -112,6 +119,7 @@ async function loadEmails(
     const res = await saveBatch({
       emailAccountId,
       emailProvider,
+      logger,
       nextPageToken,
       before,
       after: undefined,
@@ -131,12 +139,14 @@ async function loadEmails(
 async function saveBatch({
   emailAccountId,
   emailProvider,
+  logger,
   nextPageToken,
   before,
   after,
 }: {
   emailAccountId: string;
   emailProvider: any;
+  logger: Logger;
   nextPageToken?: string;
 } & (
   | { before: Date; after: undefined }
@@ -166,7 +176,6 @@ async function saveBatch({
       const date = internalDateToDate(m.internalDate);
       if (!date) {
         logger.error("No date for email", {
-          emailAccountId,
           messageId: m.id,
           date: m.internalDate,
         });

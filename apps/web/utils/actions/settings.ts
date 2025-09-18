@@ -14,7 +14,6 @@ import prisma from "@/utils/prisma";
 import { calculateNextScheduleDate } from "@/utils/schedule";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import { ActionType, type Prisma } from "@prisma/client";
-import { createScopedLogger } from "@/utils/logger";
 
 export const updateEmailSettingsAction = actionClient
   .metadata({ name: "updateEmailSettings" })
@@ -151,13 +150,9 @@ export const updateDigestItemsAction = actionClient
   .schema(updateDigestItemsBody)
   .action(
     async ({
-      ctx: { emailAccountId },
+      ctx: { emailAccountId, logger },
       parsedInput: { ruleDigestPreferences, coldEmailDigest },
     }) => {
-      const logger = createScopedLogger("updateDigestItems").with({
-        emailAccountId,
-      });
-
       const promises = Object.entries(ruleDigestPreferences).map(
         async ([ruleId, enabled]) => {
           // Verify the rule belongs to this email account
