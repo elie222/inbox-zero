@@ -24,6 +24,7 @@ const navigation = {
     { name: "Customer Support", href: "/support" },
     { name: "E-commerce", href: "/ecommerce" },
   ],
+  compare: [{ name: "vs Fyxer.ai", href: "/best-fyxer-alternative" }],
   support: [
     { name: "Pricing", href: "/#pricing" },
     { name: "Contact", href: "mailto:elie@getinboxzero.com", target: "_blank" },
@@ -114,6 +115,10 @@ export function Footer() {
           </div>
           <div>
             <FooterList title="Use Cases" items={navigation.useCases} />
+
+            <div className="mt-6">
+              <FooterList title="Compare" items={navigation.compare} />
+            </div>
           </div>
           <div>
             <FooterList title="Support" items={navigation.support} />
