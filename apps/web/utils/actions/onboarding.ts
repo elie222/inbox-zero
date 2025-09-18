@@ -7,7 +7,7 @@ import {
 } from "@/utils/actions/onboarding.validation";
 import { actionClientUser } from "@/utils/actions/safe-action";
 import prisma from "@/utils/prisma";
-import { updateContactCompanySize } from "@inboxzero/loops";
+import { updateContactCompanySize, updateContactRole } from "@inboxzero/loops";
 
 export const completedOnboardingAction = actionClientUser
   .metadata({ name: "completedOnboarding" })
@@ -109,12 +109,21 @@ export const saveOnboardingAnswersAction = actionClientUser
       const extractedAnswers = extractSurveyAnswers(questions, answers);
 
       after(async () => {
+        if (extractedAnswers.surveyRole) {
+          await updateContactRole({
+            email: userEmail,
+            role: extractedAnswers.surveyRole,
+          }).catch((error) => {
+            logger.error("Loops: Error updating role", { error });
+          });
+        }
+
         if (extractedAnswers.surveyCompanySize) {
           await updateContactCompanySize({
             email: userEmail,
             companySize: extractedAnswers.surveyCompanySize,
           }).catch((error) => {
-            logger.error("Error updating company size", { error });
+            logger.error("Loops: Error updating company size", { error });
           });
         }
       });
