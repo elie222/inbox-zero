@@ -32,12 +32,17 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
+import { useAccounts } from "@/hooks/useAccounts";
+import { getOwnEmailAccount } from "@/utils/email-account-client";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
   const { data: user } = useUser();
+  const { data: accounts } = useAccounts();
+
+  const ownEmailAccountId = getOwnEmailAccount(accounts)?.id || emailAccountId;
 
   const hasOrganization = user?.members && user.members.length > 0;
   const isOrgAdmin = isOrganizationAdmin(user?.members);
@@ -104,7 +109,7 @@ export function NavUser() {
         <DropdownMenuGroup>
           {!hasOrganization && (
             <DropdownMenuItem asChild>
-              <Link href="/organizations">
+              <Link href={prefixPath(ownEmailAccountId, "/organizations")}>
                 <Building2Icon className="mr-2 size-4" />
                 Create organization
               </Link>
@@ -112,7 +117,9 @@ export function NavUser() {
           )}
           {hasOrganization && isOrgAdmin && (
             <DropdownMenuItem asChild>
-              <Link href="/organizations/members">
+              <Link
+                href={prefixPath(ownEmailAccountId, "/organizations/members")}
+              >
                 <Building2Icon className="mr-2 size-4" />
                 My Organization
               </Link>
@@ -138,13 +145,15 @@ export function NavUser() {
           {isGoogleProvider(provider) && (
             <>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(emailAccountId, "/reply-zero")}>
+                <Link href={prefixPath(ownEmailAccountId, "/reply-zero")}>
                   <MessageCircleReplyIcon className="mr-2 size-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(emailAccountId, "/cold-email-blocker")}>
+                <Link
+                  href={prefixPath(ownEmailAccountId, "/cold-email-blocker")}
+                >
                   <ShieldCheckIcon className="mr-2 size-4" />
                   Cold Email Blocker
                 </Link>
@@ -158,7 +167,7 @@ export function NavUser() {
             </>
           )}
           <DropdownMenuItem asChild>
-            <Link href={prefixPath(emailAccountId, "/usage")}>
+            <Link href={prefixPath(ownEmailAccountId, "/usage")}>
               <BarChartIcon className="mr-2 size-4" />
               Usage
             </Link>

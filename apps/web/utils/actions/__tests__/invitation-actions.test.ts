@@ -58,17 +58,14 @@ describe("invitation actions", () => {
       expiresAt: new Date(Date.now() + 1000 * 60 * 60),
     } as any);
     prisma.emailAccount.findFirst.mockResolvedValue({ id: "ea_user" } as any);
-    prisma.member.findFirst.mockResolvedValueOnce(null as any); // existing membership
+    prisma.member.findFirst.mockResolvedValueOnce(null as any); // no existing membership
     prisma.member.create.mockResolvedValue({ id: "mem_1" } as any);
     prisma.invitation.update.mockResolvedValue({
       id: "inv_1",
       status: "accepted",
     } as any);
 
-    const res = await handleInvitationAction(
-      "ea_user" as any,
-      { invitationId: "inv_1" } as any,
-    );
+    const res = await handleInvitationAction({ invitationId: "inv_1" } as any);
 
     expect(prisma.member.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -77,6 +74,9 @@ describe("invitation actions", () => {
       }),
       select: { id: true },
     });
-    expect(res?.data).toMatchObject({ organizationId: "org_1" });
+    expect(res?.data).toMatchObject({
+      redirectUrl: "/welcome",
+      organizationId: "org_1",
+    });
   });
 });

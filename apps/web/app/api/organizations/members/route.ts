@@ -1,16 +1,20 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
 export type OrganizationMembersResponse = Awaited<
   ReturnType<typeof getOrganizationMembers>
 >;
 
-async function getOrganizationMembers({ userId }: { userId: string }) {
+async function getOrganizationMembers({
+  emailAccountId,
+}: {
+  emailAccountId: string;
+}) {
   const userMembership = await prisma.member.findFirst({
     where: {
-      userId,
+      emailAccountId,
     },
     orderBy: {
       createdAt: "asc",
@@ -32,17 +36,12 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
       id: true,
       role: true,
       createdAt: true,
-      user: {
+      emailAccount: {
         select: {
           id: true,
           name: true,
           email: true,
           image: true,
-          emailAccounts: {
-            select: {
-              id: true,
-            },
-          },
         },
       },
     },
@@ -52,9 +51,9 @@ async function getOrganizationMembers({ userId }: { userId: string }) {
   return { members };
 }
 
-export const GET = withAuth(async (request) => {
-  const { userId } = request.auth;
+export const GET = withEmailAccount(async (request) => {
+  const { emailAccountId } = request.auth;
 
-  const result = await getOrganizationMembers({ userId });
+  const result = await getOrganizationMembers({ emailAccountId });
   return NextResponse.json(result);
 });

@@ -8,36 +8,45 @@ export function useOrgAccess() {
   const params = useParams<{ emailAccountId: string | undefined }>();
   const emailAccountId = params.emailAccountId;
 
-  const { data: emailAccount, isLoading } = useOrgSWR<EmailAccountFullResponse>(
+  const {
+    data: emailAccount,
+    isLoading,
+    error,
+  } = useOrgSWR<EmailAccountFullResponse>(
     emailAccountId ? "/api/user/email-account" : null,
   );
 
   if (!session?.user?.email) {
     return {
       isLoading: true,
-      isAccountOwner: true,
+      isAccountOwner: false,
       accountInfo: null,
     };
   }
 
-  if (isLoading || !emailAccount) {
+  if (isLoading || !emailAccount || !emailAccount.user || error) {
     return {
       isLoading: true,
-      isAccountOwner: true,
+      isAccountOwner: false,
       accountInfo: null,
     };
   }
 
   const isAccountOwner = emailAccount.user.id === session.user.id;
 
-  return {
-    isLoading: false,
-    isAccountOwner,
-    accountInfo: {
+  let accountInfo = null;
+  if (!isAccountOwner) {
+    accountInfo = {
       email: emailAccount.email,
       name: emailAccount.name,
       image: emailAccount.image,
-      provider: undefined, // Provider not available in this response
-    },
+      provider: undefined,
+    };
+  }
+
+  return {
+    isLoading: false,
+    isAccountOwner,
+    accountInfo,
   };
 }

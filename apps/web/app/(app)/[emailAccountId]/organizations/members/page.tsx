@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import Link from "next/link";
 import { useOrganizationMembers } from "@/hooks/useOrganizationMembers";
 import { LoadingContent } from "@/components/LoadingContent";
+import { useAccount } from "@/providers/EmailAccountProvider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ interface MemberCardProps {
 }
 
 function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
+  const { emailAccountId } = useAccount();
   return (
     <div className="flex items-center justify-between p-4 border rounded-lg">
       <div className="flex items-center space-x-4 flex-1 min-w-0">
@@ -48,13 +50,13 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
             <TooltipTrigger asChild>
               <Avatar className="h-10 w-10 flex-shrink-0">
                 <AvatarImage
-                  src={member.user.image || ""}
-                  alt={member.user.name || member.user.email}
+                  src={member.emailAccount.image || ""}
+                  alt={member.emailAccount.name || member.emailAccount.email}
                 />
                 <AvatarFallback>
-                  {member.user.name
-                    ? member.user.name.charAt(0).toUpperCase()
-                    : member.user.email.charAt(0).toUpperCase()}
+                  {member.emailAccount.name
+                    ? member.emailAccount.name.charAt(0).toUpperCase()
+                    : member.emailAccount.email.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
             </TooltipTrigger>
@@ -67,7 +69,9 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
         </TooltipProvider>
         <div className="flex-1 min-w-0">
           <div className="flex items-center space-x-3">
-            <p className="font-medium">{member.user.name || "No name"}</p>
+            <p className="font-medium">
+              {member.emailAccount.name || "No name"}
+            </p>
             <Badge
               variant={member.role === "admin" ? "default" : "secondary"}
               className="text-xs"
@@ -77,7 +81,7 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
           </div>
           <div className="flex items-center space-x-3 mt-1">
             <span className="text-xs text-muted-foreground">
-              {member.user.email}
+              {member.emailAccount.email}
             </span>
             {executedRulesCount !== undefined && (
               <>
@@ -90,69 +94,65 @@ function MemberCard({ member, onRemove, executedRulesCount }: MemberCardProps) {
           </div>
         </div>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
-            <MoreHorizontal className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => onRemove(member.id)}>
-            <TrashIcon className="mr-2 size-4" />
-            Remove
-          </DropdownMenuItem>
-          {member.user.emailAccounts?.[0]?.id ? (
+      {member.emailAccount.id !== emailAccountId && member.emailAccount.id && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <MoreHorizontal className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onRemove(member.id)}>
+              <TrashIcon className="mr-2 size-4" />
+              Remove
+            </DropdownMenuItem>
             <DropdownMenuItem asChild>
-              <Link href={`/${member.user.emailAccounts[0].id}/stats`}>
+              <Link href={`/${member.emailAccount.id}/stats`}>
                 <BarChart3 className="mr-2 size-4" />
                 Analytics
               </Link>
             </DropdownMenuItem>
-          ) : (
-            <DropdownMenuItem disabled>
-              <BarChart3 className="mr-2 size-4" />
-              Analytics
+            <DropdownMenuItem asChild>
+              <Link href={`/${member.emailAccount.id}/usage`}>
+                <BarChartIcon className="mr-2 size-4" />
+                Usage
+              </Link>
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem>
-            <BarChartIcon className="mr-2 size-4" />
-            Usage
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
     </div>
   );
 }
 
 export default function MembersPage() {
+  const { emailAccountId } = useAccount();
   const { data, isLoading, error, mutate } = useOrganizationMembers();
   const { data: executedRulesData } = useExecutedRulesCount();
 
   const handleRemoveMember = useCallback(
-    (memberId: string) => {
-      return async () => {
-        try {
-          const result = await removeMemberAction({ memberId });
+    async (memberId: string) => {
+      try {
+        const result = await removeMemberAction(emailAccountId, { memberId });
 
-          if (result?.serverError) {
-            toastError({
-              title: "Error removing member",
-              description: result.serverError,
-            });
-          } else {
-            toastSuccess({ description: "Member removed successfully" });
-            mutate(); // Refresh the members list
-          }
-        } catch (err) {
+        if (result?.serverError) {
           toastError({
             title: "Error removing member",
-            description:
-              err instanceof Error ? err.message : "Failed to remove member",
+            description: result.serverError,
           });
+        } else {
+          toastSuccess({ description: "Member removed successfully" });
+          mutate();
         }
-      };
+      } catch (err) {
+        toastError({
+          title: "Error removing member",
+          description:
+            err instanceof Error ? err.message : "Failed to remove member",
+        });
+      }
     },
-    [mutate],
+    [mutate, emailAccountId],
   );
 
   return (
@@ -176,10 +176,9 @@ export default function MembersPage() {
 
             <div className="space-y-4">
               {data?.members.map((member) => {
-                const executedRulesCount =
-                  executedRulesData?.executedRulesCount.find(
-                    (item) => item.userId === member.user.id,
-                  )?.executedRulesCount;
+                const executedRulesCount = executedRulesData?.memberCounts.find(
+                  (item) => item.emailAccountId === member.emailAccount.id,
+                )?.executedRulesCount;
 
                 return (
                   <MemberCard

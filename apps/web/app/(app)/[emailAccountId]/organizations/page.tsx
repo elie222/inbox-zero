@@ -15,10 +15,12 @@ import {
 import { slugify } from "@/utils/string";
 import { useUser } from "@/hooks/useUser";
 import { LoadingContent } from "@/components/LoadingContent";
+import { useAccount } from "@/providers/EmailAccountProvider";
 
 export default function CreateOrganizationPage() {
   const router = useRouter();
   const { isLoading, mutate } = useUser();
+  const { emailAccountId } = useAccount();
 
   const {
     register,
@@ -43,7 +45,7 @@ export default function CreateOrganizationPage() {
 
   const onSubmit: SubmitHandler<CreateOrganizationBody> = useCallback(
     async (data) => {
-      const result = await createOrganizationAction(data);
+      const result = await createOrganizationAction(emailAccountId, data);
 
       if (result?.serverError) {
         toastError({
@@ -54,10 +56,10 @@ export default function CreateOrganizationPage() {
         toastSuccess({ description: "Organization created successfully!" });
         reset();
         await mutate();
-        router.push("/organizations/members");
+        router.push(`/${emailAccountId}/organizations/members`);
       }
     },
-    [mutate, reset, router],
+    [mutate, reset, router, emailAccountId],
   );
 
   return (

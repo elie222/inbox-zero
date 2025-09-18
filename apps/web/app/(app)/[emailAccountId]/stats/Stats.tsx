@@ -65,8 +65,11 @@ export function Stats() {
   const { isLoading, onLoad } = useStatLoader();
   const refreshInterval = isLoading ? 5000 : 1_000_000;
   useEffect(() => {
-    onLoad({ loadBefore: false, showToast: false });
-  }, [onLoad]);
+    // Skip stat loading when viewing someone else's account
+    if (isAccountOwner) {
+      onLoad({ loadBefore: false, showToast: false });
+    }
+  }, [onLoad, isAccountOwner]);
 
   return (
     <PageWrapper>
@@ -117,7 +120,7 @@ export function Stats() {
           </div>
         </CardBasic>
 
-        <EmailActionsAnalytics />
+        {isAccountOwner && <EmailActionsAnalytics />}
 
         <RuleStatsChart
           dateRange={dateRange}

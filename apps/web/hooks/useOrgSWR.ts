@@ -1,23 +1,44 @@
-import useSWR from "swr";
+import useSWR, { type SWRConfiguration, type SWRResponse } from "swr";
 import { useParams } from "next/navigation";
 import { useAccount } from "@/providers/EmailAccountProvider";
 
-export function useOrgSWR<T>(
-  url: string | null,
-  options?: {
-    emailAccountId?: string;
-  },
-) {
+// Attempts to build a drop-in replacement for useSWR that handles org permissions
+// Simple implementation that handles the two patterns we use:
+// 1. useOrgSWR(key, options)
+// 2. useOrgSWR(key, fetcher, options)
+export function useOrgSWR<Data = any, Error = any>(
+  key: string | null,
+  fetcherOrOptions?:
+    | ((url: string) => Promise<Data>)
+    | (SWRConfiguration<Data, Error> & { emailAccountId?: string }),
+  options?: SWRConfiguration<Data, Error> & { emailAccountId?: string },
+): SWRResponse<Data, Error> {
   const params = useParams<{ emailAccountId: string | undefined }>();
   const { emailAccountId: contextEmailAccountId } = useAccount();
-  const emailAccountId =
-    options?.emailAccountId || params.emailAccountId || contextEmailAccountId;
 
-  return useSWR<T>(url, (url: string) =>
+  // Check if second parameter is a function (fetcher) or object (options)
+  const isFetcher = typeof fetcherOrOptions === "function";
+  const fetcher = isFetcher ? fetcherOrOptions : undefined;
+  const mergedOptions = isFetcher ? options : fetcherOrOptions;
+
+  const emailAccountId =
+    mergedOptions?.emailAccountId ||
+    params.emailAccountId ||
+    contextEmailAccountId;
+
+  const orgFetcher = (url: string) =>
     fetch(url, {
       headers: {
         "X-Email-Account-ID": emailAccountId,
       },
-    }).then((res) => res.json()),
+    }).then((res) => res.json());
+
+  // Remove emailAccountId from options before passing to useSWR
+  const { emailAccountId: _, ...swrOptions } = mergedOptions || {};
+
+  return useSWR<Data, Error>(
+    key && emailAccountId ? key : null,
+    fetcher || orgFetcher,
+    swrOptions,
   );
 }

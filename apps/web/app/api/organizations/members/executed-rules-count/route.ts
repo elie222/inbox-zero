@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
-import { withAuth } from "@/utils/middleware";
+import { withEmailAccount } from "@/utils/middleware";
 import { SafeError } from "@/utils/error";
 
 export type GetExecutedRulesCountResponse = Awaited<
@@ -12,47 +12,35 @@ async function getExecutedRulesCount({
 }: {
   organizationId: string;
 }) {
-  const membersWithCounts = await prisma.member.findMany({
-    where: { organizationId },
-    select: {
-      userId: true,
-      user: {
-        select: {
-          emailAccounts: {
-            select: {
-              id: true,
-              _count: {
-                select: {
-                  executedRules: true,
-                },
-              },
-            },
+  const memberCounts = await prisma.executedRule.groupBy({
+    by: ["emailAccountId"],
+    where: {
+      emailAccount: {
+        members: {
+          some: {
+            organizationId,
           },
         },
       },
     },
+    _count: {
+      id: true,
+    },
   });
 
-  const executedRulesCount = membersWithCounts.map((member) => {
-    const totalCount = member.user.emailAccounts.reduce(
-      (sum, account) => sum + account._count.executedRules,
-      0,
-    );
+  const result = memberCounts.map(({ emailAccountId, _count }) => ({
+    emailAccountId,
+    executedRulesCount: _count.id,
+  }));
 
-    return {
-      userId: member.userId,
-      executedRulesCount: totalCount,
-    };
-  });
-
-  return { executedRulesCount };
+  return { memberCounts: result };
 }
 
-export const GET = withAuth(async (request) => {
-  const { userId } = request.auth;
+export const GET = withEmailAccount(async (request) => {
+  const { emailAccountId } = request.auth;
 
   const userMembership = await prisma.member.findFirst({
-    where: { userId },
+    where: { emailAccountId },
     select: { organizationId: true },
   });
 

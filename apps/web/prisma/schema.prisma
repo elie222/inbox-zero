@@ -97,13 +97,6 @@ model User {
   referralsMade    Referral[] @relation("ReferrerUser")
   referralReceived Referral?  @relation("ReferredUser")
 
-<<<<<<< HEAD
-=======
-  // Organization relationships
-  members      Member[]
-  invitations  Invitation[]
-  ssoproviders SsoProvider[]
->>>>>>> 9c65c57efa5a424279d7265715f673db9ce7360c
 }
 
 // Migrating over to the new settings model. Currently most settings are in the User model, but will be moved to this model in the future.
@@ -226,15 +219,9 @@ model SsoProvider {
   issuer         String
   oidcConfig     String?
   samlConfig     String?
-<<<<<<< HEAD
   emailAccountId String?
   emailAccount   EmailAccount? @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
   providerId     String  @unique
-=======
-  userId         String?
-  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  providerId     String        @unique
->>>>>>> 9c65c57efa5a424279d7265715f673db9ce7360c
   organizationId String?
   organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   domain         String

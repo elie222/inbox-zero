@@ -30,13 +30,17 @@ async function getUser({ userId }: { userId: string }) {
           pendingInvites: true,
         },
       },
-      members: {
+      emailAccounts: {
         select: {
-          organizationId: true,
-          role: true,
-          organization: {
+          members: {
             select: {
-              name: true,
+              organizationId: true,
+              role: true,
+              organization: {
+                select: {
+                  name: true,
+                },
+              },
             },
           },
         },
@@ -46,7 +50,13 @@ async function getUser({ userId }: { userId: string }) {
 
   if (!user) throw new SafeError("User not found");
 
-  return user;
+  // Flatten members from emailAccounts to match frontend expectations
+  const members = user.emailAccounts.flatMap((account) => account.members);
+
+  return {
+    ...user,
+    members,
+  };
 }
 
 // Intentionally not using withAuth because we want to return null if the user is not authenticated

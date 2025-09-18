@@ -13,7 +13,6 @@ import {
 import prisma from "@/utils/prisma";
 import { createEmailProvider } from "@/utils/email/provider";
 import type { EmailProvider } from "@/utils/email/types";
-import { getMemberEmailAccount } from "@/utils/organizations/access";
 
 const logger = createScopedLogger("middleware");
 
@@ -182,11 +181,35 @@ async function emailAccountMiddleware(
   const email = await getEmailAccount({ userId, emailAccountId });
 
   if (!email && options?.allowOrgAdmins) {
-    // Check if user can access this email account through organization membership
-    const targetEmailAccount = await getMemberEmailAccount(
-      userId,
-      emailAccountId,
-    );
+    // Check if user is admin or owner and is in the same org as the target email account
+    const sharedMembership = await prisma.member.findFirst({
+      where: {
+        emailAccount: { user: { id: userId } },
+        role: { in: ["admin", "owner"] },
+        organization: {
+          members: {
+            some: {
+              emailAccountId: emailAccountId,
+            },
+          },
+        },
+      },
+      select: {
+        emailAccountId: true,
+      },
+    });
+
+    if (!sharedMembership) {
+      return NextResponse.json(
+        { error: "Insufficient permissions", isKnownError: true },
+        { status: 403 },
+      );
+    }
+
+    const targetEmailAccount = await prisma.emailAccount.findUnique({
+      where: { id: emailAccountId },
+      select: { email: true },
+    });
 
     if (targetEmailAccount) {
       const emailAccountReq = req.clone() as RequestWithEmailAccount;

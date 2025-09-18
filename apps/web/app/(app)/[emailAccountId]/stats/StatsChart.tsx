@@ -1,5 +1,5 @@
 import { type Color, Card, Title, BarChart } from "@tremor/react";
-import useSWR from "swr";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
 import type {
   StatsByDayQuery,
   StatsByDayResponse,
@@ -14,7 +14,7 @@ export function StatsChart(props: {
   refreshInterval: number;
 }) {
   const searchParams: StatsByDayQuery = { type: props.type };
-  const { data, isLoading, error } = useSWR<
+  const { data, isLoading, error } = useOrgSWR<
     StatsByDayResponse,
     { error: string }
   >(`/api/user/stats/day?${new URLSearchParams(searchParams).toString()}`, {
