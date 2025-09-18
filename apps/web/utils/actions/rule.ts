@@ -587,8 +587,12 @@ export const createRulesOnboardingAction = actionClient
 
       const isSet = (
         value: string | undefined | null,
-      ): value is "label" | "label_archive" | "label_archive_delayed" =>
-        value !== "none" && value !== undefined;
+      ): value is
+        | "label"
+        | "label_archive"
+        | "label_archive_delayed"
+        | "move_folder"
+        | "move_folder_delayed" => value !== "none" && value !== undefined;
 
       // cold email blocker
       if (coldEmail && isSet(coldEmail.action)) {
