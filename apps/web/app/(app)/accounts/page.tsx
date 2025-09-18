@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Trash2, ArrowRight } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { LoadingContent } from "@/components/LoadingContent";
-import { PageHeading } from "@/components/Typography";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -20,6 +19,8 @@ import { toastSuccess, toastError } from "@/components/Toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { prefixPath } from "@/utils/path";
 import { AddAccount } from "@/app/(app)/accounts/AddAccount";
+import { PageHeader } from "@/components/PageHeader";
+import { PageWrapper } from "@/components/PageWrapper";
 
 export default function AccountsPage() {
   const { data, isLoading, error, mutate } = useAccounts();
@@ -41,12 +42,11 @@ export default function AccountsPage() {
   });
 
   return (
-    <div>
-      <div className="border-b border-border px-8 py-6">
-        <PageHeading>Accounts</PageHeading>
-      </div>
+    <PageWrapper>
+      <PageHeader title="Accounts" description="Manage your email accounts." />
+
       <LoadingContent loading={isLoading} error={error}>
-        <div className="grid grid-cols-1 gap-4 px-8 py-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 py-6 md:grid-cols-2 lg:grid-cols-3">
           {data?.emailAccounts.map((emailAccount) => (
             <Card key={emailAccount.id}>
               <CardHeader className="flex flex-row items-center gap-3 space-y-0">
@@ -71,7 +71,7 @@ export default function AccountsPage() {
                   <ConfirmDialog
                     trigger={
                       <Button
-                        variant="destructive"
+                        variant="destructiveSoft"
                         size="sm"
                         loading={isExecuting}
                         Icon={Trash2}
@@ -93,6 +93,6 @@ export default function AccountsPage() {
           <AddAccount />
         </div>
       </LoadingContent>
-    </div>
+    </PageWrapper>
   );
 }
