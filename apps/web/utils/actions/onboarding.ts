@@ -1,5 +1,6 @@
 "use server";
 
+import { after } from "next/server";
 import {
   saveOnboardingAnswersBody,
   saveOnboardingFeaturesSchema,
@@ -23,9 +24,8 @@ export const saveOnboardingAnswersAction = actionClientUser
   .action(
     async ({
       parsedInput: { surveyId, questions, answers },
-      ctx: { userId, logger },
+      ctx: { userId, userEmail, logger },
     }) => {
-      // Helper function to extract survey answers from the response format
       function extractSurveyAnswers(questions: any[], answers: any) {
         const result: {
           surveyFeatures?: string[];
@@ -108,7 +108,18 @@ export const saveOnboardingAnswersAction = actionClientUser
 
       const extractedAnswers = extractSurveyAnswers(questions, answers);
 
-      const userPromise = prisma.user.update({
+      after(async () => {
+        if (extractedAnswers.surveyCompanySize) {
+          await updateContactCompanySize({
+            email: userEmail,
+            companySize: extractedAnswers.surveyCompanySize,
+          }).catch((error) => {
+            logger.error("Error updating company size", { error });
+          });
+        }
+      });
+
+      await prisma.user.update({
         where: { id: userId },
         data: {
           onboardingAnswers: { surveyId, questions, answers },
@@ -120,20 +131,6 @@ export const saveOnboardingAnswersAction = actionClientUser
           surveyImprovements: extractedAnswers.surveyImprovements,
         },
       });
-
-      await Promise.all([
-        userPromise,
-        async () => {
-          if (extractedAnswers.surveyCompanySize) {
-            updateContactCompanySize(
-              userId,
-              extractedAnswers.surveyCompanySize,
-            ).catch((error) => {
-              logger.error("Error updating company size", { error });
-            });
-          }
-        },
-      ]);
     },
   );
 
