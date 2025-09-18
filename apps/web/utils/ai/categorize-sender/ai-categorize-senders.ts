@@ -86,7 +86,7 @@ ${formatCategoriesForPrompt(categories)}
 - Return your response in JSON format
 </important>`;
 
-  const modelOptions = getModel(emailAccount.user, "chat");
+  const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
     userEmail: emailAccount.email,
