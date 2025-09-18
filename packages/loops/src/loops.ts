@@ -112,10 +112,23 @@ async function updateContactProperty(
   return resp;
 }
 
-export async function updateContactCompanySize(
-  email: string,
-  companySize: number,
-) {
+export async function updateContactRole({
+  email,
+  role,
+}: {
+  email: string;
+  role: string;
+}) {
+  return updateContactProperty(email, { role });
+}
+
+export async function updateContactCompanySize({
+  email,
+  companySize,
+}: {
+  email: string;
+  companySize: number;
+}) {
   return updateContactProperty(email, { companySize });
 }
 
