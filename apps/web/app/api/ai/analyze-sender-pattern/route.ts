@@ -15,7 +15,7 @@ import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
 
 export const maxDuration = 60;
 
-const THRESHOLD_EMAILS = 3;
+const THRESHOLD_THREADS = 5;
 const MAX_RESULTS = 10;
 
 const logger = createScopedLogger("api/ai/pattern-match");
@@ -118,19 +118,19 @@ async function process({
       return NextResponse.json({ success: true });
     }
 
-    const allMessages = threadsWithMessages.flatMap(
-      (thread) => thread.messages,
-    );
-
-    if (allMessages.length < THRESHOLD_EMAILS) {
+    if (threadsWithMessages.length < THRESHOLD_THREADS) {
       logger.info("Not enough emails found from this sender", {
         from,
         emailAccountId,
-        count: allMessages.length,
+        count: threadsWithMessages.length,
       });
 
       return NextResponse.json({ success: true });
     }
+
+    const allMessages = threadsWithMessages.flatMap(
+      (thread) => thread.messages,
+    );
 
     const emails = allMessages.map((message) => getEmailForLLM(message));
 
