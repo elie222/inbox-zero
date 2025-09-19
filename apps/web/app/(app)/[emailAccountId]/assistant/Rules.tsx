@@ -50,7 +50,7 @@ import type { RulesResponse } from "@/app/api/user/rules/route";
 import { sortActionsByPriority } from "@/utils/action-sort";
 import { inboxZeroLabels } from "@/utils/label";
 import { isDefined } from "@/utils/types";
-import { getActionDisplay } from "@/utils/action-display";
+import { getActionDisplay, getActionIcon } from "@/utils/action-display";
 import { RuleDialog } from "./RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { ColdEmailDialog } from "@/app/(app)/[emailAccountId]/cold-email-blocker/ColdEmailDialog";
@@ -490,10 +490,12 @@ export function ActionBadges({
   provider: string;
 }) {
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-2 flex-wrap">
       {sortActionsByPriority(actions).map((action) => {
         // Hidden for simplicity
         if (action.type === ActionType.TRACK_THREAD) return null;
+
+        const Icon = getActionIcon(action.type);
 
         return (
           <Badge
@@ -501,6 +503,7 @@ export function ActionBadges({
             color={getActionColor(action.type)}
             className="w-fit text-nowrap"
           >
+            <Icon className="size-3 mr-1.5" />
             {getActionDisplay(action, provider)}
           </Badge>
         );
