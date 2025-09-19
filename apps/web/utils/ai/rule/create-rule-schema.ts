@@ -38,13 +38,16 @@ const actionSchema = (provider: string) =>
   z.object({
     type: z
       .enum(
-        isMicrosoftProvider(provider)
-          ? (Object.values(ActionType) as [ActionType, ...ActionType[]])
-          : (Object.values(ActionType).filter(
-              (type) => type !== ActionType.MOVE_FOLDER,
-            ) as [ActionType, ...ActionType[]]),
+        Object.values(ActionType).filter((type) => {
+          if (type === ActionType.TRACK_THREAD) return false;
+          if (type === ActionType.MOVE_FOLDER && !isMicrosoftProvider(provider))
+            return false;
+          return true;
+        }) as [ActionType, ...ActionType[]],
       )
-      .describe("The type of the action"),
+      .describe(
+        "The type of the action. 'Digest' means emails will be added to the digest email the user receives.",
+      ),
     fields: z
       .object({
         label: z

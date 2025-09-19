@@ -27,6 +27,7 @@ import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/Assi
 import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 import type { CreateRuleResult } from "@/utils/rule/types";
 import { toastError } from "@/components/Toast";
+import { AvailableActionsPanel } from "@/app/(app)/[emailAccountId]/assistant/AvailableActionsPanel";
 
 export function RulesPrompt() {
   const { emailAccountId, provider } = useAccount();
@@ -149,68 +150,72 @@ function RulesPromptForm({
 
   return (
     <div>
-      <div className="grid gap-4">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSubmit();
-          }}
-        >
-          <Label className="font-cal text-xl leading-7">Add new rules</Label>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr,250px] gap-6">
+        <div className="grid gap-4">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSubmit();
+            }}
+          >
+            <Label className="font-cal text-xl leading-7">Add new rules</Label>
 
-          <div className="mt-1.5 space-y-2">
-            <LoadingContent
-              loading={isLoadingLabels}
-              loadingComponent={<Skeleton className="min-h-[180px] w-full" />}
-            >
-              <SimpleRichTextEditor
-                ref={editorRef}
-                defaultValue={undefined}
-                minHeight={180}
-                userLabels={userLabels}
-                placeholder={`* Label urgent emails as "Urgent"
+            <div className="mt-1.5 space-y-2">
+              <LoadingContent
+                loading={isLoadingLabels}
+                loadingComponent={<Skeleton className="min-h-[180px] w-full" />}
+              >
+                <SimpleRichTextEditor
+                  ref={editorRef}
+                  defaultValue={undefined}
+                  minHeight={180}
+                  userLabels={userLabels}
+                  placeholder={`* Label urgent emails as "Urgent"
 * Forward receipts to jane@accounting.com`}
-              />
-            </LoadingContent>
+                />
+              </LoadingContent>
 
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" size="sm" loading={isSubmitting}>
-                Create rules
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" size="sm" loading={isSubmitting}>
+                  Create rules
+                </Button>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={examples ? onHideExamples : onOpenPersonaDialog}
-              >
-                <UserPenIcon className="mr-2 size-4" />
-                {examples ? "Hide examples" : "Choose from examples"}
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={examples ? onHideExamples : onOpenPersonaDialog}
+                >
+                  <UserPenIcon className="mr-2 size-4" />
+                  {examples ? "Hide examples" : "Choose from examples"}
+                </Button>
 
-              <Button
-                className="ml-auto"
-                variant="outline"
-                size="sm"
-                onClick={() => ruleDialog.onOpen()}
-                Icon={PlusIcon}
-              >
-                Add rule manually
-              </Button>
+                <Button
+                  className="ml-auto"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => ruleDialog.onOpen()}
+                  Icon={PlusIcon}
+                >
+                  Add rule manually
+                </Button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
 
-        {examples && (
-          <>
-            <Label className="font-cal text-xl leading-7">Examples</Label>
+          {examples && (
+            <>
+              <Label className="font-cal text-xl leading-7">Examples</Label>
 
-            <ExamplesGrid
-              examples={examples}
-              onSelect={addExamplePrompt}
-              provider={provider}
-            />
-          </>
-        )}
+              <ExamplesGrid
+                examples={examples}
+                onSelect={addExamplePrompt}
+                provider={provider}
+              />
+            </>
+          )}
+        </div>
+
+        <AvailableActionsPanel />
       </div>
 
       <RuleDialog
