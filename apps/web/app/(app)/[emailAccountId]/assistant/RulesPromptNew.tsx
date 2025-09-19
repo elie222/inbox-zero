@@ -201,22 +201,23 @@ function RulesPromptForm({
               </div>
             </div>
           </form>
-
-          {examples && (
-            <>
-              <Label className="font-cal text-xl leading-7">Examples</Label>
-
-              <ExamplesGrid
-                examples={examples}
-                onSelect={addExamplePrompt}
-                provider={provider}
-              />
-            </>
-          )}
         </div>
 
         <AvailableActionsPanel />
       </div>
+
+      {examples && (
+        <div className="mt-2">
+          <Label className="font-cal text-xl leading-7">Examples</Label>
+          <div className="mt-1.5">
+            <ExamplesGrid
+              examples={examples}
+              onSelect={addExamplePrompt}
+              provider={provider}
+            />
+          </div>
+        </div>
+      )}
 
       <RuleDialog
         isOpen={ruleDialog.isOpen}
