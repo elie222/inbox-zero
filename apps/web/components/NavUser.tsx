@@ -32,21 +32,21 @@ import { SidebarMenuButton } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EXTENSION_URL } from "@/utils/config";
 import { useUser } from "@/hooks/useUser";
-import { useAccounts } from "@/hooks/useAccounts";
-import { getOwnEmailAccount } from "@/utils/email-account-client";
 import { isOrganizationAdmin } from "@/utils/organizations/roles";
 
 export function NavUser() {
   const { emailAccountId, emailAccount, provider } = useAccount();
   const { theme, setTheme } = useTheme();
   const { data: user } = useUser();
-  const { data: accounts } = useAccounts();
 
-  const ownEmailAccountId = getOwnEmailAccount(accounts)?.id || emailAccountId;
-
-  const hasOrganization = user?.members && user.members.length > 0;
-  const isOrgAdmin = isOrganizationAdmin(user?.members);
-  const organizationName = user?.members?.[0]?.organization?.name;
+  const currentEmailAccountId = emailAccount?.id || emailAccountId;
+  const currentEmailAccountMembers =
+    user?.members?.filter(
+      (member) => member.emailAccountId === currentEmailAccountId,
+    ) || [];
+  const hasOrganization = currentEmailAccountMembers.length > 0;
+  const isOrgAdmin = isOrganizationAdmin(currentEmailAccountMembers);
+  const organizationName = currentEmailAccountMembers[0]?.organization?.name;
 
   return (
     <DropdownMenu>
@@ -109,7 +109,7 @@ export function NavUser() {
         <DropdownMenuGroup>
           {!hasOrganization && (
             <DropdownMenuItem asChild>
-              <Link href={prefixPath(ownEmailAccountId, "/organizations")}>
+              <Link href={prefixPath(currentEmailAccountId, "/organizations")}>
                 <Building2Icon className="mr-2 size-4" />
                 Create organization
               </Link>
@@ -118,7 +118,10 @@ export function NavUser() {
           {hasOrganization && isOrgAdmin && (
             <DropdownMenuItem asChild>
               <Link
-                href={prefixPath(ownEmailAccountId, "/organizations/members")}
+                href={prefixPath(
+                  currentEmailAccountId,
+                  "/organizations/members",
+                )}
               >
                 <Building2Icon className="mr-2 size-4" />
                 My Organization
@@ -145,14 +148,17 @@ export function NavUser() {
           {isGoogleProvider(provider) && (
             <>
               <DropdownMenuItem asChild>
-                <Link href={prefixPath(ownEmailAccountId, "/reply-zero")}>
+                <Link href={prefixPath(currentEmailAccountId, "/reply-zero")}>
                   <MessageCircleReplyIcon className="mr-2 size-4" />
                   Reply Zero
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link
-                  href={prefixPath(ownEmailAccountId, "/cold-email-blocker")}
+                  href={prefixPath(
+                    currentEmailAccountId,
+                    "/cold-email-blocker",
+                  )}
                 >
                   <ShieldCheckIcon className="mr-2 size-4" />
                   Cold Email Blocker
@@ -167,7 +173,7 @@ export function NavUser() {
             </>
           )}
           <DropdownMenuItem asChild>
-            <Link href={prefixPath(ownEmailAccountId, "/usage")}>
+            <Link href={prefixPath(currentEmailAccountId, "/usage")}>
               <BarChartIcon className="mr-2 size-4" />
               Usage
             </Link>

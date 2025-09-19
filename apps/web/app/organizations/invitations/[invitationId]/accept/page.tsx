@@ -26,7 +26,6 @@ export default function AcceptInvitationPage() {
 
   const invitationId = params.invitationId;
 
-  // Revalidate user data to ensure we have fresh data
   useEffect(() => {
     mutate();
   }, [mutate]);

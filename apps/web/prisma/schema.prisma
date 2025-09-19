@@ -187,6 +187,7 @@ model Member {
   emailAccount   EmailAccount @relation(fields: [emailAccountId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, emailAccountId])
+  @@index([emailAccountId])
 }
 
 model Invitation {

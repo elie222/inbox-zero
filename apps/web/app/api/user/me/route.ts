@@ -32,6 +32,7 @@ async function getUser({ userId }: { userId: string }) {
       },
       emailAccounts: {
         select: {
+          id: true,
           members: {
             select: {
               organizationId: true,
@@ -50,8 +51,12 @@ async function getUser({ userId }: { userId: string }) {
 
   if (!user) throw new SafeError("User not found");
 
-  // Flatten members from emailAccounts to match frontend expectations
-  const members = user.emailAccounts.flatMap((account) => account.members);
+  const members = user.emailAccounts.flatMap((account) =>
+    account.members.map((member) => ({
+      ...member,
+      emailAccountId: account.id,
+    })),
+  );
 
   return {
     ...user,

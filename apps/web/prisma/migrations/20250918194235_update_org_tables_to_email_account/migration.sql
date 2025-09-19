@@ -38,3 +38,6 @@ ALTER TABLE "invitation" ADD CONSTRAINT "invitation_inviterId_fkey" FOREIGN KEY 
 
 -- AddForeignKey
 ALTER TABLE "ssoProvider" ADD CONSTRAINT "ssoProvider_emailAccountId_fkey" FOREIGN KEY ("emailAccountId") REFERENCES "EmailAccount"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE INDEX "Member_emailAccountId_idx" ON "Member"("emailAccountId");
