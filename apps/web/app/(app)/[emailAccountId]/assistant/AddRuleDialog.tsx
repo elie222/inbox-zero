@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 export function AddRuleDialog() {
   return (
     <Dialog>
-      <DialogTrigger>
+      <DialogTrigger asChild>
         <Button size="sm" Icon={PlusIcon}>
           Add Rule
         </Button>

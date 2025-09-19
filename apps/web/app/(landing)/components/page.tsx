@@ -274,7 +274,7 @@ export default function Components() {
                 {
                   type: ActionType.DRAFT_EMAIL,
                   label: "Draft",
-                  id: "draft",
+                  id: "draft-with-content",
                   content: "Hi, I'd like to discuss the project with you.",
                 },
                 {
