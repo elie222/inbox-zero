@@ -67,8 +67,6 @@ Analyze the data and identify:
 1. **Professional Identity**: What is their role and what evidence supports this?
 2. **Current Priorities**: What are they focused on professionally based on email content?`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user);
 
   const generateObject = createGenerateObject({
@@ -83,8 +81,6 @@ Analyze the data and identify:
     prompt,
     schema: userPersonaSchema,
   });
-
-  logger.trace("Output", result.object);
 
   return result.object;
 }

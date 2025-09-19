@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import prisma from "@/utils/prisma";
 import { withEmailAccount } from "@/utils/middleware";
 import { z } from "zod";
-import { createScopedLogger } from "@/utils/logger";
 
 const ruleStatsQuery = z.object({
   fromDate: z.coerce.number().nullish(),
@@ -46,13 +45,6 @@ async function getRuleStats({
     },
   });
 
-  const logger = createScopedLogger("rule-stats-api");
-  logger.info("Executed rules found", {
-    count: executedRules.length,
-    emailAccountId,
-    dateFilter,
-  });
-
   const groupStats = executedRules.reduce(
     (acc, executedRule) => {
       const groupName = executedRule.rule?.group?.name || "No Group";
@@ -87,33 +79,21 @@ async function getRuleStats({
 
 export const GET = withEmailAccount(
   async (request) => {
-    try {
-      const emailAccountId = request.auth.emailAccountId;
+    const emailAccountId = request.auth.emailAccountId;
 
-      const { searchParams } = new URL(request.url);
-      const params = ruleStatsQuery.parse({
-        fromDate: searchParams.get("fromDate"),
-        toDate: searchParams.get("toDate"),
-      });
+    const { searchParams } = new URL(request.url);
+    const params = ruleStatsQuery.parse({
+      fromDate: searchParams.get("fromDate"),
+      toDate: searchParams.get("toDate"),
+    });
 
-      const result = await getRuleStats({
-        emailAccountId,
-        fromDate: params.fromDate ?? undefined,
-        toDate: params.toDate ?? undefined,
-      });
+    const result = await getRuleStats({
+      emailAccountId,
+      fromDate: params.fromDate ?? undefined,
+      toDate: params.toDate ?? undefined,
+    });
 
-      return NextResponse.json(result);
-    } catch (error) {
-      const logger = createScopedLogger("rule-stats-api");
-      logger.error("Rule stats API error", { error });
-      return NextResponse.json(
-        {
-          error: "Failed to fetch rule stats",
-          details: error instanceof Error ? error.message : "Unknown error",
-        },
-        { status: 500 },
-      );
-    }
+    return NextResponse.json(result);
   },
   { allowOrgAdmins: true },
 );

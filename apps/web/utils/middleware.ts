@@ -6,6 +6,7 @@ import { logErrorToPosthog } from "@/utils/error.server";
 import { createScopedLogger } from "@/utils/logger";
 import { auth } from "@/utils/auth";
 import { getEmailAccount } from "@/utils/redis/account-validation";
+import { getCallerEmailAccount } from "@/utils/organizations/access";
 import {
   EMAIL_ACCOUNT_HEADER,
   NO_REFRESH_TOKEN_ERROR_CODE,
@@ -182,24 +183,12 @@ async function emailAccountMiddleware(
 
   if (!email && options?.allowOrgAdmins) {
     // Check if user is admin or owner and is in the same org as the target email account
-    const sharedMembership = await prisma.member.findFirst({
-      where: {
-        emailAccount: { user: { id: userId } },
-        role: { in: ["admin", "owner"] },
-        organization: {
-          members: {
-            some: {
-              emailAccountId: emailAccountId,
-            },
-          },
-        },
-      },
-      select: {
-        emailAccountId: true,
-      },
-    });
+    const callerEmailAccount = await getCallerEmailAccount(
+      userId,
+      emailAccountId,
+    );
 
-    if (!sharedMembership) {
+    if (!callerEmailAccount) {
       return NextResponse.json(
         { error: "Insufficient permissions", isKnownError: true },
         { status: 403 },

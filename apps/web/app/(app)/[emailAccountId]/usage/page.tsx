@@ -2,7 +2,10 @@ import { getUsage } from "@/utils/redis/usage";
 import { TopSection } from "@/components/TopSection";
 import { Usage } from "@/app/(app)/[emailAccountId]/usage/usage";
 import { auth } from "@/utils/auth";
-import { getMemberEmailAccount } from "@/utils/organizations/access";
+import {
+  getMemberEmailAccount,
+  getCallerEmailAccount,
+} from "@/utils/organizations/access";
 import { checkUserOwnsEmailAccount } from "@/utils/email-account";
 import { notFound } from "next/navigation";
 import prisma from "@/utils/prisma";
@@ -18,11 +21,10 @@ export default async function UsagePage(props: {
   try {
     await checkUserOwnsEmailAccount({ emailAccountId });
   } catch {
-    // If not direct ownership, check if user is an org admin with access
-    const callerEmailAccount = await prisma.emailAccount.findFirst({
-      where: { userId },
-      select: { id: true },
-    });
+    const callerEmailAccount = await getCallerEmailAccount(
+      userId,
+      emailAccountId,
+    );
 
     if (!callerEmailAccount) notFound();
 

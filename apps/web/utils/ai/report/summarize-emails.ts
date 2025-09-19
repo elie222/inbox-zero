@@ -80,8 +80,6 @@ ${emails.map((email) => `<email>${stringifyEmail(email, 2000)}</email>`).join("\
 
 Return the analysis as a JSON array of objects.`;
 
-  logger.trace("Input", { system, prompt });
-
   const modelOptions = getModel(emailAccount.user, "economy");
 
   const generateObject = createGenerateObject({
@@ -100,8 +98,6 @@ Return the analysis as a JSON array of objects.`;
         .describe("Summaries of the emails"),
     }),
   });
-
-  logger.trace("Output", { result: result.object.summaries });
 
   return result.object.summaries;
 }

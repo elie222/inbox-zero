@@ -1,14 +1,16 @@
-import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 import { withAuth } from "@/utils/middleware";
 import { getLinkingOAuth2Url } from "@/utils/outlook/client";
 import { OUTLOOK_LINKING_STATE_COOKIE_NAME } from "@/utils/outlook/constants";
+import {
+  generateOAuthState,
+  oauthStateCookieOptions,
+} from "@/utils/oauth/state";
 
 export type GetOutlookAuthLinkUrlResponse = { url: string };
 
 const getAuthUrl = ({ userId, action }: { userId: string; action: string }) => {
-  const stateObject = { userId, action, nonce: crypto.randomUUID() };
-  const state = Buffer.from(JSON.stringify(stateObject)).toString("base64url");
+  const state = generateOAuthState({ userId, action });
 
   const baseUrl = getLinkingOAuth2Url();
   const url = `${baseUrl}&state=${state}`;
@@ -24,13 +26,11 @@ export const GET = withAuth(async (request) => {
 
   const response = NextResponse.json({ url: authUrl });
 
-  response.cookies.set(OUTLOOK_LINKING_STATE_COOKIE_NAME, state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV !== "development",
-    maxAge: 60 * 10,
-    path: "/",
-    sameSite: "lax",
-  });
+  response.cookies.set(
+    OUTLOOK_LINKING_STATE_COOKIE_NAME,
+    state,
+    oauthStateCookieOptions,
+  );
 
   return response;
 });

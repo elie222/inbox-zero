@@ -2,7 +2,6 @@
 
 import { z } from "zod";
 import type Stripe from "stripe";
-import { createScopedLogger } from "@/utils/logger";
 import { deleteUser } from "@/utils/user/delete";
 import prisma from "@/utils/prisma";
 import { adminActionClient } from "@/utils/actions/safe-action";
@@ -10,8 +9,6 @@ import { SafeError } from "@/utils/error";
 import { syncStripeDataToDb } from "@/ee/billing/stripe/sync-stripe";
 import { getStripe } from "@/ee/billing/stripe";
 import { createEmailProvider } from "@/utils/email/provider";
-
-const logger = createScopedLogger("Admin Action");
 
 export const adminProcessHistoryAction = adminActionClient
   .metadata({ name: "adminProcessHistory" })
@@ -71,7 +68,7 @@ export const adminProcessHistoryAction = adminActionClient
 export const adminDeleteAccountAction = adminActionClient
   .metadata({ name: "adminDeleteAccount" })
   .schema(z.object({ email: z.string() }))
-  .action(async ({ parsedInput: { email } }) => {
+  .action(async ({ parsedInput: { email }, ctx: { logger } }) => {
     try {
       const userToDelete = await prisma.user.findUnique({ where: { email } });
       if (!userToDelete) throw new SafeError("User not found");
@@ -89,7 +86,7 @@ export const adminDeleteAccountAction = adminActionClient
 
 export const adminSyncStripeForAllUsersAction = adminActionClient
   .metadata({ name: "syncStripeForAllUsers" })
-  .action(async () => {
+  .action(async ({ ctx: { logger } }) => {
     const users = await prisma.premium.findMany({
       where: { stripeCustomerId: { not: null } },
       select: { stripeCustomerId: true },
@@ -106,7 +103,7 @@ export const adminSyncStripeForAllUsersAction = adminActionClient
 
 export const adminSyncAllStripeCustomersToDbAction = adminActionClient
   .metadata({ name: "adminSyncAllStripeCustomersToDb" })
-  .action(async () => {
+  .action(async ({ ctx: { logger } }) => {
     const stripe = getStripe();
 
     logger.info("Starting sync of all Stripe customers to DB");
@@ -135,7 +132,9 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
       (c) => c.subscriptions && c.subscriptions.data.length > 0,
     );
 
-    logger.info(`Found ${activeCustomers.length} active customers in Stripe.`);
+    logger.info("Found active customers in Stripe.", {
+      activeCustomersLength: activeCustomers.length,
+    });
 
     for (const customer of activeCustomers) {
       if (!customer.email) {
@@ -164,8 +163,6 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
           user.premium.stripeCustomerId !== customer.id
         ) {
           logger.warn("Stripe customer ID mismatch for user", {
-            userId: user.id,
-            email: user.email,
             dbStripeCustomerId: user.premium.stripeCustomerId,
             stripeCustomerId: customer.id,
           });
@@ -177,8 +174,6 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
             data: { stripeCustomerId: customer.id },
           });
           logger.info("Updated stripe customer ID for user", {
-            userId: user.id,
-            email: user.email,
             stripeCustomerId: customer.id,
           });
         }
@@ -186,8 +181,6 @@ export const adminSyncAllStripeCustomersToDbAction = adminActionClient
         logger.warn(
           "User with stripe customer email exists, but has no premium account",
           {
-            userId: user.id,
-            email: user.email,
             stripeCustomerId: customer.id,
           },
         );

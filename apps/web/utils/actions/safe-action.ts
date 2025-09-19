@@ -126,16 +126,14 @@ export const actionClientUser = baseClient.use(
     }
 
     const userId = session.user.id;
+    const userEmail = session.user.email;
 
-    const logger = ctx.logger.with({
-      userId,
-      userEmail: session.user.email,
-    });
+    const logger = ctx.logger.with({ userId, userEmail });
     logger.info("Calling action");
 
     return withServerActionInstrumentation(metadata?.name, async () => {
       return next({
-        ctx: { userId, logger },
+        ctx: { userId, userEmail, logger },
       });
     });
   },

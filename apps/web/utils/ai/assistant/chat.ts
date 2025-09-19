@@ -931,8 +931,6 @@ Examples:
   </example>
 </examples>`;
 
-  logger.trace("Input", { messages });
-
   const toolOptions = {
     email: user.email,
     emailAccountId,
