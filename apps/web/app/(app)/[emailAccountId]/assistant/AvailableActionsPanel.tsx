@@ -2,6 +2,11 @@ import { ActionType } from "@prisma/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { getActionIcon } from "@/utils/action-display";
 import { SectionHeader } from "@/components/Typography";
+import { useAccount } from "@/providers/EmailAccountProvider";
+import {
+  getAvailableActions,
+  getExtraActions,
+} from "@/utils/ai/rule/create-rule-schema";
 
 const actionNames: Record<ActionType, string> = {
   [ActionType.LABEL]: "Label",
@@ -18,25 +23,17 @@ const actionNames: Record<ActionType, string> = {
   [ActionType.TRACK_THREAD]: "Track thread",
 };
 
-const availableActions: ActionType[] = [
-  ActionType.LABEL,
-  ActionType.ARCHIVE,
-  ActionType.DRAFT_EMAIL,
-  ActionType.REPLY,
-  ActionType.FORWARD,
-  ActionType.MARK_READ,
-  ActionType.MARK_SPAM,
-];
-
-const extraActions: ActionType[] = [ActionType.DIGEST, ActionType.CALL_WEBHOOK];
-
 export function AvailableActionsPanel() {
+  const { provider } = useAccount();
   return (
     <Card className="h-fit bg-slate-50 dark:bg-slate-900">
       <CardContent className="pt-4">
         <div className="grid gap-2">
-          <ActionSection actions={availableActions} title="Available Actions" />
-          <ActionSection actions={extraActions} title="Extra Actions" />
+          <ActionSection
+            actions={getAvailableActions(provider)}
+            title="Available Actions"
+          />
+          <ActionSection actions={getExtraActions()} title="Extra" />
         </div>
       </CardContent>
     </Card>

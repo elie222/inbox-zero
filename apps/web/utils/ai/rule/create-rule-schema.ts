@@ -6,6 +6,7 @@ import {
 } from "@prisma/client";
 import { delayInMinutesSchema } from "@/utils/actions/rule.validation";
 import { isMicrosoftProvider } from "@/utils/email/provider-types";
+import { isDefined } from "@/utils/types";
 
 const conditionSchema = z
   .object({
@@ -34,19 +35,31 @@ const conditionSchema = z
   })
   .describe("The conditions to match");
 
+export function getAvailableActions(provider: string) {
+  const availableActions: ActionType[] = [
+    ActionType.LABEL,
+    ...(isMicrosoftProvider(provider) ? [ActionType.MOVE_FOLDER] : []),
+    ActionType.ARCHIVE,
+    ActionType.MARK_READ,
+    ActionType.DRAFT_EMAIL,
+    ActionType.REPLY,
+    ActionType.FORWARD,
+    ActionType.MARK_SPAM,
+  ].filter(isDefined);
+  return availableActions as [ActionType, ...ActionType[]];
+}
+
+export const getExtraActions = () => [
+  ActionType.DIGEST,
+  ActionType.CALL_WEBHOOK,
+];
+
 const actionSchema = (provider: string) =>
   z.object({
     type: z
-      .enum(
-        Object.values(ActionType).filter((type) => {
-          if (type === ActionType.TRACK_THREAD) return false;
-          if (type === ActionType.MOVE_FOLDER && !isMicrosoftProvider(provider))
-            return false;
-          return true;
-        }) as [ActionType, ...ActionType[]],
-      )
+      .enum([...getAvailableActions(provider), ...getExtraActions()])
       .describe(
-        "The type of the action. 'Digest' means emails will be added to the digest email the user receives.",
+        `The type of the action. '${ActionType.DIGEST}' means emails will be added to the digest email the user receives. ${isMicrosoftProvider(provider) ? `'${ActionType.LABEL}' means emails will be categorized in Outlook.` : ""}`,
       ),
     fields: z
       .object({
