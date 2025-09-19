@@ -12,6 +12,8 @@ import { LoadingContent } from "@/components/LoadingContent";
 import { useRule } from "@/hooks/useRule";
 import type { CreateRuleBody } from "@/utils/actions/rule.validation";
 import { useDialogState } from "@/hooks/useDialogState";
+import { ActionType, LogicalOperator } from "@prisma/client";
+import { ConditionType } from "@/utils/config";
 
 interface RuleDialogProps {
   ruleId?: string;
@@ -78,11 +80,19 @@ export function RuleDialog({
             <RuleForm
               rule={{
                 name: "",
-                actions: [],
-                conditions: [],
+                conditions: [
+                  {
+                    type: ConditionType.AI,
+                  },
+                ],
+                actions: [
+                  {
+                    type: ActionType.LABEL,
+                  },
+                ],
                 automate: true,
                 runOnThreads: true,
-                conditionalOperator: "AND" as const,
+                conditionalOperator: LogicalOperator.AND,
                 ...initialRule,
               }}
               alwaysEditMode={true}

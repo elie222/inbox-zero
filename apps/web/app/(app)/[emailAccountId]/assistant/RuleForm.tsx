@@ -608,7 +608,7 @@ export function RuleForm({
                               }
                             )?.instructions
                           }
-                          placeholder='e.g. Apply this rule to all "receipts"'
+                          placeholder="e.g. Newsletters, regular content from publications, blogs, or services I've subscribed to"
                           tooltipText="The instructions that will be passed to the AI."
                         />
                       )}
