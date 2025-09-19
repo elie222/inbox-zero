@@ -21,7 +21,7 @@ export function getActionDisplay(
       return "Draft Reply";
     case ActionType.LABEL:
       return action.label
-        ? `${terminology.label.action}: ${action.label}`
+        ? `${terminology.label.action} as '${action.label}'`
         : terminology.label.action;
     case ActionType.ARCHIVE:
       return "Skip Inbox";
@@ -37,7 +37,7 @@ export function getActionDisplay(
       return `Auto-update reply ${terminology.label.singular}`;
     case ActionType.MOVE_FOLDER:
       return action.folderName
-        ? `Folder: ${action.folderName}`
+        ? `Move to '${action.folderName}' folder`
         : "Move to folder";
     default:
       // Default to capital case for other action types

@@ -134,7 +134,7 @@ export function Rules({
           ? {
               id: "cold-email-blocker-label",
               type: ActionType.LABEL,
-              label: inboxZeroLabels.cold_email.name.split("/")[1],
+              label: inboxZeroLabels.cold_email.name,
               createdAt: new Date(),
               updatedAt: new Date(),
               ruleId: COLD_EMAIL_BLOCKER_RULE_ID,
@@ -221,14 +221,6 @@ export function Rules({
                   <TableHead>Name</TableHead>
                   {size === "md" && <TableHead>Condition</TableHead>}
                   <TableHead>Action</TableHead>
-                  {/* {size === "md" && (
-                    <TableHead>
-                      <div className="flex items-center justify-center gap-1">
-                        <span>Threads</span>
-                        <ThreadsExplanation size="sm" />
-                      </div>
-                    </TableHead>
-                  )} */}
                   <TableHead>
                     {showAddRuleButton && (
                       <div className="flex justify-end">
@@ -296,31 +288,6 @@ export function Rules({
                           provider={provider}
                         />
                       </TableCell>
-                      {/* {size === "md" && (
-                        <TableCell>
-                          <div className="flex justify-center">
-                            <Toggle
-                              enabled={rule.runOnThreads}
-                              name="runOnThreads"
-                              onChange={async () => {
-                                if (isColdEmailBlocker) return;
-
-                                const result = await setRuleRunOnThreads({
-                                  ruleId: rule.id,
-                                  runOnThreads: !rule.runOnThreads,
-                                });
-
-                                if (result?.serverError) {
-                                  toastError({
-                                    description: `There was an error updating your rule. ${result.serverError || ""}`,
-                                  });
-                                }
-                                mutate();
-                              }}
-                            />
-                          </div>
-                        </TableCell>
-                      )} */}
                       <TableCell className="text-center">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
