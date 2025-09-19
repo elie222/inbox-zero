@@ -1,6 +1,6 @@
 "use client";
 
-import useSWR from "swr";
+import { useOrgSWR } from "@/hooks/useOrgSWR";
 import { BarChart, Title } from "@tremor/react";
 import { LoadingContent } from "@/components/LoadingContent";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,10 +8,9 @@ import type { StatsByWeekResponse } from "@/app/api/user/stats/by-period/route";
 import { CardBasic } from "@/components/ui/card";
 
 export function EmailActionsAnalytics() {
-  const { data, isLoading, error } = useSWR<
-    StatsByWeekResponse,
-    { error: string }
-  >("/api/user/stats/email-actions");
+  const { data, isLoading, error } = useOrgSWR<StatsByWeekResponse>(
+    "/api/user/stats/email-actions",
+  );
 
   return (
     <LoadingContent
