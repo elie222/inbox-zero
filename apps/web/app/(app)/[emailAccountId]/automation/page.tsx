@@ -124,18 +124,17 @@ export default async function AutomationPage({
             </Suspense>
           </div>
 
-          <div className="mt-4">
-            <DismissibleVideoCard
-              icon={<SparklesIcon className="h-5 w-5" />}
-              title="Getting started with AI Assistant"
-              description={
-                "Learn how to use the AI Assistant to automatically label, archive, and more."
-              }
-              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
-              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
-              storageKey="ai-assistant-onboarding-video"
-            />
-          </div>
+          <DismissibleVideoCard
+            className="my-4"
+            icon={<SparklesIcon className="h-5 w-5" />}
+            title="Getting started with AI Assistant"
+            description={
+              "Learn how to use the AI Assistant to automatically label, archive, and more."
+            }
+            videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
+            thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+            storageKey="ai-assistant-onboarding-video"
+          />
 
           <Tabs defaultValue="rules">
             <TabsContent value="rules" className="mb-10">

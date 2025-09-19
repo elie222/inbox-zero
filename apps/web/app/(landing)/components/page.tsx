@@ -28,8 +28,11 @@ import {
 import { TooltipExplanation } from "@/components/TooltipExplanation";
 import { Suspense } from "react";
 import { PremiumAiAssistantAlert } from "@/components/PremiumAlert";
-import { PremiumTier } from "@prisma/client";
+import { ActionType, PremiumTier } from "@prisma/client";
 import { SettingCard } from "@/components/SettingCard";
+import { IconCircle } from "@/app/(app)/[emailAccountId]/onboarding/IconCircle";
+import { ActionBadges } from "@/app/(app)/[emailAccountId]/assistant/Rules";
+import { DismissibleVideoCard } from "@/components/VideoCard";
 
 export const maxDuration = 3;
 
@@ -216,6 +219,107 @@ export default function Components() {
               </p>
               <PremiumAiAssistantAlert showSetApiKey={false} tier={null} />
             </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">DismissibleVideoCard</div>
+          <div className="mt-4">
+            <DismissibleVideoCard
+              icon={<SparklesIcon className="h-5 w-5" />}
+              title="Getting started with AI Assistant"
+              description={
+                "Learn how to use the AI Assistant to automatically label, archive, and more."
+              }
+              videoSrc="https://www.youtube.com/embed/SoeNDVr7ve4"
+              thumbnailSrc="https://img.youtube.com/vi/SoeNDVr7ve4/0.jpg"
+              storageKey={`video-dismissible-${Date.now()}`}
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">IconCircle</div>
+          <div className="mt-4">
+            <IconCircle size="md" color="blue" Icon={SparklesIcon} />
+          </div>
+        </div>
+
+        <div>
+          <div className="underline">ActionBadges</div>
+          <div className="mt-4">
+            <ActionBadges
+              actions={[
+                {
+                  type: ActionType.LABEL,
+                  label: "Label",
+                  id: "label",
+                },
+                {
+                  type: ActionType.MOVE_FOLDER,
+                  label: "Move to folder",
+                  id: "move_folder",
+                  folderName: "Marketing",
+                },
+                {
+                  type: ActionType.ARCHIVE,
+                  label: "Archive",
+                  id: "archive",
+                },
+                {
+                  type: ActionType.DRAFT_EMAIL,
+                  label: "Draft",
+                  id: "draft",
+                },
+                {
+                  type: ActionType.DRAFT_EMAIL,
+                  label: "Draft",
+                  id: "draft",
+                  content: "Hi, I'd like to discuss the project with you.",
+                },
+                {
+                  type: ActionType.REPLY,
+                  label: "Reply",
+                  id: "reply",
+                },
+                {
+                  type: ActionType.SEND_EMAIL,
+                  label: "Send",
+                  id: "send",
+                },
+                {
+                  type: ActionType.FORWARD,
+                  label: "Forward",
+                  id: "forward",
+                },
+                {
+                  type: ActionType.MARK_SPAM,
+                  label: "Mark as spam",
+                  id: "mark_spam",
+                },
+                {
+                  type: ActionType.MARK_READ,
+                  label: "Mark as read",
+                  id: "mark_read",
+                },
+                {
+                  type: ActionType.CALL_WEBHOOK,
+                  label: "Call webhook",
+                  id: "call_webhook",
+                },
+                {
+                  type: ActionType.TRACK_THREAD,
+                  label: "Track thread",
+                  id: "track_thread",
+                },
+                {
+                  type: ActionType.DIGEST,
+                  label: "Digest",
+                  id: "digest",
+                },
+              ]}
+              provider="gmail"
+            />
           </div>
         </div>
 

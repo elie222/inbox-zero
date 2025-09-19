@@ -43,8 +43,8 @@ function processPromptsWithTerminology(
 }
 
 const commonPrompts = [
-  "Label urgent emails as @[Urgent]",
   "Label emails from @mycompany.com addresses as @[Team]",
+  "Label urgent emails as @[Urgent]",
 ];
 
 const examplePromptsBase = [
