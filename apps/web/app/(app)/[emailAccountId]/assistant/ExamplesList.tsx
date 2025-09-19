@@ -54,6 +54,45 @@ function PureExamples({
 
 export const Examples = memo(PureExamples);
 
+function PureExamplesGrid({
+  examples,
+  onSelect,
+  provider,
+}: {
+  examples: string[];
+  onSelect: (example: string) => void;
+  provider: string;
+  className?: string;
+}) {
+  const examplePrompts = getExamplePrompts(provider, examples);
+
+  return (
+    <div className="grid grid-cols-2 gap-4">
+      {examplePrompts.map((example) => {
+        const { color } = getActionType(example);
+
+        return (
+          <Button
+            key={example}
+            variant="outline"
+            onClick={() => onSelect(example)}
+            className="h-auto w-full justify-start text-wrap py-2 text-left"
+          >
+            <div className="flex w-full items-start gap-2">
+              <div
+                className={`h-2 w-2 rounded-full ${color} mt-1.5 flex-shrink-0`}
+              />
+              <span className="flex-1">{convertLabelsToDisplay(example)}</span>
+            </div>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
+
+export const ExamplesGrid = memo(PureExamplesGrid);
+
 function getActionType(example: string): {
   type: string;
   color: string;

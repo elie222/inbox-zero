@@ -5,8 +5,6 @@ import {
   ArchiveIcon,
   FolderInputIcon,
   ForwardIcon,
-  MailOpenIcon,
-  PenIcon,
   ReplyIcon,
   ShieldCheckIcon,
   SendIcon,

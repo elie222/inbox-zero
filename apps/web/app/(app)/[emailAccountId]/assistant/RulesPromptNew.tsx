@@ -22,7 +22,7 @@ import { useLabels } from "@/hooks/useLabels";
 import { RuleDialog } from "@/app/(app)/[emailAccountId]/assistant/RuleDialog";
 import { useDialogState } from "@/hooks/useDialogState";
 import { useRules } from "@/hooks/useRules";
-import { Examples } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
+import { ExamplesGrid } from "@/app/(app)/[emailAccountId]/assistant/ExamplesList";
 import { AssistantOnboarding } from "@/app/(app)/[emailAccountId]/assistant/AssistantOnboarding";
 import { CreatedRulesModal } from "@/app/(app)/[emailAccountId]/assistant/CreatedRulesModal";
 import type { CreateRuleResult } from "@/utils/rule/types";
@@ -50,6 +50,7 @@ export function RulesPrompt() {
         provider={provider}
         examples={examples}
         onOpenPersonaDialog={onOpenPersonaDialog}
+        onHideExamples={() => setPersona(null)}
       />
       <PersonaDialog
         isOpen={isModalOpen}
@@ -67,11 +68,13 @@ function RulesPromptForm({
   provider,
   examples,
   onOpenPersonaDialog,
+  onHideExamples,
 }: {
   emailAccountId: string;
   provider: string;
   examples?: string[];
   onOpenPersonaDialog: () => void;
+  onHideExamples: () => void;
 }) {
   const { mutate } = useRules();
   const { userLabels, isLoading: isLoadingLabels } = useLabels();
@@ -146,35 +149,14 @@ function RulesPromptForm({
 
   return (
     <div>
-      <div className="grid md:grid-cols-3 gap-4">
-        {examples && (
-          <Examples
-            examples={examples}
-            onSelect={addExamplePrompt}
-            provider={provider}
-            className="mt-1.5 sm:h-[350px] sm:max-h-[350px]"
-          />
-        )}
-
+      <div className="grid gap-4">
         <form
-          className="col-span-2"
           onSubmit={(e) => {
             e.preventDefault();
             onSubmit();
           }}
         >
-          <div className="flex items-center justify-between">
-            <Label className="font-cal text-xl leading-7">Add new rules</Label>
-
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => ruleDialog.onOpen()}
-              Icon={PlusIcon}
-            >
-              Add manually
-            </Button>
-          </div>
+          <Label className="font-cal text-xl leading-7">Add new rules</Label>
 
           <div className="mt-1.5 space-y-2">
             <LoadingContent
@@ -196,62 +178,39 @@ function RulesPromptForm({
                 Create rules
               </Button>
 
-              <Button variant="outline" size="sm" onClick={onOpenPersonaDialog}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={examples ? onHideExamples : onOpenPersonaDialog}
+              >
                 <UserPenIcon className="mr-2 size-4" />
-                Choose from examples
+                {examples ? "Hide examples" : "Choose from examples"}
               </Button>
 
-              {/* <Tooltip content="Our AI will analyze your Gmail inbox and create a customized prompt for your assistant.">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={isSubmitting || isGenerating}
-                  onClick={async () => {
-                    if (isSubmitting || isGenerating) return;
-                    toast.promise(
-                      async () => {
-                        setIsGenerating(true);
-                        const result = await generateRulesPromptAction(
-                          emailAccountId,
-                          {},
-                        );
-
-                        if (result?.serverError) {
-                          setIsGenerating(false);
-                          throw new Error(result.serverError);
-                        }
-
-                        if (result?.data?.rulesPrompt) {
-                          editorRef.current?.appendText(
-                            `\n${result?.data?.rulesPrompt || ""}`,
-                          );
-                        } else {
-                          toastError("Error generating prompt");
-                        }
-
-                        setIsGenerating(false);
-
-                        return result;
-                      },
-                      {
-                        loading: "Generating prompt...",
-                        success: "Prompt generated successfully!",
-                        error: (err) => {
-                          return `Error generating prompt: ${err.message}`;
-                        },
-                      },
-                    );
-                  }}
-                  loading={isGenerating}
-                >
-                  <SparklesIcon className="mr-2 size-4" />
-                  Give me ideas
-                </Button>
-              </Tooltip> */}
+              <Button
+                className="ml-auto"
+                variant="outline"
+                size="sm"
+                onClick={() => ruleDialog.onOpen()}
+                Icon={PlusIcon}
+              >
+                Add rule manually
+              </Button>
             </div>
           </div>
         </form>
+
+        {examples && (
+          <>
+            <Label className="font-cal text-xl leading-7">Examples</Label>
+
+            <ExamplesGrid
+              examples={examples}
+              onSelect={addExamplePrompt}
+              provider={provider}
+            />
+          </>
+        )}
       </div>
 
       <RuleDialog

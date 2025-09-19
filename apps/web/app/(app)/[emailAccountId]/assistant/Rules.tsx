@@ -224,7 +224,12 @@ export function Rules({
                   <TableHead>
                     {showAddRuleButton && (
                       <div className="flex justify-end">
-                        <AddRuleButton onClick={onCreateRule} />
+                        <div className="my-2">
+                          <Button size="sm" onClick={onCreateRule}>
+                            <PlusIcon className="mr-2 hidden size-4 md:block" />
+                            Add Rule
+                          </Button>
+                        </div>
                       </div>
                     )}
                   </TableHead>
@@ -239,11 +244,22 @@ export function Rules({
                     <TableRow
                       key={rule.id}
                       className={!rule.enabled ? "bg-muted opacity-60" : ""}
+                      onClick={() => {
+                        if (isColdEmailBlocker) {
+                          coldEmailDialog.onOpen();
+                        } else {
+                          ruleDialog.onOpen({
+                            ruleId: rule.id,
+                            editMode: false,
+                          });
+                        }
+                      }}
                     >
                       <TableCell className="font-medium">
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             if (isColdEmailBlocker) {
                               coldEmailDialog.onOpen();
                             } else {
@@ -253,7 +269,7 @@ export function Rules({
                               });
                             }
                           }}
-                          className="flex items-center gap-2 text-left hover:underline"
+                          className="flex items-center gap-2 text-left"
                         >
                           {!rule.enabled && (
                             <Badge color="red" className="mr-2">
@@ -295,27 +311,16 @@ export function Rules({
                               aria-haspopup="true"
                               size="icon"
                               variant="ghost"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               <MoreHorizontalIcon className="size-4" />
                               <span className="sr-only">Toggle menu</span>
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => {
-                                if (isColdEmailBlocker) {
-                                  coldEmailDialog.onOpen();
-                                } else {
-                                  ruleDialog.onOpen({
-                                    ruleId: rule.id,
-                                    editMode: false,
-                                  });
-                                }
-                              }}
-                            >
-                              <EyeIcon className="mr-2 size-4" />
-                              View
-                            </DropdownMenuItem>
+                          <DropdownMenuContent
+                            align="end"
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <DropdownMenuItem
                               onClick={() => {
                                 if (isColdEmailBlocker) {
@@ -517,16 +522,5 @@ function NoRules() {
     <CardHeader>
       <CardDescription>You don't have any rules yet.</CardDescription>
     </CardHeader>
-  );
-}
-
-function AddRuleButton({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="my-2">
-      <Button size="sm" onClick={onClick}>
-        <PlusIcon className="mr-2 hidden size-4 md:block" />
-        Add Rule
-      </Button>
-    </div>
   );
 }
