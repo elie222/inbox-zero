@@ -1221,8 +1221,8 @@ function ActionCard({
                     !setManually ? (
                     <div className="mt-2 flex h-full flex-col items-center justify-center gap-2 p-4 border rounded">
                       <div className="max-w-sm text-center text-sm text-muted-foreground">
-                        Our AI will generate a reply using your knowledge base
-                        and previous conversations with the sender
+                        Our AI will generate a reply based on your email history
+                        and knowledge base
                       </div>
 
                       <Button
