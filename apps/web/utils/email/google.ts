@@ -498,6 +498,25 @@ export class GmailProvider implements EmailProvider {
     };
   }
 
+  async getMessagesFromSender(options: {
+    senderEmail: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    return this.getMessagesWithPagination({
+      query: `from:${options.senderEmail}`,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     return getMessagesBatch({
       messageIds,

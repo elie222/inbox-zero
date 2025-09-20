@@ -36,6 +36,14 @@ describe("example", () => {
 });
 ```
 
+### Helpers
+
+You can get mocks for emails, accounts, and rules here:
+
+```tsx
+import { getEmail, getEmailAccount, getRule } from "@/__tests__/helpers";
+```
+
 ## Best Practices
 - Each test should be independent
 - Use descriptive test names

@@ -313,20 +313,7 @@ async function analyzeSenderPatternIfAiMatch({
   message: ParsedMessage;
   emailAccountId: string;
 }) {
-  if (
-    !isTest &&
-    result.rule &&
-    // skip if we already matched for static reasons
-    // learnings only needed for rules that would run through an ai
-    !result.matchReasons?.some(
-      (reason) =>
-        reason.type === "STATIC" ||
-        reason.type === "GROUP" ||
-        reason.type === "CATEGORY",
-    ) &&
-    // skip if the match was "to reply" system rule
-    result?.rule?.systemType !== SystemType.TO_REPLY
-  ) {
+  if (shouldAnalyzeSenderPattern({ isTest, result })) {
     const fromAddress = extractEmailAddress(message.headers.from);
     if (fromAddress) {
       after(() =>
@@ -337,4 +324,29 @@ async function analyzeSenderPatternIfAiMatch({
       );
     }
   }
+}
+
+function shouldAnalyzeSenderPattern({
+  isTest,
+  result,
+}: {
+  isTest: boolean;
+  result: { rule?: Rule | null; matchReasons?: MatchReason[] };
+}) {
+  if (isTest) return false;
+  if (!result.rule) return false;
+  if (result.rule.systemType === SystemType.TO_REPLY) return false;
+
+  // skip if we already matched for static reasons
+  // learnings only needed for rules that would run through an ai
+  if (
+    result.matchReasons?.some(
+      (reason) =>
+        reason.type === "STATIC" ||
+        reason.type === "GROUP" ||
+        reason.type === "CATEGORY",
+    )
+  )
+    return false;
+  return true;
 }

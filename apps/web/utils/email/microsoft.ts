@@ -534,6 +534,26 @@ export class OutlookProvider implements EmailProvider {
     };
   }
 
+  async getMessagesFromSender(options: {
+    senderEmail: string;
+    maxResults?: number;
+    pageToken?: string;
+    before?: Date;
+    after?: Date;
+  }): Promise<{
+    messages: ParsedMessage[];
+    nextPageToken?: string;
+  }> {
+    const senderFilter = `from/emailAddress/address eq '${options.senderEmail}'`;
+    return this.getMessagesWithPagination({
+      query: senderFilter,
+      maxResults: options.maxResults,
+      pageToken: options.pageToken,
+      before: options.before,
+      after: options.after,
+    });
+  }
+
   async getMessagesBatch(messageIds: string[]): Promise<ParsedMessage[]> {
     // For Outlook, we need to fetch messages individually since there's no batch endpoint
     const messagePromises = messageIds.map((messageId) =>
