@@ -137,7 +137,10 @@ async function process({
         uniqueRulesMatched: senderHistory.ruleMatches.size,
       });
 
-      await savePatternCheck({ emailAccountId, from });
+      if (senderHistory.totalEmails > 0) {
+        await savePatternCheck({ emailAccountId, from });
+      }
+
       return NextResponse.json({ success: true });
     }
 
