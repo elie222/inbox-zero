@@ -1,21 +1,21 @@
 import { NextResponse, after } from "next/server";
 import { headers } from "next/headers";
-import type { gmail_v1 } from "@googleapis/gmail";
 import { z } from "zod";
-import { getGmailClientWithRefresh } from "@/utils/gmail/client";
 import { withError } from "@/utils/middleware";
 import prisma from "@/utils/prisma";
 import { createScopedLogger } from "@/utils/logger";
 import { aiDetectRecurringPattern } from "@/utils/ai/choose-rule/ai-detect-recurring-pattern";
 import { isValidInternalApiKey } from "@/utils/internal-api";
-import { getThreadMessages, getThreads } from "@/utils/gmail/thread";
 import { extractEmailAddress } from "@/utils/email";
 import { getEmailForLLM } from "@/utils/get-email-from-message";
 import { saveLearnedPattern } from "@/utils/rule/learned-patterns";
+import { checkSenderRuleHistory } from "@/utils/rule/check-sender-rule-history";
+import { createEmailProvider } from "@/utils/email/provider";
+import type { EmailProvider } from "@/utils/email/types";
 
 export const maxDuration = 60;
 
-const THRESHOLD_THREADS = 5;
+const THRESHOLD_THREADS = 3;
 const MAX_RESULTS = 10;
 
 const logger = createScopedLogger("api/ai/pattern-match");
@@ -63,11 +63,6 @@ async function process({
   try {
     const emailAccount = await getEmailAccountWithRules({ emailAccountId });
 
-    if (emailAccount?.account?.provider !== "google") {
-      logger.warn("Unsupported provider", { emailAccountId });
-      return NextResponse.json({ success: false }, { status: 400 });
-    }
-
     if (!emailAccount) {
       logger.error("Email account not found", { emailAccountId });
       return NextResponse.json({ success: false }, { status: 404 });
@@ -89,20 +84,18 @@ async function process({
 
     const account = emailAccount.account;
 
-    if (!account?.access_token || !account?.refresh_token) {
-      logger.error("No Gmail account found", { emailAccountId });
+    if (!account?.provider) {
+      logger.error("No email provider found", { emailAccountId });
       return NextResponse.json({ success: false }, { status: 404 });
     }
 
-    const gmail = await getGmailClientWithRefresh({
-      accessToken: account.access_token,
-      refreshToken: account.refresh_token,
-      expiresAt: account.expires_at?.getTime() || null,
+    const provider = await createEmailProvider({
       emailAccountId,
+      provider: account.provider,
     });
 
     const threadsWithMessages = await getThreadsFromSender(
-      gmail,
+      provider,
       from,
       MAX_RESULTS,
     );
@@ -132,6 +125,31 @@ async function process({
       (thread) => thread.messages,
     );
 
+    const senderHistory = await checkSenderRuleHistory({
+      emailAccountId,
+      from,
+      provider,
+    });
+
+    if (!senderHistory.hasConsistentRule) {
+      logger.info("Sender does not have consistent rule history", {
+        from,
+        emailAccountId,
+        totalEmails: senderHistory.totalEmails,
+        uniqueRulesMatched: senderHistory.ruleMatches.size,
+      });
+
+      await savePatternCheck({ emailAccountId, from });
+      return NextResponse.json({ success: true });
+    }
+
+    logger.info("Sender has consistent rule history", {
+      from,
+      emailAccountId,
+      consistentRule: senderHistory.consistentRuleName,
+      totalEmails: senderHistory.totalEmails,
+    });
+
     const emails = allMessages.map((message) => getEmailForLLM(message));
 
     const patternResult = await aiDetectRecurringPattern({
@@ -141,14 +159,25 @@ async function process({
         name: rule.name,
         instructions: rule.instructions || "",
       })),
+      consistentRuleName: senderHistory.consistentRuleName,
     });
 
     if (patternResult?.matchedRule) {
-      await saveLearnedPattern({
-        emailAccountId,
-        from,
-        ruleName: patternResult.matchedRule,
-      });
+      // Verify the AI matched the same rule as the historical data
+      if (patternResult.matchedRule === senderHistory.consistentRuleName) {
+        await saveLearnedPattern({
+          emailAccountId,
+          from,
+          ruleName: patternResult.matchedRule,
+        });
+      } else {
+        logger.warn("AI suggested different rule than historical data", {
+          from,
+          emailAccountId,
+          aiRule: patternResult.matchedRule,
+          historicalRule: senderHistory.consistentRuleName,
+        });
+      }
     }
 
     await savePatternCheck({ emailAccountId, from });
@@ -205,23 +234,22 @@ async function savePatternCheck({
  * by excluding threads where users have replied or others have participated.
  */
 async function getThreadsFromSender(
-  gmail: gmail_v1.Gmail,
+  provider: EmailProvider,
   sender: string,
   maxResults: number,
 ) {
   const from = extractEmailAddress(sender);
-  const threads = await getThreads(
-    `from:${from} -label:sent -label:draft`,
-    [],
-    gmail,
+
+  const { threads } = await provider.getThreadsWithQuery({
+    query: { fromEmail: from },
     maxResults,
-  );
+  });
 
   const threadsWithMessages = [];
 
   // Check for conversation threads
-  for (const thread of threads.threads) {
-    const messages = await getThreadMessages(thread.id, gmail);
+  for (const thread of threads) {
+    const messages = await provider.getThreadMessages(thread.id);
 
     // Check if this is a conversation (multiple senders)
     const senders = messages.map((msg) =>
